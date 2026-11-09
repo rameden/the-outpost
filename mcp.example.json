@@ -1,0 +1,19 @@
+{
+  "_comment": "Copy to camp/mcp.json (local, gitignored) and edit. Each server is an MCP server the camp starts and talks to over stdio. 'agents' lists who may use it. Tools are read-only unless allowWrite is true, and then every write call asks you first.",
+  "servers": {
+    "github": {
+      "description": "Read issues, PRs, and code on GitHub",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "put-a-read-only-token-here" },
+      "agents": ["scout", "artificer"]
+    },
+    "notes": {
+      "description": "A folder of notes the Scribe can read",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/your/notes"],
+      "agents": ["scribe"],
+      "allowWrite": false
+    }
+  }
+}

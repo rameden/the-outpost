@@ -1,0 +1,26 @@
+{
+  "name": "guild-camp",
+  "version": "1.0.0",
+  "description": "A small multi-agent harness on the Claude API: a Quartermaster plans and dispatches a crew of specialists, with memory, skills, scheduled jobs, and a local mission-control dashboard.",
+  "scripts": {
+    "start": "tsx --env-file-if-exists=.env src/camp.ts",
+    "watch": "tsx --env-file-if-exists=.env src/watch.ts",
+    "ui": "tsx --env-file-if-exists=.env src/server.ts",
+    "test": "tsx --test --test-reporter=spec tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "eval": "tsx --env-file-if-exists=.env evals/run.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "type": "module"
+}

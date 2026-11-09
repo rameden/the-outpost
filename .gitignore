@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+.DS_Store
+
+# camp/ is your personal camp state: the ledger, wiki, scheduled jobs, inbox, and quest log.
+# It fills with your preferences and findings as you run expeditions, so it stays local.
+camp/*
+!camp/.gitkeep
+
+# Eval results: one JSON file per run, local to you.
+evals/results/
