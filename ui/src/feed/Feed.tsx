@@ -83,6 +83,60 @@ function SteerBar({ expId }: { expId: string }) {
   );
 }
 
+// Your say on a finished run: a thumb, and optionally a note. The thumb is saved the moment you
+// click it; a note is saved when you press Save, and (unless you untick it) kept as a standing
+// note so later runs start with it.
+type Given = NonNullable<ExpNode["feedback"]>;
+function FeedbackBar({ expId, given }: { expId: string; given?: Given }) {
+  const [mine, setMine] = useState<Given | undefined>(given);
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState(given?.note ?? "");
+  const [keep, setKeep] = useState(true);
+  const [busy, setBusy] = useState(false);
+  // A rating that arrives from elsewhere (another tab, the saved feed) shows here too.
+  useEffect(() => { if (given) { setMine(given); setNote(given.note ?? ""); } }, [given]);
+
+  async function send(rating: "up" | "down", withNote: boolean) {
+    setBusy(true);
+    try {
+      const r = await api<{ rating: "up" | "down"; note: string; kept: string | null }>("/api/feedback", { id: expId, rating, ...(withNote ? { note, keep } : { note: mine?.note ?? "" }) });
+      setMine({ rating: r.rating, note: r.note || undefined, kept: r.kept ?? undefined });
+      if (withNote) setOpen(false);
+    } catch (e) { alert(errorText(e)); }
+    setBusy(false);
+  }
+  const rate = (rating: "up" | "down") => { setOpen(true); void send(rating, false); };
+
+  return (
+    <div className="exp-feedback">
+      <div className="fb-row">
+        <span className="fb-ask">{mine ? "Your feedback" : "How was this?"}</span>
+        <button type="button" className={cx("fb-thumb", mine?.rating === "up" && "on")} aria-pressed={mine?.rating === "up"} aria-label="Good answer" title="Good: more like this" disabled={busy} onClick={() => rate("up")}>👍</button>
+        <button type="button" className={cx("fb-thumb", mine?.rating === "down" && "on")} aria-pressed={mine?.rating === "down"} aria-label="Not what I wanted" title="Not what I wanted" disabled={busy} onClick={() => rate("down")}>👎</button>
+        {mine && !open && (
+          <>
+            {mine.note && <span className="fb-note" title={mine.note}>“{mine.note}”</span>}
+            {mine.kept && <span className="fb-kept">Kept in {mine.kept}</span>}
+            <button type="button" className="linkish" onClick={() => setOpen(true)}>{mine.note ? "Edit note" : "Add a note"}</button>
+          </>
+        )}
+      </div>
+      {open && mine && (
+        <form className="fb-form" onSubmit={(ev) => { ev.preventDefault(); void send(mine.rating, true); }}>
+          <textarea value={note} rows={2} autoFocus aria-label="Feedback note"
+            placeholder={mine.rating === "up" ? "What worked? (optional)" : "What should it do differently next time? (optional)"}
+            onChange={(ev) => setNote(ev.target.value)} />
+          <div className="fb-form-row">
+            <label className="fb-keep"><input type="checkbox" checked={keep} onChange={(ev) => setKeep(ev.target.checked)} /> Keep this as a standing note for future work</label>
+            <button type="button" className="linkish" onClick={() => setOpen(false)}>Close</button>
+            <button type="submit" className="btn small primary" disabled={busy || !note.trim()}>Save note</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
 export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnReply }) {
   const [stop, setStop] = useState<"idle" | "stopping" | "gone">("idle");
   const [showChanges, setShowChanges] = useState(false);
@@ -121,6 +175,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
       {!end && exp.source !== "job" && <SteerBar expId={exp.expId} />}
       {end && showChanges && <Changes expId={exp.expId} />}
       {end && end.workspaces.length > 0 && <WorkspaceBox workspaces={end.workspaces} task={exp.task} />}
+      {end && exp.source !== "job" && <FeedbackBar expId={exp.expId} given={exp.feedback} />}
       {end && (
         <footer className="exp-foot">
           <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Complete" : spaced(end.status)}</span>

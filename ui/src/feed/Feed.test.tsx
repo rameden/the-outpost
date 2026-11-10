@@ -97,3 +97,51 @@ test("steering, Resume, and a worktree's Commit each post to the right place", a
   expect(posts[0]).toEqual({ path: "/api/repo/commit", body: { link: "site", path: "/repos/site-wt", message: "Summarize memory papers" } });
   expect(within(card("Write the changelog")).queryByRole("button", { name: "Resume" })).toBeNull(); // still running
 });
+
+test("feedback: a thumb is saved at once, a note on Save, and it shows where the note was kept", async () => {
+  vi.useRealTimers();
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    posts.push({ path, body });
+    return new Response(JSON.stringify({ ok: true, rating: body.rating, note: body.note ?? "", kept: body.note && body.keep ? "the Quartermaster's memory" : null }), { status: 200 });
+  }));
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  const apply = (...bodies: object[]) => act(() => { for (const b of bodies) store.apply({ ...b, seq: ++seq, time: new Date().toISOString() } as CampEvent); });
+  apply({ type: "expedition_start", id: "f1", task: "Plan the release", source: "user", expeditionId: "f1" });
+  await vi.waitFor(() => expect(screen.getByRole("heading", { name: "Plan the release" })).toBeTruthy());
+  expect(screen.queryByText("How was this?")).toBeNull(); // not while it's running
+  apply({ type: "expedition_end", id: "f1", status: "done", text: "Planned.", expeditionId: "f1" });
+  await vi.waitFor(() => expect(screen.getByText("How was this?")).toBeTruthy());
+
+  fireEvent.click(screen.getByRole("button", { name: "Not what I wanted" }));
+  await vi.waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/feedback", body: { id: "f1", rating: "down", note: "" } }));
+  await vi.waitFor(() => expect(screen.getByRole("button", { name: "Not what I wanted" }).getAttribute("aria-pressed")).toBe("true"));
+  const note = screen.getByRole("textbox", { name: "Feedback note" });
+  expect(note.getAttribute("placeholder")).toMatch(/do differently next time/);
+  fireEvent.change(note, { target: { value: "Too many quests. Batch the small ones." } });
+  fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+  await vi.waitFor(() => expect(screen.getByText("Kept in the Quartermaster's memory")).toBeTruthy());
+  expect(posts.at(-1)!.body).toEqual({ id: "f1", rating: "down", note: "Too many quests. Batch the small ones.", keep: true });
+  expect(screen.queryByRole("textbox", { name: "Feedback note" })).toBeNull();
+});
+
+test("feedback given earlier comes back with the feed, and jobs aren't rated", async () => {
+  vi.useRealTimers();
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  act(() => {
+    for (const b of [
+      { type: "expedition_start", id: "g1", task: "Summarize the wiki", source: "user", expeditionId: "g1" },
+      { type: "expedition_end", id: "g1", status: "done", text: "ok", expeditionId: "g1" },
+      { type: "feedback", id: "g1", rating: "up", note: "Right length.", kept: "the Quartermaster's memory", expeditionId: "g1" },
+      { type: "expedition_start", id: "j1", task: "Nightly check", source: "job", job: "nightly", expeditionId: "j1" },
+      { type: "expedition_end", id: "j1", status: "done", text: "ok", expeditionId: "j1" },
+    ]) store.apply({ ...b, seq: ++seq, time: new Date().toISOString() } as CampEvent);
+  });
+  await vi.waitFor(() => expect(screen.getByText("Your feedback")).toBeTruthy());
+  const rated = card("Summarize the wiki");
+  expect(within(rated).getByRole("button", { name: "Good answer" }).getAttribute("aria-pressed")).toBe("true");
+  expect(within(rated).getByText("“Right length.”")).toBeTruthy();
+  expect(within(card("Nightly check")).queryByRole("button", { name: "Good answer" })).toBeNull();
+});

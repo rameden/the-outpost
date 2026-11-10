@@ -46,6 +46,7 @@ import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
+import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal } from "./term.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
@@ -459,7 +460,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/conversation") {
-      return send(res, 200, { events: conversationEvents(String(url.searchParams.get("id") ?? "")) });
+      return send(res, 200, { events: conversationEvents(String(url.searchParams.get("id") ?? ""), feedbackFor) });
     }
 
     if (req.method === "GET" && url.pathname === "/api/checkpoint") {
@@ -597,6 +598,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Link a folder on your disk ({ path, access: "read" | "write" }) instead of uploading it.
+    // Your rating of a finished run ({ id, rating: "up" | "down", note?, keep? }); see feedback.ts.
+    if (url.pathname === "/api/feedback") {
+      try {
+        const f = giveFeedback(String(body.id ?? ""), { rating: body.rating, note: body.note, keep: body.keep });
+        return send(res, 200, { ok: true, rating: f.rating, note: f.note ?? "", kept: f.kept ?? null });
+      } catch (e: any) {
+        return send(res, 400, { error: e.message });
+      }
+    }
+
     // The crew: add, change, or remove a crew member of your own ({ action: "add" | "update" | "remove", ... }).
     if (url.pathname === "/api/crew") {
       try {

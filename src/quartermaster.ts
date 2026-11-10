@@ -7,6 +7,7 @@ import { readFileFor, campMode, type Tool } from "./tools.js";
 import { CREW, findCrew } from "./crew.js";
 import { rememberTool, type SessionSource } from "./memory.js";
 import { listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
+import { gitFor } from "./git.js";
 import { requestDisplay, viewFileFor, type Attachment, type RequestContent } from "./attachments.js";
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
@@ -190,6 +191,10 @@ How you work:
 4. Dispatch with excellent briefs. Adventurers know nothing except what you write.
    Independent quests (research while the Artificer builds) go out together in one turn.
    Pass along findings from earlier reports and point them at relevant wiki pages.
+   When someone writes about code changes (release notes, a PR description, docs), the brief
+   says what changed: the files, what each change added or removed (new functions, props,
+   behavior), and the repo and revisions to compare, from the Artificer's report. They can check
+   it with git (diff, log, show), but don't leave them to guess what's new.
 5. Review every report. If it's incomplete or wrong, dispatch again with a sharper brief.
    A report may end with "Automatic checks": the user's own commands, run by the camp after the
    changes. A ✗ there means the work isn't done: send the adventurer back with the output.
@@ -257,6 +262,7 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
       globFor("quartermaster"),
       grepFor("quartermaster"),
       outlineFor("quartermaster"),
+      gitFor("quartermaster"),
       rememberTool("quartermaster"),
       wikiWrite(["facts", "notes"]),
       proposeSkill,

@@ -46,6 +46,14 @@ function write(id: string, file: "notes.md" | "brief.md", text: string) {
 export const setProjectNotes = (id: string, text: string) => write(id, "notes.md", String(text).slice(0, 20_000));
 export const setProjectBrief = (id: string, text: string) => write(id, "brief.md", String(text).slice(0, 20_000));
 
+// Add one dated line to a project's notes (what project_remember does; also used when you keep a feedback note).
+export function addProjectNote(id: string, text: string) {
+  if (!SAFE_ID.test(id)) throw new Error("No such project.");
+  mkdirSync(dir(id), { recursive: true });
+  appendFileSync(join(dir(id), "notes.md"), `- ${today()} ${text.replace(/\s+/g, " ").trim()}\n`);
+  emit({ type: "changed", what: "history" });
+}
+
 // The crew's tool for what they learn about the project they're working in.
 export const projectRemember: Tool = {
   def: {
@@ -74,9 +82,7 @@ export const projectRemember: Tool = {
     if (!text) return "Nothing to save.";
     if (mode === "brief") { setProjectBrief(id, text); return `Saved the survey of ${project.name}.`; }
     if (mode === "rewrite") { setProjectNotes(id, text); return `Rewrote the notes for ${project.name}.`; }
-    mkdirSync(dir(id), { recursive: true });
-    appendFileSync(join(dir(id), "notes.md"), `- ${today()} ${text.replace(/\s+/g, " ")}\n`);
-    emit({ type: "changed", what: "history" });
+    addProjectNote(id, text);
     const size = projectNotes(id).length;
     return `Noted for ${project.name}.` + (size > NOTES_NUDGE ? ` The notes are getting long (${size} characters; about ${NOTES_MAX} are loaded). When you have a moment, use mode 'rewrite' to merge them into fewer, still-true lines.` : "");
   },

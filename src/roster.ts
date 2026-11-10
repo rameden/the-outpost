@@ -10,9 +10,11 @@ import { wikiWrite } from "./wiki.js";
 import { rememberTool } from "./memory.js";
 import { viewFileFor } from "./attachments.js";
 import { editFileFor, listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
+import { gitFor } from "./git.js";
 
-// Search tools for everyone; edits only for the roles that change files.
-const search = (id: string) => [listDirFor(id), globFor(id), grepFor(id), outlineFor(id)];
+// Search tools for everyone, read-only git included (what changed, not just what's there now);
+// edits only for the roles that change files.
+const search = (id: string) => [listDirFor(id), globFor(id), grepFor(id), outlineFor(id), gitFor(id)];
 
 // Adventurers can't ask follow-up questions mid-quest, so these rules keep their work useful.
 const QUEST_RULES = `
@@ -51,7 +53,8 @@ export const ROSTER: Record<string, AgentSpec> = {
   scribe: adventurer(
     "scribe",
     "Turn notes and findings into clear, well-structured writing and save it to files. Never " +
-      "invent facts that weren't in your brief or sources.",
+      "invent facts that weren't in your brief or sources. When you write about code changes, check " +
+      "what actually changed with git (diff, log, show) instead of guessing from the code as it is now.",
     {
       tools: [readFileFor("scribe"), viewFileFor("scribe"), ...search("scribe"), writeFileFor("scribe"), editFileFor("scribe"), rememberTool("scribe")],
       skillDirs: ["skills/shared", "skills/scribe"],
