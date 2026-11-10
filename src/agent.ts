@@ -19,6 +19,7 @@ import { mcpToolsFor } from "./mcp.js";
 import { linksBlock, projectInstructions } from "./links.js";
 import { getProject } from "./conversations.js";
 import { projectBlock, projectRemember } from "./projects.js";
+import { feedbackBlock } from "./feedback.js";
 import { currentProjectId } from "./context.js";
 export type { Effort } from "./settings.js";
 
@@ -198,6 +199,7 @@ export async function runAgent(
     (linksBlock() ? `\n\n${linksBlock()}` : "") +
     (projectInstructions() ? `\n\n${projectInstructions()}` : "") +
     (projectBlock(spec.id) ? `\n\n${projectBlock(spec.id)}` : "") +
+    (feedbackBlock(spec.id, currentProjectId()) ? `\n\n${feedbackBlock(spec.id, currentProjectId())}` : "") +
     (opts.extraSystem ? `\n\n${opts.extraSystem}` : "");
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).

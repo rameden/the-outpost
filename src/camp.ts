@@ -23,6 +23,7 @@ import { randomUUID } from "node:crypto";
 import { threadFor } from "./threads.js";
 import { linkedRepos, prepareWorkspaces, type WorkspaceChoice } from "./repos.js";
 import { history, fileConversation, getProject } from "./conversations.js";
+import { giveFeedback } from "./feedback.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { pausedUntil, pauseMessage } from "./limits.js";
 
@@ -44,6 +45,8 @@ const HELP = `Commands:
                      Let the crew read a folder on your disk as links/<name>/ (no upload); /links, /unlink <name>
   /reply <message>   Follow up on the last expedition or chat, with that whole conversation carried over
   /diff · /undo      What the last expedition's file tools changed; put those files back
+  /good [note] · /bad [note]
+                     Rate the last answer. A note is kept as a standing note, so the next runs start with it
   /project [name | off]
                      List your projects, or work in one: its folders, notes, and defaults apply to what you send
   /worktree [<link> new [branch] | <link> <path> | <link> off]
@@ -217,6 +220,17 @@ async function handle(input: string) {
       for (const w of r.worktrees) console.log(`     ${w.branch.padEnd(44)} ${w.path}`);
     }
     return;
+  }
+  // /good [note]   /bad [note]: rate the last answer; a note becomes a standing note.
+  const rate = cmd.match(/^\/(good|bad)(?:\s+([\s\S]+))?$/);
+  if (rate) {
+    if (!lastId) return console.log("Nothing has run in this session yet.");
+    try {
+      const f = giveFeedback(lastId, { rating: rate[1] === "good" ? "up" : "down", note: rate[2], keep: true });
+      return console.log(`${f.rating === "up" ? "👍" : "👎"} Noted.${f.kept ? ` Your note was added to ${f.kept}.` : " Add a note (/bad be briefer) and it's kept for next time."}`);
+    } catch (e: any) {
+      return console.log(e.message);
+    }
   }
   if (cmd === "/diff" || cmd === "/undo") {
     if (!lastId) return console.log("Nothing has run in this session yet.");

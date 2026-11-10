@@ -102,6 +102,13 @@ export function rememberTool(id: CrewId): Tool {
   };
 }
 
+// Add one dated line to an agent's memory (what remember does; also used when you keep a feedback note).
+export function appendMemory(id: CrewId, entry: string) {
+  ensureWorkspace(id);
+  appendFileSync(workspace(id).memory, `- ${today()} ${String(entry).replace(/\s+/g, " ").trim()}\n`);
+  emit({ type: "changed", what: "memory" });
+}
+
 // ---------- Sessions ----------
 export type SessionSource = "user" | "direct" | "brief" | "job" | "discord";
 export type SessionLine = { time: string; source: SessionSource; task: string; result: string; status: string; file: string };

@@ -15,6 +15,8 @@ export type CampEventBody =
   | { type: "expedition_end"; id: string; status: string; text: string; changed?: number;
       workspaces?: { link: string; path: string; branch: string; base?: string; created?: boolean; changed: number; commits: number }[] }
   | { type: "steer"; id: string; text: string } // you said something to a running expedition
+  // Your rating of a finished run, and where its note was kept as a standing note (if you asked for that).
+  | { type: "feedback"; id: string; rating: "up" | "down"; note?: string; kept?: string }
   | ({ type: "text"; text: string } & Who)
   | ({ type: "text_delta"; delta: string } & Who) // live streaming; not kept in the replay buffer
   | ({ type: "tool"; tool: string; input: string } & Who)

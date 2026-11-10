@@ -268,7 +268,8 @@ export function searchConversations(query: string, limit = 30): { id: string; sn
 // Everything the feed recorded for a conversation's runs, oldest first. A run the feed no longer
 // has (the feed file is trimmed when it grows large) is shown from its record instead: what was
 // asked and the final answer.
-export function conversationEvents(thread: string): CampEvent[] {
+// feedbackOf: looks up a run's rating (passed in by the server: feedback.ts builds on this file).
+export function conversationEvents(thread: string, feedbackOf?: (expedition: string) => { rating: "up" | "down"; note?: string; kept?: string } | undefined): CampEvent[] {
   const turns = allTurns().filter((t) => t.thread === thread);
   if (!turns.length) return [];
   const ids = new Set(turns.map((t) => t.expedition));
@@ -291,6 +292,8 @@ export function conversationEvents(thread: string): CampEvent[] {
     if (t.status === "running") continue;
     if (t.reply) out.push({ ...base, type: "text", who: who.name, emoji: who.emoji, depth: 0, text: t.reply });
     out.push({ ...base, type: "expedition_end", id: t.expedition, status: t.status, text: "" });
+    const rated = feedbackOf?.(t.expedition); // the rating you gave it, which the feed would otherwise have carried
+    if (rated) out.push({ ...base, type: "feedback", id: t.expedition, rating: rated.rating, note: rated.note, kept: rated.kept });
   }
   return out;
 }

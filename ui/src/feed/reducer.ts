@@ -23,6 +23,7 @@ export type ExpNode = {
   thread?: string; // the conversation it belongs to (jobs have none)
   attachments: Attached[]; time: string; nodes: FeedNode[];
   end: { status: string; seconds: number; changed: number; workspaces: Workspaces } | null; // null: still running
+  feedback?: { rating: "up" | "down"; note?: string; kept?: string }; // what you said about it once it finished
 };
 export type FeedNode = MsgNode | ToolNode | NoticeNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
 
@@ -217,6 +218,12 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
     case "ask": addAsk(s, e); break;
     case "answered": resolveAsk(s, e); break;
     case "steer": place(s, { kind: "steer", id: `s${e.seq}`, text: e.text }, undefined, e.id); break;
+    case "feedback": {
+      // On a finished run, so it's found by its expedition id rather than among the open ones.
+      const at = s.items.findLastIndex((n) => n.kind === "exp" && n.expId === e.id);
+      if (at >= 0) s.items = s.items.with(at, { ...(s.items[at] as ExpNode), feedback: { rating: e.rating, note: e.note, kept: e.kept } });
+      break;
+    }
     case "job": s.items = [...s.items, { kind: "sys", id: `j${e.seq}`, text: JOB_LINES[e.outcome](e) }]; break;
     case "changed": break; // "refresh the panels": nothing for the feed
   }

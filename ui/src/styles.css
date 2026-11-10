@@ -519,6 +519,19 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
   .composer { position: sticky; bottom: 0; z-index: 5; padding: 10px 16px 12px; }
   .tool, .notice { padding-left: 0; }
 }
+.exp-feedback { border-top: 1px solid var(--border); padding: 8px 16px; display: grid; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.fb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fb-ask { margin-right: 2px; }
+.fb-thumb { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 2px 8px; font-size: 14px; line-height: 1.4; filter: grayscale(1); opacity: .7; }
+.fb-thumb:hover { opacity: 1; border-color: var(--border-strong); }
+.fb-thumb.on { filter: none; opacity: 1; border-color: var(--accent); background: var(--accent-soft); }
+.fb-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.fb-kept { flex: none; padding: 1px 8px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.fb-form { display: grid; gap: 6px; }
+.fb-form textarea { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); font: 13.5px/1.45 var(--sans); resize: vertical; }
+.fb-form-row { display: flex; align-items: center; gap: 12px; }
+.fb-keep { display: flex; align-items: center; gap: 6px; margin-right: auto; }
+.fb-keep input { accent-color: var(--accent); }
 .exp-foot .foot-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .exp-changes { border-top: 1px solid var(--border); padding: 10px 16px 14px; }
 .exp-changes ul { list-style: none; margin: 0 0 8px; padding: 0; font-size: 12.5px; display: grid; gap: 3px; }

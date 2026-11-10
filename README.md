@@ -48,6 +48,7 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 `npm run ui` serves a local dashboard on `127.0.0.1`. It has:
 
 - **History, down the left:** every conversation you've had with the camp, filed under projects. **New conversation** gives you a clean page, so unrelated work stays out of each other's context; opening a conversation shows only that one, and what you send there continues it with everything said so far. **All activity** shows everything at once, scheduled jobs included. A dot marks a conversation with something running, and a number marks decisions waiting on you. Each project lists its newest five conversations, with **View all** for the rest. **Search** looks through titles and through what was asked and answered. The **⋯** menu on a conversation renames it, moves it to another project, or removes it from the list (its record stays in the camp folder).
+- **Feedback:** a finished expedition or direct chat asks "How was this?". A 👍 or 👎 is saved the moment you click it, and you can add a note. Whoever answered sees their recent feedback at the top of their next prompts: your notes, every 👎, and how their last rated answers went. Feedback given inside a project is shown only in that project. Unless you untick it, a note is also kept as a standing note straight away (in the project's notes, or in the memory of whoever answered), so it stays for good instead of ageing out of the recent list. In the terminal: `/good [note]` and `/bad [note]`.
 - **Projects:** see [Projects](#projects) below.
 - **Terminal, along the bottom:** your own shell on this machine, in the page. Show or hide it with the **>_** button in the header or Ctrl+`; drag its top edge to resize it. Tabs are separate sessions, and a new one starts in the folder of the project you're in. Sessions belong to the camp server, so hiding the pane or reloading the page doesn't end them; they end when you close the tab, exit the shell, or stop the camp. The terminal is yours alone: no crew member can see or type into it, and nothing from it goes into the camp's feed.
 - **Add to the crew:** the **+** at the end of the crew bar adds a crew member of your own (see [Adding a crew member](#adding-a-crew-member)).
@@ -114,6 +115,7 @@ In `npm start`, type a request for the Quartermaster, or:
 | `/reply <message>` | Follow up on the last expedition or chat, carrying the whole conversation over |
 | `/project [name \| off]` | List your projects, or work in one: its folders, notes, and defaults apply to what you send |
 | `/worktree [<link> new [branch] \| <link> <path or branch> \| <link> off]` | List a linked repo's worktrees; work in a new one per request, or in one you already have |
+| `/good [note]` · `/bad [note]` | Rate the last answer; a note is kept as a standing note for future work |
 | `/diff` · `/undo` | What the last expedition's file tools changed; put those files back |
 | `/review` | Approve or reject skills the Quartermaster proposed |
 | `/log` | Recent quests with time, tokens, cost, and model |
@@ -181,6 +183,7 @@ Everything in `camp/` is local to you and gitignored:
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
 | `camp/feed.jsonl` · `camp/threads.jsonl` · `camp/checkpoints/` | The saved feed, conversations for follow-ups, and the originals of changed files (newest 60 expeditions) |
+| `camp/feedback.jsonl` | Your ratings and notes on finished work |
 | `camp/crew.json` | Crew members you added: who they are, how they work, and what they can do |
 | `camp/conversations.json` · `camp/projects/<id>/` | Your projects (folders, description, pinned references, defaults) and the titles and filing you've changed; each project's survey and the crew's notes about it |
 | `camp/limits.json` · `camp/scheduler.lock` | Your plan's last reported usage windows; which process is running jobs |
