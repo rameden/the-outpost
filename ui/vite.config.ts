@@ -18,6 +18,11 @@ export default defineConfig({
     cssCodeSplit: false,
     modulePreload: false,
     assetsInlineLimit: 0,
+    // The one script is about 700 kB with the terminal (xterm.js) in it, and stays one on
+    // purpose: every built file is fetched with the launch token on its link, and a script
+    // split into pieces would fetch the other pieces without it. It's served from this machine,
+    // so the size costs nothing; this just keeps Vite from warning about it on every build.
+    chunkSizeWarningLimit: 1500,
   },
   server: {
     host: "127.0.0.1",
