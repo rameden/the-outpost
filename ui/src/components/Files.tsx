@@ -4,9 +4,10 @@
 // Folders load one level at a time as you open them. A file opens in a viewer; the @ beside a
 // row puts a reference to it in your message. Files git reports as changed carry a letter
 // (M modified, A added, U untracked), so you can see what the crew touched. When a conversation
-// worked in its own worktree, the tree shows that worktree. Hide it with » or Ctrl+Shift+E.
+// worked in its own worktree, the tree shows that worktree. Hide it with » or Ctrl+Shift+E. Its
+// size is its zone's: drag the line beside it.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api, errorText, storeGet, storeSet, treeImageUrl, treeQuery } from "../api.ts";
 import { cx } from "../format.ts";
 import type { FilePreview, Listing, TreeEntry } from "../types.ts";
@@ -15,7 +16,6 @@ import { Icon } from "./bits.tsx";
 // path and branch: a worktree of that linked folder, shown in its place.
 export type FileRoot = { link: string; path?: string; branch?: string };
 
-const MIN_WIDTH = 200;
 const rootKey = (r: FileRoot) => `${r.link}|${r.path ?? ""}`;
 const keyOf = (r: FileRoot, rel: string) => `${rootKey(r)}\n${rel}`;
 const join = (rel: string, name: string) => (rel ? `${rel}/${name}` : name);
@@ -52,7 +52,6 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
   const [gone, setGone] = useState<Set<string>>(new Set());                   // worktrees that aren't there any more
   const [tick, setTick] = useState(0);
   const [viewing, setViewing] = useState<{ root: FileRoot; rel: string } | null>(null);
-  const [width, setWidth] = useState(() => Math.max(MIN_WIDTH, Number(storeGet("camp-files-width")) || 300));
   const tree = useRef<HTMLDivElement>(null);
 
   // A worktree that has been removed since: show the linked folder itself instead.
@@ -156,23 +155,8 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
     else buttons.slice(0, i).reverse().find((b) => Number(b.dataset.depth) < depth)?.focus();
   }
 
-  // Drag the left edge to make the flyout wider or narrower.
-  function startDrag(ev: ReactPointerEvent) {
-    ev.preventDefault();
-    const from = ev.clientX, was = width;
-    const move = (m: PointerEvent) => setWidth(Math.min(Math.round(innerWidth * 0.6), Math.max(MIN_WIDTH, was + (from - m.clientX))));
-    const up = () => {
-      removeEventListener("pointermove", move);
-      removeEventListener("pointerup", up);
-      setWidth((w) => { storeSet("camp-files-width", String(w)); return w; });
-    };
-    addEventListener("pointermove", move);
-    addEventListener("pointerup", up);
-  }
-
   return (
-    <aside className="files" aria-label="Files" style={{ width }}>
-      <div className="files-grip" role="separator" aria-orientation="vertical" aria-label="Resize the files flyout" title="Drag to resize" onPointerDown={startDrag} />
+    <aside className="files" aria-label="Files">
       <header className="files-head">
         <span className="term-label">Files</span>
         <button type="button" className="hist-icon" aria-label="Refresh the files" title="Read the folders again" onClick={() => setTick((t) => t + 1)}><Icon name="refresh" /></button>

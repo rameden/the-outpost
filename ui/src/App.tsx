@@ -10,6 +10,9 @@ import { Composer, type ComposerHandle, type SendContext } from "./components/Co
 import { History } from "./components/History.tsx";
 import { TerminalPanel } from "./components/Terminal.tsx";
 import { FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
+import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
+import { LayoutEditor } from "./components/LayoutEditor.tsx";
+import { loadLayout, placed, saveLayout, type Layout, type Part } from "./layout.ts";
 import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
@@ -122,6 +125,15 @@ export function App({ store }: { store: FeedStore }) {
   const running = useFeed(store, runningCount);
   const onMention = useCallback((path: string) => composer.current?.mention(path), []);
 
+  // The page's layout: zones you arrange in the layout editor (remembered in this browser).
+  const [layout, setLayoutState] = useState<Layout>(loadLayout);
+  const setLayout = useCallback((next: Layout) => { setLayoutState(next); saveLayout(next); }, []);
+  const [layoutEditor, setLayoutEditor] = useState<{ select?: string } | null>(null);
+  const closeLayoutEditor = useCallback(() => setLayoutEditor(null), []);
+  // Files has nothing to show without a folder, and closes to a tab; the terminal switches off.
+  const stateOf = (part: Part | null): ZoneState =>
+    part === "terminal" ? (terminal ? "shown" : "hidden") : part === "files" ? (!hasFiles ? "hidden" : files ? "shown" : "collapsed") : "shown";
+
   // The crew dialog: a new crew member (the + at the end of the crew bar), or one you added being edited.
   const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
   const closeCrewDialog = useCallback(() => setCrewDialog(null), []);
@@ -161,40 +173,58 @@ export function App({ store }: { store: FeedStore }) {
   return (
     <>
       <div className="app">
-        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} terminalOpen={terminal} onToggleTerminal={toggleTerminal}
-          filesOpen={files} onToggleFiles={hasFiles ? toggleFiles : undefined} />
-        <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker}
-          onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
-        <History S={S} store={store} view={view} setView={setView} patch={patch}
-          onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
-        <main className="mission">
-          {page === "project" && S && project ? (
-            <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
-          ) : page === "projects" && S ? (
-            <ProjectsOverview S={S} setView={setView} onNew={() => setDialog({ project: null })} />
-          ) : (
-            <>
-              <div className="conv-head">
-                <h2>{heading}</h2>
-                {project && project.id !== "general" && (
-                  <button type="button" className="pill pill-link" title={`Open the project ${project.name}`} onClick={() => setView({ kind: "project", id: project.id })}>{project.name}</button>
-                )}
-                {conversation?.suggest && suggested && (
-                  <span className="conv-suggest">It used {suggested.name}'s folder.
-                    <button type="button" className="linkish" onClick={() => moveTo(conversation.id, suggested.id)}>Move it to {suggested.name}</button>
-                  </span>
-                )}
-              </div>
-              <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} />
-            </>
-          )}
-          <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
-            onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} onFolders={setAttached} />
-        </main>
-        {hasFiles && (files
-          ? <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />
-          : <FilesRail onShow={toggleFiles} />)}
-        {terminal && <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} />}
+        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} terminalOpen={terminal} onToggleTerminal={placed(layout, "terminal") ? toggleTerminal : undefined}
+          filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={() => setLayoutEditor({})} />
+        <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)}>
+          {(zone, state) => {
+            switch (zone.part) {
+              case "roster": return (
+                <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker}
+                  onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
+              );
+              case "history": return (
+                <History S={S} store={store} view={view} setView={setView} patch={patch}
+                  onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
+              );
+              case "chat": return (
+                <main className="mission">
+                  {page === "project" && S && project ? (
+                    <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
+                  ) : page === "projects" && S ? (
+                    <ProjectsOverview S={S} setView={setView} onNew={() => setDialog({ project: null })} />
+                  ) : (
+                    <>
+                      <div className="conv-head">
+                        <h2>{heading}</h2>
+                        {project && project.id !== "general" && (
+                          <button type="button" className="pill pill-link" title={`Open the project ${project.name}`} onClick={() => setView({ kind: "project", id: project.id })}>{project.name}</button>
+                        )}
+                        {conversation?.suggest && suggested && (
+                          <span className="conv-suggest">It used {suggested.name}'s folder.
+                            <button type="button" className="linkish" onClick={() => moveTo(conversation.id, suggested.id)}>Move it to {suggested.name}</button>
+                          </span>
+                        )}
+                      </div>
+                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} />
+                    </>
+                  )}
+                  <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
+                    onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} onFolders={setAttached} />
+                </main>
+              );
+              case "files": return state === "collapsed"
+                ? <FilesRail onShow={toggleFiles} />
+                : <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />;
+              case "terminal": return <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} />;
+              default: return (
+                <div className="zone-empty">
+                  <b>Empty zone</b>
+                  <button type="button" className="linkish" onClick={() => setLayoutEditor({ select: zone.id })}>Choose what goes here</button>
+                </div>
+              );
+            }
+          }}
+        </LayoutFrame>
       </div>
       {agentId && (
         <AgentDrawer key={agentId} agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store} project={project?.id}
@@ -203,6 +233,7 @@ export function App({ store }: { store: FeedStore }) {
       {settings && (
         <Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} />
       )}
+      {layoutEditor && <LayoutEditor layout={layout} onChange={setLayout} onClose={closeLayoutEditor} select={layoutEditor.select} />}
       {crewDialog && <CrewDialog key={crewDialog.member?.id ?? "new"} member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />}
       {dialog && <ProjectDialog key={dialog.project?.id ?? "new"} S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />}
       {picker && picking && S && (

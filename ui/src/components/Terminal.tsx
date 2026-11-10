@@ -3,17 +3,16 @@
 // Each tab is a session the camp server keeps (so hiding the pane, or reloading the page, doesn't
 // end it); this component shows one of them through xterm.js. Output arrives over a stream from
 // the camp, and what you type is sent back. New tabs start in the folder of the project you're
-// in. Hide the pane with its ⌄ button or Ctrl+` and bring it back the same way.
+// in. Hide the pane with its ⌄ button or Ctrl+` and bring it back the same way. Its size is its
+// zone's: drag the line beside it.
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal as Xterm, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { api, errorText, storeGet, storeSet, termStreamUrl } from "../api.ts";
 import { cx } from "../format.ts";
 import type { TerminalInfo } from "../types.ts";
-
-const MIN_HEIGHT = 120;
 
 // The page allows no inline styles, except <style> elements carrying this launch's nonce (the
 // camp server puts it in a <meta> tag). xterm.js writes its colours and cell sizes into style
@@ -118,7 +117,6 @@ export function TerminalPanel({ project, onHide, ready = true }: { project?: str
   const [tabs, setTabs] = useState<TerminalInfo[] | null>(null); // null: still asking the camp what's open
   const [active, setActive] = useState<string | null>(() => storeGet("camp-term-tab"));
   const [error, setError] = useState("");
-  const [height, setHeight] = useState(() => Math.max(MIN_HEIGHT, Number(storeGet("camp-term-height")) || 280));
   const choose = useCallback((id: string | null) => { setActive(id); if (id) storeSet("camp-term-tab", id); }, []);
 
   const open = useCallback(async () => {
@@ -151,24 +149,9 @@ export function TerminalPanel({ project, onHide, ready = true }: { project?: str
     });
   }
 
-  // Drag the top edge to make the pane taller or shorter.
-  function startDrag(ev: ReactPointerEvent) {
-    ev.preventDefault();
-    const from = ev.clientY, was = height;
-    const move = (m: PointerEvent) => setHeight(Math.min(Math.round(innerHeight * 0.75), Math.max(MIN_HEIGHT, was + (from - m.clientY))));
-    const up = () => {
-      removeEventListener("pointermove", move);
-      removeEventListener("pointerup", up);
-      setHeight((h) => { storeSet("camp-term-height", String(h)); return h; });
-    };
-    addEventListener("pointermove", move);
-    addEventListener("pointerup", up);
-  }
-
   const shown = tabs?.find((t) => t.id === active) ?? tabs?.at(-1);
   return (
-    <section className="term" aria-label="Terminal" style={{ height }}>
-      <div className="term-grip" role="separator" aria-orientation="horizontal" aria-label="Resize the terminal" title="Drag to resize" onPointerDown={startDrag} />
+    <section className="term" aria-label="Terminal">
       <header className="term-head">
         <span className="term-label">Terminal</span>
         <div className="term-tabs" role="tablist">
