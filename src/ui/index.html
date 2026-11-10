@@ -90,10 +90,58 @@ code, pre { font-family: var(--mono); font-size: .86em; }
 .kit-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kit-btn:hover, .kit-btn[aria-expanded="true"] { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 .kit-btn.custom::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+/* ---------- Agent drawer ---------- */
+.member { cursor: pointer; }
+.member:hover { border-color: var(--border-strong); }
+.member:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(10, 8, 6, .45); z-index: 45; }
+.drawer { --c: var(--c-other); position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw); z-index: 46; background: var(--surface); border-left: 1px solid var(--border-strong); box-shadow: -12px 0 40px rgba(0, 0, 0, .25); display: flex; flex-direction: column; }
+.drawer-head { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+.drawer-head .avatar { width: 56px; height: 56px; font-size: 28px; }
+.drawer-head h2 { margin: 0; font: 600 22px/1.2 var(--serif); }
+.dh-role { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.dh-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.dh-meta .dot { display: inline-block; margin-right: 5px; }
+.drawer .tabs { padding: 6px 14px 0; }
+.drawer-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px 24px; }
+.drawer-composer { border-top: 1px solid var(--border); padding: 12px 20px 14px; background: var(--surface); }
+.drawer-composer form { display: flex; gap: 10px; align-items: flex-end; }
+.drawer-composer textarea { flex: 1; min-width: 0; resize: none; min-height: 44px; max-height: 180px; padding: 10px 13px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--bg); line-height: 1.45; }
+.drawer-composer textarea:focus { outline: none; border-color: var(--c); box-shadow: 0 0 0 3px var(--accent-soft); }
+.drawer-hint { font-size: 12px; color: var(--faint); margin-top: 6px; }
+.thread { display: flex; flex-direction: column; gap: 12px; }
+.bubble { max-width: 88%; padding: 9px 13px; border-radius: 14px; font-size: 14.5px; overflow-wrap: anywhere; }
+.bubble.you { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 5px; white-space: pre-wrap; }
+.bubble.brief { align-self: flex-start; background: var(--surface-2); color: var(--muted); font-size: 13px; border-bottom-left-radius: 5px; }
+.bubble.agent { align-self: flex-start; background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--c); border-bottom-left-radius: 5px; }
+.bubble-meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 11.5px; color: var(--faint); flex-wrap: wrap; }
+.linkish { border: 0; background: none; padding: 0; color: var(--accent); font-size: 12px; cursor: pointer; }
+.thread-day { align-self: center; font-size: 11.5px; color: var(--faint); margin: 4px 0; }
+.transcript { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.tx-step { border-left: 2px solid var(--border-strong); padding-left: 10px; }
+.tx-step.tool { border-left-color: var(--c); }
+.tx-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); font-weight: 600; margin-bottom: 2px; }
+.tx-step pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; color: var(--muted); max-height: 220px; overflow: auto; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.stat { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
+.stat b { display: block; font: 600 18px/1.2 var(--serif); }
+.stat span { font-size: 12px; color: var(--faint); }
+.about-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.about-row > span:first-child { color: var(--faint); font-size: 12.5px; padding-top: 1px; }
+.memory-edit { width: 100%; min-height: 260px; padding: 12px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--bg); font: 13px/1.55 var(--mono); resize: vertical; }
+.output-view img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+@media (max-width: 760px) {
+  .drawer-head { padding: 14px 16px 12px; grid-template-columns: 44px minmax(0, 1fr) auto; }
+  .drawer-head .avatar { width: 44px; height: 44px; font-size: 22px; }
+  .drawer-body { padding: 14px 16px 20px; }
+  .drawer-composer { padding: 10px 16px 12px; }
+  .about-row { grid-template-columns: 1fr; gap: 2px; }
+}
+
 .popover.model-picker { position: fixed; width: min(320px, calc(100vw - 32px)); padding: 12px; bottom: auto; z-index: 40; }
 .model-picker .menu-head { padding: 0 0 10px; font-size: 14px; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
-.field select { font: 14px var(--sans); color: var(--text); padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg); font-weight: 400; }
+.field select, .field input { font: 14px var(--sans); color: var(--text); padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg); font-weight: 400; }
 .pick-note { font-size: 12.5px; color: var(--muted); line-height: 1.45; margin-bottom: 4px; }
 .pick-note.warn { color: var(--bad); }
 
@@ -220,6 +268,15 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--border-
 .menu-form { display: flex; gap: 6px; padding: 2px 4px 6px; }
 .menu-form input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg); }
 .snippet-list { max-height: 260px; overflow: auto; }
+.composer .link-form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 2px 6px 8px; }
+.composer .link-form .btn { align-self: flex-start; }
+.link-manual summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+.link-manual-row { display: flex; gap: 6px; margin-top: 6px; }
+.link-manual-row #linkPath { flex: 1; min-width: 0; }
+.link-form input[type="text"], .link-form #linkPath { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg); font: 13px var(--mono); }
+.link-access { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.link-access input { accent-color: var(--accent); }
+.attach-menu:has([data-view="link"]:not([hidden])) { width: min(380px, calc(100% - 32px)); }
 .snippet { display: flex; align-items: flex-start; gap: 2px; border-radius: 8px; }
 .snippet:hover { background: var(--surface-2); }
 .snippet .use { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 7px 8px; }
@@ -309,6 +366,29 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
   .tab-body { overflow: visible; }
   .tool, .notice { padding-left: 0; }
 }
+.exp-foot .foot-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.exp-changes { border-top: 1px solid var(--border); padding: 10px 16px 14px; }
+.exp-changes ul { list-style: none; margin: 0 0 8px; padding: 0; font-size: 12.5px; display: grid; gap: 3px; }
+.exp-changes li code { overflow-wrap: anywhere; }
+.exp-changes .chg { display: inline-block; min-width: 62px; color: var(--muted); }
+pre.diff { white-space: pre; overflow: auto; max-height: 460px; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin: 0; font-size: 12px; line-height: 1.45; }
+pre.diff .add { color: var(--good); background: var(--good-soft); display: block; }
+pre.diff .del { color: var(--bad); background: var(--bad-soft); display: block; }
+pre.diff .hunk { color: var(--info); display: block; }
+pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
+.reply-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 8px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface-2); font-size: 13px; color: var(--muted); }
+.reply-bar b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.badge.follow { background: var(--info-soft); color: var(--info); }
+.chip.paused { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); cursor: pointer; }
+.limits { margin-top: 10px; display: grid; gap: 8px; }
+.limit-row { font-size: 12.5px; color: var(--muted); }
+.limit-row .limit-top { display: flex; justify-content: space-between; gap: 8px; }
+.limit-row .limit-top b { color: var(--text); font-weight: 600; }
+.meter { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
+.meter > i { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+.meter.warn > i { background: var(--accent); }
+.meter.full > i { background: var(--bad); }
+.pause-note { margin-top: 10px; padding: 9px 11px; border-radius: 9px; background: var(--bad-soft); color: var(--bad); font-size: 13px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -317,9 +397,12 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
     <div class="brand"><h1>⛺ Guild Camp</h1><span>Mission control</span></div>
     <div class="top-right">
       <button class="chip needs" id="needs" hidden></button>
+      <button class="chip paused" id="paused" type="button" hidden></button>
+      <button class="chip" id="runtime" type="button" title="What runs the crew">…</button>
       <span class="chip" id="spend" title="Estimated spend today (all agents)">$0 today</span>
       <span class="chip" id="busy"><span class="dot"></span><span>Idle</span></span>
       <span class="chip" id="conn" title="Connection to the camp"><span class="dot"></span><span>Connecting…</span></span>
+      <button class="icon-btn" id="bell" type="button" title="Notify me when the camp needs a decision" aria-label="Turn on notifications">🔔</button>
       <button class="icon-btn" id="theme" title="Switch light or dark" aria-label="Switch light or dark theme">◐</button>
     </div>
   </header>
@@ -340,6 +423,7 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
       </div>
     </div>
     <div class="composer" id="composer">
+      <div class="reply-bar" id="replyBar" hidden><span>↩ Following up on</span><b id="replyTitle"></b><button type="button" class="att-x" id="replyCancel" aria-label="Stop following up" title="Send as a new request instead">×</button></div>
       <div class="chips" id="chips" hidden></div>
       <div class="popover mention" id="mention" hidden role="listbox" aria-label="Files and crew"></div>
       <div class="popover attach-menu" id="attachMenu" hidden>
@@ -347,6 +431,7 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
           <div class="menu-label">Attach</div>
           <button type="button" class="menu-item" role="menuitem" data-act="files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Files…</button>
           <button type="button" class="menu-item" role="menuitem" data-act="folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Folder…</button>
+          <button type="button" class="menu-item" role="menuitem" data-act="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M10.5 14.5l3-3M9.5 12.5l-1 1a1.6 1.6 0 0 0 2.3 2.3l1-1M14.5 12.5l1-1a1.6 1.6 0 0 0-2.3-2.3l-1 1"/></svg>Link a folder… <small style="margin-left:auto;color:var(--faint);font-size:11.5px">no upload</small></button>
           <button type="button" class="menu-item" role="menuitem" data-act="images"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>Images…</button>
           <button type="button" class="menu-item" role="menuitem" data-act="paste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/></svg>Paste image</button>
           <button type="button" class="menu-item" role="menuitem" data-act="url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg>URL…</button>
@@ -358,6 +443,26 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
         <div class="menu-view" data-view="url" hidden>
           <div class="menu-head"><button type="button" class="att-x" data-act="back" aria-label="Back">←</button>Attach a link</div>
           <form class="menu-form" id="urlForm"><input id="urlInput" placeholder="https://…" aria-label="Link to attach" autocomplete="off"><button class="btn small primary" type="submit">Attach</button></form>
+        </div>
+        <div class="menu-view" data-view="link" hidden>
+          <div class="menu-head"><button type="button" class="att-x" data-act="back" aria-label="Back">←</button>Link a folder</div>
+          <form class="link-form" id="linkForm">
+            <div class="link-access">
+              <label><input type="radio" name="linkAccess" value="read" checked> Read-only</label>
+              <label><input type="radio" name="linkAccess" value="write"> Can edit</label>
+            </div>
+            <button class="btn small primary" type="button" id="pickFolder">Choose folder…</button>
+            <div class="menu-tip" style="padding:2px 0 0">Opens your system's folder picker. Agents read the folder where it is; nothing is uploaded.</div>
+            <details class="link-manual">
+              <summary>Or paste a path</summary>
+              <div class="link-manual-row">
+                <input id="linkPath" placeholder="/Users/you/Projects/site" aria-label="Folder path" autocomplete="off" spellcheck="false">
+                <button class="btn small" type="submit">Link</button>
+              </div>
+            </details>
+            <div class="form-error" id="linkError" hidden></div>
+          </form>
+          <div class="snippet-list" id="linkList"></div>
         </div>
         <div class="menu-view" data-view="snippets" hidden>
           <div class="menu-head"><button type="button" class="att-x" data-act="back" aria-label="Back">←</button>Prompt snippets</div>
@@ -384,10 +489,33 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
   </aside>
 </div>
 
+<div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+<aside class="drawer" id="drawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <header class="drawer-head">
+    <div class="avatar" id="drawerAvatar" aria-hidden="true"></div>
+    <div style="min-width:0">
+      <h2 id="drawerTitle"></h2>
+      <div class="dh-role" id="drawerRole"></div>
+      <div class="dh-meta" id="drawerMeta"></div>
+    </div>
+    <button class="icon-btn" id="drawerClose" type="button" aria-label="Close">✕</button>
+  </header>
+  <div class="tabs" id="drawerTabs" role="tablist"></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-composer" id="drawerComposer">
+    <form id="drawerForm">
+      <textarea id="drawerInput" rows="1" aria-label="Message"></textarea>
+      <button class="btn primary" type="submit">Send</button>
+    </form>
+    <div class="drawer-hint" id="drawerHint"></div>
+  </div>
+</aside>
+
 <div class="popover model-picker" id="modelPicker" hidden role="dialog" aria-label="Choose model">
   <div class="menu-head" id="pickTitle">Model</div>
   <label class="field">Model<select id="pickModel"></select></label>
   <label class="field">Effort<select id="pickEffort"></select></label>
+  <label class="field">Max turns per run<input id="pickTurns" type="number" min="5" max="200" step="5" inputmode="numeric"></label>
   <div class="pick-note" id="pickNote"></div>
   <div class="card-actions">
     <button type="button" class="btn small primary" id="pickSave">Save</button>
@@ -515,11 +643,16 @@ function renderCrew() {
     const level = Math.floor(xp / 50) + 1;
     const statusText = st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : "At camp");
     const card = el("div", `member ${cClass(c.name)} ${st.status === "idle" ? "" : st.status}`);
-    card.title = c.personality ?? "";
+    card.title = `${c.personality ?? ""}\nClick to open ${c.name}'s page.`;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `Open ${c.name}'s page`);
+    card.onclick = () => openAgent(c.id);
+    card.onkeydown = (ev) => { if ((ev.key === "Enter" || ev.key === " ") && ev.target === card) { ev.preventDefault(); openAgent(c.id); } };
     setTimeout(() => { const b = card.querySelector(".kit-btn"); if (b) b.onclick = (ev) => { ev.stopPropagation(); openPicker(c, b); }; });
     card.innerHTML = `
       <div class="avatar" aria-hidden="true">${esc(c.emoji)}</div>
-      <div style="min-width:0"><div class="member-name">${esc(c.name)}</div><button type="button" class="kit-btn ${c.overridden ? "custom" : ""}" title="${c.overridden ? "Custom model (click to change)" : "Change model"}" aria-haspopup="dialog" aria-expanded="${pickerFor === c.id}"><span>${esc(c.model.replace(/^claude-/, ""))} · ${esc(c.effort)}</span>▾</button></div>
+      <div style="min-width:0"><div class="member-name">${esc(c.name)}</div><button type="button" class="kit-btn ${c.overridden ? "custom" : ""}" title="${c.overridden ? "Custom model (click to change)" : "Change model"}" aria-haspopup="dialog" aria-expanded="${pickerFor === c.id}"><span>${esc(c.model.replace(/^claude-/, ""))} · ${esc(c.effort)}${c.maxTurns !== c.defaultMaxTurns ? ` · ${c.maxTurns} turns` : ""}</span>▾</button></div>
       <div class="member-role">${esc(c.role)}</div>
       <div class="member-status"><span class="dot"></span><span>${esc(statusText)}</span></div>
       <div class="xp"><span>Lv ${level}</span><span class="xp-bar"><i style="width:${(xp % 50) * 2}%"></i></span><span>${xp} XP</span></div>`;
@@ -538,7 +671,7 @@ async function openPicker(c, anchor) {
   $("#pickTitle").textContent = `${c.emoji} ${c.name}'s model`;
   const r = anchor.getBoundingClientRect();
   picker.style.left = Math.max(16, Math.min(r.left, innerWidth - 336)) + "px";
-  picker.style.top = Math.min(r.bottom + 6, innerHeight - 330) + "px";
+  picker.style.top = Math.max(16, Math.min(r.bottom + 6, innerHeight - 400)) + "px";
   picker.hidden = false;
   $("#pickModel").innerHTML = "<option>Loading models…</option>";
   $("#pickNote").textContent = "";
@@ -554,6 +687,10 @@ async function openPicker(c, anchor) {
   sel.value = c.model;
   fillEfforts(c, c.effort);
   sel.onchange = () => fillEfforts(c, $("#pickEffort").value);
+  const turns = $("#pickTurns");
+  turns.value = c.maxTurns;
+  turns.placeholder = String(c.defaultMaxTurns);
+  turns.title = `Each turn is one reply and the tool calls in it. Crew default: ${c.defaultMaxTurns}. Your budget and the Stop button still apply.`;
   renderCrew();
   sel.focus();
 }
@@ -573,7 +710,7 @@ function fillEfforts(c, wanted) {
   if (m?.id.includes("haiku")) notes.push("Haiku is the fastest and cheapest; good for quick, simple work.");
   if (m?.price) notes.push(`Price per million tokens: ${m.price} (input / output).`);
   if (!modelList.live) notes.push("Couldn't reach the Models API, so this shows the current models.");
-  notes.push(`Applies from ${c.name}'s next run.`);
+  notes.push(`Max turns: one reply and its tool calls is a turn (default ${c.defaultMaxTurns}). Applies from ${c.name}'s next run.`);
   $("#pickNote").textContent = notes.join(" ");
 }
 
@@ -586,7 +723,11 @@ function closePicker() {
 $("#pickCancel").onclick = closePicker;
 $("#pickSave").onclick = async () => {
   try {
-    await api("/api/agents", { id: pickerFor, model: $("#pickModel").value, effort: $("#pickEffort").value || null });
+    const c = S.characters.find((x) => x.id === pickerFor);
+    const t = $("#pickTurns").value.trim();
+    // Same as the crew default (or empty) clears the override, so a later default change still applies.
+    const maxTurns = t === "" || Number(t) === c?.defaultMaxTurns ? null : Number(t);
+    await api("/api/agents", { id: pickerFor, model: $("#pickModel").value, effort: $("#pickEffort").value || null, maxTurns });
     closePicker();
     refresh();
   } catch (e) { $("#pickNote").textContent = e.message; $("#pickNote").classList.add("warn"); }
@@ -599,60 +740,399 @@ $("#pickReset").onclick = async () => {
 document.addEventListener("mousedown", (ev) => { if (!picker.hidden && !picker.contains(ev.target) && !ev.target.closest(".kit-btn")) closePicker(); });
 document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !picker.hidden) closePicker(); });
 
+// ---------- Agent page (drawer) ----------
+const drawer = $("#drawer");
+let agentId = null;      // whose page is open
+let agentData = null;    // from /api/agent
+let agentTab = "chat";
+const agentLiveEls = new Map();  // replies streaming in right now, in Chat, by quest (one agent can be on two at once)
+let agentRefetch = null;
+const AGENT_TABS = [["chat", "Chat"], ["runs", "Runs"], ["memory", "Memory"], ["outputs", "Outputs"], ["about", "About"]];
+const SOURCE_LABEL = { user: "You", direct: "You", discord: "You (Discord)", brief: "🧭 Quartermaster's brief", job: "⏰ Scheduled job" };
+
+async function openAgent(id, tab) {
+  agentId = id;
+  if (tab) agentTab = tab;
+  drawer.hidden = false;
+  $("#drawerBackdrop").hidden = false;
+  drawer.className = `drawer ${cClass(S?.characters.find((c) => c.id === id)?.name)}`;
+  $("#drawerBody").innerHTML = '<div class="empty">Loading…</div>';
+  await loadAgent();
+  setTimeout(() => (agentTab === "chat" ? $("#drawerInput") : $("#drawerClose")).focus(), 0);
+}
+function closeAgent() {
+  drawer.hidden = true;
+  $("#drawerBackdrop").hidden = true;
+  agentId = null; agentData = null; agentLiveEls.clear();
+}
+async function loadAgent() {
+  if (!agentId) return;
+  try { agentData = await api(`/api/agent?id=${encodeURIComponent(agentId)}`); }
+  catch (e) { $("#drawerBody").innerHTML = emptyState("Couldn't load", e.message); return; }
+  agentLiveEls.clear();
+  renderAgent();
+}
+function scheduleAgentRefetch() { clearTimeout(agentRefetch); agentRefetch = setTimeout(loadAgent, 500); }
+$("#drawerClose").onclick = closeAgent;
+$("#drawerBackdrop").onclick = closeAgent;
+// Esc closes the page (unless the model picker is open on top of it: Esc closes that first).
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !drawer.hidden && picker.hidden) closeAgent(); });
+
+function renderAgent() {
+  const a = agentData;
+  $("#drawerAvatar").textContent = a.emoji;
+  $("#drawerTitle").textContent = a.name;
+  $("#drawerRole").textContent = a.role;
+  const st = crew[a.name] ?? { status: "idle", line: "" };
+  const status = st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : "At camp";
+  const level = Math.floor(a.xp / 50) + 1;
+  $("#drawerMeta").innerHTML = `
+    <span><span class="dot ${st.status === "active" ? "live" : ""}"></span>${esc(status)}</span>
+    <button type="button" class="kit-btn ${a.overridden ? "custom" : ""}" id="drawerModel" title="Change model"><span>${esc(a.model.replace(/^claude-/, ""))} · ${esc(a.effort)}</span>▾</button>
+    <span>Lv ${level} · ${a.xp} XP</span>
+    <span>${a.stats.runs} run${a.stats.runs === 1 ? "" : "s"}${a.stats.successRate != null ? ` · ${a.stats.successRate}% done` : ""} · ${money(a.stats.cost)}</span>`;
+  $("#drawerModel").onclick = (ev) => { ev.stopPropagation(); const c = S.characters.find((x) => x.id === a.id); if (c) openPicker(c, ev.currentTarget); };
+
+  const bar = $("#drawerTabs");
+  bar.innerHTML = "";
+  for (const [id, label] of AGENT_TABS) {
+    const b = el("button", "tab", esc(label));
+    b.type = "button";
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(agentTab === id));
+    if (id === "runs" && a.stats.runs) b.append(el("span", "count", String(a.stats.runs)));
+    b.onclick = () => { agentTab = id; renderAgent(); };
+    bar.append(b);
+  }
+  $("#drawerComposer").hidden = agentTab !== "chat";
+  const isQm = a.id === "quartermaster";
+  $("#drawerInput").placeholder = isQm ? "Ask the Quartermaster…" : `Message the ${a.name}…`;
+  $("#drawerHint").textContent = isQm
+    ? "Starts an expedition. You'll approve the plan in the main feed. Enter to send."
+    : `Goes straight to the ${a.name}, skipping the Quartermaster. It continues your last chat with them if that was in the past 6 hours. Enter to send.`;
+
+  const body = $("#drawerBody");
+  body.innerHTML = "";
+  ({ chat: renderAgentChat, runs: renderAgentRuns, memory: renderAgentMemory, outputs: renderAgentOutputs, about: renderAgentAbout })[agentTab](body);
+}
+
+function dayLabel(iso) { return new Date(iso).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }); }
+
+function renderAgentChat(body) {
+  const a = agentData;
+  const thread = el("div", "thread");
+  thread.id = "agentThread";
+  if (!a.sessions.length) thread.append(el("div", "empty", `<b>No conversations yet</b>Say hello: ask the ${esc(a.name)} who they are, or give them something from their line of work.`));
+  let lastDay = "";
+  for (const s of a.sessions) {
+    const day = dayLabel(s.time);
+    if (day !== lastDay) { thread.append(el("div", "thread-day", esc(day))); lastDay = day; }
+    const fromYou = ["user", "direct", "discord"].includes(s.source);
+    const ask = el("div", `bubble ${fromYou ? "you" : "brief"}`);
+    ask.textContent = fromYou ? s.task : `${SOURCE_LABEL[s.source] ?? s.source}: ${s.task}`;
+    thread.append(ask);
+    const reply = el("div", "bubble agent");
+    reply.innerHTML = `<div class="md">${md(s.result || "(no reply)")}</div><div class="bubble-meta"><span>${clock(s.time)}</span>${s.status !== "done" ? `<span class="pill bad">${esc(s.status.replace(/_/g, " "))}</span>` : ""}<button type="button" class="linkish">How they did it</button></div>`;
+    reply.querySelector(".linkish").onclick = (ev) => toggleTranscript(reply, s.file, ev.currentTarget);
+    thread.append(reply);
+  }
+  body.append(thread);
+  setTimeout(() => (body.scrollTop = body.scrollHeight), 0);
+}
+
+async function toggleTranscript(host, file, btn) {
+  const open = host.querySelector(".transcript");
+  if (open) { open.remove(); btn.textContent = "How they did it"; return; }
+  btn.textContent = "Loading…";
+  try {
+    const s = await api(`/api/agent/session?id=${encodeURIComponent(agentId)}&file=${encodeURIComponent(file)}`);
+    host.append(renderTranscript(s));
+    btn.textContent = "Hide steps";
+  } catch (e) { btn.textContent = "Couldn't load"; }
+}
+
+// A run's steps: what they were asked, what they said, each tool call and its result.
+function renderTranscript(s) {
+  const box = el("div", "transcript");
+  const short = (v, n = 600) => { const t = typeof v === "string" ? v : JSON.stringify(v, null, 2); return t.length > n ? t.slice(0, n) + "…" : t; };
+  const step = (label, text, cls = "") => { const d = el("div", `tx-step ${cls}`); d.innerHTML = `<div class="tx-label">${esc(label)}</div><pre>${esc(text)}</pre>`; box.append(d); };
+  for (const m of s.messages ?? []) {
+    const parts = typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content ?? [];
+    for (const p of parts) {
+      if (p.type === "text" && p.text?.trim()) step(m.role === "user" ? "Asked" : "Said", short(p.text.replace(/^\(Sent directly by the user[^)]*\)\s*/, ""), 1500));
+      else if (p.type === "tool_use") step(`Used ${p.name}`, short(p.input), "tool");
+      else if (p.type === "tool_result") step("Got back", short(Array.isArray(p.content) ? p.content.map((c) => c.text ?? `[${c.type}]`).join("\n") : p.content ?? ""));
+      else if (p.type === "server_tool_use") step(`Used ${p.name}`, short(p.input), "tool");
+      else if (p.type === "image" || p.type === "document") step("Attached", `[${p.type}]`);
+    }
+  }
+  if (!box.children.length) box.append(el("div", "meta", "No steps recorded."));
+  return box;
+}
+
+function renderAgentRuns(body) {
+  const a = agentData;
+  if (!a.runs.length) return (body.innerHTML = emptyState("No runs yet", `Every time the ${a.name} works, the run shows up here with its cost, time, and steps.`));
+  const list = el("ul", "list");
+  for (const q of a.runs) {
+    const u = q.usage;
+    const total = u.input + u.cacheRead + u.cacheWrite;
+    const ok = q.status === "done";
+    const li = el("li", "card");
+    li.innerHTML = `
+      <div class="card-top"><span class="pill ${ok ? "done" : "bad"}">${esc(q.status.replace(/_/g, " "))}</span><span class="meta" style="margin:0">${q.kind === "job" ? `⏰ ${esc(q.job ?? "job")}` : q.kind === "expedition" ? "Expedition" : "Quest"}</span><time>${when(q.time)}</time></div>
+      <div class="meta"><b>${money(q.cost)}${q.runtime === "claude-code" ? " est." : ""}</b> · ${q.seconds}s · ${q.turns} turn${q.turns === 1 ? "" : "s"} · ${kTok(total)} in · ${kTok(u.output)} out · ${esc(q.model.replace(/^claude-/, ""))} · ${esc(q.effort ?? "default")}</div>
+      <div class="clamp"><b>Asked</b> ${esc(q.task)}</div>
+      <div class="clamp"><b>Result</b> ${esc(q.result)}</div>
+      ${q.session ? '<div class="card-actions"><button type="button" class="btn small">Show steps</button></div>' : '<div class="meta">Steps weren\'t recorded for this older run.</div>'}`;
+    li.querySelectorAll(".clamp").forEach((c) => (c.onclick = () => c.classList.toggle("open")));
+    const b = li.querySelector(".card-actions .btn");
+    if (b) b.onclick = () => toggleTranscript(li, q.session, b);
+    list.append(li);
+  }
+  body.append(list);
+}
+
+function renderAgentMemory(body) {
+  const a = agentData;
+  body.innerHTML = `
+    <p class="panel-note">What the ${esc(a.name)} remembers between sessions, loaded into every run. They add to it with their remember tool; edit here to correct or remove things. Their name, role, and personality aren't stored here and can't change.</p>
+    <textarea class="memory-edit" aria-label="${esc(a.name)}'s memory">${esc(a.memory)}</textarea>
+    <div class="card-actions"><button type="button" class="btn small primary">Save memory</button><span class="meta" id="memSaved"></span></div>`;
+  body.querySelector(".btn").onclick = async () => {
+    try { await api("/api/agent/memory", { id: a.id, text: body.querySelector("textarea").value }); $("#memSaved").textContent = "Saved."; }
+    catch (e) { $("#memSaved").textContent = e.message; }
+  };
+}
+
+function renderAgentOutputs(body) {
+  const a = agentData;
+  if (!a.outputs.length) return (body.innerHTML = emptyState("No files yet", `Files the ${a.name} makes for you land in camp/agents/${a.id}/outputs/.`));
+  const prefix = `camp/agents/${a.id}/outputs/`;
+  const list = el("div", "");
+  for (const f of a.outputs) {
+    const b = el("button", "page-link", `<strong>${esc(f.path.replace(prefix, ""))}</strong><span>${Math.max(1, Math.round(f.size / 1024))} KB · ${when(f.modified)}</span>`);
+    b.type = "button";
+    b.onclick = () => viewOutput(body, f.path);
+    list.append(b);
+  }
+  body.append(list);
+}
+
+async function viewOutput(body, path) {
+  const a = agentData;
+  body.innerHTML = `<div class="viewer-head"><button class="btn small" type="button">← Files</button><code>${esc(path)}</code></div><div class="output-view">Loading…</div>`;
+  body.querySelector(".btn").onclick = () => { body.innerHTML = ""; renderAgentOutputs(body); };
+  const view = body.querySelector(".output-view");
+  const src = `/api/agent/output?id=${encodeURIComponent(a.id)}&path=${encodeURIComponent(path)}&t=${encodeURIComponent(TOKEN)}`;
+  if (isImagePath(path)) { view.innerHTML = `<img src="${src}" alt="${esc(path)}">`; return; }
+  try {
+    const r = await api(`/api/agent/output?id=${encodeURIComponent(a.id)}&path=${encodeURIComponent(path)}`);
+    if (r.binary) view.innerHTML = `<div class="meta">Binary file (${Math.round(r.size / 1024)} KB), open it from ${esc(path)}.</div>`;
+    else if (/\.md$/i.test(path)) view.innerHTML = `<div class="md">${md(stripFrontmatter(r.text))}</div>`;
+    else view.innerHTML = `<pre class="raw" style="max-height:none">${esc(r.text)}</pre>`;
+  } catch (e) { view.textContent = e.message; }
+}
+
+function renderAgentAbout(body) {
+  const a = agentData;
+  const s = a.stats;
+  body.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><b>${s.runs}</b><span>Runs</span></div>
+      <div class="stat"><b>${s.successRate != null ? s.successRate + "%" : "–"}</b><span>Finished</span></div>
+      <div class="stat"><b>${money(s.cost)}</b><span>Spent</span></div>
+      <div class="stat"><b>${s.avgSeconds != null ? s.avgSeconds + "s" : "–"}</b><span>Average run</span></div>
+    </div>
+    <div class="about-row"><span>Personality</span><span>${esc(a.personality)}</span></div>
+    <div class="about-row"><span>Handles</span><span>${esc(a.handles)}</span></div>
+    <div class="about-row"><span>Not theirs</span><span>${esc(a.notFor)}</span></div>
+    <div class="about-row"><span>Model</span><span>${esc(a.model)} · ${esc(a.effort)}${a.overridden ? ` <span class="meta">(default: ${esc(a.defaultModel)} · ${esc(a.defaultEffort)})</span>` : ""}</span></div>
+    <div class="about-row"><span>Also called</span><span>${a.aliases.map((x) => `@${esc(x)}`).join(", ") || "–"}</span></div>
+    <div class="about-row"><span>Last active</span><span>${s.lastActive ? when(s.lastActive) : "Not yet"}</span></div>
+    <div class="about-row"><span>Tools</span><span class="tool-chips" style="margin:0">${a.tools.map((t) => `<code class="${t.startsWith("mcp__") ? "write" : ""}">${esc(t)}</code>`).join("")}</span></div>
+    <div class="about-row"><span>Skills</span><span>${a.skills.length ? a.skills.map((k) => `<div><b>${esc(k.owner === "shared" ? "shared/" : "")}${esc(k.name)}</b> <span class="meta">${esc(k.description)}</span></div>`).join("") : "None yet"}</span></div>
+    <div class="about-row"><span>Workspace</span><span><code>camp/agents/${esc(a.id)}/</code></span></div>`;
+}
+
+// While the page is open, show that agent's work live in Chat, then reload when the run ends.
+let lastSource = null; // "direct" when you messaged an agent yourself
+function agentLive(e) {
+  if (e.type === "expedition_start") lastSource = e.source;
+  if (!agentId || !agentData) return;
+  const mine = e.who === agentData.name;
+  if (e.type === "expedition_end" || ((e.type === "return") && mine)) return scheduleAgentRefetch();
+  if (e.type === "changed" && (e.what === "memory" || e.what === "settings" || e.what === "log")) {
+    if (agentTab !== "memory") scheduleAgentRefetch();
+    return;
+  }
+  if (!mine || agentTab !== "chat") return;
+  const thread = $("#agentThread");
+  if (!thread) return;
+  thread.querySelector(".empty")?.remove();
+  if (e.type === "dispatch" && lastSource !== "direct") thread.append(el("div", "bubble brief", "🧭 The Quartermaster sent them on a quest…"));
+  const key = liveKey(e);
+  if (e.type === "text_delta") {
+    let b = agentLiveEls.get(key);
+    if (!b) {
+      b = el("div", "bubble agent", '<div class="md streaming"></div>');
+      agentLiveEls.set(key, b);
+      thread.append(b);
+    }
+    b.querySelector(".md").textContent += e.delta;
+  }
+  if (e.type === "text") {
+    const b = agentLiveEls.get(key) ?? el("div", "bubble agent", '<div class="md"></div>');
+    b.querySelector(".md").classList.remove("streaming");
+    b.querySelector(".md").innerHTML = md(e.text);
+    if (!b.isConnected) thread.append(b);
+    agentLiveEls.delete(key);
+  }
+  if (e.type === "tool") {
+    agentLiveEls.delete(key);
+    thread.append(el("div", "tool", `<b>${esc(e.tool)}</b><code>${esc(e.input)}</code>`));
+  }
+  const body = $("#drawerBody");
+  if (body.scrollHeight - body.scrollTop - body.clientHeight < 200) body.scrollTop = body.scrollHeight;
+}
+
+const drawerInput = $("#drawerInput");
+drawerInput.addEventListener("input", () => { drawerInput.style.height = "auto"; drawerInput.style.height = Math.min(180, drawerInput.scrollHeight) + "px"; });
+drawerInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); $("#drawerForm").requestSubmit(); } });
+$("#drawerForm").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const text = drawerInput.value.trim();
+  if (!text || !agentData) return;
+  const isQm = agentData.id === "quartermaster";
+  try {
+    const r = await api("/api/send", { text: isQm ? text : `@${agentData.id} ${text}`, chat: !isQm });
+    drawerInput.value = "";
+    drawerInput.style.height = "auto";
+    const thread = $("#agentThread");
+    if (thread) {
+      thread.querySelector(".empty")?.remove();
+      const you = el("div", "bubble you");
+      you.textContent = text;
+      thread.append(you);
+      if (r.position > 0) thread.append(el("div", "thread-day", `Queued (#${r.position}): starts when one of the running expeditions finishes`));
+      $("#drawerBody").scrollTop = $("#drawerBody").scrollHeight;
+    }
+  } catch (e) { $("#drawerHint").textContent = e.message; }
+};
+
 // ---------- Feed ----------
 const feed = $("#feed");
-// The current expedition: its card, and each quest in it by id (quests can run in parallel).
-let cur = null; // { el, body, quests: Map<questId, { body, pill }>, started }
+// Running expeditions by id (several run at once): each one's card, its quests by id (quests
+// run in parallel too), and who's working in it.
+const exps = new Map(); // id → { el, body, quests: Map<questId, { body, pill }>, started, members: Set<name> }
 let lastSeq = 0;
 let bootId = null;
-const live = new Map(); // streaming replies in progress, by quest (or "top:<who>")
+const live = new Map(); // streaming replies in progress, by expedition + quest (or + "top:<who>")
 
 function nearBottom() { return feed.scrollHeight - feed.scrollTop - feed.clientHeight < 140; }
-function targetFor(questId) {
-  if (!cur) return feed;
-  return (questId && cur.quests.get(questId)?.body) || cur.body;
+function targetFor(expId, questId) {
+  const x = exps.get(expId);
+  if (!x) return feed;
+  return (questId && x.quests.get(questId)?.body) || x.body;
 }
-function place(node, questId) {
+function place(node, questId, expId) {
   const stick = nearBottom();
   $("#emptyFeed")?.remove();
-  targetFor(questId).append(node);
+  targetFor(expId, questId).append(node);
   if (stick) feed.scrollTop = feed.scrollHeight;
 }
 
 function startExpedition(e) {
   const label = e.source === "job" ? `Job · ${e.job}` : e.source === "direct" ? "Direct" : "Expedition";
   const card = el("article", "exp");
-  card.innerHTML = `<header class="exp-head"><span class="badge ${e.source === "job" ? "job" : e.source === "direct" ? "direct" : ""}">${esc(label)}</span><h3>${esc(e.task)}</h3><time>${clock(e.time)}</time><button type="button" class="btn small danger stop-btn" title="Stop this expedition and every quest in it">Stop</button></header><div class="exp-body"></div><footer class="exp-foot" hidden></footer>`;
+  card.dataset.id = e.id;
+  card.dataset.task = e.task;
+  card.dataset.source = e.source;
+  card.innerHTML = `<header class="exp-head"><span class="badge ${e.source === "job" ? "job" : e.source === "direct" ? "direct" : ""}">${esc(label)}</span>${e.replyTo ? '<span class="badge follow" title="Carries the earlier conversation">↩ Follow-up</span>' : ""}<h3>${esc(e.task)}</h3><time>${clock(e.time)}</time><button type="button" class="btn small danger stop-btn" title="Stop this expedition and every quest in it">Stop</button></header><div class="exp-body"></div><footer class="exp-foot" hidden></footer>`;
   const stopBtn = $(".stop-btn", card);
   stopBtn.onclick = async () => {
     stopBtn.disabled = true;
     stopBtn.textContent = "Stopping…";
-    try { await api("/api/stop", {}); } catch { stopBtn.remove(); } // already finished
+    try { await api("/api/stop", { id: e.id }); } catch { stopBtn.remove(); } // already finished
   };
   if (e.attachments?.length) {
     const row = el("div", "exp-atts");
     for (const a of e.attachments) row.append(attChip(a, true));
     $(".exp-head", card).after(row);
   }
-  cur = null;
   place(card);
-  cur = { el: card, body: $(".exp-body", card), quests: new Map(), started: new Date(e.time) };
+  exps.set(e.id, { el: card, body: $(".exp-body", card), quests: new Map(), started: new Date(e.time), members: new Set(e.source === "direct" ? [] : ["Quartermaster"]) });
 }
 
 function endExpedition(e) {
-  if (!cur) return;
-  $(".stop-btn", cur.el)?.remove();
-  const foot = $(".exp-foot", cur.el);
-  const secs = Math.max(1, Math.round((new Date(e.time) - cur.started) / 1000));
+  const x = exps.get(e.id);
+  if (!x) return;
+  $(".stop-btn", x.el)?.remove();
+  const foot = $(".exp-foot", x.el);
+  const secs = Math.max(1, Math.round((new Date(e.time) - x.started) / 1000));
   const ok = e.status === "done";
   foot.hidden = false;
-  foot.innerHTML = `<span class="pill ${ok ? "done" : "bad"}">${ok ? "Complete" : esc(e.status.replace(/_/g, " "))}</span><span>${secs < 90 ? secs + "s" : Math.round(secs / 60) + " min"}</span>`;
-  if (e.status === "error") cur.body.append(el("div", "notice", esc(e.text)));
-  cur = null;
-  finishLive();
+  foot.innerHTML = `<span class="pill ${ok ? "done" : "bad"}">${ok ? "Complete" : esc(e.status.replace(/_/g, " "))}</span><span>${secs < 90 ? secs + "s" : Math.round(secs / 60) + " min"}</span>${e.changed ? `<span>· ${e.changed} file${e.changed === 1 ? "" : "s"} changed</span>` : ""}<span class="foot-actions"></span>`;
+  if (e.status === "error" || e.status === "interrupted") x.body.append(el("div", "notice", esc(e.text)));
+  const actions = $(".foot-actions", foot);
+  if (e.changed) {
+    const view = el("button", "btn small", "View changes"); view.type = "button";
+    view.onclick = () => toggleChanges(x.el, e.id, view);
+    actions.append(view);
+  }
+  if (x.el.dataset.source !== "job") {
+    const reply = el("button", "btn small", "Reply"); reply.type = "button";
+    reply.title = "Follow up, carrying this whole conversation over";
+    reply.onclick = () => setReply(e.id, x.el.dataset.task);
+    actions.append(reply);
+  }
+  exps.delete(e.id);
+  for (const k of [...live.keys()]) if (k.startsWith(`${e.id}|`)) finishLive(k);
+  // Crew who worked here go back to camp, unless they're still busy in another expedition.
+  const elsewhere = new Set([...exps.values()].flatMap((o) => [...o.members]));
+  for (const name of x.members) if (!elsewhere.has(name) && crew[name]?.status !== "idle") crew[name] = { ...crew[name], status: "idle" };
+  renderCrew();
 }
 
-const liveKey = (e) => e.questId || `top:${e.who}`;
+// What an expedition's file tools changed: the list, a diff, and Undo.
+async function toggleChanges(card, id, btn) {
+  const open = $(".exp-changes", card);
+  if (open) { open.remove(); btn.textContent = "View changes"; return; }
+  const box = el("div", "exp-changes", '<div class="meta">Loading…</div>');
+  $(".exp-foot", card).before(box);
+  btn.textContent = "Hide changes";
+  let d;
+  try { d = await api(`/api/checkpoint?id=${encodeURIComponent(id)}`); }
+  catch (err) { box.innerHTML = `<div class="meta">${esc(err.message)}</div>`; return; }
+  if (!d.files.length) { box.innerHTML = `<div class="meta">${d.undone ? "These changes were undone." : "Nothing is changed any more (the files match how they were before)."}</div>`; return; }
+  const WORDS = { created: "created", modified: "changed", deleted: "deleted" };
+  box.innerHTML = `<ul>${d.files.map((f) => `<li><span class="chg">${WORDS[f.change]}</span><code>${esc(f.path)}</code></li>`).join("")}</ul><pre class="diff"></pre><div class="card-actions" style="margin-top:10px"><button type="button" class="btn small danger">Undo these changes</button><span class="meta">Covers write_file and edit_file. Changes made by shell commands aren't tracked.</span></div>`;
+  $("pre.diff", box).innerHTML = d.diff.split("\n").map((l) => {
+    const cls = l.startsWith("+++") || l.startsWith("---") ? "file" : l.startsWith("@@") ? "hunk" : l.startsWith("+") ? "add" : l.startsWith("-") ? "del" : "";
+    return cls ? `<span class="${cls}">${esc(l)}</span>` : esc(l) + "\n";
+  }).join("");
+  $(".btn.danger", box).onclick = async (ev) => {
+    if (!confirm(`Put ${d.files.length} file${d.files.length === 1 ? "" : "s"} back the way ${d.files.length === 1 ? "it was" : "they were"} before this expedition?`)) return;
+    ev.target.disabled = true;
+    try {
+      const r = await api("/api/checkpoint/undo", { id });
+      box.innerHTML = `<div class="meta">↩ Put back ${r.restored.length} file${r.restored.length === 1 ? "" : "s"}.${r.skipped.length ? ` Couldn't restore: ${esc(r.skipped.join(", "))}.` : ""}</div>`;
+    } catch (err) { ev.target.disabled = false; alert(err.message); }
+  };
+}
+
+// Following up: the next message continues that expedition's conversation.
+let replyTo = null;
+function setReply(id, task) {
+  replyTo = id;
+  $("#replyTitle").textContent = task || "that expedition";
+  $("#replyBar").hidden = false;
+  $("#input").focus();
+}
+function clearReply() { replyTo = null; $("#replyBar").hidden = true; }
+$("#replyCancel").onclick = clearReply;
+
+const liveKey = (e) => `${e.expeditionId ?? ""}|${e.questId || `top:${e.who}`}`;
 function msgShell(e) {
   const m = el("div", `msg ${cClass(e.who)}`);
   m.innerHTML = `<div class="avatar" aria-hidden="true">${esc(e.emoji)}</div><div style="min-width:0"><div class="msg-who">${esc(e.who)}</div><div class="md"></div></div>`;
@@ -665,7 +1145,7 @@ function addDelta(e) {
     m = msgShell(e);
     m.querySelector(".md").classList.add("streaming");
     live.set(liveKey(e), m);
-    place(m, e.questId);
+    place(m, e.questId, e.expeditionId);
   }
   const stick = nearBottom();
   m.querySelector(".md").textContent += e.delta;
@@ -676,7 +1156,7 @@ function addText(e) {
   const body = m.querySelector(".md");
   body.classList.remove("streaming");
   body.innerHTML = md(e.text);
-  if (!m.isConnected) place(m, e.questId);
+  if (!m.isConnected) place(m, e.questId, e.expeditionId);
   live.delete(liveKey(e));
 }
 
@@ -684,10 +1164,11 @@ function addTool(e) {
   live.delete(liveKey(e)); // the next words after a tool call start a new message
   const t = el("div", `tool ${cClass(e.who)}`);
   t.innerHTML = `<b>${esc(e.tool)}</b><code title="${esc(e.input)}">${esc(e.input)}</code>`;
-  place(t, e.questId);
+  place(t, e.questId, e.expeditionId);
 }
 
 function addDispatch(e) {
+  const cur = exps.get(e.expeditionId);
   if (!cur) return;
   const q = el("section", `quest ${cClass(e.who)}`);
   q.innerHTML = `<div class="quest-head"><span>${esc(e.emoji)} ${esc(e.who)} sets out</span><span class="pill live">On quest</span></div><div class="quest-body"></div>`;
@@ -707,7 +1188,7 @@ function finishLive(key) {
 
 function addReturn(e) {
   finishLive(liveKey(e));
-  const q = cur?.quests.get(e.questId);
+  const q = exps.get(e.expeditionId)?.quests.get(e.questId);
   if (!q) return;
   const ok = e.status === "done";
   q.pill.className = `pill ${ok ? "done" : "bad"}`;
@@ -719,6 +1200,7 @@ const ASK_LABELS = {
   shell: { note: "This runs on your machine.", yes: "Run command", done: "✓ Command allowed" },
   job: { note: "It runs on schedule while mission control (or npm run watch) is open.", yes: "Schedule it", done: "✓ Job scheduled" },
   tool: { note: "This connector tool makes changes outside the camp.", yes: "Allow", done: "✓ Allowed" },
+  question: { note: "The Quartermaster is waiting for your answer before planning." },
 };
 
 function addAsk(e) {
@@ -742,14 +1224,23 @@ function addAsk(e) {
     const go = () => { const v = input.value.trim(); if (v && v.toLowerCase() !== "n" && v.toLowerCase() !== "y") answer(v); };
     send.onclick = go; input.onkeydown = (ev) => { if (ev.key === "Enter") go(); };
     row.append(input, send);
+  } else if (e.kind === "question") {
+    const input = el("input"); input.placeholder = "Type your answer…"; input.setAttribute("aria-label", "Your answer");
+    const send = el("button", "btn primary", "Answer"); send.type = "button";
+    const go = () => { const v = input.value.trim(); if (v) answer(v); };
+    send.onclick = go; input.onkeydown = (ev) => { if (ev.key === "Enter") go(); };
+    row.append(input, send);
+    button("Skip (let them decide)", "", "");
   } else {
     button(ASK_LABELS[e.kind]?.yes ?? "Allow", "primary", "y");
+    if (e.kind === "shell") button("Always allow this command", "", "always").title = "Run it, and stop asking about this exact command (saved in camp/settings.json)";
     button("Decline", "danger", "n");
   }
   asks.set(e.id, card);
-  place(card, e.questId);
+  notifyAsk(e);
+  place(card, e.questId, e.expeditionId);
   // Whoever is asking: the quest's adventurer, or the Quartermaster for plans and jobs.
-  const questOwner = e.questId && cur?.quests.get(e.questId)?.body.closest(".quest")?.querySelector(".quest-head span")?.textContent.replace(/^\S+\s+|\s+sets out$/g, "");
+  const questOwner = e.questId && exps.get(e.expeditionId)?.quests.get(e.questId)?.body.closest(".quest")?.querySelector(".quest-head span")?.textContent.replace(/^\S+\s+|\s+sets out$/g, "");
   card.dataset.who = card.dataset.who || questOwner || "Quartermaster";
   setCrew(card.dataset.who, "waiting");
   updateNeeds();
@@ -760,8 +1251,11 @@ function resolveAsk(e) {
   if (!card) return;
   const a = e.answer;
   const kind = card.dataset.kind;
-  const text = kind === "plan"
+  const text = e.lapsed ? "Not answered (the camp was restarted)"
+    : kind === "plan"
     ? (a === "" || a.toLowerCase() === "y" ? "✓ Plan approved" : a.toLowerCase() === "n" ? "✕ Plan stopped" : `↺ Changes requested: ${a}`)
+    : kind === "question" ? (a ? `You answered: ${a}` : "Skipped: left to the Quartermaster")
+    : a.toLowerCase() === "always" || a.toLowerCase() === "a" ? "✓ Allowed, and won't ask again for this command"
     : (a.toLowerCase() === "y" ? ASK_LABELS[kind]?.done ?? "✓ Allowed" : "✕ Declined");
   card.classList.add("resolved");
   const out = $(".ask-outcome", card);
@@ -778,6 +1272,35 @@ function updateNeeds() {
   const b = $("#needs");
   b.hidden = n === 0;
   b.textContent = n === 1 ? "1 decision needs you" : `${n} decisions need you`;
+  document.title = n ? `(${n}) Guild Camp` : "Guild Camp";
+}
+
+// ---------- Notifications: a ping when the camp needs you and this tab isn't in front ----------
+let replaying = true; // the saved feed is replayed on load; only new questions should ping
+const canNotify = () => "Notification" in window;
+function renderBell() {
+  const bell = $("#bell");
+  if (!canNotify()) { bell.hidden = true; return; }
+  const on = Notification.permission === "granted" && storeGet("camp-notify") !== "off";
+  bell.textContent = on ? "🔔" : "🔕";
+  bell.title = Notification.permission === "denied" ? "Notifications are blocked for this page in your browser's settings"
+    : on ? "Notifications are on: you'll be pinged when the camp needs a decision. Click to turn off."
+    : "Notify me when the camp needs a decision";
+}
+$("#bell").onclick = async () => {
+  if (!canNotify()) return;
+  if (Notification.permission === "granted") storeSet("camp-notify", storeGet("camp-notify") === "off" ? "on" : "off");
+  else if (Notification.permission !== "denied") { await Notification.requestPermission(); storeSet("camp-notify", "on"); }
+  renderBell();
+};
+function notify(title, body) {
+  if (replaying || !canNotify() || Notification.permission !== "granted" || storeGet("camp-notify") === "off") return;
+  if (!document.hidden && document.hasFocus()) return;
+  try { const n = new Notification(title, { body: String(body).slice(0, 220), tag: title }); n.onclick = () => { window.focus(); n.close(); }; } catch {}
+}
+function notifyAsk(e) {
+  const titles = { plan: "Plan to approve", shell: "Shell command waiting", job: "New scheduled job", tool: "Connector call waiting", question: "The Quartermaster has a question" };
+  notify(`Guild Camp: ${titles[e.kind] ?? "Decision needed"}`, e.body);
 }
 $("#needs").onclick = () => { const first = asks.values().next().value; first?.scrollIntoView({ behavior: "smooth", block: "center" }); };
 
@@ -786,15 +1309,16 @@ function addSys(text) { const s = el("div", "sys", esc(text)); const stick = nea
 function handle(e) {
   if (e.seq <= lastSeq) return;
   lastSeq = e.seq;
+  agentLive(e);
+  if (e.who && e.expeditionId) exps.get(e.expeditionId)?.members.add(e.who);
   switch (e.type) {
     case "expedition_start":
       startExpedition(e);
       if (e.source !== "direct") setCrew("Quartermaster", "active", "Planning the expedition");
       break;
     case "expedition_end":
+      if (exps.has(e.id) && Date.now() - exps.get(e.id).started > 60000) notify(`Guild Camp: expedition ${e.status === "done" ? "finished" : e.status.replace(/_/g, " ")}`, e.text);
       endExpedition(e);
-      for (const name of Object.keys(crew)) if (crew[name].status !== "idle") crew[name].status = "idle";
-      renderCrew();
       refresh();
       break;
     case "text_delta":
@@ -810,7 +1334,7 @@ function handle(e) {
       setCrew(e.who, "active", `Using ${e.tool}`);
       break;
     case "notice":
-      place(el("div", "notice", esc(e.text)), e.questId);
+      place(el("div", "notice", esc(e.text)), e.questId, e.expeditionId);
       break;
     case "dispatch":
       addDispatch(e);
@@ -829,17 +1353,18 @@ function handle(e) {
       if (e.outcome === "failed") addSys(`💥 "${e.name}" failed: ${e.text ?? ""}`);
       refresh();
       break;
-    case "changed": refresh(); break;
+    case "changed": refresh(); break; // includes "queue": something started, finished, or was stopped
   }
   updateBusy();
 }
 
 function updateBusy() {
   const busy = $("#busy");
-  const working = cur != null;
+  const n = exps.size;
   const queued = S?.queued?.length ?? 0;
-  busy.classList.toggle("busy", working);
-  busy.innerHTML = `<span class="dot ${working ? "live" : ""}"></span><span>${working ? "On expedition" : "Idle"}${queued ? ` · ${queued} queued` : ""}</span>`;
+  busy.classList.toggle("busy", n > 0);
+  busy.title = `Up to ${S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it under Quests.`;
+  busy.innerHTML = `<span class="dot ${n ? "live" : ""}"></span><span>${n === 0 ? "Idle" : n === 1 ? "On expedition" : `${n} expeditions running`}${queued ? ` · ${queued} queued` : ""}</span>`;
 }
 
 // ---------- Live connection ----------
@@ -849,10 +1374,12 @@ function connect() {
   es.addEventListener("hello", (m) => {
     const hello = JSON.parse(m.data);
     if (bootId && hello.bootId !== bootId) { // the camp restarted: start the feed over
-      feed.innerHTML = ""; cur = null; lastSeq = 0; crew = {}; asks.clear(); updateNeeds();
+      feed.innerHTML = ""; exps.clear(); lastSeq = 0; crew = {}; asks.clear(); updateNeeds();
     }
     bootId = hello.bootId;
     conn.innerHTML = '<span class="dot live"></span><span>Live</span>';
+    replaying = true;
+    setTimeout(() => { replaying = false; }, 1500); // the saved feed arrives right after hello
     refresh();
   });
   es.onmessage = (m) => handle(JSON.parse(m.data));
@@ -880,7 +1407,8 @@ function attChip(a, big) {
   } else if (isImagePath(a.path) && a.path.startsWith("camp/uploads/")) {
     c.innerHTML = `<img src="${thumbUrl(a.path)}" alt="" class="${big ? "big" : ""}"><span class="att-name">${esc(a.name)}</span>`;
   } else {
-    const label = a.kind === "folder" ? `${a.name}${a.count ? ` · ${a.count} files` : ""}` : a.name;
+    const linked = (a.path ?? "").startsWith("links/");
+    const label = a.kind === "folder" ? `${a.name}${a.count ? ` · ${a.count} files` : ""}${linked ? " · linked" : ""}` : a.name;
     c.innerHTML = `<span class="att-icon">${a.kind === "folder" ? "📁" : a.image ? "🖼️" : "📄"}</span><span class="att-name" title="${esc(a.path ?? "")}">${esc(label)}</span>`;
   }
   return c;
@@ -1006,6 +1534,7 @@ function showView(view) {
   menu.querySelectorAll(".menu-view").forEach((v) => (v.hidden = v.dataset.view !== view));
   if (view === "url") setTimeout(() => $("#urlInput").focus(), 0);
   if (view === "snippets") renderSnippets();
+  if (view === "link") { renderLinkList(); setTimeout(() => $("#pickFolder").focus(), 0); }
   if (view === "main") setTimeout(() => menu.querySelector(".menu-item")?.focus(), 0);
 }
 function openMenu() { closeMention(); menu.hidden = false; attachBtn.setAttribute("aria-expanded", "true"); showView("main"); }
@@ -1024,8 +1553,65 @@ menu.addEventListener("click", (ev) => {
   if (act === "folder") { closeMenu(); $("#pickFolder").click(); }
   if (act === "images") { closeMenu(); $("#pickImages").click(); }
   if (act === "paste") { closeMenu(); pasteFromClipboard(); }
-  if (act === "url" || act === "snippets" || act === "back") showView(act === "back" ? "main" : act);
+  if (act === "url" || act === "snippets" || act === "link" || act === "back") showView(act === "back" ? "main" : act);
 });
+// Linked folders: attach by reference (links/<name>), nothing uploaded.
+function attachLink(link) {
+  if (pending.some((a) => a.path === `links/${link.name}`)) return;
+  pending.push({ kind: "folder", name: link.name, path: `links/${link.name}`, count: link.files, status: "ready" });
+  renderChips();
+}
+function renderLinkList() {
+  const list = $("#linkList");
+  list.innerHTML = "";
+  const links = S?.links ?? [];
+  if (!links.length) return;
+  list.append(el("div", "menu-label", "Already linked"));
+  for (const l of links) {
+    const row = el("div", "snippet");
+    const use = el("button", "use", `<strong>📁 ${esc(l.name)}</strong><span>${esc(l.path)} · ${l.files ?? "?"} files · ${l.access === "write" ? "can edit" : "read-only"}</span>`);
+    use.type = "button";
+    use.onclick = () => { attachLink(l); closeMenu(); input.focus(); };
+    row.append(use);
+    list.append(row);
+  }
+}
+async function linkFolder(path) {
+  const err = $("#linkError");
+  err.hidden = true;
+  try {
+    const access = document.querySelector('input[name="linkAccess"]:checked')?.value ?? "read";
+    const link = await api("/api/links", { path, access });
+    attachLink(link);
+    $("#linkPath").value = "";
+    closeMenu();
+    input.focus();
+    refresh();
+  } catch (e) {
+    $("#linkPath").value = path; // keep it, so a bad pick can be fixed by hand
+    err.textContent = e.message;
+    err.hidden = false;
+  }
+}
+$("#linkForm").onsubmit = (ev) => {
+  ev.preventDefault();
+  const path = $("#linkPath").value.trim();
+  if (path) linkFolder(path);
+};
+// The browser can't see a folder's real path, so the camp opens your system's folder dialog.
+$("#pickFolder").onclick = async () => {
+  const btn = $("#pickFolder"), err = $("#linkError");
+  err.hidden = true;
+  btn.disabled = true;
+  btn.textContent = "Waiting for the folder dialog…";
+  try {
+    const r = await api("/api/links/pick", {});
+    if (r.path) await linkFolder(r.path);
+    else if (r.unsupported) { err.textContent = r.unsupported; err.hidden = false; $(".link-manual").open = true; $("#linkPath").focus(); }
+  } catch (e) { err.textContent = e.message; err.hidden = false; $(".link-manual").open = true; }
+  finally { btn.disabled = false; btn.textContent = "Choose folder…"; }
+};
+
 $("#urlForm").onsubmit = (ev) => {
   ev.preventDefault();
   const v = $("#urlInput").value.trim();
@@ -1153,14 +1739,15 @@ $("#form").onsubmit = async (ev) => {
   if (!text && !attachments.length) return;
   hideError();
   try {
-    const r = await api("/api/send", { text, attachments });
+    const r = await api("/api/send", { text, attachments, ...(replyTo ? { replyTo } : {}) });
+    clearReply();
     input.value = "";
     pending.length = 0;
     batch = null;
     renderChips();
     autosize();
     closeMention();
-    if (r.position > 0) addSys("Queued: it starts when the current expedition finishes");
+    if (r.position > 0) addSys(S?.pausedUntil ? `Queued (#${r.position}): it starts when your plan's limit resets` : `Queued (#${r.position}): ${S?.parallel ?? 3} expeditions are already running, so it starts when one finishes`);
     refresh();
   } catch (e) { showError(e.message); }
 };
@@ -1214,6 +1801,23 @@ function renderTab() {
 
 const money = (n) => (!n ? "$0" : n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`);
 
+// Your plan's usage windows, as Claude Code last reported them.
+function resetIn(ms) {
+  const mins = Math.max(1, Math.round((ms - Date.now()) / 60000));
+  return mins < 90 ? `${mins} min` : mins < 48 * 60 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} days`;
+}
+function limitsHtml() {
+  if (S.runtime !== "claude-code") return "";
+  const rows = (S.limits ?? []).map((l) => {
+    const pct = l.utilization == null ? null : Math.min(100, Math.round(l.utilization * 100));
+    const cls = l.status === "rejected" ? "full" : l.status === "allowed_warning" || (pct ?? 0) >= 80 ? "warn" : "";
+    const label = l.label[0].toUpperCase() + l.label.slice(1);
+    return `<div class="limit-row"><div class="limit-top"><b>${esc(label)}</b><span>${l.status === "rejected" ? "used up" : pct == null ? "OK" : pct + "% used"}${l.resetsAt ? ` · resets in ${resetIn(l.resetsAt)}` : ""}</span></div>${pct == null && l.status !== "rejected" ? "" : `<div class="meter ${cls}"><i style="width:${l.status === "rejected" ? 100 : pct}%"></i></div>`}</div>`;
+  }).join("");
+  const pause = S.pausedUntil ? `<div class="pause-note"><span>${esc(S.pauseMessage)} Queued work and scheduled jobs wait until then.</span><button type="button" class="btn small" id="tryAnyway">Try anyway</button></div>` : "";
+  return `<div class="limits">${rows || '<div class="meta">Plan usage appears here after the next run.</div>'}</div>${pause}`;
+}
+
 function spendCard() {
   const card = el("div", "spend-card");
   card.innerHTML = `
@@ -1222,11 +1826,23 @@ function spendCard() {
       <div><b>${money(S.spend.week)}</b><span>Last 7 days</span></div>
       <div><b>${money(S.spend.total)}</b><span>All time</span></div>
     </div>
+    ${S.runtime === "claude-code" ? '<div class="meta" style="margin-top:8px">On your Claude subscription these are estimates at API prices, not charges; your plan\'s usage limits apply.</div>' : ""}
+    ${limitsHtml()}
     <form class="budget-form">
       <label>Budget per expedition $ <input class="budget-input" type="number" min="0" step="0.25" placeholder="none" value="${S.budgetUsd ?? ""}"></label>
       <button class="btn small" type="submit">Save</button>
       <span>${S.budgetUsd ? `Stops at ${money(S.budgetUsd)}, all agents together.` : "No limit."}</span>
+    </form>
+    <form class="budget-form parallel-form">
+      <label>Run up to <select class="parallel-input" aria-label="Expeditions at once">${[1, 2, 3, 4, 5, 6, 8].map((n) => `<option ${n === S.parallel ? "selected" : ""}>${n}</option>`).join("")}</select> expeditions at once</label>
+      <span>The rest wait their turn. More at once uses your ${S.runtime === "claude-code" ? "plan's limits" : "API budget"} faster.</span>
     </form>`;
+  const tryBtn = $("#tryAnyway", card);
+  if (tryBtn) tryBtn.onclick = async () => { try { await api("/api/limits/resume", {}); refresh(); } catch (e) { alert(e.message); } };
+  $(".parallel-input", card).onchange = async (ev) => {
+    try { await api("/api/parallel", { parallel: Number(ev.target.value) }); refresh(); }
+    catch (e) { alert(e.message); }
+  };
   $(".budget-form", card).onsubmit = async (ev) => {
     ev.preventDefault();
     const v = $(".budget-input", card).value.trim();
@@ -1250,7 +1866,7 @@ function renderQuests(box) {
     const li = el("li", `card ${cClass(q.character)}`);
     li.innerHTML = `
       <div class="card-top"><span class="who">${esc(emojiFor(q.character))} ${esc(q.character)}${q.job ? ` · ${esc(q.job)}` : ""}</span><span class="pill ${ok ? "done" : "bad"}">${esc(q.status.replace(/_/g, " "))}</span><time>${when(q.time)}</time></div>
-      <div class="meta"><b>${money(q.cost)}</b> · ${q.seconds}s ·${q.turns} turn${q.turns === 1 ? "" : "s"} · ${kTok(total)} in (${cached}% cached) · ${kTok(u.output)} out · ${esc(q.model.replace(/^claude-/, ""))} · ${esc(q.effort ?? "default")}</div>
+      <div class="meta"><b>${money(q.cost)}${q.runtime === "claude-code" ? " est." : ""}</b> · ${q.seconds}s · ${q.turns} turn${q.turns === 1 ? "" : "s"} · ${kTok(total)} in (${cached}% cached) · ${kTok(u.output)} out · ${esc(q.model.replace(/^claude-/, ""))} · ${esc(q.effort ?? "default")}</div>
       <div class="clamp"><b>Asked</b> ${esc(q.task)}</div>
       <div class="clamp"><b>Result</b> ${esc(q.result)}</div>`;
     li.querySelectorAll(".clamp").forEach((c) => (c.onclick = () => c.classList.toggle("open")));
@@ -1260,7 +1876,9 @@ function renderQuests(box) {
 }
 
 function renderJobs(box) {
-  box.innerHTML = '<p class="panel-note">Jobs run on schedule while mission control is open. Quiet runs (nothing new) don\'t ping you.</p>';
+  const runner = S.jobsRunBy === "watch" ? "A watcher (npm run watch, or the background one) is running the jobs right now, so mission control is standing by."
+    : "Jobs run on schedule while mission control is open. To run them with nothing open, use npm run watch:install.";
+  box.innerHTML = `<p class="panel-note">${runner} Quiet runs (nothing new) don't ping you.${S.pausedUntil ? " <b>Paused until your plan's limit resets.</b>" : ""}</p>`;
   if (!S.jobs.length) {
     box.innerHTML += emptyState("No scheduled jobs", "Ask the Quartermaster for something recurring, like “Every weekday at 08:00, summarize what's new in the wiki.”");
     return;
@@ -1359,8 +1977,29 @@ function renderMemory(box) {
   }
 }
 
+function renderLinkedFolders(box) {
+  const g = el("div", "wiki-group", `<h4>Linked folders</h4><p>Folders on your disk the crew can read as links/&lt;name&gt;/, without uploading. Add one from the + menu.</p>`);
+  if (!S.links?.length) g.append(el("div", "meta", "None yet."));
+  const list = el("ul", "list");
+  for (const l of S.links ?? []) {
+    const li = el("li", "card");
+    li.innerHTML = `
+      <div class="card-top"><span class="who">📁 links/${esc(l.name)}</span><span class="pill ${l.access === "write" ? "live" : ""}">${l.access === "write" ? "Can edit" : "Read-only"}</span></div>
+      <div class="meta" style="overflow-wrap:anywhere">${esc(l.path)} · ${l.files ?? "?"} files</div>
+      <div class="card-actions"><button type="button" class="btn small">Attach</button><button type="button" class="btn small danger">Unlink</button></div>`;
+    const [attach, unlink] = li.querySelectorAll(".btn");
+    attach.onclick = () => { attachLink(l); input.focus(); };
+    unlink.onclick = async () => { if (confirm(`Unlink ${l.path}? The folder itself isn't touched.`)) { await api("/api/links/remove", { name: l.name }); refresh(); } };
+    list.append(li);
+  }
+  g.append(list);
+  box.append(g);
+}
+
 function renderConnectors(box) {
-  box.innerHTML = '<p class="panel-note">MCP servers the crew can use, from camp/mcp.json. Read-only unless a server allows writes, and then each write asks you first.</p>';
+  box.innerHTML = "";
+  renderLinkedFolders(box);
+  box.insertAdjacentHTML("beforeend", '<div class="wiki-group" style="margin-top:18px"><h4>MCP connectors</h4><p>Servers from camp/mcp.json. Read-only unless a server allows writes, and then each write asks you first.</p></div>');
   if (!S.connectors.length) {
     box.insertAdjacentHTML("beforeend", emptyState("No connectors yet", "Copy mcp.example.json to camp/mcp.json, fill in a server (GitHub, a notes folder…), and say which crew members may use it. It's picked up on the next run."));
     return;
@@ -1381,8 +2020,36 @@ function renderConnectors(box) {
   box.append(list);
 }
 
+// What runs the crew: your Claude subscription (through Claude Code) or the API. Click to switch.
+function renderRuntimeChip() {
+  const chip = $("#runtime");
+  if (!S) return;
+  const sub = S.runtime === "claude-code";
+  const problem = sub && S.login && !S.login.ok ? S.login.problem : "";
+  const plan = S.login?.plan ? S.login.plan[0].toUpperCase() + S.login.plan.slice(1) : "";
+  chip.classList.toggle("needs", !!problem);
+  chip.innerHTML = problem ? "⚠️ Claude Code sign-in" : sub ? `<span class="dot live"></span>Claude ${esc(plan || "subscription")}` : "API key";
+  chip.title = problem || (sub ? `The crew runs on your Claude ${plan || ""} subscription through Claude Code. Click to switch to the API.` : "The crew runs on the API (ANTHROPIC_API_KEY). Click to switch to your Claude subscription.");
+  chip.onclick = async () => {
+    if (problem) return alert(problem);
+    const next = sub ? "api" : "claude-code";
+    const msg = next === "api"
+      ? "Switch the crew to the API? Usage will be billed to your API key."
+      : "Switch the crew to your Claude subscription (through Claude Code)? Usage will count against your plan's limits.";
+    if (!confirm(msg)) return;
+    try { await api("/api/runtime", { runtime: next }); refresh(); } catch (e) { alert(e.message); }
+  };
+}
+
 function renderAll() {
-  $("#spend").textContent = `${money(S.spend?.today ?? 0)} today`;
+  const sub = S.runtime === "claude-code";
+  $("#spend").textContent = `${money(S.spend?.today ?? 0)} today${sub ? " (est.)" : ""}`;
+  $("#spend").title = sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)";
+  renderRuntimeChip();
+  const paused = $("#paused");
+  paused.hidden = !S.pausedUntil;
+  if (S.pausedUntil) { paused.textContent = `⏸ Plan limit · resets in ${resetIn(S.pausedUntil)}`; paused.title = `${S.pauseMessage} Click for details.`; }
+  renderBell();
   renderCrew();
   renderHints();
   renderTabs();
@@ -1390,6 +2057,7 @@ function renderAll() {
   updateBusy();
 }
 
+$("#paused").onclick = () => { tab = "quests"; storeSet("camp-tab", tab); renderTabs(); renderTab(); };
 renderTabs();
 connect();
 </script>

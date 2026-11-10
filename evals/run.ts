@@ -6,7 +6,7 @@
 //   npm run eval -- --list                        show the cases
 //   npm run eval -- --no-judge                    skip the Claude-judged checks
 // Results are printed and saved to evals/results/<time>.json (local, gitignored).
-// This spends real tokens: each case is capped at $2 (EVAL_CASE_BUDGET to change it).
+// This spends real usage (your subscription, or API tokens): each case is capped at $2 (EVAL_CASE_BUDGET).
 
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -33,7 +33,9 @@ for (let i = 0; i < args.length; i++) {
 const wanted = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--set");
 const cases = wanted.length ? CASES.filter((c) => wanted.includes(c.id)) : CASES;
 if (!cases.length) throw new Error(`No matching cases. Try --list.`);
-if (!process.env.ANTHROPIC_API_KEY) throw new Error("Set ANTHROPIC_API_KEY (or put it in .env) to run evals.");
+// On the API runtime evals need a key; on the subscription runtime they use Claude Code's login.
+const { campRuntime } = await import("../src/settings.ts");
+if (campRuntime() === "api" && !process.env.ANTHROPIC_API_KEY) throw new Error("Set ANTHROPIC_API_KEY (or put it in .env) to run evals on the API runtime.");
 
 function runCase(id: string): Promise<any> {
   return new Promise((ok) => {

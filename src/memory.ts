@@ -5,8 +5,8 @@
 //   outputs/      their files and deliverables (only they write here)
 // Agents can read each other's outputs, but never each other's memory or sessions.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from "node:fs";
-import { join } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 import { CREW, type CrewId } from "./crew.js";
 import { emit } from "./events.js";
 import type { Tool } from "./tools.js";
@@ -29,8 +29,13 @@ export function workspace(id: CrewId) {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Workspaces already set up by this process (per camp folder), so reads don't rewrite files.
+const ready = new Set<string>();
+
 export function ensureWorkspace(id: CrewId) {
   const ws = workspace(id);
+  const key = `${process.cwd()}|${id}`;
+  if (ready.has(key) && existsSync(ws.memory) && existsSync(ws.sessions) && existsSync(ws.outputs)) return;
   mkdirSync(ws.sessions, { recursive: true });
   mkdirSync(ws.outputs, { recursive: true });
   const me = CREW[id];
@@ -39,6 +44,7 @@ export function ensureWorkspace(id: CrewId) {
     `# ${me.emoji} ${me.name}\n\n(Generated from src/crew.ts. Edit it there; agents can't change it.)\n\n` +
       `- **Role:** ${me.role}\n- **Personality:** ${me.personality}\n- **Handles:** ${me.handles}\n- **Not theirs:** ${me.notFor}\n`
   );
+  ready.add(key);
   if (!existsSync(ws.memory)) {
     let seed = "";
     // The old camp ledger was the Quartermaster's memory all along: carry it over once.
@@ -113,15 +119,83 @@ export function recordSession(
   const time = new Date().toISOString();
   // Random suffix: parallel quests for the same agent can finish in the same millisecond.
   const file = join(ws.sessions, `${time.replace(/[:.]/g, "-")}-${Math.random().toString(36).slice(2, 6)}.json`);
-  writeFileSync(file, JSON.stringify({ time, agent: id, source: s.source, status: s.status, task: s.task, result: s.result, messages: s.messages }, null, 2));
+  // Image and PDF data is left out (it's most of a transcript's size and is never read back).
+  writeFileSync(file, JSON.stringify({ time, agent: id, source: s.source, status: s.status, task: s.task, result: s.result, messages: stripMedia(s.messages) }));
+  pruneTranscripts(ws.sessions);
   const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clip(s.result, 1500), status: s.status, file };
   appendFileSync(ws.index, JSON.stringify(line) + "\n");
+  return file;
 }
 
+const stripMedia = (v: any): any => {
+  if (Array.isArray(v)) return v.map(stripMedia);
+  if (v && typeof v === "object") {
+    if (v.source?.type === "base64") return { ...v, source: { type: "base64", media_type: v.source.media_type, data: "[omitted]" } };
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, stripMedia(x)]));
+  }
+  return v;
+};
+
+// Keep each agent's newest transcripts; older ones are deleted. The one-line summary of every
+// session stays in index.jsonl, so run history and "recent sessions" are unaffected.
+export const TRANSCRIPTS_KEPT = 300;
+function pruneTranscripts(dir: string) {
+  const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort(); // names start with the time
+  for (const f of files.slice(0, Math.max(0, files.length - TRANSCRIPTS_KEPT))) rmSync(join(dir, f), { force: true });
+}
+
+// Read one session's full transcript (only from that agent's own sessions folder).
+// Image and PDF data is replaced with a placeholder so transcripts stay small to send around.
+export function readSession(id: CrewId, file: string) {
+  const ws = workspace(id);
+  const abs = resolve(file);
+  if (!abs.startsWith(resolve(ws.sessions) + sep) || !abs.endsWith(".json") || !existsSync(abs)) return null;
+  const s = JSON.parse(readFileSync(abs, "utf8"));
+  return { ...s, messages: stripMedia(s.messages ?? []) }; // older transcripts still hold the data
+}
+
+// You can edit an agent's memory directly (mission control's Memory tab). Agents use remember.
+export function writeMemory(id: CrewId, text: string) {
+  ensureWorkspace(id);
+  writeFileSync(workspace(id).memory, `# ${CREW[id].name}'s memory\n\n${text.trim()}\n`);
+  emit({ type: "changed", what: "memory" });
+}
+
+export type OutputFile = { path: string; size: number; modified: string };
+
+// The files an agent has made in its outputs folder, newest first.
+export function listOutputs(id: CrewId): OutputFile[] {
+  const root = workspace(id).outputs;
+  if (!existsSync(root)) return [];
+  const out: OutputFile[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) walk(abs);
+      else {
+        const st = statSync(abs);
+        out.push({ path: abs.split(sep).join("/"), size: st.size, modified: st.mtime.toISOString() });
+      }
+    }
+  };
+  walk(root);
+  return out.sort((a, b) => b.modified.localeCompare(a.modified)).slice(0, 200);
+}
+
+// Each agent's session index, parsed once and reused until the file changes.
+const indexCache = new Map<string, { key: string; lines: SessionLine[] }>();
 export function recentSessions(id: CrewId, n = 8): SessionLine[] {
   const { index } = workspace(id);
   if (!existsSync(index)) return [];
-  return readFileSync(index, "utf8").split("\n").filter(Boolean).slice(-n).map((l) => JSON.parse(l) as SessionLine);
+  const st = statSync(index);
+  const at = `${process.cwd()}|${index}`;
+  const key = `${st.mtimeMs}:${st.size}`;
+  let hit = indexCache.get(at);
+  if (hit?.key !== key) {
+    hit = { key, lines: readFileSync(index, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l) as SessionLine]; } catch { return []; } }) };
+    indexCache.set(at, hit);
+  }
+  return hit.lines.slice(-n);
 }
 
 const SOURCE_LABEL: Record<SessionSource, string> = {

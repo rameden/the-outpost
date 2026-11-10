@@ -13,10 +13,23 @@ Ask a crew member for work outside its role and it declines in one line, naming 
 
 ## Quick start
 
-Requires Node 22.9 or later and an Anthropic API key.
+Requires Node 22.9 or later, and either a Claude subscription (Pro or Max) or an Anthropic API key.
 
 ```bash
 npm install
+```
+
+**On your Claude subscription (the default):** the crew runs through [Claude Code](https://code.claude.com) signed in with your Claude account. Install Claude Code and sign in once:
+
+```bash
+claude auth login
+```
+
+Usage counts against your plan's limits. Costs in the camp are shown as estimates at API prices, not charges. Your own Claude Code settings, hooks, `CLAUDE.md`, and MCP servers are not loaded for the crew, and no API key is passed to it.
+
+**On the API instead:** put a key in `.env` and switch the runtime (`/runtime api` in the terminal camp, or the runtime chip in mission control):
+
+```bash
 echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 ```
 
@@ -34,11 +47,19 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 
 `npm run ui` serves a local dashboard on `127.0.0.1`. It has:
 
-- **Crew cards:** live status for each agent, XP, and a picker to change its model and effort level.
+- **Crew cards:** live status for each agent, XP, and a picker to change its model, effort level, and turn limit (how many replies one run may take; the Artificer gets 60, others 20 or 30).
 - **Live feed:** replies stream in as they're written, and each quest gets its own block (parallel quests run side by side in the feed).
 - **Approvals as buttons:** plans, shell commands, new scheduled jobs, and connector tools that make changes.
-- **Stop button** on a running expedition, which cancels it and every quest in it.
+- **Several at once:** expeditions, direct chats, and scheduled jobs run side by side, up to 3 at a time by default (change it under Quests, 1–8); the rest wait their turn. Each has its own block in the feed, its own approvals, and its own budget. More at once uses up your plan's limits (or API spend) faster.
+- **Stop button** on each running expedition, which cancels it and every quest in it and leaves the others running.
 - **Attachments:** a **+** menu for files, folders, images, pasted images, links, and prompt snippets; `@path` references project files inline; drag and drop works too. Images and PDFs reach the model as real image and document blocks.
+- **Linked folders:** for big folders (hundreds of files), use **Link a folder…** instead of uploading: **Choose folder…** opens your system's folder picker (or paste a path), and agents read it where it lives as `links/<name>/…`. They get an overview and explore it with `list_dir`, `glob`, and `grep`. Read-only unless you choose "Can edit".
+- **Follow-ups:** **Reply** on a finished expedition continues that conversation, with every earlier request and full answer carried over (in the terminal: `/reply <message>`).
+- **Changes you can review and undo:** when an expedition's file tools change files, its card shows how many, with **View changes** (a diff) and **Undo** (puts every file back). This covers `write_file` and `edit_file`, not changes made by shell commands.
+- **Plan usage:** on your subscription, the Quests tab shows your 5-hour and weekly windows as Claude Code reports them. If one is used up, the camp pauses: queued work and scheduled jobs wait for the reset instead of failing ("Try anyway" overrides it).
+- **Notifications:** the 🔔 button turns on browser notifications for approvals and long expeditions finishing while the tab is in the background. For your phone, see [Approvals from your phone](#approvals-from-your-phone).
+- **The feed is kept:** it's saved to `camp/feed.jsonl` and reloaded when mission control restarts.
+- **Agent pages:** click any crew card to chat with that agent directly, browse its runs and each run's steps, edit its memory, see its output files, and check its tools, skills, and stats.
 - **Tabs:** Quests (cost, tokens, cache rate, model per run, plus a spending summary and per-expedition budget), Memory, Jobs, Wiki, Skills, Connectors, and Inbox.
 
 It only listens on `127.0.0.1`, checks the `Host` header, and requires a key that changes every launch, so other websites in your browser can't drive the camp.
@@ -51,32 +72,57 @@ In `npm start`, type a request for the Quartermaster, or:
 |---|---|
 | `@scout <task>` | Talk to one crew member directly (aliases work: `@writer`, `@dev`, `@research`) |
 | `@path/to/file` | Attach a project file or folder anywhere in a message |
+| `/link <path> [--edit]` · `/links` · `/unlink <name>` | Link a folder on your disk as `links/<name>/` (no upload), list links, remove one |
+| `/reply <message>` | Follow up on the last expedition or chat, carrying the whole conversation over |
+| `/diff` · `/undo` | What the last expedition's file tools changed; put those files back |
 | `/review` | Approve or reject skills the Quartermaster proposed |
 | `/log` | Recent quests with time, tokens, cost, and model |
 | `/jobs` · `/wiki` | Scheduled jobs; the wiki index |
 | `/memory <name>` | What a crew member remembers |
 | `/model [name model [effort] \| name reset]` | Show or change a crew member's model |
+| `/turns <name> <number \| reset>` | How many turns one run of that crew member may take (5–200) |
+| `/runtime [claude-code \| api]` | Show or switch what runs the crew: your Claude subscription (default) or the API |
 | `/budget [dollars \| off]` | Stop each expedition once it has spent this much |
 | Ctrl+C | Stop the running expedition; press again to quit |
 
 ## How it works
 
-- **One agent loop** (`src/agent.ts`) runs every character. A character is a persona, a set of tools, and some skill folders. Replies stream, tool calls in a turn run in parallel, and on long runs the API clears old tool results so the context doesn't fill up.
+- **Two runtimes, one loop** (`src/agent.ts`): on your subscription, each character runs as a Claude Code session (`src/claude-code.ts`) with the camp's own system prompt, and the camp's tools are served to it from an in-process MCP server, so every boundary and approval still applies; on the API, the camp runs the loop itself. A character is a persona, a set of tools, and some skill folders. Replies stream, tool calls in a turn run in parallel, and long runs keep their context from filling up (Claude Code compacts on its own; on the API, old tool results are cleared).
 - **Dispatch keeps context clean.** An adventurer starts with no memory of the Quartermaster's conversation, works from a written brief, and returns only a report. The brief has to be self-contained, which is why the Quartermaster's prompt stresses it.
 - **Identity** lives in `src/crew.ts`. Agents can grow their memory, but they can't rewrite who they are.
 - **Memory** has three layers:
   - Each agent's own `camp/agents/<id>/memory.md` and session history, which carry into its next run.
   - The shared wiki in `camp/wiki/`: `facts/` for what you told the camp, `notes/` for what the crew found, always with sources.
   - Skills in `skills/<agent>/`, which the Quartermaster proposes and you approve.
-- **Scheduled jobs** run unattended. A run with nothing new to report stays quiet; reports land in `camp/inbox.md` and as a macOS notification.
+- **Questions:** the Quartermaster can ask you one short question (`ask_user`) when a request could mean two different things, before it plans.
+- **Quest cap:** at most 4 dispatched quests run at once across the whole camp (`"questsAtOnce"` in `camp/settings.json`); extra ones wait.
+- **Scheduled jobs** run unattended. A run with nothing new to report stays quiet; reports land in `camp/inbox.md` and as a macOS notification. Only one process runs jobs at a time (`camp/scheduler.lock`), so mission control and `npm run watch` can both be open. To run jobs with nothing open on macOS, `npm run watch:install` adds a background agent that checks every minute (`npm run watch:uninstall` removes it).
 
 ## Safety
 
-- **Files:** the file tools only work inside the camp folder. They never read `.env`, never touch another agent's memory or sessions, and can't write to `skills/`, `plugins/`, or `camp/` except an agent's own outputs folder.
-- **Shell:** commands ask you first. Only simple read-only commands (`ls`, `git status`, `git diff`, version checks) run without asking. Test runners aren't on that list by default, because the Artificer can edit the code they run. Add your own in `camp/settings.json` under `"shell": {"allow": ["npm test"]}`.
+- **Files:** the file tools only work inside the camp folder. They never read secrets at any depth (`.env*`, private keys, `.netrc`, `credentials.json`…) or the camp's private configuration (`camp/mcp.json`, `camp/settings.json`), never touch another agent's memory or sessions, and can't write to `skills/`, `plugins/`, or `camp/` except an agent's own outputs folder.
+- **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`), so nothing they read can talk them into loosening these rules. To have the crew work on Guild Camp itself, set `"selfEdit": true` in `camp/settings.json`.
+- **The Scout** reads the web, so it can only write to its own outputs folder.
+- **Parallel quests** can't overwrite each other: a write to a file another quest just changed is refused until it has been read again.
+- **Shell:** commands ask you first. "Always allow this command" on an approval stops the asking for that exact command (`"shell": {"exact": [...]}`). Commands run without blocking the camp, stop after 2 minutes, and stop when you press Stop. Only simple read-only commands (`ls`, `git status`, `git diff`, version checks) run without asking. Test runners aren't on that list by default, because the Artificer can edit the code they run. Add your own in `camp/settings.json` under `"shell": {"allow": ["npm test"]}`.
 - **Untrusted content:** web pages, files, and connector results are treated as information, never as instructions, and agents flag suspected prompt injection.
 - **Connectors** are read-only unless you allow writes, and then every write asks you first.
-- **Budgets:** set a per-expedition budget in mission control or with `/budget`.
+- **Linked folders:** system, home, and credential folders can't be linked. Inside a link, secret files (`.env`, private keys, `.netrc`…) stay off limits, symlinks can't lead outside it, and a link that contains the camp still follows the camp's rules.
+- **Budgets:** set a per-expedition budget in mission control or with `/budget`. Spending is tallied after every model reply, across the Quartermaster and all its quests, and a run stops once the budget is reached.
+
+## Approvals from your phone
+
+Optional, through [ntfy](https://ntfy.sh). Install the ntfy app, subscribe to a long random topic, and add it to `camp/settings.json`:
+
+```json
+"phone": { "topic": "camp-3f9c1e7a52d84b06", "approve": ["plan", "job"] }
+```
+
+While mission control is open you get a notification for each approval, each job report, and each long expedition that ends, with Approve and Decline buttons for the kinds listed in `approve`. Before turning it on:
+
+- The text of each approval (the plan, the command) is sent to the ntfy server. Use `"server"` to point at your own.
+- Anyone who knows the topic can read those and press the buttons, so keep it long and random. Topics shorter than 12 characters are ignored.
+- Shell commands and connector writes only notify by default. Add `"shell"` or `"tool"` to `approve` to allow them from the phone.
 
 ## Configuration
 
@@ -84,18 +130,21 @@ Everything in `camp/` is local to you and gitignored:
 
 | File | Holds |
 |---|---|
-| `camp/settings.json` | Per-agent model and effort, budget, extra shell commands |
+| `camp/settings.json` | Per-agent model, effort, and turn limit, budget, runtime, how many expeditions (`parallel`) and quests (`questsAtOnce`) run at once, extra shell commands, `selfEdit`, `phone` |
 | `camp/mcp.json` | MCP connectors: copy `mcp.example.json`, then say which agents may use each server |
+| `camp/links.json` | Linked folders (path, name, read-only or editable) |
 | `camp/jobs.json` | Scheduled jobs |
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
+| `camp/feed.jsonl` · `camp/threads.jsonl` · `camp/checkpoints/` | The saved feed, conversations for follow-ups, and the originals of changed files (newest 60 expeditions) |
+| `camp/limits.json` · `camp/scheduler.lock` | Your plan's last reported usage windows; which process is running jobs |
 
 To skip plan approval, set `CAMP_APPROVE_PLANS=0`. To use a different port, set `CAMP_PORT`.
 
 ## Tests and evals
 
 ```bash
-npm test            # 33 tests, about 4 seconds, no API key needed
+npm test            # 52 tests, about 5 seconds, no API key or Claude login needed
 npm run typecheck   # source, tests, and evals
 npm run eval        # 8 standard tasks against the real API (spends tokens; capped at $2 per case)
 ```

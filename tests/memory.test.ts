@@ -7,11 +7,11 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 enterSandbox("memory");
 writeFileSync("camp/ledger.md", "- 2026-11-09 An old ledger lesson.\n");
 const { identityBlock, findCrew } = await import("../src/crew.ts");
-const { rememberTool, readMemory, recordSession, recentSessions, continuityBlock } = await import("../src/memory.ts");
+const { rememberTool, readMemory, recordSession, recentSessions, continuityBlock, readSession, writeMemory, listOutputs } = await import("../src/memory.ts");
 const { wikiWrite, wikiIndex } = await import("../src/wiki.ts");
 const { proposeSkill, pendingSkills, approveSkill, rejectSkill, skillCatalog } = await import("../src/forge.ts");
 const { setAgentSettings, agentSettings, setBudgetUsd, budgetUsd } = await import("../src/settings.ts");
-const { resolveModel } = await import("../src/agent.ts");
+const { resolveModel, resolveTurns } = await import("../src/agent.ts");
 const { parseSchedule, isDue } = await import("../src/jobs.ts");
 const { costOf } = await import("../src/costs.ts");
 const { rl } = await import("../src/tools.ts");
@@ -49,6 +49,27 @@ test("sessions: recorded per agent and carried into the next prompt", () => {
   assert.match(block, /March 3/);
 });
 
+test("transcripts: readable from the agent's own folder only, with image data left out", () => {
+  const file = recordSession("scribe", {
+    source: "direct", task: "Describe this", result: "A dot.", status: "done",
+    messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA".repeat(1000) } }, { type: "text", text: "Describe this" }] }],
+  });
+  const s = readSession("scribe", file);
+  assert.equal(s.result, "A dot.");
+  assert.equal(s.messages[0].content[0].source.data, "[omitted]");
+  assert.equal(readSession("scout", file), null, "another agent's page can't read it");
+  assert.equal(readSession("scribe", "../../package.json"), null);
+});
+
+test("memory edits and the outputs list", async () => {
+  writeMemory("scout", "- 2026-11-09 Prefers primary sources.");
+  assert.match(readMemory("scout"), /primary sources/);
+  const { writeFileSync, mkdirSync } = await import("node:fs");
+  mkdirSync("camp/agents/scout/outputs/notes", { recursive: true });
+  writeFileSync("camp/agents/scout/outputs/notes/findings.md", "# Findings\n");
+  assert.deepEqual(listOutputs("scout").map((f) => f.path), ["camp/agents/scout/outputs/notes/findings.md"]);
+});
+
 test("wiki: notes need sources; only facts-writers can write facts", async () => {
   assert.match(String(await wikiWrite(["notes"]).run!({ section: "facts", page: "x", summary: "s", content: "c" })), /can't write/);
   assert.match(String(await wikiWrite(["notes"]).run!({ section: "notes", page: "x", summary: "s", content: "c" })), /need sources/);
@@ -73,6 +94,15 @@ test("settings: per-agent model and effort override the defaults; budget saves",
   assert.deepEqual(resolveModel({ id: "scout", effort: "medium" }), { model: "claude-haiku-5-5", effort: "low" });
   setAgentSettings("scout", { model: null, effort: null });
   assert.deepEqual(agentSettings("scout"), {});
+  // Turn limits: override, else the code default, else 20; kept within 5–200.
+  assert.equal(resolveTurns({ id: "artificer", maxTurns: 60 }), 60);
+  assert.equal(resolveTurns({ id: "scout" }), 20);
+  setAgentSettings("artificer", { maxTurns: 120 });
+  assert.equal(resolveTurns({ id: "artificer", maxTurns: 60 }), 120);
+  setAgentSettings("artificer", { maxTurns: 5000 });
+  assert.equal(agentSettings("artificer").maxTurns, 200);
+  setAgentSettings("artificer", { maxTurns: null });
+  assert.deepEqual(agentSettings("artificer"), {});
   setBudgetUsd(2.5);
   assert.equal(budgetUsd(), 2.5);
   setBudgetUsd(null);

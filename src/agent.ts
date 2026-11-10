@@ -4,21 +4,24 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Tool, ToolOutput } from "./tools.js";
+import { clipOutput, type Tool, type ToolOutput } from "./tools.js";
 import { wikiIndex } from "./wiki.js";
 import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
 import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } from "./memory.js";
 import { requestText, type RequestContent } from "./attachments.js";
-import { agentSettings, EFFORTS, type Effort } from "./settings.js";
+import { agentSettings, campRuntime, DEFAULT_TURNS, EFFORTS, type Effort, type Runtime } from "./settings.js";
+import { runClaudeCode, claudeCodeModels, type ClaudeCodeFailure } from "./claude-code.js";
 import { currentLedger, currentQuestId, currentSignal } from "./context.js";
 import { costOf, priceLabel, usd } from "./costs.js";
 import { mcpToolsFor } from "./mcp.js";
+import { linksBlock } from "./links.js";
 export type { Effort } from "./settings.js";
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+// Created on first use: on the Claude Code runtime there may be no API key at all.
+let apiClient: Anthropic | null = null;
+const client = () => (apiClient ??= new Anthropic()); // reads ANTHROPIC_API_KEY
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
-const MAX_TOOL_OUTPUT = 10_000;
 const MAX_TOKENS = 32_000; // replies stream, so long ones can't time out; thinking counts against this too
 const MAX_CUTOFFS = 3;     // give up if a character keeps hitting the token limit
 
@@ -45,22 +48,32 @@ const FALLBACK_MODELS: ModelInfo[] = [
   { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", efforts: EFFORTS },
 ].map((m) => ({ ...m, price: priceLabel(m.id) }));
 
-let modelCache: { at: number; models: ModelInfo[]; live: boolean } | null = null;
+let modelCache: { at: number; models: ModelInfo[]; live: boolean; runtime: Runtime } | null = null;
 
-// The models this API key can use, with the effort levels each one supports (from the Models API).
+// The models you can use, with the effort levels each one supports: from Claude Code on your
+// subscription, or from the Models API with an API key.
 export async function listModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
-  if (modelCache && Date.now() - modelCache.at < 10 * 60_000) return modelCache;
+  const runtime = campRuntime();
+  if (modelCache && modelCache.runtime === runtime && Date.now() - modelCache.at < 10 * 60_000) return modelCache;
+  if (runtime === "claude-code") {
+    const mine = await claudeCodeModels();
+    const models = mine?.map((m) => ({ id: m.id, name: m.name, efforts: EFFORTS.filter((e) => m.efforts.includes(e)), price: priceLabel(m.id) }));
+    modelCache = models?.length
+      ? { at: Date.now(), models, live: true, runtime }
+      : { at: Date.now() - 9 * 60_000, models: FALLBACK_MODELS, live: false, runtime }; // retry in a minute
+    return modelCache;
+  }
   try {
     const models: ModelInfo[] = [];
-    for await (const m of client.models.list()) {
+    for await (const m of client().models.list()) {
       const caps = (m as unknown as { capabilities?: any }).capabilities;
       const efforts = EFFORTS.filter((level) => caps?.effort?.[level]?.supported);
       models.push({ id: m.id, name: m.display_name, efforts, price: priceLabel(m.id) });
     }
     if (!models.length) throw new Error("no models");
-    modelCache = { at: Date.now(), models, live: true };
+    modelCache = { at: Date.now(), models, live: true, runtime };
   } catch {
-    modelCache = { at: Date.now() - 9 * 60_000, models: FALLBACK_MODELS, live: false }; // retry in a minute
+    modelCache = { at: Date.now() - 9 * 60_000, models: FALLBACK_MODELS, live: false, runtime }; // retry in a minute
   }
   return modelCache;
 }
@@ -79,6 +92,15 @@ export function resolveModel(spec: Pick<AgentSpec, "id" | "model" | "effort">): 
   if (effort && info && !info.efforts.includes(effort)) effort = undefined;
   return { model, effort };
 }
+
+// How many turns this agent gets per run: your override, else the code default, else 20.
+export function resolveTurns(spec: Pick<AgentSpec, "id" | "maxTurns">): number {
+  return agentSettings(spec.id).maxTurns ?? spec.maxTurns ?? DEFAULT_TURNS;
+}
+
+// What a run that used every turn says at the end, so whoever reads it knows what to do next.
+const turnsNote = (name: string, n: number) =>
+  `\n\n[Stopped: used all ${n} turns before finishing. Send ${name} back to continue, or raise the turn limit in ${name}'s model picker.]`;
 
 // The newer web search/fetch versions (which filter results before they reach the model) only run
 // on Opus and Sonnet models; anything else gets the basic versions so the Scout keeps working.
@@ -113,13 +135,19 @@ export type Usage = {
   cacheWrite: number;
 };
 
+// A run that failed part-way: the error carries what it had done and spent, so it's still logged.
+export type AgentFailure = Error & { partial?: AgentResult };
+
 export type AgentResult = {
   text: string;        // the character's final words: a report, or the Quartermaster's summary
-  status: "done" | "refused" | "cut_off" | "out_of_turns" | "over_budget" | "stopped";
+  status: "done" | "refused" | "cut_off" | "out_of_turns" | "over_budget" | "stopped" | "error";
   turns: number;
   usage: Usage;
   model: string;
   effort?: Effort;
+  session?: string;    // where this run's full transcript was saved
+  runtime?: Runtime;   // what ran it: your subscription (claude-code) or the API
+  costUsd?: number;    // Claude Code's own figure at API prices (an estimate on a subscription)
 };
 
 // Progressive disclosure: only name + description go in the prompt.
@@ -152,6 +180,7 @@ export async function runAgent(
   const me = { who: spec.name, emoji: spec.emoji, depth: opts.depth ?? 0, questId: currentQuestId() };
   await listModels(); // so effort support is known (cached for 10 minutes)
   const { model, effort } = resolveModel(spec);
+  const maxTurns = resolveTurns(spec);
   ensureWorkspace(spec.id);
   // Order matters for caching and for the model: who you are first, then how you work,
   // then what you remember, then the shared camp knowledge.
@@ -160,6 +189,7 @@ export async function runAgent(
     `${continuityBlock(spec.id)}\n\n## Your skills\n` +
     `When a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs)}` +
     `\n\n${wikiIndex()}` +
+    (linksBlock() ? `\n\n${linksBlock()}` : "") +
     (opts.extraSystem ? `\n\n${opts.extraSystem}` : "");
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).
@@ -180,7 +210,7 @@ export async function runAgent(
     const result: AgentResult = { text: lastText + note, status, turns: turn, usage, model, effort };
     // Every conversation lands in this agent's own session history, so the next one can build on it.
     const asked = requestText(task).replace(/^\(Sent directly by the user[^)]*\)\s*/, "");
-    recordSession(spec.id, { source: opts.source ?? "user", task: asked, result: result.text, status, messages });
+    result.session = recordSession(spec.id, { source: opts.source ?? "user", task: asked, result: result.text, status, messages });
     return result;
   };
 
@@ -188,120 +218,162 @@ export async function runAgent(
   const signal = currentSignal(); // set when the user can press Stop
   const stoppedNote = "\n\n[Stopped by the user.]";
 
-  for (turn = 1; turn <= (spec.maxTurns ?? 20); turn++) {
-    if (signal?.aborted) {
-      turn--;
-      return finish("stopped", stoppedNote);
-    }
-    if (overBudget()) {
-      turn--;
-      return finish("over_budget", budgetNote());
-    }
-    const stream = client.beta.messages.stream({
-      model,
-      max_tokens: MAX_TOKENS,
-      betas: ["context-management-2025-06-27"],
-      context_management: CONTEXT_MANAGEMENT,
-      ...(effort ? { output_config: { effort } } : {}),
-      // Two cache layers: an explicit breakpoint on the static prefix (tools + system),
-      // and automatic caching for the conversation, which grows by one turn each loop.
-      cache_control: { type: "ephemeral" },
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-      tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
-      messages: messages as unknown as Anthropic.Beta.BetaMessageParam[],
-    }, { signal });
-    // Words appear in mission control as they're written.
-    stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
-    let resp;
-    try {
-      resp = await stream.finalMessage();
-    } catch (err) {
-      if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
-      throw err;
-    }
-    messages.push({ role: "assistant", content: resp.content as unknown as Anthropic.ContentBlockParam[] });
-    const turnUsage = {
-      input: resp.usage.input_tokens,
-      output: resp.usage.output_tokens,
-      cacheRead: resp.usage.cache_read_input_tokens ?? 0,
-      cacheWrite: resp.usage.cache_creation_input_tokens ?? 0,
-    };
-    usage.input += turnUsage.input;
-    usage.output += turnUsage.output;
-    usage.cacheRead += turnUsage.cacheRead;
-    usage.cacheWrite += turnUsage.cacheWrite;
-    if (ledger) ledger.spent += costOf(model, turnUsage);
-
-    const text = resp.content
-      .flatMap((b) => (b.type === "text" ? [b.text] : []))
-      .join("\n")
-      .trim();
-    if (text) {
-      lastText = text;
-      emit({ type: "text", ...me, text });
-    }
-
-    // Server tools (web search) can pause a long turn; sending it back resumes it.
-    if (resp.stop_reason === "pause_turn") continue;
-
-    // A refusal can cut a tool call off mid-input, so never run that turn's tools.
-    if (resp.stop_reason === "refusal") {
-      emit({ type: "notice", ...me, text: `🚫 ${spec.name} declined this request.` });
-      return finish("refused", "\n\n[Stopped: the model declined this request.]");
-    }
-
-    // Cut off at the token limit: any tool call in this response may have truncated input
-    // (a half-written file, say), so don't run it. Ask the character to retry or continue.
-    if (resp.stop_reason === "max_tokens") {
-      if (++cutoffs > MAX_CUTOFFS) {
-        return finish("cut_off", "\n\n[Stopped: responses kept hitting the output token limit.]");
-      }
-      emit({ type: "notice", ...me, text: `✂️  ${spec.name} hit the token limit; asking them to retry.` });
-      const cut = resp.content.flatMap((b) => (b.type === "tool_use" ? [b] : []));
-      messages.push({
-        role: "user",
-        content: cut.length
-          ? cut.map((b) => ({
-              type: "tool_result" as const,
-              tool_use_id: b.id,
-              is_error: true,
-              content:
-                "Not run: your response hit the output token limit, so this call's input may be " +
-                "cut off. Retry it, splitting large content into smaller pieces if needed.",
-            }))
-          : "Your response was cut off by the output token limit. Continue from where you stopped.",
+  // A failure part-way (a network error, the plan's limit) still leaves a transcript and a cost.
+  let failedCost: number | undefined;
+  const work = async (): Promise<AgentResult> => {
+    // ---------- On your Claude subscription, through Claude Code ----------
+    if (campRuntime() === "claude-code") {
+      if (signal?.aborted) return finish("stopped", stoppedNote);
+      if (overBudget()) return finish("over_budget", budgetNote());
+      let spentLive = 0;
+      const r = await runClaudeCode({
+        model, effort, system, task, tools, signal, messages,
+        // The shared tally moves with every reply, so parallel quests and the Quartermaster see
+        // each other's spending while they run, and the run ends itself once the budget is gone.
+        onSpend: (usd) => { spentLive += usd; if (ledger) ledger.spent += usd; },
+        overBudget,
+        // Claude Code counts each tool round trip as a turn, like the API loop does.
+        maxTurns,
+        budgetLeftUsd: ledger?.budget != null ? ledger.budget - ledger.spent : undefined,
+        onDelta: (delta) => emit({ type: "text_delta", ...me, delta }),
+        onText: (text) => emit({ type: "text", ...me, text }),
+        onTool: (tool, input) => emit({ type: "tool", ...me, tool, input: preview(input) }),
+      }).catch((err: ClaudeCodeFailure) => {
+        if (err.partial) { Object.assign(usage, err.partial.usage); turn = err.partial.turns; lastText = err.partial.text; failedCost = err.partial.costUsd; }
+        throw err;
       });
-      continue;
-    }
-    // No tool requested: this character is done.
-    if (resp.stop_reason !== "tool_use") return finish("done");
-
-    if (signal?.aborted) return finish("stopped", stoppedNote);
-    // Over budget: stop before running more tools (a dispatch would start a whole new quest).
-    if (overBudget()) {
-      emit({ type: "notice", ...me, text: `💰 Budget reached; ${spec.name} is stopping.` });
-      return finish("over_budget", budgetNote());
+      if (ledger) ledger.spent += r.costUsd - spentLive; // settle up with Claude Code's own total
+      Object.assign(usage, r.usage);
+      turn = r.turns;
+      lastText = r.text;
+      const result = finish(r.status, r.status === "out_of_turns" ? turnsNote(spec.name, maxTurns) : "");
+      return { ...result, runtime: "claude-code", costUsd: r.costUsd };
     }
 
-    // Run every tool call from this turn at the same time (e.g. two dispatches = two parallel
-    // quests), then return all the results together, in order, in one message.
-    const uses = resp.content.flatMap((b) => (b.type === "tool_use" ? [b] : []));
-    const results: Anthropic.ToolResultBlockParam[] = await Promise.all(
-      uses.map(async (block) => {
-        emit({ type: "tool", ...me, tool: block.name, input: preview(block.input) });
-        const handler = handlers.get(block.name);
-        let out: ToolOutput;
-        try {
-          out = handler ? await handler(block.input) : `Unknown tool: ${block.name}`;
-        } catch (err: any) {
-          out = `Error: ${err.stderr || err.message}`; // let the model adapt instead of crashing
+    // ---------- On the API, with an API key ----------
+    for (turn = 1; turn <= maxTurns; turn++) {
+      if (signal?.aborted) {
+        turn--;
+        return finish("stopped", stoppedNote);
+      }
+      if (overBudget()) {
+        turn--;
+        return finish("over_budget", budgetNote());
+      }
+      const stream = client().beta.messages.stream({
+        model,
+        max_tokens: MAX_TOKENS,
+        betas: ["context-management-2025-06-27"],
+        context_management: CONTEXT_MANAGEMENT,
+        ...(effort ? { output_config: { effort } } : {}),
+        // Two cache layers: an explicit breakpoint on the static prefix (tools + system),
+        // and automatic caching for the conversation, which grows by one turn each loop.
+        cache_control: { type: "ephemeral" },
+        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+        tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
+        messages: messages as unknown as Anthropic.Beta.BetaMessageParam[],
+      }, { signal });
+      // Words appear in mission control as they're written.
+      stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
+      let resp;
+      try {
+        resp = await stream.finalMessage();
+      } catch (err) {
+        if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
+        throw err;
+      }
+      messages.push({ role: "assistant", content: resp.content as unknown as Anthropic.ContentBlockParam[] });
+      const turnUsage = {
+        input: resp.usage.input_tokens,
+        output: resp.usage.output_tokens,
+        cacheRead: resp.usage.cache_read_input_tokens ?? 0,
+        cacheWrite: resp.usage.cache_creation_input_tokens ?? 0,
+      };
+      usage.input += turnUsage.input;
+      usage.output += turnUsage.output;
+      usage.cacheRead += turnUsage.cacheRead;
+      usage.cacheWrite += turnUsage.cacheWrite;
+      if (ledger) ledger.spent += costOf(model, turnUsage);
+
+      const text = resp.content
+        .flatMap((b) => (b.type === "text" ? [b.text] : []))
+        .join("\n")
+        .trim();
+      if (text) {
+        lastText = text;
+        emit({ type: "text", ...me, text });
+      }
+
+      // Server tools (web search) can pause a long turn; sending it back resumes it.
+      if (resp.stop_reason === "pause_turn") continue;
+
+      // A refusal can cut a tool call off mid-input, so never run that turn's tools.
+      if (resp.stop_reason === "refusal") {
+        emit({ type: "notice", ...me, text: `🚫 ${spec.name} declined this request.` });
+        return finish("refused", "\n\n[Stopped: the model declined this request.]");
+      }
+
+      // Cut off at the token limit: any tool call in this response may have truncated input
+      // (a half-written file, say), so don't run it. Ask the character to retry or continue.
+      if (resp.stop_reason === "max_tokens") {
+        if (++cutoffs > MAX_CUTOFFS) {
+          return finish("cut_off", "\n\n[Stopped: responses kept hitting the output token limit.]");
         }
-        if (typeof out === "string" && out.length > MAX_TOOL_OUTPUT) out = out.slice(0, MAX_TOOL_OUTPUT) + "\n…[truncated]";
-        return { type: "tool_result" as const, tool_use_id: block.id, content: out };
-      })
-    );
-    messages.push({ role: "user", content: results });
+        emit({ type: "notice", ...me, text: `✂️  ${spec.name} hit the token limit; asking them to retry.` });
+        const cut = resp.content.flatMap((b) => (b.type === "tool_use" ? [b] : []));
+        messages.push({
+          role: "user",
+          content: cut.length
+            ? cut.map((b) => ({
+                type: "tool_result" as const,
+                tool_use_id: b.id,
+                is_error: true,
+                content:
+                  "Not run: your response hit the output token limit, so this call's input may be " +
+                  "cut off. Retry it, splitting large content into smaller pieces if needed.",
+              }))
+            : "Your response was cut off by the output token limit. Continue from where you stopped.",
+        });
+        continue;
+      }
+      // No tool requested: this character is done.
+      if (resp.stop_reason !== "tool_use") return finish("done");
+
+      if (signal?.aborted) return finish("stopped", stoppedNote);
+      // Over budget: stop before running more tools (a dispatch would start a whole new quest).
+      if (overBudget()) {
+        emit({ type: "notice", ...me, text: `💰 Budget reached; ${spec.name} is stopping.` });
+        return finish("over_budget", budgetNote());
+      }
+
+      // Run every tool call from this turn at the same time (e.g. two dispatches = two parallel
+      // quests), then return all the results together, in order, in one message.
+      const uses = resp.content.flatMap((b) => (b.type === "tool_use" ? [b] : []));
+      const results: Anthropic.ToolResultBlockParam[] = await Promise.all(
+        uses.map(async (block) => {
+          emit({ type: "tool", ...me, tool: block.name, input: preview(block.input) });
+          const handler = handlers.get(block.name);
+          let out: ToolOutput;
+          try {
+            out = handler ? await handler(block.input) : `Unknown tool: ${block.name}`;
+          } catch (err: any) {
+            out = `Error: ${err.stderr || err.message}`; // let the model adapt instead of crashing
+          }
+          return { type: "tool_result" as const, tool_use_id: block.id, content: clipOutput(out) };
+        })
+      );
+      messages.push({ role: "user", content: results });
+    }
+    turn--; // the loop counter ran one past the last turn
+    return finish("out_of_turns", turnsNote(spec.name, maxTurns));
+  };
+  try {
+    return await work();
+  } catch (err: any) {
+    if (signal?.aborted) return finish("stopped", stoppedNote);
+    const e: AgentFailure = err instanceof Error ? err : new Error(String(err));
+    const partial = finish("error", `\n\n[Failed: ${e.message}]`);
+    e.partial = campRuntime() === "claude-code" ? { ...partial, runtime: "claude-code", costUsd: failedCost ?? 0 } : partial;
+    throw e;
   }
-  turn--; // the loop counter ran one past the last turn
-  return finish("out_of_turns", "\n\n[Stopped: ran out of turns before finishing.]");
 }

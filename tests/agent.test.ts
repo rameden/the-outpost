@@ -14,7 +14,7 @@ process.env.ANTHROPIC_BASE_URL = api.url; // must be set before src/agent.ts loa
 const { runExpedition, runDirect } = await import("../src/quartermaster.ts");
 const { setAsker } = await import("../src/ask.ts");
 const { onEvent } = await import("../src/events.ts");
-const { setBudgetUsd } = await import("../src/settings.ts");
+const { setBudgetUsd, setAgentSettings } = await import("../src/settings.ts");
 const { recentSessions } = await import("../src/memory.ts");
 const { rl } = await import("../src/tools.ts");
 after(async () => { rl.close(); await api.close(); });
@@ -101,6 +101,14 @@ test("refusals stop the run without running tools", async () => {
   assert.ok(!existsSync("nope.txt"));
 });
 
+test("each run links to its transcript in the quest log", async () => {
+  script = () => ({ text: "Here's my report." });
+  const r = await runDirect("scout", "quick question");
+  assert.ok(r?.session && existsSync(r.session), "the transcript file exists");
+  const { recentQuests } = await import("../src/questlog.ts");
+  assert.equal(recentQuests(1)[0].session, r!.session);
+});
+
 test("every prompt: identity, crew, memory, recent sessions; streamed with context editing", async () => {
   script = () => ({ text: "I'm the Scribe." });
   await runDirect("scribe", "Who are you?");
@@ -115,4 +123,54 @@ test("every prompt: identity, crew, memory, recent sessions; streamed with conte
   assert.ok(second.body.context_management, "context editing is on");
   assert.match(String(second.headers["anthropic-beta"]), /context-management/);
   assert.ok(recentSessions("scribe").length >= 2);
+});
+
+// The first thing the user asked in this conversation (to tell concurrent expeditions apart).
+const firstAsk = (b: any): string => {
+  const c = b.messages[0].content;
+  return typeof c === "string" ? c : c.map((x: any) => x.text ?? "").join("");
+};
+
+test("several expeditions at once: they overlap and keep their events apart", async () => {
+  script = (b) => ({ text: `${whoAsks(b)} on ${/Alpha/.test(firstAsk(b)) ? "Alpha" : "Beta"}`, delayMs: 300 });
+  const t0 = Date.now();
+  const [a, d] = await Promise.all([
+    runExpedition("Alpha", { id: "exp-alpha" }),
+    runDirect("scout", "Beta", "direct", undefined, undefined, "exp-beta"),
+  ]);
+  assert.equal(a.status, "done");
+  assert.equal(d?.status, "done");
+  assert.ok(Date.now() - t0 < 550, "the two 300ms runs overlapped");
+  const texts = events.filter((e) => e.type === "text");
+  assert.ok(texts.length >= 2);
+  for (const e of texts) assert.equal(e.expeditionId, /Alpha/.test(e.text) ? "exp-alpha" : "exp-beta", `"${e.text}" is tagged with its own expedition`);
+  assert.equal(events.find((e) => e.type === "dispatch")?.expeditionId, "exp-beta");
+});
+
+test("a scheduled job's unattended mode stays with the job, not the expedition beside it", async () => {
+  script = (b) => {
+    if (isFirstTurn(b)) return { tools: [{ name: "submit_plan", input: { plan: "1. one step" } }], delayMs: 150 };
+    return { text: "Done." };
+  };
+  const [job, mine] = await Promise.all([
+    runExpedition("Job task", { id: "exp-job", unattended: true, job: "nightly" }),
+    runExpedition("My task", { id: "exp-mine" }),
+  ]);
+  assert.equal(job.status, "done");
+  assert.equal(mine.status, "done");
+  const planAsks = events.filter((e) => e.type === "ask" && e.kind === "plan");
+  assert.deepEqual(planAsks.map((e) => e.expeditionId), ["exp-mine"], "only your own expedition waits for your OK on its plan");
+});
+
+test("turn limit: your setting caps the run, and the note says how to continue", async () => {
+  setAgentSettings("scout", { maxTurns: 5 });
+  try {
+    script = () => ({ text: "Still looking.", tools: [{ name: "list_dir", input: { path: "." } }] });
+    const r = await runDirect("scout", "Keep going forever");
+    assert.equal(r?.status, "out_of_turns");
+    assert.equal(api.seen.filter((s) => s.who === "Scout").length, 5, "exactly 5 turns");
+    assert.match(r!.text, /used all 5 turns.*Send Scout back to continue, or raise the turn limit/);
+  } finally {
+    setAgentSettings("scout", { maxTurns: null });
+  }
 });

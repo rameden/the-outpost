@@ -4,6 +4,7 @@
 //   - no paths outside the camp (absolute paths, ~, ..) and nothing touching .env
 // Anything else still asks you. Add your own in camp/settings.json:
 //   "shell": { "allow": ["npm run build", "pytest"] }      or  "shell": { "autoApprove": false }
+// "Always allow" on an approval adds that exact command to "shell": { "exact": [...] }.
 
 import { shellSettings } from "./settings.js";
 
@@ -28,6 +29,8 @@ const UNSAFE_ARGS = /(^|\s)(-exec|-execdir|-delete|-ok|-okdir|-fprint\S*|-fls|--
 export function isAutoApproved(command: string): boolean {
   const s = shellSettings();
   if (s.autoApprove === false) return false;
+  // Commands you chose "Always allow" for run as-is, but only that exact command.
+  if (s.exact?.includes(command.trim())) return true;
   const cmd = command.trim().replace(/\s+/g, " ");
   if (!cmd || UNSAFE_CHARS.test(cmd) || UNSAFE_ARGS.test(` ${cmd} `)) return false;
   const words = cmd.split(" ");

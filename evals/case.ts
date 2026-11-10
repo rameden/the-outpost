@@ -10,7 +10,7 @@ const { CASES } = await import("./cases.ts");
 const c = CASES.find((x) => x.id === id);
 if (!c) throw new Error(`No eval case "${id}"`);
 
-enterSandbox(`eval-${id}`);
+enterSandbox(`eval-${id}`, { keepRuntime: true });
 // Measure the crew as you've configured it, plus any --set overrides from the runner.
 const realSettings = join(REPO, "camp", "settings.json");
 if (existsSync(realSettings)) copyFileSync(realSettings, "camp/settings.json");
@@ -31,7 +31,7 @@ const { runExpedition, runDirect } = await import("../src/quartermaster.ts");
 const { setAsker } = await import("../src/ask.ts");
 const { onEvent } = await import("../src/events.ts");
 const { setBudgetUsd } = await import("../src/settings.ts");
-const { recentQuests } = await import("../src/questlog.ts");
+const { recentQuests, questCost } = await import("../src/questlog.ts");
 const { costOf } = await import("../src/costs.ts");
 const { judge } = await import("./judge.ts");
 const { rl } = await import("../src/tools.ts");
@@ -73,7 +73,7 @@ for (const check of c.checks) {
   checks.push({ name: check.name, required: !!check.required, pass: outcome === true, detail: outcome === true ? "" : String(outcome) });
 }
 const quests = recentQuests(Number.MAX_SAFE_INTEGER);
-const cost = quests.reduce((sum, q) => sum + costOf(q.model, q.usage), 0) + judgeCost;
+const cost = quests.reduce((sum, q) => sum + questCost(q), 0) + judgeCost;
 const models = [...new Set(quests.map((q) => `${q.character}: ${q.model.replace(/^claude-/, "")}${q.effort ? ` · ${q.effort}` : ""}`))];
 
 rl.close();

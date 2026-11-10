@@ -5,6 +5,8 @@
   "scripts": {
     "start": "tsx --env-file-if-exists=.env src/camp.ts",
     "watch": "tsx --env-file-if-exists=.env src/watch.ts",
+    "watch:install": "tsx scripts/watch-agent.ts",
+    "watch:uninstall": "tsx scripts/watch-agent.ts --uninstall",
     "ui": "tsx --env-file-if-exists=.env src/server.ts",
     "test": "tsx --test --test-reporter=spec tests/*.test.ts",
     "typecheck": "tsc --noEmit",
@@ -14,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.296",
     "@anthropic-ai/sdk": "^1.6.0",
     "@modelcontextprotocol/sdk": "^1.32.2"
   },

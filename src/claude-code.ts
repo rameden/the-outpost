@@ -1,0 +1,339 @@
+// The Claude Code runtime: crew members run on YOUR Claude subscription, through the Claude Code
+// CLI installed on this computer and signed in with your Claude account (Pro or Max).
+//
+// - The Agent SDK drives `claude` (the same pattern as the Adventurer's Guild). No API key reaches
+//   it: ANTHROPIC_API_KEY and friends are stripped, so it can't bill the API by accident.
+// - The camp keeps its own system prompt (identity, crew, boundaries, memory, sessions, skills).
+//   Your own Claude Code settings, hooks, CLAUDE.md, skills, and MCP servers are not loaded, and
+//   nothing is saved as a Claude Code session.
+// - Claude Code's built-in file and shell tools are switched off. The camp's own tools (dispatch,
+//   remember, read/edit/grep/glob, bash with approvals, wiki, skills, jobs, connectors…) are served
+//   to it from an in-process MCP server, so every camp boundary and approval still applies. Only
+//   web search and fetch come from Claude Code's built-ins (for the Scout).
+// - Usage counts against your plan's limits. Claude Code reports what it would have cost on the
+//   API; the camp shows that as an estimate and uses it for budgets.
+
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { AsyncLocalStorage } from "node:async_hooks";
+import type Anthropic from "@anthropic-ai/sdk";
+import type { Options, SDKMessage, SDKUserMessage, McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { clipOutput, type Tool, type ToolOutput } from "./tools.js";
+import type { RequestContent } from "./attachments.js";
+import { costOf } from "./costs.js";
+import { noteRateLimit, pausedUntil, pauseMessage } from "./limits.js";
+
+const run = promisify(execFile);
+export const LOGIN_HELP = "Run `claude auth login` in a terminal and sign in with your Claude account (Pro or Max), then try again.";
+
+// Server tools in the camp's definitions map to Claude Code's own built-ins.
+const BUILTIN_FOR: Record<string, string> = { web_search: "WebSearch", web_fetch: "WebFetch" };
+const MCP_PREFIX = "mcp__camp__";
+
+export function claudeExecutable(env = process.env) {
+  return env.CLAUDE_CODE_EXECUTABLE?.trim() || "claude";
+}
+
+// The environment for the CLI: everything but API credentials (so it uses your login).
+function cliEnv(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v === undefined) continue;
+    if (/^ANTHROPIC_(API_KEY|AUTH_TOKEN|BASE_URL|PROFILE)$/.test(k)) continue;
+    out[k] = v;
+  }
+  return { ...out, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1", DISABLE_AUTOUPDATER: "1" };
+}
+
+// ---------- Login check (cached for 5 minutes) ----------
+export type LoginStatus = { ok: boolean; problem?: string; plan?: string; version?: string };
+let loginCache: { at: number; status: LoginStatus } | null = null;
+
+export async function claudeLogin(force = false): Promise<LoginStatus> {
+  if (!force && loginCache && Date.now() - loginCache.at < 5 * 60_000) return loginCache.status;
+  const exe = claudeExecutable();
+  let status: LoginStatus;
+  try {
+    const version = (await run(exe, ["--version"], { env: cliEnv(), timeout: 30_000 })).stdout.trim().split("\n")[0];
+    const raw = (await run(exe, ["auth", "status", "--json"], { env: cliEnv(), timeout: 30_000 })).stdout;
+    const s = JSON.parse(raw.trim() || "{}");
+    const keyed = typeof s.apiKeySource === "string" && s.apiKeySource !== "none";
+    const thirdParty = typeof s.apiProvider === "string" && s.apiProvider !== "firstParty";
+    status = !s.loggedIn
+      ? { ok: false, problem: `Claude Code isn't signed in. ${LOGIN_HELP}`, version }
+      : keyed
+        ? { ok: false, problem: `Claude Code is signed in with an API key (${s.apiKeySource}), which bills the API, not your subscription. ${LOGIN_HELP}`, version }
+        : thirdParty
+          ? { ok: false, problem: `Claude Code is set up for ${s.apiProvider}, not a Claude account. ${LOGIN_HELP}`, version }
+          : { ok: true, plan: typeof s.subscriptionType === "string" ? s.subscriptionType : undefined, version };
+  } catch (e: any) {
+    status = e?.code === "ENOENT"
+      ? { ok: false, problem: `Claude Code isn't installed (looked for "${exe}"). Install it (npm install -g @anthropic-ai/claude-code), or set CLAUDE_CODE_EXECUTABLE.` }
+      : { ok: false, problem: `Couldn't check Claude Code's sign-in: ${e?.message ?? e}` };
+  }
+  loginCache = { at: Date.now(), status };
+  return status;
+}
+
+// ---------- The camp's tools, served to Claude Code ----------
+function toMcpContent(out: ToolOutput) {
+  if (typeof out === "string") return [{ type: "text" as const, text: out }];
+  return out.map((b: any) => {
+    if (b.type === "text") return { type: "text" as const, text: b.text };
+    if (b.type === "image" && b.source?.type === "base64") return { type: "image" as const, data: b.source.data, mimeType: b.source.media_type };
+    if (b.type === "document") return { type: "text" as const, text: "[A PDF was attached. PDFs can't be shown on the Claude Code runtime; read its text another way or ask the user.]" };
+    return { type: "text" as const, text: JSON.stringify(b).slice(0, 2000) };
+  });
+}
+
+// An MCP server (inside this process) exposing the agent's camp tools. Handlers run in the
+// run's own context, so budgets, quests, and Stop work across tool calls.
+function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R): McpSdkServerConfigWithInstance {
+  const server = new McpServer({ name: "camp", version: "1.0.0" }, { capabilities: { tools: {} } });
+  const handlers = new Map<string, NonNullable<Tool["run"]>>();
+  const listed: { name: string; description?: string; inputSchema: Record<string, unknown> }[] = [];
+  for (const t of tools) {
+    if (!t.run || !("name" in t.def) || !("input_schema" in t.def)) continue;
+    handlers.set(t.def.name, t.run);
+    listed.push({ name: t.def.name, description: t.def.description, inputSchema: t.def.input_schema as Record<string, unknown> });
+  }
+  server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: listed as any }));
+  server.server.setRequestHandler(CallToolRequestSchema, async (req) => {
+    const handler = handlers.get(req.params.name);
+    if (!handler) return { content: [{ type: "text", text: `Unknown tool: ${req.params.name}` }], isError: true };
+    try {
+      const out = await inContext(() => handler(req.params.arguments ?? {}));
+      return { content: toMcpContent(clipOutput(out)) };
+    } catch (err: any) {
+      return { content: [{ type: "text", text: `Error: ${err?.stderr || err?.message || err}` }], isError: true };
+    }
+  });
+  return { type: "sdk", name: "camp", instance: server };
+}
+
+// ---------- One run ----------
+export type ClaudeCodeRun = {
+  model: string;
+  effort?: string;
+  system: string;
+  task: RequestContent;
+  tools: Tool[];
+  maxTurns: number;
+  budgetLeftUsd?: number;          // remaining expedition budget, if any
+  signal?: AbortSignal;
+  messages: Anthropic.MessageParam[]; // the transcript, filled in as the run goes
+  onDelta: (text: string) => void;
+  onText: (text: string) => void;
+  onTool: (name: string, input: unknown) => void;
+  // Called after each model reply with what it cost (an estimate at API prices), so the
+  // expedition's shared budget is current while the run is still going.
+  onSpend?: (usd: number) => void;
+  overBudget?: () => boolean;      // checked after each reply; true ends the run
+};
+
+export type ClaudeCodeResult = {
+  status: "done" | "out_of_turns" | "over_budget" | "stopped";
+  text: string;
+  turns: number;
+  usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  costUsd: number;
+  spentLive: number;               // how much of costUsd was already reported through onSpend
+};
+
+// A run that failed part-way still used tokens: the error carries what it had spent.
+export type ClaudeCodeFailure = Error & { partial?: Pick<ClaudeCodeResult, "text" | "turns" | "usage" | "costUsd" | "spentLive"> };
+
+// Tests swap in a fake `query` (Claude Code itself can't run in the test suite).
+type QueryFn = (p: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => AsyncIterable<SDKMessage>;
+let queryOverride: QueryFn | null = null;
+export function useQueryForTests(fn: QueryFn | null) {
+  queryOverride = fn;
+  loginCache = null;
+}
+
+export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult> {
+  const login = await claudeLogin();
+  if (!login.ok) throw new Error(login.problem);
+  const query: QueryFn = queryOverride ?? ((await import("@anthropic-ai/claude-agent-sdk")).query as unknown as QueryFn);
+
+  const inContext = AsyncLocalStorage.snapshot(); // this run's budget, quest, and Stop signal
+  const builtins = r.tools.flatMap((t) => (!t.run && "name" in t.def && BUILTIN_FOR[t.def.name] ? [BUILTIN_FOR[t.def.name]] : []));
+  const abort = new AbortController();
+  const onAbort = () => abort.abort();
+  r.signal?.addEventListener("abort", onAbort, { once: true });
+
+  // Streaming input keeps the session open for MCP tool calls; we close it when the result arrives.
+  let finished!: () => void;
+  const done = new Promise<void>((ok) => (finished = ok));
+  const first: SDKUserMessage = {
+    type: "user",
+    message: { role: "user", content: r.task as any },
+    parent_tool_use_id: null,
+  } as SDKUserMessage;
+  async function* prompt() {
+    yield first;
+    await done;
+  }
+
+  const options: Options = {
+    abortController: abort,
+    cwd: process.cwd(),
+    pathToClaudeCodeExecutable: claudeExecutable(),
+    model: r.model,
+    ...(r.effort ? { effort: r.effort as Options["effort"] } : {}),
+    systemPrompt: r.system,
+    tools: builtins,                                  // only web search/fetch, if any
+    mcpServers: { camp: campServer(r.tools, inContext) },
+    canUseTool: async (name, input) =>
+      name.startsWith(MCP_PREFIX) || builtins.includes(name)
+        ? { behavior: "allow", updatedInput: input }
+        : { behavior: "deny", message: "That tool isn't available in the camp. Use the camp's own tools (mcp__camp__…)." },
+    settingSources: [],
+    strictMcpConfig: true,
+    persistSession: false,
+    includePartialMessages: true,
+    maxTurns: r.maxTurns,
+    ...(r.budgetLeftUsd != null ? { maxBudgetUsd: Math.max(0.01, r.budgetLeftUsd) } : {}),
+    env: cliEnv(),
+  };
+
+  let text = "";
+  let resultMsg: Extract<SDKMessage, { type: "result" }> | null = null;
+  let budgetStop = false;
+  // Usage so far, by model reply (a reply can arrive in several pieces with the same id and usage).
+  const replies = new Map<string, { input: number; output: number; cacheRead: number; cacheWrite: number }>();
+  let spentLive = 0;
+  const soFar = () => {
+    const usage = zero();
+    for (const u of replies.values()) { usage.input += u.input; usage.output += u.output; usage.cacheRead += u.cacheRead; usage.cacheWrite += u.cacheWrite; }
+    return { text, turns: replies.size, usage, costUsd: spentLive, spentLive };
+  };
+  const noteUsage = (message: any) => {
+    const u = message?.usage;
+    if (!message?.id || !u) return;
+    const before = replies.get(message.id);
+    const now = { input: u.input_tokens ?? 0, output: u.output_tokens ?? 0, cacheRead: u.cache_read_input_tokens ?? 0, cacheWrite: u.cache_creation_input_tokens ?? 0 };
+    replies.set(message.id, now);
+    const delta = costOf(r.model, now) - (before ? costOf(r.model, before) : 0);
+    if (delta > 0) { spentLive += delta; r.onSpend?.(delta); }
+    if (r.overBudget?.() && !abort.signal.aborted) { budgetStop = true; abort.abort(); }
+  };
+  const stopped = (): ClaudeCodeResult => budgetStop
+    ? { ...soFar(), status: "over_budget", text: text + "\n\n[Stopped: this expedition reached its budget.]" }
+    : { ...soFar(), status: "stopped", text: text + "\n\n[Stopped by the user.]" };
+  try {
+    for await (const m of query({ prompt: prompt(), options })) {
+      if (m.type === "rate_limit_event") {
+        noteRateLimit(m.rate_limit_info);
+      } else if (m.type === "stream_event" && !m.parent_tool_use_id) {
+        const ev: any = m.event;
+        if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") r.onDelta(ev.delta.text);
+      } else if (m.type === "assistant" && !m.parent_tool_use_id) {
+        const blocks = (m.message.content ?? []) as any[];
+        r.messages.push({ role: "assistant", content: blocks.filter((b) => b.type !== "thinking") });
+        for (const b of blocks) {
+          if (b.type === "text" && b.text.trim()) { text = b.text.trim(); r.onText(text); }
+          if (b.type === "tool_use") r.onTool(String(b.name).replace(MCP_PREFIX, ""), b.input);
+        }
+        noteUsage(m.message);
+      } else if (m.type === "user" && !m.parent_tool_use_id && Array.isArray(m.message.content)) {
+        r.messages.push({ role: "user", content: m.message.content as any });
+      } else if (m.type === "result") {
+        resultMsg = m;
+        finished();
+      }
+    }
+  } catch (err: any) {
+    finished();
+    if (abort.signal.aborted) return stopped();
+    throw failure(err, soFar());
+  } finally {
+    finished();
+    r.signal?.removeEventListener("abort", onAbort);
+  }
+
+  if (abort.signal.aborted) return stopped();
+  if (!resultMsg) throw failure(new Error("Claude Code ended without a result."), soFar());
+  const u = resultMsg.usage as any;
+  const usage = {
+    input: u?.input_tokens ?? 0,
+    output: u?.output_tokens ?? 0,
+    cacheRead: u?.cache_read_input_tokens ?? 0,
+    cacheWrite: u?.cache_creation_input_tokens ?? 0,
+  };
+  const base = { turns: resultMsg.num_turns, usage, costUsd: resultMsg.total_cost_usd ?? spentLive, spentLive };
+  if (resultMsg.subtype === "success" && !resultMsg.is_error) return { ...base, status: "done", text: (resultMsg.result || text).trim() };
+  if (resultMsg.subtype === "error_max_turns") return { ...base, status: "out_of_turns", text }; // agent.ts adds the note
+  if (resultMsg.subtype === "error_max_budget_usd") return { ...base, status: "over_budget", text: text + "\n\n[Stopped: this expedition reached its budget.]" };
+  const why = ("errors" in resultMsg ? resultMsg.errors : []).join("; ") || ("result" in resultMsg && resultMsg.result) || resultMsg.subtype;
+  throw failure(new Error(`Claude Code stopped with an error: ${why}`), { ...base, text });
+}
+
+// If the plan's usage limit is why it failed, say that (and when it resets) instead of a raw error.
+function failure(err: any, partial: ClaudeCodeFailure["partial"]): ClaudeCodeFailure {
+  const until = pausedUntil();
+  const e: ClaudeCodeFailure = until ? new Error(pauseMessage(until)) : err instanceof Error ? err : new Error(String(err));
+  e.partial = partial;
+  return e;
+}
+
+const zero = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+
+// A single question with no tools (the eval judge, on the subscription).
+export async function askClaudeCode(system: string, prompt: string, model: string): Promise<{ text: string; costUsd: number }> {
+  const r = await runClaudeCode({
+    model, system, task: prompt, tools: [], maxTurns: 1, messages: [],
+    onDelta: () => {}, onText: () => {}, onTool: () => {},
+  });
+  return { text: r.text, costUsd: r.costUsd };
+}
+
+// ---------- Models your subscription can use ----------
+export type ClaudeCodeModel = { id: string; name: string; efforts: string[] };
+let modelsCache: { at: number; models: ClaudeCodeModel[] } | null = null;
+
+// Asks Claude Code which models this login can use. It opens a session and closes it without
+// sending a message, so it uses none of your plan. Cached for 10 minutes; null if it can't tell.
+export async function claudeCodeModels(): Promise<ClaudeCodeModel[] | null> {
+  if (modelsCache && Date.now() - modelsCache.at < 10 * 60_000) return modelsCache.models;
+  if (queryOverride) return null; // tests
+  try {
+    if (!(await claudeLogin()).ok) return null;
+    const { query } = await import("@anthropic-ai/claude-agent-sdk");
+    const abort = new AbortController();
+    let release!: () => void;
+    const held = new Promise<void>((ok) => (release = ok));
+    async function* idle(): AsyncGenerator<SDKUserMessage> { await held; }
+    const q = query({
+      prompt: idle(),
+      options: { abortController: abort, cwd: process.cwd(), pathToClaudeCodeExecutable: claudeExecutable(), tools: [], settingSources: [], strictMcpConfig: true, persistSession: false, env: cliEnv() },
+    });
+    const drain = (async () => { try { for await (const _ of q) { /* nothing is sent, so nothing arrives */ } } catch { /* closed */ } })();
+    try {
+      const list = await Promise.race([
+        q.supportedModels(),
+        new Promise<never>((_, no) => setTimeout(() => no(new Error("timed out")), 30_000)),
+      ]);
+      const models = list
+        .map((m) => ({ id: m.resolvedModel ?? m.value, name: prettyModel(m.resolvedModel ?? m.value), efforts: m.supportsEffort === false ? [] : (m.supportedEffortLevels ?? []) }))
+        .filter((m, i, all) => /^claude-/.test(m.id) && all.findIndex((x) => x.id === m.id) === i);
+      if (!models.length) return null;
+      modelsCache = { at: Date.now(), models };
+      return models;
+    } finally {
+      release();
+      abort.abort();
+      await drain;
+    }
+  } catch {
+    return null;
+  }
+}
+
+// "claude-opus-5-5" → "Claude Opus 5.5" (Claude Code's own names are things like "Default (recommended)").
+function prettyModel(id: string): string {
+  const m = id.match(/^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$/);
+  return m ? `Claude ${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? "." + m[3] : ""}` : id;
+}

@@ -2,12 +2,46 @@
 // Results land in camp/inbox.md (and as a macOS notification). When a run finds nothing
 // new, it stays quiet: nothing is written and nothing pings you.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
-import { campMode } from "./tools.js";
 import { runExpedition } from "./quartermaster.js";
 import { isDue, loadJobs, saveJobs, QUIET_TOKEN, type Job } from "./jobs.js";
 import { emit } from "./events.js";
+import { pausedUntil } from "./limits.js";
+
+// Only one process runs scheduled jobs at a time, so mission control, `npm run watch`, and a
+// background `watch --once` can all be around without the same job running twice. The lock is a
+// small file holding the owner's process id; a lock left by a process that has died is taken over.
+export const SCHEDULER_LOCK = "camp/scheduler.lock";
+function alive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; } catch (e: any) { return e?.code === "EPERM"; }
+}
+export function claimScheduler(owner: string): boolean {
+  mkdirSync("camp", { recursive: true });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      writeFileSync(SCHEDULER_LOCK, JSON.stringify({ pid: process.pid, owner, since: new Date().toISOString() }) + "\n", { flag: "wx" });
+      process.once("exit", releaseScheduler);
+      return true;
+    } catch {
+      let held: { pid?: number } = {};
+      try { held = JSON.parse(readFileSync(SCHEDULER_LOCK, "utf8")); } catch { /* unreadable: treat as stale */ }
+      if (held.pid === process.pid) return true;
+      if (held.pid && alive(held.pid)) return false;
+      rmSync(SCHEDULER_LOCK, { force: true }); // its owner is gone
+    }
+  }
+  return false;
+}
+export function schedulerOwner(): { pid: number; owner: string } | null {
+  try {
+    const held = JSON.parse(readFileSync(SCHEDULER_LOCK, "utf8"));
+    return held.pid && alive(held.pid) ? held : null;
+  } catch { return null; }
+}
+export function releaseScheduler() {
+  try { if (JSON.parse(readFileSync(SCHEDULER_LOCK, "utf8")).pid === process.pid) rmSync(SCHEDULER_LOCK, { force: true }); } catch { /* not ours */ }
+}
 
 export const INBOX_PATH = "camp/inbox.md";
 
@@ -48,14 +82,14 @@ function toInbox(heading: string, body: string) {
   emit({ type: "changed", what: "inbox" });
 }
 
-export async function runJob(job: Job, signal?: AbortSignal) {
+export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
   const started = new Date();
+  const previousRun = job.lastRun;
   emit({ type: "job", name: job.name, outcome: "running" });
   updateJob(job.name, { lastRun: started.toISOString() }); // mark first, so a crash doesn't loop
-  const wasUnattended = campMode.unattended;
-  campMode.unattended = true; // no shell, no prompts: nobody is at the keyboard
   try {
-    const result = await runExpedition(jobBrief(job), { job: job.name, displayTask: job.task, signal });
+    // Unattended: no shell, no prompts, nobody at the keyboard (for this run only).
+    const result = await runExpedition(jobBrief(job), { job: job.name, displayTask: job.task, signal, id, unattended: true });
     if (result.status === "stopped") {
       emit({ type: "job", name: job.name, outcome: "failed", text: "stopped by you" });
       return; // a half-finished run isn't a report
@@ -70,14 +104,20 @@ export async function runJob(job: Job, signal?: AbortSignal) {
     notify(`Guild Camp: ${job.name}`, report);
     emit({ type: "job", name: job.name, outcome: "reported", text: report });
   } catch (err: any) {
+    // Out of plan usage: not a failure worth a report. Put the job back so it runs after the reset.
+    if (pausedUntil()) {
+      updateJob(job.name, { lastRun: previousRun });
+      emit({ type: "job", name: job.name, outcome: "failed", text: `${err.message} It will run after the reset.` });
+      return;
+    }
     toInbox(`${started.toLocaleString()} · ${job.name} (failed)`, err.message);
     emit({ type: "job", name: job.name, outcome: "failed", text: err.message });
-  } finally {
-    campMode.unattended = wasUnattended;
   }
 }
 
+// While your plan's usage limit is used up, nothing is due: jobs wait for the reset.
 export function dueJobs(): Job[] {
+  if (pausedUntil()) return [];
   return loadJobs().filter((j) => isDue(j));
 }
 

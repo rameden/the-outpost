@@ -3,12 +3,14 @@
 // campPath, so the same boundaries apply (no secrets, no other agent's memory, no writes to skills/).
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
-import { campPath, CAMP_ROOT, type Tool } from "./tools.js";
+import { join } from "node:path";
+import { campPath, CAMP_ROOT, displayPath, type Tool } from "./tools.js";
+import { afterWrite, beforeWrite } from "./checkpoints.js";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".next", "coverage"]);
 const MAX_FILE_BYTES = 1_000_000;
-const rel = (abs: string) => relative(CAMP_ROOT, abs).split(sep).join("/") || ".";
+// Paths as agents see them: relative in the camp, links/<name>/… in a linked folder.
+const rel = (abs: string) => displayPath(abs);
 
 // Walk files under a directory, honoring the camp's read boundaries.
 function* walk(dir: string, self: string, maxEntries = 20_000): Generator<string> {
@@ -77,7 +79,9 @@ export function editFileFor(self: string): Tool {
       if (count === 0) return `old_string wasn't found in ${path}. Read the file again and copy the text exactly.`;
       if (count > 1 && !replace_all) return `old_string appears ${count} times in ${path}. Add surrounding lines to make it unique, or set replace_all.`;
       const next = replace_all ? text.split(old_string).join(new_string) : text.replace(old_string, () => new_string);
+      beforeWrite(abs, displayPath(abs));
       writeFileSync(abs, next);
+      afterWrite(abs);
       return `Edited ${path} (${replace_all ? count : 1} replacement${(replace_all ? count : 1) === 1 ? "" : "s"}).`;
     },
   };
@@ -87,7 +91,7 @@ export function listDirFor(self: string): Tool {
   return {
     def: {
       name: "list_dir",
-      description: "List what's in a folder (folders end with /). depth 1 by default, up to 4.",
+      description: "List what's in a folder (folders end with /), including linked folders like links/<name>. depth 1 by default, up to 4.",
       input_schema: {
         type: "object",
         properties: { path: { type: "string", description: "Folder, default the camp root." }, depth: { type: "number" } },
@@ -124,13 +128,17 @@ export function globFor(self: string): Tool {
   return {
     def: {
       name: "glob",
-      description: "Find files by pattern, e.g. 'src/**/*.ts' or '**/*.{md,txt}'. Returns paths, newest first.",
+      description: "Find files by pattern, e.g. 'src/**/*.ts', '**/*.{md,txt}', or inside a linked folder 'links/<name>/**/*.ts'. Returns paths, newest first.",
       input_schema: { type: "object", properties: { pattern: { type: "string" } }, required: ["pattern"] },
     },
     run: async ({ pattern }) => {
-      const re = globToRegex(String(pattern).replace(/^\.\//, ""));
+      const pat = String(pattern).replace(/^\.\//, "");
+      const re = globToRegex(pat);
+      // A pattern inside a linked folder searches that folder: links/site/**/*.ts
+      const link = pat.match(/^links\/([^/*?{]+)/);
+      const root = link ? campPath(`links/${link[1]}`, "read", self) : CAMP_ROOT;
       const hits: { path: string; mtime: number }[] = [];
-      for (const abs of walk(CAMP_ROOT, self)) {
+      for (const abs of walk(root, self)) {
         const p = rel(abs);
         if (re.test(p)) hits.push({ path: p, mtime: statSync(abs).mtimeMs });
         if (hits.length >= 500) break;
@@ -147,7 +155,7 @@ export function grepFor(self: string): Tool {
       name: "grep",
       description:
         "Search file contents with a regular expression. Returns path:line: text. Narrow it with " +
-        "path (a folder or file) and glob (e.g. '*.ts').",
+        "path (a folder or file, e.g. links/<name> for a linked folder) and glob (e.g. '*.ts').",
       input_schema: {
         type: "object",
         properties: {

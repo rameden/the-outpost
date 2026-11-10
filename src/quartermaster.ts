@@ -1,7 +1,7 @@
 // The Quartermaster: plans expeditions, gets your OK on the plan, and dispatches adventurers.
 // Both the interactive camp (camp.ts) and the scheduler (watch.ts) run expeditions through here.
 
-import { runAgent, type AgentResult, type AgentSpec } from "./agent.js";
+import { runAgent, type AgentFailure, type AgentResult, type AgentSpec } from "./agent.js";
 import { ROSTER } from "./roster.js";
 import { readFileFor, campMode, type Tool } from "./tools.js";
 import { CREW, findCrew } from "./crew.js";
@@ -11,8 +11,10 @@ import { requestDisplay, viewFileFor, type Attachment, type RequestContent } fro
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { randomUUID } from "node:crypto";
-import { withExpedition, withQuest } from "./context.js";
-import { budgetUsd } from "./settings.js";
+import { currentSignal, withExpedition, withQuest } from "./context.js";
+import { budgetUsd, questLimit } from "./settings.js";
+import { changedFiles } from "./checkpoints.js";
+import { recordTurn, threadFor } from "./threads.js";
 import { proposeSkill, skillCatalog } from "./forge.js";
 import { wikiWrite } from "./wiki.js";
 import { scheduleJob, listJobs, cancelJob } from "./jobs.js";
@@ -57,6 +59,47 @@ function makeSubmitPlan(exp: Expedition): Tool {
   };
 }
 
+// A question for the user, when the Quartermaster can't sensibly guess (which of two readings
+// they meant, a choice only they can make). Scheduled jobs never ask: nobody is there.
+const askUser: Tool = {
+  def: {
+    name: "ask_user",
+    description:
+      "Ask the user one short question and wait for their answer. Use it only when the request " +
+      "is ambiguous in a way that changes the plan, or a decision is theirs to make; otherwise " +
+      "make a sensible assumption and say so. Ask before submit_plan, not after work has started.",
+    input_schema: { type: "object", properties: { question: { type: "string" } }, required: ["question"] },
+  },
+  run: async ({ question }) => {
+    if (campMode.unattended) return "Nobody is here to answer (this is a scheduled job). Make a sensible assumption and say so in your report.";
+    const answer = await ask({ kind: "question", title: "❓ The Quartermaster asks:", body: String(question) });
+    return answer ? `The user answered: "${answer}"` : "The user gave no answer. Make a sensible assumption and say so.";
+  },
+};
+
+// How many dispatched quests run at once, camp-wide (settings "questsAtOnce", default 4). The
+// Quartermaster can send several adventurers in one turn and several expeditions can run side by
+// side; without a cap that can drain a plan's limits in minutes. Extra quests wait their turn.
+let questsRunning = 0;
+const questWaiters: (() => void)[] = [];
+async function questSlot(signal?: AbortSignal): Promise<boolean> {
+  while (questsRunning >= questLimit()) {
+    if (signal?.aborted) return false;
+    await new Promise<void>((ok) => {
+      const wake = () => { signal?.removeEventListener("abort", wake); ok(); };
+      questWaiters.push(wake);
+      signal?.addEventListener("abort", wake, { once: true });
+    });
+  }
+  if (signal?.aborted) return false;
+  questsRunning++;
+  return true;
+}
+function releaseQuestSlot() {
+  questsRunning--;
+  questWaiters.shift()?.();
+}
+
 // The Quartermaster's key tool: send an adventurer on a quest.
 // The adventurer runs its own full agent loop and returns only its report,
 // so the Quartermaster's context stays clean no matter how messy the quest was.
@@ -85,6 +128,10 @@ function makeDispatch(exp: Expedition): Tool {
       const spec = ROSTER[adventurer];
       if (!spec) return `No adventurer named ${adventurer}.`;
       if (!exp.planApproved) return "Blocked: submit your plan with submit_plan and get the user's approval first.";
+      if (questsRunning >= questLimit()) {
+        emit({ type: "notice", who: "Quartermaster", emoji: "🧭", depth: 0, text: `⏳ ${spec.name}'s quest is waiting for a free slot (${questLimit()} quests run at once).` });
+      }
+      if (!(await questSlot(currentSignal()))) return "Not sent: the expedition was stopped.";
       // Each quest gets its own id, so parallel quests keep their events and approvals apart.
       const questId = randomUUID();
       emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId });
@@ -95,11 +142,19 @@ function makeDispatch(exp: Expedition): Tool {
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId });
         return `${spec.name}'s report:\n${result.text}`;
       } catch (err: any) {
+        logFailure("quest", spec.name, brief, started, err, exp.job);
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });
         throw err;
+      } finally {
+        releaseQuestSlot();
       }
     },
   };
+}
+
+// A run that failed still used tokens and left a transcript: log it like any other.
+function logFailure(kind: "expedition" | "quest" | "job", who: string, task: string, started: Date, err: AgentFailure, job?: string) {
+  if (err?.partial) logQuest(kind, who, task, started, err.partial, job);
 }
 
 const PERSONA = `You take the user's request, plan it, and send the right adventurers to carry it out.
@@ -107,15 +162,17 @@ Questions about you or the crew (who you are, who does what) you simply answer y
 
 How you work:
 1. Check your memory, recent sessions, and the camp wiki for what's already known.
-2. Plan. Break the request into quests. Decide who handles each and in what order
+2. If the request could mean two different things and the difference changes the plan, ask
+   with ask_user (one short question). Don't ask about details you can reasonably decide.
+3. Plan. Break the request into quests. Decide who handles each and in what order
    (e.g. Scout researches before the Scribe writes about it). Show the plan with submit_plan
    before your first dispatch, and follow the user's changes if they ask for any.
-3. Dispatch with excellent briefs. Adventurers know nothing except what you write.
+4. Dispatch with excellent briefs. Adventurers know nothing except what you write.
    Independent quests (research while the Artificer builds) go out together in one turn.
    Pass along findings from earlier reports and point them at relevant wiki pages.
-4. Review every report. If it's incomplete or wrong, dispatch again with a sharper brief.
-5. Do trivial things yourself (reading one file) rather than dispatching for them.
-6. Finish by telling the user what was done, where outputs are, and anything unresolved.
+5. Review every report. If it's incomplete or wrong, dispatch again with a sharper brief.
+6. Do trivial things yourself (reading one file) rather than dispatching for them.
+7. Finish by telling the user what was done, where outputs are, and anything unresolved.
 
 Attachments: the user may attach files, folders, images, PDFs, or links; they're listed at the end
 of their message (images and PDFs are shown to you directly). Teammates only see what you pass on,
@@ -146,7 +203,10 @@ it with no other context, and say what's worth reporting. Remind the user that j
 while mission control (\`npm run ui\`) or \`npm run watch\` is going.`;
 
 // The Quartermaster's defaults in code; mission control can override both per agent.
-export const QM_DEFAULTS: Pick<AgentSpec, "model" | "effort"> = { model: undefined, effort: "high" };
+export const QM_DEFAULTS: Pick<AgentSpec, "model" | "effort" | "maxTurns"> = { model: undefined, effort: "high", maxTurns: 30 };
+
+// For mission control's About tab: the Quartermaster as it runs (its tools, skills, defaults).
+export const quartermasterSpec = () => buildQuartermaster({ planApproved: false });
 
 function buildQuartermaster(exp: Expedition): AgentSpec {
   const c = CREW.quartermaster;
@@ -159,6 +219,7 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
     tools: [
       makeSubmitPlan(exp),
       makeDispatch(exp),
+      askUser,
       readFileFor("quartermaster"),
       viewFileFor("quartermaster"),
       listDirFor("quartermaster"),
@@ -172,7 +233,6 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
       cancelJob,
     ],
     skillDirs: ["skills/shared", "skills/quartermaster"],
-    maxTurns: 30,
     ...QM_DEFAULTS,
   };
 }
@@ -180,26 +240,31 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
 // One expedition: the Quartermaster with its memory, recent sessions, and the skill catalog loaded.
 export async function runExpedition(
   task: RequestContent,
-  opts: { job?: string; extraSystem?: string; displayTask?: string; source?: SessionSource; attached?: Attachment[]; signal?: AbortSignal } = {}
+  opts: { job?: string; extraSystem?: string; displayTask?: string; source?: SessionSource; attached?: Attachment[]; signal?: AbortSignal;
+    id?: string; unattended?: boolean; replyTo?: string } = {}
 ): Promise<AgentResult> {
-  const exp: Expedition = { planApproved: !APPROVE_PLANS || campMode.unattended, job: opts.job };
-  const id = randomUUID();
+  const exp: Expedition = { planApproved: !APPROVE_PLANS || !!opts.unattended, job: opts.job };
+  const id = opts.id ?? randomUUID();
   const started = new Date();
   const shown = opts.displayTask ?? requestDisplay(task);
-  emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached });
+  const thread = threadFor(opts.replyTo); // a follow-up carries the conversation it continues
+  emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached, ...(thread ? { replyTo: opts.replyTo } : {}) });
   try {
     // One shared spending tally (and the optional budget) for the Quartermaster and every quest it sends.
-    const result = await withExpedition(budgetUsd(), () => runAgent(buildQuartermaster(exp), task, {
+    const result = await withExpedition({ id, budget: budgetUsd(), signal: opts.signal, unattended: opts.unattended }, () => runAgent(buildQuartermaster(exp), task, {
       source: opts.source ?? (opts.job ? "job" : "user"),
       extraSystem:
         `## Skill catalog (every live skill in camp, by owner)\n${skillCatalog()}` +
-        (opts.extraSystem ? `\n\n${opts.extraSystem}` : ""),
-    }), opts.signal);
+        (opts.extraSystem ? `\n\n${opts.extraSystem}` : "") +
+        (thread ? `\n\n${thread.history}` : ""),
+    }));
     logQuest(opts.job ? "job" : "expedition", "Quartermaster", shown, started, result, opts.job);
-    emit({ type: "expedition_end", id, status: result.status, text: result.text });
+    if (!opts.job) recordTurn({ thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, reply: result.text, status: result.status });
+    emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length });
     return result;
   } catch (err: any) {
-    emit({ type: "expedition_end", id, status: "error", text: err.message });
+    logFailure(opts.job ? "job" : "expedition", "Quartermaster", shown, started, err, opts.job);
+    emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length });
     throw err;
   }
 }
@@ -210,31 +275,35 @@ export async function runDirect(
   task: RequestContent,
   source: SessionSource = "direct",
   attached?: Attachment[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  id: string = randomUUID(),
+  replyTo?: string
 ): Promise<AgentResult | null> {
   const who = findCrew(adventurer);
-  if (who?.id === "quartermaster") return runExpedition(task, { source, attached, signal });
+  if (who?.id === "quartermaster") return runExpedition(task, { source, attached, signal, id, replyTo });
   const spec = who ? ROSTER[who.id] : undefined;
   if (!spec) return null;
-  const id = randomUUID();
   const started = new Date();
   const shown = requestDisplay(task);
-  emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached });
+  const thread = threadFor(replyTo);
+  emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached, ...(thread ? { replyTo } : {}) });
   const questId = randomUUID();
-  emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId });
+  emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, expeditionId: id });
   const note = "(Sent directly by the user, not the Quartermaster.)\n\n";
   const content: RequestContent = typeof task === "string"
     ? note + task
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));
   try {
-    const result = await withExpedition(budgetUsd(), () => withQuest(questId, () => runAgent(spec, content, { depth: 1, source })), signal);
+    const result = await withExpedition({ id, budget: budgetUsd(), signal }, () => withQuest(questId, () => runAgent(spec, content, { depth: 1, source, extraSystem: thread?.history })));
     logQuest("quest", spec.name, shown, started, result);
-    emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId });
-    emit({ type: "expedition_end", id, status: result.status, text: result.text });
+    recordTurn({ thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, reply: result.text, status: result.status });
+    emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId, expeditionId: id });
+    emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length });
     return result;
   } catch (err: any) {
-    emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });
-    emit({ type: "expedition_end", id, status: "error", text: err.message });
+    logFailure("quest", spec.name, shown, started, err);
+    emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId, expeditionId: id });
+    emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length });
     throw err;
   }
 }

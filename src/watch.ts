@@ -2,17 +2,28 @@
 //   npm run watch                    keep running; check for due jobs every 30 seconds
 //   npm run watch -- --once          run whatever is due now, then exit (for cron or launchd)
 //   npm run watch -- --run <name>    run one job right now, due or not (to try it out)
-// Mission control (`npm run ui`) runs jobs too, so run one or the other, not both.
+//   npm run watch:install            (macOS) run due jobs in the background every minute, even with
+//                                    nothing open; npm run watch:uninstall removes it
+// Mission control (`npm run ui`) runs jobs too. Only one of them runs jobs at a time (a lock in
+// camp/scheduler.lock), so it's safe to have both going.
 
 import { rl } from "./tools.js";
 import { attachConsole } from "./events.js";
 import { loadJobs } from "./jobs.js";
-import { dueJobs, runJob } from "./scheduler.js";
+import { claimScheduler, dueJobs, runJob, schedulerOwner } from "./scheduler.js";
 
 const TICK_MS = 30_000;
 attachConsole();
 
+// Mission control (or another watcher) may already be running jobs: then this one stands by.
+let standingBy = false;
 async function runDue() {
+  if (!claimScheduler("watch")) {
+    if (!standingBy) console.log(`⏸  ${schedulerOwner()?.owner === "ui" ? "Mission control" : "Another watcher"} is running the scheduled jobs; standing by.`);
+    standingBy = true;
+    return;
+  }
+  standingBy = false;
   for (const job of dueJobs()) await runJob(job); // one at a time
 }
 

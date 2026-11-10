@@ -10,9 +10,10 @@ type Asker = (q: Question & { id: string }) => Promise<string>;
 
 const CLI_PROMPTS: Record<AskKind, string> = {
   plan: "\n   Approve? [Enter = go, n = stop, or type changes] ",
-  shell: "   Run it? [y/N] ",
+  shell: "   Run it? [y/N, a = always allow this exact command] ",
   job: "   Schedule it? [y/N] ",
   tool: "   Allow it? [y/N] ",
+  question: "   Your answer: ",
 };
 
 // Parallel quests can ask at the same time; the terminal takes their questions one at a time.
@@ -31,7 +32,8 @@ export function setAsker(a: Asker) {
   asker = a;
 }
 
-let nextId = 0;
+// Starts from the clock so ids stay unique across restarts (the saved feed holds old ones).
+let nextId = Date.now();
 export async function ask(q: Question): Promise<string> {
   const id = `ask_${++nextId}`;
   emit({ type: "ask", id, ...q, questId: currentQuestId() });

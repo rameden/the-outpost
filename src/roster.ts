@@ -42,7 +42,7 @@ export const ROSTER: Record<string, AgentSpec> = {
     "Range ahead to gather intelligence: search, read, cross-check, and bring back findings with " +
       "sources. Prefer primary sources. Separate what you confirmed from what you suspect." + NOTES_RULE,
     {
-      tools: [webSearch, webFetch, readFileFor("scout"), viewFileFor("scout"), ...search("scout"), writeFileFor("scout"), wikiWrite(["notes"]), rememberTool("scout")],
+      tools: [webSearch, webFetch, readFileFor("scout"), viewFileFor("scout"), ...search("scout"), writeFileFor("scout", { outputsOnly: true }), wikiWrite(["notes"]), rememberTool("scout")],
       skillDirs: ["skills/shared", "skills/scout"],
       effort: "medium",
     }
@@ -65,7 +65,7 @@ export const ROSTER: Record<string, AgentSpec> = {
     {
       tools: [readFileFor("artificer"), viewFileFor("artificer"), ...search("artificer"), writeFileFor("artificer"), editFileFor("artificer"), bash, wikiWrite(["notes"]), rememberTool("artificer")],
       skillDirs: ["skills/shared", "skills/artificer"],
-      maxTurns: 30,
+      maxTurns: 60, // read, edit, test, repeat: code work takes many turns
       effort: "high",
     }
   ),

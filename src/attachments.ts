@@ -7,7 +7,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { dirname, extname, join, relative, sep } from "node:path";
 import { randomBytes } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
-import { campPath, CAMP_ROOT, type Tool } from "./tools.js";
+import { campPath, CAMP_ROOT, displayPath, type Tool } from "./tools.js";
+import { loadLinks } from "./links.js";
 
 export const UPLOADS_DIR = join("camp", "uploads");
 export type Attachment = { kind: "file" | "folder" | "url"; name: string; path?: string; url?: string };
@@ -73,6 +74,11 @@ export function searchFiles(query: string, limit = 20): string[] {
     }
   };
   walk(CAMP_ROOT);
+  // Linked folders show up as links/<name>/ (type @links/ to see them all).
+  for (const l of loadLinks()) {
+    const p = `links/${l.name}/`;
+    if (!q || p.includes(q) || l.name.includes(q)) hits.push({ path: p, score: q && l.name.startsWith(q.replace(/^links\//, "")) ? -1 : 0 });
+  }
   return hits.sort((a, b) => a.score - b.score || a.path.length - b.path.length).slice(0, limit).map((h) => h.path);
 }
 
@@ -92,26 +98,65 @@ export function findFileRefs(text: string): Attachment[] {
       const abs = campPath(ref, "read");
       if (!existsSync(abs)) continue;
       const kind = statSync(abs).isDirectory() ? "folder" : "file";
-      out.push({ kind, name: ref.replace(/\/$/, "").split("/").pop()!, path: relative(CAMP_ROOT, abs).split(sep).join("/") });
+      out.push({ kind, name: ref.replace(/\/$/, "").split("/").pop()!, path: displayPath(abs) });
     } catch { /* not readable: leave it as plain text */ }
   }
   return out;
 }
 
 // ---------- Building the request ----------
-function listFolder(path: string, max = 60): string[] {
+// What an agent sees for an attached folder. Small folders are listed file by file; big ones
+// (a linked repo with hundreds of files) get an overview, so the prompt stays small and the agent
+// explores with list_dir, glob, and grep.
+const LIST_ALL_UP_TO = 40;
+function describeFolder(path: string): string {
+  const root = campPath(path, "read");
+  const shown = displayPath(root);
   const files: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (files.length >= max) return;
-      if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
-      const abs = join(dir, entry.name);
-      if (entry.isDirectory()) walk(abs);
-      else files.push(`${relative(CAMP_ROOT, abs).split(sep).join("/")} (${kb(statSync(abs).size)})`);
+  let total = 0;
+  const stack = [root];
+  while (stack.length && total < 50_000) {
+    const dir = stack.pop()!;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      if (e.name.startsWith(".") || SKIP_DIRS.has(e.name) || e.name === "dist" || e.name === "build") continue;
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) stack.push(abs);
+      else if (e.isFile()) {
+        total++;
+        if (files.length <= LIST_ALL_UP_TO) files.push(`${displayPath(abs)} (${kb(statSync(abs).size)})`);
+      }
     }
-  };
-  walk(campPath(path, "read"));
-  return files;
+  }
+  if (total <= LIST_ALL_UP_TO) {
+    return `- Folder: ${shown} (${total} file${total === 1 ? "" : "s"})\n${files.sort().map((f) => `    - ${f}`).join("\n")}`;
+  }
+  // Overview: top-level entries, with a file count for each subfolder.
+  const top: string[] = [];
+  for (const e of readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (e.name.startsWith(".") || SKIP_DIRS.has(e.name)) continue;
+    if (top.length >= 40) { top.push("…"); break; }
+    if (e.isDirectory()) {
+      let n = 0;
+      const s = [join(root, e.name)];
+      while (s.length && n < 50_000) {
+        const d = s.pop()!;
+        try {
+          for (const x of readdirSync(d, { withFileTypes: true })) {
+            if (x.name.startsWith(".") || SKIP_DIRS.has(x.name)) continue;
+            if (x.isDirectory()) s.push(join(d, x.name)); else if (x.isFile()) n++;
+          }
+        } catch { /* unreadable folder */ }
+      }
+      top.push(`${e.name}/ (${n} files)`);
+    } else if (e.isFile()) top.push(e.name);
+  }
+  return (
+    `- Folder: ${shown} (${total}${total >= 50_000 ? "+" : ""} files; too many to list, so here's the top level)\n` +
+    top.map((t) => `    - ${t}`).join("\n") +
+    `\n    Explore it with list_dir("${shown}"), glob("${shown}/**/*.ext"), and grep(pattern, path: "${shown}").`
+  );
 }
 
 // Turn text + attachments into what the agent receives: visual blocks first, then the text with
@@ -136,8 +181,7 @@ export function buildRequest(text: string, attachments: Attachment[] = []): { co
     if (!existsSync(abs)) continue;
     attached.push(a);
     if (a.kind === "folder" || statSync(abs).isDirectory()) {
-      const files = listFolder(a.path);
-      lines.push(`- Folder: ${a.path} (${files.length}${files.length >= 60 ? "+" : ""} files)\n${files.map((f) => `    - ${f}`).join("\n")}`);
+      lines.push(describeFolder(a.path));
       continue;
     }
     const size = statSync(abs).size;

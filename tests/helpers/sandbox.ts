@@ -7,12 +7,16 @@ import { join, resolve } from "node:path";
 
 export const REPO = resolve(import.meta.dirname, "..", "..");
 
-export function enterSandbox(name: string): string {
+// Tests run on the API runtime against a fake API; evals keep whatever runtime you've configured.
+export function enterSandbox(name: string, opts: { keepRuntime?: boolean } = {}): string {
   const dir = mkdtempSync(join(tmpdir(), `guild-camp-${name}-`));
   cpSync(join(REPO, "skills"), join(dir, "skills"), { recursive: true });
   mkdirSync(join(dir, "camp"), { recursive: true });
   symlinkSync(join(REPO, "node_modules"), join(dir, "node_modules"));
   process.chdir(dir);
-  process.env.ANTHROPIC_API_KEY ??= "test-key-not-real";
+  if (!opts.keepRuntime) {
+    process.env.CAMP_RUNTIME = "api";
+    process.env.ANTHROPIC_API_KEY ??= "test-key-not-real";
+  }
   return dir;
 }

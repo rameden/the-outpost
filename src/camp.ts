@@ -6,8 +6,10 @@ import { onInterrupt } from "./terminal.js";
 import { CREW, CREW_IDS, findCrew } from "./crew.js";
 import { readMemory, recentSessions } from "./memory.js";
 import { buildRequest } from "./attachments.js";
-import { listModels, resolveModel } from "./agent.js";
-import { agentSettings, setAgentSettings, budgetUsd, setBudgetUsd, type Effort } from "./settings.js";
+import { addLink, loadLinks, removeLink } from "./links.js";
+import { listModels, resolveModel, resolveTurns } from "./agent.js";
+import { agentSettings, setAgentSettings, budgetUsd, setBudgetUsd, campRuntime, setRuntime, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
+import { claudeLogin } from "./claude-code.js";
 import { ROSTER } from "./roster.js";
 import { QM_DEFAULTS } from "./quartermaster.js";
 import type { CrewId } from "./crew.js";
@@ -17,6 +19,13 @@ import { formatQuests } from "./questlog.js";
 import { describeJobs } from "./jobs.js";
 import { wikiIndex } from "./wiki.js";
 import { attachConsole } from "./events.js";
+import { randomUUID } from "node:crypto";
+import { threadFor } from "./threads.js";
+import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
+import { pausedUntil, pauseMessage } from "./limits.js";
+
+// The last expedition or direct chat in this terminal, for /reply, /diff, and /undo.
+let lastId: string | undefined;
 
 attachConsole();
 
@@ -25,11 +34,19 @@ const HELP = `Commands:
   @${CREW_IDS.join(" / @")} <task>
                      Talk to one crew member directly (aliases work too: @writer, @dev, @research)
   @path/to/file      Attach a project file or folder anywhere in a message (images and PDFs are shown)
+  /link <path> [--edit]
+                     Let the crew read a folder on your disk as links/<name>/ (no upload); /links, /unlink <name>
+  /reply <message>   Follow up on the last expedition or chat, with that whole conversation carried over
+  /diff · /undo      What the last expedition's file tools changed; put those files back
   /memory <name>     What that crew member remembers, and how many sessions they've had
+  /runtime [claude-code | api]
+                     Show or switch what runs the crew: your Claude subscription (default) or the API
   /budget [dollars | off]
                      Stop each expedition once it has spent this much (all agents together)
   /model [name model [effort] | name reset]
                      Show or change which model each crew member runs on
+  /turns <name> <number | reset>
+                     How many turns one run of that crew member may take before it stops
   /review            Approve or reject skills the Quartermaster proposed
   /log               Recent quests: who went, how it ended, time, tokens, and cost
   /jobs              Scheduled jobs (they run while \`npm run watch\` is going)
@@ -45,16 +62,17 @@ async function modelCommand(name?: string, model?: string, effort?: string) {
   if (!name) {
     for (const id of CREW_IDS) {
       const r = resolveModel({ id, ...defaults(id) });
-      const custom = agentSettings(id).model || agentSettings(id).effort ? "  (custom)" : "";
-      console.log(`${CREW[id].emoji} ${CREW[id].name.padEnd(14)} ${r.model} · ${r.effort ?? "default"}${custom}`);
+      const o = agentSettings(id);
+      const custom = o.model || o.effort || o.maxTurns ? "  (custom)" : "";
+      console.log(`${CREW[id].emoji} ${CREW[id].name.padEnd(14)} ${r.model} · ${r.effort ?? "default"} · ${resolveTurns({ id, ...defaults(id) })} turns${custom}`);
     }
     return;
   }
   const who = findCrew(name);
   if (!who) return console.log(`No crew member named "${name}".`);
   if (model === "reset") {
-    setAgentSettings(who.id, { model: null, effort: null });
-    return console.log(`${who.emoji} ${who.name} is back on the default model.`);
+    setAgentSettings(who.id, { model: null, effort: null, maxTurns: null });
+    return console.log(`${who.emoji} ${who.name} is back on the default model and turn limit.`);
   }
   const { models } = await listModels();
   const m = models.find((x) => x.id === model);
@@ -78,6 +96,15 @@ function budgetCommand(arg?: string) {
   console.log(b ? `💰 Each expedition stops once it has spent $${b.toFixed(2)} (all agents together).` : "💰 No per-expedition budget. Set one with /budget 2.50");
 }
 
+// What runs the crew right now, and whether it's ready.
+async function describeRuntime(force = false) {
+  if (campRuntime() === "api") return console.log("   Crew runs on: the API (ANTHROPIC_API_KEY). Switch with /runtime claude-code");
+  const login = await claudeLogin(force);
+  console.log(login.ok
+    ? `   Crew runs on: your Claude ${login.plan ? login.plan[0].toUpperCase() + login.plan.slice(1) + " " : ""}subscription, through Claude Code. Switch with /runtime api`
+    : `   ⚠️  ${login.problem}`);
+}
+
 function announcePending() {
   const n = pendingSkills().length;
   if (n) console.log(`\n📥 ${n} skill proposal${n === 1 ? "" : "s"} waiting. Type /review to look.`);
@@ -90,8 +117,47 @@ async function handle(input: string) {
   if (cmd === "/log") return console.log(`\n📒 Quest log\n${formatQuests()}`);
   if (cmd === "/jobs") return console.log(`\n⏰ ${describeJobs()}`);
   if (cmd === "/wiki") return console.log(`\n${wikiIndex()}`);
+  // /runtime [claude-code | api]
+  const rt = cmd.match(/^\/runtime(?:\s+(claude-code|api|subscription))?$/);
+  if (rt) {
+    if (rt[1]) {
+      if (process.env.CAMP_RUNTIME) return console.log(`CAMP_RUNTIME=${process.env.CAMP_RUNTIME} is set for this session; change it there.`);
+      setRuntime(rt[1] === "api" ? "api" : "claude-code");
+    }
+    return describeRuntime(true);
+  }
+  // /link /path/to/folder [--edit]   /links   /unlink <name>
+  const link = cmd.match(/^\/link\s+(.+?)(\s+--edit)?$/);
+  if (link) {
+    try {
+      const l = addLink(link[1], link[2] ? "write" : "read");
+      return console.log(`📁 Linked ${l.path} as links/${l.name}/ (${l.files} files, ${l.access === "write" ? "can edit" : "read-only"}). Mention @links/${l.name} in a message to attach it.`);
+    } catch (e: any) {
+      return console.log(`Couldn't link it: ${e.message}`);
+    }
+  }
+  if (cmd === "/links") {
+    const links = loadLinks();
+    return console.log(links.length ? links.map((l) => `📁 links/${l.name}/  ${l.path}  (${l.files ?? "?"} files, ${l.access === "write" ? "can edit" : "read-only"})`).join("\n") : "No linked folders. Add one with /link /path/to/folder");
+  }
+  const unlink = cmd.match(/^\/unlink\s+(\S+)$/);
+  if (unlink) return console.log(removeLink(unlink[1]) ? `Unlinked links/${unlink[1]} (the folder itself is untouched).` : `No linked folder named "${unlink[1]}".`);
   const budget = cmd.match(/^\/budget(?:\s+(\S+))?$/);
   if (budget) return budgetCommand(budget[1]);
+  // /turns <name> <number | reset>
+  const turns = cmd.match(/^\/turns\s+(\S+)\s+(\S+)$/);
+  if (turns) {
+    const who = findCrew(turns[1]);
+    if (!who) return console.log(`No crew member named "${turns[1]}".`);
+    const defaults = who.id === "quartermaster" ? QM_DEFAULTS : ROSTER[who.id];
+    if (turns[2] === "reset") setAgentSettings(who.id, { maxTurns: null });
+    else {
+      const n = Number(turns[2]);
+      if (!Number.isInteger(n) || n < TURNS_MIN || n > TURNS_MAX) return console.log(`Usage: /turns ${turns[1]} <${TURNS_MIN}–${TURNS_MAX}>, or /turns ${turns[1]} reset`);
+      setAgentSettings(who.id, { maxTurns: n });
+    }
+    return console.log(`${who.emoji} ${who.name} gets ${resolveTurns({ id: who.id, maxTurns: defaults?.maxTurns })} turns per run, from their next run.`);
+  }
   const modelCmd = cmd.match(/^\/model(?:\s+(\S+))?(?:\s+(\S+))?(?:\s+(\S+))?$/);
   if (modelCmd) return modelCommand(modelCmd[1], modelCmd[2], modelCmd[3]);
   const mem = cmd.match(/^\/memory\s+(\S+)/);
@@ -102,12 +168,36 @@ async function handle(input: string) {
     return console.log(`\n${CREW[who.id].emoji} ${who.name}: ${n} session${n === 1 ? "" : "s"}\n${readMemory(who.id)}`);
   }
 
+  if (cmd === "/diff" || cmd === "/undo") {
+    if (!lastId) return console.log("Nothing has run in this session yet.");
+    if (cmd === "/diff") {
+      const d = checkpointDiff(lastId);
+      return console.log(d.files.length ? `\n${d.files.map((f) => `${f.change.padEnd(9)} ${f.path}`).join("\n")}\n\n${d.diff}` : "The last expedition's file tools didn't change any files.");
+    }
+    const r = undoCheckpoint(lastId);
+    return console.log(r.restored.length ? `↩️  Put back: ${r.restored.join(", ")}${r.skipped.length ? `\n   Couldn't restore (too large to keep a copy): ${r.skipped.join(", ")}` : ""}` : "Nothing to undo.");
+  }
+  const paused = pausedUntil();
+  if (paused && campRuntime() === "claude-code") console.log(`⏸  ${pauseMessage(paused)} (Trying anyway.)`);
+
+  // /reply <message>: continue the last conversation, with whoever it was with.
+  let replyTo: string | undefined;
+  let text = cmd;
+  const reply = cmd.match(/^\/reply\s+([\s\S]+)$/);
+  if (reply) {
+    const thread = threadFor(lastId);
+    if (!thread) return console.log("There's nothing to reply to yet in this session.");
+    replyTo = lastId;
+    text = thread.direct && !/^@\w+\s/.test(reply[1]) ? `@${thread.agent} ${reply[1]}` : reply[1];
+  }
+
   // @path/to/file anywhere in the message attaches that file (images and PDFs are shown to the agent).
-  const direct = cmd.match(/^@(\w+)\s+([\s\S]+)$/);
+  const direct = text.match(/^@(\w+)\s+([\s\S]+)$/);
   if (direct && findCrew(direct[1])) {
     const { content, attached } = buildRequest(direct[2]);
     if (attached.length) console.log(`📎 Attached: ${attached.map((a) => a.path ?? a.url).join(", ")}`);
-    await stoppable((signal) => runDirect(direct[1].toLowerCase(), content, "direct", attached, signal));
+    const id = (lastId = randomUUID());
+    await stoppable((signal) => runDirect(direct[1].toLowerCase(), content, "direct", attached, signal, id, replyTo));
     return announcePending();
   }
   if (direct && !/[./]/.test(direct[1])) {
@@ -116,9 +206,10 @@ async function handle(input: string) {
   }
 
   // Each agent carries its own memory and session history; the wiki and skills are shared.
-  const { content, attached } = buildRequest(cmd);
+  const { content, attached } = buildRequest(text);
   if (attached.length) console.log(`📎 Attached: ${attached.map((a) => a.path ?? a.url).join(", ")}`);
-  await stoppable((signal) => runExpedition(content, { attached, signal }));
+  const id = (lastId = randomUUID());
+  await stoppable((signal) => runExpedition(content, { attached, signal, id, replyTo }));
   announcePending();
 }
 
@@ -138,6 +229,7 @@ async function stoppable<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T
 
 async function main() {
   console.log("🏕️  The camp is set. Type a request for the Quartermaster, or /help.");
+  await describeRuntime();
   announcePending();
   const firstTask = process.argv.slice(2).join(" ");
   let task = firstTask || (await rl.question("\n🧭 What's the expedition? "));
