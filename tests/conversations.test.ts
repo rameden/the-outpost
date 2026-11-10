@@ -53,9 +53,21 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
   h = c.history();
   assert.deepEqual(h.conversations.map((x) => [x.title, x.project]), [["React rebuild", linked.id], ["What's new this month?", mine.id]]);
 
-  assert.match(c.projectNote(undefined, "a"), new RegExp(`project "${linkName}"[\\s\\S]*links/${linkName}/`));
-  assert.match(c.projectNote(mine.id), /project "Mae"\.$/);
+  assert.match(c.projectNote(undefined, "a"), new RegExp(`project "${linkName}"[\\s\\S]*links/${linkName}/ \\(read-only\\)`));
+  assert.match(c.projectNote(mine.id), /^## Project: Mae\nThe user filed this conversation under their project "Mae"\.$/);
   assert.equal(c.projectNote("general"), "");
+
+  // What you write about a project reaches the crew, along with its folder.
+  assert.ok(c.updateProject(mine.id, { description: "  My home assistant.\nNever restart the hub without asking.  ", link: linkName }));
+  const note = c.projectNote(mine.id);
+  assert.match(note, new RegExp(`links/${linkName}/ \\(read-only\\)`));
+  assert.match(note, /What the user wrote about this project[^\n]*\nMy home assistant\.\nNever restart the hub without asking\.$/);
+  assert.ok(c.updateProject(mine.id, { link: "" }), "the folder can be taken off again");
+  assert.doesNotMatch(c.projectNote(mine.id), /links\//);
+  assert.ok(c.updateProject("general", { description: "Odds and ends.", link: linkName }));
+  assert.match(c.projectNote("general"), /isn't filed under a particular project[\s\S]*Odds and ends\./);
+  assert.equal(c.history().projects[0].link, undefined, "General has no folder of its own");
+  c.updateProject("general", { description: "" });
 
   assert.ok(c.renameProject(mine.id, "Mae (home)"));
   assert.ok(!c.removeProject("general"), "General can't be deleted");
@@ -67,6 +79,15 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
   c.removeConversation("b");
   assert.deepEqual(c.history().conversations.map((x) => x.id), ["a"]);
   assert.ok(threadFor("b"), "removing only hides it: the record is still there");
+});
+
+test("a project made with a folder doesn't get a second, automatic project for that folder", () => {
+  const other = realpathSync(mkdtempSync(join(tmpdir(), "guild-camp-proj2-")));
+  const name = addLink(other, "write").name; // what the dialog's "Link another folder…" does first
+  const p = c.addProject({ name: "Garden sensors", description: "ESP32 boards.", link: name });
+  assert.deepEqual([p.name, p.link, p.description], ["Garden sensors", name, "ESP32 boards."]);
+  assert.equal(c.history().projects.filter((x) => x.link === name).length, 1);
+  assert.equal(c.addProject({ link: "not-a-link" }).link, undefined, "only folders that are really linked");
 });
 
 test("a conversation reads back as feed events; a run the feed has forgotten is rebuilt from its record", () => {

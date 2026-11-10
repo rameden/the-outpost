@@ -10,14 +10,16 @@ import type { CampEvent } from "../types.ts";
 import { applyEvent, emptyFeed, type ExpNode, type FeedNode, type FeedState } from "./reducer.ts";
 
 // What the middle of the page shows: everything, a blank page for a new conversation (optionally
-// filed under a project), or one conversation.
-export type View = { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string };
+// filed under a project), one conversation, one project's page, or all your projects.
+export type View = { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string }
+  | { kind: "project"; id: string } | { kind: "projects" };
 
 export function parseView(saved: string | null): View {
   try {
     const v = JSON.parse(saved ?? "") as View;
     if (v?.kind === "all") return { kind: "all" };
-    if (v?.kind === "conversation" && typeof v.id === "string") return { kind: "conversation", id: v.id };
+    if (v?.kind === "projects") return { kind: "projects" };
+    if ((v?.kind === "conversation" || v?.kind === "project") && typeof v.id === "string") return { kind: v.kind, id: v.id };
   } catch { /* nothing saved */ }
   return { kind: "new" };
 }
@@ -49,7 +51,7 @@ const isRun = (n: FeedNode): n is ExpNode => n.kind === "exp";
 // live feed (a run that's in both is shown live, since that copy keeps updating).
 export function cardsFor(view: View, live: FeedNode[], past: FeedNode[]): FeedNode[] {
   if (view.kind === "all") return live;
-  if (view.kind === "new") return NONE;
+  if (view.kind !== "conversation") return NONE;
   const mine = live.filter((n) => isRun(n) && n.thread === view.id);
   const have = new Set(mine.map((n) => (n as ExpNode).expId));
   return [...past.filter((n) => isRun(n) && !have.has(n.expId)), ...mine];

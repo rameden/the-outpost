@@ -42,7 +42,7 @@ import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
-import { history, conversationEvents, addProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectNote } from "./conversations.js";
+import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectNote } from "./conversations.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, UI_CSP, UI_NOT_BUILT } from "./ui-files.js";
 
@@ -516,8 +516,20 @@ const server = http.createServer(async (req, res) => {
     // History: projects and conversations ({ action, ... }).
     if (url.pathname === "/api/history") {
       const id = String(body.id ?? "");
+      // { folder: { path, access } }: link that folder first, and make it the project's folder.
+      let link = body.link;
+      if ((body.action === "project.add" || body.action === "project.update") && body.folder?.path) {
+        try {
+          link = addLink(String(body.folder.path), body.folder.access === "write" ? "write" : "read", CAMP_ROOT).name;
+          emit({ type: "changed", what: "links" });
+        } catch (e: any) {
+          return send(res, 400, { error: e.message });
+        }
+      }
+      let project: string | undefined;
       const done =
-        body.action === "project.add" ? !!addProject(body.name, typeof body.link === "string" ? body.link : undefined)
+        body.action === "project.add" ? !!(project = addProject({ name: body.name, description: body.description, link }).id)
+        : body.action === "project.update" ? updateProject(id, { name: body.name, description: body.description, link })
         : body.action === "project.rename" ? renameProject(id, body.name)
         : body.action === "project.remove" ? removeProject(id)
         : body.action === "conversation.rename" ? (renameConversation(id, body.title), true)
@@ -525,7 +537,7 @@ const server = http.createServer(async (req, res) => {
         : body.action === "conversation.remove" ? (running.has(id) ? false : (removeConversation(id), true))
         : null;
       if (done === null) return send(res, 400, { error: "Unknown action" });
-      return send(res, done ? 200 : 404, done ? { ok: true, history: history() } : { error: "That didn't work: it may be gone already, or still running." });
+      return send(res, done ? 200 : 404, done ? { ok: true, history: history(), project } : { error: "That didn't work: it may be gone already, or still running." });
     }
 
     if (url.pathname === "/api/links") {

@@ -5,7 +5,9 @@
 // whole of it. The list is read from camp/threads.jsonl, so it needs no upkeep of its own.
 //
 // Projects are your own grouping: "General" for anything unfiled, one made for each linked
-// folder the first time it's seen, and any you add. What you change by hand (a conversation's
+// folder the first time it's seen, and any you add. A project has a name, a description in your
+// own words (what it is, what matters, how you like it done), and optionally the linked folder it
+// is about. The crew is given all three at the start of every conversation filed under it. What you change by hand (a conversation's
 // title, its project, whether it's been removed from the list) is in camp/conversations.json.
 // Removing a conversation only hides it: its record stays in the camp's files.
 
@@ -21,7 +23,10 @@ import { allTurns, type Turn } from "./threads.js";
 export const CONVERSATIONS_PATH = "camp/conversations.json";
 export const GENERAL = "general";
 
-export type Project = { id: string; name: string; link?: string }; // link: the linked folder this project is about
+// link: the linked folder this project is about. description: your own words about it, for the crew.
+export type Project = { id: string; name: string; link?: string; description?: string };
+export type ProjectDetails = { name?: unknown; description?: unknown; link?: unknown };
+const MAX_DESCRIPTION = 4000;
 type Meta = { title?: string; project?: string; removed?: boolean };
 type Saved = { projects: Project[]; seenLinks: string[]; meta: Record<string, Meta> };
 
@@ -99,22 +104,36 @@ function setMeta(thread: string, patch: Meta) {
   save(s);
 }
 
-export function addProject(name: unknown, link?: string): Project {
+const cleanDescription = (d: unknown) => String(d ?? "").replace(/\r\n/g, "\n").trim().slice(0, MAX_DESCRIPTION);
+const knownLink = (link: unknown) => (typeof link === "string" && loadLinks().some((l) => l.name === link) ? link : undefined);
+
+export function addProject(details: ProjectDetails | string): Project {
+  const d = typeof details === "string" ? { name: details } : details;
   const s = load();
-  const project: Project = { id: newId(), name: cleanName(name) || "New project", ...(link && loadLinks().some((l) => l.name === link) ? { link } : {}) };
+  const link = knownLink(d.link);
+  const description = cleanDescription(d.description);
+  const project: Project = { id: newId(), name: cleanName(d.name) || link || "New project", ...(link ? { link } : {}), ...(description ? { description } : {}) };
   s.projects.push(project);
+  // Its folder now has a project: don't make a second one for it automatically.
+  if (link && !s.seenLinks.includes(link)) s.seenLinks.push(link);
   save(s);
   return project;
 }
 
-export function renameProject(id: string, name: unknown): boolean {
+// Change what's given: its name, its description, the folder it's about (link: "" for none).
+export function updateProject(id: string, d: ProjectDetails): boolean {
   const s = load();
   const p = s.projects.find((x) => x.id === id);
-  if (!p || !cleanName(name)) return false;
-  p.name = cleanName(name);
+  if (!p) return false;
+  if (d.name !== undefined && cleanName(d.name)) p.name = cleanName(d.name);
+  if (d.description !== undefined) { const text = cleanDescription(d.description); if (text) p.description = text; else delete p.description; }
+  if (d.link !== undefined && p.id !== GENERAL) { const link = knownLink(d.link); if (link) p.link = link; else delete p.link; }
+  if (p.link && !s.seenLinks.includes(p.link)) s.seenLinks.push(p.link);
   save(s);
   return true;
 }
+
+export const renameProject = (id: string, name: unknown) => !!cleanName(name) && updateProject(id, { name });
 
 // Its conversations go back to General.
 export function removeProject(id: string): boolean {
@@ -141,15 +160,19 @@ export function fileConversation(thread: string, project: unknown) {
   save(s);
 }
 
-// For the prompt: which project this conversation is filed under, so "the app" or "the repo"
-// means the right one without being spelled out each time.
+// For the prompt: the project this conversation is filed under: its name, what the user wrote
+// about it, and its folder. So "the app" or "the repo" means the right one, and their standing
+// notes about the project don't have to be repeated in every request.
 export function projectNote(project: unknown, thread?: string): string {
   const s = load();
   const id = (thread && s.meta[thread]?.project) || (typeof project === "string" ? project : "");
   const p = s.projects.find((x) => x.id === id);
-  if (!p || p.id === GENERAL) return "";
-  return `## Project\nThe user filed this conversation under their project "${p.name}".` +
-    (p.link ? ` It is about the linked folder links/${p.link}/: unless they say otherwise, that's where the work is.` : "");
+  if (!p || (p.id === GENERAL && !p.description)) return "";
+  const link = p.link ? loadLinks().find((l) => l.name === p.link) : undefined;
+  return `## Project: ${p.name}\n` +
+    (p.id === GENERAL ? "This conversation isn't filed under a particular project." : `The user filed this conversation under their project "${p.name}".`) +
+    (link ? ` It is about the linked folder links/${link.name}/ (${link.access === "write" ? "you may edit files there" : "read-only"}): unless they say otherwise, that's where the work is.` : "") +
+    (p.description ? `\n\nWhat the user wrote about this project (their own words; keep it in mind for everything here, and pass on what matters when you brief the crew):\n${p.description}` : "");
 }
 
 // ---------- Reading a conversation back ----------

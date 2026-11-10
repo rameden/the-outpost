@@ -2,7 +2,8 @@
 //
 // "New conversation" gives you a clean page, so unrelated work stays out of each other's
 // context; picking a conversation shows just that one, and what you send there continues it.
-// "All activity" is everything at once, scheduled jobs included.
+// "New project" opens the project dialog. "All activity" is everything at once, scheduled jobs
+// included. Clicking a project's name opens its page; "Projects" opens the list of them all.
 // A dot marks a conversation with something running; a number, decisions waiting on you.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -36,8 +37,9 @@ function Menu({ label, children }: { label: string; children: (close: () => void
   );
 }
 
-export function History({ S, store, view, setView, patch }: {
+export function History({ S, store, view, setView, patch, onNewProject, onEditProject }: {
   S: CampState | null; store: FeedStore; view: View; setView: (v: View) => void; patch: (fn: (s: CampState) => CampState) => void;
+  onNewProject: () => void; onEditProject: (p: Project) => void;
 }) {
   const activity = useFeed(store, activityOf);
   const running = useFeed(store, runningCount);
@@ -71,11 +73,6 @@ export function History({ S, store, view, setView, patch }: {
       storeSet("camp-projects-closed", JSON.stringify(next));
       return next;
     });
-  }
-
-  async function newProject() {
-    const name = prompt("Name for the new project:");
-    if (name?.trim()) await change({ action: "project.add", name });
   }
 
   const selected = view.kind === "conversation" ? view.id : null;
@@ -118,28 +115,27 @@ export function History({ S, store, view, setView, patch }: {
     const list = grouped.get(p.id) ?? [];
     if (query.trim() && !list.length) return null;
     const open = !closed.includes(p.id) || !!query.trim();
+    const onPage = view.kind === "project" && view.id === p.id;
     return (
       <section key={p.id} className="hist-project">
-        <header className="hist-project-head">
-          <button type="button" className="hist-project-name" aria-expanded={open} onClick={() => toggle(p.id)}
-            title={p.link ? `About the linked folder links/${p.link}/` : undefined}>
-            <span>{p.name}</span><span className="hist-chevron" aria-hidden="true">{open ? "⌄" : "›"}</span>
+        <header className={cx("hist-project-head", onPage && "selected")}>
+          <button type="button" className="hist-project-name" aria-current={onPage ? "page" : undefined} onClick={() => setView({ kind: "project", id: p.id })}
+            title={`Open ${p.name}${p.link ? ` (links/${p.link}/)` : ""}`}>
+            <span>{p.name}</span>
           </button>
-          {p.id !== GENERAL && (
-            <Menu label={`Options for ${p.name}`}>{(close) => (
-              <>
-                <button type="button" role="menuitem" onClick={async () => {
-                  close();
-                  const name = prompt("Rename this project:", p.name);
-                  if (name?.trim()) await change({ action: "project.rename", id: p.id, name });
-                }}>Rename…</button>
+          <button type="button" className="hist-icon hist-chevron" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${p.name}'s conversations`}
+            title={open ? "Hide its conversations" : "Show its conversations"} onClick={() => toggle(p.id)}>{open ? "⌄" : "›"}</button>
+          <Menu label={`Options for ${p.name}`}>{(close) => (
+            <>
+              <button type="button" role="menuitem" onClick={() => { close(); onEditProject(p); }}>Edit…</button>
+              {p.id !== GENERAL && (
                 <button type="button" role="menuitem" className="danger" onClick={async () => {
                   close();
-                  if (confirm(`Delete the project "${p.name}"? Its conversations move to General.`)) await change({ action: "project.remove", id: p.id });
+                  if (confirm(`Delete the project "${p.name}"? Its conversations move to General. The folder itself isn't touched.`) && await change({ action: "project.remove", id: p.id }) && onPage) setView({ kind: "projects" });
                 }}>Delete project</button>
-              </>
-            )}</Menu>
-          )}
+              )}
+            </>
+          )}</Menu>
           <button type="button" className="hist-icon" aria-label={`New conversation in ${p.name}`} title={`New conversation in ${p.name}`}
             onClick={() => setView({ kind: "new", project: p.id })}>+</button>
         </header>
@@ -156,6 +152,9 @@ export function History({ S, store, view, setView, patch }: {
         <button type="button" className={cx("hist-nav-item", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
           <span aria-hidden="true">＋</span>New conversation
         </button>
+        <button type="button" className="hist-nav-item" onClick={onNewProject}>
+          <span aria-hidden="true">▣</span>New project
+        </button>
         <button type="button" className={cx("hist-nav-item", searching && "selected")} onClick={() => { setSearching((v) => !v); setQuery(""); }}>
           <span aria-hidden="true">⌕</span>Search
         </button>
@@ -168,11 +167,11 @@ export function History({ S, store, view, setView, patch }: {
           {running > 0 && <span className="hist-count">{running} running</span>}
         </button>
       </nav>
+      <button type="button" className={cx("hist-label", view.kind === "projects" && "selected")} title="See all your projects" onClick={() => setView({ kind: "projects" })}>Projects</button>
       <div className="hist-projects">
         {projects.map(section)}
         {query.trim() && grouped.size === 0 && <div className="hist-empty">Nothing matches "{query.trim()}".</div>}
       </div>
-      <button type="button" className="hist-nav-item hist-add" onClick={newProject}><span aria-hidden="true">＋</span>New project</button>
     </aside>
   );
 }
