@@ -114,7 +114,10 @@ test("checkpoints: an expedition's changes can be listed, diffed, and undone", a
   assert.deepEqual(changedFiles(id), []);
 });
 
-test("parallel quests can't overwrite each other's edits", async () => {
+test("parallel quests can't overwrite each other's edits", async (t) => {
+  // The clock stands still, so every read and write here lands in the same millisecond:
+  // the guard has to go by the order things happened in, not by when.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   writeFileSync("shared.txt", "a\n");
   await withExpedition({ id: "exp-collide" }, async () => {
     await withQuest("q1", async () => { await readFileFor("artificer").run!({ path: "shared.txt" }); });
@@ -123,6 +126,10 @@ test("parallel quests can't overwrite each other's edits", async () => {
       await assert.rejects(() => writeFileFor("artificer").run!({ path: "shared.txt", content: "from q1\n" }) as Promise<unknown>, /changed by another quest/);
       await readFileFor("artificer").run!({ path: "shared.txt" });
       assert.match(String(await editFileFor("artificer").run!({ path: "shared.txt", old_string: "from q2", new_string: "from both" })), /^Edited/);
+    });
+    // And the other way round: q2 wrote the file itself, but q1 has changed it since.
+    await withQuest("q2", async () => {
+      await assert.rejects(() => writeFileFor("artificer").run!({ path: "shared.txt", content: "q2 again\n" }) as Promise<unknown>, /changed by another quest/);
     });
   });
   assert.equal(readFileSync("shared.txt", "utf8"), "from both\n");
