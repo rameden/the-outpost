@@ -83,7 +83,7 @@ export function ProjectsOverview({ S, setView, onNew }: { S: CampState; setView:
           <h2>Projects</h2>
           <div className="meta">Each project keeps its conversations together and tells the crew what it's about.</div>
         </div>
-        <div className="proj-actions"><button type="button" className="btn small primary" onClick={onNew}>New project</button></div>
+        <div className="proj-actions"><button type="button" className="btn small primary" onClick={onNew}><span aria-hidden="true">＋ </span>New project</button></div>
       </header>
       <div className="proj-grid">
         {S.history.projects.map((p) => {

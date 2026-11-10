@@ -96,11 +96,16 @@ code, pre { font-family: var(--mono); font-size: .86em; }
 .hist-nav-item.selected { background: var(--surface-2); font-weight: 600; }
 .hist-count { margin-left: auto; font-size: 11.5px; font-weight: 500; color: var(--good); }
 .hist-search { margin: 2px 4px 4px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); font-size: 13.5px; min-width: 0; }
-.hist-projects { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px; padding-top: 4px; }
+.hist-projects { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px; padding-top: 8px; border-top: 1px solid var(--border); margin-top: 4px; }
 .hist-project { min-width: 0; }
 .hist-project-head { display: flex; align-items: center; gap: 2px; padding: 0 2px 0 4px; }
-.hist-label { align-self: flex-start; border: 0; background: none; padding: 6px 10px 0; margin-top: 4px; border-top: 1px solid var(--border); width: 100%; text-align: left; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--faint); }
-.hist-label:hover, .hist-label.selected { color: var(--text); }
+.hist-nav-row { display: flex; align-items: center; border-radius: 8px; padding-right: 2px; }
+.hist-nav-row:hover, .hist-nav-row.selected { background: var(--surface-2); }
+.hist-nav-row.selected .hist-nav-item { font-weight: 600; }
+.hist-nav-row .hist-nav-item { flex: 1; min-width: 0; background: none; }
+.hist-nav-row .hist-icon { visibility: hidden; }
+.hist-nav-row:hover .hist-icon, .hist-nav-row:focus-within .hist-icon { visibility: visible; }
+.hist-nav-row .hist-icon:hover { background: var(--border); }
 .hist-project-head { border-radius: 8px; }
 .hist-project-head.selected { background: var(--surface-2); }
 .hist-project-head.selected .hist-project-name { color: var(--text); }

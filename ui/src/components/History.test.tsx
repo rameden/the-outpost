@@ -97,16 +97,17 @@ test("search narrows the list by title", () => {
   expect(screen.queryByRole("button", { name: "General" })).toBeNull();
 });
 
-test("New project sits under New conversation and opens the dialog; a project's name opens its page", () => {
+test("Projects sits under New conversation and opens the projects page; its + opens the dialog; a project's name opens its page", () => {
   const { setView, onNewProject, onEditProject } = setup();
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["＋New conversation", "▣New project", "⌕Search", "≡All activity"]);
-  fireEvent.click(within(nav).getByRole("button", { name: /New project/ }));
-  expect(onNewProject).toHaveBeenCalled();
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["＋New conversation", "▣Projects", "+", "⌕Search", "≡All activity"]);
+  fireEvent.click(within(nav).getByRole("button", { name: /Projects$/ }));
+  expect(setView).toHaveBeenLastCalledWith({ kind: "projects" });
+  expect(onNewProject).not.toHaveBeenCalled();
+  fireEvent.click(within(nav).getByRole("button", { name: "Create project" }));
+  expect(onNewProject).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "mi-web-app" }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "project", id: "p1" });
-  fireEvent.click(screen.getByRole("button", { name: "Projects" }));
-  expect(setView).toHaveBeenLastCalledWith({ kind: "projects" });
   // The arrow beside the name folds its conversations away, without leaving the page you're on.
   fireEvent.click(screen.getByRole("button", { name: "Hide mi-web-app's conversations" }));
   expect(within(project("mi-web-app")).queryByRole("listitem")).toBeNull();

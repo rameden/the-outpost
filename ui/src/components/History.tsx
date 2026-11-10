@@ -2,8 +2,9 @@
 //
 // "New conversation" gives you a clean page, so unrelated work stays out of each other's
 // context; picking a conversation shows just that one, and what you send there continues it.
-// "New project" opens the project dialog. "All activity" is everything at once, scheduled jobs
-// included. Clicking a project's name opens its page; "Projects" opens the list of them all.
+// "Projects" opens the page that lists your projects (that page's "New project" button, or the
+// + on this row, opens the project dialog). "All activity" is everything at once, scheduled jobs
+// included. Clicking a project's name opens that project's page.
 // A dot marks a conversation with something running; a number, decisions waiting on you.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -152,9 +153,12 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
         <button type="button" className={cx("hist-nav-item", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
           <span aria-hidden="true">＋</span>New conversation
         </button>
-        <button type="button" className="hist-nav-item" onClick={onNewProject}>
-          <span aria-hidden="true">▣</span>New project
-        </button>
+        <div className={cx("hist-nav-row", view.kind === "projects" && "selected")}>
+          <button type="button" className="hist-nav-item" aria-current={view.kind === "projects" ? "page" : undefined} onClick={() => setView({ kind: "projects" })}>
+            <span aria-hidden="true">▣</span>Projects
+          </button>
+          <button type="button" className="hist-icon" aria-label="Create project" title="Create project" onClick={onNewProject}>+</button>
+        </div>
         <button type="button" className={cx("hist-nav-item", searching && "selected")} onClick={() => { setSearching((v) => !v); setQuery(""); }}>
           <span aria-hidden="true">⌕</span>Search
         </button>
@@ -167,7 +171,6 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
           {running > 0 && <span className="hist-count">{running} running</span>}
         </button>
       </nav>
-      <button type="button" className={cx("hist-label", view.kind === "projects" && "selected")} title="See all your projects" onClick={() => setView({ kind: "projects" })}>Projects</button>
       <div className="hist-projects">
         {projects.map(section)}
         {query.trim() && grouped.size === 0 && <div className="hist-empty">Nothing matches "{query.trim()}".</div>}
