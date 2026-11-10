@@ -28,7 +28,7 @@ import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT } from "./tools.js";
-import { CREW, CREW_IDS, findCrew, type CrewId } from "./crew.js";
+import { CREW, CREW_IDS, findCrew, addMember, updateMember, removeMember, type CrewId } from "./crew.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { recentQuests, questCost } from "./questlog.js";
@@ -262,6 +262,9 @@ async function state() {
       const override = agentSettings(id);
       return {
         id, name: c.name, emoji: c.emoji, role: c.role, personality: c.personality,
+        // A crew member you added: everything the dialog needs to show and edit them.
+        custom: !!c.custom, color: c.color ?? null,
+        ...(c.custom ? { handles: c.handles, notFor: c.notFor, persona: c.persona ?? "", abilities: c.abilities ?? {}, aliases: c.aliases } : {}),
         model, effort: effort ?? "default",
         maxTurns: resolveTurns({ id, maxTurns: base?.maxTurns }), defaultMaxTurns: base?.maxTurns ?? DEFAULT_TURNS,
         defaultModel: base?.model ?? DEFAULT_MODEL, defaultEffort: base?.effort ?? "default",
@@ -594,6 +597,23 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Link a folder on your disk ({ path, access: "read" | "write" }) instead of uploading it.
+    // The crew: add, change, or remove a crew member of your own ({ action: "add" | "update" | "remove", ... }).
+    if (url.pathname === "/api/crew") {
+      try {
+        const id = String(body.id ?? "");
+        if (body.action === "remove") {
+          if ([...running.values(), ...queue].some((w) => w.label === `@${id}`)) return send(res, 409, { error: "They're in the middle of something. Wait for it to finish, or stop it first." });
+          if (!removeMember(id)) return send(res, 404, { error: "No such crew member (the four original ones can't be removed)." });
+        } else if (body.action === "update") updateMember(id, body.member ?? {});
+        else if (body.action === "add") addMember(body.member ?? {});
+        else return send(res, 400, { error: "Unknown action" });
+        emit({ type: "changed", what: "crew" });
+        return send(res, 200, { ok: true });
+      } catch (e: any) {
+        return send(res, 400, { error: e.message });
+      }
+    }
+
     // History: projects and conversations ({ action, ... }).
     if (url.pathname === "/api/history") {
       const id = String(body.id ?? "");

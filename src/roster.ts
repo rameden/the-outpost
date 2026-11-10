@@ -1,10 +1,11 @@
 // The adventurers. Identity (name, role, personality, boundaries) comes from crew.ts and never
 // changes; this file adds how each one works and the tools its job needs.
-// Add a character: an entry in crew.ts, an entry here, and a skills/<id>/ folder.
+// The three adventurers the camp starts with are written out below. Crew members you add from
+// mission control (camp/crew.json) get their kit built from the abilities you ticked.
 
 import type { AgentSpec } from "./agent.js";
-import { CREW, type CrewId } from "./crew.js";
-import { readFileFor, writeFileFor, bash, webSearch, webFetch } from "./tools.js";
+import { CREW, isBuiltIn, onCrewChange, type CrewId, type Identity } from "./crew.js";
+import { readFileFor, writeFileFor, bash, bashFor, webSearch, webFetch } from "./tools.js";
 import { wikiWrite } from "./wiki.js";
 import { rememberTool } from "./memory.js";
 import { viewFileFor } from "./attachments.js";
@@ -70,3 +71,33 @@ export const ROSTER: Record<string, AgentSpec> = {
     }
   ),
 };
+
+// A crew member you added: everyone reads and searches files and keeps their own memory; the
+// rest follows the abilities you gave them. Their model, effort, and turn limit are set from
+// their card, like anyone's.
+function addedMember(m: Identity): AgentSpec {
+  const a = m.abilities ?? {};
+  return {
+    id: m.id, name: m.name, emoji: m.emoji, role: m.role,
+    persona: (m.persona ?? "") + (a.wiki ? NOTES_RULE : "") + QUEST_RULES,
+    tools: [
+      ...(a.web ? [webSearch, webFetch] : []),
+      readFileFor(m.id), viewFileFor(m.id), ...search(m.id),
+      ...(a.write === "project" ? [writeFileFor(m.id), editFileFor(m.id)] : a.write === "outputs" ? [writeFileFor(m.id, { outputsOnly: true })] : []),
+      ...(a.shell ? [bashFor(m.id, m.name)] : []),
+      ...(a.wiki ? [wikiWrite(["notes"])] : []),
+      rememberTool(m.id),
+    ],
+    skillDirs: ["skills/shared", `skills/${m.id}`],
+    effort: "medium",
+    ...(a.shell || a.write === "project" ? { maxTurns: 40 } : {}),
+  };
+}
+
+// Keep the roster in step with the crew: called now, and whenever a crew member is added, changed, or removed.
+function syncRoster() {
+  for (const id of Object.keys(ROSTER)) if (!isBuiltIn(id)) delete ROSTER[id];
+  for (const m of Object.values(CREW)) if (m.custom) ROSTER[m.id] = addedMember(m);
+}
+onCrewChange(syncRoster);
+syncRoster();

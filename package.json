@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "description": "A small multi-agent harness on the Claude API: a Quartermaster plans and dispatches a crew of specialists, with memory, skills, scheduled jobs, and a local mission-control dashboard.",
   "scripts": {
-    "start": "tsx --env-file-if-exists=.env src/camp.ts",
-    "watch": "tsx --env-file-if-exists=.env src/watch.ts",
+    "start": "tsx --import ./scripts/env.mjs src/camp.ts",
+    "watch": "tsx --import ./scripts/env.mjs src/watch.ts",
     "watch:install": "tsx scripts/watch-agent.ts",
     "watch:uninstall": "tsx scripts/watch-agent.ts --uninstall",
-    "ui": "tsx scripts/ui-build.ts --if-stale && tsx --env-file-if-exists=.env src/server.ts",
+    "ui": "tsx scripts/ui-build.ts --if-stale && tsx --import ./scripts/env.mjs src/server.ts",
     "ui:build": "tsx scripts/ui-build.ts",
-    "ui:dev": "tsx --env-file-if-exists=.env scripts/ui-dev.ts",
+    "ui:dev": "tsx --import ./scripts/env.mjs scripts/ui-dev.ts",
     "test": "tsx --test --test-reporter=spec tests/*.test.ts && vitest run --config ui/vite.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui",
-    "eval": "tsx --env-file-if-exists=.env evals/run.ts"
+    "eval": "tsx --import ./scripts/env.mjs evals/run.ts"
   },
   "keywords": [],
   "author": "",

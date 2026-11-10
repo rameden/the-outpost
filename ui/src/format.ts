@@ -1,8 +1,20 @@
 // Small formatting helpers shared across the page.
 
 export function slug(name: string | undefined | null) { return String(name || "").toLowerCase().replace(/[^a-z]/g, ""); }
+// Crew members you added, by name: the colour you picked for each (the page sets this when the
+// crew loads or changes, so messages and cards anywhere on the page can look it up).
+const addedColors = new Map<string, string>();
+export function setCrewColors(crew: { name: string; custom?: boolean; color?: string | null }[]) {
+  addedColors.clear();
+  for (const c of crew) if (c.custom && c.color) addedColors.set(slug(c.name), c.color);
+}
 // The CSS class that gives a crew member their colour.
-export function cClass(name: string | undefined | null) { const s = slug(name); return ["quartermaster", "scout", "scribe", "artificer"].includes(s) ? `c-${s}` : ""; }
+export function cClass(name: string | undefined | null) {
+  const s = slug(name);
+  if (["quartermaster", "scout", "scribe", "artificer"].includes(s)) return `c-${s}`;
+  const mine = addedColors.get(s);
+  return mine ? `c-x-${mine}` : "";
+}
 export function when(iso: string) { return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
 export function clock(iso: string) { return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
 export function dayLabel(iso: string) { return new Date(iso).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }); }

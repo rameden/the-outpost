@@ -26,7 +26,8 @@ import { logQuest } from "./questlog.js";
 // Set CAMP_APPROVE_PLANS=0 to let the Quartermaster dispatch without asking first.
 const APPROVE_PLANS = process.env.CAMP_APPROVE_PLANS !== "0";
 
-const rosterLines = Object.entries(ROSTER)
+// Who can be sent, as of now (crew members can be added while the camp runs).
+const rosterLines = () => Object.entries(ROSTER)
   .map(([id, a]) => `- ${id} (${a.emoji} ${a.name}): ${a.role}`)
   .join("\n");
 
@@ -117,7 +118,7 @@ function makeDispatch(exp: Expedition): Tool {
         "Quests that don't depend on each other can run at the same time: call dispatch several " +
         "times in one turn and they set out together." +
         (APPROVE_PLANS ? " Requires an approved plan (submit_plan) first." : "") +
-        "\n\nRoster:\n" + rosterLines,
+        "\n\nRoster:\n" + rosterLines(),
       input_schema: {
         type: "object",
         properties: {
