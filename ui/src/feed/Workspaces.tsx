@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { plural } from "../format.ts";
 import type { Workspaces, WorkspaceStatus } from "../types.ts";
+import { Icon } from "../components/bits.tsx";
 
 type Workspace = Workspaces[number];
 type Shown = { branch: string; changed: number; commits: number };
@@ -47,10 +48,10 @@ function WorkspaceRow({ w, task }: { w: Workspace; task: string }) {
     setRemoved(true);
   });
 
-  if (removed) return <div className="ws"><span>🌿 Worktree removed. The branch <code>{st.branch}</code> is still in the repository.</span></div>;
+  if (removed) return <div className="ws"><span><Icon name="branch" /> Worktree removed. The branch <code>{st.branch}</code> is still in the repository.</span></div>;
   return (
     <div className="ws">
-      <span>🌿 <code>{st.branch}</code> in links/{w.link}{w.created ? " (new worktree)" : ""}</span>
+      <span><Icon name="branch" /> <code>{st.branch}</code> in links/{w.link}{w.created ? " (new worktree)" : ""}</span>
       <span>
         {st.changed ? `${st.changed} uncommitted ${plural(st.changed, "file")}` : "nothing uncommitted"}
         {st.commits ? ` · ${st.commits} new ${plural(st.commits, "commit")}` : ""}

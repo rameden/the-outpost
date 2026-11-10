@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
-import { Empty } from "../components/bits.tsx";
+import { Empty, Icon } from "../components/bits.tsx";
 import { cClass, cx, stripFrontmatter, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Link } from "../types.ts";
@@ -124,7 +124,7 @@ export function Skills({ S, refresh }: Panel) {
         <ul className="list">
           {S.skills.map((s) => (
             <li className="card" key={`${s.owner}/${s.name}`}>
-              <div className="card-top"><span className="who">📜 {s.owner}/{s.name}</span><span className={cx("pill", s.current && "live")}>{s.current ? "Replaces current" : "New"}</span></div>
+              <div className="card-top"><span className="who"><Icon name="spark" /> {s.owner}/{s.name}</span><span className={cx("pill", s.current && "live")}>{s.current ? "Replaces current" : "New"}</span></div>
               <div className="clamp open"><b>Why</b> {s.reason || "No reason given."}</div>
               <pre className="raw">{stripFrontmatter(s.proposed)}</pre>
               {s.current && <details><summary>Current version</summary><pre className="raw">{stripFrontmatter(s.current)}</pre></details>}
@@ -174,7 +174,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
         <ul className="list">
           {links.map((l) => (
             <li className="card" key={l.name}>
-              <div className="card-top"><span className="who">📁 links/{l.name}</span><span className={cx("pill", l.access === "write" && "live")}>{l.access === "write" ? "Can edit" : "Read-only"}</span></div>
+              <div className="card-top"><span className="who"><Icon name="folder" /> links/{l.name}</span><span className={cx("pill", l.access === "write" && "live")}>{l.access === "write" ? "Can edit" : "Read-only"}</span></div>
               <div className="meta" style={{ overflowWrap: "anywhere" }}>{l.path} · {l.files ?? "?"} files</div>
               <LinkChecks link={l} refresh={refresh} />
               <div className="card-actions">
@@ -196,7 +196,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
             const agents = c.agents.map((a) => S.characters.find((x) => x.id === a)).filter((x) => !!x).map((x) => `${x.emoji} ${x.name}`).join(", ") || "nobody yet";
             return (
               <li className="card" key={c.name}>
-                <div className="card-top"><span className="who">🔌 {c.name}</span><span className={cx("pill", ok ? "done" : c.state === "error" && "bad")}>{ok ? "Connected" : c.state === "error" ? "Error" : "Not started"}</span></div>
+                <div className="card-top"><span className="who"><Icon name="plug" /> {c.name}</span><span className={cx("pill", ok ? "done" : c.state === "error" && "bad")}>{ok ? "Connected" : c.state === "error" ? "Error" : "Not started"}</span></div>
                 {c.description && <div className="meta">{c.description}</div>}
                 <div className="meta">For: {agents} · {c.allowWrite ? "can make changes (asks first)" : "read-only"}</div>
                 {c.error && <div className="clamp open" style={{ color: "var(--bad)" }}>{c.error}</div>}
@@ -217,7 +217,7 @@ export function Inbox({ S }: Panel) {
     <ul className="list">
       {S.inbox.map((m, i) => (
         <li className="card" key={`${m.heading}-${i}`}>
-          <div className="card-top"><span className="who">📨 {m.heading.split(" · ").pop()}</span><time>{m.heading.split(" · ")[0]}</time></div>
+          <div className="card-top"><span className="who"><Icon name="inbox" /> {m.heading.split(" · ").pop()}</span><time>{m.heading.split(" · ")[0]}</time></div>
           <Markdown text={m.body} style={{ marginTop: 6, fontSize: 13.5 }} />
         </li>
       ))}

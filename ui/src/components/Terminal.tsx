@@ -18,7 +18,7 @@ const MIN_HEIGHT = 120;
 // The page allows no inline styles, except <style> elements carrying this launch's nonce (the
 // camp server puts it in a <meta> tag). xterm.js writes its colours and cell sizes into style
 // elements it creates itself, so from the first terminal on, style elements made by the page's
-// own script get the nonce. (Under `npm run ui:dev` there's no such policy, and no nonce.)
+// own script get the nonce. (Under `npm run ui`, where Vite serves the page, there's no such policy, and no nonce.)
 let stylesAllowed = false;
 function allowTerminalStyles() {
   if (stylesAllowed) return;

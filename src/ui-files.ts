@@ -1,5 +1,5 @@
 // Mission control's page, as built files. The page is a React app in ui/ that Vite builds into
-// ui/dist (`npm run ui` builds it when it's missing or out of date): one index.html plus hashed
+// ui/dist (`npm run ui:serve` builds it when it's missing or out of date): one index.html plus hashed
 // scripts and styles under assets/. The camp server serves those and nothing else from disk.
 //
 // The page runs under a Content-Security-Policy with no inline scripts or styles, so the launch
@@ -22,7 +22,7 @@ export const UI_CSP =
 export const uiCsp = (styleNonce: string) =>
   /^[A-Za-z0-9+/=_-]{16,}$/.test(styleNonce) ? UI_CSP.replace("style-src 'self'", `style-src 'self' 'nonce-${styleNonce}'`) : UI_CSP;
 
-export const UI_NOT_BUILT = "Mission control's page hasn't been built yet. Start it with `npm run ui` (which builds it first), or run `npm run ui:build`.";
+export const UI_NOT_BUILT = "Mission control's page hasn't been built yet. Open the link `npm run ui` prints (it serves the page as you edit it), or build it with `npm run ui:build`.";
 
 const ASSET_TYPES: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",

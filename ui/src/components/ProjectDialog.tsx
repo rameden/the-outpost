@@ -9,6 +9,7 @@ import { api, errorText } from "../api.ts";
 import { shortModel } from "../format.ts";
 import type { CampState, History, PickResult, Project, ProjectSettings } from "../types.ts";
 import { useModelList } from "./ModelPicker.tsx";
+import { Icon } from "./bits.tsx";
 
 type NewFolder = { path: string; access: "read" | "write" };
 const baseName = (path: string) => path.replace(/\/+$/, "").split("/").pop() ?? "";
@@ -123,13 +124,13 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
               {links.map((l) => {
                 const link = allLinks.find((x) => x.name === l);
                 return (
-                  <span key={l} className="dialog-chip" title={link?.path}>📁 links/{l}/ <small>{link ? (link.access === "write" ? "can edit" : "read-only") : "not linked any more"}</small>
+                  <span key={l} className="dialog-chip" title={link?.path}><Icon name="folder" /> links/{l}/ <small>{link ? (link.access === "write" ? "can edit" : "read-only") : "not linked any more"}</small>
                     <button type="button" className="att-x" aria-label={`Remove ${l} from this project`} onClick={() => setLinks((list) => list.filter((x) => x !== l))}>×</button>
                   </span>
                 );
               })}
               {folders.map((f) => (
-                <span key={f.path} className="dialog-chip" title={f.path}>📁 {baseName(f.path)} <small>{f.access === "write" ? "can edit" : "read-only"} · linked when you save</small>
+                <span key={f.path} className="dialog-chip" title={f.path}><Icon name="folder" /> {baseName(f.path)} <small>{f.access === "write" ? "can edit" : "read-only"} · linked when you save</small>
                   <button type="button" className="att-x" aria-label={`Don't link ${f.path}`} onClick={() => setFolders((list) => list.filter((x) => x.path !== f.path))}>×</button>
                 </span>
               ))}

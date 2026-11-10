@@ -1,7 +1,7 @@
 // Build mission control's page: the React app in ui/ → ui/dist, which src/server.ts serves.
 //   npm run ui:build                      always build
 //   tsx scripts/ui-build.ts --if-stale    build only when ui/dist is missing or older than its
-//                                         sources (this is what `npm run ui` runs first)
+//                                         sources (this is what `npm run ui:serve` runs first)
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

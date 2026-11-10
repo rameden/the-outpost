@@ -1,5 +1,5 @@
 // Mission control's page: a React app that Vite builds into ui/dist, which the camp server
-// (src/server.ts) serves. In development (`npm run ui:dev`) Vite serves the page itself and
+// (src/server.ts) serves. With `npm run ui` Vite serves the page itself and
 // passes /api and /events through to the camp server, token and all.
 
 import { defineConfig } from "vitest/config";

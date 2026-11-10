@@ -13,6 +13,7 @@ import { activityOf, type View } from "../feed/conversation.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cx, when } from "../format.ts";
+import { Icon } from "./bits.tsx";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
 
 const GENERAL = "general";
@@ -132,7 +133,7 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
         <header className={cx("hist-project-head", onPage && "selected")}>
           <button type="button" className="hist-project-name" aria-current={onPage ? "page" : undefined} onClick={() => setView({ kind: "project", id: p.id })}
             title={`Open ${p.name}${p.links?.length ? ` (${p.links.map((l) => `links/${l}/`).join(", ")})` : ""}`}>
-            <span>{p.pinned ? "📌 " : ""}{p.name}</span>
+            <span>{p.pinned && <><Icon name="pin" /> </>}{p.name}</span>
           </button>
           <button type="button" className="hist-icon hist-chevron" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${p.name}'s conversations`}
             title={open ? "Hide its conversations" : "Show its conversations"} onClick={() => toggle(p.id)}>{open ? "⌄" : "›"}</button>
@@ -166,24 +167,24 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
   return (
     <aside className="history" aria-label="History">
       <nav className="hist-nav">
-        <button type="button" className={cx("hist-nav-item", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
-          <span aria-hidden="true">＋</span>New conversation
+        <button type="button" className={cx("hist-nav-item", "hist-new", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
+          <Icon name="plus" />New conversation
         </button>
         <div className={cx("hist-nav-row", view.kind === "projects" && "selected")}>
           <button type="button" className="hist-nav-item" aria-current={view.kind === "projects" ? "page" : undefined} onClick={() => setView({ kind: "projects" })}>
-            <span aria-hidden="true">▣</span>Projects
+            <Icon name="folder" />Projects
           </button>
           <button type="button" className="hist-icon" aria-label="Create project" title="Create project" onClick={onNewProject}>+</button>
         </div>
         <button type="button" className={cx("hist-nav-item", searching && "selected")} onClick={() => { setSearching((v) => !v); setQuery(""); }}>
-          <span aria-hidden="true">⌕</span>Search
+          <Icon name="search" />Search
         </button>
         {searching && (
           <input className="hist-search" autoFocus value={query} placeholder="Search titles and what was said…" aria-label="Search conversations"
             onChange={(ev) => setQuery(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Escape") { setSearching(false); setQuery(""); } }} />
         )}
         <button type="button" className={cx("hist-nav-item", view.kind === "all" && "selected")} title="Everything at once, scheduled jobs included" onClick={() => setView({ kind: "all" })}>
-          <span aria-hidden="true">≡</span>All activity
+          <Icon name="list" />All activity
           {running > 0 && <span className="hist-count">{running} running</span>}
         </button>
       </nav>

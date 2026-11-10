@@ -12,7 +12,7 @@ beforeEach(() => {
   posts.length = 0;
   vi.useFakeTimers();
   vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
-    posts.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    if (init?.body) posts.push({ path, body: JSON.parse(String(init.body)) }); // what the page sends, not what it reads
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   }));
   vi.stubGlobal("confirm", vi.fn(() => true));

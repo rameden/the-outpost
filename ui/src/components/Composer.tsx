@@ -8,6 +8,7 @@ import type { CampState, Link, PendingAttachment, SendResult, Snippet, Uploaded 
 import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { WorkIn, chosenWorkspaces, useRepos, type WorkChoice } from "./WorkIn.tsx";
+import { Icon } from "./bits.tsx";
 
 const MAX_FILE = 25 * 1024 * 1024;
 const MAX_FOLDER_FILES = 200;
@@ -176,10 +177,13 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
 
   // ---------- The + menu ----------
   const closeMenu = () => setMenu(null);
+  // The repositories this conversation can work in, and whether it is a follow-up (which stays put).
+  const workRepos = context?.folders ? repos.filter((r) => context.folders!.includes(r.link)) : repos;
+  const followsUp = !!reply || !!context?.replyTo;
   useEffect(() => {
     const onDown = (ev: MouseEvent) => {
       const t = ev.target as Node;
-      if (!box.current?.querySelector(".attach-menu")?.contains(t) && !attachBtn.current?.contains(t)) setMenu(null);
+      if (!box.current?.querySelector(".attach-menu")?.contains(t) && !attachBtn.current?.contains(t) && !(t as Element).closest?.(".work-in")) setMenu(null);
       if (!mentionBox.current?.contains(t) && t !== input.current) setMention(null);
     };
     document.addEventListener("mousedown", onDown);
@@ -297,7 +301,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
       onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setDragging(false); }}>
       {reply && (
         <div className="reply-bar">
-          <span>↩ Following up on</span><b>{reply.task || "that expedition"}</b>
+          <Icon name="reply" /><span>Following up on</span><b>{reply.task || "that expedition"}</b>
           <button type="button" className="att-x" aria-label="Stop following up" title="Send as a new request instead" onClick={() => setReply(null)}>×</button>
         </div>
       )}
@@ -318,6 +322,12 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
       )}
       {menu && (
         <AttachMenu S={S} view={menu} setView={setMenu} text={text} onClose={closeMenu}
+          repos={workRepos} work={workChoice} workLocked={followsUp}
+          onWork={(link, v) => {
+            setWorkChoice((c) => { const next = { ...c }; if (v) next[link] = v; else delete next[link]; return next; });
+            if (workRepos.length === 1) { closeMenu(); focus(); } // with several, you may want to set the others too
+          }}
+          onTalkTo={(id) => { setText((id ? `@${id} ` : "") + text.replace(/^@\w+\s*/, "")); closeMenu(); focus(); }}
           onPick={pick}
           onPaste={() => { closeMenu(); void pasteFromClipboard(); }}
           onUrl={(url) => { addUrl(url); closeMenu(); focus(); }}
@@ -326,23 +336,21 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
           onInsertSnippet={insertSnippet}
           onSnippets={(fn: (list: Snippet[]) => Snippet[]) => patch((s) => ({ ...s, snippets: fn(s.snippets ?? []) }))} />
       )}
-      <form onSubmit={submit}>
-        <button className="attach-btn" type="button" ref={attachBtn} aria-label="Attach files, images, or links" aria-haspopup="menu" aria-expanded={!!menu}
-          onClick={() => { setMention(null); setMenu(menu ? null : "main"); }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-        </button>
+      <form className="composer-box" onSubmit={submit}>
         <textarea ref={input} rows={1} placeholder={context?.placeholder ?? "Ask the Quartermaster…"} aria-label="Request for the camp" value={text}
           onChange={(ev) => { setText(ev.target.value); updateMention(); }} onClick={updateMention} onKeyDown={onKeyDown} onPaste={onPaste} />
-        <button className="btn primary" type="submit">Send</button>
+        {/* One row under the text: the + menu, the branch the request will work on (click for the menu's Work in panel), send. */}
+        <div className="composer-bar">
+          <button className="attach-btn" type="button" ref={attachBtn} aria-label="Attach files, images, or links, or pick who to talk to" aria-haspopup="menu" aria-expanded={!!menu}
+            onClick={() => { setMention(null); setMenu(menu ? null : "main"); }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+          <WorkIn repos={workRepos} choice={workChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"}
+            onOpen={() => { setMention(null); setMenu(menu === "work" ? null : "work"); }} />
+          {S && <span className="composer-tip" title="Shift+Enter for a new line">Enter to send</span>}
+          <button className="btn primary" type="submit">Send</button>
+        </div>
       </form>
-      <div className="hints">
-        <span>Talk directly:</span>
-        {S?.characters.slice(1).map((c) => (
-          <button key={c.id} type="button" className="hint" onClick={() => { setText(`@${c.id} ` + text.replace(/^@\w+\s*/, "")); focus(); }}>@{c.id}</button>
-        ))}
-        {S && <span>· Enter to send, Shift+Enter for a new line</span>}
-      </div>
-      <WorkIn repos={context?.folders ? repos.filter((r) => context.folders!.includes(r.link)) : repos} choice={workChoice} setChoice={setWorkChoice} followUp={!!reply || !!context?.replyTo} />
       {error && <div className="form-error">{error}</div>}
       <input type="file" multiple hidden ref={pickFiles} onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
       <input type="file" multiple hidden ref={pickFolder} {...{ webkitdirectory: "" }} onChange={(ev) => { if (ev.target.files) void addFolder(ev.target.files); ev.target.value = ""; }} />

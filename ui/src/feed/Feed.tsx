@@ -5,6 +5,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormE
 import { api, errorText } from "../api.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { cClass, clock, cx, plural, spaced } from "../format.ts";
+import { Icon } from "../components/bits.tsx";
 import { Markdown } from "../markdown.tsx";
 import { AskCard } from "./AskCard.tsx";
 import { Changes } from "./Changes.tsx";
@@ -111,8 +112,8 @@ function FeedbackBar({ expId, given }: { expId: string; given?: Given }) {
     <div className="exp-feedback">
       <div className="fb-row">
         <span className="fb-ask">{mine ? "Your feedback" : "How was this?"}</span>
-        <button type="button" className={cx("fb-thumb", mine?.rating === "up" && "on")} aria-pressed={mine?.rating === "up"} aria-label="Good answer" title="Good: more like this" disabled={busy} onClick={() => rate("up")}>👍</button>
-        <button type="button" className={cx("fb-thumb", mine?.rating === "down" && "on")} aria-pressed={mine?.rating === "down"} aria-label="Not what I wanted" title="Not what I wanted" disabled={busy} onClick={() => rate("down")}>👎</button>
+        <button type="button" className={cx("fb-thumb", mine?.rating === "up" && "on")} aria-pressed={mine?.rating === "up"} aria-label="Good answer" title="Good: more like this" disabled={busy} onClick={() => rate("up")}><Icon name="up" /></button>
+        <button type="button" className={cx("fb-thumb", mine?.rating === "down" && "on")} aria-pressed={mine?.rating === "down"} aria-label="Not what I wanted" title="Not what I wanted" disabled={busy} onClick={() => rate("down")}><Icon name="down" /></button>
         {mine && !open && (
           <>
             {mine.note && <span className="fb-note" title={mine.note}>“{mine.note}”</span>}
@@ -161,7 +162,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
     <article className="exp" data-id={exp.expId}>
       <header className="exp-head">
         <span className={cx("badge", exp.source === "job" ? "job" : exp.source === "direct" ? "direct" : "")}>{label}</span>
-        {exp.followUp && <span className="badge follow" title="Carries the earlier conversation">↩ Follow-up</span>}
+        {exp.followUp && <span className="badge follow" title="Carries the earlier conversation"><Icon name="reply" /> Follow-up</span>}
         <h3>{exp.task}</h3>
         <time>{clock(exp.time)}</time>
         {!end && stop !== "gone" && (

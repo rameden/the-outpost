@@ -9,7 +9,7 @@ import { cClass, clock, cx, dayLabel, isImagePath, kTok, money, plural, shortMod
 import { Markdown } from "../markdown.tsx";
 import type { AgentDetail, CampEvent, CampState, SendResult, Transcript, TranscriptPart } from "../types.ts";
 import type { OpenPicker } from "./Crew.tsx";
-import { Clamp, Empty } from "./bits.tsx";
+import { Clamp, Empty, Icon } from "./bits.tsx";
 
 export type AgentTab = "chat" | "runs" | "memory" | "outputs" | "about";
 const TABS: [AgentTab, string][] = [["chat", "Chat"], ["runs", "Runs"], ["memory", "Memory"], ["outputs", "Outputs"], ["about", "About"]];
@@ -361,7 +361,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
               </div>
             )}
           </div>
-          <button className="icon-btn" type="button" aria-label="Close" ref={closeBtn} onClick={onClose}>✕</button>
+          <button className="icon-btn" type="button" aria-label="Close" ref={closeBtn} onClick={onClose}><Icon name="x" /></button>
         </header>
         <div className="tabs" role="tablist">
           {a && TABS.map(([id, label]) => (
