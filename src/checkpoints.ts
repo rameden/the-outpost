@@ -43,18 +43,20 @@ function prune() {
 }
 
 // ---------- Who last touched a file (so parallel quests don't overwrite each other) ----------
-const lastWrite = new Map<string, { by: string; at: number }>();
-const lastSeen = new Map<string, number>(); // `${runKey}|${abs}` → when this run last read or wrote it
+// Order is kept with a counter, not the clock: two quests can touch a file in the same millisecond.
+let tick = 0;
+const lastWrite = new Map<string, { by: string; at: number; order: number }>();
+const lastSeen = new Map<string, number>(); // `${runKey}|${abs}` → the counter when this run last read or wrote it
 
 export function noteRead(abs: string) {
-  lastSeen.set(`${currentRunKey()}|${abs}`, Date.now());
+  lastSeen.set(`${currentRunKey()}|${abs}`, ++tick);
 }
 
 // Call before changing a file: refuses a stale write, then saves the original once per expedition.
 export function beforeWrite(abs: string, shown: string) {
   const me = currentRunKey();
   const w = lastWrite.get(abs);
-  if (w && w.by !== me && Date.now() - w.at < 3_600_000 && (lastSeen.get(`${me}|${abs}`) ?? 0) < w.at) {
+  if (w && w.by !== me && Date.now() - w.at < 3_600_000 && (lastSeen.get(`${me}|${abs}`) ?? 0) < w.order) {
     throw new Error(`${shown} was just changed by another quest. Read it again, then make your change on top of theirs.`);
   }
   const id = currentExpeditionId();
@@ -76,9 +78,9 @@ export function beforeWrite(abs: string, shown: string) {
 }
 
 export function afterWrite(abs: string) {
-  const now = Date.now();
-  lastWrite.set(abs, { by: currentRunKey(), at: now });
-  lastSeen.set(`${currentRunKey()}|${abs}`, now + 1);
+  const order = ++tick;
+  lastWrite.set(abs, { by: currentRunKey(), at: Date.now(), order });
+  lastSeen.set(`${currentRunKey()}|${abs}`, order);
 }
 
 // ---------- What an expedition changed ----------
