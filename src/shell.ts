@@ -15,7 +15,7 @@ import { shellSettings } from "./settings.js";
 //    you're comfortable with that.
 //  - cat, grep -r, find: they'd read .env and other agents' private memory. Agents have their own
 //    read_file, grep, and glob tools for that, which respect the camp's boundaries.
-const DEFAULT_ALLOW = [
+export const DEFAULT_ALLOW = [
   "ls", "pwd", "wc", "which", "echo", "date",
   "git status", "git diff", "git log", "git show", "git branch", "git blame", "git ls-files", "git rev-parse",
   "node --version", "node -v", "npm --version", "npm -v", "npm ls", "npm outdated", "npm view",

@@ -1,7 +1,6 @@
-// Quests: what the camp has spent, your plan's limits, the budget and how many expeditions run
-// at once, then the log of every quest, expedition, and job run.
+// Quests: what the camp has spent and your plan's limits (the budget and how many run at once
+// are changed in Settings), then the log of every quest, expedition, and job run.
 
-import type { FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
 import { cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, when } from "../format.ts";
@@ -43,14 +42,8 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
   );
 }
 
-function SpendCard({ S, refresh }: { S: CampState; refresh: () => void }) {
+function SpendCard({ S, refresh, onOpenSettings }: { S: CampState; refresh: () => void; onOpenSettings?: () => void }) {
   const sub = S.runtime === "claude-code";
-  function saveBudget(ev: FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
-    const v = String(new FormData(ev.currentTarget).get("budget") ?? "").trim();
-    void tryIt(() => api("/api/budget", { usd: v === "" || Number(v) === 0 ? null : Number(v) }), refresh);
-  }
-  const choices = [1, 2, 3, 4, 5, 6, 8];
   return (
     <div className="spend-card">
       <div className="spend-row">
@@ -60,33 +53,19 @@ function SpendCard({ S, refresh }: { S: CampState; refresh: () => void }) {
       </div>
       {sub && <div className="meta" style={{ marginTop: 8 }}>On your Claude subscription these are estimates at API prices, not charges; your plan's usage limits apply.</div>}
       <Limits S={S} refresh={refresh} />
-      <form className="budget-form" onSubmit={saveBudget}>
-        <label>Budget per expedition $ <input key={S.budgetUsd ?? "none"} name="budget" className="budget-input" type="number" min="0" step="0.25" placeholder="none" defaultValue={S.budgetUsd ?? ""} /></label>
-        <button className="btn small" type="submit">Save</button>
-        <span>{S.budgetUsd ? `Stops at ${money(S.budgetUsd)}, all agents together.` : "No limit."}</span>
-      </form>
-      {S.sandbox?.available && (
-        <label className="budget-form sandbox-form">
-          <input type="checkbox" checked={S.sandbox.on} onChange={(ev) => tryIt(() => api("/api/sandbox", { on: ev.target.checked }), refresh)} />
-          <span><b>Sandboxed shell.</b> Commands run without asking, with no network and writes only inside the project they run in. Installs and pushes still ask.</span>
-        </label>
-      )}
-      <form className="budget-form parallel-form" onSubmit={(ev) => ev.preventDefault()}>
-        <label>Run up to <select className="parallel-input" aria-label="Expeditions at once" value={S.parallel}
-          onChange={(ev) => tryIt(() => api("/api/parallel", { parallel: Number(ev.target.value) }), refresh)}>
-          {(choices.includes(S.parallel) ? choices : [...choices, S.parallel].sort((x, y) => x - y)).map((n) => <option key={n}>{n}</option>)}
-        </select> expeditions at once</label>
-        <span>The rest wait their turn. More at once uses your {sub ? "plan's limits" : "API budget"} faster.</span>
-      </form>
+      <div className="budget-form">
+        <span>{S.budgetUsd ? `Budget ${money(S.budgetUsd)} per expedition` : "No budget"} · up to {S.parallel} at once</span>
+        {onOpenSettings && <button type="button" className="btn small" onClick={onOpenSettings}>Change limits</button>}
+      </div>
     </div>
   );
 }
 
-export function Quests({ S, refresh }: { S: CampState; refresh: () => void }) {
+export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: () => void; onOpenSettings?: () => void }) {
   const emojiFor = (name: string) => S.characters.find((c) => c.name === name)?.emoji ?? "✦";
   return (
     <>
-      <SpendCard S={S} refresh={refresh} />
+      <SpendCard S={S} refresh={refresh} onOpenSettings={onOpenSettings} />
       {!S.quests.length ? <Empty title="No quests yet">Every dispatch, expedition, and job run is logged here with its time and cost.</Empty> : (
         <>
           <p className="panel-note">Newest first. Costs are estimates from token counts. Click a line to expand it.</p>

@@ -19,10 +19,11 @@ import { setAsker, type Question } from "./ask.js";
 import { currentExpeditionId, newSteering, steer, type Steering } from "./context.js";
 import { linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, removeWorkspace } from "./repos.js";
 import { sandboxAvailable } from "./sandbox.js";
+import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -179,6 +180,23 @@ function skillsFor(id: CrewId) {
   return out;
 }
 
+// Every approved skill on disk, by owner (a crew member, or "shared").
+function installedSkills() {
+  const out: { owner: string; name: string; description: string; path: string }[] = [];
+  if (!existsSync("skills")) return out;
+  for (const owner of readdirSync("skills")) {
+    const dir = join("skills", owner);
+    if (!existsSync(dir) || owner.startsWith(".")) continue;
+    for (const name of readdirSync(dir)) {
+      const file = join(dir, name, "SKILL.md");
+      if (!existsSync(file)) continue;
+      const description = readFileSync(file, "utf8").match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
+      out.push({ owner, name, description, path: file });
+    }
+  }
+  return out;
+}
+
 async function agentDetail(id: CrewId) {
   const c = CREW[id];
   const spec = id === "quartermaster" ? quartermasterSpec() : ROSTER[id];
@@ -252,6 +270,20 @@ async function state() {
     queued: queue.map((w) => ({ id: w.id, label: w.label })),
     parallel: parallelLimit(),
     sandbox: { on: shellSettings().sandbox === true, available: sandboxAvailable() },
+    // Everything the Settings page shows that isn't already above.
+    settings: {
+      approval: approvalLevel(),
+      allow: shellSettings().allow ?? [],
+      exact: shellSettings().exact ?? [],
+      defaultAllow: DEFAULT_ALLOW,
+      questsAtOnce: questLimit(),
+      questsMax: QUESTS_MAX,
+      parallelMax: PARALLEL_MAX,
+      selfEdit: selfEditAllowed(),
+      phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
+      runtimeLocked: process.env.CAMP_RUNTIME ?? null,
+    },
+    installedSkills: installedSkills(),
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
     pausedUntil: pausedUntil(),
     pauseMessage: pausedUntil() ? pauseMessage(pausedUntil()!) : null,
@@ -593,6 +625,48 @@ const server = http.createServer(async (req, res) => {
       if (body.on && !sandboxAvailable()) return send(res, 400, { error: "The sandbox needs macOS (sandbox-exec)." });
       setShellSandbox(!!body.on);
       return send(res, 200, { ok: true, on: !!body.on });
+    }
+
+    // The approval level for shell commands ({ level: "ask" | "safe" | "sandbox" }); see settings.ts.
+    if (url.pathname === "/api/approvals") {
+      const level = body.level;
+      if (level !== "ask" && level !== "safe" && level !== "sandbox") return send(res, 400, { error: "level must be ask, safe or sandbox" });
+      if (level === "sandbox" && !sandboxAvailable()) return send(res, 400, { error: "The sandbox needs macOS (sandbox-exec)." });
+      setApprovalLevel(level);
+      return send(res, 200, { ok: true, level: approvalLevel() });
+    }
+
+    // Your shell allow-list and "Always allow" commands ({ allow?: string[], exact?: string[] }).
+    if (url.pathname === "/api/shell") {
+      const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : undefined);
+      setShellLists({ allow: list(body.allow), exact: list(body.exact) });
+      return send(res, 200, { ok: true });
+    }
+
+    // How many dispatched quests run at once, camp-wide ({ n: 1–16 }).
+    if (url.pathname === "/api/quests-at-once") {
+      const n = Number(body.n);
+      if (!Number.isInteger(n) || n < 1 || n > QUESTS_MAX) return send(res, 400, { error: `Pick a number from 1 to ${QUESTS_MAX}` });
+      setQuestLimit(n);
+      return send(res, 200, { ok: true, questsAtOnce: questLimit() });
+    }
+
+    // Let agents edit the camp's own source ({ on }).
+    if (url.pathname === "/api/self-edit") {
+      setSelfEdit(!!body.on);
+      return send(res, 200, { ok: true, selfEdit: selfEditAllowed() });
+    }
+
+    // Phone approvals through ntfy ({ topic, server, approve: [...] }); an empty topic turns it off.
+    if (url.pathname === "/api/phone") {
+      const topic = String(body.topic ?? "").trim();
+      const server = String(body.server ?? "").trim();
+      if (topic && !/^[A-Za-z0-9_-]{12,64}$/.test(topic)) return send(res, 400, { error: "The topic must be 12–64 letters, digits, - or _ (make it long and random: anyone who knows it can answer)." });
+      if (server && !/^https?:\/\//.test(server)) return send(res, 400, { error: "The server must start with https:// (or http://)" });
+      const kinds = ["plan", "job", "question", "shell", "tool"];
+      const approve = Array.isArray(body.approve) ? body.approve.map(String).filter((k: string) => kinds.includes(k)) : undefined;
+      setPhoneSettings(topic ? { topic, ...(server ? { server } : {}), ...(approve ? { approve } : {}) } : {});
+      return send(res, 200, { ok: true, on: !!phoneConfig() });
     }
 
     if (url.pathname === "/api/links/remove") {

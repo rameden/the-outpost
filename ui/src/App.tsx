@@ -1,6 +1,6 @@
-// Mission control: the crew across the top, your history of conversations on the left, the
-// conversation you're in (and the composer) in the middle, the camp's records on the right.
-// An agent's page opens as a drawer over it.
+// Mission control: the crew across the top, your history of conversations on the left, and the
+// conversation you're in (with the composer) beside it. An agent's page opens as a drawer over
+// it; Settings (with the camp's records) over everything.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { storeGet, storeSet } from "./api.ts";
@@ -17,8 +17,8 @@ import { useFeed } from "./feed/store.ts";
 import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
-import { SidePanel, isSideTab, type SideTab } from "./components/SidePanel.tsx";
 import { Feed } from "./feed/Feed.tsx";
+import { Settings, isSettingsSection, type SettingsSection } from "./settings/Settings.tsx";
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link } from "./types.ts";
 
@@ -27,8 +27,14 @@ export function App({ store }: { store: FeedStore }) {
   const conn = useCampEvents(store, refresh);
   const composer = useRef<ComposerHandle>(null);
 
-  const [tab, setTabState] = useState<SideTab>(() => { const saved = storeGet("camp-tab"); return isSideTab(saved) ? saved : "quests"; });
-  const setTab = useCallback((t: SideTab) => { setTabState(t); storeSet("camp-tab", t); }, []);
+  // Settings opens over everything; the last section is remembered.
+  const [settings, setSettings] = useState<SettingsSection | null>(null);
+  const openSettings = useCallback((s?: SettingsSection) => {
+    const saved = storeGet("camp-settings");
+    setSettings(s ?? (isSettingsSection(saved) ? saved : "general"));
+  }, []);
+  const setSection = useCallback((s: SettingsSection) => { setSettings(s); storeSet("camp-settings", s); }, []);
+  const closeSettings = useCallback(() => setSettings(null), []);
 
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentTab, setAgentTab] = useState<AgentTab>("chat"); // remembered from one agent's page to the next
@@ -99,7 +105,7 @@ export function App({ store }: { store: FeedStore }) {
   return (
     <>
       <div className="app">
-        <Header S={S} store={store} conn={conn} refresh={refresh} onShowLimits={() => setTab("quests")} />
+        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} />
         <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} />
         <History S={S} store={store} view={view} setView={setView} patch={patch}
           onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
@@ -122,11 +128,13 @@ export function App({ store }: { store: FeedStore }) {
           <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
             onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} />
         </main>
-        <SidePanel S={S} tab={tab} setTab={setTab} refresh={refresh} onAttachLink={onAttachLink} />
       </div>
       {agentId && (
         <AgentDrawer key={agentId} agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store}
           pickerOpen={!!picker} onOpenPicker={openPicker} onClose={closeAgent} />
+      )}
+      {settings && (
+        <Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} />
       )}
       {dialog && <ProjectDialog key={dialog.project?.id ?? "new"} S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />}
       {picker && picking && S && (
