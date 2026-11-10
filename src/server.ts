@@ -49,6 +49,7 @@ import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./
 import { titleConversation } from "./titles.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal } from "./term.js";
+import { explorerRoot, listFolder, previewFile, imageFile, changedFiles } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
 
@@ -473,6 +474,24 @@ const server = http.createServer(async (req, res) => {
 
     // Models this API key can use, with the effort levels each supports.
     if (req.method === "GET" && url.pathname === "/api/models") return send(res, 200, await listModels());
+
+    // The Files flyout: one folder's contents inside a linked folder (or one of its worktrees), a
+    // file to preview, or an image's bytes. link: the linked folder; root: a worktree of it; path:
+    // where, from the top of that folder.
+    if (req.method === "GET" && url.pathname.startsWith("/api/tree")) {
+      const q = url.searchParams;
+      try {
+        const root = await explorerRoot(String(q.get("link") ?? ""), q.get("root") || undefined);
+        const path = q.get("path") ?? "";
+        if (url.pathname === "/api/tree") return send(res, 200, { ...listFolder(root, path), ...(path ? {} : { changed: await changedFiles(root) }) });
+        if (url.pathname === "/api/tree/file") return send(res, 200, previewFile(root, path));
+        if (url.pathname === "/api/tree/raw") {
+          const { media, bytes } = imageFile(root, path);
+          res.writeHead(200, { "content-type": media, "cache-control": "no-store", "x-content-type-options": "nosniff" });
+          return res.end(bytes);
+        }
+      } catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
 
     // Project files for @ autocomplete.
     if (req.method === "GET" && url.pathname === "/api/files") {

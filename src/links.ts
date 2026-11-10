@@ -38,7 +38,7 @@ const FORBIDDEN_UNDER = [
 // File and folder names that stay off limits inside a link.
 export const SECRET_NAME = /^(\.env.*|.*\.pem|.*\.key|id_rsa.*|id_ed25519.*|id_ecdsa.*|\.netrc|\.npmrc|\.pypirc|\.git-credentials|credentials(\.json)?|.*\.p12|.*\.pfx|\.ssh|\.aws|\.gnupg)$/i;
 
-const inside = (child: string, parent: string) => {
+export const inside = (child: string, parent: string) => {
   const rel = relative(parent, child);
   return rel === "" || (!rel.startsWith(".." + sep) && rel !== ".." && !isAbsolute(rel));
 };

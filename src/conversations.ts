@@ -60,6 +60,8 @@ export type Conversation = {
   expeditions: string[]; // its runs, oldest first
   status: string;        // how the latest run ended ("running" while it's going)
   suggest?: string;      // filed under General, but it used a folder that belongs to this project
+  links?: string[];      // linked folders attached to it along the way, beyond its project's own
+  workspaces?: Record<string, { path: string; branch: string }>; // the worktrees its latest run worked in, by linked folder
 };
 export type History = { projects: Project[]; conversations: Conversation[] };
 
@@ -101,6 +103,17 @@ export function titleOf(task: string): string {
   return flat.length > 64 ? flat.slice(0, 63).trimEnd() + "…" : flat || "Untitled";
 }
 
+// The folders a conversation has in play beyond its project's: what was attached, and where its
+// latest run that used a worktree worked (for the Files flyout).
+function folders(turns: Turn[]): Pick<Conversation, "links" | "workspaces"> {
+  const links = [...new Set(turns.flatMap((t) => t.links ?? []))];
+  const ws = [...turns].reverse().find((t) => t.workspaces && Object.keys(t.workspaces).length)?.workspaces;
+  return {
+    ...(links.length ? { links } : {}),
+    ...(ws ? { workspaces: Object.fromEntries(Object.entries(ws).map(([l, w]) => [l, { path: w.path, branch: w.branch }])) } : {}),
+  };
+}
+
 export function history(): History {
   const s = withLinkProjects(load());
   const known = new Set(s.projects.map((p) => p.id));
@@ -119,6 +132,7 @@ export function history(): History {
       id, title: meta.title || titleOf(first.task), project, ...(owners.length === 1 ? { suggest: owners[0].id } : {}),
       created: first.time, updated: last.time, agent: last.agent, direct: last.direct,
       expeditions: turns.map((t) => t.expedition), status: last.status,
+      ...folders(turns),
     });
   }
   conversations.sort((a, b) => b.updated.localeCompare(a.updated));

@@ -20,6 +20,10 @@ export async function api<T = unknown>(path: string, body?: unknown): Promise<T>
 const withToken = (url: string) => `${url}${url.includes("?") ? "&" : "?"}t=${encodeURIComponent(TOKEN)}`;
 export const eventsUrl = () => withToken("/events");
 export const termStreamUrl = (id: string) => withToken(`/api/term/stream?id=${encodeURIComponent(id)}`);
+// A place inside a linked folder (root: one of its worktrees), for the Files flyout.
+export const treeQuery = (link: string, root: string | undefined, path: string) =>
+  `link=${encodeURIComponent(link)}${root ? `&root=${encodeURIComponent(root)}` : ""}&path=${encodeURIComponent(path)}`;
+export const treeImageUrl = (link: string, root: string | undefined, path: string) => withToken(`/api/tree/raw?${treeQuery(link, root, path)}`);
 export const thumbUrl = (path: string) => withToken(`/api/upload?path=${encodeURIComponent(path)}`);
 export const outputUrl = (id: string, path: string) => withToken(`/api/agent/output?id=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`);
 

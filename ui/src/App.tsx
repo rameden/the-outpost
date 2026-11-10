@@ -9,6 +9,8 @@ import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
 import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
 import { History } from "./components/History.tsx";
 import { TerminalPanel } from "./components/Terminal.tsx";
+import { FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
+import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
 import { setCrewColors } from "./format.ts";
@@ -97,6 +99,29 @@ export function App({ store }: { store: FeedStore }) {
     return () => removeEventListener("keydown", onKey, true);
   }, [toggleTerminal]);
 
+  // The Files flyout on the right: the folders attached to where you are (the project's own, the
+  // conversation's, and any sitting in the message box). Shown or hidden (remembered), toggled
+  // with Ctrl+Shift+E; with no folder attached there's nothing to show, so no way to open it.
+  const [attached, setAttached] = useState<string[]>([]);
+  const fileRoots = useMemo<FileRoot[]>(() => {
+    const names = new Set([...(project && project.id !== "general" ? project.links ?? [] : []), ...(conversation?.links ?? []), ...Object.keys(conversation?.workspaces ?? {}), ...attached]);
+    return [...names].filter((n) => S?.links.some((l) => l.name === n)).map((n) => {
+      const w = conversation?.workspaces?.[n]; // it worked in its own worktree: show that
+      return w ? { link: n, path: w.path, branch: w.branch } : { link: n };
+    });
+  }, [S?.links, project, conversation, attached]);
+  const hasFiles = fileRoots.length > 0;
+  const [files, setFiles] = useState(() => storeGet("camp-files-open-pane") === "1");
+  const toggleFiles = useCallback(() => setFiles((on) => { storeSet("camp-files-open-pane", on ? "0" : "1"); return !on; }), []);
+  useEffect(() => {
+    if (!hasFiles) return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.ctrlKey && ev.shiftKey && !ev.metaKey && !ev.altKey && ev.code === "KeyE") { ev.preventDefault(); toggleFiles(); } };
+    addEventListener("keydown", onKey, true);
+    return () => removeEventListener("keydown", onKey, true);
+  }, [hasFiles, toggleFiles]);
+  const running = useFeed(store, runningCount);
+  const onMention = useCallback((path: string) => composer.current?.mention(path), []);
+
   // The crew dialog: a new crew member (the + at the end of the crew bar), or one you added being edited.
   const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
   const closeCrewDialog = useCallback(() => setCrewDialog(null), []);
@@ -136,7 +161,8 @@ export function App({ store }: { store: FeedStore }) {
   return (
     <>
       <div className="app">
-        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} terminalOpen={terminal} onToggleTerminal={toggleTerminal} />
+        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} terminalOpen={terminal} onToggleTerminal={toggleTerminal}
+          filesOpen={files} onToggleFiles={hasFiles ? toggleFiles : undefined} />
         <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker}
           onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
         <History S={S} store={store} view={view} setView={setView} patch={patch}
@@ -163,8 +189,11 @@ export function App({ store }: { store: FeedStore }) {
             </>
           )}
           <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
-            onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} />
+            onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} onFolders={setAttached} />
         </main>
+        {hasFiles && (files
+          ? <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />
+          : <FilesRail onShow={toggleFiles} />)}
         {terminal && <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} />}
       </div>
       {agentId && (

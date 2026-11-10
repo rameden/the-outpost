@@ -97,9 +97,10 @@ function toggleTheme() {
   storeSet("camp-theme", root.dataset.theme);
 }
 
-export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, onToggleTerminal }: {
+export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, onToggleTerminal, filesOpen, onToggleFiles }: {
   S: CampState | null; store: FeedStore; conn: Connection; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
   terminalOpen?: boolean; onToggleTerminal?: () => void;
+  filesOpen?: boolean; onToggleFiles?: () => void; // only passed while a folder is attached here
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
@@ -140,6 +141,10 @@ export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, 
         {onToggleTerminal && (
           <button className={cx("icon-btn", terminalOpen && "on")} type="button" aria-pressed={!!terminalOpen} aria-label={terminalOpen ? "Hide the terminal" : "Show the terminal"}
             title={`${terminalOpen ? "Hide" : "Show"} the terminal (Ctrl+\`)`} onClick={onToggleTerminal}><Icon name="terminal" /></button>
+        )}
+        {onToggleFiles && (
+          <button className={cx("icon-btn", filesOpen && "on")} type="button" aria-pressed={!!filesOpen} aria-label={filesOpen ? "Hide the files" : "Show the files"}
+            title={`${filesOpen ? "Hide" : "Show"} the files of the attached folder (Ctrl+Shift+E)`} onClick={onToggleFiles}><Icon name="panelRight" /></button>
         )}
         <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}><Icon name="theme" /></button>
         {onOpenSettings && (
