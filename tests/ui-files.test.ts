@@ -1,0 +1,55 @@
+// Serving mission control's built page: the token goes into the page and onto its asset links,
+// only real built files of known types are served, and the page's policy allows no inline code.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { uiPage, uiAsset, UI_CSP } from "../src/ui-files.ts";
+
+const dist = mkdtempSync(join(tmpdir(), "guild-camp-ui-"));
+mkdirSync(join(dist, "assets"));
+writeFileSync(join(dist, "index.html"), [
+  '<meta name="camp-token" content="__CAMP_TOKEN__">',
+  '<script type="module" crossorigin src="/assets/index-abc123.js"></script>',
+  '<link rel="stylesheet" crossorigin href="/assets/style-def456.css">',
+  '<a href="https://example.com/assets/elsewhere.js">not ours</a>',
+].join("\n"));
+writeFileSync(join(dist, "assets", "index-abc123.js"), "console.log('camp')");
+writeFileSync(join(dist, "assets", "style-def456.css"), "body{}");
+writeFileSync(join(dist, "assets", "notes.txt"), "not a page asset");
+writeFileSync(join(dist, "secret.js"), "outside assets/");
+
+test("the page carries the launch token, and so does every asset link", () => {
+  const page = uiPage("tok123", dist)!;
+  assert.match(page, /<meta name="camp-token" content="tok123">/);
+  assert.match(page, /src="\/assets\/index-abc123\.js\?t=tok123"/);
+  assert.match(page, /href="\/assets\/style-def456\.css\?t=tok123"/);
+  assert.match(page, /href="https:\/\/example\.com\/assets\/elsewhere\.js"/, "links to other sites are left alone");
+  assert.ok(!page.includes("__CAMP_TOKEN__"));
+});
+
+test("no build yet: no page", () => {
+  assert.equal(uiPage("tok123", join(dist, "missing")), null);
+});
+
+test("assets are served with the right type", () => {
+  assert.equal(uiAsset("/assets/index-abc123.js", dist)?.type, "text/javascript; charset=utf-8");
+  assert.equal(uiAsset("/assets/style-def456.css", dist)?.type, "text/css; charset=utf-8");
+  assert.equal(uiAsset("/assets/index-abc123.js", dist)?.body.toString(), "console.log('camp')");
+});
+
+test("nothing outside the built assets folder, and nothing of an unknown type", () => {
+  for (const path of [
+    "/assets/../secret.js", "/assets/%2e%2e/secret.js", "/assets/..%2fsecret.js", "/assets/../index.html",
+    "/assets/notes.txt", "/assets/missing.js", "/assets/", "/assets", "/secret.js", "/assets/%zz.js", "/assets/index-abc123.js%00.css",
+  ]) assert.equal(uiAsset(path, dist), null, path);
+});
+
+test("the page's policy allows only the camp's own scripts and styles", () => {
+  assert.ok(!UI_CSP.includes("unsafe-inline") && !UI_CSP.includes("unsafe-eval"));
+  assert.match(UI_CSP, /default-src 'none'/);
+  assert.match(UI_CSP, /script-src 'self'/);
+  assert.match(UI_CSP, /style-src 'self'/);
+  assert.match(UI_CSP, /frame-ancestors 'none'/);
+});

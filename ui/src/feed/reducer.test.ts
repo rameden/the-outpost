@@ -1,0 +1,219 @@
+// The feed reducer: several expeditions at once, replies streaming in, approvals, and Stop.
+import { describe, expect, test } from "vitest";
+import type { CampEvent } from "../types.ts";
+import { addSysLine, applyEvent, emptyFeed, findNodes, runningCount, type ExpNode, type FeedState } from "./reducer.ts";
+
+// Events as the server sends them: numbered in order, a second apart.
+type Body = CampEvent extends infer E ? (E extends CampEvent ? Omit<E, "seq" | "time"> : never) : never;
+function feedOf(bodies: Body[], from: FeedState = emptyFeed): FeedState {
+  let s = from;
+  bodies.forEach((b, i) => {
+    const seq = from.lastSeq + i + 1;
+    s = applyEvent(s, { ...b, seq, time: new Date(Date.UTC(2026, 0, 1, 9, 0, seq)).toISOString() } as CampEvent);
+  });
+  return s;
+}
+const exp = (s: FeedState, id: string) => s.items.find((n): n is ExpNode => n.kind === "exp" && n.expId === id)!;
+const kinds = (nodes: { kind: string }[]) => nodes.map((n) => n.kind);
+
+const qm = { who: "Quartermaster", emoji: "🧭", depth: 0 };
+const scout = { who: "Scout", emoji: "🔭", depth: 1 };
+const scribe = { who: "Scribe", emoji: "✒️", depth: 1 };
+const start = (id: string, task: string, source: "user" | "direct" | "job" = "user"): Body => ({ type: "expedition_start", id, task, source });
+
+describe("parallel expeditions", () => {
+  // Two expeditions whose events arrive interleaved, each with a quest; B's quest has the same id as A's.
+  const s = feedOf([
+    start("A", "Research memory"),
+    start("B", "Write the changelog"),
+    { type: "text", ...qm, text: "Plan for A", expeditionId: "A" },
+    { type: "text", ...qm, text: "Plan for B", expeditionId: "B" },
+    { type: "dispatch", ...scout, questId: "q1", expeditionId: "A" },
+    { type: "dispatch", ...scribe, questId: "q1", expeditionId: "B" },
+    { type: "tool", ...scout, tool: "web_search", input: "agent memory", questId: "q1", expeditionId: "A" },
+    { type: "text", ...scribe, text: "Drafting", questId: "q1", expeditionId: "B" },
+    { type: "text", ...scout, text: "Found three papers", questId: "q1", expeditionId: "A" },
+  ]);
+
+  test("each event lands in its own expedition's card, and in its own quest", () => {
+    expect(s.items.map((n) => n.kind)).toEqual(["exp", "exp"]);
+    expect(runningCount(s)).toBe(2);
+    const [a, b] = [exp(s, "A"), exp(s, "B")];
+    expect(kinds(a.nodes)).toEqual(["msg", "quest"]);
+    expect(kinds(b.nodes)).toEqual(["msg", "quest"]);
+    expect(a.nodes[0]).toMatchObject({ text: "Plan for A" });
+    expect(b.nodes[0]).toMatchObject({ text: "Plan for B" });
+    expect(a.nodes[1]).toMatchObject({ who: "Scout", status: null, nodes: [{ kind: "tool", tool: "web_search" }, { kind: "msg", text: "Found three papers" }] });
+    expect(b.nodes[1]).toMatchObject({ who: "Scribe", status: null, nodes: [{ kind: "msg", text: "Drafting" }] });
+  });
+
+  test("two quests in one expedition stay apart", () => {
+    const two = feedOf([
+      start("A", "Do two things"),
+      { type: "dispatch", ...scout, questId: "q1", expeditionId: "A" },
+      { type: "dispatch", ...scribe, questId: "q2", expeditionId: "A" },
+      { type: "text_delta", ...scribe, delta: "Dra", questId: "q2", expeditionId: "A" },
+      { type: "text_delta", ...scout, delta: "Loo", questId: "q1", expeditionId: "A" },
+      { type: "text_delta", ...scribe, delta: "ft", questId: "q2", expeditionId: "A" },
+      { type: "return", who: "Scout", emoji: "🔭", status: "done", questId: "q1", expeditionId: "A" },
+    ]);
+    const [q1, q2] = findNodes(two.items, "quest");
+    expect(q1).toMatchObject({ who: "Scout", status: "done", nodes: [{ kind: "msg", text: "Loo", streaming: false }] });
+    expect(q2).toMatchObject({ who: "Scribe", status: null, nodes: [{ kind: "msg", text: "Draft", streaming: true }] });
+  });
+
+  test("the crew panel follows who is working where", () => {
+    expect(s.crew.Quartermaster).toMatchObject({ status: "active" });
+    expect(s.crew.Scout).toEqual({ status: "active", line: "Found three papers" });
+    expect(s.crew.Scribe).toEqual({ status: "active", line: "Drafting" });
+  });
+
+  test("one finishing leaves the other running, and only its own crew go back to camp", () => {
+    const after = feedOf([{ type: "expedition_end", id: "A", status: "done", text: "All done", changed: 2 }], s);
+    expect(runningCount(after)).toBe(1);
+    expect(exp(after, "A").end).toMatchObject({ status: "done", changed: 2 });
+    expect(exp(after, "B").end).toBeNull();
+    expect(after.crew.Scout.status).toBe("idle");
+    expect(after.crew.Scribe.status).toBe("active");
+    expect(after.crew.Quartermaster.status).toBe("active"); // still planning B
+    expect(exp(after, "B")).toBe(exp(s, "B")); // B's card wasn't touched, so React skips it
+  });
+
+  test("an approval lands in the expedition that asked, and waits there", () => {
+    const asked = feedOf([
+      { type: "ask", id: "ask1", kind: "plan", title: "📋 Plan for A", body: "1. Scout", expeditionId: "A" },
+      { type: "ask", id: "ask2", kind: "shell", title: "🖥️ Run a command", body: "npm test", questId: "q1", expeditionId: "B" },
+    ], s);
+    expect(asked.asks.map((a) => [a.id, a.who])).toEqual([["ask1", "Quartermaster"], ["ask2", "Scribe"]]);
+    expect(asked.crew.Quartermaster.status).toBe("waiting");
+    expect(asked.crew.Scribe.status).toBe("waiting");
+    expect(kinds(exp(asked, "A").nodes)).toEqual(["msg", "quest", "ask"]);
+    expect(findNodes(exp(asked, "B").nodes, "ask")).toMatchObject([{ askId: "ask2", askKind: "shell", outcome: null }]);
+
+    const answered = feedOf([{ type: "answered", id: "ask2", answer: "always" }, { type: "answered", id: "ask1", answer: "" }], asked);
+    expect(answered.asks).toEqual([]);
+    expect(findNodes(answered.items, "ask").map((a) => a.outcome)).toEqual(["✓ Plan approved", "✓ Allowed, and won't ask again for this command"]);
+    expect(answered.crew.Scribe.status).toBe("active");
+  });
+});
+
+describe("streaming", () => {
+  const streaming = feedOf([
+    start("A", "Say hello"),
+    { type: "text_delta", ...qm, delta: "Hel", expeditionId: "A" },
+    { type: "text_delta", ...qm, delta: "lo **wor", expeditionId: "A" },
+  ]);
+
+  test("words arriving build one message, marked as still streaming", () => {
+    expect(exp(streaming, "A").nodes).toMatchObject([{ kind: "msg", who: "Quartermaster", text: "Hello **wor", streaming: true }]);
+    expect(streaming.crew.Quartermaster).toEqual({ status: "active", line: "Planning the expedition" });
+  });
+
+  test("the finished reply replaces what streamed in", () => {
+    const done = feedOf([{ type: "text", ...qm, text: "Hello **world**", expeditionId: "A" }], streaming);
+    expect(exp(done, "A").nodes).toMatchObject([{ kind: "msg", text: "Hello **world**", streaming: false }]);
+    expect(exp(done, "A").nodes[0].id).toBe(exp(streaming, "A").nodes[0].id); // the same message, not a second one
+    expect(done.live).toEqual({});
+  });
+
+  test("words after a tool call start a new message", () => {
+    const s = feedOf([
+      { type: "tool", ...qm, tool: "read_file", input: "README.md", expeditionId: "A" },
+      { type: "text_delta", ...qm, delta: "Next", expeditionId: "A" },
+    ], streaming);
+    expect(exp(s, "A").nodes).toMatchObject([
+      { kind: "msg", text: "Hello **wor", streaming: false },
+      { kind: "tool", tool: "read_file" },
+      { kind: "msg", text: "Next", streaming: true },
+    ]);
+  });
+
+  test("two expeditions streaming at once don't mix their words", () => {
+    const s = feedOf([
+      start("B", "Second"),
+      { type: "text_delta", ...qm, delta: "B says ", expeditionId: "B" },
+      { type: "text_delta", ...qm, delta: "d", expeditionId: "A" },
+      { type: "text_delta", ...qm, delta: "hi", expeditionId: "B" },
+    ], streaming);
+    expect(exp(s, "A").nodes).toMatchObject([{ text: "Hello **word" }]);
+    expect(exp(s, "B").nodes).toMatchObject([{ text: "B says hi" }]);
+  });
+
+  test("a replayed event (after a reconnect) changes nothing", () => {
+    const again = applyEvent(streaming, { type: "text_delta", ...qm, delta: "lo **wor", expeditionId: "A", seq: 3, time: new Date().toISOString() });
+    expect(again).toBe(streaming);
+  });
+});
+
+describe("stop", () => {
+  // A is mid-reply with an approval waiting when you stop it; B carries on.
+  const running = feedOf([
+    start("A", "Long job"),
+    start("B", "Other job"),
+    { type: "dispatch", ...scout, questId: "q1", expeditionId: "A" },
+    { type: "text_delta", ...scout, delta: "Looking into", questId: "q1", expeditionId: "A" },
+    { type: "ask", id: "ask1", kind: "shell", title: "🖥️ Run a command", body: "rm -rf build", questId: "q1", expeditionId: "A" },
+    { type: "text_delta", ...qm, delta: "B is still", expeditionId: "B" },
+  ]);
+  const stopped = feedOf([
+    { type: "answered", id: "ask1", answer: "n" },
+    { type: "return", who: "Scout", emoji: "🔭", status: "stopped", questId: "q1", expeditionId: "A" },
+    { type: "expedition_end", id: "A", status: "stopped", text: "Stopped by you." },
+  ], running);
+
+  test("the stopped expedition closes: its approval is declined, its quest and reply end", () => {
+    const a = exp(stopped, "A");
+    expect(a.end).toMatchObject({ status: "stopped", changed: 0 });
+    expect(findNodes(a.nodes, "ask")).toMatchObject([{ outcome: "✕ Declined" }]);
+    expect(findNodes(a.nodes, "quest")).toMatchObject([{ status: "stopped" }]);
+    expect(findNodes(a.nodes, "msg")).toMatchObject([{ text: "Looking into", streaming: false }]); // cut off, kept as it was
+    expect(stopped.asks).toEqual([]);
+    expect(stopped.crew.Scout).toEqual({ status: "idle", line: "Returned (stopped)" });
+  });
+
+  test("the other expedition keeps running and keeps streaming", () => {
+    expect(runningCount(stopped)).toBe(1);
+    expect(exp(stopped, "B").end).toBeNull();
+    const more = feedOf([{ type: "text_delta", ...qm, delta: " going", expeditionId: "B" }], stopped);
+    expect(exp(more, "B").nodes).toMatchObject([{ text: "B is still going", streaming: true }]);
+  });
+
+  test("an expedition that fails says why", () => {
+    const failed = feedOf([{ type: "expedition_end", id: "B", status: "error", text: "The API is down." }], stopped);
+    expect(exp(failed, "B").nodes.at(-1)).toMatchObject({ kind: "notice", text: "The API is down." });
+    expect(findNodes(failed.items, "msg").every((m) => !m.streaming)).toBe(true);
+    expect(runningCount(failed)).toBe(0);
+  });
+});
+
+describe("the rest of the feed", () => {
+  test("job runs and the page's own notes are lines between the cards", () => {
+    let s = feedOf([start("A", "One"), { type: "job", name: "digest", outcome: "running" }, { type: "job", name: "digest", outcome: "quiet" }]);
+    s = addSysLine(s, "Queued (#1)");
+    expect(s.items.map((n) => (n.kind === "sys" ? n.text : n.kind))).toEqual(["exp", '⏰ Scheduled job "digest" is running', '🤫 "digest" found nothing new', "Queued (#1)"]);
+  });
+
+  test("a direct message is one expedition with one quest, and no Quartermaster", () => {
+    const s = feedOf([
+      start("D", "@scout hello", "direct"),
+      { type: "dispatch", ...scout, questId: "q1", expeditionId: "D" },
+      { type: "text", ...scout, text: "Hello!", questId: "q1", expeditionId: "D" },
+      { type: "return", who: "Scout", emoji: "🔭", status: "done", questId: "q1", expeditionId: "D" },
+      { type: "expedition_end", id: "D", status: "done", text: "Hello!" },
+    ]);
+    expect(s.crew.Quartermaster).toBeUndefined();
+    expect(exp(s, "D")).toMatchObject({ source: "direct", end: { status: "done" }, nodes: [{ kind: "quest", status: "done", nodes: [{ text: "Hello!" }] }] });
+  });
+
+  test("an approval that lapsed in a restart is closed, not left waiting", () => {
+    const s = feedOf([
+      start("A", "One"),
+      { type: "ask", id: "ask1", kind: "plan", title: "📋 Plan", body: "1.", expeditionId: "A" },
+      { type: "answered", id: "ask1", answer: "n", lapsed: true },
+      { type: "expedition_end", id: "A", status: "interrupted", text: "The camp was restarted while this was running." },
+    ]);
+    expect(s.asks).toEqual([]);
+    expect(findNodes(s.items, "ask")[0].outcome).toBe("Not answered (the camp was restarted)");
+    expect(exp(s, "A").end?.status).toBe("interrupted");
+  });
+});

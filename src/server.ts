@@ -1,17 +1,19 @@
 // Mission control: a local web dashboard for the camp.
 // Run: npm run ui   → open the printed http://127.0.0.1:4747/?t=… link
+// The page itself is a React app in ui/, built into ui/dist (see src/ui-files.ts).
 //
 // It streams every camp event to the browser, routes approvals (plans, shell commands, new jobs)
 // to buttons on the page, and runs scheduled jobs while it's open (so don't also run `npm run watch`).
 //
 // Safety: it listens on 127.0.0.1 only, checks the Host header (blocks DNS rebinding), and
-// requires a random per-launch token on every request, so other websites can't drive the camp.
+// requires a random per-launch token on every request (the page's scripts and styles included),
+// so other websites can't drive the camp. The page runs under a Content-Security-Policy that
+// allows no inline code: only the scripts and styles this server serves.
 
 import http from "node:http";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { randomBytes, randomUUID } from "node:crypto";
 import { join, normalize, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 import { onEvent, attachConsole, emit, continueSeqFrom, type CampEvent } from "./events.js";
 import { setAsker, type Question } from "./ask.js";
 import { currentExpeditionId } from "./context.js";
@@ -39,12 +41,11 @@ import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Att
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadLinks, addLink, removeLink } from "./links.js";
 import { pickFolder } from "./picker.js";
+import { uiPage, uiAsset, UI_CSP, UI_NOT_BUILT } from "./ui-files.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
 const TOKEN = randomBytes(24).toString("hex");
 const BOOT_ID = randomBytes(6).toString("hex");
-const HERE = fileURLToPath(new URL(".", import.meta.url));
-const PAGE_PATH = join(HERE, "ui", "index.html");
 const MAX_BODY = 1_000_000;
 const MAX_UPLOAD_BODY = 36_000_000; // one file per request: ~25 MB once base64-encoded
 const BUFFER_SIZE = 800;
@@ -217,6 +218,11 @@ async function agentDetail(id: CrewId) {
   };
 }
 
+// What /api/agent and /api/state send. The page imports these types (ui/src/types.ts), so it is
+// checked against what the server really returns.
+export type AgentDetail = Awaited<ReturnType<typeof agentDetail>>;
+export type CampState = Awaited<ReturnType<typeof state>>;
+
 async function state() {
   const all = recentQuests(Number.MAX_SAFE_INTEGER);
   const xp: Record<string, number> = {};
@@ -299,12 +305,20 @@ const server = http.createServer(async (req, res) => {
       if (url.searchParams.get("t") !== TOKEN) {
         return send(res, 401, "Open the link printed in the terminal (it includes this launch's key).", "text/plain; charset=utf-8");
       }
-      const page = readFileSync(PAGE_PATH, "utf8").replace("__CAMP_TOKEN__", TOKEN);
-      res.setHeader("content-security-policy",
-        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+      const page = uiPage(TOKEN);
+      if (!page) return send(res, 503, UI_NOT_BUILT, "text/plain; charset=utf-8");
+      res.setHeader("content-security-policy", UI_CSP);
       return send(res, 200, page, "text/html; charset=utf-8");
     }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
+
+    // The page's built scripts and styles (ui/dist/assets). The page links them with the token.
+    if (req.method === "GET" && url.pathname.startsWith("/assets/")) {
+      const asset = uiAsset(url.pathname);
+      if (!asset) return send(res, 404, { error: "Not found" });
+      res.writeHead(200, { "content-type": asset.type, "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" });
+      return res.end(asset.body);
+    }
 
     if (req.method === "GET" && url.pathname === "/events") {
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
