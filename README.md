@@ -1,4 +1,4 @@
-# Guild Camp
+# Satchel
 
 A small, hackable multi-agent harness built on the Claude API. A **Quartermaster** plans your request, gets your OK on the plan, and sends specialist adventurers out on quests, sometimes several at once. Each crew member has a fixed identity, its own memory and workspace, and clear limits on what it does.
 
@@ -143,7 +143,7 @@ In `npm start`, type a request for the Quartermaster, or:
 ## Safety
 
 - **Files:** the file tools only work inside the camp folder. They never read secrets at any depth (`.env*`, private keys, `.netrc`, `credentials.json`…) or the camp's private configuration (`camp/mcp.json`, `camp/settings.json`), never touch another agent's memory or sessions, and can't write to `skills/`, `plugins/`, or `camp/` except an agent's own outputs folder.
-- **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`), so nothing they read can talk them into loosening these rules. To have the crew work on Guild Camp itself, set `"selfEdit": true` in `camp/settings.json`.
+- **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`), so nothing they read can talk them into loosening these rules. To have the crew work on Satchel itself, set `"selfEdit": true` in `camp/settings.json`.
 - **The Scout** reads the web, so it can only write to its own outputs folder.
 - **Parallel quests** can't overwrite each other: a write to a file another quest just changed is refused until it has been read again.
 - **Shell:** commands ask you first. "Always allow this command" on an approval stops the asking for that exact command (`"shell": {"exact": [...]}`). Commands run without blocking the camp, stop after 2 minutes, and stop when you press Stop. With `cwd: "links/<name>"` a command runs inside that linked folder (or the expedition's worktree of it), where read-only git commands don't ask either.

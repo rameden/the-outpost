@@ -1,5 +1,5 @@
 {
-  "name": "guild-camp",
+  "name": "satchel",
   "version": "1.0.0",
   "description": "A small multi-agent harness on the Claude API: a Quartermaster plans and dispatches a crew of specialists, with memory, skills, scheduled jobs, and a local mission-control dashboard.",
   "scripts": {

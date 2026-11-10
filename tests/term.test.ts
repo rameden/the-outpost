@@ -9,7 +9,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("term");
 process.env.SHELL = "/bin/sh"; // a plain shell: no profile, no prompt theme
-const folder = realpathSync(mkdtempSync(join(tmpdir(), "guild-camp-term-")));
+const folder = realpathSync(mkdtempSync(join(tmpdir(), "satchel-term-")));
 
 const { addLink } = await import("../src/links.ts");
 const { addProject } = await import("../src/conversations.ts");

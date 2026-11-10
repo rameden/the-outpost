@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uiPage, uiAsset, uiCsp, UI_CSP } from "../src/ui-files.ts";
 
-const dist = mkdtempSync(join(tmpdir(), "guild-camp-ui-"));
+const dist = mkdtempSync(join(tmpdir(), "satchel-ui-"));
 mkdirSync(join(dist, "assets"));
 writeFileSync(join(dist, "index.html"), [
   '<meta name="camp-token" content="__CAMP_TOKEN__">',

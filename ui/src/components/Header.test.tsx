@@ -60,7 +60,7 @@ test("the busy chip counts running expeditions and what's queued, and the title 
   );
   expect(screen.getByText("2 expeditions running · 1 queued")).toBeTruthy();
   expect(screen.getByRole("button", { name: "2 decisions need you" })).toBeTruthy();
-  expect(document.title).toBe("(2) Guild Camp");
+  expect(document.title).toBe("(2) Satchel");
 
   events(store, { type: "answered", id: "ask1", answer: "" });
   expect(screen.getByRole("button", { name: "1 decision needs you" })).toBeTruthy();

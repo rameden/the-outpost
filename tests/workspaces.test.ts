@@ -11,7 +11,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("workspaces");
 // A project of its own, outside the camp, to link.
-const repo = realpathSync(mkdtempSync(join(tmpdir(), "guild-camp-repo-")));
+const repo = realpathSync(mkdtempSync(join(tmpdir(), "satchel-repo-")));
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 git(repo, "init", "-q", "-b", "main");
 git(repo, "config", "user.email", "test@example.com");
@@ -107,7 +107,7 @@ test("your checks run by themselves after a quest changes files in that folder",
 
 test("sandbox: no network, no writes outside the project, no reading secrets; commits still work", { skip: !sandboxAvailable() }, async () => {
   const sandbox = sandboxPlanFor(repo);
-  const outside = join(homedir(), `.guild-camp-sandbox-probe-${process.pid}`);
+  const outside = join(homedir(), `.satchel-sandbox-probe-${process.pid}`);
   assert.match(await runShell(`echo x > ${outside}`, { cwd: repo, sandbox }), /Operation not permitted/);
   assert.ok(!existsSync(outside));
   assert.equal(await runShell("echo ok > inside.txt && cat inside.txt", { cwd: repo, sandbox }), "ok");

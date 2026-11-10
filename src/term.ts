@@ -67,7 +67,7 @@ export function openTerminal(o: { project?: string; cols?: unknown; rows?: unkno
   const shell = process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/zsh");
   const pty = loadPty().spawn(shell, process.platform === "win32" ? [] : ["-l"], {
     name: "xterm-256color", cols: clamp(o.cols, 20, 400, 100), rows: clamp(o.rows, 5, 200, 24), cwd,
-    env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", GUILD_CAMP_TERMINAL: "1" },
+    env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", SATCHEL_TERMINAL: "1" },
   });
   const s: Session = { id: randomBytes(6).toString("hex"), title: cwd === homedir() ? "~" : basename(cwd), cwd, pty, buffer: "", clients: new Map(), exited: null, opened: Date.now() };
   sessions.set(s.id, s);

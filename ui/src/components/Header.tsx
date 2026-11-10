@@ -67,11 +67,11 @@ export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, 
   const queued = S?.queued?.length ?? 0;
   const sub = S?.runtime === "claude-code";
 
-  useEffect(() => { document.title = asks.length ? `(${asks.length}) Guild Camp` : "Guild Camp"; }, [asks.length]);
+  useEffect(() => { document.title = asks.length ? `(${asks.length}) Satchel` : "Satchel"; }, [asks.length]);
 
   return (
     <header className="top">
-      <div className="brand"><h1>⛺ Guild Camp</h1><span>Mission control</span></div>
+      <div className="brand"><h1>🎒 Satchel</h1><span>Mission control</span></div>
       <div className="top-right">
         {asks.length > 0 && (
           <button className="chip needs" type="button" onClick={() => document.getElementById(`ask-${asks[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>

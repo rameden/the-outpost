@@ -1,6 +1,6 @@
 // The quest log: one line of JSON per quest in camp/quest-log.jsonl.
 // Who went, what they were asked, how it ended, which model, how long, and what it cost in tokens.
-// It's also the seed of the event stream the Guild UI will read (and where XP will come from).
+// Mission control reads it for run history, usage, and XP.
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";

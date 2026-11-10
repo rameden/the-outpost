@@ -16,7 +16,7 @@ process.env.ANTHROPIC_BASE_URL = api.url;
 process.env.CAMP_APPROVE_PLANS = "0";
 
 const mk = (name: string, files: Record<string, string>) => {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), `guild-camp-${name}-`)));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), `satchel-${name}-`)));
   for (const [f, text] of Object.entries(files)) { mkdirSync(join(dir, f, ".."), { recursive: true }); writeFileSync(join(dir, f), text); }
   return dir;
 };

@@ -102,7 +102,7 @@ export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
     const report = result.text.trim();
     toInbox(`${started.toLocaleString()} · ${job.name}`, report);
     updateJob(job.name, { lastReport: report.slice(0, 3000) });
-    notify(`Guild Camp: ${job.name}`, report);
+    notify(`Satchel: ${job.name}`, report);
     emit({ type: "job", name: job.name, outcome: "reported", text: report });
   } catch (err: any) {
     // Out of plan usage: not a failure worth a report. Put the job back so it runs after the reset.

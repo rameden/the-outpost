@@ -38,7 +38,7 @@ beforeEach(() => {
     if (init?.method === "POST") posts.push({ path, body });
     if (path === "/api/term") return new Response(JSON.stringify({ terminals: sessions }));
     if (path === "/api/term/open") {
-      const t = { id: `t${sessions.length + 1}`, title: body.project ? "mi-web-app" : "guild-camp", cwd: "/x", exited: null };
+      const t = { id: `t${sessions.length + 1}`, title: body.project ? "mi-web-app" : "satchel", cwd: "/x", exited: null };
       sessions.push(t);
       return new Response(JSON.stringify(t));
     }
@@ -61,29 +61,29 @@ test("with nothing open it starts a session in your project's folder, and what y
 });
 
 test("it picks up sessions the camp already has, opens more, and closing a tab ends that shell", async () => {
-  sessions = [{ id: "a", title: "guild-camp", cwd: "/a", exited: null }, { id: "b", title: "mi-web-app", cwd: "/b", exited: null }];
+  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }, { id: "b", title: "mi-web-app", cwd: "/b", exited: null }];
   render(<TerminalPanel onHide={() => {}} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: guild-camp", "2: mi-web-app *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: mi-web-app *"]));
   expect(posts).toEqual([]); // nothing new was started
-  fireEvent.click(screen.getByRole("tab", { name: /1: guild-camp/ }));
-  expect(tabs()).toEqual(["1: guild-camp *", "2: mi-web-app"]);
+  fireEvent.click(screen.getByRole("tab", { name: /1: satchel/ }));
+  expect(tabs()).toEqual(["1: satchel *", "2: mi-web-app"]);
   fireEvent.click(screen.getByRole("button", { name: "New terminal" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: guild-camp", "2: mi-web-app", "3: guild-camp *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: mi-web-app", "3: satchel *"]));
   fireEvent.click(screen.getByRole("button", { name: "Close terminal 3" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: guild-camp", "2: mi-web-app *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: mi-web-app *"]));
   expect(posts.at(-1)).toEqual({ path: "/api/term/close", body: { id: "t3" } });
 });
 
 test("hiding the pane closes nothing; a shell that ends says so", async () => {
-  sessions = [{ id: "a", title: "guild-camp", cwd: "/a", exited: null }];
+  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
   const onHide = vi.fn();
   render(<TerminalPanel onHide={onHide} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: guild-camp *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel *"]));
   fireEvent.click(screen.getByRole("button", { name: "Hide the terminal" }));
   expect(onHide).toHaveBeenCalled();
   expect(posts.filter((p) => p.path === "/api/term/close")).toEqual([]);
   await vi.waitFor(() => expect(streams[0]?.listeners.exit).toBeTruthy());
   streams[0].listeners.exit({ data: JSON.stringify({ code: 0 }) });
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: guild-camp (ended) *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel (ended) *"]));
   expect(made[0].written.at(-1)).toMatch(/The shell ended/);
 });
