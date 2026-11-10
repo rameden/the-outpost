@@ -99,6 +99,8 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
   if (top === "camp" && parts.length === 2 && PRIVATE_CAMP_FILES.has(parts[1])) {
     throw new Error(`${path} holds the user's private camp configuration and is off limits.`);
   }
+  // Git's own data at any depth (a nested repository's config and hooks can run programs).
+  if (mode === "write" && parts.includes(".git")) throw new Error(`${path} is git's own data, which file tools don't change.`);
   if (mode === "write" && isHarnessCode(abs) && !selfEditAllowed()) {
     throw new Error(`${path} is part of the camp's own code, which is read-only. Work in a linked folder or your outputs folder` +
       (self ? ` (camp/agents/${self}/outputs/)` : "") + `. The user can allow it with "selfEdit": true in camp/settings.json.`);

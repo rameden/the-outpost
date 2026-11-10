@@ -154,6 +154,9 @@ export function resolveLinked(path: string, mode: "read" | "write"): string | un
   while (!existsSync(probe) && probe !== root) probe = dirname(probe);
   if (!inside(realpathSync(probe), realpathSync(root))) throw new Error(`${path} points outside links/${link.name}.`);
   if (mode === "write" && link.access !== "write") throw new Error(`links/${link.name} is linked read-only. Re-link it with edit access to change files there.`);
+  // A repository's own git data (its config and hooks can run programs) is never written by file
+  // tools, even in a folder linked with edit access. This includes a worktree's .git file.
+  if (mode === "write" && within.includes(".git")) throw new Error(`${path} is git's own data, which file tools don't change. Git changes go through your Commit button.`);
   return abs;
 }
 
