@@ -1,0 +1,146 @@
+// The live feed: one card per expedition (several can be running), each with its quests, the
+// crew's messages and tool calls, and any approvals waiting inside it.
+
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { api } from "../api.ts";
+import { AttachmentChip } from "../components/AttachmentChip.tsx";
+import { cClass, clock, cx, plural, spaced } from "../format.ts";
+import { Markdown } from "../markdown.tsx";
+import { AskCard } from "./AskCard.tsx";
+import { Changes } from "./Changes.tsx";
+import type { ExpNode, FeedNode, QuestNode } from "./reducer.ts";
+import { useFeed, type FeedStore } from "./store.ts";
+
+const EXAMPLES = [
+  "Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.",
+  "Every weekday at 08:00, summarize anything new in the camp wiki's notes.",
+  "@scout What's new in agent memory research this month?",
+];
+
+export type OnReply = (expId: string, task: string) => void;
+
+const Nodes = ({ nodes, onReply }: { nodes: FeedNode[]; onReply: OnReply }) => <>{nodes.map((n) => <NodeView key={n.id} node={n} onReply={onReply} />)}</>;
+
+const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onReply: OnReply }) {
+  switch (node.kind) {
+    case "exp": return <ExpeditionCard exp={node} onReply={onReply} />;
+    case "quest": return <QuestCard quest={node} onReply={onReply} />;
+    case "ask": return <AskCard ask={node} />;
+    case "msg":
+      return (
+        <div className={cx("msg", cClass(node.who))}>
+          <div className="avatar" aria-hidden="true">{node.emoji}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="msg-who">{node.who}</div>
+            {/* Text arriving as it's written is shown plain, then formatted once it's whole. */}
+            {node.streaming ? <div className="md streaming">{node.text}</div> : <Markdown text={node.text} />}
+          </div>
+        </div>
+      );
+    case "tool": return <div className={cx("tool", cClass(node.who))}><b>{node.tool}</b><code title={node.input}>{node.input}</code></div>;
+    case "notice": return <div className="notice">{node.text}</div>;
+    case "sys": return <div className="sys">{node.text}</div>;
+  }
+});
+
+function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
+  const ok = quest.status === "done";
+  return (
+    <section className={cx("quest", cClass(quest.who))}>
+      <div className="quest-head">
+        <span>{quest.emoji} {quest.who} sets out</span>
+        {quest.status === null ? <span className="pill live">On quest</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
+      </div>
+      <div className="quest-body"><Nodes nodes={quest.nodes} onReply={onReply} /></div>
+    </section>
+  );
+}
+
+export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnReply }) {
+  const [stop, setStop] = useState<"idle" | "stopping" | "gone">("idle");
+  const [showChanges, setShowChanges] = useState(false);
+  const label = exp.source === "job" ? `Job · ${exp.job}` : exp.source === "direct" ? "Direct" : "Expedition";
+  const end = exp.end;
+  const ok = end?.status === "done";
+
+  // Stop just this expedition (its id goes along), leaving the others running.
+  async function stopIt() {
+    setStop("stopping");
+    try { await api("/api/stop", { id: exp.expId }); } catch { setStop("gone"); } // already finished
+  }
+
+  return (
+    <article className="exp" data-id={exp.expId}>
+      <header className="exp-head">
+        <span className={cx("badge", exp.source === "job" ? "job" : exp.source === "direct" ? "direct" : "")}>{label}</span>
+        {exp.followUp && <span className="badge follow" title="Carries the earlier conversation">↩ Follow-up</span>}
+        <h3>{exp.task}</h3>
+        <time>{clock(exp.time)}</time>
+        {!end && stop !== "gone" && (
+          <button type="button" className="btn small danger stop-btn" title="Stop this expedition and every quest in it" disabled={stop === "stopping"} onClick={stopIt}>
+            {stop === "stopping" ? "Stopping…" : "Stop"}
+          </button>
+        )}
+      </header>
+      {exp.attachments.length > 0 && <div className="exp-atts">{exp.attachments.map((a, i) => <AttachmentChip key={i} a={a} big />)}</div>}
+      <div className="exp-body"><Nodes nodes={exp.nodes} onReply={onReply} /></div>
+      {end && showChanges && <Changes expId={exp.expId} />}
+      {end && (
+        <footer className="exp-foot">
+          <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Complete" : spaced(end.status)}</span>
+          <span>{end.seconds < 90 ? `${end.seconds}s` : `${Math.round(end.seconds / 60)} min`}</span>
+          {end.changed > 0 && <span>· {end.changed} {plural(end.changed, "file")} changed</span>}
+          <span className="foot-actions">
+            {end.changed > 0 && <button type="button" className="btn small" onClick={() => setShowChanges((v) => !v)}>{showChanges ? "Hide changes" : "View changes"}</button>}
+            {exp.source !== "job" && (
+              <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>
+            )}
+          </span>
+        </footer>
+      )}
+    </article>
+  );
+}
+
+export function Feed({ store, onReply, onExample }: { store: FeedStore; onReply: OnReply; onExample: (text: string) => void }) {
+  const items = useFeed(store, (s) => s.items);
+  const box = useRef<HTMLDivElement>(null);
+  // Keep the newest lines in view, unless you've scrolled up to read something.
+  const stick = useRef(true);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    // Scrolling up means you're reading; coming back near the bottom means follow again. A scroll
+    // that only moved down (ours, or the layout shifting under it) doesn't change your choice.
+    let last = el.scrollTop;
+    const onScroll = () => {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 140) stick.current = true;
+      else if (el.scrollTop < last - 2) stick.current = false;
+      last = el.scrollTop;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    // The feed's own box changes height too (the crew row loading in, attachments in the composer).
+    const resized = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => { if (stick.current) el.scrollTop = el.scrollHeight; });
+    resized?.observe(el);
+    return () => { el.removeEventListener("scroll", onScroll); resized?.disconnect(); };
+  }, []);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  }, [items]);
+
+  return (
+    <div className="feed" id="feed" aria-live="polite" ref={box}>
+      {items.length === 0 ? (
+        <div className="empty-feed">
+          <div className="fire">🔥</div>
+          <h2>The camp is quiet</h2>
+          <div>Send the Quartermaster on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here.</div>
+          <div className="examples">
+            {EXAMPLES.map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
+          </div>
+        </div>
+      ) : <Nodes nodes={items} onReply={onReply} />}
+    </div>
+  );
+}
