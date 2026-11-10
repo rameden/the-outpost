@@ -37,6 +37,9 @@ const ICONS = {
   file: "M7 3.500h7l4 4v13H7zM14 3.500v4h4",
   image: "M4 5h16v14H4zM4 16l4.500-4.500 3.500 3.500 3-3 5 5M9 9.500a1 1 0 100-2 1 1 0 000 2z",
   reply: "M9 7l-5 5 5 5M4 12h10a6 6 0 016 6v1",
+  panelRight: "M4 5h16v14H4zM14.500 5v14",
+  refresh: "M19.500 12a7.500 7.500 0 11-2.200-5.300M19.500 4v3.500H16",
+  at: "M15.500 12a3.500 3.500 0 11-7 0 3.500 3.500 0 017 0zM15.500 8.500V13c0 1.400 1 2.500 2.300 2.500S20 14.400 20 12.500V12a8 8 0 10-3.200 6.400",
 } as const;
 export type IconName = keyof typeof ICONS;
 export function Icon({ name }: { name: IconName }) {

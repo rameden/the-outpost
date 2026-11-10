@@ -17,6 +17,7 @@ const MAX_FOLDER_FILES = 200;
 export type ComposerHandle = {
   setText: (text: string) => void;               // an example prompt
   attachLink: (link: Link) => void;              // "Attach" on a linked folder
+  mention: (path: string) => void;               // a file or folder picked in the Files flyout
   setReply: (expId: string, task: string) => void; // "Reply" on a finished expedition
   focus: () => void;
 };
@@ -48,9 +49,10 @@ function mentionToken(el: HTMLTextAreaElement) {
 // newWorktree: the project starts each new conversation in its own worktree.
 export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean };
 
-export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
+// onFolders: told which linked folders are attached to the message being written (by name).
+export function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders }: {
   S: CampState | null; store: FeedStore; refresh: () => void; patch: (fn: (s: CampState) => CampState) => void; ref: Ref<ComposerHandle>;
-  context?: SendContext; onSent?: (r: SendResult) => void;
+  context?: SendContext; onSent?: (r: SendResult) => void; onFolders?: (names: string[]) => void;
 }) {
   const [text, setText] = useState("");
   const [pending, setPending] = useState<PendingAttachment[]>([]);
@@ -133,6 +135,10 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
     try { new URL(url); } catch { return setError("That doesn't look like a link."); }
     add({ kind: "url", url, name: url.replace(/^https?:\/\//i, "").slice(0, 70), status: "ready" });
   }
+
+  // The linked folders attached right now, for whoever wants to show them (the Files flyout).
+  const linkedNow = pending.filter((a) => a.kind === "folder" && a.path?.startsWith("links/")).map((a) => a.path!.slice(6)).join("\n");
+  useEffect(() => { onFolders?.(linkedNow ? linkedNow.split("\n") : []); }, [linkedNow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Linked folders: attached by reference (links/<name>), nothing uploaded.
   function attachLink(link: Link) {
@@ -240,6 +246,18 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
     setMention(null);
     focus();
   }
+  // A reference to a file or folder, put where the cursor is. Names the @ form can't carry
+  // (spaces, brackets) go in as a quoted path instead; the crew reads either.
+  function insertRef(path: string) {
+    const el = input.current;
+    const now = el?.value ?? text, at = el?.selectionStart ?? now.length;
+    const before = now.slice(0, at);
+    const insert = (before && !/\s$/.test(before) ? " " : "") + (/^\w[\w./-]*[\w/]$/.test(path) ? `@${path}` : `\`${path}\``) + " ";
+    select.current = [at + insert.length, at + insert.length];
+    setText(before + insert + now.slice(el?.selectionEnd ?? at));
+    setMention(null);
+    focus();
+  }
   useEffect(() => { mentionBox.current?.querySelector(".active")?.scrollIntoView({ block: "nearest" }); }, [mention]);
   useEffect(() => () => clearTimeout(mentionTimer.current), []);
 
@@ -292,6 +310,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
   useImperativeHandle(ref, () => ({
     setText: (t) => { setText(t); focus(); },
     attachLink: (link) => { attachLink(link); focus(); },
+    mention: insertRef,
     setReply: (id, task) => { setReply({ id, task }); focus(); },
     focus,
   }));

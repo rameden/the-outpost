@@ -11,6 +11,7 @@ export type { GithubStatus } from "../../src/github.ts";
 export type { SessionLine } from "../../src/memory.ts";
 export type { RepoInfo, WorkspaceStatus } from "../../src/repos.ts";
 export type { TerminalInfo } from "../../src/term.ts";
+export type { TreeEntry, Listing, FilePreview } from "../../src/explorer.ts";
 
 import type { CampEvent } from "../../src/events.ts";
 import type { CampState } from "../../src/server.ts";
