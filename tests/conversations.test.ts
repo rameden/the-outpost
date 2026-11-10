@@ -16,6 +16,7 @@ const { recordTurn, threadFor } = await import("../src/threads.ts");
 const { saveToFeed } = await import("../src/feed.ts");
 const { addLink } = await import("../src/links.ts");
 const c = await import("../src/conversations.ts");
+const { projectBlock } = await import("../src/projects.ts");
 const { rl } = await import("../src/tools.ts");
 after(() => rl.close());
 
@@ -40,7 +41,7 @@ test("conversations come from the record of runs, newest first, titled by their 
 
 test("projects: General, one per linked folder, and your own; filing, moving, renaming, removing", () => {
   let h = c.history();
-  assert.deepEqual(h.projects.map((p) => [p.name, p.link]), [["General", undefined], [linkName, linkName]]);
+  assert.deepEqual(h.projects.map((p) => [p.name, p.links]), [["General", undefined], [linkName, [linkName]]]);
   const linked = h.projects[1];
   const mine = c.addProject("  Mae  ");
   assert.equal(mine.name, "Mae");
@@ -53,20 +54,21 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
   h = c.history();
   assert.deepEqual(h.conversations.map((x) => [x.title, x.project]), [["React rebuild", linked.id], ["What's new this month?", mine.id]]);
 
-  assert.match(c.projectNote(undefined, "a"), new RegExp(`project "${linkName}"[\\s\\S]*links/${linkName}/ \\(read-only\\)`));
-  assert.match(c.projectNote(mine.id), /^## Project: Mae\nThe user filed this conversation under their project "Mae"\.$/);
-  assert.equal(c.projectNote("general"), "");
-
-  // What you write about a project reaches the crew, along with its folder.
-  assert.ok(c.updateProject(mine.id, { description: "  My home assistant.\nNever restart the hub without asking.  ", link: linkName }));
-  const note = c.projectNote(mine.id);
+  // What you write about a project reaches the crew, along with its folders.
+  assert.match(projectBlock("scout", linked.id), new RegExp(`project "${linkName}"[\\s\\S]*links/${linkName}/ \\(read-only\\)`));
+  assert.match(projectBlock("scout", mine.id), /^## Project: Mae\nThe user filed this conversation under their project "Mae"\./);
+  assert.equal(projectBlock("scout", "general"), "");
+  assert.equal(projectBlock("scout", undefined), "", "no project, nothing added");
+  assert.ok(c.updateProject(mine.id, { description: "  My home assistant.\nNever restart the hub without asking.  ", links: [linkName, "not-a-link", linkName] }));
+  assert.deepEqual(c.getProject(mine.id)!.links, [linkName], "only folders that are really linked, each once");
+  const note = projectBlock("scout", mine.id);
   assert.match(note, new RegExp(`links/${linkName}/ \\(read-only\\)`));
-  assert.match(note, /What the user wrote about this project[^\n]*\nMy home assistant\.\nNever restart the hub without asking\.$/);
-  assert.ok(c.updateProject(mine.id, { link: "" }), "the folder can be taken off again");
-  assert.doesNotMatch(c.projectNote(mine.id), /links\//);
-  assert.ok(c.updateProject("general", { description: "Odds and ends.", link: linkName }));
-  assert.match(c.projectNote("general"), /isn't filed under a particular project[\s\S]*Odds and ends\./);
-  assert.equal(c.history().projects[0].link, undefined, "General has no folder of its own");
+  assert.match(note, /### What the user wrote about this project[^\n]*\nMy home assistant\.\nNever restart the hub without asking\./);
+  assert.ok(c.updateProject(mine.id, { links: [] }), "the folders can be taken off again");
+  assert.doesNotMatch(projectBlock("scout", mine.id), /links\//);
+  assert.ok(c.updateProject("general", { description: "Odds and ends.", links: [linkName] }));
+  assert.match(projectBlock("scout", "general"), /isn't filed under a particular project[\s\S]*Odds and ends\./);
+  assert.equal(c.history().projects[0].links, undefined, "General has no folders of its own");
   c.updateProject("general", { description: "" });
 
   assert.ok(c.renameProject(mine.id, "Mae (home)"));
@@ -84,10 +86,11 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
 test("a project made with a folder doesn't get a second, automatic project for that folder", () => {
   const other = realpathSync(mkdtempSync(join(tmpdir(), "guild-camp-proj2-")));
   const name = addLink(other, "write").name; // what the dialog's "Link another folder…" does first
-  const p = c.addProject({ name: "Garden sensors", description: "ESP32 boards.", link: name });
-  assert.deepEqual([p.name, p.link, p.description], ["Garden sensors", name, "ESP32 boards."]);
-  assert.equal(c.history().projects.filter((x) => x.link === name).length, 1);
-  assert.equal(c.addProject({ link: "not-a-link" }).link, undefined, "only folders that are really linked");
+  const p = c.addProject({ name: "Garden sensors", description: "ESP32 boards.", links: [name] });
+  assert.deepEqual([p.name, p.links, p.description], ["Garden sensors", [name], "ESP32 boards."]);
+  assert.equal(c.history().projects.filter((x) => x.links?.includes(name)).length, 1);
+  assert.equal(c.addProject({ link: "not-a-link" }).links, undefined, "only folders that are really linked");
+  assert.deepEqual(c.addProject({ name: "Older form", link: name }).links, [name], "one folder by name still works");
 });
 
 test("a conversation reads back as feed events; a run the feed has forgotten is rebuilt from its record", () => {

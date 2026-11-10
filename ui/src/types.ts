@@ -27,7 +27,11 @@ export type Uploaded = ReturnType<typeof saveUpload>;
 export type Workspaces = NonNullable<EventOf<"expedition_end">["workspaces"]>;
 // thread: the conversation the request landed in (a new one is named after its first run).
 export type SendResult = { ok: true; id: string; position: number; attached: number; thread: string };
-export type { History, Project, Conversation } from "../../src/conversations.ts";
+export type { History, Project, Conversation, ProjectSettings } from "../../src/conversations.ts";
+import type { ProjectPageData as PageData } from "../../src/projects.ts";
+import type { WorkspaceStatus as Standing } from "../../src/repos.ts";
+// A project's page, as the server sends it (each worktree with where it stands now).
+export type ProjectPageData = Omit<PageData, "workspaces"> & { workspaces: (Standing & { conversation: string })[] };
 
 // A run's saved transcript (camp/agents/<id>/sessions/*.json): the messages as the API saw them.
 export type TranscriptPart = { type: string; text?: string; name?: string; input?: unknown; content?: string | { type: string; text?: string }[] };

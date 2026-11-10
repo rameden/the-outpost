@@ -87,6 +87,10 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
       </Row>
+      <Row label="Name conversations automatically" help="After a new conversation's first answer, the smallest model writes it a short title. Each one uses a little of your plan (or a fraction of a cent on the API). Off, a conversation is named after its first request.">
+        <label className="switch"><input type="checkbox" checked={S.settings.autoTitles}
+          onChange={(ev) => tryIt(() => api("/api/auto-titles", { on: ev.target.checked }), refresh)} /> {S.settings.autoTitles ? "On" : "Off"}</label>
+      </Row>
       <Row label="Browser notifications" help={!canNotify() ? "This browser can't show notifications." : Notification.permission === "denied" ? "Blocked for this page in your browser's settings." : "A ping when the camp needs a decision."}>
         {canNotify() && (
           <label className="switch"><input type="checkbox" checked={notificationsOn()} disabled={Notification.permission === "denied"}

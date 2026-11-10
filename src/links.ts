@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, readdirSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir } from "node:os";
-import { currentWorkspaces } from "./context.js";
+import { currentWorkspaces, inScope } from "./context.js";
 
 export const LINKS_PATH = "camp/links.json";
 export type LinkAccess = "read" | "write";
@@ -134,10 +134,12 @@ export function resolveLinked(path: string, mode: "read" | "write"): string | un
   if (parts[0] === "links" && parts.length >= 1 && !isAbsolute(path)) {
     if (!parts[1]) throw new Error(`Linked folders: ${loadLinks().map((l) => `links/${l.name}`).join(", ") || "none yet"}.`);
     link = findLink(parts[1]);
-    if (!link) throw new Error(`No linked folder named "${parts[1]}". Linked: ${loadLinks().map((l) => l.name).join(", ") || "none"}.`);
+    if (!link) throw new Error(`No linked folder named "${parts[1]}". Linked: ${loadLinks().filter((l) => inScope(l.name)).map((l) => l.name).join(", ") || "none"}.`);
+    // A conversation only reaches the folders of its own project (plus any the user attached).
+    if (!inScope(link.name)) throw new Error(`links/${link.name}/ isn't part of this conversation: it belongs to another project. If you need it, tell the user; they can attach it or move this conversation to that project.`);
     abs = resolve(linkRoot(link), ...parts.slice(2));
   } else if (isAbsolute(path)) {
-    link = loadLinks().find((l) => inside(resolve(path), linkRoot(l)));
+    link = loadLinks().find((l) => inScope(l.name) && inside(resolve(path), linkRoot(l)));
     if (!link) return undefined;
     abs = resolve(path);
   } else {
@@ -167,7 +169,7 @@ export function linkedDisplayPath(abs: string): string | undefined {
 
 // For prompts: what's linked, so agents know where to look.
 export function linksBlock(): string {
-  const links = loadLinks();
+  const links = loadLinks().filter((l) => inScope(l.name));
   if (!links.length) return "";
   const ws = currentWorkspaces();
   return (
@@ -190,7 +192,7 @@ const MAX_INSTRUCTION_CHARS = 12_000;
 const MAX_ALL_INSTRUCTIONS = 30_000;
 
 export function projectInstructions(campRoot = process.cwd()): string {
-  const roots = [{ label: "the camp folder", root: campRoot }, ...loadLinks().map((l) => ({ label: `links/${l.name}/`, root: linkRoot(l) }))];
+  const roots = [{ label: "the camp folder", root: campRoot }, ...loadLinks().filter((l) => inScope(l.name)).map((l) => ({ label: `links/${l.name}/`, root: linkRoot(l) }))];
   const blocks: string[] = [];
   let used = 0;
   for (const { label, root } of roots) {

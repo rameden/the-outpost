@@ -43,7 +43,9 @@ function mentionToken(el: HTMLTextAreaElement) {
 
 // context: where a message goes when you haven't pressed Reply on a particular run. In a
 // conversation it follows that conversation's latest run; on a new page it can name a project.
-export type SendContext = { replyTo?: string; project?: string; placeholder?: string };
+// folders: the linked folders that belong here (the "work in" picker shows only these).
+// newWorktree: the project starts each new conversation in its own worktree.
+export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean };
 
 export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
   S: CampState | null; store: FeedStore; refresh: () => void; patch: (fn: (s: CampState) => CampState) => void; ref: Ref<ComposerHandle>;
@@ -59,6 +61,12 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
   const [workChoice, setWorkChoice] = useState<WorkChoice>({});
   const [sends, setSends] = useState(0);
   const { repos, reload: reloadRepos } = useRepos(S?.links); // links added or removed: look again
+  // Moving to another project starts from that project's own default for where to work.
+  const projectKey = `${context?.project ?? ""}|${context?.newWorktree ? "new" : ""}|${(context?.folders ?? []).join(",")}`;
+  useEffect(() => {
+    setWorkChoice(context?.newWorktree ? Object.fromEntries((context.folders ?? []).filter((l) => repos.find((r) => r.link === l)?.access === "write").map((l) => [l, "new"])) : {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectKey, repos.length]);
 
   const input = useRef<HTMLTextAreaElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -334,7 +342,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
         ))}
         {S && <span>· Enter to send, Shift+Enter for a new line</span>}
       </div>
-      <WorkIn repos={repos} choice={workChoice} setChoice={setWorkChoice} followUp={!!reply || !!context?.replyTo} />
+      <WorkIn repos={context?.folders ? repos.filter((r) => context.folders!.includes(r.link)) : repos} choice={workChoice} setChoice={setWorkChoice} followUp={!!reply || !!context?.replyTo} />
       {error && <div className="form-error">{error}</div>}
       <input type="file" multiple hidden ref={pickFiles} onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
       <input type="file" multiple hidden ref={pickFolder} {...{ webkitdirectory: "" }} onChange={(ev) => { if (ev.target.files) void addFolder(ev.target.files); ev.target.value = ""; }} />

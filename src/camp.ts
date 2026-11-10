@@ -22,11 +22,14 @@ import { attachConsole } from "./events.js";
 import { randomUUID } from "node:crypto";
 import { threadFor } from "./threads.js";
 import { linkedRepos, prepareWorkspaces, type WorkspaceChoice } from "./repos.js";
+import { history, fileConversation, getProject } from "./conversations.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { pausedUntil, pauseMessage } from "./limits.js";
 
 // The last expedition or direct chat in this terminal, for /reply, /diff, and /undo.
 let lastId: string | undefined;
+// The project the next requests are filed under (/project): its folders, notes, and defaults apply.
+let inProject: string | undefined;
 // Where the next requests work in each linked repo (/worktree): a new worktree, or one you named.
 const workIn: Record<string, WorkspaceChoice> = {};
 
@@ -41,6 +44,8 @@ const HELP = `Commands:
                      Let the crew read a folder on your disk as links/<name>/ (no upload); /links, /unlink <name>
   /reply <message>   Follow up on the last expedition or chat, with that whole conversation carried over
   /diff · /undo      What the last expedition's file tools changed; put those files back
+  /project [name | off]
+                     List your projects, or work in one: its folders, notes, and defaults apply to what you send
   /worktree [<link> new [branch] | <link> <path> | <link> off]
                      Work in a git worktree of a linked repo: a new one per request, or one you already have
   /memory <name>     What that crew member remembers, and how many sessions they've had
@@ -173,6 +178,24 @@ async function handle(input: string) {
     return console.log(`\n${CREW[who.id].emoji} ${who.name}: ${n} session${n === 1 ? "" : "s"}\n${readMemory(who.id)}`);
   }
 
+  // /project            list them        /project <name>   work in it        /project off   back to no project
+  const proj = cmd.match(/^\/projects?(?:\s+(.+))?$/);
+  if (proj) {
+    const { projects, conversations } = history();
+    if (proj[1]?.trim().toLowerCase() === "off") inProject = undefined;
+    else if (proj[1]) {
+      const want = proj[1].trim().toLowerCase();
+      const hit = projects.find((p) => p.name.toLowerCase() === want) ?? projects.find((p) => p.name.toLowerCase().startsWith(want));
+      if (!hit) return console.log(`No project named "${proj[1].trim()}". Type /project to list them.`);
+      inProject = hit.id === "general" ? undefined : hit.id;
+    }
+    for (const p of projects) {
+      const n = conversations.filter((c) => c.project === p.id).length;
+      const here = (inProject ?? "general") === p.id ? "→" : " ";
+      console.log(`${here} ${p.name.padEnd(24)} ${String(n).padStart(3)} conversation${n === 1 ? " " : "s"}${p.links?.length ? `  📁 ${p.links.map((l) => `links/${l}`).join(", ")}` : ""}`);
+    }
+    return console.log(inProject ? `Requests are filed under ${getProject(inProject)?.name}: the crew sees its folders, notes, and description. /project off to stop.` : "Requests aren't filed under a project: the crew sees every linked folder. /project <name> to work in one.");
+  }
   const wt = cmd.match(/^\/worktree(?:\s+(\S+)(?:\s+(\S+)(?:\s+(\S+))?)?)?$/);
   if (wt) {
     const repos = await linkedRepos();
@@ -226,7 +249,8 @@ async function handle(input: string) {
     const id = (lastId = randomUUID());
     const workspaces = await chosenWorkspaces(direct[2], id, replyTo);
     if (workspaces === null) return;
-    await stoppable((signal) => runDirect(direct[1].toLowerCase(), content, "direct", attached, signal, id, replyTo, { workspaces }));
+    if (inProject && !replyTo) fileConversation(id, inProject);
+    await stoppable((signal) => runDirect(direct[1].toLowerCase(), content, "direct", attached, signal, id, replyTo, { workspaces, ...(inProject ? { project: inProject } : {}) }));
     return announcePending();
   }
   if (direct && !/[./]/.test(direct[1])) {
@@ -240,7 +264,8 @@ async function handle(input: string) {
   const id = (lastId = randomUUID());
   const workspaces = await chosenWorkspaces(text, id, replyTo);
   if (workspaces === null) return;
-  await stoppable((signal) => runExpedition(content, { attached, signal, id, replyTo, workspaces }));
+  if (inProject && !replyTo) fileConversation(id, inProject);
+  await stoppable((signal) => runExpedition(content, { attached, signal, id, replyTo, workspaces, ...(inProject ? { project: inProject } : {}) }));
   announcePending();
 }
 

@@ -9,7 +9,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ask } from "./ask.js";
 import { currentSignal, isUnattended } from "./context.js";
-import { isAutoApproved } from "./shell.js";
+import { isAutoApproved, approvalNow } from "./shell.js";
 import { resolveLinked, linkedDisplayPath, SECRET_NAME } from "./links.js";
 import { allowShellCommand, selfEditAllowed, shellSettings } from "./settings.js";
 import { sandboxAvailable, sandboxed, type SandboxPlan } from "./sandbox.js";
@@ -292,7 +292,7 @@ export function sandboxPlanFor(dir: string): SandboxPlan {
   return { writable, readOnly: readOnly.filter((p) => existsSync(dirname(p))), unreadable };
 }
 
-export const sandboxOn = () => shellSettings().sandbox === true && sandboxAvailable();
+export const sandboxOn = () => approvalNow() === "sandbox" && sandboxAvailable();
 const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network, and writes only inside this project. If that is why it failed " +
   "(an install, a download, a push), call bash again with unsandboxed: true and the user will be asked.]";
 

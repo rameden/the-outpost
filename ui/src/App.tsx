@@ -69,11 +69,16 @@ export function App({ store }: { store: FeedStore }) {
   const page = view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
   // What you send follows the conversation you're in; on a new page it starts one (in that project).
   const context = useMemo<SendContext | undefined>(() => {
-    if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), placeholder: "Reply in this conversation…" };
+    if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), placeholder: "Reply in this conversation…", ...(project && project.id !== "general" ? { folders: project.links ?? [] } : {}) };
     if (view.kind === "all") return undefined;
     // A new page, or a project's own page: what you send starts a conversation (in that project).
     const inProject = project && project.id !== "general" && (view.kind === "project" || (view.kind === "new" && !!view.project));
-    return { project: inProject ? project.id : undefined, placeholder: inProject ? `Start a conversation in ${project.name}…` : "Start a new conversation…" };
+    return {
+      project: inProject ? project.id : undefined,
+      placeholder: inProject ? `Start a conversation in ${project.name}…` : "Start a new conversation…",
+      // In a project, the "work in" picker offers that project's folders only.
+      ...(inProject ? { folders: project.links ?? [], newWorktree: project.settings?.workIn === "worktree" } : {}),
+    };
   }, [view, liveRun, conversation, project]);
   const heading = view.kind === "all" ? "All activity" : view.kind === "new" ? "New conversation" : conversation?.title ?? "Conversation";
   const waiting = view.kind === "conversation" && S && !conversation ? "This one is waiting its turn. It shows up here when it starts."
@@ -89,6 +94,14 @@ export function App({ store }: { store: FeedStore }) {
     setDialog(null);
     setView({ kind: "project", id });
   }, [patch, refresh, setView]);
+  // A conversation in General that used one project's folder: offer to file it there.
+  const suggested = conversation?.suggest ? S?.history.projects.find((p) => p.id === conversation.suggest) : undefined;
+  const moveTo = useCallback(async (id: string, to: string) => {
+    try {
+      const r = await api<{ history: HistoryData }>("/api/history", { action: "conversation.move", id, project: to });
+      patch((s) => ({ ...s, history: r.history }));
+    } catch (e) { alert(errorText(e)); }
+  }, [patch]);
   const deleteProject = useCallback(async (p: Project) => {
     if (!confirm(`Delete the project "${p.name}"? Its conversations move to General. The folder itself isn't touched.`)) return;
     try {
@@ -111,7 +124,7 @@ export function App({ store }: { store: FeedStore }) {
           onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
         <main className="mission">
           {page === "project" && S && project ? (
-            <ProjectPage S={S} store={store} project={project} setView={setView} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
+            <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
           ) : page === "projects" && S ? (
             <ProjectsOverview S={S} setView={setView} onNew={() => setDialog({ project: null })} />
           ) : (
@@ -120,6 +133,11 @@ export function App({ store }: { store: FeedStore }) {
                 <h2>{heading}</h2>
                 {project && project.id !== "general" && (
                   <button type="button" className="pill pill-link" title={`Open the project ${project.name}`} onClick={() => setView({ kind: "project", id: project.id })}>{project.name}</button>
+                )}
+                {conversation?.suggest && suggested && (
+                  <span className="conv-suggest">It used {suggested.name}'s folder.
+                    <button type="button" className="linkish" onClick={() => moveTo(conversation.id, suggested.id)}>Move it to {suggested.name}</button>
+                  </span>
                 )}
               </div>
               <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} />
@@ -130,7 +148,7 @@ export function App({ store }: { store: FeedStore }) {
         </main>
       </div>
       {agentId && (
-        <AgentDrawer key={agentId} agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store}
+        <AgentDrawer key={agentId} agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store} project={project?.id}
           pickerOpen={!!picker} onOpenPicker={openPicker} onClose={closeAgent} />
       )}
       {settings && (

@@ -23,7 +23,7 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -43,7 +43,9 @@ import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
-import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectNote } from "./conversations.js";
+import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
+import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
+import { titleConversation } from "./titles.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, UI_CSP, UI_NOT_BUILT } from "./ui-files.js";
 
@@ -280,6 +282,7 @@ async function state() {
       questsMax: QUESTS_MAX,
       parallelMax: PARALLEL_MAX,
       selfEdit: selfEditAllowed(),
+      autoTitles: autoTitlesOn(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
     },
@@ -430,6 +433,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     // What an expedition's file tools changed: the files and a unified diff.
+    // A project's page: its notes and survey, usage, worktrees, recently changed files, and jobs.
+    if (req.method === "GET" && url.pathname === "/api/project") {
+      const page = projectPage(String(url.searchParams.get("id") ?? ""));
+      if (!page) return send(res, 404, { error: "No such project" });
+      const workspaces = (await Promise.all(page.workspaces.map((w) => workspaceStatus(w).catch(() => null)))).filter((w) => w?.exists);
+      return send(res, 200, { ...page, workspaces });
+    }
+
+    // Conversations that mention the words, in their title, requests, or answers.
+    if (req.method === "GET" && url.pathname === "/api/history/search") {
+      return send(res, 200, { results: searchConversations(String(url.searchParams.get("q") ?? "")) });
+    }
+
     if (req.method === "GET" && url.pathname === "/api/conversation") {
       return send(res, 200, { events: conversationEvents(String(url.searchParams.get("id") ?? "")) });
     }
@@ -487,15 +503,39 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) {
         return send(res, 400, { error: e.message });
       }
-      // { project: <id> }: a new conversation is filed under that project. Either way the crew is
-      // told which project the conversation belongs to.
-      const extraSystem = projectNote(body.project, replyTo ? thread?.thread : undefined) || undefined;
+      // { project: <id> }: a new conversation is filed under that project. The run sees that
+      // project's folders, plus any linked folder attached or mentioned here or earlier in the
+      // conversation, and no others.
+      const project = projectOf(replyTo ? thread?.thread : undefined, body.project);
+      const named = new Set(loadLinks().map((l) => l.name));
+      const mentioned = [...attached.map((a) => a.path ?? ""), text].flatMap((t) => [...t.matchAll(/(?:^|[\s@("'`])links\/([A-Za-z0-9_-]+)/g)].map((m) => m[1]));
+      const links = [...new Set([...(replyTo ? thread?.links ?? [] : []), ...mentioned, ...Object.keys(workspaces ?? {})])].filter((l) => named.has(l));
+      // A project can start every new conversation in its own worktree of each of its repos.
+      if (!replyTo && !workspaces && project.settings?.workIn === "worktree" && project.links?.length) {
+        try {
+          const repos = new Set((await linkedRepos()).filter((r) => r.access === "write").map((r) => r.link));
+          const chosen = Object.fromEntries(project.links.filter((l) => repos.has(l)).map((l) => [l, { mode: "new" as const }]));
+          if (Object.keys(chosen).length) workspaces = await prepareWorkspaces(chosen, direct ? direct[2] ?? text : text, randomUUID());
+        } catch (e: any) {
+          return send(res, 400, { error: `Couldn't set up this project's worktree: ${e.message}` });
+        }
+      }
+      const where = { project: project.id, links };
+      const isNew = !replyTo;
       const w = target && target.id !== "quartermaster"
-        ? enqueue({ label: `@${target.id}`, run: (signal, id, steering) => runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering, extraSystem, stillRunning }) })
-        : enqueue({ label: "expedition", run: (signal, id, steering) => runExpedition(content, { attached, signal, id, replyTo, workspaces, steering, extraSystem, stillRunning }) });
+        ? enqueue({ label: `@${target.id}`, run: async (signal, id, steering) => {
+            const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering, stillRunning, ...where });
+            if (isNew && r) void titleConversation(id, text, r.text);
+            return r;
+          } })
+        : enqueue({ label: "expedition", run: async (signal, id, steering) => {
+            const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces, steering, stillRunning, ...where });
+            if (isNew) void titleConversation(id, text, r.text);
+            return r;
+          } });
       const position = queue.indexOf(w) + 1; // 0: it started right away
       const conversation = replyTo && thread ? thread.thread : w.id; // a new conversation is named after its first run
-      if (!replyTo) fileConversation(conversation, body.project);
+      if (isNew) fileConversation(conversation, project.id);
       return send(res, 200, { ok: true, id: w.id, position, attached: attached.length, thread: conversation });
     }
 
@@ -548,20 +588,26 @@ const server = http.createServer(async (req, res) => {
     // History: projects and conversations ({ action, ... }).
     if (url.pathname === "/api/history") {
       const id = String(body.id ?? "");
-      // { folder: { path, access } }: link that folder first, and make it the project's folder.
-      let link = body.link;
-      if ((body.action === "project.add" || body.action === "project.update") && body.folder?.path) {
+      // { folders: [{ path, access }] }: link those folders first, and add them to the project's own.
+      let links: unknown = body.links;
+      const saving = body.action === "project.add" || body.action === "project.update";
+      if (saving && Array.isArray(body.folders) && body.folders.length) {
         try {
-          link = addLink(String(body.folder.path), body.folder.access === "write" ? "write" : "read", CAMP_ROOT).name;
+          const added = body.folders.map((f: any) => addLink(String(f?.path ?? ""), f?.access === "write" ? "write" : "read", CAMP_ROOT).name);
+          links = [...(Array.isArray(body.links) ? body.links : []), ...added];
           emit({ type: "changed", what: "links" });
         } catch (e: any) {
           return send(res, 400, { error: e.message });
         }
       }
+      const details = { name: body.name, description: body.description, links, pins: body.pins, pinned: body.pinned, settings: body.settings };
       let project: string | undefined;
       const done =
-        body.action === "project.add" ? !!(project = addProject({ name: body.name, description: body.description, link }).id)
-        : body.action === "project.update" ? updateProject(id, { name: body.name, description: body.description, link })
+        body.action === "project.add" ? !!(project = addProject(details).id)
+        : body.action === "project.update" ? updateProject(id, details)
+        : body.action === "project.pin" ? updateProject(id, { pinned: !!body.pinned })
+        : body.action === "project.notes" ? (id !== GENERAL && !!getProject(id) ? (setProjectNotes(id, String(body.notes ?? "")), true) : false)
+        : body.action === "project.brief" ? (id !== GENERAL && !!getProject(id) ? (setProjectBrief(id, String(body.brief ?? "")), true) : false)
         : body.action === "project.rename" ? renameProject(id, body.name)
         : body.action === "project.remove" ? removeProject(id)
         : body.action === "conversation.rename" ? (renameConversation(id, body.title), true)
@@ -649,6 +695,23 @@ const server = http.createServer(async (req, res) => {
       if (!Number.isInteger(n) || n < 1 || n > QUESTS_MAX) return send(res, 400, { error: `Pick a number from 1 to ${QUESTS_MAX}` });
       setQuestLimit(n);
       return send(res, 200, { ok: true, questsAtOnce: questLimit() });
+    }
+
+    // Name new conversations with the smallest model ({ on }).
+    if (url.pathname === "/api/auto-titles") {
+      setAutoTitles(!!body.on);
+      return send(res, 200, { ok: true, autoTitles: autoTitlesOn() });
+    }
+
+    // Survey a project's folders ({ id }): the Scout reads through them and saves a brief to the project.
+    if (url.pathname === "/api/project/survey") {
+      const p = getProject(String(body.id ?? ""));
+      if (!p || !p.links?.length) return send(res, 400, { error: "Give the project a folder first: there's nothing to survey." });
+      const request = surveyRequest(p);
+      const w = enqueue({ label: "@scout", run: (signal, id, steering) => runDirect("scout", request, "direct", undefined, signal, id, undefined, { steering, project: p.id, links: [] }) });
+      fileConversation(w.id, p.id);
+      renameConversation(w.id, `Survey of ${p.name}`);
+      return send(res, 200, { ok: true, id: w.id, thread: w.id, position: queue.indexOf(w) + 1 });
     }
 
     // Let agents edit the camp's own source ({ on }).

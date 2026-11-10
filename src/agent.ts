@@ -17,6 +17,9 @@ import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
 import { mcpToolsFor } from "./mcp.js";
 import { linksBlock, projectInstructions } from "./links.js";
+import { getProject } from "./conversations.js";
+import { projectBlock, projectRemember } from "./projects.js";
+import { currentProjectId } from "./context.js";
 export type { Effort } from "./settings.js";
 
 // Created on first use: on the Claude Code runtime there may be no API key at all.
@@ -87,8 +90,10 @@ function knownModel(id: string): ModelInfo | undefined {
 // An effort level the model doesn't support is dropped rather than sent (it would be a 400).
 export function resolveModel(spec: Pick<AgentSpec, "id" | "model" | "effort">): { model: string; effort?: Effort } {
   const s = agentSettings(spec.id);
-  const model = s.model ?? spec.model ?? DEFAULT_MODEL;
-  let effort = s.effort ?? spec.effort;
+  // A project can put a crew member on a different model for its own conversations.
+  const here = getProject(currentProjectId())?.settings?.agents?.[spec.id];
+  const model = here?.model ?? s.model ?? spec.model ?? DEFAULT_MODEL;
+  let effort = (here?.model ? (here.effort as Effort | undefined) : undefined) ?? s.effort ?? spec.effort;
   const info = knownModel(model);
   if (effort && info && !info.efforts.includes(effort)) effort = undefined;
   return { model, effort };
@@ -192,10 +197,16 @@ export async function runAgent(
     `\n\n${wikiIndex()}` +
     (linksBlock() ? `\n\n${linksBlock()}` : "") +
     (projectInstructions() ? `\n\n${projectInstructions()}` : "") +
+    (projectBlock(spec.id) ? `\n\n${projectBlock(spec.id)}` : "") +
     (opts.extraSystem ? `\n\n${opts.extraSystem}` : "");
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).
-  const tools = [...spec.tools, ...(await mcpToolsFor(spec.id))];
+  // In a project, the crew can keep notes about it; a project can also turn the web tools off.
+  const project = getProject(currentProjectId());
+  const inProject = !!project && project.id !== "general";
+  const webOff = project?.settings?.web === "off";
+  const isWeb = (t: Tool) => "name" in t.def && (t.def.name === "web_search" || t.def.name === "web_fetch");
+  const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject ? [projectRemember] : []), ...(await mcpToolsFor(spec.id))];
   const defs = toolsFor(model, tools.map((t) => t.def));
   const handlers = new Map<string, NonNullable<Tool["run"]>>();
   for (const t of tools) {

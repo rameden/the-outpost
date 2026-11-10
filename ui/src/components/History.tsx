@@ -16,6 +16,7 @@ import { cx, when } from "../format.ts";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
 
 const GENERAL = "general";
+const SHOWN = 5; // conversations listed under a project before "View all"
 
 // A "⋯" button with a small menu under it. Closes on a click anywhere else, or Escape.
 function Menu({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {
@@ -46,18 +47,26 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
   const running = useFeed(store, runningCount);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  // Search looks inside conversations too (their requests and answers), so it asks the camp.
+  const [found, setFound] = useState<{ query: string; results: { id: string; snippet: string }[] } | null>(null);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) return void setFound(null);
+    let current = true;
+    const t = setTimeout(() => {
+      api<{ results: { id: string; snippet: string }[] }>(`/api/history/search?q=${encodeURIComponent(q)}`)
+        .then((r) => { if (current) setFound({ query: q, results: r.results }); }, () => { if (current) setFound({ query: q, results: [] }); });
+    }, 180);
+    return () => { current = false; clearTimeout(t); };
+  }, [query]);
   const [closed, setClosed] = useState<string[]>(() => { try { return JSON.parse(storeGet("camp-projects-closed") ?? "[]") as string[]; } catch { return []; } });
   const history = S?.history;
 
   const grouped = useMemo(() => {
-    const q = query.trim().toLowerCase();
     const by = new Map<string, Conversation[]>();
-    for (const c of history?.conversations ?? []) {
-      if (q && !c.title.toLowerCase().includes(q)) continue;
-      by.set(c.project, [...(by.get(c.project) ?? []), c]);
-    }
+    for (const c of history?.conversations ?? []) by.set(c.project, [...(by.get(c.project) ?? []), c]);
     return by;
-  }, [history, query]);
+  }, [history]);
 
   // Every change goes to the camp and comes back as the new list.
   async function change(body: Record<string, unknown>): Promise<boolean> {
@@ -114,21 +123,25 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
 
   const section = (p: Project) => {
     const list = grouped.get(p.id) ?? [];
-    if (query.trim() && !list.length) return null;
-    const open = !closed.includes(p.id) || !!query.trim();
+    const open = !closed.includes(p.id);
+    // The newest few, plus the one you're in if it's further down.
+    const shown = list.filter((c, i) => i < SHOWN || c.id === selected);
     const onPage = view.kind === "project" && view.id === p.id;
     return (
       <section key={p.id} className="hist-project">
         <header className={cx("hist-project-head", onPage && "selected")}>
           <button type="button" className="hist-project-name" aria-current={onPage ? "page" : undefined} onClick={() => setView({ kind: "project", id: p.id })}
-            title={`Open ${p.name}${p.link ? ` (links/${p.link}/)` : ""}`}>
-            <span>{p.name}</span>
+            title={`Open ${p.name}${p.links?.length ? ` (${p.links.map((l) => `links/${l}/`).join(", ")})` : ""}`}>
+            <span>{p.pinned ? "📌 " : ""}{p.name}</span>
           </button>
           <button type="button" className="hist-icon hist-chevron" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${p.name}'s conversations`}
             title={open ? "Hide its conversations" : "Show its conversations"} onClick={() => toggle(p.id)}>{open ? "⌄" : "›"}</button>
           <Menu label={`Options for ${p.name}`}>{(close) => (
             <>
               <button type="button" role="menuitem" onClick={() => { close(); onEditProject(p); }}>Edit…</button>
+              {p.id !== GENERAL && (
+                <button type="button" role="menuitem" onClick={() => { close(); void change({ action: "project.pin", id: p.id, pinned: !p.pinned }); }}>{p.pinned ? "Unpin" : "Pin to the top"}</button>
+              )}
               {p.id !== GENERAL && (
                 <button type="button" role="menuitem" className="danger" onClick={async () => {
                   close();
@@ -141,8 +154,11 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
             onClick={() => setView({ kind: "new", project: p.id })}>+</button>
         </header>
         {open && (list.length
-          ? <ul className="hist-list">{list.map(row)}</ul>
+          ? <ul className="hist-list">{shown.map(row)}</ul>
           : <div className="hist-empty">No conversations yet.</div>)}
+        {open && list.length > shown.length && (
+          <button type="button" className="hist-all" onClick={() => setView({ kind: "project", id: p.id })}>View all {list.length}</button>
+        )}
       </section>
     );
   };
@@ -163,7 +179,7 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
           <span aria-hidden="true">⌕</span>Search
         </button>
         {searching && (
-          <input className="hist-search" autoFocus value={query} placeholder="Search conversations…" aria-label="Search conversations"
+          <input className="hist-search" autoFocus value={query} placeholder="Search titles and what was said…" aria-label="Search conversations"
             onChange={(ev) => setQuery(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Escape") { setSearching(false); setQuery(""); } }} />
         )}
         <button type="button" className={cx("hist-nav-item", view.kind === "all" && "selected")} title="Everything at once, scheduled jobs included" onClick={() => setView({ kind: "all" })}>
@@ -172,8 +188,25 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
         </button>
       </nav>
       <div className="hist-projects">
-        {projects.map(section)}
-        {query.trim() && grouped.size === 0 && <div className="hist-empty">Nothing matches "{query.trim()}".</div>}
+        {found ? (
+          <>
+            {found.results.length === 0 && <div className="hist-empty">Nothing mentions "{found.query}".</div>}
+            <ul className="hist-list">
+              {found.results.map((r) => {
+                const c = history?.conversations.find((x) => x.id === r.id);
+                if (!c) return null;
+                return (
+                  <li key={r.id} className={cx("hist-row", selected === r.id && "selected")}>
+                    <button type="button" className="hist-open hist-found" title={c.title} onClick={() => setView({ kind: "conversation", id: r.id })}>
+                      <span className="hist-title">{c.title}</span>
+                      <small>{projects.find((p) => p.id === c.project)?.name} · {r.snippet}</small>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : projects.map(section)}
       </div>
     </aside>
   );
