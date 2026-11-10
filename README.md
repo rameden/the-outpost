@@ -47,7 +47,8 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 
 `npm run ui` serves a local dashboard on `127.0.0.1`. It has:
 
-- **Crew cards:** live status for each agent, XP, and a picker to change its model, effort level, and turn limit (how many replies one run may take; the Artificer gets 60, others 20 or 30).
+- **History, down the left:** every conversation you've had with the camp, filed under projects. **New conversation** gives you a clean page, so unrelated work stays out of each other's context; opening a conversation shows only that one, and what you send there continues it with everything said so far. **All activity** shows everything at once, scheduled jobs included. A dot marks a conversation with something running, and a number marks decisions waiting on you. Projects are yours to add, rename, and delete; each linked folder gets one to start with, and the crew is told which project a conversation belongs to. The **⋯** menu on a conversation renames it, moves it to another project, or removes it from the list (its record stays in the camp folder).
+- **Crew cards, across the top:** live status for each agent, XP, and a picker to change its model, effort level, and turn limit (how many replies one run may take; the Artificer gets 60, others 20 or 30).
 - **Live feed:** replies stream in as they're written, and each quest gets its own block (parallel quests run side by side in the feed).
 - **Approvals as buttons:** plans, shell commands, new scheduled jobs, and connector tools that make changes.
 - **Several at once:** expeditions, direct chats, and scheduled jobs run side by side, up to 3 at a time by default (change it under Quests, 1–8); the rest wait their turn. Each has its own block in the feed, its own approvals, and its own budget. More at once uses up your plan's limits (or API spend) faster.
@@ -160,6 +161,7 @@ Everything in `camp/` is local to you and gitignored:
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
 | `camp/feed.jsonl` · `camp/threads.jsonl` · `camp/checkpoints/` | The saved feed, conversations for follow-ups, and the originals of changed files (newest 60 expeditions) |
+| `camp/conversations.json` | History's projects, plus the titles and filing you've changed by hand |
 | `camp/limits.json` · `camp/scheduler.lock` | Your plan's last reported usage windows; which process is running jobs |
 
 To skip plan approval, set `CAMP_APPROVE_PLANS=0`. To use a different port, set `CAMP_PORT`.

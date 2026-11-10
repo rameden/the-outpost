@@ -253,17 +253,19 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
 export async function runExpedition(
   task: RequestContent,
   opts: { job?: string; extraSystem?: string; displayTask?: string; source?: SessionSource; attached?: Attachment[]; signal?: AbortSignal;
-    id?: string; unattended?: boolean; replyTo?: string; workspaces?: Record<string, Workspace>; steering?: Steering } = {}
+    id?: string; unattended?: boolean; replyTo?: string; workspaces?: Record<string, Workspace>; steering?: Steering;
+    stillRunning?: (expedition: string) => boolean } = {}
 ): Promise<AgentResult> {
   const exp: Expedition = { planApproved: !APPROVE_PLANS || !!opts.unattended, job: opts.job };
   const id = opts.id ?? randomUUID();
   const started = new Date();
   const shown = opts.displayTask ?? requestDisplay(task);
-  const thread = threadFor(opts.replyTo); // a follow-up carries the conversation it continues
+  const thread = threadFor(opts.replyTo, opts.stillRunning); // a follow-up carries the conversation it continues
   // A follow-up keeps working where the conversation was working (the same worktree), unless told otherwise.
   const workspaces = opts.workspaces ?? thread?.workspaces;
   const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}) };
-  emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached, ...(thread ? { replyTo: opts.replyTo } : {}) });
+  emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
+    ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
   try {
     // One shared spending tally (and the optional budget) for the Quartermaster and every quest it sends.
@@ -302,7 +304,7 @@ export async function runDirect(
   signal?: AbortSignal,
   id: string = randomUUID(),
   replyTo?: string,
-  more: { workspaces?: Record<string, Workspace>; steering?: Steering } = {}
+  more: { workspaces?: Record<string, Workspace>; steering?: Steering; extraSystem?: string; stillRunning?: (expedition: string) => boolean } = {}
 ): Promise<AgentResult | null> {
   const who = findCrew(adventurer);
   if (who?.id === "quartermaster") return runExpedition(task, { source, attached, signal, id, replyTo, ...more });
@@ -310,10 +312,10 @@ export async function runDirect(
   if (!spec) return null;
   const started = new Date();
   const shown = requestDisplay(task);
-  const thread = threadFor(replyTo);
+  const thread = threadFor(replyTo, more.stillRunning);
   const workspaces = more.workspaces ?? thread?.workspaces;
   const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}) };
-  emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached, ...(thread ? { replyTo } : {}) });
+  emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached, ...(thread ? { replyTo } : {}), thread: turn.thread });
   recordTurn({ ...turn, reply: "", status: "running" });
   const questId = randomUUID();
   emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, expeditionId: id });
@@ -323,7 +325,7 @@ export async function runDirect(
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));
   try {
     const result = await withExpedition({ id, budget: budgetUsd(), signal, workspaces, steering: more.steering }, () => withQuest(questId, async () => {
-      const r = await runAgent(spec, content, { depth: 1, source, extraSystem: thread?.history });
+      const r = await runAgent(spec, content, { depth: 1, source, extraSystem: [more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined });
       const checks = r.status === "stopped" ? "" : await runChecks(questId, { who: spec.name, emoji: spec.emoji, questId });
       if (checks) emit({ type: "text", who: spec.name, emoji: spec.emoji, depth: 1, questId, text: checks });
       return checks ? { ...r, text: `${r.text}\n\n${checks}` } : r;

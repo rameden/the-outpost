@@ -8,7 +8,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFil
 import type { CampEvent } from "./events.js";
 
 export const FEED_PATH = "camp/feed.jsonl";
-const MAX_FILE_BYTES = 8_000_000;
+// History reads conversations back from this file, so it keeps a lot before trimming.
+const MAX_FILE_BYTES = 40_000_000;
 
 // Events worth keeping: not word-by-word streaming, and not "refresh this panel" pings.
 export const keepInFeed = (e: CampEvent) => e.type !== "text_delta" && e.type !== "changed";
@@ -49,9 +50,12 @@ export function loadFeed(limit: number): CampEvent[] {
   for (const id of openExps) closing.push({ type: "expedition_end", id, status: "interrupted", text: "The camp was restarted while this was running.", expeditionId: id, time, seq: ++seq } as CampEvent);
   const all = [...recent, ...closing];
 
-  // Keep the file from growing forever: once it's large, rewrite it with just what was loaded.
+  // Keep the file from growing forever: once it's large, drop the older half. Conversations
+  // whose events are dropped still show in History, from what was asked and the final answer.
   try {
-    if (statSync(FEED_PATH).size > MAX_FILE_BYTES) writeFileSync(FEED_PATH, all.map((e) => JSON.stringify(e)).join("\n") + "\n");
+    if (statSync(FEED_PATH).size > MAX_FILE_BYTES) {
+      writeFileSync(FEED_PATH, [...events.slice(-Math.ceil(events.length / 2)), ...closing].map((e) => JSON.stringify(e)).join("\n") + "\n");
+    }
     else if (closing.length) appendFileSync(FEED_PATH, closing.map((e) => JSON.stringify(e)).join("\n") + "\n");
   } catch { /* fine */ }
   return all;

@@ -1,7 +1,7 @@
 // The live feed: one card per expedition (several can be running), each with its quests, the
 // crew's messages and tool calls, and any approvals waiting inside it.
 
-import { memo, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { cClass, clock, cx, plural, spaced } from "../format.ts";
@@ -9,6 +9,7 @@ import { Markdown } from "../markdown.tsx";
 import { AskCard } from "./AskCard.tsx";
 import { Changes } from "./Changes.tsx";
 import { WorkspaceBox } from "./Workspaces.tsx";
+import { cardsFor, type View } from "./conversation.ts";
 import type { ExpNode, FeedNode, QuestNode } from "./reducer.ts";
 import { useFeed, type FeedStore } from "./store.ts";
 
@@ -140,8 +141,17 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
   );
 }
 
-export function Feed({ store, onReply, onExample }: { store: FeedStore; onReply: OnReply; onExample: (text: string) => void }) {
-  const items = useFeed(store, (s) => s.items);
+const EVERYTHING: View = { kind: "all" };
+const NO_PAST: FeedNode[] = [];
+
+// view: everything (the default), a blank page for a new conversation, or one conversation.
+// past: that conversation's earlier runs, read back from history. waiting: a line for a blank page.
+export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting }: {
+  store: FeedStore; onReply: OnReply; onExample: (text: string) => void; view?: View; past?: FeedNode[]; waiting?: string;
+}) {
+  const live = useFeed(store, (s) => s.items);
+  const items = useMemo(() => cardsFor(view, live, past), [view, live, past]);
+  const viewKey = view.kind === "conversation" ? view.id : view.kind;
   const box = useRef<HTMLDivElement>(null);
   // Keep the newest lines in view, unless you've scrolled up to read something.
   const stick = useRef(true);
@@ -162,6 +172,8 @@ export function Feed({ store, onReply, onExample }: { store: FeedStore; onReply:
     resized?.observe(el);
     return () => { el.removeEventListener("scroll", onScroll); resized?.disconnect(); };
   }, []);
+  // Opening another conversation starts at its newest line.
+  useLayoutEffect(() => { stick.current = true; }, [viewKey]);
   useLayoutEffect(() => {
     const el = box.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
@@ -169,11 +181,13 @@ export function Feed({ store, onReply, onExample }: { store: FeedStore; onReply:
 
   return (
     <div className="feed" id="feed" aria-live="polite" ref={box}>
-      {items.length === 0 ? (
+      {items.length === 0 && view.kind === "conversation" ? (
+        <div className="empty-feed"><div>{waiting ?? "Loading this conversation…"}</div></div>
+      ) : items.length === 0 ? (
         <div className="empty-feed">
           <div className="fire">🔥</div>
-          <h2>The camp is quiet</h2>
-          <div>Send the Quartermaster on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here.</div>
+          <h2>{view.kind === "new" ? "A new conversation" : "The camp is quiet"}</h2>
+          <div>{waiting ?? "Send the Quartermaster on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here."}</div>
           <div className="examples">
             {EXAMPLES.map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>

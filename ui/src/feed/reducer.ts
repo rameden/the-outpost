@@ -20,6 +20,7 @@ export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind
 export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[] }; // status null: still out
 export type ExpNode = {
   kind: "exp"; id: string; expId: string; task: string; source: "user" | "direct" | "job"; job?: string; followUp: boolean;
+  thread?: string; // the conversation it belongs to (jobs have none)
   attachments: Attached[]; time: string; nodes: FeedNode[];
   end: { status: string; seconds: number; changed: number; workspaces: Workspaces } | null; // null: still running
 };
@@ -27,7 +28,7 @@ export type FeedNode = MsgNode | ToolNode | NoticeNode | SysNode | SteerNode | A
 
 // A running expedition: where its card is, its quests by id, and who is working in it.
 type OpenExpedition = { node: string; started: number; members: string[]; quests: Record<string, { node: string; who: string }> };
-export type OpenAsk = { id: string; node: string; who: string };
+export type OpenAsk = { id: string; node: string; who: string; expId?: string };
 
 export type FeedState = {
   lastSeq: number;                        // events at or below this were already applied (replay after a reconnect)
@@ -92,7 +93,7 @@ function finishLive(s: FeedState, match: (key: string) => boolean) {
 
 function startExpedition(s: FeedState, e: EventOf<"expedition_start">) {
   const node: ExpNode = {
-    kind: "exp", id: `x${e.seq}`, expId: e.id, task: e.task, source: e.source, job: e.job, followUp: !!e.replyTo,
+    kind: "exp", id: `x${e.seq}`, expId: e.id, task: e.task, source: e.source, job: e.job, followUp: !!e.replyTo, thread: e.thread,
     attachments: e.attachments ?? [], time: e.time, nodes: [], end: null,
   };
   s.items = [...s.items, node];
@@ -172,7 +173,7 @@ function addAsk(s: FeedState, e: EventOf<"ask">) {
   const who = e.kind === "plan" || e.kind === "job" ? "Quartermaster" : questOwner ?? "Quartermaster";
   const node: AskNode = { kind: "ask", id: `a${e.seq}`, askId: e.id, askKind: e.kind, title: e.title, body: e.body, who, outcome: null };
   place(s, node, e.questId, e.expeditionId);
-  s.asks = [...s.asks, { id: e.id, node: node.id, who }];
+  s.asks = [...s.asks, { id: e.id, node: node.id, who, expId: e.expeditionId }];
   setCrew(s, who, "waiting");
 }
 

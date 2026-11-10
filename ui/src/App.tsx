@@ -1,11 +1,15 @@
-// Mission control: the crew on the left, the live feed and the composer in the middle, the
-// camp's records on the right. An agent's page opens as a drawer over it.
+// Mission control: the crew across the top, your history of conversations on the left, the
+// conversation you're in (and the composer) in the middle, the camp's records on the right.
+// An agent's page opens as a drawer over it.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { storeGet, storeSet } from "./api.ts";
 import { useCampEvents, useCampState } from "./camp.ts";
 import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
-import { Composer, type ComposerHandle } from "./components/Composer.tsx";
+import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
+import { History } from "./components/History.tsx";
+import { latestLiveRun, parseView, usePast, type View } from "./feed/conversation.ts";
+import { useFeed } from "./feed/store.ts";
 import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
@@ -39,6 +43,29 @@ export function App({ store }: { store: FeedStore }) {
   }, []);
   const picking = picker && S?.characters.find((c) => c.id === picker.id);
 
+  // Which conversation the middle of the page shows (remembered across reloads).
+  const [view, setViewState] = useState<View>(() => parseView(storeGet("camp-view")));
+  const setView = useCallback((v: View) => {
+    setViewState(v);
+    storeSet("camp-view", JSON.stringify(v));
+    composer.current?.focus();
+  }, []);
+  const thread = view.kind === "conversation" ? view.id : null;
+  const past = usePast(thread);
+  const liveRun = useFeed(store, (s) => (thread ? latestLiveRun(s.items, thread) : undefined));
+  const conversation = thread ? S?.history.conversations.find((c) => c.id === thread) : undefined;
+  const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : conversation?.project));
+  // What you send follows the conversation you're in; on a new page it starts one (in that project).
+  const context = useMemo<SendContext | undefined>(() => {
+    if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), placeholder: "Reply in this conversation…" };
+    if (view.kind === "new") return { project: view.project, placeholder: project && view.project ? `Start a conversation in ${project.name}…` : "Start a new conversation…" };
+    return undefined;
+  }, [view, liveRun, conversation, project]);
+  const heading = view.kind === "all" ? "All activity" : view.kind === "new" ? "New conversation" : conversation?.title ?? "Conversation";
+  const waiting = view.kind === "conversation" && S && !conversation ? "This one is waiting its turn. It shows up here when it starts."
+    : view.kind === "new" && project && view.project ? `It will be filed under ${project.name}. Ask the Quartermaster for something, or @ a crew member directly.`
+    : undefined;
+
   const onReply = useCallback((expId: string, task: string) => composer.current?.setReply(expId, task), []);
   const onExample = useCallback((text: string) => composer.current?.setText(text), []);
   const onAttachLink = useCallback((link: Link) => composer.current?.attachLink(link), []);
@@ -48,9 +75,12 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <Header S={S} store={store} conn={conn} refresh={refresh} onShowLimits={() => setTab("quests")} />
         <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} />
+        <History S={S} store={store} view={view} setView={setView} patch={patch} />
         <main className="mission">
-          <Feed store={store} onReply={onReply} onExample={onExample} />
-          <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} />
+          <div className="conv-head"><h2>{heading}</h2>{project && project.id !== "general" && <span className="pill">{project.name}</span>}</div>
+          <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} />
+          <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
+            onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} />
         </main>
         <SidePanel S={S} tab={tab} setTab={setTab} refresh={refresh} onAttachLink={onAttachLink} />
       </div>

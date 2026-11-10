@@ -42,6 +42,7 @@ import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
+import { history, conversationEvents, addProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectNote } from "./conversations.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, UI_CSP, UI_NOT_BUILT } from "./ui-files.js";
 
@@ -267,6 +268,7 @@ async function state() {
     inbox: inboxEntries(),
     snippets: loadSnippets(),
     links: loadLinks(),
+    history: history(), // your conversations, filed under projects (the sidebar)
     runtime: campRuntime(),
     login: campRuntime() === "claude-code" ? await claudeLogin() : null,
   };
@@ -396,6 +398,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // What an expedition's file tools changed: the files and a unified diff.
+    if (req.method === "GET" && url.pathname === "/api/conversation") {
+      return send(res, 200, { events: conversationEvents(String(url.searchParams.get("id") ?? "")) });
+    }
+
     if (req.method === "GET" && url.pathname === "/api/checkpoint") {
       return send(res, 200, checkpointDiff(String(url.searchParams.get("id") ?? "")));
     }
@@ -435,7 +441,8 @@ const server = http.createServer(async (req, res) => {
       // to carry on its latest direct chat.
       let replyTo = typeof body.replyTo === "string" ? body.replyTo : undefined;
       if (!replyTo && body.chat && who && who.id !== "quartermaster") replyTo = latestDirect(who.id);
-      const thread = threadFor(replyTo);
+      const stillRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
+      const thread = threadFor(replyTo, stillRunning);
       if (!thread || (who && who.id !== thread.agent)) replyTo = undefined; // addressed to someone else: a fresh start
       const target = who ?? (replyTo && thread?.direct ? findCrew(thread.agent) : undefined);
       // { workspaces: { <link>: { mode: "new", branch? } | { mode: "existing", path } } }: work in a
@@ -448,11 +455,16 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) {
         return send(res, 400, { error: e.message });
       }
+      // { project: <id> }: a new conversation is filed under that project. Either way the crew is
+      // told which project the conversation belongs to.
+      const extraSystem = projectNote(body.project, replyTo ? thread?.thread : undefined) || undefined;
       const w = target && target.id !== "quartermaster"
-        ? enqueue({ label: `@${target.id}`, run: (signal, id, steering) => runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering }) })
-        : enqueue({ label: "expedition", run: (signal, id, steering) => runExpedition(content, { attached, signal, id, replyTo, workspaces, steering }) });
+        ? enqueue({ label: `@${target.id}`, run: (signal, id, steering) => runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering, extraSystem, stillRunning }) })
+        : enqueue({ label: "expedition", run: (signal, id, steering) => runExpedition(content, { attached, signal, id, replyTo, workspaces, steering, extraSystem, stillRunning }) });
       const position = queue.indexOf(w) + 1; // 0: it started right away
-      return send(res, 200, { ok: true, id: w.id, position, attached: attached.length });
+      const conversation = replyTo && thread ? thread.thread : w.id; // a new conversation is named after its first run
+      if (!replyTo) fileConversation(conversation, body.project);
+      return send(res, 200, { ok: true, id: w.id, position, attached: attached.length, thread: conversation });
     }
 
     // Pick an agent's model and effort. { id, model, effort } sets them; { id, reset: true } goes back to defaults.
@@ -501,6 +513,21 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Link a folder on your disk ({ path, access: "read" | "write" }) instead of uploading it.
+    // History: projects and conversations ({ action, ... }).
+    if (url.pathname === "/api/history") {
+      const id = String(body.id ?? "");
+      const done =
+        body.action === "project.add" ? !!addProject(body.name, typeof body.link === "string" ? body.link : undefined)
+        : body.action === "project.rename" ? renameProject(id, body.name)
+        : body.action === "project.remove" ? removeProject(id)
+        : body.action === "conversation.rename" ? (renameConversation(id, body.title), true)
+        : body.action === "conversation.move" ? moveConversation(id, String(body.project ?? ""))
+        : body.action === "conversation.remove" ? (running.has(id) ? false : (removeConversation(id), true))
+        : null;
+      if (done === null) return send(res, 400, { error: "Unknown action" });
+      return send(res, done ? 200 : 404, done ? { ok: true, history: history() } : { error: "That didn't work: it may be gone already, or still running." });
+    }
+
     if (url.pathname === "/api/links") {
       try {
         const link = addLink(String(body.path ?? ""), body.access === "write" ? "write" : "read", CAMP_ROOT);
