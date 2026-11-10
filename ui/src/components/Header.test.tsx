@@ -104,3 +104,15 @@ test("Quests shows plan usage and the pause, and sends you to Settings for the b
   expect(refresh).toHaveBeenCalledTimes(1);
   expect(openSettings).toHaveBeenCalled();
 });
+
+test("focus mode: one button closes the panels, and shows when they're closed", () => {
+  const onToggleFocus = vi.fn();
+  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused={false} onToggleFocus={onToggleFocus} />);
+  const focus = screen.getByRole("button", { name: "Focus mode" });
+  expect(focus.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(focus);
+  expect(onToggleFocus).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("button", { name: /the terminal/ })).toBeNull(); // the terminal has its own tab now
+  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused onToggleFocus={onToggleFocus} />);
+  expect(screen.getByRole("button", { name: "Leave focus mode" }).getAttribute("aria-pressed")).toBe("true");
+});

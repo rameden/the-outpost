@@ -2,6 +2,7 @@
 // linked folders), @ mentions of crew and project files, and follow-ups to an earlier expedition.
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type Ref } from "react";
+import { MessageInput, type MessageInputHandle } from "./MessageInput.tsx";
 import { api, errorText } from "../api.ts";
 import type { FeedStore } from "../feed/store.ts";
 import type { CampState, Link, PendingAttachment, SendResult, Snippet, Uploaded } from "../types.ts";
@@ -35,7 +36,7 @@ function toBase64(file: File) {
 }
 
 // The @word the caret is in, if any: crew at the start of a message, project files anywhere.
-function mentionToken(el: HTMLTextAreaElement) {
+function mentionToken(el: Pick<MessageInputHandle, "value" | "selectionStart">) {
   const pos = el.selectionStart;
   const before = el.value.slice(0, pos);
   const m = before.match(/(^|\s)@([\w./-]*)$/);
@@ -71,7 +72,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey, repos.length]);
 
-  const input = useRef<HTMLTextAreaElement>(null);
+  const input = useRef<MessageInputHandle>(null);
   const box = useRef<HTMLDivElement>(null);
   const attachBtn = useRef<HTMLButtonElement>(null);
   const mentionBox = useRef<HTMLDivElement>(null);
@@ -86,14 +87,18 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   pendingNow.current = pending;
 
   const focus = () => input.current?.focus();
+  // Whether the cursor is inside a code block, where Enter means a new line (the hint by Send says so).
+  const [inCode, setInCode] = useState(false);
+  useEffect(() => {
+    const look = () => setInCode(!!input.current?.el && document.activeElement === input.current.el && input.current.inCode());
+    document.addEventListener("selectionchange", look);
+    return () => document.removeEventListener("selectionchange", look);
+  }, []);
 
-  // The box grows with the message, up to a point.
+  // Once new text is in the box, put the cursor where whoever changed it asked. (The box grows
+  // with the message by itself, up to a point: see .mi in the stylesheet.)
   useLayoutEffect(() => {
-    const el = input.current;
-    if (!el) return;
-    el.style.height = "auto";
-    if (text) el.style.height = Math.min(200, el.scrollHeight) + "px"; // empty: the stylesheet's own height
-    if (select.current) { el.setSelectionRange(...select.current); select.current = null; }
+    if (select.current) { input.current?.setSelectionRange(...select.current); select.current = null; }
   }, [text]);
 
   // ---------- Attachments ----------
@@ -162,7 +167,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     }
   }
 
-  function onPaste(ev: ClipboardEvent<HTMLTextAreaElement>) {
+  function onPaste(ev: ClipboardEvent<HTMLElement>) {
     const files = [...(ev.clipboardData?.files ?? [])];
     if (!files.length) return;
     ev.preventDefault();
@@ -190,7 +195,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     const onDown = (ev: MouseEvent) => {
       const t = ev.target as Node;
       if (!box.current?.querySelector(".attach-menu")?.contains(t) && !attachBtn.current?.contains(t) && !(t as Element).closest?.(".work-in")) setMenu(null);
-      if (!mentionBox.current?.contains(t) && t !== input.current) setMention(null);
+      if (!mentionBox.current?.contains(t) && !input.current?.el?.contains(t)) setMention(null);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -261,7 +266,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   useEffect(() => { mentionBox.current?.querySelector(".active")?.scrollIntoView({ block: "nearest" }); }, [mention]);
   useEffect(() => () => clearTimeout(mentionTimer.current), []);
 
-  function onKeyDown(ev: KeyboardEvent<HTMLTextAreaElement>) {
+  function onKeyDown(ev: KeyboardEvent<HTMLElement>) {
     if (mention?.items.length) {
       if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
         ev.preventDefault();
@@ -271,7 +276,11 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       if (ev.key === "Enter" || ev.key === "Tab") { ev.preventDefault(); return pickMention(mention.index); }
       if (ev.key === "Escape") { ev.preventDefault(); return setMention(null); }
     }
-    if (ev.key === "Enter" && !ev.shiftKey && !ev.nativeEvent.isComposing) { ev.preventDefault(); ev.currentTarget.form?.requestSubmit(); }
+    if (ev.key === "Enter" && !ev.shiftKey && !ev.nativeEvent.isComposing) {
+      ev.preventDefault();
+      // Inside a code block Enter is a new line of code. ⌘/Ctrl+Enter sends from anywhere.
+      if (ev.metaKey || ev.ctrlKey || !input.current?.enterInCode()) ev.currentTarget.closest("form")?.requestSubmit();
+    }
   }
 
   // ---------- Sending ----------
@@ -356,8 +365,8 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
           onSnippets={(fn: (list: Snippet[]) => Snippet[]) => patch((s) => ({ ...s, snippets: fn(s.snippets ?? []) }))} />
       )}
       <form className="composer-box" onSubmit={submit}>
-        <textarea ref={input} rows={1} placeholder={context?.placeholder ?? "Ask the Quartermaster…"} aria-label="Request for the camp" value={text}
-          onChange={(ev) => { setText(ev.target.value); updateMention(); }} onClick={updateMention} onKeyDown={onKeyDown} onPaste={onPaste} />
+        <MessageInput ref={input} placeholder={context?.placeholder ?? "Ask the Quartermaster…"} label="Request for the camp" value={text}
+          onChange={(t) => { setText(t); updateMention(); }} onClick={updateMention} onKeyDown={onKeyDown} onPaste={onPaste} />
         {/* One row under the text: the + menu, the branch the request will work on (click for the menu's Work in panel), send. */}
         <div className="composer-bar">
           <button className="attach-btn" type="button" ref={attachBtn} aria-label="Attach files, images, or links, or pick who to talk to" aria-haspopup="menu" aria-expanded={!!menu}
@@ -366,7 +375,9 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
           </button>
           <WorkIn repos={workRepos} choice={workChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"}
             onOpen={() => { setMention(null); setMenu(menu === "work" ? null : "work"); }} />
-          {S && <span className="composer-tip" title="Shift+Enter for a new line">Enter to send</span>}
+          {S && (inCode
+            ? <span className="composer-tip" title="You're in a code block: Enter adds a line of code. Move below the block, or press ⌘/Ctrl+Enter, to send.">⌘Enter to send</span>
+            : <span className="composer-tip" title="Shift+Enter for a new line. ⌘/Ctrl+Enter sends from anywhere.">Enter to send</span>)}
           <button className="btn primary" type="submit">Send</button>
         </div>
       </form>

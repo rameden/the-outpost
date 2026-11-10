@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cardsFor, cardsFrom, latestLiveRun, parseView, type View } from "../feed/conversation.ts";
 import { createFeedStore } from "../feed/store.ts";
 import type { CampEvent, CampState, History as HistoryData } from "../types.ts";
-import { History } from "./History.tsx";
+import { History, HistoryRail } from "./History.tsx";
 import { ProjectDialog } from "./ProjectDialog.tsx";
 import { ProjectPage } from "./Projects.tsx";
 
@@ -252,4 +252,15 @@ test("the page remembers which conversation you were in", () => {
   expect(parseView(JSON.stringify({ kind: "projects" }))).toEqual({ kind: "projects" });
   expect(parseView(null)).toEqual({ kind: "new" });
   expect(parseView("not json")).toEqual({ kind: "new" });
+});
+
+test("history closes to a tab, and the tab brings it back", () => {
+  const onHide = vi.fn(), onShow = vi.fn();
+  render(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={() => {}} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onHide={onHide} />);
+  fireEvent.click(screen.getByRole("button", { name: "Hide the history" }));
+  expect(onHide).toHaveBeenCalled();
+  cleanup();
+  render(<HistoryRail onShow={onShow} />);
+  fireEvent.click(screen.getByRole("button", { name: "Show history" }));
+  expect(onShow).toHaveBeenCalled();
 });

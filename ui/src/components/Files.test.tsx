@@ -72,6 +72,8 @@ test("a file opens in a viewer with its text, and can be mentioned from there", 
   const dialog = await screen.findByRole("dialog", { name: "links/demo/README.md" });
   await waitFor(() => expect(dialog.querySelector(".file-code")?.textContent).toBe("# Demo\nHello."));
   expect(dialog.textContent).toContain("2 lines");
+  expect(dialog.textContent).toContain("Markdown ·");                     // its language, told from its name
+  expect(dialog.querySelector(".file-code .hljs-section")?.textContent).toBe("# Demo"); // and coloured as that
   expect(dialog.querySelector(".file-nums")?.textContent).toBe("1\n2");
   fireEvent.click(screen.getByRole("button", { name: "Mention in message" }));
   expect(onMention).toHaveBeenCalledWith("links/demo/README.md");

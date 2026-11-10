@@ -31,6 +31,11 @@ export const MIN_ZONE = 80; // the smallest a zone can be dragged to, in pixels
 const MAX_DEPTH = 6;
 
 export const isGrow = (s: Size): s is { grow: number } => "grow" in s;
+// The roster is a bar when it sits in a column of zones, and a bar is as tall as what's in it:
+// slim, or opened up into cards. A height of its own would only cut the cards off or leave a gap,
+// so there it always fits its content, whatever size was set. (Beside other zones, in a row, it's
+// a list with a width like any other.)
+export const fitsContent = (item: Item, within: "row" | "col") => item.kind === "zone" && item.part === "roster" && within === "col";
 const fill = (): Size => ({ grow: 1 });
 
 // The layout the page starts with: the roster across the top, history on the left, chat in the
@@ -68,6 +73,8 @@ function locate(layout: Layout, id: string): { parent: Split; index: number } | 
   }
   return null;
 }
+// Whether an item's split lays things out in a row or a column.
+export const dirOf = (layout: Layout, id: string) => locate(layout, id)?.parent.dir;
 function nextId(layout: Layout, letter: "z" | "s"): string {
   const used = [...zonesOf(layout), ...splitsOf(layout)].map((n) => (n.id[0] === letter ? Number(n.id.slice(1)) || 0 : 0));
   return `${letter}${Math.max(0, ...used) + 1}`;
@@ -175,6 +182,17 @@ export function drag(layout: Layout, aId: string, bId: string, a: number, b: num
     if (!isGrow(B.size)) B.size = { px: Math.round(nb) };
   }
   return next;
+}
+
+// ---------- Focus mode ----------
+// The panels that close to a tab. Focus mode closes whichever are open, leaving the conversation;
+// used again with none open, it brings back the ones it closed (history, if it closed nothing).
+export const PANELS = ["history", "files", "terminal"] as const;
+export type Panel = (typeof PANELS)[number];
+export function focusPlan(open: Panel[], closedBefore: string | null): { close: Panel[]; reopen: Panel[] } {
+  if (open.length) return { close: open, reopen: [] };
+  const back = (closedBefore ?? "").split(",").filter((p): p is Panel => (PANELS as readonly string[]).includes(p));
+  return { close: [], reopen: back.length ? back : ["history"] };
 }
 
 // ---------- Kept in the browser ----------
