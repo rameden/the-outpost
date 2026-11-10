@@ -3,14 +3,16 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ask } from "./ask.js";
 import { currentSignal, isUnattended } from "./context.js";
 import { isAutoApproved } from "./shell.js";
 import { resolveLinked, linkedDisplayPath, SECRET_NAME } from "./links.js";
-import { allowShellCommand, selfEditAllowed } from "./settings.js";
+import { allowShellCommand, selfEditAllowed, shellSettings } from "./settings.js";
+import { sandboxAvailable, sandboxed, type SandboxPlan } from "./sandbox.js";
 import { afterWrite, beforeWrite, noteRead } from "./checkpoints.js";
 
 // How a real path is shown to agents: relative inside the camp, links/<name>/… inside a linked folder.
@@ -52,6 +54,18 @@ function isHarnessCode(abs: string): boolean {
 }
 // Camp files that can hold tokens (connector env, the phone topic). Nobody's file tools read them.
 const PRIVATE_CAMP_FILES = new Set(["mcp.json", "settings.json"]);
+
+// Near the turn limit, a note rides along with a tool result so the agent lands the work instead
+// of being cut off mid-step. Used by both runtimes.
+export function wrapUpNote(left: number): string | null {
+  if (left === 3) return "[Camp note: you have 3 turns left in this run. Finish the step you're on, then use your last turn for the report: what is done, what is left, and exactly where to pick up (files, commands, findings). Don't start anything new.]";
+  if (left === 1) return "[Camp note: this is your last turn. Don't call another tool. Write the report now: done, left to do, and where to pick up.]";
+  return null;
+}
+
+// What the user says to an expedition while it's running, as the agent sees it.
+export const steerNote = (texts: string[]) =>
+  `[The user sent this while you were working. It's addressed to the whole expedition: act on it if it concerns your part, and carry on otherwise.]\n${texts.join("\n\n")}`;
 
 // Long tool output is cut so one call can't flood the context. Used by both runtimes.
 export const MAX_TOOL_OUTPUT = 50_000;
@@ -206,10 +220,16 @@ export function writeFileFor(self: string, opts: { outputsOnly?: boolean } = {})
 // working while it runs. Stop (or the time limit) ends the command and everything it started.
 const SHELL_TIMEOUT_MS = 120_000;
 const SHELL_MAX_BYTES = 2_000_000;
-export function runShell(command: string, signal?: AbortSignal, timeoutMs = SHELL_TIMEOUT_MS): Promise<string> {
+export type ShellOpts = { signal?: AbortSignal; timeoutMs?: number; cwd?: string; sandbox?: SandboxPlan };
+export function runShell(command: string, signalOrOpts?: AbortSignal | ShellOpts, timeout?: number): Promise<string> {
+  const o: ShellOpts = signalOrOpts instanceof AbortSignal || signalOrOpts === undefined ? { signal: signalOrOpts, timeoutMs: timeout } : signalOrOpts;
+  const { signal, cwd = CAMP_ROOT } = o;
+  const timeoutMs = o.timeoutMs ?? SHELL_TIMEOUT_MS;
   return new Promise((done) => {
     if (signal?.aborted) return done("Not run: the expedition was stopped.");
-    const child = spawn(command, { shell: true, cwd: CAMP_ROOT, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+    const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"] };
+    const box = o.sandbox ? sandboxed(command, o.sandbox) : null;
+    const child = box ? spawn(box.file, box.args, io) : spawn(command, { ...io, shell: true });
     let out = "";
     let ended: string | null = null;
     const take = (chunk: Buffer) => { if (out.length < SHELL_MAX_BYTES) out += chunk.toString("utf8"); };
@@ -240,27 +260,85 @@ export function runShell(command: string, signal?: AbortSignal, timeoutMs = SHEL
   });
 }
 
-export const bash: Tool = {
-  def: {
-    name: "bash",
-    description: "Run a shell command in the camp folder; returns its output. Simple read-only commands (ls, git status, git diff…) run right away; anything else, including test runs, waits for the user's approval. Commands stop after 2 minutes.",
-    input_schema: { type: "object", properties: { command: { type: "string" } }, required: ["command"] },
-  },
-  run: async ({ command }) => {
-    // Simple, read-only commands (ls, git status…) run without asking; see shell.ts.
-    if (!isAutoApproved(command)) {
+// Where a command runs: the camp folder, or a folder you name the way the file tools do
+// (links/<name> runs inside that linked folder, or this expedition's worktree of it).
+export function shellDir(cwd: unknown, self?: string): string {
+  if (cwd == null || cwd === "" || cwd === ".") return CAMP_ROOT;
+  const abs = campPath(String(cwd), "read", self);
+  if (!statSync(abs).isDirectory()) throw new Error(`${cwd} is a file, not a folder.`);
+  return abs;
+}
+
+// What a sandboxed command may write: the project it runs in (the git repository around `dir`,
+// else `dir`), minus the parts the file tools protect too.
+export function sandboxPlanFor(dir: string): SandboxPlan {
+  const real = (p: string) => { try { return realpathSync(p); } catch { return p; } };
+  const gitAt = (args: string[]) => {
+    try { return execFileSync("git", args, { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; }
+  };
+  const top = gitAt(["rev-parse", "--show-toplevel"]);
+  const root = real(top || dir);
+  // A worktree keeps its git data in the main repository's .git folder: commits need to write there.
+  const common = top ? real(resolve(dir, gitAt(["rev-parse", "--git-common-dir"]) || ".git")) : "";
+  const writable = [root, ...(common && !common.startsWith(root + sep) ? [common] : [])];
+  // Hooks and git config run later, outside the sandbox, so a command can't plant them.
+  const readOnly = common ? [resolve(common, "hooks"), resolve(common, "config")] : [];
+  const camp = real(CAMP_ROOT);
+  const unreadable = [resolve(camp, "camp", "mcp.json"), resolve(camp, "camp", "settings.json"), resolve(camp, "camp", "agents")];
+  if (root === camp || camp.startsWith(root + sep)) {
+    readOnly.push(resolve(camp, "camp"), resolve(camp, "skills"), resolve(camp, "plugins"));
+    if (!selfEditAllowed()) readOnly.push(...HARNESS_DIRS.map((d) => resolve(HARNESS_ROOT, d)), ...HARNESS_FILES.map((f) => resolve(HARNESS_ROOT, f)));
+  }
+  return { writable, readOnly: readOnly.filter((p) => existsSync(dirname(p))), unreadable };
+}
+
+export const sandboxOn = () => shellSettings().sandbox === true && sandboxAvailable();
+const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network, and writes only inside this project. If that is why it failed " +
+  "(an install, a download, a push), call bash again with unsandboxed: true and the user will be asked.]";
+
+export function bashFor(self: string): Tool {
+  return {
+    def: {
+      name: "bash",
+      description:
+        "Run a shell command and get its output. It runs in the camp folder unless you give cwd: use cwd \"links/<name>\" " +
+        "(or a folder inside it) to run in a linked project, e.g. its tests or git commands. Simple read-only commands " +
+        "(ls, git status, git diff, git log…) run right away. Other commands either run in a sandbox without asking " +
+        "(no network; writes only inside that project) when the user has turned the sandbox on, or wait for the user's " +
+        "approval. Commands stop after 2 minutes.",
+      input_schema: {
+        type: "object",
+        properties: {
+          command: { type: "string" },
+          cwd: { type: "string", description: "Folder to run in: a camp path such as links/<name> or links/<name>/packages/app. Default: the camp folder." },
+          unsandboxed: { type: "boolean", description: "Ask the user to run this outside the sandbox (it needs the network or writes elsewhere). Only after a sandboxed try failed for that reason, or when it obviously will (npm install, git push)." },
+        },
+        required: ["command"],
+      },
+    },
+    run: async ({ command, cwd, unsandboxed }) => {
+      const dir = shellDir(cwd, self);
+      const where = dir === CAMP_ROOT ? "" : `\n(in ${displayPath(dir)})`;
+      const signal = currentSignal();
+      // Simple, read-only commands (ls, git status…) run without asking; see shell.ts.
+      if (isAutoApproved(command)) return runShell(String(command), { signal, cwd: dir });
+      if (sandboxOn() && !unsandboxed) {
+        const out = await runShell(String(command), { signal, cwd: dir, sandbox: sandboxPlanFor(dir) });
+        return /^(Exit code|Couldn't run)/.test(out) ? out + SANDBOX_HINT : out;
+      }
       if (campMode.unattended) {
         return "Not run: this is a scheduled job with nobody here to approve that command. " +
           "Only simple read-only commands (ls, git status, git diff…) run unattended. Report what you would have run.";
       }
-      const ok = (await ask({ kind: "shell", title: "⚔️  The Artificer wants to run a shell command:", body: command })).toLowerCase();
+      const ok = (await ask({ kind: "shell", title: "⚔️  The Artificer wants to run a shell command:", body: command + where })).toLowerCase();
       // "always": run it, and stop asking about this exact command.
       if (ok === "a" || ok === "always") allowShellCommand(String(command));
       else if (ok !== "y") return "The user declined to run this command.";
-    }
-    return runShell(String(command), currentSignal());
-  },
-};
+      return runShell(String(command), { signal, cwd: dir });
+    },
+  };
+}
+export const bash: Tool = bashFor("artificer");
 
 // Server tools: Anthropic runs them, so there are no handlers here.
 // (Web search must be enabled for your org in the Claude Console.)

@@ -174,3 +174,35 @@ test("turn limit: your setting caps the run, and the note says how to continue",
     setAgentSettings("scout", { maxTurns: null });
   }
 });
+
+test("steering: what you say mid-run reaches the agent on its next step", async () => {
+  const { newSteering, steer } = await import("../src/context.ts");
+  const steering = newSteering();
+  const bodies: any[] = [];
+  script = (b) => {
+    bodies.push(b);
+    if (bodies.length === 1) { steer(steering, "Only look in the docs folder"); return { tools: [{ name: "list_dir", input: { path: "." } }] }; }
+    if (bodies.length === 2) { steer(steering, "And keep it to one paragraph"); return { text: "Draft done." }; }
+    return { text: "One paragraph, from docs." };
+  };
+  const r = await runDirect("scout", "Summarize the project", "direct", undefined, undefined, undefined, undefined, { steering });
+  assert.equal(r?.status, "done");
+  assert.equal(r?.text, "One paragraph, from docs.", "a message that arrives as it finishes gets one more turn");
+  assert.match(JSON.stringify(bodies[1].messages.at(-1)), /The user sent this while you were working[^"]*Only look in the docs folder/);
+  assert.match(JSON.stringify(bodies[2].messages.at(-1)), /And keep it to one paragraph/);
+});
+
+test("out of turns: the agent is warned near the limit, and the report carries a handoff", async () => {
+  setAgentSettings("scout", { maxTurns: 6 });
+  try {
+    const bodies: any[] = [];
+    script = (b) => { bodies.push(b); return { text: "Looking.", tools: [{ name: "list_dir", input: { path: "." } }] }; };
+    const r = await runDirect("scout", "Keep going");
+    assert.equal(r?.status, "out_of_turns");
+    assert.match(JSON.stringify(bodies[3].messages.at(-1)), /you have 3 turns left/);
+    assert.match(JSON.stringify(bodies[5].messages.at(-1)), /this is your last turn/);
+    assert.match(r!.text, /Handoff for whoever continues[\s\S]*Its last steps:\n- list_dir/);
+  } finally {
+    setAgentSettings("scout", { maxTurns: null });
+  }
+});

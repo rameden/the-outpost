@@ -21,11 +21,14 @@ import { wikiIndex } from "./wiki.js";
 import { attachConsole } from "./events.js";
 import { randomUUID } from "node:crypto";
 import { threadFor } from "./threads.js";
+import { linkedRepos, prepareWorkspaces, type WorkspaceChoice } from "./repos.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { pausedUntil, pauseMessage } from "./limits.js";
 
 // The last expedition or direct chat in this terminal, for /reply, /diff, and /undo.
 let lastId: string | undefined;
+// Where the next requests work in each linked repo (/worktree): a new worktree, or one you named.
+const workIn: Record<string, WorkspaceChoice> = {};
 
 attachConsole();
 
@@ -38,6 +41,8 @@ const HELP = `Commands:
                      Let the crew read a folder on your disk as links/<name>/ (no upload); /links, /unlink <name>
   /reply <message>   Follow up on the last expedition or chat, with that whole conversation carried over
   /diff · /undo      What the last expedition's file tools changed; put those files back
+  /worktree [<link> new [branch] | <link> <path> | <link> off]
+                     Work in a git worktree of a linked repo: a new one per request, or one you already have
   /memory <name>     What that crew member remembers, and how many sessions they've had
   /runtime [claude-code | api]
                      Show or switch what runs the crew: your Claude subscription (default) or the API
@@ -168,6 +173,28 @@ async function handle(input: string) {
     return console.log(`\n${CREW[who.id].emoji} ${who.name}: ${n} session${n === 1 ? "" : "s"}\n${readMemory(who.id)}`);
   }
 
+  const wt = cmd.match(/^\/worktree(?:\s+(\S+)(?:\s+(\S+)(?:\s+(\S+))?)?)?$/);
+  if (wt) {
+    const repos = await linkedRepos();
+    if (wt[1] && wt[2]) {
+      const repo = repos.find((r) => r.link === wt[1]);
+      if (!repo) return console.log(`links/${wt[1]} isn't a linked git repository. Linked repos: ${repos.map((r) => r.link).join(", ") || "none"}.`);
+      if (wt[2] === "off") delete workIn[wt[1]];
+      else if (wt[2] === "new") workIn[wt[1]] = { mode: "new", branch: wt[3] };
+      else {
+        const hit = repo.worktrees.find((w) => w.path === wt[2] || w.branch === wt[2] || w.path.endsWith("/" + wt[2]));
+        if (!hit) return console.log(`No worktree of ${wt[1]} matches "${wt[2]}". Type /worktree to list them.`);
+        workIn[wt[1]] = { mode: "existing", path: hit.path };
+      }
+    }
+    if (!repos.length) return console.log("No linked git repositories. Link one with /link <path> --edit");
+    for (const r of repos) {
+      const c = workIn[r.link];
+      console.log(`📁 links/${r.link}  (linked checkout on ${r.branch})  →  ${!c ? "working in the linked checkout" : c.mode === "new" ? `a new worktree for each request${c.branch ? ` (branch ${c.branch})` : ""}` : `worktree ${c.path}`}`);
+      for (const w of r.worktrees) console.log(`     ${w.branch.padEnd(44)} ${w.path}`);
+    }
+    return;
+  }
   if (cmd === "/diff" || cmd === "/undo") {
     if (!lastId) return console.log("Nothing has run in this session yet.");
     if (cmd === "/diff") {
@@ -197,7 +224,9 @@ async function handle(input: string) {
     const { content, attached } = buildRequest(direct[2]);
     if (attached.length) console.log(`📎 Attached: ${attached.map((a) => a.path ?? a.url).join(", ")}`);
     const id = (lastId = randomUUID());
-    await stoppable((signal) => runDirect(direct[1].toLowerCase(), content, "direct", attached, signal, id, replyTo));
+    const workspaces = await chosenWorkspaces(direct[2], id, replyTo);
+    if (workspaces === null) return;
+    await stoppable((signal) => runDirect(direct[1].toLowerCase(), content, "direct", attached, signal, id, replyTo, { workspaces }));
     return announcePending();
   }
   if (direct && !/[./]/.test(direct[1])) {
@@ -209,8 +238,24 @@ async function handle(input: string) {
   const { content, attached } = buildRequest(text);
   if (attached.length) console.log(`📎 Attached: ${attached.map((a) => a.path ?? a.url).join(", ")}`);
   const id = (lastId = randomUUID());
-  await stoppable((signal) => runExpedition(content, { attached, signal, id, replyTo }));
+  const workspaces = await chosenWorkspaces(text, id, replyTo);
+  if (workspaces === null) return;
+  await stoppable((signal) => runExpedition(content, { attached, signal, id, replyTo, workspaces }));
   announcePending();
+}
+
+// The worktrees this request works in (from /worktree). A reply stays where its conversation was.
+// null: a worktree couldn't be set up, and the reason was printed.
+async function chosenWorkspaces(task: string, id: string, replyTo?: string) {
+  if (replyTo || !Object.keys(workIn).length) return undefined;
+  try {
+    const ws = await prepareWorkspaces(workIn, task, id);
+    for (const w of Object.values(ws)) console.log(`🌿 links/${w.link}: ${w.created ? "new worktree" : "worktree"} ${w.path} (branch ${w.branch})`);
+    return ws;
+  } catch (e: any) {
+    console.log(`Couldn't set up the worktree: ${e.message}`);
+    return null;
+  }
 }
 
 // Run something that the first Ctrl+C stops (instead of quitting the camp).

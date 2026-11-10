@@ -54,6 +54,10 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 - **Stop button** on each running expedition, which cancels it and every quest in it and leaves the others running.
 - **Attachments:** a **+** menu for files, folders, images, pasted images, links, and prompt snippets; `@path` references project files inline; drag and drop works too. Images and PDFs reach the model as real image and document blocks.
 - **Linked folders:** for big folders (hundreds of files), use **Link a folder…** instead of uploading: **Choose folder…** opens your system's folder picker (or paste a path), and agents read it where it lives as `links/<name>/…`. They get an overview and explore it with `list_dir`, `glob`, and `grep`. Read-only unless you choose "Can edit".
+- **Worktrees:** when a linked folder is a git repository, a picker under the composer chooses where the next request works: the linked checkout, a new worktree and branch (`<repo>-camp/<branch>` beside the repo, branch `camp/<task>`), or a worktree you already have. The file tools and the shell follow it, and a follow-up stays in the same worktree. When the expedition ends its card shows the branch, with **Commit…**, **Open PR…** (pushes and uses the GitHub CLI), and **Remove worktree**. Those three are yours to press; agents never commit or push on their own. A new worktree has no installed dependencies until you install them.
+- **Steer:** a box on each running expedition sends a message to the agents working in it; they see it on their next step.
+- **Resume:** an expedition that was cut off by a restart, stopped, failed, or ran out of turns gets a **Resume** button, which starts again from what the feed recorded of it (the plan, who was sent, what they did) in the same worktree.
+- **Checks after changes:** on a linked folder's card (Connectors tab), list commands such as `npm run typecheck`. The camp runs them by itself after any quest changes files there and attaches the results to the quest's report.
 - **Follow-ups:** **Reply** on a finished expedition continues that conversation, with every earlier request and full answer carried over (in the terminal: `/reply <message>`).
 - **Changes you can review and undo:** when an expedition's file tools change files, its card shows how many, with **View changes** (a diff) and **Undo** (puts every file back). This covers `write_file` and `edit_file`, not changes made by shell commands.
 - **Plan usage:** on your subscription, the Quests tab shows your 5-hour and weekly windows as Claude Code reports them. If one is used up, the camp pauses: queued work and scheduled jobs wait for the reset instead of failing ("Try anyway" overrides it).
@@ -74,6 +78,7 @@ In `npm start`, type a request for the Quartermaster, or:
 | `@path/to/file` | Attach a project file or folder anywhere in a message |
 | `/link <path> [--edit]` · `/links` · `/unlink <name>` | Link a folder on your disk as `links/<name>/` (no upload), list links, remove one |
 | `/reply <message>` | Follow up on the last expedition or chat, carrying the whole conversation over |
+| `/worktree [<link> new [branch] \| <link> <path or branch> \| <link> off]` | List a linked repo's worktrees; work in a new one per request, or in one you already have |
 | `/diff` · `/undo` | What the last expedition's file tools changed; put those files back |
 | `/review` | Approve or reject skills the Quartermaster proposed |
 | `/log` | Recent quests with time, tokens, cost, and model |
@@ -94,6 +99,9 @@ In `npm start`, type a request for the Quartermaster, or:
   - Each agent's own `camp/agents/<id>/memory.md` and session history, which carry into its next run.
   - The shared wiki in `camp/wiki/`: `facts/` for what you told the camp, `notes/` for what the crew found, always with sources.
   - Skills in `skills/<agent>/`, which the Quartermaster proposes and you approve.
+- **Search that scales:** `glob` and `grep` run on ripgrep (the copy inside Claude Code is used if there's none on your PATH), so they cover a project of tens of thousands of files in under a second and skip what its `.gitignore` skips. Without ripgrep a slower built-in search takes over. `grep` can list just the matching files or show lines of context. `outline` shows a file's functions, classes, components, types, and tests with line numbers, so an agent reads the 50 lines it needs instead of the whole file.
+- **Project instructions:** a top-level `AGENTS.md` or `CLAUDE.md` in the camp folder and in each linked folder is loaded into every prompt, so a repo's conventions don't have to be re-briefed.
+- **Turn limits:** three turns before the limit an agent is told to land the work, and a run that still uses every turn ends its report with a handoff (files changed, last steps) for whoever continues.
 - **Questions:** the Quartermaster can ask you one short question (`ask_user`) when a request could mean two different things, before it plans.
 - **Quest cap:** at most 4 dispatched quests run at once across the whole camp (`"questsAtOnce"` in `camp/settings.json`); extra ones wait.
 - **Scheduled jobs** run unattended. A run with nothing new to report stays quiet; reports land in `camp/inbox.md` and as a macOS notification. Only one process runs jobs at a time (`camp/scheduler.lock`), so mission control and `npm run watch` can both be open. To run jobs with nothing open on macOS, `npm run watch:install` adds a background agent that checks every minute (`npm run watch:uninstall` removes it).
@@ -104,7 +112,8 @@ In `npm start`, type a request for the Quartermaster, or:
 - **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`), so nothing they read can talk them into loosening these rules. To have the crew work on Guild Camp itself, set `"selfEdit": true` in `camp/settings.json`.
 - **The Scout** reads the web, so it can only write to its own outputs folder.
 - **Parallel quests** can't overwrite each other: a write to a file another quest just changed is refused until it has been read again.
-- **Shell:** commands ask you first. "Always allow this command" on an approval stops the asking for that exact command (`"shell": {"exact": [...]}`). Commands run without blocking the camp, stop after 2 minutes, and stop when you press Stop. Only simple read-only commands (`ls`, `git status`, `git diff`, version checks) run without asking. Test runners aren't on that list by default, because the Artificer can edit the code they run. Add your own in `camp/settings.json` under `"shell": {"allow": ["npm test"]}`.
+- **Shell:** commands ask you first. "Always allow this command" on an approval stops the asking for that exact command (`"shell": {"exact": [...]}`). Commands run without blocking the camp, stop after 2 minutes, and stop when you press Stop. With `cwd: "links/<name>"` a command runs inside that linked folder (or the expedition's worktree of it), where read-only git commands don't ask either.
+- **Sandboxed shell (macOS, off by default):** turn it on under Quests, or with `"shell": {"sandbox": true}`. Commands then run without asking, with no network (localhost still works), writes only inside the project they run in and temp folders, and no access to your keys or `.env` files. Git hooks and git config can't be written. A command that needs more, like an install or a push, is asked for the usual way. The sandbox doesn't protect the project folder itself: a command can still change or delete files there, so use a worktree for work you want kept apart. Only simple read-only commands (`ls`, `git status`, `git diff`, version checks) run without asking. Test runners aren't on that list by default, because the Artificer can edit the code they run. Add your own in `camp/settings.json` under `"shell": {"allow": ["npm test"]}`.
 - **Untrusted content:** web pages, files, and connector results are treated as information, never as instructions, and agents flag suspected prompt injection.
 - **Connectors** are read-only unless you allow writes, and then every write asks you first.
 - **Linked folders:** system, home, and credential folders can't be linked. Inside a link, secret files (`.env`, private keys, `.netrc`…) stay off limits, symlinks can't lead outside it, and a link that contains the camp still follows the camp's rules.
@@ -132,7 +141,7 @@ Everything in `camp/` is local to you and gitignored:
 |---|---|
 | `camp/settings.json` | Per-agent model, effort, and turn limit, budget, runtime, how many expeditions (`parallel`) and quests (`questsAtOnce`) run at once, extra shell commands, `selfEdit`, `phone` |
 | `camp/mcp.json` | MCP connectors: copy `mcp.example.json`, then say which agents may use each server |
-| `camp/links.json` | Linked folders (path, name, read-only or editable) |
+| `camp/links.json` | Linked folders (path, name, read-only or editable, `verify` commands) |
 | `camp/jobs.json` | Scheduled jobs |
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
@@ -144,7 +153,7 @@ To skip plan approval, set `CAMP_APPROVE_PLANS=0`. To use a different port, set 
 ## Tests and evals
 
 ```bash
-npm test            # 52 tests, about 5 seconds, no API key or Claude login needed
+npm test            # 89 tests, about 10 seconds, no API key or Claude login needed
 npm run typecheck   # source, tests, and evals
 npm run eval        # 8 standard tasks against the real API (spends tokens; capped at $2 per case)
 ```

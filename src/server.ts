@@ -14,11 +14,13 @@ import { join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { onEvent, attachConsole, emit, continueSeqFrom, type CampEvent } from "./events.js";
 import { setAsker, type Question } from "./ask.js";
-import { currentExpeditionId } from "./context.js";
+import { currentExpeditionId, newSteering, steer, type Steering } from "./context.js";
+import { linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, removeWorkspace } from "./repos.js";
+import { sandboxAvailable } from "./sandbox.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -37,7 +39,7 @@ import { latestDirect, threadFor } from "./threads.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
-import { loadLinks, addLink, removeLink } from "./links.js";
+import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
 import { pickFolder } from "./picker.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
@@ -76,12 +78,13 @@ setAsker((q) => new Promise((resolve) => pendingAsks.set(q.id, { q, resolve, exp
 // Each piece of work has its own expedition id and stop signal, so its events, approvals, and
 // Stop button stay its own. The limit (settings "parallel", default 3) keeps a subscription's
 // usage limits (or API spend) from draining all at once.
-type Work = { id: string; label: string; run: (signal: AbortSignal, id: string) => Promise<unknown>; controller?: AbortController };
+// steering: what you say to it while it runs (the Steer box on its card) reaches the agents working in it.
+type Work = { id: string; label: string; run: (signal: AbortSignal, id: string, steering: Steering) => Promise<unknown>; controller?: AbortController; steering: Steering };
 const queue: Work[] = [];
 const running = new Map<string, Work>();
 
-function enqueue(work: Omit<Work, "id">): Work {
-  const w = { ...work, id: randomUUID() };
+function enqueue(work: Omit<Work, "id" | "steering">): Work {
+  const w = { ...work, id: randomUUID(), steering: newSteering() };
   queue.push(w);
   drain();
   return w;
@@ -100,7 +103,7 @@ function drain() {
     const w = queue.shift()!;
     w.controller = new AbortController();
     running.set(w.id, w);
-    w.run(w.controller.signal, w.id)
+    w.run(w.controller.signal, w.id, w.steering)
       .catch((err: any) => console.error(`💥 ${w.label}: ${err.message}`))
       .finally(() => {
         running.delete(w.id);
@@ -241,6 +244,7 @@ async function state() {
     running: [...running.values()].map((w) => ({ id: w.id, label: w.label })),
     queued: queue.map((w) => ({ id: w.id, label: w.label })),
     parallel: parallelLimit(),
+    sandbox: { on: shellSettings().sandbox === true, available: sandboxAvailable() },
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
     pausedUntil: pausedUntil(),
     pauseMessage: pausedUntil() ? pauseMessage(pausedUntil()!) : null,
@@ -368,6 +372,15 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { text: buf.toString("utf8") });
     }
 
+    // Linked folders that are git repositories, with their worktrees (for the "work in" picker).
+    if (req.method === "GET" && url.pathname === "/api/repos") return send(res, 200, { repos: await linkedRepos() });
+
+    // Where one worktree stands now: uncommitted files and commits since the expedition started.
+    if (req.method === "GET" && url.pathname === "/api/repo/status") {
+      const q = url.searchParams;
+      return send(res, 200, await workspaceStatus({ link: String(q.get("link")), path: String(q.get("path")), branch: "", base: q.get("base") ?? undefined }));
+    }
+
     // What an expedition's file tools changed: the files and a unified diff.
     if (req.method === "GET" && url.pathname === "/api/checkpoint") {
       return send(res, 200, checkpointDiff(String(url.searchParams.get("id") ?? "")));
@@ -394,6 +407,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/send") {
       let text = String(body.text ?? "").trim();
       const attachments: Attachment[] = Array.isArray(body.attachments) ? body.attachments.slice(0, 30) : [];
+      // { resume: <expedition id> }: pick up a run that was cut off or stopped, from what it had done.
+      const resume = typeof body.resume === "string" ? body.resume : undefined;
+      if (resume) { body.replyTo = resume; text ||= "Pick up where this left off and finish the job. Check what's already done before redoing anything."; }
       if (!text && attachments.length === 0) return send(res, 400, { error: "Empty request" });
       if (!text) text = "Take a look at what I attached.";
       const direct = text.match(/^@(\w+)\s+([\s\S]+)$/) ?? (attachments.length ? text.match(/^@(\w+)$/) : null);
@@ -408,9 +424,19 @@ const server = http.createServer(async (req, res) => {
       const thread = threadFor(replyTo);
       if (!thread || (who && who.id !== thread.agent)) replyTo = undefined; // addressed to someone else: a fresh start
       const target = who ?? (replyTo && thread?.direct ? findCrew(thread.agent) : undefined);
+      // { workspaces: { <link>: { mode: "new", branch? } | { mode: "existing", path } } }: work in a
+      // worktree of that linked repo instead of the linked checkout. A reply without it stays
+      // where its conversation was working.
+      let workspaces: Awaited<ReturnType<typeof prepareWorkspaces>> | undefined;
+      try {
+        const chosen = body.workspaces && typeof body.workspaces === "object" ? body.workspaces : undefined;
+        if (chosen && Object.keys(chosen).length) workspaces = await prepareWorkspaces(chosen, direct ? direct[2] ?? text : text, randomUUID());
+      } catch (e: any) {
+        return send(res, 400, { error: e.message });
+      }
       const w = target && target.id !== "quartermaster"
-        ? enqueue({ label: `@${target.id}`, run: (signal, id) => runDirect(target.id, content, "direct", attached, signal, id, replyTo) })
-        : enqueue({ label: "expedition", run: (signal, id) => runExpedition(content, { attached, signal, id, replyTo }) });
+        ? enqueue({ label: `@${target.id}`, run: (signal, id, steering) => runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering }) })
+        : enqueue({ label: "expedition", run: (signal, id, steering) => runExpedition(content, { attached, signal, id, replyTo, workspaces, steering }) });
       const position = queue.indexOf(w) + 1; // 0: it started right away
       return send(res, 200, { ok: true, id: w.id, position, attached: attached.length });
     }
@@ -478,6 +504,44 @@ const server = http.createServer(async (req, res) => {
         return send(res, 500, { error: `The folder dialog didn't open: ${e.message}` });
       }
     }
+    // Commands to run by themselves after a quest changes files in a linked folder ({ name, commands: [...] }).
+    if (url.pathname === "/api/links/verify") {
+      const ok = setLinkVerify(String(body.name), Array.isArray(body.commands) ? body.commands : []);
+      if (ok) emit({ type: "changed", what: "links" });
+      return send(res, ok ? 200 : 404, { ok });
+    }
+
+    // Say something to a running expedition ({ id, text }). The agents working in it see it on their next step.
+    if (url.pathname === "/api/steer") {
+      const w = running.get(String(body.id));
+      const said = String(body.text ?? "").trim();
+      if (!w) return send(res, 409, { error: "That expedition isn't running any more. Use Reply to follow up." });
+      if (!said) return send(res, 400, { error: "Nothing to send" });
+      steer(w.steering, said.slice(0, 8000));
+      emit({ type: "steer", id: w.id, text: said.slice(0, 8000), expeditionId: w.id });
+      return send(res, 200, { ok: true });
+    }
+
+    // Your own git actions on an expedition's worktree. Nothing here is ever triggered by an agent.
+    if (url.pathname === "/api/repo/commit" || url.pathname === "/api/repo/pr" || url.pathname === "/api/repo/remove") {
+      const w = { link: String(body.link ?? ""), path: String(body.path ?? "") };
+      try {
+        if (url.pathname === "/api/repo/commit") return send(res, 200, { ok: true, commit: await commitWorkspace(w, String(body.message ?? "")) });
+        if (url.pathname === "/api/repo/pr") return send(res, 200, { ok: true, url: await openPullRequest(w, String(body.title ?? ""), String(body.body ?? "")) });
+        await removeWorkspace(w);
+        return send(res, 200, { ok: true });
+      } catch (e: any) {
+        return send(res, 400, { error: e.message });
+      }
+    }
+
+    // The shell sandbox ({ on: true | false }); see sandbox.ts.
+    if (url.pathname === "/api/sandbox") {
+      if (body.on && !sandboxAvailable()) return send(res, 400, { error: "The sandbox needs macOS (sandbox-exec)." });
+      setShellSandbox(!!body.on);
+      return send(res, 200, { ok: true, on: !!body.on });
+    }
+
     if (url.pathname === "/api/links/remove") {
       const ok = removeLink(String(body.name));
       if (ok) emit({ type: "changed", what: "links" });

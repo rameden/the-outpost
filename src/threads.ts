@@ -4,12 +4,18 @@
 // full answer (the newest ~40,000 characters when a thread grows long).
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import type { Workspace } from "./context.js";
+import { expeditionDigest } from "./feed.js";
 
 export const THREADS_PATH = "camp/threads.jsonl";
 const MAX_HISTORY_CHARS = 40_000;
 const DRAWER_WINDOW_MS = 6 * 3_600_000;
 
-export type Turn = { thread: string; expedition: string; agent: string; direct: boolean; time: string; task: string; reply: string; status: string };
+// A run is written down twice: when it starts (status "running"), and again when it ends. If the
+// camp goes down in between, the "running" line is what's left, and a reply to it becomes a
+// resume: the agent gets what the feed recorded of that run instead of a final answer.
+export type Turn = { thread: string; expedition: string; agent: string; direct: boolean; time: string; task: string; reply: string; status: string;
+  workspaces?: Record<string, Workspace> };
 
 let cache: { key: string; turns: Turn[] } | null = null;
 function all(): Turn[] {
@@ -20,8 +26,11 @@ function all(): Turn[] {
   const turns = readFileSync(THREADS_PATH, "utf8").split("\n").filter(Boolean).flatMap((l) => {
     try { return [JSON.parse(l) as Turn]; } catch { return []; }
   });
-  cache = { key, turns };
-  return turns;
+  // The last line for each run wins (its ending, if it got that far).
+  const last = new Map<string, Turn>();
+  for (const t of turns) last.set(t.expedition, last.has(t.expedition) ? { ...t, time: last.get(t.expedition)!.time } : t);
+  cache = { key, turns: [...last.values()] };
+  return cache.turns;
 }
 
 export function recordTurn(t: Omit<Turn, "time">) {
@@ -29,7 +38,9 @@ export function recordTurn(t: Omit<Turn, "time">) {
   appendFileSync(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }) + "\n");
 }
 
-export type ThreadContext = { thread: string; agent: string; direct: boolean; turns: number; history: string };
+export type ThreadContext = { thread: string; agent: string; direct: boolean; turns: number; history: string;
+  unfinished: boolean;                       // the run being replied to never finished: this is a resume
+  workspaces?: Record<string, Workspace> };  // where that run was working, so the reply carries on there
 
 // The conversation a reply continues, ready to put in the prompt. `replyTo` is an expedition id.
 export function threadFor(replyTo: string | undefined): ThreadContext | null {
@@ -42,7 +53,10 @@ export function threadFor(replyTo: string | undefined): ThreadContext | null {
   let used = 0;
   for (const t of [...mine].reverse()) { // newest first, until the room runs out
     const when = new Date(t.time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-    const block = `### ${when}\nThe user asked:\n${t.task.trim()}\n\nYou answered (${t.status}):\n${t.reply.trim()}`;
+    const cutOff = t.status === "running";
+    const block = cutOff
+      ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run was cut off before it finished (the camp stopped or restarted). What it had done by then:\n${expeditionDigest(t.expedition) || "(nothing was recorded)"}`
+      : `### ${when}\nThe user asked:\n${t.task.trim()}\n\nYou answered (${t.status}):\n${t.reply.trim()}`;
     if (blocks.length && used + block.length > MAX_HISTORY_CHARS) break;
     blocks.unshift(block.slice(0, MAX_HISTORY_CHARS));
     used += block.length;
@@ -51,9 +65,11 @@ export function threadFor(replyTo: string | undefined): ThreadContext | null {
   const last = mine[mine.length - 1];
   return {
     thread: hit.thread, agent: last.agent, direct: last.direct, turns: mine.length,
+    unfinished: hit.status !== "done", workspaces: hit.workspaces,
     history:
       `## This conversation so far\nThe user's new message continues this conversation. Build on it: ` +
       `"it", "that", and "the second one" refer to what's below. Files you made earlier are still where you saved them.\n` +
+      (hit.status === "running" ? "The last run below was cut off part-way. Check what it actually finished (read the files) before redoing anything, then carry on from there.\n" : "") +
       (dropped > 0 ? `(${dropped} earlier exchange${dropped === 1 ? "" : "s"} left out for length.)\n` : "") +
       `\n${blocks.join("\n\n")}`,
   };

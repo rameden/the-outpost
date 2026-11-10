@@ -10,7 +10,10 @@ type Who = { who: string; emoji: string; depth: number; questId?: string };
 export type CampEventBody =
   | { type: "expedition_start"; id: string; task: string; source: "user" | "direct" | "job"; job?: string; replyTo?: string;
       attachments?: { kind: string; name: string; path?: string; url?: string }[] }
-  | { type: "expedition_end"; id: string; status: string; text: string; changed?: number } // changed: files its file tools changed
+  // changed: files its file tools changed. workspaces: the worktrees it worked in, and where each stands.
+  | { type: "expedition_end"; id: string; status: string; text: string; changed?: number;
+      workspaces?: { link: string; path: string; branch: string; base?: string; created?: boolean; changed: number; commits: number }[] }
+  | { type: "steer"; id: string; text: string } // you said something to a running expedition
   | ({ type: "text"; text: string } & Who)
   | ({ type: "text_delta"; delta: string } & Who) // live streaming; not kept in the replay buffer
   | ({ type: "tool"; tool: string; input: string } & Who)

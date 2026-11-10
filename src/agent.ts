@@ -4,7 +4,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { clipOutput, type Tool, type ToolOutput } from "./tools.js";
+import { clipOutput, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import { wikiIndex } from "./wiki.js";
 import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
@@ -12,10 +12,11 @@ import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } f
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, campRuntime, DEFAULT_TURNS, EFFORTS, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, type ClaudeCodeFailure } from "./claude-code.js";
-import { currentLedger, currentQuestId, currentSignal } from "./context.js";
+import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering } from "./context.js";
+import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
 import { mcpToolsFor } from "./mcp.js";
-import { linksBlock } from "./links.js";
+import { linksBlock, projectInstructions } from "./links.js";
 export type { Effort } from "./settings.js";
 
 // Created on first use: on the Claude Code runtime there may be no API key at all.
@@ -190,6 +191,7 @@ export async function runAgent(
     `When a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs)}` +
     `\n\n${wikiIndex()}` +
     (linksBlock() ? `\n\n${linksBlock()}` : "") +
+    (projectInstructions() ? `\n\n${projectInstructions()}` : "") +
     (opts.extraSystem ? `\n\n${opts.extraSystem}` : "");
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).
@@ -214,6 +216,30 @@ export async function runAgent(
     return result;
   };
 
+  // Messages the user sends while this expedition runs reach every agent working in it.
+  const steering = currentSteering();
+  let steerSeen = steering?.messages.length ?? 0;
+  const takeSteer = (): string | null => {
+    if (!steering || steering.messages.length <= steerSeen) return null;
+    const fresh = steering.messages.slice(steerSeen).map((m) => m.text);
+    steerSeen = steering.messages.length;
+    return steerNote(fresh);
+  };
+
+  // When a run uses every turn, the report says what it got done, so the next run (or you) can
+  // pick up without redoing it.
+  const handoff = (): string => {
+    const calls: string[] = [];
+    for (const m of messages) {
+      if (m.role !== "assistant" || !Array.isArray(m.content)) continue;
+      for (const b of m.content as any[]) if (b.type === "tool_use") calls.push(`${String(b.name).replace(/^mcp__camp__/, "")} ${preview(b.input)}`);
+    }
+    const files = filesWrittenBy(currentRunKey()).map(displayPath);
+    if (!calls.length && !files.length) return "";
+    return `\n\n[Handoff for whoever continues. Files this run changed: ${files.join(", ") || "none"}. ` +
+      `Its last steps:\n${calls.slice(-12).map((c) => `- ${c}`).join("\n")}\nBrief the next run with this so it doesn't repeat finished work.]`;
+  };
+
   const budgetNote = () => `\n\n[Stopped: this expedition reached its ${usd(ledger?.budget ?? 0)} budget.]`;
   const signal = currentSignal(); // set when the user can press Stop
   const stoppedNote = "\n\n[Stopped by the user.]";
@@ -227,7 +253,7 @@ export async function runAgent(
       if (overBudget()) return finish("over_budget", budgetNote());
       let spentLive = 0;
       const r = await runClaudeCode({
-        model, effort, system, task, tools, signal, messages,
+        model, effort, system, task, tools, signal, messages, steering,
         // The shared tally moves with every reply, so parallel quests and the Quartermaster see
         // each other's spending while they run, and the run ends itself once the budget is gone.
         onSpend: (usd) => { spentLive += usd; if (ledger) ledger.spent += usd; },
@@ -246,7 +272,7 @@ export async function runAgent(
       Object.assign(usage, r.usage);
       turn = r.turns;
       lastText = r.text;
-      const result = finish(r.status, r.status === "out_of_turns" ? turnsNote(spec.name, maxTurns) : "");
+      const result = finish(r.status, r.status === "out_of_turns" ? turnsNote(spec.name, maxTurns) + handoff() : "");
       return { ...result, runtime: "claude-code", costUsd: r.costUsd };
     }
 
@@ -336,8 +362,13 @@ export async function runAgent(
         });
         continue;
       }
-      // No tool requested: this character is done.
-      if (resp.stop_reason !== "tool_use") return finish("done");
+      // No tool requested: this character is done, unless the user said something in the meantime.
+      if (resp.stop_reason !== "tool_use") {
+        const said = takeSteer();
+        if (!said) return finish("done");
+        messages.push({ role: "user", content: said });
+        continue;
+      }
 
       if (signal?.aborted) return finish("stopped", stoppedNote);
       // Over budget: stop before running more tools (a dispatch would start a whole new quest).
@@ -362,10 +393,12 @@ export async function runAgent(
           return { type: "tool_result" as const, tool_use_id: block.id, content: clipOutput(out) };
         })
       );
-      messages.push({ role: "user", content: results });
+      // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn limit.
+      const notes = [takeSteer(), maxTurns >= 6 ? wrapUpNote(maxTurns - turn) : null].filter((n): n is string => !!n);
+      messages.push({ role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] });
     }
     turn--; // the loop counter ran one past the last turn
-    return finish("out_of_turns", turnsNote(spec.name, maxTurns));
+    return finish("out_of_turns", turnsNote(spec.name, maxTurns) + handoff());
   };
   try {
     return await work();

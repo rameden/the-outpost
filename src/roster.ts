@@ -8,10 +8,10 @@ import { readFileFor, writeFileFor, bash, webSearch, webFetch } from "./tools.js
 import { wikiWrite } from "./wiki.js";
 import { rememberTool } from "./memory.js";
 import { viewFileFor } from "./attachments.js";
-import { editFileFor, listDirFor, globFor, grepFor } from "./codetools.js";
+import { editFileFor, listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
 
 // Search tools for everyone; edits only for the roles that change files.
-const search = (id: string) => [listDirFor(id), globFor(id), grepFor(id)];
+const search = (id: string) => [listDirFor(id), globFor(id), grepFor(id), outlineFor(id)];
 
 // Adventurers can't ask follow-up questions mid-quest, so these rules keep their work useful.
 const QUEST_RULES = `
@@ -59,7 +59,7 @@ export const ROSTER: Record<string, AgentSpec> = {
   ),
   artificer: adventurer(
     "artificer",
-    "Build and repair code: find what you need with grep, glob, and list_dir; read before you " +
+    "Build and repair code: find what you need with grep, glob, and list_dir, and use outline on a big file before you read it; read before you " +
       "change; make focused changes with edit_file (write_file only for new files); and run tests " +
       "to prove your work." + NOTES_RULE,
     {

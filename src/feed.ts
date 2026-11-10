@@ -56,3 +56,27 @@ export function loadFeed(limit: number): CampEvent[] {
   } catch { /* fine */ }
   return all;
 }
+
+// What the feed recorded of one expedition, as plain text: the plan, who was sent, what they
+// said and did. Used to resume a run that was cut off, when there's no final answer to go on.
+export function expeditionDigest(id: string, maxChars = 14_000): string {
+  if (!existsSync(FEED_PATH)) return "";
+  const lines: string[] = [];
+  const asks = new Map<string, string>();
+  for (const l of readFileSync(FEED_PATH, "utf8").split("\n")) {
+    if (!l.includes(id)) continue;
+    let e: any;
+    try { e = JSON.parse(l); } catch { continue; }
+    if (e.expeditionId !== id) continue;
+    const clip = (s: string, n: number) => (String(s).length > n ? String(s).slice(0, n) + "…" : String(s));
+    if (e.type === "text") lines.push(`${e.who} said: ${clip(e.text, 1500)}`);
+    else if (e.type === "tool") lines.push(`${e.who} used ${e.tool} ${clip(e.input, 160)}`);
+    else if (e.type === "dispatch") lines.push(`${e.who} was sent on a quest.`);
+    else if (e.type === "return") lines.push(`${e.who} came back (${e.status}).`);
+    else if (e.type === "steer") lines.push(`The user added: ${clip(e.text, 600)}`);
+    else if (e.type === "ask") { asks.set(e.id, e.kind); if (e.kind === "plan") lines.push(`Plan submitted:\n${clip(e.body, 2000)}`); }
+    else if (e.type === "answered" && asks.get(e.id) === "plan" && !e.lapsed) lines.push(e.answer === "" || /^y$/i.test(e.answer) ? "The user approved that plan." : `The user's answer to the plan: ${e.answer}`);
+  }
+  const text = lines.join("\n");
+  return text.length > maxChars ? "…(earlier steps left out)\n" + text.slice(-maxChars) : text;
+}

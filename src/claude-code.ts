@@ -20,7 +20,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Options, SDKMessage, SDKUserMessage, McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { clipOutput, type Tool, type ToolOutput } from "./tools.js";
+import { clipOutput, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
+import type { Steering } from "./context.js";
 import type { RequestContent } from "./attachments.js";
 import { costOf } from "./costs.js";
 import { noteRateLimit, pausedUntil, pauseMessage } from "./limits.js";
@@ -90,7 +91,7 @@ function toMcpContent(out: ToolOutput) {
 
 // An MCP server (inside this process) exposing the agent's camp tools. Handlers run in the
 // run's own context, so budgets, quests, and Stop work across tool calls.
-function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R): McpSdkServerConfigWithInstance {
+function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R, note: () => string | null = () => null): McpSdkServerConfigWithInstance {
   const server = new McpServer({ name: "camp", version: "1.0.0" }, { capabilities: { tools: {} } });
   const handlers = new Map<string, NonNullable<Tool["run"]>>();
   const listed: { name: string; description?: string; inputSchema: Record<string, unknown> }[] = [];
@@ -105,7 +106,8 @@ function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R): McpSdkServ
     if (!handler) return { content: [{ type: "text", text: `Unknown tool: ${req.params.name}` }], isError: true };
     try {
       const out = await inContext(() => handler(req.params.arguments ?? {}));
-      return { content: toMcpContent(clipOutput(out)) };
+      const extra = note(); // a heads-up near the turn limit rides along with the result
+      return { content: [...toMcpContent(clipOutput(out)), ...(extra ? [{ type: "text" as const, text: extra }] : [])] };
     } catch (err: any) {
       return { content: [{ type: "text", text: `Error: ${err?.stderr || err?.message || err}` }], isError: true };
     }
@@ -131,6 +133,7 @@ export type ClaudeCodeRun = {
   // expedition's shared budget is current while the run is still going.
   onSpend?: (usd: number) => void;
   overBudget?: () => boolean;      // checked after each reply; true ends the run
+  steering?: Steering;             // what the user says to the expedition while it runs
 };
 
 export type ClaudeCodeResult = {
@@ -172,10 +175,31 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     message: { role: "user", content: r.task as any },
     parent_tool_use_id: null,
   } as SDKUserMessage;
+  // After the task, anything the user says to the running expedition is passed in as it arrives.
+  const asUser = (content: any): SDKUserMessage => ({ type: "user", message: { role: "user", content }, parent_tool_use_id: null } as SDKUserMessage);
   async function* prompt() {
     yield first;
-    await done;
+    const s = r.steering;
+    let seen = s?.messages.length ?? 0;
+    for (;;) {
+      let wake: (() => void) | undefined;
+      const said = s ? new Promise<"said">((ok) => { wake = () => ok("said"); s.waiters.add(wake); }) : new Promise<"said">(() => {});
+      const what = s && s.messages.length > seen ? "said" : await Promise.race([done.then(() => "done" as const), said]);
+      if (wake) s!.waiters.delete(wake);
+      if (what === "done" || !s) return;
+      const fresh = s.messages.slice(seen).map((m) => m.text);
+      seen = s.messages.length;
+      if (fresh.length) yield asUser(steerNote(fresh));
+    }
   }
+  let noted = 0; // the turn count the last wrap-up note was given at
+  const turnNote = () => {
+    const left = r.maxTurns - replies.size;
+    if (r.maxTurns < 6 || left === noted) return null;
+    const note = wrapUpNote(left);
+    if (note) noted = left;
+    return note;
+  };
 
   const options: Options = {
     abortController: abort,
@@ -185,7 +209,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     ...(r.effort ? { effort: r.effort as Options["effort"] } : {}),
     systemPrompt: r.system,
     tools: builtins,                                  // only web search/fetch, if any
-    mcpServers: { camp: campServer(r.tools, inContext) },
+    mcpServers: { camp: campServer(r.tools, inContext, turnNote) },
     canUseTool: async (name, input) =>
       name.startsWith(MCP_PREFIX) || builtins.includes(name)
         ? { behavior: "allow", updatedInput: input }

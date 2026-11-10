@@ -162,3 +162,20 @@ test("a run that fails part-way is still logged, with what it spent", async () =
   assert.ok(q.costUsd! > 0.5);
   assert.ok(q.session && existsSync(q.session), "its transcript is kept");
 });
+
+test("steering: what you say mid-run is passed into the running session", async () => {
+  const { newSteering, steer } = await import("../src/context.ts");
+  const steering = newSteering();
+  let got: any = null;
+  useQueryForTests((async function* ({ prompt }: any) {
+    const it = prompt[Symbol.asyncIterator]();
+    await it.next(); // the task
+    setTimeout(() => steer(steering, "Skip the changelog"), 20);
+    got = (await it.next()).value; // arrives while the session is still open
+    yield { type: "assistant", parent_tool_use_id: null, message: { content: [{ type: "text", text: "Skipping it." }] } };
+    yield { type: "result", subtype: "success", result: "Skipping it.", num_turns: 1, total_cost_usd: 0, is_error: false, usage: {} };
+  }) as any);
+  const r = await runDirect("scribe", "Write the release notes", "direct", undefined, undefined, undefined, undefined, { steering });
+  assert.equal(r?.status, "done");
+  assert.match(got.message.content, /The user sent this while you were working[\s\S]*Skip the changelog/);
+});

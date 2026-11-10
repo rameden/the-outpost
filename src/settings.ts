@@ -16,7 +16,8 @@ export type AgentSettings = { model?: string; effort?: Effort; maxTurns?: number
 export const DEFAULT_TURNS = 20;
 export const TURNS_MIN = 5;
 export const TURNS_MAX = 200;
-export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[] };
+// sandbox: on macOS, run commands with no network and writes limited to the working folder, without asking (see sandbox.ts).
+export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[]; sandbox?: boolean };
 // Phone notifications through an ntfy server (see phone.ts). Off unless a topic is set.
 export type PhoneSettings = { server?: string; topic?: string; approve?: string[] };
 type Settings = {
@@ -73,6 +74,12 @@ export function allowShellCommand(command: string) {
   const exact = new Set(s.shell?.exact ?? []);
   exact.add(command.trim());
   s.shell = { ...(s.shell ?? {}), exact: [...exact] };
+  save(s);
+}
+
+export function setShellSandbox(on: boolean) {
+  const s = load();
+  s.shell = { ...(s.shell ?? {}), sandbox: on };
   save(s);
 }
 

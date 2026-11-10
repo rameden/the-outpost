@@ -376,6 +376,19 @@ pre.diff .add { color: var(--good); background: var(--good-soft); display: block
 pre.diff .del { color: var(--bad); background: var(--bad-soft); display: block; }
 pre.diff .hunk { color: var(--info); display: block; }
 pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
+.work-in { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.work-in select { max-width: 320px; padding: 3px 6px; border-radius: 7px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 12.5px; }
+.exp-steer { display: flex; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border); }
+.exp-steer input { flex: 1; min-width: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 13px; }
+.steer-msg { align-self: flex-end; max-width: 80%; margin: 4px 0; padding: 7px 11px; border-radius: 12px; background: var(--accent-soft); font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.steer-msg small { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 2px; }
+.exp-work { border-top: 1px solid var(--border); padding: 9px 16px; font-size: 12.5px; color: var(--muted); display: grid; gap: 8px; }
+.exp-work .ws { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.exp-work .ws code { color: var(--text); }
+.exp-work .ws .ws-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.exp-work .ws-note { flex-basis: 100%; overflow-wrap: anywhere; }
+.checks-edit { margin-top: 8px; display: grid; gap: 6px; }
+.checks-edit textarea { width: 100%; min-height: 54px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .reply-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 8px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface-2); font-size: 13px; color: var(--muted); }
 .reply-bar b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .badge.follow { background: var(--info-soft); color: var(--info); }
@@ -476,6 +489,7 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
         <button class="btn primary" type="submit">Send</button>
       </form>
       <div class="hints" id="hints"><span>Talk directly:</span></div>
+      <div class="work-in" id="workIn" hidden></div>
       <div class="form-error" id="formError" hidden></div>
       <input type="file" id="pickFiles" multiple hidden>
       <input type="file" id="pickFolder" webkitdirectory multiple hidden>
@@ -1060,6 +1074,22 @@ function startExpedition(e) {
     for (const a of e.attachments) row.append(attChip(a, true));
     $(".exp-head", card).after(row);
   }
+  // While it runs you can say something to it; the agents working in it see it on their next step.
+  if (e.source !== "job") {
+    const bar = el("form", "exp-steer", '<input placeholder="Say something to this expedition while it works…" aria-label="Message to the running expedition"><button class="btn small" type="submit">Send</button>');
+    bar.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const box = $("input", bar);
+      const text = box.value.trim();
+      if (!text) return;
+      box.disabled = true;
+      try { await api("/api/steer", { id: e.id, text }); box.value = ""; }
+      catch (err) { alert(err.message); }
+      box.disabled = false;
+      box.focus();
+    };
+    $(".exp-foot", card).before(bar);
+  }
   place(card);
   exps.set(e.id, { el: card, body: $(".exp-body", card), quests: new Map(), started: new Date(e.time), members: new Set(e.source === "direct" ? [] : ["Quartermaster"]) });
 }
@@ -1068,6 +1098,7 @@ function endExpedition(e) {
   const x = exps.get(e.id);
   if (!x) return;
   $(".stop-btn", x.el)?.remove();
+  $(".exp-steer", x.el)?.remove();
   const foot = $(".exp-foot", x.el);
   const secs = Math.max(1, Math.round((new Date(e.time) - x.started) / 1000));
   const ok = e.status === "done";
@@ -1079,6 +1110,17 @@ function endExpedition(e) {
     const view = el("button", "btn small", "View changes"); view.type = "button";
     view.onclick = () => toggleChanges(x.el, e.id, view);
     actions.append(view);
+  }
+  if (e.workspaces?.length) $(".exp-foot", x.el).before(workspaceBox(e.workspaces, x.el.dataset.task));
+  // Cut off, stopped, failed, or out of turns: pick it up again from what it had done.
+  if (!ok && x.el.dataset.source !== "job") {
+    const resume = el("button", "btn small primary", "Resume"); resume.type = "button";
+    resume.title = "Start again from what this run had done, without redoing finished work";
+    resume.onclick = async () => {
+      resume.disabled = true;
+      try { await api("/api/send", { resume: e.id }); } catch (err) { resume.disabled = false; alert(err.message); }
+    };
+    actions.append(resume);
   }
   if (x.el.dataset.source !== "job") {
     const reply = el("button", "btn small", "Reply"); reply.type = "button";
@@ -1092,6 +1134,72 @@ function endExpedition(e) {
   const elsewhere = new Set([...exps.values()].flatMap((o) => [...o.members]));
   for (const name of x.members) if (!elsewhere.has(name) && crew[name]?.status !== "idle") crew[name] = { ...crew[name], status: "idle" };
   renderCrew();
+}
+
+// The worktrees an expedition worked in: its branch, what's uncommitted, and your own git actions.
+function workspaceBox(list, task) {
+  const box = el("div", "exp-work");
+  for (const w of list) {
+    const row = el("div", "ws");
+    const draw = (st, note) => {
+      row.innerHTML = `<span>🌿 <code>${esc(st.branch)}</code> in links/${esc(w.link)}${w.created ? " (new worktree)" : ""}</span><span>${st.changed ? `${st.changed} uncommitted file${st.changed === 1 ? "" : "s"}` : "nothing uncommitted"}${st.commits ? ` · ${st.commits} new commit${st.commits === 1 ? "" : "s"}` : ""}</span><span class="ws-actions"></span><span class="ws-note meta">${esc(note ?? w.path)}</span>`;
+      const acts = $(".ws-actions", row);
+      const act = (label, title, fn) => { const b = el("button", "btn small", esc(label)); b.type = "button"; b.title = title; b.onclick = async () => { b.disabled = true; try { await fn(); } catch (err) { alert(err.message); } b.disabled = false; }; acts.append(b); };
+      const again = async (note2) => draw(await api(`/api/repo/status?link=${encodeURIComponent(w.link)}&path=${encodeURIComponent(w.path)}${w.base ? `&base=${encodeURIComponent(w.base)}` : ""}`), note2);
+      if (st.changed) act("Commit…", "Commit everything in this worktree to its branch", async () => {
+        const message = prompt(`Commit message for ${st.branch}:`, (task || "").replace(/^@\w+\s+/, "").slice(0, 72));
+        if (!message) return;
+        const r = await api("/api/repo/commit", { link: w.link, path: w.path, message });
+        await again(`Committed: ${r.commit}`);
+      });
+      if (st.commits && !st.changed) act("Open PR…", "Push this branch to origin and open a pull request with the GitHub CLI", async () => {
+        const title = prompt(`This pushes ${st.branch} to origin and opens a pull request.\n\nPull request title:`, (task || "").replace(/^@\w+\s+/, "").slice(0, 72));
+        if (!title) return;
+        const r = await api("/api/repo/pr", { link: w.link, path: w.path, title, body: "" });
+        await again(`Pull request: ${r.url}`);
+      });
+      if (w.created) act("Remove worktree", "Remove this worktree folder (the branch is kept). Git refuses if there are uncommitted changes.", async () => {
+        if (!confirm(`Remove the worktree at ${w.path}? Its branch ${st.branch} is kept.`)) return;
+        await api("/api/repo/remove", { link: w.link, path: w.path });
+        row.innerHTML = `<span>🌿 Worktree removed. The branch <code>${esc(st.branch)}</code> is still in the repository.</span>`;
+      });
+    };
+    draw(w);
+    box.append(row);
+  }
+  return box;
+}
+
+// Which worktree of each linked repo the next request works in (the picker under the composer).
+let repos = [];
+const workChoice = {}; // link → "" (the linked checkout) | "new" | a worktree's path
+async function loadRepos() {
+  try { repos = (await api("/api/repos")).repos; } catch { repos = []; }
+  renderWorkIn();
+}
+function renderWorkIn() {
+  const box = $("#workIn");
+  box.hidden = !repos.length;
+  box.innerHTML = "";
+  for (const r of repos) {
+    if (workChoice[r.link] && workChoice[r.link] !== "new" && !r.worktrees.some((w) => w.path === workChoice[r.link])) delete workChoice[r.link];
+    const label = el("label", "", `🌿 ${esc(r.link)}: `);
+    const sel = el("select");
+    sel.setAttribute("aria-label", `Where to work in ${r.link}`);
+    const opt = (value, text) => { const o = el("option", "", esc(text)); o.value = value; o.selected = (workChoice[r.link] ?? "") === value; sel.append(o); };
+    opt("", `linked checkout (${r.branch})`);
+    if (r.access === "write") opt("new", "a new worktree and branch");
+    for (const w of r.worktrees) opt(w.path, `${w.branch}  ·  …/${w.path.split("/").slice(-2).join("/")}`);
+    sel.onchange = () => { if (sel.value) workChoice[r.link] = sel.value; else delete workChoice[r.link]; };
+    label.append(sel);
+    box.append(label);
+  }
+  if (repos.length && replyTo) box.append(el("span", "", "A follow-up keeps working where its conversation was."));
+}
+function chosenWorkspaces() {
+  const out = {};
+  for (const [link, v] of Object.entries(workChoice)) out[link] = v === "new" ? { mode: "new" } : { mode: "existing", path: v };
+  return Object.keys(out).length ? out : undefined;
 }
 
 // What an expedition's file tools changed: the list, a diff, and Undo.
@@ -1128,8 +1236,9 @@ function setReply(id, task) {
   $("#replyTitle").textContent = task || "that expedition";
   $("#replyBar").hidden = false;
   $("#input").focus();
+  renderWorkIn();
 }
-function clearReply() { replyTo = null; $("#replyBar").hidden = true; }
+function clearReply() { replyTo = null; $("#replyBar").hidden = true; renderWorkIn(); }
 $("#replyCancel").onclick = clearReply;
 
 const liveKey = (e) => `${e.expeditionId ?? ""}|${e.questId || `top:${e.who}`}`;
@@ -1344,6 +1453,13 @@ function handle(e) {
       addReturn(e);
       setCrew(e.who, "idle", e.status === "done" ? "Returned with a report" : `Returned (${e.status.replace(/_/g, " ")})`);
       break;
+    case "steer": {
+      const m = el("div", "steer-msg");
+      m.innerHTML = "<small>You, while it was working</small>";
+      m.append(document.createTextNode(e.text));
+      place(m, null, e.id);
+      break;
+    }
     case "ask": addAsk(e); break;
     case "answered": resolveAsk(e); break;
     case "job":
@@ -1353,7 +1469,7 @@ function handle(e) {
       if (e.outcome === "failed") addSys(`💥 "${e.name}" failed: ${e.text ?? ""}`);
       refresh();
       break;
-    case "changed": refresh(); break; // includes "queue": something started, finished, or was stopped
+    case "changed": refresh(); if (e.what === "links") loadRepos(); break; // includes "queue": something started, finished, or was stopped
   }
   updateBusy();
 }
@@ -1739,7 +1855,8 @@ $("#form").onsubmit = async (ev) => {
   if (!text && !attachments.length) return;
   hideError();
   try {
-    const r = await api("/api/send", { text, attachments, ...(replyTo ? { replyTo } : {}) });
+    const r = await api("/api/send", { text, attachments, ...(replyTo ? { replyTo } : { workspaces: chosenWorkspaces() }) });
+    setTimeout(loadRepos, 1500); // a new worktree shows up in the picker
     clearReply();
     input.value = "";
     pending.length = 0;
@@ -1833,10 +1950,13 @@ function spendCard() {
       <button class="btn small" type="submit">Save</button>
       <span>${S.budgetUsd ? `Stops at ${money(S.budgetUsd)}, all agents together.` : "No limit."}</span>
     </form>
+    ${S.sandbox?.available ? `<label class="budget-form" style="align-items:flex-start"><input type="checkbox" class="sandbox-input" ${S.sandbox.on ? "checked" : ""}> <span><b style="color:var(--text)">Sandboxed shell.</b> Commands run without asking, with no network and writes only inside the project they run in. Installs and pushes still ask.</span></label>` : ""}
     <form class="budget-form parallel-form">
       <label>Run up to <select class="parallel-input" aria-label="Expeditions at once">${[1, 2, 3, 4, 5, 6, 8].map((n) => `<option ${n === S.parallel ? "selected" : ""}>${n}</option>`).join("")}</select> expeditions at once</label>
       <span>The rest wait their turn. More at once uses your ${S.runtime === "claude-code" ? "plan's limits" : "API budget"} faster.</span>
     </form>`;
+  const sandboxBox = $(".sandbox-input", card);
+  if (sandboxBox) sandboxBox.onchange = async () => { try { await api("/api/sandbox", { on: sandboxBox.checked }); refresh(); } catch (e) { alert(e.message); } };
   const tryBtn = $("#tryAnyway", card);
   if (tryBtn) tryBtn.onclick = async () => { try { await api("/api/limits/resume", {}); refresh(); } catch (e) { alert(e.message); } };
   $(".parallel-input", card).onchange = async (ev) => {
@@ -1986,8 +2106,16 @@ function renderLinkedFolders(box) {
     li.innerHTML = `
       <div class="card-top"><span class="who">📁 links/${esc(l.name)}</span><span class="pill ${l.access === "write" ? "live" : ""}">${l.access === "write" ? "Can edit" : "Read-only"}</span></div>
       <div class="meta" style="overflow-wrap:anywhere">${esc(l.path)} · ${l.files ?? "?"} files</div>
-      <div class="card-actions"><button type="button" class="btn small">Attach</button><button type="button" class="btn small danger">Unlink</button></div>`;
-    const [attach, unlink] = li.querySelectorAll(".btn");
+      <details class="checks-edit"${l.verify?.length ? " open" : ""}><summary>Checks after changes${l.verify?.length ? ` (${l.verify.length})` : ""}</summary>
+        <div class="meta">Commands the camp runs by itself after a quest changes files here, one per line (for example <code>npm run typecheck</code>). Results go into the quest's report.</div>
+        <textarea spellcheck="false" aria-label="Checks for ${esc(l.name)}">${esc((l.verify ?? []).join("\n"))}</textarea>
+        <div><button type="button" class="btn small" data-act="checks">Save checks</button></div>
+      </details>
+      <div class="card-actions"><button type="button" class="btn small" data-act="attach">Attach</button><button type="button" class="btn small danger" data-act="unlink">Unlink</button></div>`;
+    $('[data-act="checks"]', li).onclick = async () => {
+      try { await api("/api/links/verify", { name: l.name, commands: $("textarea", li).value.split("\n") }); refresh(); } catch (e) { alert(e.message); }
+    };
+    const [attach, unlink] = [$('[data-act="attach"]', li), $('[data-act="unlink"]', li)];
     attach.onclick = () => { attachLink(l); input.focus(); };
     unlink.onclick = async () => { if (confirm(`Unlink ${l.path}? The folder itself isn't touched.`)) { await api("/api/links/remove", { name: l.name }); refresh(); } };
     list.append(li);
@@ -2059,6 +2187,7 @@ function renderAll() {
 
 $("#paused").onclick = () => { tab = "quests"; storeSet("camp-tab", tab); renderTabs(); renderTab(); };
 renderTabs();
+loadRepos();
 connect();
 </script>
 </body>
