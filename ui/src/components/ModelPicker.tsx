@@ -7,10 +7,26 @@ import type { Character, ModelList } from "../types.ts";
 // The model list, per runtime (your subscription and the API offer different models).
 const lists = new Map<string, ModelList>();
 
+// The model list for this runtime, loaded once and shared (the picker and the Settings page).
+export function useModelList(runtime: string) {
+  const [list, setList] = useState<ModelList | null>(lists.get(runtime) ?? null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (lists.has(runtime)) return void setList(lists.get(runtime)!);
+    let gone = false;
+    api<ModelList>("/api/models").then(
+      (l) => { lists.set(runtime, l); if (!gone) setList(l); },
+      (e) => { if (!gone) setError(errorText(e)); },
+    );
+    return () => { gone = true; };
+  }, [runtime]);
+  return { list, error };
+}
+
 export function ModelPicker({ c, runtime, at, onClose, onSaved }: {
   c: Character; runtime: string; at: { left: number; top: number }; onClose: () => void; onSaved: () => void;
 }) {
-  const [list, setList] = useState<ModelList | null>(lists.get(runtime) ?? null);
+  const { list, error: loadError } = useModelList(runtime);
   const [model, setModel] = useState(c.model);
   const [effort, setEffort] = useState<string>(c.effort);
   const [turns, setTurns] = useState(String(c.maxTurns));
@@ -18,15 +34,8 @@ export function ModelPicker({ c, runtime, at, onClose, onSaved }: {
   const box = useRef<HTMLDivElement>(null);
   const select = useRef<HTMLSelectElement>(null);
 
-  useEffect(() => {
-    if (list) return void select.current?.focus();
-    let gone = false;
-    api<ModelList>("/api/models").then(
-      (l) => { lists.set(runtime, l); if (!gone) setList(l); },
-      (e) => { if (!gone) setError(errorText(e)); },
-    );
-    return () => { gone = true; };
-  }, [list, runtime]);
+  useEffect(() => { if (list) select.current?.focus(); }, [list]);
+  useEffect(() => { if (loadError) setError(loadError); }, [loadError]);
 
   useEffect(() => {
     const onDown = (ev: MouseEvent) => {

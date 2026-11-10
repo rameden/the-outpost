@@ -88,8 +88,60 @@ export function setShellSandbox(on: boolean) {
 export const QUESTS_DEFAULT = 4;
 export const questLimit = () => Math.min(16, Math.max(1, Math.round(load().questsAtOnce ?? QUESTS_DEFAULT)));
 
+export const QUESTS_MAX = 16;
+export function setQuestLimit(n: number) {
+  const s = load();
+  s.questsAtOnce = Math.min(QUESTS_MAX, Math.max(1, Math.round(n)));
+  save(s);
+}
+
 export const selfEditAllowed = () => load().selfEdit === true;
+export function setSelfEdit(on: boolean) {
+  const s = load();
+  if (on) s.selfEdit = true;
+  else delete s.selfEdit;
+  save(s);
+}
+
 export const phoneSettings = (): PhoneSettings => load().phone ?? {};
+export function setPhoneSettings(p: PhoneSettings) {
+  const s = load();
+  if (p.topic || p.server || p.approve) s.phone = p;
+  else delete s.phone;
+  save(s);
+}
+
+// The approval level for shell commands, as the settings page shows it:
+//   "ask"     every command waits for you (even ls)
+//   "safe"    simple read-only commands run; the rest ask (the default)
+//   "sandbox" read-only commands run; the rest run in the sandbox without asking (macOS)
+export type ApprovalLevel = "ask" | "safe" | "sandbox";
+export function approvalLevel(): ApprovalLevel {
+  const sh = shellSettings();
+  if (sh.autoApprove === false) return "ask";
+  return sh.sandbox ? "sandbox" : "safe";
+}
+export function setApprovalLevel(level: ApprovalLevel) {
+  const s = load();
+  const sh: ShellSettings = { ...(s.shell ?? {}) };
+  if (level === "ask") { sh.autoApprove = false; sh.sandbox = false; }
+  else { delete sh.autoApprove; sh.sandbox = level === "sandbox"; }
+  s.shell = sh;
+  save(s);
+}
+
+// Your own allow-list (command prefixes that run without asking) and the "Always allow" commands.
+export function setShellLists(patch: { allow?: string[]; exact?: string[] }) {
+  const s = load();
+  // Prefixes are matched against the command with spaces collapsed; exact commands as typed (trimmed).
+  const clean = (l: string[], collapse: boolean) =>
+    [...new Set(l.map((x) => { const t = String(x).trim(); return collapse ? t.replace(/\s+/g, " ") : t; }).filter(Boolean))].slice(0, 200);
+  const sh: ShellSettings = { ...(s.shell ?? {}) };
+  if (patch.allow) sh.allow = clean(patch.allow, true);
+  if (patch.exact) sh.exact = clean(patch.exact, false);
+  s.shell = sh;
+  save(s);
+}
 
 // What runs the crew: your Claude subscription through Claude Code (the default), or the API
 // with an API key. CAMP_RUNTIME overrides the setting (the test suite uses "api" with a fake API).

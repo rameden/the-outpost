@@ -225,7 +225,7 @@ function Outputs({ a }: { a: AgentDetail }) {
 }
 
 // ---------- About ----------
-function About({ a }: { a: AgentDetail }) {
+export function About({ a }: { a: AgentDetail }) {
   const s = a.stats;
   const Row = ({ label, children }: { label: string; children: ReactNode }) => <div className="about-row"><span>{label}</span>{children}</div>;
   return (

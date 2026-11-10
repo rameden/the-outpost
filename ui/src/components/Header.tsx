@@ -1,5 +1,5 @@
 // The top bar: what needs you, what runs the crew, today's spend, how busy the camp is, the
-// connection, notifications, and the theme.
+// connection, notifications, the theme, and Settings.
 
 import { useEffect, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
@@ -8,6 +8,7 @@ import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cx, money, resetIn } from "../format.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
+import type { SettingsSection } from "../settings/Settings.tsx";
 import type { CampState } from "../types.ts";
 
 const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
@@ -57,7 +58,9 @@ function toggleTheme() {
   storeSet("camp-theme", root.dataset.theme);
 }
 
-export function Header({ S, store, conn, refresh, onShowLimits }: { S: CampState | null; store: FeedStore; conn: Connection; refresh: () => void; onShowLimits: () => void }) {
+export function Header({ S, store, conn, refresh, onOpenSettings }: {
+  S: CampState | null; store: FeedStore; conn: Connection; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
+}) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
   const queued = S?.queued?.length ?? 0;
@@ -75,15 +78,16 @@ export function Header({ S, store, conn, refresh, onShowLimits }: { S: CampState
           </button>
         )}
         {S?.pausedUntil && (
-          <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={onShowLimits}>
+          <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={() => onOpenSettings?.("usage")}>
             ⏸ Plan limit · resets in {resetIn(S.pausedUntil)}
           </button>
         )}
         <RuntimeChip S={S} refresh={refresh} />
-        <span className="chip" title={sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}>
+        <button className="chip" type="button" onClick={() => onOpenSettings?.("usage")}
+          title={`${sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}. Click for usage and the quest log.`}>
           {money(S?.spend?.today ?? 0)} today{sub ? " (est.)" : ""}
-        </span>
-        <span className={cx("chip", running > 0 && "busy")} title={`Up to ${S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it under Quests.`}>
+        </button>
+        <span className={cx("chip", running > 0 && "busy")} title={`Up to ${S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it in Settings.`}>
           <span className={cx("dot", running > 0 && "live")} />
           <span>{running === 0 ? "Idle" : running === 1 ? "On expedition" : `${running} expeditions running`}{queued ? ` · ${queued} queued` : ""}</span>
         </span>
@@ -93,6 +97,11 @@ export function Header({ S, store, conn, refresh, onShowLimits }: { S: CampState
         </span>
         <Bell />
         <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}>◐</button>
+        {onOpenSettings && (
+          <button className="icon-btn" type="button" title="Settings" aria-label="Settings" onClick={() => onOpenSettings()}>
+            ⚙{!!S?.skills.length && <span className="badge" title={`${S.skills.length} skill proposals to review`}>{S.skills.length}</span>}
+          </button>
+        )}
       </div>
     </header>
   );
