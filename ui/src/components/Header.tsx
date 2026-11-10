@@ -7,9 +7,10 @@ import type { Connection } from "../camp.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cx, money, resetIn } from "../format.ts";
+import { Icon } from "./bits.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import type { SettingsSection } from "../settings/Settings.tsx";
-import type { CampState } from "../types.ts";
+import type { CampState, GithubStatus } from "../types.ts";
 
 const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
 
@@ -38,6 +39,44 @@ function RuntimeChip({ S, refresh }: { S: CampState | null; refresh: () => void 
   );
 }
 
+// Which GitHub account gh is using (pull requests, and git pushes if gh is your credential
+// helper). Click to swap to your other account, like `gh auth switch`. Hidden without gh.
+export function GithubChip() {
+  const [st, setSt] = useState<GithubStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let gone = false;
+    const load = () => api<GithubStatus>("/api/github").then((s) => { if (!gone) setSt(s); }).catch(() => {});
+    load();
+    window.addEventListener("focus", load); // you may have switched in a terminal meanwhile
+    return () => { gone = true; window.removeEventListener("focus", load); };
+  }, []);
+  if (!st?.available) return null;
+  const active = st.accounts.find((a) => a.active);
+  const others = st.accounts.filter((a) => !a.active);
+  // Two accounts: swap. More: go round them in order.
+  const at = st.accounts.findIndex((a) => a.active);
+  const next = others.length === 1 ? others[0] : st.accounts[(at + 1) % st.accounts.length];
+  const canSwitch = st.accounts.length > 1 && next && !next.active;
+  const title = `GitHub: gh is using ${active?.login ?? "no account"} (pull requests, and git pushes if gh is your git credential helper).` +
+    (active && !active.ok ? " Its sign-in has a problem: run `gh auth login` again." : "") +
+    (canSwitch ? ` Click to switch to ${next.login}.` : " Sign in to another account with `gh auth login` to switch between them here.");
+  async function swap() {
+    if (!canSwitch || busy) return;
+    setBusy(true);
+    try { setSt(await api<GithubStatus>("/api/github/switch", { login: next.login })); }
+    catch (e) { alert(errorText(e)); }
+    setBusy(false);
+  }
+  return (
+    <button className={cx("chip", active && !active.ok && "needs")} type="button" title={title} aria-label={title} disabled={busy} onClick={swap}>
+      <svg className="gh-mark" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
+      <span>{busy ? "Switching…" : active?.login ?? "No account"}</span>
+      {canSwitch && !busy && <span className="gh-swap" aria-hidden="true">⇄</span>}
+    </button>
+  );
+}
+
 function Bell() {
   const [, redraw] = useState(0);
   if (!canNotify()) return null;
@@ -47,7 +86,7 @@ function Bell() {
     : "Notify me when the camp needs a decision";
   return (
     <button className="icon-btn" type="button" title={title} aria-label={on ? "Turn off notifications" : "Turn on notifications"}
-      onClick={async () => { await toggleNotifications(); redraw((n) => n + 1); }}>{on ? "🔔" : "🔕"}</button>
+      onClick={async () => { await toggleNotifications(); redraw((n) => n + 1); }}><Icon name={on ? "bell" : "bellOff"} /></button>
   );
 }
 
@@ -84,6 +123,7 @@ export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, 
           </button>
         )}
         <RuntimeChip S={S} refresh={refresh} />
+        <GithubChip />
         <button className="chip" type="button" onClick={() => onOpenSettings?.("usage")}
           title={`${sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}. Click for usage and the quest log.`}>
           {money(S?.spend?.today ?? 0)} today{sub ? " (est.)" : ""}
@@ -99,12 +139,12 @@ export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, 
         <Bell />
         {onToggleTerminal && (
           <button className={cx("icon-btn", terminalOpen && "on")} type="button" aria-pressed={!!terminalOpen} aria-label={terminalOpen ? "Hide the terminal" : "Show the terminal"}
-            title={`${terminalOpen ? "Hide" : "Show"} the terminal (Ctrl+\`)`} onClick={onToggleTerminal}>&gt;_</button>
+            title={`${terminalOpen ? "Hide" : "Show"} the terminal (Ctrl+\`)`} onClick={onToggleTerminal}><Icon name="terminal" /></button>
         )}
-        <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}>◐</button>
+        <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}><Icon name="theme" /></button>
         {onOpenSettings && (
           <button className="icon-btn" type="button" title="Settings" aria-label="Settings" onClick={() => onOpenSettings()}>
-            ⚙{!!S?.skills.length && <span className="badge" title={`${S.skills.length} skill proposals to review`}>{S.skills.length}</span>}
+            <Icon name="gear" />{!!S?.skills.length && <span className="badge" title={`${S.skills.length} skill proposals to review`}>{S.skills.length}</span>}
           </button>
         )}
       </div>

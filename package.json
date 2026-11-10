@@ -1,15 +1,18 @@
 {
   "name": "satchel",
   "version": "1.0.0",
+  "packageManager": "npm@11.19.0",
   "description": "A small multi-agent harness on the Claude API: a Quartermaster plans and dispatches a crew of specialists, with memory, skills, scheduled jobs, and a local mission-control dashboard.",
   "scripts": {
     "start": "tsx --import ./scripts/env.mjs src/camp.ts",
     "watch": "tsx --import ./scripts/env.mjs src/watch.ts",
     "watch:install": "tsx scripts/watch-agent.ts",
     "watch:uninstall": "tsx scripts/watch-agent.ts --uninstall",
-    "ui": "tsx scripts/ui-build.ts --if-stale && tsx --import ./scripts/env.mjs src/server.ts",
+    "ui": "tsx --import ./scripts/env.mjs scripts/ui-dev.ts",
+    "ui:serve": "tsx scripts/ui-build.ts --if-stale && tsx --import ./scripts/env.mjs src/server.ts",
+    "dev": "npm run ui",
     "ui:build": "tsx scripts/ui-build.ts",
-    "ui:dev": "tsx --import ./scripts/env.mjs scripts/ui-dev.ts",
+    "ui:dev": "npm run ui",
     "test": "tsx --test --test-reporter=spec tests/*.test.ts && vitest run --config ui/vite.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui",
     "eval": "tsx --import ./scripts/env.mjs evals/run.ts"
@@ -40,5 +43,10 @@
     "vite": "^8.3.7",
     "vitest": "^5.1.0"
   },
-  "type": "module"
+  "type": "module",
+  "allowScripts": {
+    "esbuild": false,
+    "fsevents": false,
+    "node-pty": false
+  }
 }

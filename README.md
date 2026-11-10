@@ -15,6 +15,8 @@ Ask a crew member for work outside its role and it declines in one line, naming 
 
 Requires Node 22.9 or later, and either a Claude subscription (Pro or Max) or an Anthropic API key.
 
+Satchel uses **npm** (`package.json` pins it, so pnpm and yarn stop with a message instead of half-installing). No dependency install scripts are needed: esbuild, fsevents, and node-pty are marked as reviewed and denied under `allowScripts`, and the app makes node-pty's helper executable itself.
+
 ```bash
 npm install
 ```
@@ -36,7 +38,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 Then pick a way in:
 
 ```bash
-npm run ui      # mission control in your browser (open the link it prints)
+npm run ui      # mission control in your browser (open the link it prints); it reloads as you edit the page. npm run dev does the same
 npm start       # the camp in your terminal
 npm run watch   # run scheduled jobs from the terminal (mission control runs them too)
 ```
@@ -75,15 +77,15 @@ It only listens on `127.0.0.1`, checks the `Host` header, and requires a key tha
 
 ### Working on the page
 
-The page is a React app in `ui/` (React 19, TypeScript, plain CSS, built with Vite). The camp's own server (`src/server.ts`) serves the built files from `ui/dist`; there is no second server in normal use.
+The page is a React app in `ui/` (React 19, TypeScript, plain CSS, built with Vite). `npm run ui` runs the camp with Vite's dev server in front of it, so the page reloads as you edit; `npm run ui:serve` runs the camp alone, serving the built files from `ui/dist` with no second server.
 
 ```bash
-npm run ui         # builds the page first if ui/dist is missing or older than ui/src, then starts the camp
+npm run ui         # the camp plus Vite: a saved change in ui/src shows up in the open page
+npm run ui:serve   # the camp alone, serving the last build (builds first if ui/dist is missing or older than ui/src)
 npm run ui:build   # just build it
-npm run ui:dev     # the camp plus Vite with live reload: open the second link it prints
 ```
 
-- `npm run ui:dev` starts the camp as usual and puts Vite's dev server in front of it. Vite serves the page from `ui/src` and passes `/api` and `/events` through to the camp; the link it prints carries the launch key, which the page sends itself, so the dev server is no way around the key.
+- `npm run ui` starts the camp as usual and puts Vite's dev server in front of it. Vite serves the page from `ui/src` and passes `/api` and `/events` through to the camp; the link it prints carries the launch key, which the page sends itself, so the dev server is no way around the key. Only the page reloads: the camp server keeps running until you restart it, so an edit under `src/` doesn't cut off an expedition. The page Vite serves doesn't carry the built page's Content-Security-Policy; use `npm run ui:serve` when you want exactly what a build gives you.
 - The feed is a pure function of the camp's events (`ui/src/feed/reducer.ts`): each event names its expedition and quest, and lands in that card. That's where to look first when the feed shows something wrong.
 - The page's types come from the server's code (`ui/src/types.ts` imports `CampEvent`, the `/api/state` shape, and the rest as types), so `npm run typecheck` fails if the server and the page disagree.
 

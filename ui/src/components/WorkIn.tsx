@@ -1,10 +1,13 @@
-// Under the composer: for each linked git repository, where the next request works. Its
+// Where the next request works, for each linked git repository: a quiet label in the composer's
+// control row that names the branch (so it's always in view next to Send), and the choices,
+// which the + menu shows in its "Work in" panel. Clicking the label opens that panel. Its
 // linked checkout (the default), a new worktree and branch (editable links only), or a
 // worktree that already exists. A follow-up keeps working where its conversation was.
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.ts";
 import type { RepoInfo } from "../types.ts";
+import { Icon } from "./bits.tsx";
 
 // link → "new" | a worktree's path. A link that isn't here works in its linked checkout.
 export type WorkChoice = Record<string, string>;
@@ -25,8 +28,15 @@ export function useRepos(reloadKey: unknown) {
   return { repos, reload: load };
 }
 
-export function WorkIn({ repos, choice, setChoice, followUp }: {
+// What the next request will work on in this repository: "" is the linked checkout, "new" a
+// fresh worktree and branch, anything else an existing worktree's path.
+export function workingOn(r: RepoInfo, value: string) {
+  return value === "new" ? "new branch" : r.worktrees.find((w) => w.path === value)?.branch ?? r.branch;
+}
+
+export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen }: {
   repos: RepoInfo[]; choice: WorkChoice; setChoice: (fn: (c: WorkChoice) => WorkChoice) => void; followUp: boolean;
+  open: boolean; onOpen: () => void; // the + menu's "Work in" panel
 }) {
   // Forget a choice whose worktree is gone.
   useEffect(() => {
@@ -42,21 +52,50 @@ export function WorkIn({ repos, choice, setChoice, followUp }: {
   if (!repos.length) return null;
   return (
     <div className="work-in">
-      {repos.map((r) => (
-        <label key={r.link}>
-          🌿 {r.link}:{" "}
-          <select aria-label={`Where to work in ${r.link}`} value={choice[r.link] ?? ""} disabled={followUp}
-            onChange={(ev) => {
-              const v = ev.target.value;
-              setChoice((c) => { const next = { ...c }; if (v) next[r.link] = v; else delete next[r.link]; return next; });
-            }}>
-            <option value="">linked checkout ({r.branch})</option>
-            {r.access === "write" && <option value="new">a new worktree and branch</option>}
-            {r.worktrees.map((w) => <option key={w.path} value={w.path}>{`${w.branch}  ·  …/${w.path.split("/").slice(-2).join("/")}`}</option>)}
-          </select>
-        </label>
-      ))}
-      {followUp && <span>A follow-up keeps working where its conversation was.</span>}
+      {repos.map((r) => {
+        const value = choice[r.link] ?? "";
+        const now = workingOn(r, value);
+        return (
+          <button key={r.link} type="button" className={value ? "work-btn changed" : "work-btn"} aria-haspopup="dialog" aria-expanded={open}
+            aria-label={`Where to work in ${r.link}: ${now}`} onClick={onOpen}
+            title={followUp ? "A follow-up keeps working where its conversation was."
+              : value ? `The next request works on ${now} in ${r.link}, not your linked checkout. Click to change.`
+              : `The next request works in your linked checkout of ${r.link}, on ${r.branch}. Click to change.`}>
+            <Icon name="branch" /><span>{r.link}</span><b>{now}</b>
+          </button>
+        );
+      })}
     </div>
+  );
+}
+
+const tail = (path: string) => `…/${path.split("/").slice(-2).join("/")}`;
+
+// The choices, one group per repository, for the + menu's "Work in" panel.
+export function WorkOptions({ repos, choice, locked, onPick }: {
+  repos: RepoInfo[]; choice: WorkChoice; locked: boolean; onPick: (link: string, value: string) => void;
+}) {
+  return (
+    <>
+      {locked && <div className="menu-tip">A follow-up keeps working where its conversation was.</div>}
+      {repos.map((r) => {
+        const value = choice[r.link] ?? "";
+        const option = (v: string, name: string, note: string, mono = false) => (
+          <button key={v} type="button" role="menuitemradio" aria-checked={value === v} className="work-opt" disabled={locked} onClick={() => onPick(r.link, v)}>
+            <span className={mono ? "work-opt-name mono" : "work-opt-name"}>{name}</span>
+            <small>{note}</small>
+            {value === v && <Icon name="check" />}
+          </button>
+        );
+        return (
+          <div key={r.link} role="group" aria-label={r.link}>
+            <div className="menu-label">{r.link}</div>
+            {option("", "Linked checkout", `Your own working copy, on ${r.branch}`)}
+            {r.access === "write" && option("new", "New worktree", "A fresh branch, so your checkout isn't touched")}
+            {r.worktrees.map((w) => option(w.path, w.branch, tail(w.path), true))}
+          </div>
+        );
+      })}
+    </>
   );
 }

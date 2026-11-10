@@ -7,6 +7,7 @@ export type { ModelInfo } from "../../src/agent.ts";
 export type { Link } from "../../src/links.ts";
 export type { Snippet } from "../../src/snippets.ts";
 export type { PickResult } from "../../src/picker.ts";
+export type { GithubStatus } from "../../src/github.ts";
 export type { SessionLine } from "../../src/memory.ts";
 export type { RepoInfo, WorkspaceStatus } from "../../src/repos.ts";
 export type { TerminalInfo } from "../../src/term.ts";

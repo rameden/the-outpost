@@ -13,6 +13,7 @@ import { WorkspaceBox } from "../feed/Workspaces.tsx";
 import { money, plural, shortModel, spaced, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Conversation, History, Project, ProjectPageData, SendResult } from "../types.ts";
+import { Icon } from "./bits.tsx";
 
 // A description as one plain line, for a card (the project's page shows it formatted).
 const plain = (text?: string) => (text ?? "").replace(/[*_`#>]+/g, "").replace(/^\s*[-•]\s+/gm, "").replace(/\s+/g, " ").trim();
@@ -33,11 +34,11 @@ function defaultsOf(p: Project): string[] {
 function Folder({ S, name, refresh }: { S: CampState; name: string; refresh: () => void }) {
   const link = S.links.find((l) => l.name === name);
   const [checks, setChecks] = useState((link?.verify ?? []).join("\n"));
-  if (!link) return <div className="proj-folder">📁 <code>links/{name}/</code><span>This folder isn't linked any more.</span></div>;
+  if (!link) return <div className="proj-folder"><Icon name="folder" /> <code>links/{name}/</code><span>This folder isn't linked any more.</span></div>;
   const saved = (link.verify ?? []).join("\n");
   return (
     <div className="proj-folder" title={link.path}>
-      📁 <code>links/{name}/</code><span>{link.path} · {link.access === "write" ? "the crew can edit" : "read-only"}</span>
+      <Icon name="folder" /> <code>links/{name}/</code><span>{link.path} · {link.access === "write" ? "the crew can edit" : "read-only"}</span>
       <details className="checks-edit">
         <summary>Checks after changes{link.verify?.length ? ` (${link.verify.length})` : ""}</summary>
         <div className="meta">Commands the camp runs by itself after a quest changes files here, one per line (for example <code>npm run typecheck</code>). Results go into the quest's report.</div>
@@ -109,7 +110,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
     <div className="feed proj-page">
       <header className="proj-head">
         <div>
-          <h2>{project.pinned ? "📌 " : ""}{project.name}</h2>
+          <h2>{project.pinned && <><Icon name="pin" /> </>}{project.name}</h2>
           <div className="meta">{list.length} {plural(list.length, "conversation")}{general ? " · anything not filed under a project" : ""}</div>
         </div>
         <div className="proj-actions">
@@ -225,7 +226,7 @@ export function ProjectsOverview({ S, setView, onNew }: { S: CampState; setView:
           const list = ofProject(S, p.id);
           return (
             <button key={p.id} type="button" className="proj-card" onClick={() => setView({ kind: "project", id: p.id })}>
-              <b>{p.pinned ? "📌 " : ""}{p.name}</b>
+              <b>{p.pinned && <><Icon name="pin" /> </>}{p.name}</b>
               {!!p.links?.length && <code>{p.links.map((l) => `links/${l}/`).join("  ")}</code>}
               <span className="proj-card-desc">{plain(p.description) || (p.id === "general" ? "Anything not filed under a project." : "No description yet.")}</span>
               <span className="meta">{list.length} {plural(list.length, "conversation")}{list[0] ? ` · last ${when(list[0].updated)}` : ""}</span>

@@ -12,14 +12,15 @@ import { Connectors, Inbox, Jobs, Memory, Skills, Wiki } from "../panels/Records
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { cClass, cx, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
+import { Icon, type IconName } from "../components/bits.tsx";
 
 export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "jobs" | "inbox" | "memory" | "wiki" | "skills" | "connectors";
-const GROUPS: { title: string; items: [SettingsSection, string, string][] }[] = [
+const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] = [
   { title: "Camp", items: [
-    ["general", "General", "⚙"], ["crew", "Crew", "🧭"], ["approvals", "Approvals", "🛡"], ["limits", "Limits & budget", "⏱"], ["phone", "Phone", "📱"],
+    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["phone", "Phone", "phone"],
   ] },
-  { title: "Activity", items: [["usage", "Usage & quests", "📊"], ["jobs", "Scheduled jobs", "⏰"], ["inbox", "Inbox", "📨"]] },
-  { title: "Knowledge", items: [["memory", "Memory", "🧠"], ["wiki", "Wiki", "📖"], ["skills", "Skills", "📜"], ["connectors", "Connectors", "🔌"]] },
+  { title: "Activity", items: [["usage", "Usage & quests", "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
+  { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["wiki", "Wiki", "book"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
 export const isSettingsSection = (s: string | null): s is SettingsSection => ALL.some(([id]) => id === s);
@@ -326,7 +327,7 @@ function InstalledSkills({ S }: { S: CampState }) {
           <div className="set-sub">{label(o)}</div>
           <ul className="list">
             {S.installedSkills.filter((s) => s.owner === o).map((s) => (
-              <li key={s.path} className="card"><div className="card-top"><span className="who">📜 {s.name}</span></div>
+              <li key={s.path} className="card"><div className="card-top"><span className="who"><Icon name="spark" /> {s.name}</span></div>
                 <div className="meta">{s.description || "No description."}</div><div className="meta"><code>{s.path}</code></div></li>
             ))}
           </ul>
@@ -366,7 +367,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             {g.items.map(([id, label, icon]) => (
               <button key={id} type="button" className="set-nav-item" aria-current={section === id ? "page" : undefined}
                 onClick={() => { setWikiOpen(null); setSection(id); }}>
-                <span className="set-icon" aria-hidden="true">{icon}</span>{label}
+                <Icon name={icon} />{label}
                 {!!counts[id] && <span className="count">{counts[id]}</span>}
               </button>
             ))}
@@ -376,7 +377,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
       <div className="set-main">
         <header className="set-head">
           <div className="crumbs">Settings <span>›</span> <b>{title}</b></div>
-          <button ref={closeBtn} className="icon-btn" type="button" aria-label="Close settings" onClick={onClose}>✕</button>
+          <button ref={closeBtn} className="icon-btn" type="button" aria-label="Close settings" onClick={onClose}><Icon name="x" /></button>
         </header>
         <div className="set-body">
           {!S ? <div className="meta">Loading…</div>

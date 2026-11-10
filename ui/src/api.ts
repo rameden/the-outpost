@@ -1,7 +1,7 @@
 // Talking to the camp server. Every request carries this launch's token.
 
 const meta = typeof document === "undefined" ? "" : document.querySelector<HTMLMetaElement>('meta[name="camp-token"]')?.content ?? "";
-// The camp server writes the token into the page. Under `npm run ui:dev` Vite serves the page
+// The camp server writes the token into the page. Under `npm run ui` Vite serves the page
 // as-is, so the token comes from the link (?t=…) instead.
 export const TOKEN = meta && meta !== "__CAMP_TOKEN__" ? meta : new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("t") ?? "";
 

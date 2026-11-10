@@ -135,7 +135,7 @@ test("a long project shows its newest conversations and a way to see them all; p
 test("Projects sits under New conversation and opens the projects page; its + opens the dialog; a project's name opens its page", () => {
   const { setView, onNewProject, onEditProject } = setup();
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["＋New conversation", "▣Projects", "+", "⌕Search", "≡All activity"]);
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Search", "All activity"]);
   fireEvent.click(within(nav).getByRole("button", { name: /Projects$/ }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "projects" });
   expect(onNewProject).not.toHaveBeenCalled();

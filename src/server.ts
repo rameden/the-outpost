@@ -43,6 +43,7 @@ import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
+import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
@@ -432,6 +433,9 @@ const server = http.createServer(async (req, res) => {
     // Linked folders that are git repositories, with their worktrees (for the "work in" picker).
     if (req.method === "GET" && url.pathname === "/api/repos") return send(res, 200, { repos: await linkedRepos() });
 
+    // Which GitHub account gh is using (the header's account button).
+    if (req.method === "GET" && url.pathname === "/api/github") return send(res, 200, await githubStatus());
+
     // Where one worktree stands now: uncommitted files and commits since the expedition started.
     if (req.method === "GET" && url.pathname === "/api/repo/status") {
       const q = url.searchParams;
@@ -707,6 +711,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     // The shell sandbox ({ on: true | false }); see sandbox.ts.
+    // Switch gh's active GitHub account ({ login }, or {} to swap to the other of two).
+    if (url.pathname === "/api/github/switch") {
+      try {
+        return send(res, 200, await switchGithub(typeof body.login === "string" && body.login ? body.login : undefined));
+      } catch (e: any) {
+        return send(res, 400, { error: e.message });
+      }
+    }
+
     if (url.pathname === "/api/sandbox") {
       if (body.on && !sandboxAvailable()) return send(res, 400, { error: "The sandbox needs macOS (sandbox-exec)." });
       setShellSandbox(!!body.on);
