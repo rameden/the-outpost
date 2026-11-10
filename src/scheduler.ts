@@ -89,7 +89,8 @@ export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
   updateJob(job.name, { lastRun: started.toISOString() }); // mark first, so a crash doesn't loop
   try {
     // Unattended: no shell, no prompts, nobody at the keyboard (for this run only).
-    const result = await runExpedition(jobBrief(job), { job: job.name, displayTask: job.task, signal, id, unattended: true });
+    // A job scheduled in a project runs with that project's folders, notes, and defaults.
+    const result = await runExpedition(jobBrief(job), { job: job.name, displayTask: job.task, signal, id, unattended: true, ...(job.project ? { project: job.project } : {}) });
     if (result.status === "stopped") {
       emit({ type: "job", name: job.name, outcome: "failed", text: "stopped by you" });
       return; // a half-finished run isn't a report
@@ -101,7 +102,7 @@ export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
     const report = result.text.trim();
     toInbox(`${started.toLocaleString()} · ${job.name}`, report);
     updateJob(job.name, { lastReport: report.slice(0, 3000) });
-    notify(`Guild Camp: ${job.name}`, report);
+    notify(`Satchel: ${job.name}`, report);
     emit({ type: "job", name: job.name, outcome: "reported", text: report });
   } catch (err: any) {
     // Out of plan usage: not a failure worth a report. Put the job back so it runs after the reset.

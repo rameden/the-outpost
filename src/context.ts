@@ -12,8 +12,11 @@ export type Ledger = { spent: number; budget?: number };
 export type Workspace = { link: string; path: string; branch: string; base?: string; created?: boolean };
 // Messages the user sends to an expedition while it runs. Every agent working in it sees them.
 export type Steering = { messages: { text: string; at: number }[]; waiters: Set<() => void> };
+// project: the project this run's conversation is filed under.
+// scope: the linked folders this run may see and use (by name). Undefined means all of them (the
+// terminal camp, and jobs that don't belong to a project); mission control always sets it.
 type RunContext = { ledger: Ledger; expeditionId?: string; questId?: string; signal?: AbortSignal; unattended?: boolean;
-  workspaces?: Record<string, Workspace>; steering?: Steering };
+  workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[] };
 
 const store = new AsyncLocalStorage<RunContext>();
 
@@ -27,9 +30,12 @@ export const currentRunKey = () => store.getStore()?.questId ?? store.getStore()
 
 export const currentWorkspaces = () => store.getStore()?.workspaces ?? {};
 export const currentSteering = () => store.getStore()?.steering;
+export const currentProjectId = () => store.getStore()?.project;
+export const currentScope = () => store.getStore()?.scope;
+export const inScope = (link: string) => { const s = store.getStore()?.scope; return !s || s.includes(link); };
 
 export type ExpeditionOpts = { id?: string; budget?: number; signal?: AbortSignal; unattended?: boolean;
-  workspaces?: Record<string, Workspace>; steering?: Steering };
+  workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[] };
 
 export const newSteering = (): Steering => ({ messages: [], waiters: new Set() });
 export function steer(s: Steering, text: string) {
@@ -40,7 +46,7 @@ export function steer(s: Steering, text: string) {
 // A new expedition: fresh tally, optional budget in dollars, stop signal, and unattended mode.
 export function withExpedition<T>(opts: ExpeditionOpts, fn: () => Promise<T>): Promise<T> {
   return store.run({ ledger: { spent: 0, budget: opts.budget }, expeditionId: opts.id, signal: opts.signal, unattended: opts.unattended,
-    workspaces: opts.workspaces, steering: opts.steering }, fn);
+    workspaces: opts.workspaces, steering: opts.steering, project: opts.project, scope: opts.scope }, fn);
 }
 
 // A quest inside the current expedition (same tally, stop signal, and mode; its own id).

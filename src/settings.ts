@@ -28,6 +28,7 @@ type Settings = {
   parallel?: number;      // how many expeditions mission control runs at once (the rest wait)
   questsAtOnce?: number;  // how many dispatched quests run at once, across every expedition
   selfEdit?: boolean;     // let agents edit the camp's own source (src/, tests/, evals/, package.json)
+  autoTitles?: boolean;   // name new conversations with the smallest model (titles.ts)
   phone?: PhoneSettings;
 };
 
@@ -95,6 +96,13 @@ export function setQuestLimit(n: number) {
   save(s);
 }
 
+export const autoTitlesOn = () => load().autoTitles === true;
+export function setAutoTitles(on: boolean) {
+  const s = load();
+  if (on) s.autoTitles = true;
+  else delete s.autoTitles;
+  save(s);
+}
 export const selfEditAllowed = () => load().selfEdit === true;
 export function setSelfEdit(on: boolean) {
   const s = load();

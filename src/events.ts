@@ -9,6 +9,7 @@ type Who = { who: string; emoji: string; depth: number; questId?: string };
 
 export type CampEventBody =
   | { type: "expedition_start"; id: string; task: string; source: "user" | "direct" | "job"; job?: string; replyTo?: string;
+      thread?: string; // the conversation it belongs to (its first run's id); jobs have none
       attachments?: { kind: string; name: string; path?: string; url?: string }[] }
   // changed: files its file tools changed. workspaces: the worktrees it worked in, and where each stands.
   | { type: "expedition_end"; id: string; status: string; text: string; changed?: number;
@@ -23,7 +24,7 @@ export type CampEventBody =
   | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string }
   | { type: "answered"; id: string; answer: string; lapsed?: boolean } // lapsed: the camp restarted before you answered
   | { type: "job"; name: string; outcome: "running" | "quiet" | "reported" | "failed"; text?: string }
-  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" };
+  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" };
 
 export type AskKind = "plan" | "shell" | "job" | "tool" | "question";
 // expeditionId: which expedition an event belongs to (several can run at once). Added by emit().

@@ -7,6 +7,7 @@ import { dirname } from "node:path";
 import { campMode, type Tool } from "./tools.js";
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
+import { currentProjectId } from "./context.js";
 
 export const JOBS_PATH = "camp/jobs.json";
 export const QUIET_TOKEN = "NOTHING_NEW";
@@ -19,6 +20,7 @@ export type Job = {
   enabled: boolean;
   lastRun?: string;     // ISO time the last run started
   lastReport?: string;  // what it last told you, so the next run can tell what's new
+  project?: string;     // the project it was scheduled in: its runs see that project's folders and notes
 };
 
 type Schedule =
@@ -122,7 +124,8 @@ export const scheduleJob: Tool = {
       body: task,
     });
     if (ok.toLowerCase() !== "y") return "The user declined this job.";
-    const job: Job = { name, schedule, task, created: new Date().toISOString(), enabled: true };
+    const project = currentProjectId();
+    const job: Job = { name, schedule, task, created: new Date().toISOString(), enabled: true, ...(project && project !== "general" ? { project } : {}) };
     saveJobs(existing ? jobs.map((j) => (j.name === name ? job : j)) : [...jobs, job]);
     return `Scheduled "${name}" (${schedule}). It runs while \`npm run watch\` is going.`;
   },

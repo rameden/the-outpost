@@ -1,5 +1,5 @@
 {
-  "name": "guild-camp",
+  "name": "satchel",
   "version": "1.0.0",
   "description": "A small multi-agent harness on the Claude API: a Quartermaster plans and dispatches a crew of specialists, with memory, skills, scheduled jobs, and a local mission-control dashboard.",
   "scripts": {
@@ -21,6 +21,9 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.296",
     "@anthropic-ai/sdk": "^1.6.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "node-pty": "^1.1.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

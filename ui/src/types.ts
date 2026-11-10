@@ -9,6 +9,7 @@ export type { Snippet } from "../../src/snippets.ts";
 export type { PickResult } from "../../src/picker.ts";
 export type { SessionLine } from "../../src/memory.ts";
 export type { RepoInfo, WorkspaceStatus } from "../../src/repos.ts";
+export type { TerminalInfo } from "../../src/term.ts";
 
 import type { CampEvent } from "../../src/events.ts";
 import type { CampState } from "../../src/server.ts";
@@ -25,7 +26,13 @@ export type UndoResult = { ok: true } & ReturnType<typeof undoCheckpoint>;
 export type Uploaded = ReturnType<typeof saveUpload>;
 // The worktrees a finished expedition worked in, and where each stood when it ended.
 export type Workspaces = NonNullable<EventOf<"expedition_end">["workspaces"]>;
-export type SendResult = { ok: true; id: string; position: number; attached: number };
+// thread: the conversation the request landed in (a new one is named after its first run).
+export type SendResult = { ok: true; id: string; position: number; attached: number; thread: string };
+export type { History, Project, Conversation, ProjectSettings } from "../../src/conversations.ts";
+import type { ProjectPageData as PageData } from "../../src/projects.ts";
+import type { WorkspaceStatus as Standing } from "../../src/repos.ts";
+// A project's page, as the server sends it (each worktree with where it stands now).
+export type ProjectPageData = Omit<PageData, "workspaces"> & { workspaces: (Standing & { conversation: string })[] };
 
 // A run's saved transcript (camp/agents/<id>/sessions/*.json): the messages as the API saw them.
 export type TranscriptPart = { type: string; text?: string; name?: string; input?: unknown; content?: string | { type: string; text?: string }[] };

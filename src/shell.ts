@@ -6,7 +6,16 @@
 //   "shell": { "allow": ["npm run build", "pytest"] }      or  "shell": { "autoApprove": false }
 // "Always allow" on an approval adds that exact command to "shell": { "exact": [...] }.
 
-import { shellSettings } from "./settings.js";
+import { shellSettings, approvalLevel, type ApprovalLevel } from "./settings.js";
+import { currentProjectId } from "./context.js";
+import { getProject } from "./conversations.js";
+
+// How shell commands are approved for the run that's asking: its project's own level if it set
+// one, else the camp's. ("ask": everything waits for you. "safe": simple read-only commands
+// run. "sandbox": the rest run in the sandbox without asking.)
+export function approvalNow(): ApprovalLevel {
+  return getProject(currentProjectId())?.settings?.approval ?? approvalLevel();
+}
 
 // Each entry: a command prefix. "git status" allows "git status -s", not "git push".
 // Deliberately NOT here by default:
@@ -28,7 +37,7 @@ const UNSAFE_ARGS = /(^|\s)(-exec|-execdir|-delete|-ok|-okdir|-fprint\S*|-fls|--
 
 export function isAutoApproved(command: string): boolean {
   const s = shellSettings();
-  if (s.autoApprove === false) return false;
+  if (approvalNow() === "ask") return false;
   // Commands you chose "Always allow" for run as-is, but only that exact command.
   if (s.exact?.includes(command.trim())) return true;
   const cmd = command.trim().replace(/\s+/g, " ");

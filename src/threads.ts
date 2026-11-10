@@ -15,7 +15,8 @@ const DRAWER_WINDOW_MS = 6 * 3_600_000;
 // camp goes down in between, the "running" line is what's left, and a reply to it becomes a
 // resume: the agent gets what the feed recorded of that run instead of a final answer.
 export type Turn = { thread: string; expedition: string; agent: string; direct: boolean; time: string; task: string; reply: string; status: string;
-  workspaces?: Record<string, Workspace> };
+  workspaces?: Record<string, Workspace>;
+  links?: string[] }; // linked folders attached along the way, beyond its project's own
 
 let cache: { key: string; turns: Turn[] } | null = null;
 function all(): Turn[] {
@@ -33,6 +34,9 @@ function all(): Turn[] {
   return cache.turns;
 }
 
+// Every run on record, oldest first (one entry per run: its ending, if it got that far).
+export const allTurns = (): Turn[] => all();
+
 export function recordTurn(t: Omit<Turn, "time">) {
   mkdirSync("camp", { recursive: true });
   appendFileSync(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }) + "\n");
@@ -40,10 +44,13 @@ export function recordTurn(t: Omit<Turn, "time">) {
 
 export type ThreadContext = { thread: string; agent: string; direct: boolean; turns: number; history: string;
   unfinished: boolean;                       // the run being replied to never finished: this is a resume
-  workspaces?: Record<string, Workspace> };  // where that run was working, so the reply carries on there
+  workspaces?: Record<string, Workspace>;    // where that run was working, so the reply carries on there
+  links?: string[] };                        // folders attached earlier in the conversation stay attached
 
 // The conversation a reply continues, ready to put in the prompt. `replyTo` is an expedition id.
-export function threadFor(replyTo: string | undefined): ThreadContext | null {
+// `stillRunning` says whether a run is going right now (mission control knows; a plain "running"
+// record otherwise means the camp went down mid-run).
+export function threadFor(replyTo: string | undefined, stillRunning: (expedition: string) => boolean = () => false): ThreadContext | null {
   if (!replyTo) return null;
   const turns = all();
   const hit = turns.find((t) => t.expedition === replyTo);
@@ -54,7 +61,9 @@ export function threadFor(replyTo: string | undefined): ThreadContext | null {
   for (const t of [...mine].reverse()) { // newest first, until the room runs out
     const when = new Date(t.time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
     const cutOff = t.status === "running";
-    const block = cutOff
+    const block = cutOff && stillRunning(t.expedition)
+      ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run is still going, in parallel with this one. What it has done so far:\n${expeditionDigest(t.expedition) || "(nothing recorded yet)"}`
+      : cutOff
       ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run was cut off before it finished (the camp stopped or restarted). What it had done by then:\n${expeditionDigest(t.expedition) || "(nothing was recorded)"}`
       : `### ${when}\nThe user asked:\n${t.task.trim()}\n\nYou answered (${t.status}):\n${t.reply.trim()}`;
     if (blocks.length && used + block.length > MAX_HISTORY_CHARS) break;
@@ -66,10 +75,11 @@ export function threadFor(replyTo: string | undefined): ThreadContext | null {
   return {
     thread: hit.thread, agent: last.agent, direct: last.direct, turns: mine.length,
     unfinished: hit.status !== "done", workspaces: hit.workspaces,
+    links: [...new Set(mine.flatMap((t) => t.links ?? []))],
     history:
       `## This conversation so far\nThe user's new message continues this conversation. Build on it: ` +
       `"it", "that", and "the second one" refer to what's below. Files you made earlier are still where you saved them.\n` +
-      (hit.status === "running" ? "The last run below was cut off part-way. Check what it actually finished (read the files) before redoing anything, then carry on from there.\n" : "") +
+      (hit.status === "running" && !stillRunning(hit.expedition) ? "The last run below was cut off part-way. Check what it actually finished (read the files) before redoing anything, then carry on from there.\n" : "") +
       (dropped > 0 ? `(${dropped} earlier exchange${dropped === 1 ? "" : "s"} left out for length.)\n` : "") +
       `\n${blocks.join("\n\n")}`,
   };

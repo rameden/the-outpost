@@ -1,4 +1,4 @@
-# Guild Camp
+# Satchel
 
 A small, hackable multi-agent harness built on the Claude API. A **Quartermaster** plans your request, gets your OK on the plan, and sends specialist adventurers out on quests, sometimes several at once. Each crew member has a fixed identity, its own memory and workspace, and clear limits on what it does.
 
@@ -47,7 +47,10 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 
 `npm run ui` serves a local dashboard on `127.0.0.1`. It has:
 
-- **Crew cards:** live status for each agent, XP, and a picker to change its model, effort level, and turn limit (how many replies one run may take; the Artificer gets 60, others 20 or 30).
+- **History, down the left:** every conversation you've had with the camp, filed under projects. **New conversation** gives you a clean page, so unrelated work stays out of each other's context; opening a conversation shows only that one, and what you send there continues it with everything said so far. **All activity** shows everything at once, scheduled jobs included. A dot marks a conversation with something running, and a number marks decisions waiting on you. Each project lists its newest five conversations, with **View all** for the rest. **Search** looks through titles and through what was asked and answered. The **⋯** menu on a conversation renames it, moves it to another project, or removes it from the list (its record stays in the camp folder).
+- **Projects:** see [Projects](#projects) below.
+- **Terminal, along the bottom:** your own shell on this machine, in the page. Show or hide it with the **>_** button in the header or Ctrl+`; drag its top edge to resize it. Tabs are separate sessions, and a new one starts in the folder of the project you're in. Sessions belong to the camp server, so hiding the pane or reloading the page doesn't end them; they end when you close the tab, exit the shell, or stop the camp. The terminal is yours alone: no crew member can see or type into it, and nothing from it goes into the camp's feed.
+- **Crew cards, across the top:** live status for each agent, XP, and a picker to change its model, effort level, and turn limit (how many replies one run may take; the Artificer gets 60, others 20 or 30).
 - **Live feed:** replies stream in as they're written, and each quest gets its own block (parallel quests run side by side in the feed).
 - **Approvals as buttons:** plans, shell commands, new scheduled jobs, and connector tools that make changes.
 - **Several at once:** expeditions, direct chats, and scheduled jobs run side by side, up to 3 at a time by default (change it under Quests, 1–8); the rest wait their turn. Each has its own block in the feed, its own approvals, and its own budget. More at once uses up your plan's limits (or API spend) faster.
@@ -82,6 +85,22 @@ npm run ui:dev     # the camp plus Vite with live reload: open the second link i
 - The feed is a pure function of the camp's events (`ui/src/feed/reducer.ts`): each event names its expedition and quest, and lands in that card. That's where to look first when the feed shows something wrong.
 - The page's types come from the server's code (`ui/src/types.ts` imports `CampEvent`, the `/api/state` shape, and the rest as types), so `npm run typecheck` fails if the server and the page disagree.
 
+## Projects
+
+A project decides what the crew sees and remembers. **Projects** in the sidebar lists them; **New project** opens the dialog; a project's name opens its page.
+
+- **Folders:** the linked folders a project is about (one or several). A conversation in the project can use those folders and no others, and only their `AGENTS.md` / `CLAUDE.md` are loaded. A conversation outside any project sees no linked folders unless you attach one (`@links/<name>`, the + menu, or the "work in" picker); what you attach stays attached for the rest of that conversation. This keeps projects apart, and keeps one project's instructions from being paid for in another's conversations.
+- **Description:** your own words about it. The whole crew reads it at the start of every conversation there.
+- **Survey:** **Survey this project** has the Scout read through the folders and write a brief (stack, layout, commands), which the crew then starts from. Run it again when the project has moved on; you can edit it by hand.
+- **What the crew has learned:** notes the crew keeps about the project with `project_remember`, loaded only in that project. They sit beside each agent's own memory, which stays for how they work in general. You can edit these too.
+- **Pinned references:** files (as the crew sees them) shown in full in every conversation there, and web addresses listed for the Scout to fetch.
+- **Defaults:** where to work (the linked checkout, or a new worktree and branch for each conversation), web access (on, confidential, or off), how shell commands are approved, a budget per expedition, and a model per crew member. "Confidential" is an instruction to the crew to keep the project's names and code out of searches; nothing checks what they search for. "Off" removes the web tools.
+- **The page** also shows what the project has used (runs are tagged with their project from now on), the worktrees and branches its conversations worked in, files changed recently, its scheduled jobs (a job scheduled in a project runs with that project's folders and notes), and each folder's checks.
+- **Filing:** pin a project to keep it at the top. A conversation in General that used one project's folder offers to move there.
+- **Titles:** a conversation is named after its first request. Settings → General → "Name conversations automatically" has the smallest model write a short title instead (a little usage per conversation; off by default).
+
+Projects live in `camp/conversations.json`; a project's survey and notes are in `camp/projects/<id>/`.
+
 ## Terminal commands
 
 In `npm start`, type a request for the Quartermaster, or:
@@ -92,6 +111,7 @@ In `npm start`, type a request for the Quartermaster, or:
 | `@path/to/file` | Attach a project file or folder anywhere in a message |
 | `/link <path> [--edit]` · `/links` · `/unlink <name>` | Link a folder on your disk as `links/<name>/` (no upload), list links, remove one |
 | `/reply <message>` | Follow up on the last expedition or chat, carrying the whole conversation over |
+| `/project [name \| off]` | List your projects, or work in one: its folders, notes, and defaults apply to what you send |
 | `/worktree [<link> new [branch] \| <link> <path or branch> \| <link> off]` | List a linked repo's worktrees; work in a new one per request, or in one you already have |
 | `/diff` · `/undo` | What the last expedition's file tools changed; put those files back |
 | `/review` | Approve or reject skills the Quartermaster proposed |
@@ -123,7 +143,7 @@ In `npm start`, type a request for the Quartermaster, or:
 ## Safety
 
 - **Files:** the file tools only work inside the camp folder. They never read secrets at any depth (`.env*`, private keys, `.netrc`, `credentials.json`…) or the camp's private configuration (`camp/mcp.json`, `camp/settings.json`), never touch another agent's memory or sessions, and can't write to `skills/`, `plugins/`, or `camp/` except an agent's own outputs folder.
-- **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`), so nothing they read can talk them into loosening these rules. To have the crew work on Guild Camp itself, set `"selfEdit": true` in `camp/settings.json`.
+- **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`), so nothing they read can talk them into loosening these rules. To have the crew work on Satchel itself, set `"selfEdit": true` in `camp/settings.json`.
 - **The Scout** reads the web, so it can only write to its own outputs folder.
 - **Parallel quests** can't overwrite each other: a write to a file another quest just changed is refused until it has been read again.
 - **Shell:** commands ask you first. "Always allow this command" on an approval stops the asking for that exact command (`"shell": {"exact": [...]}`). Commands run without blocking the camp, stop after 2 minutes, and stop when you press Stop. With `cwd: "links/<name>"` a command runs inside that linked folder (or the expedition's worktree of it), where read-only git commands don't ask either.
@@ -160,6 +180,7 @@ Everything in `camp/` is local to you and gitignored:
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
 | `camp/feed.jsonl` · `camp/threads.jsonl` · `camp/checkpoints/` | The saved feed, conversations for follow-ups, and the originals of changed files (newest 60 expeditions) |
+| `camp/conversations.json` · `camp/projects/<id>/` | Your projects (folders, description, pinned references, defaults) and the titles and filing you've changed; each project's survey and the crew's notes about it |
 | `camp/limits.json` · `camp/scheduler.lock` | Your plan's last reported usage windows; which process is running jobs |
 
 To skip plan approval, set `CAMP_APPROVE_PLANS=0`. To use a different port, set `CAMP_PORT`.

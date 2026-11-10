@@ -1,12 +1,13 @@
 // The quest log: one line of JSON per quest in camp/quest-log.jsonl.
 // Who went, what they were asked, how it ended, which model, how long, and what it cost in tokens.
-// It's also the seed of the event stream the Guild UI will read (and where XP will come from).
+// Mission control reads it for run history, usage, and XP.
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import type { AgentResult } from "./agent.js";
 import { emit } from "./events.js";
 import { costOf, usd } from "./costs.js";
+import { currentProjectId } from "./context.js";
 
 export const QUEST_LOG_PATH = "camp/quest-log.jsonl";
 
@@ -15,6 +16,7 @@ export type QuestEntry = {
   kind: "expedition" | "quest" | "job";  // Quartermaster run, adventurer dispatch, scheduled run
   character: string;
   job?: string;
+  project?: string;                      // the project its conversation is filed under
   task: string;                          // first 200 chars of the request or brief
   result: string;                        // first 300 chars of the report or summary
   status: AgentResult["status"] | "error";
@@ -45,13 +47,15 @@ export function logQuest(
   task: string,
   started: Date,
   result: AgentResult,
-  job?: string
+  job?: string,
+  project: string | undefined = currentProjectId()
 ) {
   const entry: QuestEntry = {
     time: started.toISOString(),
     kind,
     character,
     ...(job ? { job } : {}),
+    ...(project && project !== "general" ? { project } : {}),
     task: clip(task, 200),
     result: clip(result.text, 300),
     status: result.status,

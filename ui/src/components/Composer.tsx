@@ -41,8 +41,15 @@ function mentionToken(el: HTMLTextAreaElement) {
   return { query: m[2], start: pos - m[2].length - 1, atStart: before.trimStart() === "@" + m[2] };
 }
 
-export function Composer({ S, store, refresh, patch, ref }: {
+// context: where a message goes when you haven't pressed Reply on a particular run. In a
+// conversation it follows that conversation's latest run; on a new page it can name a project.
+// folders: the linked folders that belong here (the "work in" picker shows only these).
+// newWorktree: the project starts each new conversation in its own worktree.
+export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean };
+
+export function Composer({ S, store, refresh, patch, ref, context, onSent }: {
   S: CampState | null; store: FeedStore; refresh: () => void; patch: (fn: (s: CampState) => CampState) => void; ref: Ref<ComposerHandle>;
+  context?: SendContext; onSent?: (r: SendResult) => void;
 }) {
   const [text, setText] = useState("");
   const [pending, setPending] = useState<PendingAttachment[]>([]);
@@ -54,6 +61,12 @@ export function Composer({ S, store, refresh, patch, ref }: {
   const [workChoice, setWorkChoice] = useState<WorkChoice>({});
   const [sends, setSends] = useState(0);
   const { repos, reload: reloadRepos } = useRepos(S?.links); // links added or removed: look again
+  // Moving to another project starts from that project's own default for where to work.
+  const projectKey = `${context?.project ?? ""}|${context?.newWorktree ? "new" : ""}|${(context?.folders ?? []).join(",")}`;
+  useEffect(() => {
+    setWorkChoice(context?.newWorktree ? Object.fromEntries((context.folders ?? []).filter((l) => repos.find((r) => r.link === l)?.access === "write").map((l) => [l, "new"])) : {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectKey, repos.length]);
 
   const input = useRef<HTMLTextAreaElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -248,7 +261,9 @@ export function Composer({ S, store, refresh, patch, ref }: {
     if (!message && !attachments.length) return;
     setError("");
     try {
-      const r = await api<SendResult>("/api/send", { text: message, attachments, ...(reply ? { replyTo: reply.id } : { workspaces: chosenWorkspaces(workChoice) }) });
+      const follows = reply?.id ?? context?.replyTo;
+      const r = await api<SendResult>("/api/send", { text: message, attachments, ...(follows ? { replyTo: follows } : { workspaces: chosenWorkspaces(workChoice), project: context?.project }) });
+      onSent?.(r);
       setSends((n) => n + 1); // a new worktree shows up in the picker a moment later
       setReply(null);
       setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
@@ -316,7 +331,7 @@ export function Composer({ S, store, refresh, patch, ref }: {
           onClick={() => { setMention(null); setMenu(menu ? null : "main"); }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
         </button>
-        <textarea ref={input} rows={1} placeholder="Ask the Quartermaster…" aria-label="Request for the camp" value={text}
+        <textarea ref={input} rows={1} placeholder={context?.placeholder ?? "Ask the Quartermaster…"} aria-label="Request for the camp" value={text}
           onChange={(ev) => { setText(ev.target.value); updateMention(); }} onClick={updateMention} onKeyDown={onKeyDown} onPaste={onPaste} />
         <button className="btn primary" type="submit">Send</button>
       </form>
@@ -327,7 +342,7 @@ export function Composer({ S, store, refresh, patch, ref }: {
         ))}
         {S && <span>· Enter to send, Shift+Enter for a new line</span>}
       </div>
-      <WorkIn repos={repos} choice={workChoice} setChoice={setWorkChoice} followUp={!!reply} />
+      <WorkIn repos={context?.folders ? repos.filter((r) => context.folders!.includes(r.link)) : repos} choice={workChoice} setChoice={setWorkChoice} followUp={!!reply || !!context?.replyTo} />
       {error && <div className="form-error">{error}</div>}
       <input type="file" multiple hidden ref={pickFiles} onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
       <input type="file" multiple hidden ref={pickFolder} {...{ webkitdirectory: "" }} onChange={(ev) => { if (ev.target.files) void addFolder(ev.target.files); ev.target.value = ""; }} />

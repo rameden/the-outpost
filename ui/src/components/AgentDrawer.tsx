@@ -250,8 +250,9 @@ export function About({ a }: { a: AgentDetail }) {
 }
 
 // ---------- The drawer ----------
-export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpenPicker, onClose }: {
-  agentId: string; tab: AgentTab; setTab: (t: AgentTab) => void; S: CampState | null; store: FeedStore;
+// project: the project you're in when you open the page; a new chat from here is filed under it.
+export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpenPicker, onClose, project }: {
+  agentId: string; tab: AgentTab; setTab: (t: AgentTab) => void; S: CampState | null; store: FeedStore; project?: string;
   pickerOpen: boolean; onOpenPicker: OpenPicker; onClose: () => void;
 }) {
   const [a, setA] = useState<AgentDetail | null>(null);
@@ -327,7 +328,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
     const text = draft.trim();
     if (!text || !a) return;
     try {
-      const r = await api<SendResult>("/api/send", { text: isQm ? text : `@${a.id} ${text}`, chat: !isQm });
+      const r = await api<SendResult>("/api/send", { text: isQm ? text : `@${a.id} ${text}`, chat: !isQm, project });
       setDraft((now) => (now.startsWith(draft) ? now.slice(draft.length) : now)); // keep anything typed while it was sending
       setHint("");
       dispatchLive({ type: "you", text, note: r.position > 0 ? `Queued (#${r.position}): starts when one of the running expeditions finishes` : undefined });

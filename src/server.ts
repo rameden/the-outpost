@@ -23,7 +23,7 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -43,11 +43,16 @@ import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
+import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
+import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
+import { titleConversation } from "./titles.js";
+import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal } from "./term.js";
 import { pickFolder } from "./picker.js";
-import { uiPage, uiAsset, UI_CSP, UI_NOT_BUILT } from "./ui-files.js";
+import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
 const TOKEN = randomBytes(24).toString("hex");
+const STYLE_NONCE = randomBytes(18).toString("base64url"); // for the terminal pane's style rules (see ui-files.ts)
 const BOOT_ID = randomBytes(6).toString("hex");
 const MAX_BODY = 1_000_000;
 const MAX_UPLOAD_BODY = 36_000_000; // one file per request: ~25 MB once base64-encoded
@@ -279,6 +284,7 @@ async function state() {
       questsMax: QUESTS_MAX,
       parallelMax: PARALLEL_MAX,
       selfEdit: selfEditAllowed(),
+      autoTitles: autoTitlesOn(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
     },
@@ -299,6 +305,7 @@ async function state() {
     inbox: inboxEntries(),
     snippets: loadSnippets(),
     links: loadLinks(),
+    history: history(), // your conversations, filed under projects (the sidebar)
     runtime: campRuntime(),
     login: campRuntime() === "claude-code" ? await claudeLogin() : null,
   };
@@ -341,9 +348,9 @@ const server = http.createServer(async (req, res) => {
       if (url.searchParams.get("t") !== TOKEN) {
         return send(res, 401, "Open the link printed in the terminal (it includes this launch's key).", "text/plain; charset=utf-8");
       }
-      const page = uiPage(TOKEN);
+      const page = uiPage(TOKEN, undefined, STYLE_NONCE);
       if (!page) return send(res, 503, UI_NOT_BUILT, "text/plain; charset=utf-8");
-      res.setHeader("content-security-policy", UI_CSP);
+      res.setHeader("content-security-policy", uiCsp(STYLE_NONCE));
       return send(res, 200, page, "text/html; charset=utf-8");
     }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
@@ -428,6 +435,30 @@ const server = http.createServer(async (req, res) => {
     }
 
     // What an expedition's file tools changed: the files and a unified diff.
+    // The terminal pane: your own shell sessions (term.ts). No agent has a tool that reaches these.
+    if (req.method === "GET" && url.pathname === "/api/term") return send(res, 200, { terminals: listTerminals() });
+    if (req.method === "GET" && url.pathname === "/api/term/stream") {
+      if (!streamTerminal(String(url.searchParams.get("id") ?? ""), res, (fn) => req.on("close", fn))) return send(res, 404, { error: "No such terminal" });
+      return;
+    }
+
+    // A project's page: its notes and survey, usage, worktrees, recently changed files, and jobs.
+    if (req.method === "GET" && url.pathname === "/api/project") {
+      const page = projectPage(String(url.searchParams.get("id") ?? ""));
+      if (!page) return send(res, 404, { error: "No such project" });
+      const workspaces = (await Promise.all(page.workspaces.map((w) => workspaceStatus(w).catch(() => null)))).filter((w) => w?.exists);
+      return send(res, 200, { ...page, workspaces });
+    }
+
+    // Conversations that mention the words, in their title, requests, or answers.
+    if (req.method === "GET" && url.pathname === "/api/history/search") {
+      return send(res, 200, { results: searchConversations(String(url.searchParams.get("q") ?? "")) });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/conversation") {
+      return send(res, 200, { events: conversationEvents(String(url.searchParams.get("id") ?? "")) });
+    }
+
     if (req.method === "GET" && url.pathname === "/api/checkpoint") {
       return send(res, 200, checkpointDiff(String(url.searchParams.get("id") ?? "")));
     }
@@ -467,7 +498,8 @@ const server = http.createServer(async (req, res) => {
       // to carry on its latest direct chat.
       let replyTo = typeof body.replyTo === "string" ? body.replyTo : undefined;
       if (!replyTo && body.chat && who && who.id !== "quartermaster") replyTo = latestDirect(who.id);
-      const thread = threadFor(replyTo);
+      const stillRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
+      const thread = threadFor(replyTo, stillRunning);
       if (!thread || (who && who.id !== thread.agent)) replyTo = undefined; // addressed to someone else: a fresh start
       const target = who ?? (replyTo && thread?.direct ? findCrew(thread.agent) : undefined);
       // { workspaces: { <link>: { mode: "new", branch? } | { mode: "existing", path } } }: work in a
@@ -480,11 +512,40 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) {
         return send(res, 400, { error: e.message });
       }
+      // { project: <id> }: a new conversation is filed under that project. The run sees that
+      // project's folders, plus any linked folder attached or mentioned here or earlier in the
+      // conversation, and no others.
+      const project = projectOf(replyTo ? thread?.thread : undefined, body.project);
+      const named = new Set(loadLinks().map((l) => l.name));
+      const mentioned = [...attached.map((a) => a.path ?? ""), text].flatMap((t) => [...t.matchAll(/(?:^|[\s@("'`])links\/([A-Za-z0-9_-]+)/g)].map((m) => m[1]));
+      const links = [...new Set([...(replyTo ? thread?.links ?? [] : []), ...mentioned, ...Object.keys(workspaces ?? {})])].filter((l) => named.has(l));
+      // A project can start every new conversation in its own worktree of each of its repos.
+      if (!replyTo && !workspaces && project.settings?.workIn === "worktree" && project.links?.length) {
+        try {
+          const repos = new Set((await linkedRepos()).filter((r) => r.access === "write").map((r) => r.link));
+          const chosen = Object.fromEntries(project.links.filter((l) => repos.has(l)).map((l) => [l, { mode: "new" as const }]));
+          if (Object.keys(chosen).length) workspaces = await prepareWorkspaces(chosen, direct ? direct[2] ?? text : text, randomUUID());
+        } catch (e: any) {
+          return send(res, 400, { error: `Couldn't set up this project's worktree: ${e.message}` });
+        }
+      }
+      const where = { project: project.id, links };
+      const isNew = !replyTo;
       const w = target && target.id !== "quartermaster"
-        ? enqueue({ label: `@${target.id}`, run: (signal, id, steering) => runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering }) })
-        : enqueue({ label: "expedition", run: (signal, id, steering) => runExpedition(content, { attached, signal, id, replyTo, workspaces, steering }) });
+        ? enqueue({ label: `@${target.id}`, run: async (signal, id, steering) => {
+            const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering, stillRunning, ...where });
+            if (isNew && r) void titleConversation(id, text, r.text);
+            return r;
+          } })
+        : enqueue({ label: "expedition", run: async (signal, id, steering) => {
+            const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces, steering, stillRunning, ...where });
+            if (isNew) void titleConversation(id, text, r.text);
+            return r;
+          } });
       const position = queue.indexOf(w) + 1; // 0: it started right away
-      return send(res, 200, { ok: true, id: w.id, position, attached: attached.length });
+      const conversation = replyTo && thread ? thread.thread : w.id; // a new conversation is named after its first run
+      if (isNew) fileConversation(conversation, project.id);
+      return send(res, 200, { ok: true, id: w.id, position, attached: attached.length, thread: conversation });
     }
 
     // Pick an agent's model and effort. { id, model, effort } sets them; { id, reset: true } goes back to defaults.
@@ -533,6 +594,39 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Link a folder on your disk ({ path, access: "read" | "write" }) instead of uploading it.
+    // History: projects and conversations ({ action, ... }).
+    if (url.pathname === "/api/history") {
+      const id = String(body.id ?? "");
+      // { folders: [{ path, access }] }: link those folders first, and add them to the project's own.
+      let links: unknown = body.links;
+      const saving = body.action === "project.add" || body.action === "project.update";
+      if (saving && Array.isArray(body.folders) && body.folders.length) {
+        try {
+          const added = body.folders.map((f: any) => addLink(String(f?.path ?? ""), f?.access === "write" ? "write" : "read", CAMP_ROOT).name);
+          links = [...(Array.isArray(body.links) ? body.links : []), ...added];
+          emit({ type: "changed", what: "links" });
+        } catch (e: any) {
+          return send(res, 400, { error: e.message });
+        }
+      }
+      const details = { name: body.name, description: body.description, links, pins: body.pins, pinned: body.pinned, settings: body.settings };
+      let project: string | undefined;
+      const done =
+        body.action === "project.add" ? !!(project = addProject(details).id)
+        : body.action === "project.update" ? updateProject(id, details)
+        : body.action === "project.pin" ? updateProject(id, { pinned: !!body.pinned })
+        : body.action === "project.notes" ? (id !== GENERAL && !!getProject(id) ? (setProjectNotes(id, String(body.notes ?? "")), true) : false)
+        : body.action === "project.brief" ? (id !== GENERAL && !!getProject(id) ? (setProjectBrief(id, String(body.brief ?? "")), true) : false)
+        : body.action === "project.rename" ? renameProject(id, body.name)
+        : body.action === "project.remove" ? removeProject(id)
+        : body.action === "conversation.rename" ? (renameConversation(id, body.title), true)
+        : body.action === "conversation.move" ? moveConversation(id, String(body.project ?? ""))
+        : body.action === "conversation.remove" ? (running.has(id) ? false : (removeConversation(id), true))
+        : null;
+      if (done === null) return send(res, 400, { error: "Unknown action" });
+      return send(res, done ? 200 : 404, done ? { ok: true, history: history(), project } : { error: "That didn't work: it may be gone already, or still running." });
+    }
+
     if (url.pathname === "/api/links") {
       try {
         const link = addLink(String(body.path ?? ""), body.access === "write" ? "write" : "read", CAMP_ROOT);
@@ -610,6 +704,31 @@ const server = http.createServer(async (req, res) => {
       if (!Number.isInteger(n) || n < 1 || n > QUESTS_MAX) return send(res, 400, { error: `Pick a number from 1 to ${QUESTS_MAX}` });
       setQuestLimit(n);
       return send(res, 200, { ok: true, questsAtOnce: questLimit() });
+    }
+
+    if (url.pathname === "/api/term/open") {
+      try { return send(res, 200, openTerminal({ project: typeof body.project === "string" ? body.project : undefined, cols: body.cols, rows: body.rows })); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+    if (url.pathname === "/api/term/input") return send(res, writeTerminal(String(body.id), body.data) ? 200 : 404, { ok: true });
+    if (url.pathname === "/api/term/resize") return send(res, resizeTerminal(String(body.id), body.cols, body.rows) ? 200 : 404, { ok: true });
+    if (url.pathname === "/api/term/close") return send(res, closeTerminal(String(body.id)) ? 200 : 404, { ok: true });
+
+    // Name new conversations with the smallest model ({ on }).
+    if (url.pathname === "/api/auto-titles") {
+      setAutoTitles(!!body.on);
+      return send(res, 200, { ok: true, autoTitles: autoTitlesOn() });
+    }
+
+    // Survey a project's folders ({ id }): the Scout reads through them and saves a brief to the project.
+    if (url.pathname === "/api/project/survey") {
+      const p = getProject(String(body.id ?? ""));
+      if (!p || !p.links?.length) return send(res, 400, { error: "Give the project a folder first: there's nothing to survey." });
+      const request = surveyRequest(p);
+      const w = enqueue({ label: "@scout", run: (signal, id, steering) => runDirect("scout", request, "direct", undefined, signal, id, undefined, { steering, project: p.id, links: [] }) });
+      fileConversation(w.id, p.id);
+      renameConversation(w.id, `Survey of ${p.name}`);
+      return send(res, 200, { ok: true, id: w.id, thread: w.id, position: queue.indexOf(w) + 1 });
     }
 
     // Let agents edit the camp's own source ({ on }).

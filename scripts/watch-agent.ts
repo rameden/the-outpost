@@ -2,7 +2,7 @@
 //   npm run watch:install     install and start it (checks for due jobs every minute)
 //   npm run watch:uninstall   stop and remove it
 //
-// It adds a launchd agent for your user (~/Library/LaunchAgents/camp.guild.watch.plist) that runs
+// It adds a launchd agent for your user (~/Library/LaunchAgents/app.satchel.watch.plist) that runs
 // `npm run watch -- --once` in this folder. Output goes to camp/watch.log. If mission control or
 // `npm run watch` is open, the background run stands by (they share camp/scheduler.lock).
 // Jobs use your Claude login, so Claude Code needs to be signed in for your user.
@@ -13,7 +13,9 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const LABEL = "camp.guild.watch";
+const LABEL = "app.satchel.watch";
+// What earlier versions installed, under the app's old name: replaced on install, removed on uninstall.
+const OLD_PLISTS = ["camp.guild.watch"].map((l) => join(homedir(), "Library", "LaunchAgents", `${l}.plist`));
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PLIST = join(homedir(), "Library", "LaunchAgents", `${LABEL}.plist`);
 const domain = `gui/${process.getuid?.() ?? 501}`;
@@ -45,6 +47,7 @@ function install() {
 </dict>
 </plist>
 `);
+  for (const old of OLD_PLISTS) if (existsSync(old)) { launchctl("bootout", domain, old); rmSync(old, { force: true }); }
   launchctl("bootout", domain, PLIST); // replace an earlier install
   if (!launchctl("bootstrap", domain, PLIST)) {
     console.log(`Wrote ${PLIST}, but couldn't start it. Try: launchctl bootstrap ${domain} ${sh(PLIST)}`);
@@ -54,9 +57,9 @@ function install() {
 }
 
 function uninstall() {
-  if (!existsSync(PLIST)) return console.log("The background watcher isn't installed.");
-  launchctl("bootout", domain, PLIST);
-  rmSync(PLIST, { force: true });
+  const installed = [PLIST, ...OLD_PLISTS].filter((p) => existsSync(p));
+  if (!installed.length) return console.log("The background watcher isn't installed.");
+  for (const p of installed) { launchctl("bootout", domain, p); rmSync(p, { force: true }); }
   console.log("Removed the background watcher. Jobs run only while mission control or `npm run watch` is open.");
 }
 

@@ -19,6 +19,7 @@ export async function api<T = unknown>(path: string, body?: unknown): Promise<T>
 // Links the browser fetches by itself (images, the event stream) carry the token in the address.
 const withToken = (url: string) => `${url}${url.includes("?") ? "&" : "?"}t=${encodeURIComponent(TOKEN)}`;
 export const eventsUrl = () => withToken("/events");
+export const termStreamUrl = (id: string) => withToken(`/api/term/stream?id=${encodeURIComponent(id)}`);
 export const thumbUrl = (path: string) => withToken(`/api/upload?path=${encodeURIComponent(path)}`);
 export const outputUrl = (id: string, path: string) => withToken(`/api/agent/output?id=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`);
 

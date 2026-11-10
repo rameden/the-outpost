@@ -15,6 +15,13 @@ export const UI_DIST = join(fileURLToPath(new URL("..", import.meta.url)), "ui",
 export const UI_CSP =
   "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
+// The same policy, plus one exception for styles: a <style> element carrying this launch's
+// nonce. The terminal pane needs it (xterm.js writes its colours and cell sizes into style
+// elements it creates); the page's own script gives those elements the nonce. Inline styles
+// without it, and all inline scripts, stay blocked.
+export const uiCsp = (styleNonce: string) =>
+  /^[A-Za-z0-9+/=_-]{16,}$/.test(styleNonce) ? UI_CSP.replace("style-src 'self'", `style-src 'self' 'nonce-${styleNonce}'`) : UI_CSP;
+
 export const UI_NOT_BUILT = "Mission control's page hasn't been built yet. Start it with `npm run ui` (which builds it first), or run `npm run ui:build`.";
 
 const ASSET_TYPES: Record<string, string> = {
@@ -28,11 +35,12 @@ const ASSET_TYPES: Record<string, string> = {
 };
 
 // The page with this launch's token filled in, or null when ui/dist hasn't been built.
-export function uiPage(token: string, dist = UI_DIST): string | null {
+export function uiPage(token: string, dist = UI_DIST, styleNonce = ""): string | null {
   const file = join(dist, "index.html");
   if (!existsSync(file)) return null;
   return readFileSync(file, "utf8")
     .replace("__CAMP_TOKEN__", token)
+    .replace("__CAMP_NONCE__", styleNonce)
     .replace(/\b(src|href)="(\/assets\/[^"?#]+)"/g, (_m, attr, path) => `${attr}="${path}?t=${token}"`);
 }
 

@@ -58,19 +58,20 @@ function toggleTheme() {
   storeSet("camp-theme", root.dataset.theme);
 }
 
-export function Header({ S, store, conn, refresh, onOpenSettings }: {
+export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, onToggleTerminal }: {
   S: CampState | null; store: FeedStore; conn: Connection; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
+  terminalOpen?: boolean; onToggleTerminal?: () => void;
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
   const queued = S?.queued?.length ?? 0;
   const sub = S?.runtime === "claude-code";
 
-  useEffect(() => { document.title = asks.length ? `(${asks.length}) Guild Camp` : "Guild Camp"; }, [asks.length]);
+  useEffect(() => { document.title = asks.length ? `(${asks.length}) Satchel` : "Satchel"; }, [asks.length]);
 
   return (
     <header className="top">
-      <div className="brand"><h1>⛺ Guild Camp</h1><span>Mission control</span></div>
+      <div className="brand"><h1>🎒 Satchel</h1><span>Mission control</span></div>
       <div className="top-right">
         {asks.length > 0 && (
           <button className="chip needs" type="button" onClick={() => document.getElementById(`ask-${asks[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
@@ -96,6 +97,10 @@ export function Header({ S, store, conn, refresh, onOpenSettings }: {
           <span>{conn === "live" ? "Live" : conn === "reconnecting" ? "Reconnecting…" : "Connecting…"}</span>
         </span>
         <Bell />
+        {onToggleTerminal && (
+          <button className={cx("icon-btn", terminalOpen && "on")} type="button" aria-pressed={!!terminalOpen} aria-label={terminalOpen ? "Hide the terminal" : "Show the terminal"}
+            title={`${terminalOpen ? "Hide" : "Show"} the terminal (Ctrl+\`)`} onClick={onToggleTerminal}>&gt;_</button>
+        )}
         <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}>◐</button>
         {onOpenSettings && (
           <button className="icon-btn" type="button" title="Settings" aria-label="Settings" onClick={() => onOpenSettings()}>

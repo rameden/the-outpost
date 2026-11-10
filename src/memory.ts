@@ -74,7 +74,8 @@ export function rememberTool(id: CrewId): Tool {
       description:
         `Save something to YOUR memory (${me.name}) so future sessions start with it. Only keep what ` +
         `helps you in your role (${me.handles}): user preferences for your kind of work, lessons, ` +
-        `recurring facts. Things for another role belong to that teammate; shared findings belong ` +
+        `recurring facts. Things that are only true of one project go in that project's notes (project_remember). ` +
+        `Things for another role belong to that teammate; shared findings belong ` +
         `in the wiki. Your name, role, and personality are fixed: never record changes to them. ` +
         `'append' adds one dated line (default). 'rewrite' replaces the whole memory: use it to ` +
         `tidy up, and keep everything still true.`,
