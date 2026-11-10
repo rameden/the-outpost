@@ -46,7 +46,7 @@ function events(store: ReturnType<typeof createFeedStore>, ...bodies: object[]) 
 test("the busy chip counts running expeditions and what's queued, and the title counts decisions", () => {
   const store = createFeedStore();
   const S = { ...camp(), queued: [{ id: "q", label: "expedition" }] } as CampState;
-  render(<Header S={S} store={store} conn="live" refresh={() => {}} onShowLimits={() => {}} />);
+  render(<Header S={S} store={store} conn="live" refresh={() => {}} />);
   expect(screen.getByText("Idle · 1 queued")).toBeTruthy();
   expect(screen.getByText("$1.50 today")).toBeTruthy();
   expect(screen.getByText("Live")).toBeTruthy();
@@ -68,7 +68,7 @@ test("the busy chip counts running expeditions and what's queued, and the title 
 
 test("the runtime chip switches what runs the crew, after you confirm", async () => {
   const refresh = vi.fn();
-  render(<Header S={onSubscription()} store={createFeedStore()} conn="live" refresh={refresh} onShowLimits={() => {}} />);
+  render(<Header S={onSubscription()} store={createFeedStore()} conn="live" refresh={refresh} />);
   expect(screen.getByText("$1.50 today (est.)")).toBeTruthy();
   expect(screen.getByRole("button", { name: /Plan limit · resets in 30 min/ })).toBeTruthy();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Claude Max" })); });
@@ -80,30 +80,27 @@ test("the runtime chip switches what runs the crew, after you confirm", async ()
 test("a sign-in problem is shown instead of switching", () => {
   vi.stubGlobal("alert", vi.fn());
   const S = camp({ runtime: "claude-code", login: { ok: false, problem: "Claude Code isn't signed in." } });
-  render(<Header S={S} store={createFeedStore()} conn="reconnecting" refresh={() => {}} onShowLimits={() => {}} />);
+  render(<Header S={S} store={createFeedStore()} conn="reconnecting" refresh={() => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "⚠️ Claude Code sign-in" }));
   expect(alert).toHaveBeenCalledWith("Claude Code isn't signed in.");
   expect(posts).toEqual([]);
   expect(screen.getByText("Reconnecting…")).toBeTruthy();
 });
 
-test("Quests shows plan usage, the pause, the budget, and how many run at once", async () => {
+test("Quests shows plan usage and the pause, and sends you to Settings for the budget", async () => {
   const refresh = vi.fn();
-  const { container } = render(<Quests S={onSubscription()} refresh={refresh} />);
+  const openSettings = vi.fn();
+  const { container } = render(<Quests S={onSubscription()} refresh={refresh} onOpenSettings={openSettings} />);
   expect(screen.getByText("5-hour window")).toBeTruthy();
   expect(screen.getByText("used up · resets in 30 min")).toBeTruthy();
   expect(screen.getByText("42% used")).toBeTruthy();
   expect(container.querySelector(".meter.full")).toBeTruthy();
   expect(screen.getByText(/Your plan's 5-hour window is used up\. Queued work and scheduled jobs wait/)).toBeTruthy();
+  expect(screen.getByText("No budget · up to 3 at once")).toBeTruthy();
 
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Try anyway" })); });
-  await act(async () => { fireEvent.change(screen.getByLabelText("Expeditions at once"), { target: { value: "5" } }); });
-  fireEvent.change(container.querySelector(".budget-input")!, { target: { value: "2.5" } });
-  await act(async () => { fireEvent.submit(container.querySelector(".budget-form")!); });
-  expect(posts).toEqual([
-    { path: "/api/limits/resume", body: {} },
-    { path: "/api/parallel", body: { parallel: 5 } },
-    { path: "/api/budget", body: { usd: 2.5 } },
-  ]);
-  expect(refresh).toHaveBeenCalledTimes(3);
+  fireEvent.click(screen.getByRole("button", { name: "Change limits" }));
+  expect(posts).toEqual([{ path: "/api/limits/resume", body: {} }]);
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(openSettings).toHaveBeenCalled();
 });
