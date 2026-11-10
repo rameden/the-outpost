@@ -10,6 +10,8 @@ import { Composer, type ComposerHandle, type SendContext } from "./components/Co
 import { History } from "./components/History.tsx";
 import { TerminalPanel } from "./components/Terminal.tsx";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
+import { CrewDialog } from "./components/CrewDialog.tsx";
+import { setCrewColors } from "./format.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { api, errorText } from "./api.ts";
 import type { History as HistoryData, Project } from "./types.ts";
@@ -95,6 +97,12 @@ export function App({ store }: { store: FeedStore }) {
     return () => removeEventListener("keydown", onKey, true);
   }, [toggleTerminal]);
 
+  // The crew dialog: a new crew member (the + at the end of the crew bar), or one you added being edited.
+  const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
+  const closeCrewDialog = useCallback(() => setCrewDialog(null), []);
+  // Colours of crew members you added, for their cards and messages anywhere on the page.
+  useMemo(() => setCrewColors(S?.characters ?? []), [S?.characters]);
+
   // The project dialog: a new project, or one being edited.
   const [dialog, setDialog] = useState<{ project: Project | null } | null>(null);
   const closeDialog = useCallback(() => setDialog(null), []);
@@ -129,7 +137,8 @@ export function App({ store }: { store: FeedStore }) {
     <>
       <div className="app">
         <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} terminalOpen={terminal} onToggleTerminal={toggleTerminal} />
-        <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} />
+        <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker}
+          onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
         <History S={S} store={store} view={view} setView={setView} patch={patch}
           onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
         <main className="mission">
@@ -165,6 +174,7 @@ export function App({ store }: { store: FeedStore }) {
       {settings && (
         <Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} />
       )}
+      {crewDialog && <CrewDialog key={crewDialog.member?.id ?? "new"} member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />}
       {dialog && <ProjectDialog key={dialog.project?.id ?? "new"} S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />}
       {picker && picking && S && (
         <ModelPicker key={picker.id} c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />

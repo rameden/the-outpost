@@ -50,6 +50,7 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 - **History, down the left:** every conversation you've had with the camp, filed under projects. **New conversation** gives you a clean page, so unrelated work stays out of each other's context; opening a conversation shows only that one, and what you send there continues it with everything said so far. **All activity** shows everything at once, scheduled jobs included. A dot marks a conversation with something running, and a number marks decisions waiting on you. Each project lists its newest five conversations, with **View all** for the rest. **Search** looks through titles and through what was asked and answered. The **⋯** menu on a conversation renames it, moves it to another project, or removes it from the list (its record stays in the camp folder).
 - **Projects:** see [Projects](#projects) below.
 - **Terminal, along the bottom:** your own shell on this machine, in the page. Show or hide it with the **>_** button in the header or Ctrl+`; drag its top edge to resize it. Tabs are separate sessions, and a new one starts in the folder of the project you're in. Sessions belong to the camp server, so hiding the pane or reloading the page doesn't end them; they end when you close the tab, exit the shell, or stop the camp. The terminal is yours alone: no crew member can see or type into it, and nothing from it goes into the camp's feed.
+- **Add to the crew:** the **+** at the end of the crew bar adds a crew member of your own (see [Adding a crew member](#adding-a-crew-member)).
 - **Crew cards, across the top:** live status for each agent, XP, and a picker to change its model, effort level, and turn limit (how many replies one run may take; the Artificer gets 60, others 20 or 30).
 - **Live feed:** replies stream in as they're written, and each quest gets its own block (parallel quests run side by side in the feed).
 - **Approvals as buttons:** plans, shell commands, new scheduled jobs, and connector tools that make changes.
@@ -180,6 +181,7 @@ Everything in `camp/` is local to you and gitignored:
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
 | `camp/feed.jsonl` · `camp/threads.jsonl` · `camp/checkpoints/` | The saved feed, conversations for follow-ups, and the originals of changed files (newest 60 expeditions) |
+| `camp/crew.json` | Crew members you added: who they are, how they work, and what they can do |
 | `camp/conversations.json` · `camp/projects/<id>/` | Your projects (folders, description, pinned references, defaults) and the titles and filing you've changed; each project's survey and the crew's notes about it |
 | `camp/limits.json` · `camp/scheduler.lock` | Your plan's last reported usage windows; which process is running jobs |
 
@@ -198,6 +200,15 @@ npm run eval        # 8 standard tasks against the real API (spends tokens; capp
 
 ## Adding a crew member
 
-1. Add an identity in `src/crew.ts`: name, role, personality, what it handles, what isn't its job.
-2. Add a roster entry in `src/roster.ts` with its tools and default model.
-3. Create `skills/<id>/` for its skills.
+**From mission control:** the **+** at the end of the crew bar opens a dialog for a new crew member: an icon, a name, a handle (what you type after `@`), a colour, one line on what they're for, and how they work. Then tick what they can do:
+
+- search the web and fetch pages;
+- write files (not at all, only in their own outputs folder, or in projects too);
+- run shell commands (they ask you first, like the Artificer);
+- save findings to the camp wiki's notes.
+
+Everyone can read and search files and keeps their own memory. The Quartermaster can send a new crew member straight away, and you can message them with `@handle`. Their model, effort, and turn limit are set from their card, like anyone's. The pencil on their card edits or removes them; removing leaves their memory and files in `camp/agents/<handle>/`. The dialog warns when a crew member both reads the web and can change things, since a page they read could try to talk them into a change you didn't ask for.
+
+Crew members you add live in `camp/crew.json` (up to 12). The terminal camp and the watcher pick them up when they start.
+
+**In code:** the four the camp starts with are defined in `src/crew.ts` (who they are) and `src/roster.ts` (their tools and default model), with skills in `skills/<id>/`. They can't be changed or removed from the page.

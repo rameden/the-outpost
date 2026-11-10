@@ -8,8 +8,10 @@ import type { CampState, Character } from "../types.ts";
 
 export type OpenPicker = (c: Character, anchor: HTMLElement) => void;
 
-export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker }: {
+// onAdd / onEdit: the + card at the end opens the crew dialog; so does the pencil on a crew member you added.
+export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, onEdit }: {
   S: CampState | null; store: FeedStore; pickerFor: string | null; onOpenAgent: (id: string) => void; onOpenPicker: OpenPicker;
+  onAdd?: () => void; onEdit?: (c: Character) => void;
 }) {
   const crew = useFeed(store, (s) => s.crew);
   return (
@@ -27,6 +29,10 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker }: {
             <div className="member-main">
               <div className="member-name">
                 <span>{c.name}</span>
+                {c.custom && onEdit && (
+                  <button type="button" className="member-edit" aria-label={`Edit ${c.name}`} title={`Edit ${c.name}`}
+                    onClick={(ev) => { ev.stopPropagation(); onEdit(c); }}>✎</button>
+                )}
                 <span className="member-level" title={`${xp} XP`}>Lv {Math.floor(xp / 50) + 1}</span>
               </div>
               <button type="button" className={cx("kit-btn", c.overridden && "custom")} title={c.overridden ? "Custom model (click to change)" : "Change model"}
@@ -39,6 +45,9 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker }: {
           </div>
         );
       })}
+      {S && onAdd && (
+        <button type="button" className="member-add" aria-label="Add a crew member" title="Add a crew member" onClick={onAdd}>＋</button>
+      )}
     </section>
   );
 }

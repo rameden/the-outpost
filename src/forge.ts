@@ -11,7 +11,8 @@ import { emit } from "./events.js";
 
 const SKILLS_DIR = "skills";
 const PENDING_DIR = join(SKILLS_DIR, "_pending");
-const OWNERS = ["shared", "quartermaster", ...Object.keys(ROSTER)];
+// Who a skill can belong to, as of now (crew members can be added while the camp runs).
+const owners = () => ["shared", "quartermaster", ...Object.keys(ROSTER)];
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const livePath = (owner: string, name: string) => join(SKILLS_DIR, owner, name, "SKILL.md");
@@ -24,7 +25,7 @@ function frontmatter(text: string, key: string): string {
 // Every live skill in camp, so the Quartermaster can avoid proposing duplicates.
 export function skillCatalog(): string {
   const lines: string[] = [];
-  for (const owner of OWNERS) {
+  for (const owner of owners()) {
     const dir = join(SKILLS_DIR, owner);
     if (!existsSync(dir)) continue;
     for (const name of readdirSync(dir)) {
@@ -37,7 +38,8 @@ export function skillCatalog(): string {
 }
 
 export const proposeSkill: Tool = {
-  def: {
+  // Built each time it's asked for, so the list of owners includes crew members added since start.
+  get def(): Tool["def"] { return {
     name: "propose_skill",
     description:
       "Propose a new skill (or a replacement for an existing one) for a character. It does NOT go " +
@@ -49,7 +51,7 @@ export const proposeSkill: Tool = {
       properties: {
         owner: {
           type: "string",
-          enum: OWNERS,
+          enum: owners(),
           description: "Who gets it: an adventurer id, 'quartermaster', or 'shared' for everyone.",
         },
         name: { type: "string", description: "kebab-case, e.g. 'research-brief'" },
@@ -62,9 +64,9 @@ export const proposeSkill: Tool = {
       },
       required: ["owner", "name", "description", "instructions", "reason"],
     },
-  },
+  }; },
   run: async ({ owner, name, description, instructions, reason }) => {
-    if (!OWNERS.includes(owner)) return `Unknown owner '${owner}'. Use one of: ${OWNERS.join(", ")}.`;
+    if (!owners().includes(owner)) return `Unknown owner '${owner}'. Use one of: ${owners().join(", ")}.`;
     if (!NAME_RE.test(name)) return `Skill names must be kebab-case (got '${name}').`;
     const desc = String(description).replace(/\s+/g, " ").trim();
     const why = String(reason).replace(/\s+/g, " ").trim();
@@ -88,7 +90,7 @@ export function pendingSkills(): Pending[] {
   const out: Pending[] = [];
   for (const owner of readdirSync(PENDING_DIR)) {
     const ownerDir = join(PENDING_DIR, owner);
-    if (!existsSync(ownerDir) || !OWNERS.includes(owner)) continue;
+    if (!existsSync(ownerDir) || !owners().includes(owner)) continue;
     for (const name of readdirSync(ownerDir)) {
       const path = pendingPath(owner, name);
       if (existsSync(path)) out.push({ owner, name, path });

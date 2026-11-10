@@ -296,7 +296,7 @@ export const sandboxOn = () => approvalNow() === "sandbox" && sandboxAvailable()
 const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network, and writes only inside this project. If that is why it failed " +
   "(an install, a download, a push), call bash again with unsandboxed: true and the user will be asked.]";
 
-export function bashFor(self: string): Tool {
+export function bashFor(self: string, name = "Artificer"): Tool {
   return {
     def: {
       name: "bash",
@@ -330,7 +330,7 @@ export function bashFor(self: string): Tool {
         return "Not run: this is a scheduled job with nobody here to approve that command. " +
           "Only simple read-only commands (ls, git status, git diff…) run unattended. Report what you would have run.";
       }
-      const ok = (await ask({ kind: "shell", title: "⚔️  The Artificer wants to run a shell command:", body: command + where })).toLowerCase();
+      const ok = (await ask({ kind: "shell", title: `⚔️  The ${name} wants to run a shell command:`, body: command + where })).toLowerCase();
       // "always": run it, and stop asking about this exact command.
       if (ok === "a" || ok === "always") allowShellCommand(String(command));
       else if (ok !== "y") return "The user declined to run this command.";
