@@ -1,7 +1,12 @@
-// The crew, as a bar across the top: one compact card each, with what they're doing right now,
-// their level, and their model. Click a card for that agent's page; click the model line to
-// change model, effort, or turns.
+// The crew, as a bar: by default a slim strip with each agent's icon, name, and a dot (plus what
+// they're doing, while they're doing it). The chevron at the end opens it up into cards that
+// also show each one's level and model; your choice is remembered. Click an agent for its page;
+// on a card, click the model line to change model, effort, or turns.
 
+import { useRef, useState } from "react";
+import { storeGet, storeSet } from "../api.ts";
+import { glide } from "../motion.tsx";
+import { Icon } from "./bits.tsx";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, shortModel } from "../format.ts";
 import type { CampState, Character } from "../types.ts";
@@ -14,15 +19,26 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
   onAdd?: () => void; onEdit?: (c: Character) => void;
 }) {
   const crew = useFeed(store, (s) => s.crew);
+  const [slim, setSlim] = useState(() => storeGet("camp-crew") !== "cards");
+  const bar = useRef<HTMLElement>(null);
+  // Opening the bar up (or folding it down) moves everything after it: those glide to their new
+  // places, and the bar's own contents fade up.
+  const toggle = () => {
+    const zone = bar.current?.closest<HTMLElement>(".zone");
+    const after: HTMLElement[] = [];
+    for (let el = zone?.nextElementSibling; el; el = el.nextElementSibling) after.push(el as HTMLElement);
+    glide(() => setSlim((on) => { storeSet("camp-crew", on ? "cards" : "slim"); return !on; }), after, { within: zone?.parentElement, fresh: bar.current });
+  };
   return (
-    <section className="crew" aria-label="The crew">
+    <section className={cx("crew", slim && "slim")} aria-label="The crew" ref={bar}>
       {S?.characters.map((c) => {
         const st = crew[c.name] ?? { status: "idle", line: "" };
         const xp = S.xp[c.name] ?? 0;
         const statusText = st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : "At camp");
         return (
           <div key={c.id} className={cx("member", cClass(c.name), st.status !== "idle" && st.status)} role="button" tabIndex={0}
-            title={`${c.role}\n${c.personality ?? ""}\nClick to open ${c.name}'s page.`} aria-label={`Open ${c.name}'s page`}
+            title={slim ? `${c.name}: ${statusText}\n${shortModel(c.model)} · ${c.effort} · Lv ${Math.floor(xp / 50) + 1}\n${c.role}\nClick to open ${c.name}'s page.`
+              : `${c.role}\n${c.personality ?? ""}\nClick to open ${c.name}'s page.`} aria-label={`Open ${c.name}'s page`}
             onClick={() => onOpenAgent(c.id)}
             onKeyDown={(ev) => { if ((ev.key === "Enter" || ev.key === " ") && ev.target === ev.currentTarget) { ev.preventDefault(); onOpenAgent(c.id); } }}>
             <div className="avatar" aria-hidden="true">{c.emoji}</div>
@@ -47,6 +63,12 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
       })}
       {S && onAdd && (
         <button type="button" className="member-add" aria-label="Add a crew member" title="Add a crew member" onClick={onAdd}>＋</button>
+      )}
+      {S && (
+        <button type="button" className="hist-icon crew-toggle" aria-expanded={!slim} aria-label={slim ? "Show more about the crew" : "Show less about the crew"}
+          title={slim ? "Open the crew up into cards: level, model, and what each is doing" : "Fold the crew down to a slim strip"} onClick={toggle}>
+          <Icon name={slim ? "chevron" : "chevronUp"} />
+        </button>
       )}
     </section>
   );

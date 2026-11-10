@@ -7,12 +7,13 @@ import { storeGet, storeSet } from "./api.ts";
 import { useCampEvents, useCampState } from "./camp.ts";
 import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
 import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
-import { History } from "./components/History.tsx";
-import { TerminalPanel } from "./components/Terminal.tsx";
+import { History, HistoryRail } from "./components/History.tsx";
+import { TerminalPanel, TerminalRail } from "./components/Terminal.tsx";
 import { FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
 import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
-import { loadLayout, placed, saveLayout, type Layout, type Part } from "./layout.ts";
+import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
+import { Presence } from "./motion.tsx";
 import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
@@ -125,14 +126,35 @@ export function App({ store }: { store: FeedStore }) {
   const running = useFeed(store, runningCount);
   const onMention = useCallback((path: string) => composer.current?.mention(path), []);
 
+  // History closes to a tab too (remembered).
+  const [historyOpen, setHistoryOpen] = useState(() => storeGet("camp-history-open") !== "0");
+  const toggleHistory = useCallback(() => setHistoryOpen((on) => { storeSet("camp-history-open", on ? "0" : "1"); return !on; }), []);
+
   // The page's layout: zones you arrange in the layout editor (remembered in this browser).
   const [layout, setLayoutState] = useState<Layout>(loadLayout);
   const setLayout = useCallback((next: Layout) => { setLayoutState(next); saveLayout(next); }, []);
   const [layoutEditor, setLayoutEditor] = useState<{ select?: string } | null>(null);
   const closeLayoutEditor = useCallback(() => setLayoutEditor(null), []);
-  // Files has nothing to show without a folder, and closes to a tab; the terminal switches off.
+  // History, Files and the terminal each close to a slim tab; Files has nothing to show without a folder.
   const stateOf = (part: Part | null): ZoneState =>
-    part === "terminal" ? (terminal ? "shown" : "hidden") : part === "files" ? (!hasFiles ? "hidden" : files ? "shown" : "collapsed") : "shown";
+    part === "terminal" ? (terminal ? "shown" : "collapsed") : part === "history" ? (historyOpen ? "shown" : "collapsed")
+    : part === "files" ? (!hasFiles ? "hidden" : files ? "shown" : "collapsed") : "shown";
+
+  // Focus mode: close whichever of those panels are open, leaving the conversation. Leaving
+  // focus brings back the ones it closed (remembered, so it survives a reload).
+  const openNow = PANELS.filter((p) => placed(layout, p) && stateOf(p) === "shown");
+  const focused = openNow.length === 0;
+  const toggleFocus = () => {
+    const set = (part: Panel, on: boolean) => {
+      if (part === "history") { setHistoryOpen(on); storeSet("camp-history-open", on ? "1" : "0"); }
+      if (part === "files") { setFiles(on); storeSet("camp-files-open-pane", on ? "1" : "0"); }
+      if (part === "terminal") { setTerminal(on); storeSet("camp-term-open", on ? "1" : "0"); }
+    };
+    const plan = focusPlan(openNow, storeGet("camp-focus-closed"));
+    if (plan.close.length) storeSet("camp-focus-closed", plan.close.join(","));
+    for (const p of plan.close) set(p, false);
+    for (const p of plan.reopen) set(p, true);
+  };
 
   // The crew dialog: a new crew member (the + at the end of the crew bar), or one you added being edited.
   const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
@@ -173,17 +195,17 @@ export function App({ store }: { store: FeedStore }) {
   return (
     <>
       <div className="app">
-        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} terminalOpen={terminal} onToggleTerminal={placed(layout, "terminal") ? toggleTerminal : undefined}
+        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={toggleFocus}
           filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={() => setLayoutEditor({})} />
-        <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)}>
+        <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
             switch (zone.part) {
               case "roster": return (
                 <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker}
                   onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
               );
-              case "history": return (
-                <History S={S} store={store} view={view} setView={setView} patch={patch}
+              case "history": return state === "collapsed" ? <HistoryRail onShow={toggleHistory} /> : (
+                <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory}
                   onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
               );
               case "chat": return (
@@ -215,7 +237,9 @@ export function App({ store }: { store: FeedStore }) {
               case "files": return state === "collapsed"
                 ? <FilesRail onShow={toggleFiles} />
                 : <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />;
-              case "terminal": return <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} />;
+              case "terminal": return state === "collapsed"
+                ? <TerminalRail onShow={toggleTerminal} />
+                : <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} />;
               default: return (
                 <div className="zone-empty">
                   <b>Empty zone</b>
@@ -226,16 +250,16 @@ export function App({ store }: { store: FeedStore }) {
           }}
         </LayoutFrame>
       </div>
-      {agentId && (
+      <Presence>{agentId && (
         <AgentDrawer key={agentId} agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store} project={project?.id}
           pickerOpen={!!picker} onOpenPicker={openPicker} onClose={closeAgent} />
-      )}
-      {settings && (
+      )}</Presence>
+      <Presence>{settings && (
         <Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} />
-      )}
-      {layoutEditor && <LayoutEditor layout={layout} onChange={setLayout} onClose={closeLayoutEditor} select={layoutEditor.select} />}
-      {crewDialog && <CrewDialog key={crewDialog.member?.id ?? "new"} member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />}
-      {dialog && <ProjectDialog key={dialog.project?.id ?? "new"} S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />}
+      )}</Presence>
+      <Presence>{layoutEditor && <LayoutEditor layout={layout} onChange={setLayout} onClose={closeLayoutEditor} select={layoutEditor.select} />}</Presence>
+      <Presence>{crewDialog && <CrewDialog key={crewDialog.member?.id ?? "new"} member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />}</Presence>
+      <Presence>{dialog && <ProjectDialog key={dialog.project?.id ?? "new"} S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />}</Presence>
       {picker && picking && S && (
         <ModelPicker key={picker.id} c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />
       )}

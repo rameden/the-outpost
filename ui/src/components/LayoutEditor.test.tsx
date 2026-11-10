@@ -32,7 +32,22 @@ test("the page is drawn from the layout: each zone in its place, with its size",
   expect(zone(container, "chat").style.flex).toBe("1 1 0px");
   expect(zone(container, "roster").style.flex).toBe("0 0 auto");
   expect(zone(container, "history").dataset.in).toBe("row");
-  expect(container.querySelectorAll(".zone-line.drag").length).toBe(4);
+  expect(zone(container, "history").dataset.edge).toBe("start");
+  expect(zone(container, "files").dataset.edge).toBe("end");
+  expect(container.querySelectorAll(".zone-line.drag").length).toBe(3); // not the one under the roster's bar
+});
+
+test("the roster's bar is as tall as what's in it, whatever height it was given; as a list beside other zones it keeps its width", () => {
+  const tall = defaultLayout();
+  tall.items[0].size = { px: 57 }; // dragged short while the bar was slim: opened up, the cards must still fit
+  const bar = page(tall);
+  expect(zone(bar.container, "roster").style.flex).toBe("0 0 auto");
+  expect(zone(bar.container, "roster").nextElementSibling?.className).toBe("zone-line");
+  cleanup();
+  const side: Layout = { kind: "split", id: "s1", dir: "row", size: { grow: 1 }, items: [{ kind: "zone", id: "z1", part: "roster", size: { px: 250 } }, { kind: "zone", id: "z3", part: "chat", size: { grow: 1 } }] };
+  const list = page(side);
+  expect(zone(list.container, "roster").style.flex).toBe("0 1 250px");
+  expect(zone(list.container, "roster").nextElementSibling?.className).toBe("zone-line drag");
 });
 
 test("a part that's switched off takes no room, and one closed to a tab can't be dragged", () => {
@@ -40,7 +55,7 @@ test("a part that's switched off takes no room, and one closed to a tab can't be
   expect(zone(container, "terminal")).toBeNull();
   expect(zone(container, "files").textContent).toBe("files (tab)");
   expect(zone(container, "files").style.flex).toBe("0 0 auto");
-  expect(container.querySelectorAll(".zone-line.drag").length).toBe(2); // roster | row, history | chat
+  expect(container.querySelectorAll(".zone-line.drag").length).toBe(1); // history | chat
   expect(container.querySelectorAll(".zone-line").length).toBe(3);
 });
 
@@ -118,6 +133,15 @@ test("add a zone beside one, say what goes in it, and remove it again", () => {
   fireEvent.click(screen.getByRole("button", { name: "Remove zone" }));
   expect(show(now())).toBe("col(roster:auto row(history:272 chat files:300) empty:280)");
   expect(zonesOf(now()).length).toBe(5);
+});
+
+test("the roster's bar has no size to choose", () => {
+  editor();
+  fireEvent.click(mapZone("Agent roster"));
+  const size = screen.getByLabelText("Its size") as HTMLSelectElement;
+  expect([size.disabled, size.value]).toEqual([true, "auto"]);
+  fireEvent.click(mapZone("Terminal"));
+  expect((screen.getByLabelText("Its size") as HTMLSelectElement).disabled).toBe(false);
 });
 
 test("a zone's size can be switched between fixed, shared and fitted", () => {

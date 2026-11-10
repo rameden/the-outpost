@@ -19,7 +19,7 @@ vi.mock("@xterm/xterm", () => ({
 vi.mock("@xterm/addon-fit", () => ({ FitAddon: class { fit() {} } }));
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
-const { TerminalPanel } = await import("./Terminal.tsx");
+const { TerminalPanel, TerminalRail } = await import("./Terminal.tsx");
 
 let sessions: { id: string; title: string; cwd: string; exited: number | null }[] = [];
 const posts: { path: string; body: any }[] = [];
@@ -86,4 +86,11 @@ test("hiding the pane closes nothing; a shell that ends says so", async () => {
   streams[0].listeners.exit({ data: JSON.stringify({ code: 0 }) });
   await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel (ended) *"]));
   expect(made[0].written.at(-1)).toMatch(/The shell ended/);
+});
+
+test("while it's hidden, its tab brings it back", () => {
+  const onShow = vi.fn();
+  render(<TerminalRail onShow={onShow} />);
+  fireEvent.click(screen.getByRole("button", { name: "Show terminal" }));
+  expect(onShow).toHaveBeenCalled();
 });

@@ -12,6 +12,8 @@ import { api, errorText, storeGet, storeSet, treeImageUrl, treeQuery } from "../
 import { cx } from "../format.ts";
 import type { FilePreview, Listing, TreeEntry } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { Presence } from "../motion.tsx";
+import { colourCode, languageOf } from "../code.ts";
 
 // path and branch: a worktree of that linked folder, shown in its place.
 export type FileRoot = { link: string; path?: string; branch?: string };
@@ -24,6 +26,37 @@ const refOf = (r: FileRoot, rel: string, dir: boolean) => `links/${r.link}/${rel
 const sizeText = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 const isImage = (name: string) => /\.(png|jpe?g|gif|webp)$/i.test(name);
 
+// What kind of thing a file or folder is, for the colour of its icon (see .fk-… in styles.css).
+// Folders are told apart by what they hold; files by what they're written in.
+const FOLDERS: [RegExp, string][] = [
+  [/^(node_modules|dist|build|out|coverage|target|vendor|\.next|\.turbo|\.cache|\.yarn|\.pnpm-store|__pycache__)$/i, "dim"],
+  [/^\./, "config"],
+  [/^(src|app|apps|lib|libs|packages|components|pages|server|client|api|core)$/i, "code"],
+  [/^(tests?|__tests__|specs?|e2e|playwright|cypress|__mocks__|fixtures)$/i, "test"],
+  [/^(docs?|documentation|wiki|notes)$/i, "doc"],
+  [/^(public|static|assets|images?|img|icons|fonts|media)$/i, "media"],
+  [/^(scripts?|bin|tools|ci|hooks)$/i, "script"],
+  [/^(config|configs|settings|env|environments)$/i, "config"],
+];
+const FILES: [RegExp, string][] = [
+  [/\.(test|spec)\.[cm]?[jt]sx?$|\.snap$/i, "test"],
+  [/\.d\.ts$|\.[cm]?tsx?$/i, "ts"],
+  [/\.[cm]?jsx?$/i, "js"],
+  [/\.(json|jsonc|json5|ya?ml|toml|ini|xml|plist|csv|tsv)$/i, "data"],
+  [/\.(md|mdx|markdown|txt|rst|adoc)$|^(readme|license|licence|changelog|notice|authors|contributing)(\..*)?$/i, "doc"],
+  [/\.(css|scss|sass|less|styl|pcss)$/i, "style"],
+  [/\.(html?|vue|svelte|astro|ejs|hbs|pug)$/i, "markup"],
+  [/\.(png|jpe?g|gif|webp|svg|ico|avif|bmp|tiff?|mp4|mov|webm|mp3|wav|woff2?|ttf|otf|eot)$/i, "media"],
+  [/\.(sh|bash|zsh|fish|ps1|bat|cmd)$|^(makefile|dockerfile|justfile|procfile)$/i, "script"],
+  [/\.(py|rb|go|rs|java|kt|swift|c|h|cc|cpp|hpp|cs|php|lua|ex|exs|erl|scala|dart|sql|graphql|gql|proto)$/i, "code"],
+  [/\.(lock|log|map|min\.js|tsbuildinfo)$|-lock\.(json|ya?ml)$|^\.ds_store$/i, "dim"],
+  [/^\.|\.(config|rc)\.[cm]?[jt]s$|rc$|\.(conf|cfg|env|editorconfig|properties)$/i, "config"],
+];
+export function kindOf(name: string, folder: boolean): string {
+  for (const [re, kind] of folder ? FOLDERS : FILES) if (re.test(name)) return kind;
+  return folder ? "folder" : "file";
+}
+
 function remembered(): string[] {
   try { const v = JSON.parse(storeGet("camp-files-open") ?? "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string") : []; } catch { return []; }
 }
@@ -35,7 +68,7 @@ type Row = Item | { kind: "note"; key: string; depth: number; text: string; bad?
 // The slim tab down the right edge that brings the flyout back.
 export function FilesRail({ onShow }: { onShow: () => void }) {
   return (
-    <button type="button" className="files-rail" aria-label="Show files" title="Show files (Ctrl+Shift+E)" onClick={onShow}>
+    <button type="button" className="zone-rail" aria-label="Show files" title="Show files (Ctrl+Shift+E)" onClick={onShow}>
       <Icon name="folder" /><span>Files</span>
     </button>
   );
@@ -176,7 +209,7 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
             : `${ref}${e?.size != null ? ` · ${sizeText(e.size)}` : ""}`;
           return (
             <div key={row.key} role="treeitem" aria-level={row.depth + 1}
-              className={cx("ft-row", row.kind === "root" && "ft-root", locked && "locked", row.mark && row.mark !== "•" && `ft-${row.mark}`)} style={indent}>
+              className={cx("ft-row", row.kind === "root" && "ft-root", locked && "locked", row.mark && row.mark !== "•" && `ft-${row.mark}`, `fk-${row.kind === "root" ? "root" : kindOf(row.name, folder)}`)} style={indent}>
               <button type="button" className="ft-open" data-depth={row.depth} aria-expanded={folder && !locked ? !!row.open : undefined} aria-disabled={locked || undefined} title={title}
                 onClick={() => { if (locked) return; if (row.kind === "file") setViewing({ root: row.root, rel: row.rel }); else toggle(row); }}>
                 <span className="ft-twist">{folder && !locked && <Icon name={row.open ? "chevron" : "chevronRight"} />}</span>
@@ -192,7 +225,7 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
           );
         })}
       </div>
-      {viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={() => setViewing(null)} onMention={(p) => { onMention(p); setViewing(null); }} />}
+      <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={() => setViewing(null)} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
     </aside>
   );
 }
@@ -213,6 +246,10 @@ function FileViewer({ root, rel, onClose, onMention }: { root: FileRoot; rel: st
   }, [root.link, root.path, rel, onClose]);
 
   const lines = file && "text" in file ? file.text.replace(/\n$/, "").split("\n") : null;
+  // The code, coloured by its language (told from the file's name), where it's one we know.
+  const language = lines ? languageOf(rel) : null;
+  const coloured = useMemo(() => (lines ? colourCode(lines.join("\n"), rel) : null), [file, rel]); // eslint-disable-line react-hooks/exhaustive-deps
+  const kind = `fk-${kindOf(rel.split("/").pop() ?? rel, false)}`;
   async function copy() {
     try { await navigator.clipboard.writeText(file?.abs ?? ref); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* no clipboard here */ }
   }
@@ -221,10 +258,10 @@ function FileViewer({ root, rel, onClose, onMention }: { root: FileRoot; rel: st
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="dialog file-view" role="dialog" aria-modal="true" aria-label={ref}>
-        <header className="file-head">
+        <header className={cx("file-head", kind)}>
           <Icon name={isImage(rel) ? "image" : "file"} />
           <b title={file?.abs}>{ref}</b>
-          {file && <small>{sizeText(file.size)}{lines ? ` · ${lines.length} ${lines.length === 1 ? "line" : "lines"}` : ""}</small>}
+          {file && <small>{language && coloured !== null ? `${language.name} · ` : ""}{sizeText(file.size)}{lines ? ` · ${lines.length} ${lines.length === 1 ? "line" : "lines"}` : ""}</small>}
           <button type="button" className="hist-icon" aria-label="Close the file" title="Close (Esc)" onClick={onClose}>×</button>
         </header>
         <div className="file-body">
@@ -233,7 +270,9 @@ function FileViewer({ root, rel, onClose, onMention }: { root: FileRoot; rel: st
             : lines ? (
               <div className="file-text">
                 <pre className="file-nums" aria-hidden="true">{lines.map((_, i) => i + 1).join("\n")}</pre>
-                <pre className="file-code">{lines.join("\n")}</pre>
+                {coloured !== null
+                  ? <pre className="file-code hljs" dangerouslySetInnerHTML={{ __html: coloured }} />
+                  : <pre className="file-code">{lines.join("\n")}</pre>}
               </div>
             )
             : "image" in file ? <img className="file-image" alt={rel} src={treeImageUrl(root.link, root.path, rel)} />

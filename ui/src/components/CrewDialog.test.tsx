@@ -31,7 +31,9 @@ test("the crew bar ends with a + that opens the dialog; added crew members can b
   const onAdd = vi.fn(), onEdit = vi.fn(), onOpenAgent = vi.fn();
   render(<Crew S={S} store={createFeedStore()} pickerFor={null} onOpenAgent={onOpenAgent} onOpenPicker={() => {}} onAdd={onAdd} onEdit={onEdit} />);
   const bar = screen.getByRole("region", { name: "The crew" });
-  expect(bar.lastElementChild).toBe(screen.getByRole("button", { name: "Add a crew member" }));
+  // After the last crew member comes the +, then only the chevron that opens the bar up or folds it down.
+  expect(bar.lastElementChild).toBe(screen.getByRole("button", { name: "Show more about the crew" }));
+  expect(bar.lastElementChild?.previousElementSibling).toBe(screen.getByRole("button", { name: "Add a crew member" }));
   fireEvent.click(screen.getByRole("button", { name: "Add a crew member" }));
   expect(onAdd).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Edit Test Pilot" }));

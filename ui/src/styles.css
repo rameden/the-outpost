@@ -51,7 +51,7 @@ code, pre { font-family: var(--mono); font-size: .86em; }
 :is(b, strong, h2, .who, .badge, .hist-project-name, .proj-folder, .dialog-chip, .ws, .reply-bar) > .icon, .hist-project-name span > .icon { width: 1.05em; height: 1.05em; }
 :is(.proj-folder, .dialog-chip, .ws, .reply-bar, .who) > .icon { color: var(--muted); }
 input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.composer textarea:focus-visible, .xterm textarea:focus-visible { outline: none; }
+.xterm textarea:focus-visible { outline: none; }
 
 /* ---------- Layout ---------- */
 .app { display: flex; flex-direction: column; height: 100dvh; }
@@ -86,6 +86,8 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
   .crew { flex: 1 1 auto; flex-direction: column; padding: 10px; overflow: hidden auto; }
   .crew .member { flex: none; min-width: 0; }
   .crew .member-add { align-self: stretch; }
+  .crew.slim .member-add { flex: none; }
+  .crew .crew-toggle { position: static; align-self: flex-end; margin-left: 0; }
 }
 .top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 9px 16px 9px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
@@ -139,16 +141,31 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .kit-btn:hover, .kit-btn[aria-expanded="true"] { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 .kit-btn.custom::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
 /* ---------- Agent drawer ---------- */
+/* The slim strip: icon, name and a dot each; what they're doing shows only while they're doing it. */
+.crew-toggle { position: sticky; right: 0; margin-left: auto; align-self: center; background: var(--bg); }
+.crew-toggle > .icon { width: 16px; height: 16px; }
+.crew.slim { gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+.crew.slim .member { flex: 0 1 auto; min-width: 0; grid-template-columns: 22px minmax(0, 1fr); gap: 0 7px; padding: 2px 10px 2px 3px; border-radius: 999px; }
+.crew.slim .member .avatar { width: 22px; height: 22px; font-size: 12px; }
+.crew.slim .member.active .avatar::after { inset: -3px; border-width: 1.5px; }
+.crew.slim .member-main { display: flex; align-items: center; gap: 8px; }
+.crew.slim .member-name { font-size: 13px; white-space: nowrap; }
+.crew.slim :is(.kit-btn, .member-level, .member-edit) { display: none; }
+.crew.slim .member-status { max-width: 260px; }
+.crew.slim .member:not(.active):not(.waiting) .member-status > span:last-child { display: none; }
+.crew.slim .member-add { flex-basis: 28px; height: 28px; margin-left: 0; font-size: 15px; }
 .member { cursor: pointer; }
 .member:hover { border-color: var(--border-strong); background: var(--surface); }
 .member:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
-.drawer-backdrop { position: fixed; inset: 0; background: rgba(10, 8, 6, .45); backdrop-filter: blur(2px); z-index: 45; }
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(10, 8, 6, .5); z-index: 45; }
 /* ---------- History (the left side) ---------- */
 .history { background: var(--surface); display: flex; flex-direction: column; min-height: 0; padding: 12px 8px 10px; gap: 6px; }
 .hist-nav { display: grid; gap: 1px; }
 .hist-nav-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font-size: 13.5px; text-align: left; }
 .hist-nav-item > .icon { color: var(--muted); }
-.hist-nav-item.hist-new { margin-bottom: 6px; padding: 7px 10px; border: 1px solid var(--border-strong); background: var(--bg); font-weight: 600; box-shadow: var(--shadow); }
+.hist-top { display: flex; align-items: center; gap: 2px; margin-bottom: 6px; }
+.hist-top > .hist-new { flex: 1; min-width: 0; }
+.hist-nav-item.hist-new { padding: 7px 10px; border: 1px solid var(--border-strong); background: var(--bg); font-weight: 600; box-shadow: var(--shadow); }
 .hist-nav-item.hist-new:hover { border-color: var(--accent); background: var(--bg); }
 .hist-nav-item.hist-new > .icon { color: var(--accent); }
 .hist-nav-item:hover { background: var(--surface-2); }
@@ -262,18 +279,37 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .files-head { display: flex; align-items: center; gap: 2px; padding: 3px 6px 3px 14px; border-bottom: 1px solid var(--border); }
 .files-head .term-label { margin-right: auto; }
 .files-head .icon { width: 15px; height: 15px; }
-.files-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 30px; padding: 12px 0; border: 0; background: var(--surface); color: var(--muted); }
-.zone[data-in="col"] > .files-rail { flex-direction: row; width: auto; padding: 5px 14px; }
-.zone[data-in="col"] > .files-rail > span { writing-mode: horizontal-tb; }
-.files-rail:hover { color: var(--text); background: var(--surface-2); }
-.files-rail > span { writing-mode: vertical-rl; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-.files-rail > .icon { width: 15px; height: 15px; }
+/* The slim tab a closed panel leaves behind (Files, the terminal): click it to bring the panel back. */
+.zone-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 30px; padding: 12px 0; border: 0; background: var(--surface); color: var(--muted); }
+.zone[data-in="col"] > .zone-rail { flex-direction: row; width: auto; padding: 5px 14px; }
+.zone[data-in="col"] > .zone-rail > span { writing-mode: horizontal-tb; }
+.zone-rail:hover { color: var(--text); background: var(--surface-2); }
+.zone-rail > span { writing-mode: vertical-rl; font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.zone-rail > .icon { width: 15px; height: 15px; }
 .files-tree { flex: 1; min-height: 0; overflow: auto; padding: 6px 0 12px; font-size: 13px; }
 .ft-row { display: flex; align-items: center; min-width: 0; padding-right: 4px; }
 .ft-row:hover, .ft-row:focus-within { background: var(--surface-2); }
 .ft-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; border: 0; background: none; padding: 3px 4px 3px calc(8px + var(--depth) * 13px); color: var(--text); font-size: 13px; text-align: left; }
 .ft-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.ft-open > .icon { width: 15px; height: 15px; flex: none; color: var(--muted); }
+.ft-open > .icon { width: 15px; height: 15px; flex: none; color: var(--fk); }
+/* Icons take a colour from what the file or folder is (kindOf in Files.tsx). Mid tones, so they
+   read on the light and the dark page alike. The name keeps the text colour, or its git colour. */
+.ft-row { --fk: var(--muted); }
+.fk-folder, .fk-root { --fk: #b8902a; }
+.fk-code { --fk: #4a7fd6; }
+.fk-ts { --fk: #4a7fd6; }
+.fk-js { --fk: #b8902a; }
+.fk-test { --fk: #4f9a6a; }
+.fk-doc { --fk: #3c8f9f; }
+.fk-data { --fk: #c98a3c; }
+.fk-style { --fk: #c2577a; }
+.fk-markup { --fk: #d2703a; }
+.fk-media { --fk: #8a6fd6; }
+.fk-script { --fk: #5f9a3f; }
+.fk-config { --fk: #7d8794; }
+.fk-dim { --fk: var(--faint); }
+.fk-dim .ft-name { color: var(--muted); }
+.ft-row.locked { --fk: var(--faint); }
 .ft-twist { width: 14px; height: 14px; flex: none; display: grid; place-items: center; color: var(--faint); }
 .ft-twist > .icon { width: 14px; height: 14px; }
 .ft-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -293,7 +329,7 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 /* A file, opened over the page */
 .dialog.file-view { width: min(980px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 48px)); padding: 0; overflow: hidden; display: flex; flex-direction: column; }
 .file-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--border); min-width: 0; }
-.file-head > .icon { width: 16px; height: 16px; flex: none; color: var(--muted); }
+.file-head > .icon { width: 16px; height: 16px; flex: none; color: var(--fk, var(--muted)); } /* the same colour its icon has in the tree */
 .file-head b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px var(--mono); }
 .file-head small { margin-right: auto; flex: none; color: var(--faint); font-size: 12px; }
 .file-body { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
@@ -302,17 +338,44 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .file-text pre { margin: 0; font: inherit; }
 .file-nums { position: sticky; left: 0; flex: none; padding: 10px 10px 10px 12px; text-align: right; color: var(--faint); background: var(--bg); border-right: 1px solid var(--border); user-select: none; }
 .file-code { padding: 10px 16px 10px 12px; white-space: pre; tab-size: 2; }
+/* Code colours: what each piece of the code is, as highlight.js names it (see code.ts). One set
+   of colours for the light page and one for the dark, each chosen to read against its own. */
+:root { --syn-key: #8250c4; --syn-str: #3f7d3a; --syn-num: #b4590e; --syn-fn: #2f62c9; --syn-type: #1f7a86; --syn-prop: #94680a; --syn-tag: #b23a62; --syn-meta: #6e6255; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --syn-key: #c4a7f5; --syn-str: #a5cf8f; --syn-num: #f0a36a; --syn-fn: #8fb4f7; --syn-type: #7fc8d2; --syn-prop: #e3bf6a; --syn-tag: #ee8fae; --syn-meta: #a3968a; }
+}
+:root[data-theme="dark"] { --syn-key: #c4a7f5; --syn-str: #a5cf8f; --syn-num: #f0a36a; --syn-fn: #8fb4f7; --syn-type: #7fc8d2; --syn-prop: #e3bf6a; --syn-tag: #ee8fae; --syn-meta: #a3968a; }
+.hljs-comment, .hljs-quote { color: var(--faint); font-style: italic; }
+.hljs-keyword, .hljs-selector-pseudo, .hljs-doctag, .hljs-template-tag { color: var(--syn-key); }
+.hljs-string, .hljs-regexp, .hljs-char.escape_, .hljs-code, .hljs-addition { color: var(--syn-str); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet, .hljs-variable.constant_ { color: var(--syn-num); }
+.hljs-title, .hljs-title.function_, .hljs-section { color: var(--syn-fn); }
+.hljs-type, .hljs-built_in, .hljs-title.class_, .hljs-title.class_.inherited__ { color: var(--syn-type); }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-selector-class, .hljs-selector-id, .hljs-selector-attr, .hljs-variable.language_ { color: var(--syn-prop); }
+.hljs-name, .hljs-selector-tag, .hljs-deletion { color: var(--syn-tag); }
+.hljs-meta, .hljs-meta .hljs-keyword, .hljs-punctuation, .hljs-operator, .hljs-tag { color: var(--syn-meta); }
+.hljs-tag .hljs-name { color: var(--syn-tag); }
+.hljs-tag .hljs-attr { color: var(--syn-prop); }
+.hljs-tag .hljs-string { color: var(--syn-str); }
+.hljs-section, .hljs-strong { font-weight: 700; }
+.hljs-emphasis { font-style: italic; }
+.hljs-link { color: var(--syn-fn); text-decoration: underline; text-underline-offset: 2px; }
+.hljs-addition { background: var(--good-soft); }
+.hljs-deletion { background: var(--bad-soft); }
+.hljs-subst, .hljs-params, .hljs-variable { color: var(--text); }
 .file-image { display: block; max-width: calc(100% - 32px); margin: 16px auto; border: 1px solid var(--border); border-radius: 8px; }
 .file-view .dialog-actions { margin: 0; padding: 10px 14px; border-top: 1px solid var(--border); }
 @media (max-width: 860px) {
-  /* Narrow: the files sit over the page, and the header's button brings them back. */
+  /* Narrow: the files sit over the page. A panel that's closed is a bar in the stack, wherever its zone is. */
   .app .zone[data-part="files"] { position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; width: min(340px, 92vw); box-shadow: -12px 0 40px rgba(0, 0, 0, .25); }
-  .app .zone[data-part="files"].collapsed { display: none; }
+  .app .zone.collapsed[data-part] { position: static; width: auto; height: auto; box-shadow: none; }
+  .app .zone.collapsed > .zone-rail { flex-direction: row; width: 100%; padding: 6px 16px; }
+  .app .zone.collapsed > .zone-rail > span { writing-mode: horizontal-tb; }
 }
 
 /* ---------- Layout editor ---------- */
 .dialog.layout-editor { width: min(644px, calc(100vw - 32px)); }
-.layout-backdrop { background: rgba(10, 8, 6, .28); backdrop-filter: none; } /* light, so the page shows your changes */
+.layout-backdrop { background: rgba(10, 8, 6, .28); } /* light, so the page shows your changes */
 .layout-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
 .layout-head > div { margin-right: auto; }
 .layout-head h2 { margin: 0 0 2px; }
@@ -516,8 +579,30 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 /* The main input: one box with a solid 2px border. The text on top, one row of controls under it. */
 .composer > .composer-box { flex-direction: column; align-items: stretch; gap: 0; border: 2px solid var(--border-strong); border-radius: 12px; background: var(--surface); transition: border-color .12s; }
 .composer > .composer-box:focus-within { border-color: var(--accent); }
-.composer textarea { flex: none; width: 100%; min-width: 0; resize: none; min-height: 46px; max-height: 200px; padding: 13px 14px 6px; border: 0; background: none; line-height: 1.45; }
-.composer textarea:focus { outline: none; }
+/* The message box: an editable block that styles markdown as you type (MessageInput.tsx). It
+   grows with the message up to a point, then scrolls. */
+.mi { position: relative; flex: none; width: 100%; min-width: 0; min-height: 46px; max-height: 200px; overflow-y: auto; padding: 13px 14px 6px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; cursor: text; caret-color: var(--text); }
+.mi[data-empty]::before { content: attr(data-placeholder); position: absolute; left: 14px; top: 13px; right: 14px; color: var(--faint); pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-line { display: block; }
+.mi-dim { color: var(--faint); }
+.mi-hide { display: none; } /* a marker that has taken effect: still in the text, out of sight */
+.mi-code { padding: 1px 4px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-2); font-size: .88em; }
+/* A code block: its lines of code, boxed. The ``` lines that open and close it are out of sight
+   unless the cursor is on one (.on), so the box's top and bottom edges go on whichever line is
+   outermost of the ones showing. */
+.mi-pre { position: relative; padding: 0 11px; border: solid var(--border); border-width: 0 1px; background: var(--surface-2); font: .88em/1.5 var(--mono); tab-size: 2; }
+.mi-fence:not(.on) { display: none; }
+.mi-pre-top:not(.mi-fence), .mi-pre-top.on, .mi-fence.mi-pre-top:not(.on) + .mi-pre { margin-top: 3px; padding-top: 5px; border-top-width: 1px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+.mi-pre-end:not(.mi-fence), .mi-pre-end.on, .mi-pre:has(+ .mi-fence.mi-pre-end:not(.on)) { margin-bottom: 3px; padding-bottom: 5px; border-bottom-width: 1px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+.mi-pre[data-lang]::after { content: attr(data-lang); position: absolute; top: 3px; right: 9px; font-size: .85em; color: var(--faint); pointer-events: none; }
+.mi-fence.mi-pre-top.on + .mi-pre[data-lang]::after { content: none; } /* the opening line is showing, and says it */
+.mi-h { font-weight: 700; }
+.mi-quote { padding-left: 10px; border-left: 2px solid var(--border-strong); color: var(--muted); }
+.mi-mark { color: var(--accent); font-weight: 600; }
+.mi-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.mi-at { color: var(--accent); }
+.mi b { font-weight: 700; }
+.mi s { color: var(--muted); }
 .composer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 8px 8px; }
 .composer-bar > .btn.primary { height: 32px; margin-left: auto; padding: 0 16px; border-radius: 8px; box-shadow: none; }
 .composer-tip + .btn.primary { margin-left: 0; }
@@ -770,7 +855,7 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .icon-btn { position: relative; }
 .icon-btn .badge { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 10.5px; font-weight: 700; line-height: 16px; text-align: center; }
 /* A modal over the camp: dimmed backdrop, a centered panel. Full screen on a phone (below). */
-.settings-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 28px; background: rgba(10, 8, 6, .5); backdrop-filter: blur(3px); }
+.settings-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 28px; background: rgba(10, 8, 6, .55); }
 .settings { width: min(1040px, 100%); height: min(780px, 100%); display: grid; grid-template-columns: 220px minmax(0, 1fr); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 64px rgba(0, 0, 0, .35); }
 .set-nav { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 10px; overflow: auto; }
 .set-nav-head { font: 600 18px/1.2 var(--serif); padding: 4px 10px 14px; }
@@ -845,3 +930,61 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 /* The GitHub account chip in the header */
 .gh-mark { width: 14px; height: 14px; flex: none; }
 .gh-swap { color: var(--faint); font-size: 12px; }
+
+/* ---------- Motion ----------
+   Everything here moves with transform and opacity only, which the browser can animate without
+   laying the page out again: nothing eases a width, height, padding or blur, because doing that
+   on every frame beside a long conversation stutters.
+   Things ease in and out rather than popping: overlays fade and settle, panels slide into their
+   zones and back out, and what you open up unfolds. Short on purpose (about a fifth of a
+   second in, a little less out), and switched off entirely for anyone whose system asks for
+   reduced motion. What has to stay on the page while it leaves is held there by motion.tsx. */
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --enter: 220ms; --leave: 160ms; }
+.presence { display: contents; }
+@media (prefers-reduced-motion: no-preference) {
+  /* Overlays: the dimmed backdrop fades, and what's on it settles into place. */
+  .drawer-backdrop, .settings-backdrop { animation: fade-in var(--enter) ease-out; }
+  .dialog { animation: dialog-in var(--enter) var(--ease); }
+  .drawer { animation: drawer-in 240ms var(--ease); }
+  .settings { animation: rise-in var(--enter) var(--ease); }
+  .presence.leaving :is(.drawer-backdrop, .settings-backdrop) { animation: fade-out var(--leave) ease-in forwards; }
+  .presence.leaving .dialog { animation: dialog-out var(--leave) ease-in forwards; }
+  .presence.leaving .drawer { animation: drawer-out var(--leave) ease-in forwards; }
+  .presence.leaving .settings { animation: rise-out var(--leave) ease-in forwards; }
+
+  /* Menus open from where they're anchored. They close at once: a menu that lingers gets in the way. */
+  .popover { animation: pop-up 130ms var(--ease); transform-origin: bottom left; }
+  .hist-pop { animation: pop-down 130ms var(--ease); transform-origin: top right; }
+  .popover.model-picker { animation-name: pop-down; transform-origin: top left; }
+  .fly { animation: fly-in 130ms var(--ease); }
+
+  /* Panels: a zone that's switched on or off takes or gives up its room in one step, and what's
+     in it slides in from its side of the page, or back out. (Easing the zone's size instead lays
+     the whole page out again on every frame, and a long conversation makes that stutter.) */
+  .app .zone.entering, .app .zone.leaving { overflow: hidden; }
+  .app .zone.entering > * { animation: slide-in var(--enter) var(--ease) backwards; }
+  .app .zone.leaving > * { animation: slide-out var(--leave) ease-in forwards; pointer-events: none; }
+  .app .zone[data-in="row"][data-edge="end"] { --dx: 28px; }
+  .app .zone[data-in="row"][data-edge="start"] { --dx: -28px; }
+  .app .zone[data-in="col"][data-edge="end"] { --dy: 28px; }
+  .app .zone[data-in="col"][data-edge="start"] { --dy: -28px; }
+
+  /* Things that open up */
+  .hist-list { animation: row-in 160ms ease-out; }
+  .crew:not(.slim) :is(.kit-btn, .member-level), .crew .member-status > span:last-child { animation: fade-in 240ms ease-out; }
+  details[open] > :not(summary) { animation: row-in 160ms ease-out; }
+}
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes dialog-in { from { opacity: 0; transform: translate(-50%, -48.5%) scale(.98); } }
+@keyframes dialog-out { to { opacity: 0; transform: translate(-50%, -49%) scale(.985); } }
+@keyframes drawer-in { from { opacity: 0; transform: translateX(32px); } }
+@keyframes drawer-out { to { opacity: 0; transform: translateX(32px); } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+@keyframes rise-out { to { opacity: 0; transform: translateY(6px) scale(.99); } }
+@keyframes pop-up { from { opacity: 0; transform: translateY(4px) scale(.98); } }
+@keyframes pop-down { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+@keyframes fly-in { from { opacity: 0; transform: translateX(-4px); } }
+@keyframes slide-in { from { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); } }
+@keyframes slide-out { to { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)); } }
+@keyframes row-in { from { opacity: 0; transform: translateY(-3px); } }

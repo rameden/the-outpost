@@ -97,9 +97,11 @@ function toggleTheme() {
   storeSet("camp-theme", root.dataset.theme);
 }
 
-export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, onToggleTerminal, filesOpen, onToggleFiles, onOpenLayout }: {
+export function Header({ S, store, conn, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout }: {
   S: CampState | null; store: FeedStore; conn: Connection; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
-  terminalOpen?: boolean; onToggleTerminal?: () => void;
+  // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
+  // conversation; again brings back the ones it closed.
+  focused?: boolean; onToggleFocus?: () => void;
   filesOpen?: boolean; onToggleFiles?: () => void; // only passed while a folder is attached here
   onOpenLayout?: () => void;
 }) {
@@ -139,9 +141,9 @@ export function Header({ S, store, conn, refresh, onOpenSettings, terminalOpen, 
           <span>{conn === "live" ? "Live" : conn === "reconnecting" ? "Reconnecting…" : "Connecting…"}</span>
         </span>
         <Bell />
-        {onToggleTerminal && (
-          <button className={cx("icon-btn", terminalOpen && "on")} type="button" aria-pressed={!!terminalOpen} aria-label={terminalOpen ? "Hide the terminal" : "Show the terminal"}
-            title={`${terminalOpen ? "Hide" : "Show"} the terminal (Ctrl+\`)`} onClick={onToggleTerminal}><Icon name="terminal" /></button>
+        {onToggleFocus && (
+          <button className={cx("icon-btn", focused && "on")} type="button" aria-pressed={!!focused} aria-label={focused ? "Leave focus mode" : "Focus mode"}
+            title={focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files and terminal, leaving the conversation"} onClick={onToggleFocus}><Icon name="focus" /></button>
         )}
         {onToggleFiles && (
           <button className={cx("icon-btn", filesOpen && "on")} type="button" aria-pressed={!!filesOpen} aria-label={filesOpen ? "Hide the files" : "Show the files"}

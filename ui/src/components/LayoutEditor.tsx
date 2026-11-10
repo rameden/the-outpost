@@ -3,7 +3,7 @@
 // the page behind as you make them, and are remembered in this browser.
 
 import { useEffect, useState } from "react";
-import { addZone, assign, canAssign, canRemove, defaultLayout, isGrow, MAX_ZONES, partName, PARTS, placed, removeZone, setSize, zonesOf, type Layout, type Part, type Side, type Size, type Zone } from "../layout.ts";
+import { addZone, assign, canAssign, canRemove, defaultLayout, dirOf, fitsContent, isGrow, MAX_ZONES, partName, PARTS, placed, removeZone, setSize, zonesOf, type Layout, type Part, type Side, type Size, type Zone } from "../layout.ts";
 import { cx } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
 import { LayoutFrame } from "./Zones.tsx";
@@ -31,6 +31,7 @@ export function LayoutEditor({ layout, onChange, onClose, select }: {
   const zone = zones.find((z) => z.id === picked) ?? zones[0];
   const full = zones.length >= MAX_ZONES;
   const unplaced = PARTS.filter((p) => !placed(layout, p.id));
+  const fitted = fitsContent(zone, dirOf(layout, zone.id) ?? "row"); // the roster's bar: no size of its own
 
   useEffect(() => {
     const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
@@ -94,7 +95,8 @@ export function LayoutEditor({ layout, onChange, onClose, select }: {
             </select>
           </label>
           <label className="field">Its size
-            <select aria-label="Its size" value={modeOf(zone.size)} onChange={(ev) => setMode(ev.target.value as Mode)}>
+            <select aria-label="Its size" value={fitted ? "auto" : modeOf(zone.size)} disabled={fitted}
+              title={fitted ? "The roster's bar is always as tall as what's in it: slim, or opened up into cards" : undefined} onChange={(ev) => setMode(ev.target.value as Mode)}>
               <option value="grow">Shares the leftover space</option>
               <option value="px">Stays the size it is now</option>
               <option value="auto">Fits what's in it</option>
@@ -115,7 +117,7 @@ export function LayoutEditor({ layout, onChange, onClose, select }: {
         {zone.part === "chat" && <p className="field-hint">Chat always has a zone. To move it, pick a zone that shows something else and set that one to Chat.</p>}
         <p className="field-hint layout-note">
           {unplaced.length ? <>Not on the page: <b>{unplaced.map((p) => p.name).join(", ")}</b>. Pick a zone and choose it to bring it back. </> : null}
-          Files shows only while a folder is attached, and the terminal while it's switched on, so their zones can be closed on the page.
+          History, Files and the terminal each close to a slim tab on the page, and Files shows only while a folder is attached.
         </p>
       </div>
     </>

@@ -1,7 +1,7 @@
 // The layout's rules: zones are added beside others, removed, given parts, and resized, and a
 // saved layout is only used if it's one the page can show.
 import { expect, test } from "vitest";
-import { addZone, assign, canAssign, canRemove, defaultLayout, drag, MAX_ZONES, parseLayout, placed, removeZone, setSize, zoneOf, zonesOf, type Item, type Layout } from "./layout.ts";
+import { addZone, assign, canAssign, canRemove, defaultLayout, drag, focusPlan, MAX_ZONES, parseLayout, placed, removeZone, setSize, zoneOf, zonesOf, type Item, type Layout } from "./layout.ts";
 
 // A layout as a line of text: row(history:272 chat:* files:300)
 const show = (n: Item): string => {
@@ -105,4 +105,12 @@ test("a saved layout is used only if the page can show it", () => {
   expect(bad((x) => { x.items[0].id = "z5"; })).toBeNull();                   // two items, one id
   expect(bad((x) => { x.items[1].dir = "diagonal"; })).toBeNull();
   expect(bad((x) => { x.items[1].items = []; })).toBeNull();
+});
+
+test("focus mode closes the panels that are open, and used again brings those back", () => {
+  expect(focusPlan(["history", "terminal"], null)).toEqual({ close: ["history", "terminal"], reopen: [] });
+  expect(focusPlan(["files"], "history,terminal")).toEqual({ close: ["files"], reopen: [] }); // what's open now is what counts
+  expect(focusPlan([], "history,terminal")).toEqual({ close: [], reopen: ["history", "terminal"] });
+  expect(focusPlan([], null)).toEqual({ close: [], reopen: ["history"] });                 // nothing remembered: history, at least
+  expect(focusPlan([], "roster,,nonsense")).toEqual({ close: [], reopen: ["history"] });  // only panels come back
 });

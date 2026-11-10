@@ -12,6 +12,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { api, errorText, storeGet, storeSet, termStreamUrl } from "../api.ts";
 import { cx } from "../format.ts";
+import { Icon } from "./bits.tsx";
 import type { TerminalInfo } from "../types.ts";
 
 // The page allows no inline styles, except <style> elements carrying this launch's nonce (the
@@ -82,7 +83,10 @@ function TerminalView({ id, onExit }: { id: string; onExit: (code: number) => vo
       last = size;
       void api("/api/term/resize", { id, cols: term.cols, rows: term.rows }).catch(() => {});
     };
-    const watching = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
+    // The pane changes size many times a second while it slides open or a line is dragged:
+    // fit (and tell the shell) once it has settled.
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const watching = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => { clearTimeout(settle); settle = setTimeout(resize, 70); });
     watching?.observe(el);
     resize();
 
@@ -104,12 +108,21 @@ function TerminalView({ id, onExit }: { id: string; onExit: (code: number) => vo
 
     term.focus();
     return () => {
-      stream.close(); typed.dispose(); watching?.disconnect(); themed.disconnect(); scheme?.removeEventListener("change", onScheme);
+      clearTimeout(settle); stream.close(); typed.dispose(); watching?.disconnect(); themed.disconnect(); scheme?.removeEventListener("change", onScheme);
       term.dispose();
     };
   }, [id]);
 
   return <div className="term-view" ref={box} />;
+}
+
+// The slim tab the terminal leaves behind while it's hidden; your shells keep running meanwhile.
+export function TerminalRail({ onShow }: { onShow: () => void }) {
+  return (
+    <button type="button" className="zone-rail" aria-label="Show terminal" title="Show the terminal (Ctrl+`). Your shells kept running." onClick={onShow}>
+      <Icon name="terminal" /><span>Terminal</span>
+    </button>
+  );
 }
 
 // ready: the page knows which project you're in (so the first terminal starts in the right folder).

@@ -40,9 +40,19 @@ function Menu({ label, children }: { label: string; children: (close: () => void
   );
 }
 
-export function History({ S, store, view, setView, patch, onNewProject, onEditProject }: {
+// The slim tab History leaves behind while it's closed.
+export function HistoryRail({ onShow }: { onShow: () => void }) {
+  return (
+    <button type="button" className="zone-rail" aria-label="Show history" title="Show your conversations and projects" onClick={onShow}>
+      <Icon name="list" /><span>History</span>
+    </button>
+  );
+}
+
+export function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide }: {
   S: CampState | null; store: FeedStore; view: View; setView: (v: View) => void; patch: (fn: (s: CampState) => CampState) => void;
   onNewProject: () => void; onEditProject: (p: Project) => void;
+  onHide?: () => void; // the « beside New conversation: close History to its tab
 }) {
   const activity = useFeed(store, activityOf);
   const running = useFeed(store, runningCount);
@@ -167,9 +177,12 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
   return (
     <aside className="history" aria-label="History">
       <nav className="hist-nav">
-        <button type="button" className={cx("hist-nav-item", "hist-new", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
-          <Icon name="plus" />New conversation
-        </button>
+        <div className="hist-top">
+          <button type="button" className={cx("hist-nav-item", "hist-new", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
+            <Icon name="plus" />New conversation
+          </button>
+          {onHide && <button type="button" className="hist-icon" aria-label="Hide the history" title="Hide the history. Its tab brings it back." onClick={onHide}>«</button>}
+        </div>
         <div className={cx("hist-nav-row", view.kind === "projects" && "selected")}>
           <button type="button" className="hist-nav-item" aria-current={view.kind === "projects" ? "page" : undefined} onClick={() => setView({ kind: "projects" })}>
             <Icon name="folder" />Projects
