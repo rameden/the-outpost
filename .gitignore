@@ -10,3 +10,6 @@ camp/*
 
 # Eval results: one JSON file per run, local to you.
 evals/results/
+
+# Mission control's built page (`npm run ui` builds it from ui/src).
+ui/dist/

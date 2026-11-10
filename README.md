@@ -66,7 +66,21 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 - **Agent pages:** click any crew card to chat with that agent directly, browse its runs and each run's steps, edit its memory, see its output files, and check its tools, skills, and stats.
 - **Tabs:** Quests (cost, tokens, cache rate, model per run, plus a spending summary and per-expedition budget), Memory, Jobs, Wiki, Skills, Connectors, and Inbox.
 
-It only listens on `127.0.0.1`, checks the `Host` header, and requires a key that changes every launch, so other websites in your browser can't drive the camp.
+It only listens on `127.0.0.1`, checks the `Host` header, and requires a key that changes every launch (for the page's own scripts and styles too), so other websites in your browser can't drive the camp. The page runs under a Content-Security-Policy that allows no inline code, only the scripts and styles the camp itself serves.
+
+### Working on the page
+
+The page is a React app in `ui/` (React 19, TypeScript, plain CSS, built with Vite). The camp's own server (`src/server.ts`) serves the built files from `ui/dist`; there is no second server in normal use.
+
+```bash
+npm run ui         # builds the page first if ui/dist is missing or older than ui/src, then starts the camp
+npm run ui:build   # just build it
+npm run ui:dev     # the camp plus Vite with live reload: open the second link it prints
+```
+
+- `npm run ui:dev` starts the camp as usual and puts Vite's dev server in front of it. Vite serves the page from `ui/src` and passes `/api` and `/events` through to the camp; the link it prints carries the launch key, which the page sends itself, so the dev server is no way around the key.
+- The feed is a pure function of the camp's events (`ui/src/feed/reducer.ts`): each event names its expedition and quest, and lands in that card. That's where to look first when the feed shows something wrong.
+- The page's types come from the server's code (`ui/src/types.ts` imports `CampEvent`, the `/api/state` shape, and the rest as types), so `npm run typecheck` fails if the server and the page disagree.
 
 ## Terminal commands
 
@@ -153,12 +167,12 @@ To skip plan approval, set `CAMP_APPROVE_PLANS=0`. To use a different port, set 
 ## Tests and evals
 
 ```bash
-npm test            # 89 tests, about 10 seconds, no API key or Claude login needed
-npm run typecheck   # source, tests, and evals
+npm test            # the camp's tests, then the page's (Vitest); about 10 seconds, no API key or Claude login needed
+npm run typecheck   # source, tests, and evals, then the page in ui/
 npm run eval        # 8 standard tasks against the real API (spends tokens; capped at $2 per case)
 ```
 
-- **Tests** run each file in a throwaway camp, against a fake streaming API.
+- **Tests** run each file in a throwaway camp, against a fake streaming API. The page's tests (`ui/src/**/*.test.ts(x)`) cover the feed: several expeditions at once, streaming replies, approvals, and Stop.
 - **Evals** run each case in a throwaway camp with your current model settings. To compare models without changing your settings, use `npm run eval -- --set scout=claude-haiku-5-5:low`. Results are saved to `evals/results/`.
 
 ## Adding a crew member
