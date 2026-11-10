@@ -2,12 +2,13 @@
 // conversation you're in (with the composer) beside it. An agent's page opens as a drawer over
 // it; Settings (with the camp's records) over everything.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { storeGet, storeSet } from "./api.ts";
 import { useCampEvents, useCampState } from "./camp.ts";
 import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
 import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
 import { History } from "./components/History.tsx";
+import { TerminalPanel } from "./components/Terminal.tsx";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { api, errorText } from "./api.ts";
@@ -85,6 +86,15 @@ export function App({ store }: { store: FeedStore }) {
     : view.kind === "new" && project && view.project ? `It will be filed under ${project.name}. Ask the Quartermaster for something, or @ a crew member directly.`
     : undefined;
 
+  // The terminal pane along the bottom: shown or hidden (remembered), toggled with Ctrl+`.
+  const [terminal, setTerminal] = useState(() => storeGet("camp-term-open") === "1");
+  const toggleTerminal = useCallback(() => setTerminal((on) => { storeSet("camp-term-open", on ? "0" : "1"); return !on; }), []);
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => { if (ev.ctrlKey && !ev.metaKey && !ev.altKey && ev.code === "Backquote") { ev.preventDefault(); toggleTerminal(); } };
+    addEventListener("keydown", onKey, true);
+    return () => removeEventListener("keydown", onKey, true);
+  }, [toggleTerminal]);
+
   // The project dialog: a new project, or one being edited.
   const [dialog, setDialog] = useState<{ project: Project | null } | null>(null);
   const closeDialog = useCallback(() => setDialog(null), []);
@@ -118,7 +128,7 @@ export function App({ store }: { store: FeedStore }) {
   return (
     <>
       <div className="app">
-        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} />
+        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} terminalOpen={terminal} onToggleTerminal={toggleTerminal} />
         <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} />
         <History S={S} store={store} view={view} setView={setView} patch={patch}
           onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
@@ -146,6 +156,7 @@ export function App({ store }: { store: FeedStore }) {
           <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
             onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} />
         </main>
+        {terminal && <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} />}
       </div>
       {agentId && (
         <AgentDrawer key={agentId} agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store} project={project?.id}

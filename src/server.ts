@@ -46,11 +46,13 @@ import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
+import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal } from "./term.js";
 import { pickFolder } from "./picker.js";
-import { uiPage, uiAsset, UI_CSP, UI_NOT_BUILT } from "./ui-files.js";
+import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
 const TOKEN = randomBytes(24).toString("hex");
+const STYLE_NONCE = randomBytes(18).toString("base64url"); // for the terminal pane's style rules (see ui-files.ts)
 const BOOT_ID = randomBytes(6).toString("hex");
 const MAX_BODY = 1_000_000;
 const MAX_UPLOAD_BODY = 36_000_000; // one file per request: ~25 MB once base64-encoded
@@ -346,9 +348,9 @@ const server = http.createServer(async (req, res) => {
       if (url.searchParams.get("t") !== TOKEN) {
         return send(res, 401, "Open the link printed in the terminal (it includes this launch's key).", "text/plain; charset=utf-8");
       }
-      const page = uiPage(TOKEN);
+      const page = uiPage(TOKEN, undefined, STYLE_NONCE);
       if (!page) return send(res, 503, UI_NOT_BUILT, "text/plain; charset=utf-8");
-      res.setHeader("content-security-policy", UI_CSP);
+      res.setHeader("content-security-policy", uiCsp(STYLE_NONCE));
       return send(res, 200, page, "text/html; charset=utf-8");
     }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
@@ -433,6 +435,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     // What an expedition's file tools changed: the files and a unified diff.
+    // The terminal pane: your own shell sessions (term.ts). No agent has a tool that reaches these.
+    if (req.method === "GET" && url.pathname === "/api/term") return send(res, 200, { terminals: listTerminals() });
+    if (req.method === "GET" && url.pathname === "/api/term/stream") {
+      if (!streamTerminal(String(url.searchParams.get("id") ?? ""), res, (fn) => req.on("close", fn))) return send(res, 404, { error: "No such terminal" });
+      return;
+    }
+
     // A project's page: its notes and survey, usage, worktrees, recently changed files, and jobs.
     if (req.method === "GET" && url.pathname === "/api/project") {
       const page = projectPage(String(url.searchParams.get("id") ?? ""));
@@ -696,6 +705,14 @@ const server = http.createServer(async (req, res) => {
       setQuestLimit(n);
       return send(res, 200, { ok: true, questsAtOnce: questLimit() });
     }
+
+    if (url.pathname === "/api/term/open") {
+      try { return send(res, 200, openTerminal({ project: typeof body.project === "string" ? body.project : undefined, cols: body.cols, rows: body.rows })); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+    if (url.pathname === "/api/term/input") return send(res, writeTerminal(String(body.id), body.data) ? 200 : 404, { ok: true });
+    if (url.pathname === "/api/term/resize") return send(res, resizeTerminal(String(body.id), body.cols, body.rows) ? 200 : 404, { ok: true });
+    if (url.pathname === "/api/term/close") return send(res, closeTerminal(String(body.id)) ? 200 : 404, { ok: true });
 
     // Name new conversations with the smallest model ({ on }).
     if (url.pathname === "/api/auto-titles") {

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { uiPage, uiAsset, UI_CSP } from "../src/ui-files.ts";
+import { uiPage, uiAsset, uiCsp, UI_CSP } from "../src/ui-files.ts";
 
 const dist = mkdtempSync(join(tmpdir(), "guild-camp-ui-"));
 mkdirSync(join(dist, "assets"));
@@ -52,4 +52,15 @@ test("the page's policy allows only the camp's own scripts and styles", () => {
   assert.match(UI_CSP, /script-src 'self'/);
   assert.match(UI_CSP, /style-src 'self'/);
   assert.match(UI_CSP, /frame-ancestors 'none'/);
+});
+
+test("the terminal's style rules get a per-launch nonce, and nothing else is loosened", () => {
+  const csp = uiCsp("abcDEF123456_-abcDEF12");
+  assert.match(csp, /style-src 'self' 'nonce-abcDEF123456_-abcDEF12';/);
+  assert.match(csp, /script-src 'self';/, "scripts are untouched");
+  assert.ok(!csp.includes("unsafe-inline") && !csp.includes("unsafe-eval"));
+  assert.equal(uiCsp(""), UI_CSP, "no nonce, no exception");
+  assert.equal(uiCsp("x'; script-src *"), UI_CSP, "a value that isn't a nonce is never put into the policy");
+  writeFileSync(join(dist, "index.html"), '<meta name="camp-token" content="__CAMP_TOKEN__"><meta name="camp-style-nonce" content="__CAMP_NONCE__">');
+  assert.match(uiPage("tok", dist, "abcDEF123456_-abcDEF12")!, /<meta name="camp-style-nonce" content="abcDEF123456_-abcDEF12">/);
 });

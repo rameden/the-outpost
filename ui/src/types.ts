@@ -9,6 +9,7 @@ export type { Snippet } from "../../src/snippets.ts";
 export type { PickResult } from "../../src/picker.ts";
 export type { SessionLine } from "../../src/memory.ts";
 export type { RepoInfo, WorkspaceStatus } from "../../src/repos.ts";
+export type { TerminalInfo } from "../../src/term.ts";
 
 import type { CampEvent } from "../../src/events.ts";
 import type { CampState } from "../../src/server.ts";
