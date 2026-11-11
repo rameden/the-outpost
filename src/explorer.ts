@@ -10,7 +10,7 @@
 
 import { execFile } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { join, posix, relative, resolve, sep } from "node:path";
 import { imageType } from "./attachments.js";
 import { findLink, inside, SECRET_NAME } from "./links.js";
 import { listWorktrees } from "./repos.js";
@@ -37,6 +37,19 @@ export async function explorerRoot(linkName: string, worktree?: string): Promise
   const hit = (await listWorktrees(link.path)).find((w) => resolve(w.path) === resolve(worktree));
   if (!hit) throw new Error(`That isn't a worktree of links/${link.name}.`);
   return hit.path;
+}
+
+// What the camp itself keeps for you to read, opened in the same viewer: a crew member's outputs,
+// the wiki, and what you uploaded. The page names it "@camp" (no linked folder can be called
+// that) and a path under camp/. Nothing else in camp/ is opened this way: not its settings, its
+// connectors, its Jira token, or anyone's memory. The path is tidied before it's checked, so
+// "outputs/../../settings.json" is judged as what it is.
+export const CAMP_FILES = "@camp";
+const CAMP_READABLE = /^(agents\/[A-Za-z0-9_-]+\/outputs|wiki|uploads)\/./;
+export function campFile(rel: string, campRoot = process.cwd()): { root: string; path: string } {
+  const path = posix.normalize(String(rel).replace(/\\/g, "/")).replace(/^\.\//, "");
+  if (!CAMP_READABLE.test(path)) throw new Error("Only the crew's outputs, the wiki and your uploads are opened from the camp folder.");
+  return { root: resolve(campRoot, "camp"), path };
 }
 
 // A path inside the folder, checked: it stays inside (symlinks included) and isn't git's own data.

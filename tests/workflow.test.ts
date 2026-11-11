@@ -450,3 +450,14 @@ test("is it paying off: what the checking found and used, counted from the recor
   assert.equal(payoff.projectPayoff("nope"), null);
   assert.deepEqual(payoff.projectPayoff(conv.addProject({ name: "Empty" }).id)!.reviews, { asked: 0, findings: 0, blockers: 0, sentBack: 0, clean: 0 });
 });
+
+test("a quest's brief in a line: how it opens, without the markdown or a 'Goal:' label, cut to a label's length", async () => {
+  const { briefLine } = await import("../src/quartermaster.ts");
+  assert.equal(briefLine("## Goal: Add `linkKind: \"thread\"` to the **export** module\n\nContext: ..."), 'Add linkKind: "thread" to the export module');
+  assert.equal(briefLine("\n\n- Studio UI: add Share to the history menu\nMore"), "Studio UI: add Share to the history menu");
+  assert.equal(briefLine("Your task: verify mi-web-app"), "verify mi-web-app");
+  assert.equal(briefLine("x".repeat(200)).length, 90);
+  assert.ok(briefLine("x".repeat(200)).endsWith("…"));
+  assert.equal(briefLine(""), "");
+  assert.equal(briefLine(undefined), "");
+});

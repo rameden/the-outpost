@@ -145,6 +145,7 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
+  const questsOut = useFeed(store, (s) => s.quests.length);
   const queued = S?.queued?.length ?? 0;
   const sub = S?.runtime === "claude-code";
 
@@ -172,7 +173,7 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
         </button>
         <span className={cx("chip", running > 0 && "busy")} title={`Up to ${S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it in Settings.`}>
           <span className={cx("dot", running > 0 && "live")} />
-          <span>{running === 0 ? "Idle" : running === 1 ? "On expedition" : `${running} expeditions running`}{queued ? ` · ${queued} queued` : ""}</span>
+          <span>{running === 0 ? "Idle" : running === 1 ? "On expedition" : `${running} expeditions running`}{questsOut > 1 ? ` · ${questsOut} quests out` : ""}{queued ? ` · ${queued} queued` : ""}</span>
         </span>
         <span className="chip" title="Connection to the camp">
           <span className={cx("dot", conn === "live" && "live", conn === "reconnecting" && "warn")} />

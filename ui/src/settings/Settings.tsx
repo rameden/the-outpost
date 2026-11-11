@@ -17,11 +17,12 @@ import { Confirm } from "../components/Confirm.tsx";
 import { Presence } from "../motion.tsx";
 import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
+import { TerminalActions } from "./TerminalActions.tsx";
 
-export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "jobs" | "inbox" | "memory" | "skills" | "connectors";
+export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "jobs" | "inbox" | "memory" | "skills" | "connectors" | "terminal";
 const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] = [
   { title: "Camp", items: [
-    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["phone", "Phone", "phone"],
+    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
   ] },
   { title: "Activity", items: [["usage", "Usage & quests", "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
   { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
@@ -450,6 +451,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "crew" ? <Crew S={S} refresh={refresh} />
             : section === "approvals" ? <Approvals S={S} refresh={refresh} />
             : section === "limits" ? <Limits S={S} refresh={refresh} />
+            : section === "terminal" ? <TerminalActions S={S} refresh={refresh} />
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
             : section === "usage" ? <Quests S={S} refresh={refresh} onOpenSettings={() => setSection("limits")} />
             : section === "jobs" ? <Jobs S={S} refresh={refresh} />

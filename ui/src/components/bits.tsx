@@ -12,6 +12,8 @@ const ICONS = {
   bell: "M6 16.500V11a6 6 0 0112 0v5.500l1.500 1.500h-15zM10 21h4",
   bellOff: "M6 16.500V11a6 6 0 019.500-4.900M18 11v5.500l1.500 1.500H8M10 21h4M4 4l16 16",
   terminal: "M5 8l4 4-4 4M12 16h7",
+  lock: "M7.500 11V8a4.500 4.500 0 019 0v3M5.500 11h13v9h-13z",
+  unlock: "M7.500 11V8a4.500 4.500 0 018.600-1.800M5.500 11h13v9h-13z",
   theme: "M12 3.500a8.500 8.500 0 100 17 8.500 8.500 0 000-17zM12 3.500v17M12 7.500a4.500 4.500 0 010 9",
   gear: "M4 7h9M17 7h3M4 17h3M11 17h9M15 4.500v5M9 14.500v5", // sliders: a cog at this size reads as a sun, next to the theme switch
   up: "M7 11v9H4v-9zM7 11l4-7c1.700 0 2.500 1.200 2.200 2.800L12.600 10H18c1.300 0 2.200 1.200 1.900 2.500l-1.400 6c-.200.900-1 1.500-1.900 1.500H7",
@@ -62,4 +64,42 @@ export function Empty({ title, children }: { title: string; children: ReactNode 
 export function Clamp({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return <div className={open ? "clamp open" : "clamp"} onClick={() => setOpen((v) => !v)}>{children}</div>;
+}
+
+// The top of a drawer (History, Files, the terminal): the same icon and name as the rail that
+// opens it, and clicking the name, or any empty part of the header, closes it again. Controls in
+// the header (tabs, buttons) keep their own clicks.
+export function DrawerHead({ icon, label, hideLabel, hideTitle, onHide, className, children }: {
+  icon: IconName; label: string; hideLabel: string; hideTitle: string; onHide?: () => void; className?: string; children?: ReactNode;
+}) {
+  const name = <><Icon name={icon} /><span>{label}</span></>;
+  return (
+    <header className={["pane-head", onHide && "closable", className].filter(Boolean).join(" ")}
+      onClick={onHide && ((e) => { if (!(e.target as Element).closest("button, a, input, select, textarea, [role=tab]")) onHide(); })}>
+      {onHide
+        ? <button type="button" className="pane-label" aria-label={hideLabel} aria-expanded="true" title={hideTitle} onClick={onHide}>{name}</button>
+        : <span className="pane-label">{name}</span>}
+      {children}
+    </header>
+  );
+}
+
+// An open side drawer (History, Files): the rail that opened it stays on its outer edge, and
+// clicking the rail (anywhere but its own buttons) closes the drawer again. tools: small buttons
+// that sit on the rail, under the name. In a zone along the top or bottom the rail lies flat
+// across the top instead (styles.css).
+export function Drawer({ icon, label, hideLabel, hideTitle, onHide, tools, children }: {
+  icon: IconName; label: string; hideLabel: string; hideTitle: string; onHide: () => void; tools?: ReactNode; children: ReactNode;
+}) {
+  return (
+    <div className="side-drawer">
+      <div className="zone-rail open" onClick={(e) => { if (!(e.target as Element).closest("button, a, input")) onHide(); }}>
+        <button type="button" className="rail-main" aria-label={hideLabel} aria-expanded="true" title={hideTitle} onClick={onHide}>
+          <Icon name={icon} /><span>{label}</span>
+        </button>
+        {tools && <div className="rail-tools">{tools}</div>}
+      </div>
+      {children}
+    </div>
+  );
 }

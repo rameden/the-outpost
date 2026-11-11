@@ -210,3 +210,16 @@ test("a very long message is folded until you ask for all of it", () => {
   expect(within(ask.closest("article")!).getByRole("button", { name: "Show less" }).getAttribute("aria-expanded")).toBe("true");
   expect(within(card("Short one")).queryByRole("button", { name: /Show/ })).toBeNull();
 });
+
+test("each quest's own block says what it's for, so two by the same crew member can be told apart", () => {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  const smith = { who: "Artificer", emoji: "🔨", depth: 1 };
+  send(store, { type: "expedition_start", id: "exp-p", task: "Share a whole thread", source: "user" },
+    { type: "dispatch", ...smith, questId: "q1", expeditionId: "exp-p", brief: "Backend: thread links" },
+    { type: "dispatch", ...smith, questId: "q2", expeditionId: "exp-p", brief: "Studio UI: Share in the menu" });
+  const blocks = [...document.querySelectorAll(".quest")];
+  expect(blocks.map((b) => b.querySelector(".quest-brief")?.textContent)).toEqual(["Backend: thread links", "Studio UI: Share in the menu"]);
+  expect(blocks.every((b) => /^quest-q\d+$/.test(b.id))).toBe(true); // the crew bar's rows lead here
+  expect(document.querySelector(".whos-out")).toBeNull();            // nothing floats over the answer
+});

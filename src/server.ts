@@ -24,7 +24,7 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -55,9 +55,9 @@ import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./
 import { titleConversation } from "./titles.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./chronicle.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
-import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal } from "./term.js";
+import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
-import { explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
+import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
 
@@ -322,6 +322,7 @@ async function fullState(full: boolean) {
       fixAttemptsMax: FIX_ATTEMPTS_MAX,
       reviewChanges: reviewChangesOn(),
       prWatch: prWatchOn(),
+      termActions: termActions(),
       jiraWrite: writeBackSettings(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
@@ -536,8 +537,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname.startsWith("/api/tree")) {
       const q = url.searchParams;
       try {
-        const root = await explorerRoot(String(q.get("link") ?? ""), q.get("root") || undefined);
-        const path = q.get("path") ?? "";
+        // link "@camp": a file the camp keeps for you (a crew member's output, a wiki page, an upload). Opened, never listed.
+        const own = q.get("link") === CAMP_FILES ? campFile(q.get("path") ?? "", CAMP_ROOT) : null;
+        if (own && url.pathname !== "/api/tree/file" && url.pathname !== "/api/tree/raw") return send(res, 400, { error: "The camp's own files can be opened, not listed." });
+        const root = own?.root ?? await explorerRoot(String(q.get("link") ?? ""), q.get("root") || undefined);
+        const path = own?.path ?? q.get("path") ?? "";
         if (url.pathname === "/api/tree") return send(res, 200, { ...listFolder(root, path), ...(path ? {} : { changed: await changedFiles(root) }) });
         if (url.pathname === "/api/tree/file") return send(res, 200, previewFile(root, path));
         if (url.pathname === "/api/tree/find") return send(res, 200, { files: await findFiles(root, q.get("q") ?? "") });
@@ -966,9 +970,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/term/open") {
-      try { return send(res, 200, openTerminal({ project: typeof body.project === "string" ? body.project : undefined, cols: body.cols, rows: body.rows })); }
+      // { folder, sub, title, action, type }: a quick action's new terminal (see openTerminal).
+      const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+      try { return send(res, 200, openTerminal({ project: str(body.project), cols: body.cols, rows: body.rows, folder: str(body.folder), sub: str(body.sub), title: str(body.title), action: str(body.action), type: str(body.type), locked: body.locked === true })); }
       catch (e: any) { return send(res, 400, { error: e.message }); }
     }
+    // The terminal's quick actions ({ actions: [...] }, at most five): your own commands, kept in camp/settings.json.
+    if (url.pathname === "/api/term/actions") {
+      try { return send(res, 200, { ok: true, termActions: setTermActions(body.actions) }); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+    if (url.pathname === "/api/term/lock") { const t = lockTerminal(String(body.id), body.on === true); return send(res, t ? 200 : 404, t ?? { error: "That terminal has closed." }); }
     if (url.pathname === "/api/term/input") return send(res, writeTerminal(String(body.id), body.data) ? 200 : 404, { ok: true });
     if (url.pathname === "/api/term/resize") return send(res, resizeTerminal(String(body.id), body.cols, body.rows) ? 200 : 404, { ok: true });
     if (url.pathname === "/api/term/close") return send(res, closeTerminal(String(body.id)) ? 200 : 404, { ok: true });

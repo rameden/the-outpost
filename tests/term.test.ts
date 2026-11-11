@@ -2,7 +2,7 @@
 // folder, takes what's typed, keeps its recent output for a page that reattaches, and ends cleanly.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, realpathSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { enterSandbox } from "./helpers/sandbox.ts";
@@ -74,4 +74,96 @@ test("without a project it starts in the camp folder; unknown sessions are refus
   assert.throws(() => term.openTerminal({}), /8 terminals already/);
   term.closeAllTerminals();
   assert.deepEqual(term.listTerminals(), []);
+});
+
+// What the hidden pane's rail shows: the last line the shell finished, read off a screen that
+// draws the output the way the page would. No shell needed.
+test("the last line is the newest finished one, as plain text, not the prompt you're at", async () => {
+  const screen = term.makeScreen(20, 5)!;
+  assert.ok(screen, "the screen package is installed");
+  const show = (d: string) => new Promise<string>((r) => screen.write(d, () => r(term.lastLine(screen))));
+
+  assert.equal(await show("\x1b[1mhost%\x1b[0m "), "host%", "nothing finished yet: the prompt itself");
+  assert.equal(await show("ls\r\n"), "host% ls");
+  assert.equal(await show("file-a  file-b  and a long wrapped line here\r\nhost% "), "file-a  file-b  and a long wrapped line here", "colours gone, a wrapped line whole, the new prompt skipped");
+  assert.equal(await show("\r\n\r\n\r\nhost% "), "host%", "blank lines don't count; empty prompts are what's left");
+  assert.equal(await show("npm i\r\n\x1b[32mprogress 10%\x1b[0m\rprogress 99%\r\nadded 3 packages\r\n"), "added 3 packages");
+  assert.equal(await show("\x1b[?1049h\x1b[2J\x1b[Hvim draws here\x1b[?1049l"), "added 3 packages", "a full-screen program doesn't replace it");
+  screen.dispose();
+});
+
+test("quick actions: at most five, each a name and one or more plain one-line commands; a bad one is refused whole", async () => {
+  const { cleanTermActions, setTermActions, termActions } = await import("../src/settings.ts");
+  // Tidied: names trimmed, a chain one command to a line, a folder only for a new terminal.
+  assert.deepEqual(cleanTermActions([
+    { label: "  Push ", commands: "git push origin HEAD\n", where: "current", folder: "web" },
+    { label: "Dev", commands: ["pnpm install", "  ", "pnpm dev:production "], where: "new", folder: "web", sub: "./apps/root/", ask: true },
+    { label: "Scratch", commands: "ls" },
+  ]), [
+    { label: "Push", commands: ["git push origin HEAD"], where: "current" },
+    { label: "Dev", commands: ["pnpm install", "pnpm dev:production"], where: "new", folder: "web", sub: "apps/root", ask: true },
+    { label: "Scratch", commands: ["ls"], where: "new" },
+  ]);
+  const ok = { label: "A", commands: "ls", where: "current" };
+  assert.throws(() => cleanTermActions(Array.from({ length: 6 }, (_, i) => ({ ...ok, label: `A${i}` }))), /more than 5 quick actions/);
+  assert.throws(() => cleanTermActions([{ ...ok, label: " " }]), /Quick action 1 needs a name/);
+  assert.throws(() => cleanTermActions([{ ...ok, label: "A name far too long" }]), /keep the name to 14 characters/);
+  assert.throws(() => cleanTermActions([ok, { ...ok, label: "a" }]), /Two quick actions are called "a"/);
+  assert.throws(() => cleanTermActions([{ ...ok, commands: " \n " }]), /"A" needs a command/);
+  assert.throws(() => cleanTermActions([{ ...ok, commands: ["echo hi\x1b[2J"] }]), /one line of plain text/, "nothing that would act as a key press");
+  assert.throws(() => cleanTermActions([{ ...ok, commands: ["ls\tx"] }]), /one line of plain text/);
+  assert.throws(() => cleanTermActions([{ ...ok, where: "new", folder: "../etc" }]), /pick one of your linked folders/);
+  for (const sub of ["../x", "a/../../x", "/etc", "~/x"]) assert.throws(() => cleanTermActions([{ ...ok, where: "new", folder: "web", sub }]), /is a path within it/);
+  assert.throws(() => cleanTermActions("ls"), /as a list/);
+
+  // Kept in the camp's settings; an empty list clears them; a refused save leaves what was there.
+  assert.deepEqual(termActions(), []);
+  setTermActions([ok]);
+  assert.deepEqual(termActions(), [{ label: "A", commands: ["ls"], where: "current" }]);
+  assert.throws(() => setTermActions([{ ...ok, label: "" }]));
+  assert.equal(termActions().length, 1);
+  setTermActions([]);
+  assert.deepEqual(termActions(), []);
+});
+
+test("a quick action's new terminal: it starts in the folder named, carries the action's name, and types its commands once the shell is up", { skip: !works }, async () => {
+  const inside = realpathSync(mkdtempSync(join(tmpdir(), "satchel-term-act-")));
+  mkdirSync(join(inside, "apps", "web"), { recursive: true });
+  const link = addLink(inside, "read");
+  const t = term.openTerminal({ folder: link.name, sub: "apps/web", title: "Dev", action: "Dev", type: "echo one-$((1+1)) && echo two-$((2+2))\r" });
+  assert.equal(t.cwd, join(inside, "apps", "web"));
+  assert.equal(t.title, "Dev");
+  assert.equal(t.action, "Dev");
+  assert.equal(term.listTerminals().find((x) => x.id === t.id)!.action, "Dev");
+  const l = listener();
+  term.streamTerminal(t.id, l.res, () => {});
+  const out = await l.until(/one-2[\s\S]*two-4/);
+  assert.match(out, /one-2[\s\S]*two-4/, "the chain ran, in order");
+  term.closeTerminal(t.id);
+
+  // Left for you to press Enter: it's typed, and nothing has run.
+  const waits = term.openTerminal({ type: "echo not-$((3+3))-yet" });
+  const w = listener();
+  term.streamTerminal(waits.id, w.res, () => {});
+  await w.until(/not-\$/);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.doesNotMatch(w.data(), /not-6-yet/);
+  term.writeTerminal(waits.id, "\r");
+  assert.match(await w.until(/not-6-yet/), /not-6-yet/);
+  term.closeTerminal(waits.id);
+
+  // A lock is kept with the session: set when it's opened or later, and listed with it.
+  const mine = term.openTerminal({ locked: true });
+  assert.equal(term.listTerminals().find((x) => x.id === mine.id)!.locked, true);
+  assert.equal(term.lockTerminal(mine.id, false)!.locked, undefined);
+  assert.equal(term.lockTerminal(mine.id, true)!.locked, true);
+  assert.ok(term.writeTerminal(mine.id, "true\r"), "what you type yourself still goes in");
+  assert.equal(term.lockTerminal("nope", true), null);
+  term.closeTerminal(mine.id);
+
+  // A folder that isn't there (or isn't inside the link) opens nothing.
+  assert.throws(() => term.openTerminal({ folder: "nope" }), /no linked folder called "nope"/);
+  assert.throws(() => term.openTerminal({ folder: link.name, sub: "apps/missing" }), /isn't a folder that's there/);
+  assert.throws(() => term.openTerminal({ folder: link.name, sub: "../.." }), /isn't a folder that's there/);
+  assert.equal(term.listTerminals().length, 0);
 });

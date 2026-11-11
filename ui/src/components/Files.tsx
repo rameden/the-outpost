@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { api, errorText, storeGet, storeSet, treeQuery } from "../api.ts";
 import { cx } from "../format.ts";
 import type { Listing, TreeEntry } from "../types.ts";
-import { Icon } from "./bits.tsx";
+import { Drawer, Icon } from "./bits.tsx";
 import { Presence } from "../motion.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 
@@ -22,7 +22,9 @@ const rootKey = (r: FileRoot) => `${r.link}|${r.path ?? ""}`;
 const keyOf = (r: FileRoot, rel: string) => `${rootKey(r)}\n${rel}`;
 const join = (rel: string, name: string) => (rel ? `${rel}/${name}` : name);
 // How the crew (and your message) names a place in a linked folder.
-export const refOf = (r: FileRoot, rel: string, dir: boolean) => `links/${r.link}/${rel}${dir && rel ? "/" : ""}`;
+// (A file the camp keeps itself, such as a crew member's output, is under camp/: FileRoot link "@camp".)
+export const CAMP_FILES = "@camp";
+export const refOf = (r: FileRoot, rel: string, dir: boolean) => (r.link === CAMP_FILES ? `camp/${rel}` : `links/${r.link}/${rel}${dir && rel ? "/" : ""}`);
 export const sizeText = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 export const isImage = (name: string) => /\.(png|jpe?g|gif|webp)$/i.test(name);
 
@@ -189,43 +191,41 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
   }
 
   return (
-    <aside className="files" aria-label="Files">
-      <header className="files-head">
-        <span className="term-label">Files</span>
-        <button type="button" className="hist-icon" aria-label="Refresh the files" title="Read the folders again" onClick={() => setTick((t) => t + 1)}><Icon name="refresh" /></button>
-        <button type="button" className="hist-icon" aria-label="Hide the files" title="Hide (Ctrl+Shift+E)" onClick={onHide}>»</button>
-      </header>
-      <div className="files-tree" role="tree" aria-label="Attached folders" ref={tree} onKeyDown={onKeyDown}>
-        {rows.map((row) => {
-          const indent = { "--depth": row.depth } as CSSProperties;
-          if (row.kind === "note") return <div key={row.key} className={cx("ft-note", row.bad && "bad")} style={indent}>{row.text}</div>;
-          const folder = row.kind !== "file";
-          const e = row.entry;
-          const locked = !!e?.secret || !!e?.outside;
-          const ref = refOf(row.root, row.rel, folder);
-          const title = e?.secret ? "A secret (keys, .env, credentials): listed, but not opened here or by the crew"
-            : e?.outside ? "A link that leads outside this folder, so it isn't followed"
-            : row.kind === "root" ? `${row.root.path ?? ref}${row.root.branch ? ` (worktree on ${row.root.branch})` : ""}`
-            : `${ref}${e?.size != null ? ` · ${sizeText(e.size)}` : ""}`;
-          return (
-            <div key={row.key} role="treeitem" aria-level={row.depth + 1}
-              className={cx("ft-row", row.kind === "root" && "ft-root", locked && "locked", row.mark && row.mark !== "•" && `ft-${row.mark}`, `fk-${row.kind === "root" ? "root" : kindOf(row.name, folder)}`)} style={indent}>
-              <button type="button" className="ft-open" data-depth={row.depth} aria-expanded={folder && !locked ? !!row.open : undefined} aria-disabled={locked || undefined} title={title}
-                onClick={() => { if (locked) return; if (row.kind === "file") setViewing({ root: row.root, rel: row.rel }); else toggle(row); }}>
-                <span className="ft-twist">{folder && !locked && <Icon name={row.open ? "chevron" : "chevronRight"} />}</span>
-                <Icon name={folder ? "folder" : isImage(row.name) ? "image" : "file"} />
-                <span className="ft-name">{row.name}</span>
-                {row.kind === "root" && row.root.branch && <span className="ft-branch"><Icon name="branch" />{row.root.branch}</span>}
-                {row.mark && <span className="ft-mark" title={row.mark === "•" ? "Has changes inside" : { M: "Modified", A: "Added", U: "Untracked", D: "Deleted" }[row.mark]}>{row.mark}</span>}
-              </button>
-              {!locked && (
-                <button type="button" className="ft-at" aria-label={`Mention ${row.name} in your message`} title={`Put ${ref} in your message`} onClick={() => onMention(ref)}>@</button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={() => setViewing(null)} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
-    </aside>
+    <Drawer icon="folder" label="Files" onHide={onHide} hideLabel="Hide the files" hideTitle="Hide the files (Ctrl+Shift+E)"
+      tools={<button type="button" className="hist-icon" aria-label="Refresh the files" title="Read the folders again" onClick={() => setTick((t) => t + 1)}><Icon name="refresh" /></button>}>
+      <aside className="files" aria-label="Files">
+        <div className="files-tree" role="tree" aria-label="Attached folders" ref={tree} onKeyDown={onKeyDown}>
+          {rows.map((row) => {
+            const indent = { "--depth": row.depth } as CSSProperties;
+            if (row.kind === "note") return <div key={row.key} className={cx("ft-note", row.bad && "bad")} style={indent}>{row.text}</div>;
+            const folder = row.kind !== "file";
+            const e = row.entry;
+            const locked = !!e?.secret || !!e?.outside;
+            const ref = refOf(row.root, row.rel, folder);
+            const title = e?.secret ? "A secret (keys, .env, credentials): listed, but not opened here or by the crew"
+              : e?.outside ? "A link that leads outside this folder, so it isn't followed"
+              : row.kind === "root" ? `${row.root.path ?? ref}${row.root.branch ? ` (worktree on ${row.root.branch})` : ""}`
+              : `${ref}${e?.size != null ? ` · ${sizeText(e.size)}` : ""}`;
+            return (
+              <div key={row.key} role="treeitem" aria-level={row.depth + 1}
+                className={cx("ft-row", row.kind === "root" && "ft-root", locked && "locked", row.mark && row.mark !== "•" && `ft-${row.mark}`, `fk-${row.kind === "root" ? "root" : kindOf(row.name, folder)}`)} style={indent}>
+                <button type="button" className="ft-open" data-depth={row.depth} aria-expanded={folder && !locked ? !!row.open : undefined} aria-disabled={locked || undefined} title={title}
+                  onClick={() => { if (locked) return; if (row.kind === "file") setViewing({ root: row.root, rel: row.rel }); else toggle(row); }}>
+                  <span className="ft-twist">{folder && !locked && <Icon name={row.open ? "chevron" : "chevronRight"} />}</span>
+                  <Icon name={folder ? "folder" : isImage(row.name) ? "image" : "file"} />
+                  <span className="ft-name">{row.name}</span>
+                  {row.kind === "root" && row.root.branch && <span className="ft-branch"><Icon name="branch" />{row.root.branch}</span>}
+                  {row.mark && <span className="ft-mark" title={row.mark === "•" ? "Has changes inside" : { M: "Modified", A: "Added", U: "Untracked", D: "Deleted" }[row.mark]}>{row.mark}</span>}
+                </button>
+                {!locked && (
+                  <button type="button" className="ft-at" aria-label={`Mention ${row.name} in your message`} title={`Put ${ref} in your message`} onClick={() => onMention(ref)}>@</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={() => setViewing(null)} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
+      </aside>
+    </Drawer>
   );
 }

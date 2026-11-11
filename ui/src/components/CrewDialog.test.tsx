@@ -27,13 +27,19 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-test("the crew bar ends with a + that opens the dialog; added crew members can be edited", () => {
+test("the crew bar has a + in its corner that opens the dialog; added crew members can be edited", () => {
   const onAdd = vi.fn(), onEdit = vi.fn(), onOpenAgent = vi.fn();
   render(<Crew S={S} store={createFeedStore()} pickerFor={null} onOpenAgent={onOpenAgent} onOpenPicker={() => {}} onAdd={onAdd} onEdit={onEdit} />);
   const bar = screen.getByRole("region", { name: "The crew" });
-  // After the last crew member comes the +, then only the chevron that opens the bar up or folds it down.
-  expect(bar.lastElementChild).toBe(screen.getByRole("button", { name: "Show more about the crew" }));
-  expect(bar.lastElementChild?.previousElementSibling).toBe(screen.getByRole("button", { name: "Add a crew member" }));
+  // The crew's half of the roster: the crew, then the + in the corner.
+  expect([...bar.parentElement!.children]).toEqual([bar, screen.getByRole("button", { name: "Add a crew member" })]);
+  // Under the whole roster area (the crew and who's running), the "Crew" rail: it opens the bar up, or folds it down.
+  const rail = screen.getByRole("button", { name: "Show more about the crew" });
+  expect(rail.textContent).toBe("Crew");
+  expect(rail.className).toContain("zone-rail"); // the same rail History, Files and the terminal have
+  expect(rail.previousElementSibling?.className).toBe("crew-area");
+  expect(rail.parentElement!.lastElementChild).toBe(rail);
+  expect(bar.querySelector("button.member-add, .crew-toggle")).toBeNull(); // nothing but the crew inside the bar itself
   fireEvent.click(screen.getByRole("button", { name: "Add a crew member" }));
   expect(onAdd).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Edit Test Pilot" }));

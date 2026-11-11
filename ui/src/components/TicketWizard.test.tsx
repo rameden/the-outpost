@@ -22,6 +22,7 @@ beforeEach(() => {
     if (u.pathname === "/api/jira/issues") return json({ issues: ISSUES.filter((i) => !u.searchParams.get("q") || i.summary.toLowerCase().includes(u.searchParams.get("q")!)) });
     if (u.pathname === "/api/jira/ticket") return json({ ...DETAIL, key: u.searchParams.get("key") });
     if (u.pathname === "/api/repos") return json({ repos: [{ link: "web", access: "write", branch: "main", worktrees: [], branches: [] }, { link: "docs", access: "read", branch: "main", worktrees: [], branches: [] }] });
+    if (u.pathname === "/api/upload") return body.name === "huge.bin" ? json({ error: "That file couldn't be saved." }, 400) : json({ name: body.name, path: `camp/uploads/b7/${body.name}`, batch: "b7" });
     if (u.pathname === "/api/jira/attach") return json({ name: "MP-544.md", path: "camp/uploads/b1/MP-544.md", batch: "b1" });
     if (u.pathname === "/api/send") return refuse ? json({ error: "links/web isn't a git repository, so it can't have a worktree." }, 400) : json({ ok: true, id: "run1", thread: "run1", position: 0, attached: 1 });
     return json({});
@@ -168,4 +169,65 @@ test("a skill can be set always on for the crew members who can use it", async (
   // A crew member's own skill: only they are offered.
   rerender(<AlwaysOn S={S} skill={{ ...skill, owner: "scout", alwaysFor: [] }} refresh={refresh} />);
   expect(within(screen.getByRole("group", { name: "Who always follows plain-words" })).getAllByRole("checkbox").length).toBe(1);
+});
+
+test("extra context: files, images and links added on the details step go with the ticket, and the brief says to look at them", async () => {
+  const onStarted = vi.fn();
+  render(<TicketWizard S={S} start={{ key: "MP-544", summary: "Open button on file citations" }} onClose={() => {}} onStarted={onStarted} />);
+  const dialog = screen.getByRole("dialog", { name: "Start a ticket" });
+  await within(dialog).findByLabelText("Criterion 1");
+  expect(within(dialog).getByRole("heading", { name: "Extra context" })).toBeTruthy();
+
+  // A design and a spec, picked from disk: uploaded straight away, into one batch.
+  const design = new File(["png"], "open-button.png", { type: "image/png" }), spec = new File(["# Spec"], "spec.md", { type: "text/markdown" });
+  fireEvent.change(within(dialog).getByLabelText("Files to attach"), { target: { files: [design, spec] } });
+  await waitFor(() => expect(calls.filter((c) => c.url === "/api/upload").map((c) => [c.body.name, c.body.batch])).toEqual([["open-button.png", undefined], ["spec.md", "b7"]]));
+  const chips = () => [...within(dialog).getByLabelText("Attached for context").querySelectorAll(".chip-att")].map((c) => c.textContent!.replace("×", ""));
+  await waitFor(() => expect(chips()).toEqual(["open-button.png", "spec.md"]));
+  // A link: https:// is assumed; something that isn't a link is refused; the same one isn't added twice.
+  const link = within(dialog).getByLabelText("A link to attach") as HTMLInputElement;
+  fireEvent.change(link, { target: { value: "not a link" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Add link" }));
+  expect(within(dialog).getByRole("alert").textContent).toBe("That doesn't look like a link.");
+  fireEvent.change(link, { target: { value: "figma.com/file/abc/MP-544" } });
+  fireEvent.keyDown(link, { key: "Enter" });
+  expect(link.value).toBe("");
+  expect(within(dialog).queryByRole("alert")).toBeNull();
+  fireEvent.change(link, { target: { value: "https://figma.com/file/abc/MP-544" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Add link" }));
+  expect(chips()).toEqual(["open-button.png", "spec.md", "figma.com/file/abc/MP-544"]);
+  expect(within(dialog).getByRole("heading", { name: "Extra context" })).toBeTruthy(); // Enter in the link box didn't move on a step
+  // One that fails says so and isn't sent; one you remove isn't either.
+  fireEvent.change(within(dialog).getByLabelText("Files to attach"), { target: { files: [new File(["x"], "huge.bin")] } });
+  await waitFor(() => expect(within(dialog).getByRole("alert").textContent).toBe("That file couldn't be saved."));
+  expect(chips().at(-1)).toBe("huge.bin · failed");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Remove spec.md" }));
+
+  next("Where"); next("Who"); next("Start");
+  expect(dialog.querySelector(".wizard-summary")!.textContent).toContain("Also attachedopen-button.png, figma.com/file/abc/MP-544");
+  const brief = (within(dialog).getByLabelText("The brief") as HTMLTextAreaElement).value;
+  expect(brief).toContain("I've also attached these for context (designs, references): open-button.png, figma.com/file/abc/MP-544. Look at them before you plan, and say so if any of them disagree with the ticket.");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Start the work" }));
+  await waitFor(() => expect(onStarted).toHaveBeenCalled());
+  expect(calls.find((c) => c.url === "/api/jira/attach")!.body).toEqual({ key: "MP-544", batch: "b7" }); // the ticket joins the same batch
+  expect(calls.find((c) => c.url === "/api/send")!.body.attachments).toEqual([
+    { kind: "file", name: "MP-544.md", path: "camp/uploads/b1/MP-544.md" },
+    { kind: "file", name: "open-button.png", path: "camp/uploads/b7/open-button.png" },
+    { kind: "url", name: "figma.com/file/abc/MP-544", url: "https://figma.com/file/abc/MP-544" },
+  ]);
+});
+
+test("dropping files on the details step, or pasting an image there, attaches them", async () => {
+  render(<TicketWizard S={S} start={{ key: "MP-544", summary: "Open button on file citations" }} onClose={() => {}} onStarted={() => {}} />);
+  const dialog = screen.getByRole("dialog", { name: "Start a ticket" });
+  await within(dialog).findByLabelText("Criterion 1");
+  const shot = new File(["png"], "screenshot.png", { type: "image/png" });
+  fireEvent.drop(dialog, { dataTransfer: { files: [shot], types: ["Files"] } });
+  await waitFor(() => expect(within(dialog).getByLabelText("Attached for context").textContent).toContain("screenshot.png"));
+  fireEvent.paste(dialog, { clipboardData: { files: [new File(["png"], "pasted.png", { type: "image/png" })] } });
+  await waitFor(() => expect(within(dialog).getByLabelText("Attached for context").textContent).toContain("pasted.png"));
+  // One attached: the brief speaks of "this", not "these".
+  fireEvent.click(within(dialog).getByRole("button", { name: "Remove pasted.png" }));
+  next("Where"); next("Who"); next("Start");
+  expect((within(dialog).getByLabelText("The brief") as HTMLTextAreaElement).value).toContain("I've also attached this for context (designs, references): screenshot.png. Look at it before you plan, and say so if it disagrees with the ticket.");
 });

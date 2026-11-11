@@ -62,6 +62,8 @@ const BULLET = /^\s*[-*]\s+/;
 const NUMBERED = /^\s*\d+[.)]\s+/;
 const QUOTE = /^>\s?/;
 const FENCE = /^```/;
+const ROW = /^\s*\|.*\|\s*$/;
+const DIVIDER = /^\s*\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|\s*$/; // |---|:-:|--:|
 
 export function renderMarkdown(src: string): ReactNode[] {
   const lines = String(src ?? "").split("\n");
@@ -94,10 +96,30 @@ export function renderMarkdown(src: string): ReactNode[] {
       const marker = ordered ? NUMBERED : BULLET;
       const items: ReactNode[] = [];
       while (i < lines.length && marker.test(lines[i])) {
-        items.push(<li key={items.length}>{inline(lines[i].replace(/^\s*([-*]|\d+[.)])\s+/, ""))}</li>);
+        const text = lines[i].replace(/^\s*([-*]|\d+[.)])\s+/, "");
+        // A checklist item ("- [ ] …", "- [x] …"): its box, ticked or not. It's a record, so it can't be clicked.
+        const box = text.match(/^\[([ xX])\]\s+(.*)$/);
+        items.push(box
+          ? <li key={items.length} className="md-task"><input type="checkbox" checked={box[1] !== " "} readOnly disabled aria-label={box[1] !== " " ? "Done" : "Not done"} /> {inline(box[2])}</li>
+          : <li key={items.length}>{inline(text)}</li>);
         i++;
       }
       out.push(ordered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>);
+      continue;
+    }
+    // A table: a row of cells, a row of dashes under it, then the rest.
+    if (ROW.test(line) && i + 1 < lines.length && DIVIDER.test(lines[i + 1])) {
+      const cells = (l: string) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const head = cells(line);
+      const aligns = cells(lines[i + 1]).map((c) => (c.startsWith(":") && c.endsWith(":") ? "center" : c.endsWith(":") ? "right" : undefined));
+      i += 2;
+      const body: string[][] = [];
+      while (i < lines.length && ROW.test(lines[i])) body.push(cells(lines[i++]));
+      out.push(
+        <div key={key} className="md-table"><table>
+          <thead><tr>{head.map((c, n) => <th key={n} style={aligns[n] ? { textAlign: aligns[n] } : undefined}>{inline(c)}</th>)}</tr></thead>
+          <tbody>{body.map((r, m) => <tr key={m}>{head.map((_, n) => <td key={n} style={aligns[n] ? { textAlign: aligns[n] } : undefined}>{inline(r[n] ?? "")}</td>)}</tr>)}</tbody>
+        </table></div>);
       continue;
     }
     if (QUOTE.test(line)) {
@@ -108,7 +130,7 @@ export function renderMarkdown(src: string): ReactNode[] {
     }
     if (!line.trim()) { i++; continue; }
     const para: ReactNode[] = [];
-    while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|```|\s*[-*]\s+|\s*\d+[.)]\s+|>)/.test(lines[i])) {
+    while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|```|\s*[-*]\s+|\s*\d+[.)]\s+|>)/.test(lines[i]) && !(ROW.test(lines[i]) && i + 1 < lines.length && DIVIDER.test(lines[i + 1]))) {
       if (para.length) para.push(<br key={`br${i}`} />);
       para.push(<Fragment key={i}>{inline(lines[i])}</Fragment>);
       i++;
