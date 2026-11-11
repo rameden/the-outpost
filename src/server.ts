@@ -17,13 +17,14 @@ import { join, normalize, resolve, sep } from "node:path";
 import { onEvent, attachConsole, emit, continueSeqFrom, type CampEvent } from "./events.js";
 import { setAsker, type Question } from "./ask.js";
 import { currentExpeditionId, newSteering, steer, type Steering } from "./context.js";
-import { linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, removeWorkspace } from "./repos.js";
+import { linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, pullRequestFeedback, pushWorkspace, removeWorkspace, switchBranch } from "./repos.js";
+import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, checkPullRequests, markSeen, startPrWatch } from "./prs.js";
 import { sandboxAvailable } from "./sandbox.js";
 import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -32,13 +33,18 @@ import { CREW, CREW_IDS, findCrew, addMember, updateMember, removeMember, type C
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { recentQuests, questCost } from "./questlog.js";
-import { wikiPages, WIKI_DIR } from "./wiki.js";
+import { wikiPages, WIKI_DIR, saveWikiPage, removeWikiPage } from "./wiki.js";
 import { pendingDetails, approveSkill, rejectSkill } from "./forge.js";
+import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, saveSkillFile, alwaysFor, setSkillAlways } from "./skillpacks.js";
+import { skillCommands } from "./settings.js";
 import { dueJobs, runJob, inboxEntries, claimScheduler, schedulerOwner } from "./scheduler.js";
 import { keepInFeed, loadFeed, saveToFeed } from "./feed.js";
 import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
-import { latestDirect, threadFor } from "./threads.js";
+import { allTurns, latestDirect, threadFor } from "./threads.js";
+import { chainNote, chainReady } from "./chains.js";
+import { ASIDE_BRIEFS, isAsideBrief } from "./review.js";
+import { projectPayoff } from "./payoff.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
@@ -47,9 +53,11 @@ import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
+import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./chronicle.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal } from "./term.js";
-import { explorerRoot, listFolder, previewFile, imageFile, changedFiles } from "./explorer.js";
+import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
+import { explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
 
@@ -89,7 +97,11 @@ setAsker((q) => new Promise((resolve) => pendingAsks.set(q.id, { q, resolve, exp
 // Stop button stay its own. The limit (settings "parallel", default 3) keeps a subscription's
 // usage limits (or API spend) from draining all at once.
 // steering: what you say to it while it runs (the Steer box on its card) reaches the agents working in it.
-type Work = { id: string; label: string; run: (signal: AbortSignal, id: string, steering: Steering) => Promise<unknown>; controller?: AbortController; steering: Steering };
+// task: the request's opening words, for the page's list of what's running and waiting.
+// after: a chained request, held until that run has finished. held: the run it waited on didn't
+// finish cleanly (how it ended), so it stays put until you start it anyway or take it off.
+type Work = { id: string; label: string; run: (signal: AbortSignal, id: string, steering: Steering) => Promise<unknown>; controller?: AbortController; steering: Steering;
+  task?: string; after?: string; held?: string };
 const queue: Work[] = [];
 const running = new Map<string, Work>();
 
@@ -109,8 +121,10 @@ function drain() {
     resumeTimer = setTimeout(drain, Math.min(paused - Date.now() + 1000, 2_000_000_000));
     resumeTimer.unref();
   }
-  while (!paused && running.size < parallelLimit() && queue.length) {
-    const w = queue.shift()!;
+  while (!paused && running.size < parallelLimit()) {
+    const at = queue.findIndex(ready);
+    if (at < 0) break;
+    const w = queue.splice(at, 1)[0];
     w.controller = new AbortController();
     running.set(w.id, w);
     w.run(w.controller.signal, w.id, w.steering)
@@ -123,6 +137,10 @@ function drain() {
   }
   emit({ type: "changed", what: "queue" });
 }
+
+// A chained request waits for the run it follows (chains.ts).
+const inFlight = (id: string) => running.has(id) || queue.some((q) => q.id === id);
+const ready = (w: Work) => chainReady(w, inFlight);
 
 // Stop one expedition (or, with no id, everything running): cancel its calls and answer the
 // approvals it's waiting on with "no". A queued one is simply taken off the queue.
@@ -173,7 +191,7 @@ function spending(all: ReturnType<typeof recentQuests>) {
 
 // Skills a crew member can use: its own plus the shared ones.
 function skillsFor(id: CrewId) {
-  const out: { owner: string; name: string; description: string }[] = [];
+  const out: { owner: string; name: string; description: string; always: boolean }[] = []; // always: its instructions are in every one of their prompts
   for (const owner of [id, "shared"]) {
     const dir = join("skills", owner);
     if (!existsSync(dir)) continue;
@@ -181,7 +199,7 @@ function skillsFor(id: CrewId) {
       const file = join(dir, name, "SKILL.md");
       if (!existsSync(file)) continue;
       const description = readFileSync(file, "utf8").match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
-      out.push({ owner, name, description });
+      out.push({ owner, name, description, always: alwaysFor(owner, name).includes(id) });
     }
   }
   return out;
@@ -189,7 +207,7 @@ function skillsFor(id: CrewId) {
 
 // Every approved skill on disk, by owner (a crew member, or "shared").
 function installedSkills() {
-  const out: { owner: string; name: string; description: string; path: string }[] = [];
+  const out: { owner: string; name: string; description: string; path: string; commands: string[]; alwaysFor: string[] }[] = [];
   if (!existsSync("skills")) return out;
   for (const owner of readdirSync("skills")) {
     const dir = join("skills", owner);
@@ -198,7 +216,9 @@ function installedSkills() {
       const file = join(dir, name, "SKILL.md");
       if (!existsSync(file)) continue;
       const description = readFileSync(file, "utf8").match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
-      out.push({ owner, name, description, path: file });
+      // commands: what you let this skill run without asking (an imported skill's scripts, or prefixes you gave it).
+      out.push({ owner, name, description, path: file, commands: (skillCommands()[`${owner}/${name}`] ?? []).map((c) => c.prefix),
+        alwaysFor: alwaysFor(owner, name) }); // the crew members who follow it always, not just when a task matches
     }
   }
   return out;
@@ -250,10 +270,17 @@ async function agentDetail(id: CrewId) {
 // What /api/agent and /api/state send. The page imports these types (ui/src/types.ts), so it is
 // checked against what the server really returns.
 export type AgentDetail = Awaited<ReturnType<typeof agentDetail>>;
-export type CampState = Awaited<ReturnType<typeof state>>;
 
-async function state() {
+// full: everything. Otherwise the records only Settings shows (every agent's memory, the quest
+// log, the wiki, connectors, the inbox, installed skills) are left out: the page asks for those
+// when Settings is open, and every other refresh stays light.
+export type CampState = Awaited<ReturnType<typeof fullState>>;
+async function state(full = true): Promise<CampState> {
+  return fullState(full);
+}
+async function fullState(full: boolean) {
   const all = recentQuests(Number.MAX_SAFE_INTEGER);
+  const none = <T,>(make: () => T): T => (full ? make() : (undefined as T)); // not sent: the page keeps what it had
   const xp: Record<string, number> = {};
   for (const q of all) if (q.status === "done") xp[q.character] = (xp[q.character] ?? 0) + 10;
   return {
@@ -274,10 +301,10 @@ async function state() {
         overridden: !!(override.model || override.effort || override.maxTurns),
       };
     }),
-    memories: CREW_IDS.map((id) => ({ id, name: CREW[id].name, emoji: CREW[id].emoji, memory: readMemory(id), sessions: recentSessions(id, 1000).length })),
+    memories: none(() => CREW_IDS.map((id) => ({ id, name: CREW[id].name, emoji: CREW[id].emoji, memory: readMemory(id), sessions: recentSessions(id, 1000).length }))),
     xp,
-    running: [...running.values()].map((w) => ({ id: w.id, label: w.label })),
-    queued: queue.map((w) => ({ id: w.id, label: w.label })),
+    running: [...running.values()].map((w) => ({ id: w.id, label: w.label, task: w.task ?? "" })),
+    queued: queue.map((w) => ({ id: w.id, label: w.label, task: w.task ?? "", after: w.after ?? null, held: w.held ?? null })),
     parallel: parallelLimit(),
     sandbox: { on: shellSettings().sandbox === true, available: sandboxAvailable() },
     // Everything the Settings page shows that isn't already above.
@@ -291,10 +318,15 @@ async function state() {
       parallelMax: PARALLEL_MAX,
       selfEdit: selfEditAllowed(),
       autoTitles: autoTitlesOn(),
+      fixAttempts: fixAttempts(),
+      fixAttemptsMax: FIX_ATTEMPTS_MAX,
+      reviewChanges: reviewChangesOn(),
+      prWatch: prWatchOn(),
+      jiraWrite: writeBackSettings(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
     },
-    installedSkills: installedSkills(),
+    installedSkills: none(() => installedSkills()),
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
     pausedUntil: pausedUntil(),
     pauseMessage: pausedUntil() ? pauseMessage(pausedUntil()!) : null,
@@ -302,16 +334,20 @@ async function state() {
     phone: !!phoneConfig(),
     asks: [...pendingAsks.entries()].map(([id, { q }]) => ({ id, ...q })),
     jobs: loadJobs(),
-    quests: all.slice(-80).reverse().map((q) => ({ ...q, cost: questCost(q) })),
+    quests: none(() => all.slice(-80).reverse().map((q) => ({ ...q, cost: questCost(q) }))),
     spend: spending(all),
     budgetUsd: budgetUsd() ?? null,
-    connectors: await connectorStatus(),
-    wiki: wikiPages(),
+    connectors: full ? await connectorStatus() : (undefined as unknown as Awaited<ReturnType<typeof connectorStatus>>),
+    wiki: none(() => wikiPages()),
     skills: pendingDetails(),
-    inbox: inboxEntries(),
+    inboxCount: inboxEntries().length, // for the badge in Settings' own menu
+    inbox: none(() => inboxEntries()),
     snippets: loadSnippets(),
     links: loadLinks(),
     history: history(), // your conversations, filed under projects (the sidebar)
+    jira: jiraStatus(),   // whether your Jira account is linked, and as whom (never the token)
+    // The pull requests of recent worktrees, as the camp last saw them (prs.ts). attention: there's something new to look at.
+    prs: prStates().map((p) => ({ ...p, attention: needsYou(p) })),
     runtime: campRuntime(),
     login: campRuntime() === "claude-code" ? await claudeLogin() : null,
   };
@@ -382,7 +418,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "GET" && url.pathname === "/api/state") return send(res, 200, await state());
+    if (req.method === "GET" && url.pathname === "/api/state") return send(res, 200, await state(url.searchParams.get("full") !== "0"));
 
     if (req.method === "GET" && url.pathname === "/api/wiki") {
       const rel = normalize(url.searchParams.get("path") ?? "");
@@ -459,6 +495,25 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ...page, workspaces });
     }
 
+    // An installed skill, for editing: its files (?owner=&name=), or one of them as text (&path=).
+    if (req.method === "GET" && url.pathname === "/api/skills/files") {
+      const q = url.searchParams, owner = String(q.get("owner") ?? ""), name = String(q.get("name") ?? "");
+      try { return send(res, 200, q.get("path") ? readSkillFile(owner, name, q.get("path")!) : skillDetail(owner, name)); }
+      catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+
+    // What a project's reviews, second opinions, fix-ups and pull requests came to lately, and what they used.
+    if (req.method === "GET" && url.pathname === "/api/project/payoff") {
+      const p = projectPayoff(String(url.searchParams.get("id") ?? ""));
+      return p ? send(res, 200, p) : send(res, 404, { error: "No such project" });
+    }
+
+    // A project's weekly chronicles, and whether this week and last have anything to write up.
+    if (req.method === "GET" && url.pathname === "/api/project/chronicle") {
+      const page = chroniclePage(String(url.searchParams.get("id") ?? ""));
+      return page ? send(res, 200, page) : send(res, 404, { error: "No such project" });
+    }
+
     // Conversations that mention the words, in their title, requests, or answers.
     if (req.method === "GET" && url.pathname === "/api/history/search") {
       return send(res, 200, { results: searchConversations(String(url.searchParams.get("q") ?? "")) });
@@ -485,12 +540,26 @@ const server = http.createServer(async (req, res) => {
         const path = q.get("path") ?? "";
         if (url.pathname === "/api/tree") return send(res, 200, { ...listFolder(root, path), ...(path ? {} : { changed: await changedFiles(root) }) });
         if (url.pathname === "/api/tree/file") return send(res, 200, previewFile(root, path));
+        if (url.pathname === "/api/tree/find") return send(res, 200, { files: await findFiles(root, q.get("q") ?? "") });
+        if (url.pathname === "/api/tree/diff") return send(res, 200, await fileDiff(root, path));
         if (url.pathname === "/api/tree/raw") {
           const { media, bytes } = imageFile(root, path);
           res.writeHead(200, { "content-type": media, "cache-control": "no-store", "x-content-type-options": "nosniff" });
           return res.end(bytes);
         }
       } catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+
+    // Jira tickets for the attach menu: the ones you looked at last, or a search (?q=).
+    if (req.method === "GET" && url.pathname === "/api/jira/issues") {
+      try { return send(res, 200, { issues: await findIssues(url.searchParams.get("q") ?? "") }); }
+      catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
+
+    // The Jira page: the tickets your filter pulls in (?jql= tries another filter without keeping it), and one ticket in full (?key=).
+    if (req.method === "GET" && (url.pathname === "/api/jira/tickets" || url.pathname === "/api/jira/ticket")) {
+      try { return send(res, 200, url.pathname === "/api/jira/ticket" ? await ticketDetail(url.searchParams.get("key") ?? "") : await pulledTickets(url.searchParams.get("jql") ?? undefined)); }
+      catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
     }
 
     // Project files for @ autocomplete.
@@ -506,7 +575,41 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, saveUpload({ name: body.name, data: body.data, batch: body.batch, relPath: body.relPath }));
     }
 
+    // A packaged skill ({ name, data }: the .skill file, base64): opened in memory and described.
+    // Nothing is written and nothing in it runs; installing is a second step (/api/skills/install).
+    if (url.pathname === "/api/skills/inspect") {
+      const body = await readJson(req, MAX_UPLOAD_BODY);
+      if (typeof body.data !== "string") return send(res, 400, { error: "Missing file" });
+      try { return send(res, 200, inspectPack(Buffer.from(body.data, "base64"), String(body.name ?? ""))); }
+      catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+
     const body = await readJson(req);
+
+    // Install a skill you've looked at ({ id, owner, scripts, commands, replace }), or take one off the disk ({ owner, name }).
+    if (url.pathname === "/api/skills/install") {
+      try { return send(res, 200, { ok: true, ...installPack(String(body.id ?? ""), body) }); }
+      catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+    // Your own wiki pages: add one ({ create: true, section, title, summary, text }), change one ({ path, summary, text }), or take one away ({ path }).
+    if (url.pathname === "/api/wiki/save" || url.pathname === "/api/wiki/remove") {
+      try { return send(res, 200, url.pathname === "/api/wiki/save" ? { ok: true, page: saveWikiPage(body) } : { ok: removeWikiPage(String(body.path ?? "")) }); }
+      catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+    // Save your edit to one file of an installed skill ({ owner, name, path, text, create? }).
+    if (url.pathname === "/api/skills/save") {
+      try { return send(res, 200, { ok: true, ...saveSkillFile(String(body.owner ?? ""), String(body.name ?? ""), String(body.path ?? ""), body.text, body.create === true) }); }
+      catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+    // Who follows a skill always, with its instructions in every prompt ({ owner, name, agents: [...] }).
+    if (url.pathname === "/api/skills/always") {
+      try { return send(res, 200, { ok: true, alwaysFor: setSkillAlways(String(body.owner ?? ""), String(body.name ?? ""), body.agents) }); }
+      catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+    if (url.pathname === "/api/skills/remove") {
+      const ok = removeSkill(String(body.owner ?? ""), String(body.name ?? ""));
+      return send(res, ok ? 200 : 404, ok ? { ok } : { error: "No such skill." });
+    }
 
     if (url.pathname === "/api/send") {
       let text = String(body.text ?? "").trim();
@@ -514,6 +617,9 @@ const server = http.createServer(async (req, res) => {
       // { resume: <expedition id> }: pick up a run that was cut off or stopped, from what it had done.
       const resume = typeof body.resume === "string" ? body.resume : undefined;
       if (resume) { body.replyTo = resume; text ||= "Pick up where this left off and finish the job. Check what's already done before redoing anything."; }
+      // { aside: true, brief: "opinion" | "review" }, with "@who" as the text: the standing brief for a second opinion or a review (review.ts).
+      const brief: unknown = body.brief;
+      if (body.aside === true && isAsideBrief(brief) && /^@\w+$/.test(text)) text = `${text} ${ASIDE_BRIEFS[brief]}`;
       if (!text && attachments.length === 0) return send(res, 400, { error: "Empty request" });
       if (!text) text = "Take a look at what I attached.";
       const direct = text.match(/^@(\w+)\s+([\s\S]+)$/) ?? (attachments.length ? text.match(/^@(\w+)$/) : null);
@@ -527,11 +633,20 @@ const server = http.createServer(async (req, res) => {
       if (!replyTo && body.chat && who && who.id !== "quartermaster") replyTo = latestDirect(who.id);
       const stillRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
       const thread = threadFor(replyTo, stillRunning);
-      if (!thread || (who && who.id !== thread.agent)) replyTo = undefined; // addressed to someone else: a fresh start
+      // { aside: true }: someone else steps into the conversation for this one turn (a second
+      // opinion, a review): it reads the conversation, and the conversation stays who it was with.
+      const aside = body.aside === true && !!thread && !!who && who.id !== "quartermaster";
+      if (!thread || (who && who.id !== thread.agent && !aside)) replyTo = undefined; // addressed to someone else: a fresh start
+      // { jira: "APP-123" }: the ticket a new conversation is working on; a reply keeps its conversation's.
+      const jira = replyTo ? thread?.jira : (typeof body.jira === "string" && JIRA_KEY.test(body.jira.toUpperCase()) ? body.jira.toUpperCase() : undefined);
       const target = who ?? (replyTo && thread?.direct ? findCrew(thread.agent) : undefined);
       // { workspaces: { <link>: { mode: "new", branch? } | { mode: "existing", path } } }: work in a
       // worktree of that linked repo instead of the linked checkout. A reply without it stays
       // where its conversation was working.
+      // { after: <run id> }: a chained request. It waits until that run has finished, then starts
+      // (told what that run did, and working where it worked unless you chose somewhere else).
+      const after = typeof body.after === "string" && (inFlight(body.after) || allTurns().some((t) => t.expedition === body.after)) ? body.after : undefined;
+      if (typeof body.after === "string" && !after) return send(res, 400, { error: "The work this was to follow can't be found any more. Send it without waiting." });
       let workspaces: Awaited<ReturnType<typeof prepareWorkspaces>> | undefined;
       try {
         const chosen = body.workspaces && typeof body.workspaces === "object" ? body.workspaces : undefined;
@@ -547,7 +662,7 @@ const server = http.createServer(async (req, res) => {
       const mentioned = [...attached.map((a) => a.path ?? ""), text].flatMap((t) => [...t.matchAll(/(?:^|[\s@("'`])links\/([A-Za-z0-9_-]+)/g)].map((m) => m[1]));
       const links = [...new Set([...(replyTo ? thread?.links ?? [] : []), ...mentioned, ...Object.keys(workspaces ?? {})])].filter((l) => named.has(l));
       // A project can start every new conversation in its own worktree of each of its repos.
-      if (!replyTo && !workspaces && project.settings?.workIn === "worktree" && project.links?.length) {
+      if (!replyTo && !workspaces && !after && project.settings?.workIn === "worktree" && project.links?.length) {
         try {
           const repos = new Set((await linkedRepos()).filter((r) => r.access === "write").map((r) => r.link));
           const chosen = Object.fromEntries(project.links.filter((l) => repos.has(l)).map((l) => [l, { mode: "new" as const }]));
@@ -556,23 +671,40 @@ const server = http.createServer(async (req, res) => {
           return send(res, 400, { error: `Couldn't set up this project's worktree: ${e.message}` });
         }
       }
-      const where = { project: project.id, links };
+      const where = { project: project.id, links, ...(jira ? { jira } : {}) };
       const isNew = !replyTo;
+      const task = (direct ? direct[2] ?? text : text).replace(/\s+/g, " ").slice(0, 90);
+      // Worked out when it starts, not now: a chained request follows what its predecessor ended up doing.
+      const chained = () => {
+        if (!after) return { workspaces, links: where.links, extraSystem: undefined as string | undefined };
+        const before = allTurns().find((t) => t.expedition === after);
+        return {
+          workspaces: workspaces ?? (replyTo ? undefined : before?.workspaces),
+          links: [...new Set([...where.links, ...(before?.links ?? []), ...Object.keys(before?.workspaces ?? {})])].filter((l) => named.has(l)),
+          extraSystem: chainNote(before, !!thread && before?.thread === thread.thread),
+        };
+      };
       const w = target && target.id !== "quartermaster"
-        ? enqueue({ label: `@${target.id}`, run: async (signal, id, steering) => {
-            const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces, steering, stillRunning, ...where });
+        ? enqueue({ label: `@${target.id}`, task, after, run: async (signal, id, steering) => {
+            const c = chained();
+            const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem, aside });
             if (isNew && r) void titleConversation(id, text, r.text);
             return r;
           } })
-        : enqueue({ label: "expedition", run: async (signal, id, steering) => {
-            const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces, steering, stillRunning, ...where });
+        : enqueue({ label: "expedition", task, after, run: async (signal, id, steering) => {
+            const c = chained();
+            // { review: true | false }: have this run's changes reviewed before it reports, whatever the project and camp are set to.
+            const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem,
+              ...(typeof body.review === "boolean" ? { review: body.review } : {}) });
             if (isNew) void titleConversation(id, text, r.text);
             return r;
           } });
       const position = queue.indexOf(w) + 1; // 0: it started right away
       const conversation = replyTo && thread ? thread.thread : w.id; // a new conversation is named after its first run
       if (isNew) fileConversation(conversation, project.id);
-      return send(res, 200, { ok: true, id: w.id, position, attached: attached.length, thread: conversation });
+      // Started from a ticket, with write-back on: say so on the ticket (and move it, if you named a status).
+      if (isNew && jira) void writeBack("start", jira, { branch: Object.values(workspaces ?? {})[0]?.branch }).then((note) => { if (note) emit({ type: "notice", who: "Jira", emoji: "🔖", depth: 0, text: note, expeditionId: w.id }); });
+      return send(res, 200, { ok: true, id: w.id, position, attached: attached.length, thread: conversation, ...(after ? { after } : {}) });
     }
 
     // Pick an agent's model and effort. { id, model, effort } sets them; { id, reset: true } goes back to defaults.
@@ -717,11 +849,66 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Your own git actions on an expedition's worktree. Nothing here is ever triggered by an agent.
-    if (url.pathname === "/api/repo/commit" || url.pathname === "/api/repo/pr" || url.pathname === "/api/repo/remove") {
-      const w = { link: String(body.link ?? ""), path: String(body.path ?? "") };
+    // Your Jira account: link it ({ siteUrl, email, apiToken }: checked with Jira first), or unlink it ({ disconnect: true }).
+    if (url.pathname === "/api/jira") {
+      try { return send(res, 200, body.disconnect ? disconnectJira() : await connectJira(body)); }
+      catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
+    // Which tickets are pulled in ({ jql }; empty goes back to "assigned to me, not done"). Jira runs it first: a filter it rejects isn't kept.
+    if (url.pathname === "/api/jira/filter") {
+      try { return send(res, 200, await saveJiraFilter(body.jql)); }
+      catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
+    // Attach a ticket to the message being written ({ key, batch? }): saved as a file in this
+    // message's uploads, so it's read like any other attachment and stays as it was when attached.
+    if (url.pathname === "/api/jira/attach") {
       try {
+        const t = await readIssue(String(body.key ?? ""));
+        const saved = saveUpload({ name: `${t.key}.md`, data: Buffer.from(`${JIRA_NOTE}\n\n${t.text}\n`).toString("base64"), batch: body.batch });
+        return send(res, 200, { ...saved, key: t.key, summary: t.summary, url: t.url });
+      } catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
+
+    // Switch your checkout of a linked repository to a branch, or make a new one ({ link, name, create }).
+    if (url.pathname === "/api/repo/branch") {
+      try { return send(res, 200, { ok: true, branch: await switchBranch(String(body.link ?? ""), String(body.name ?? ""), body.create === true), repos: await linkedRepos() }); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+
+    // The pull requests the camp is watching: look again now, or note that you've brought one's feedback in ({ path }).
+    if (url.pathname === "/api/prs/check") return send(res, 200, { prs: (await checkPullRequests()).map((p) => ({ ...p, attention: needsYou(p) })) });
+    if (url.pathname === "/api/prs/seen") return send(res, markSeen(String(body.path ?? "")) ? 200 : 404, { ok: true });
+    // Whether recent worktrees' pull requests are looked at now and then ({ on }).
+    if (url.pathname === "/api/pr-watch") {
+      setPrWatch(!!body.on);
+      return send(res, 200, { ok: true, prWatch: prWatchOn() });
+    }
+    // What the camp may write to Jira ({ on, startStatus, prStatus }): nothing unless on.
+    if (url.pathname === "/api/jira/write") return send(res, 200, saveWriteBack(body));
+
+    if (url.pathname === "/api/repo/commit" || url.pathname === "/api/repo/pr" || url.pathname === "/api/repo/pr/draft" || url.pathname === "/api/repo/remove" || url.pathname === "/api/repo/feedback" || url.pathname === "/api/repo/push") {
+      const w = { link: String(body.link ?? ""), path: String(body.path ?? "") };
+      const expedition = typeof body.expedition === "string" ? body.expedition : undefined;
+      try {
+        // What reviewers and the checks have said on the branch's pull request: for you to read and send on.
+        if (url.pathname === "/api/repo/feedback") { const f = await pullRequestFeedback(w); markSeen(w.path); return send(res, 200, f); }
         if (url.pathname === "/api/repo/commit") return send(res, 200, { ok: true, commit: await commitWorkspace(w, String(body.message ?? "")) });
-        if (url.pathname === "/api/repo/pr") return send(res, 200, { ok: true, url: await openPullRequest(w, String(body.title ?? ""), String(body.body ?? "")) });
+        // New commits, pushed to where the branch already goes (its pull request).
+        if (url.pathname === "/api/repo/push") { const pushed = await pushWorkspace(w); void checkPullRequests().catch(() => {}); return send(res, 200, { ok: true, pushed }); }
+        // A title and description drafted from the record, for you to edit ({ expedition, base }).
+        if (url.pathname === "/api/repo/pr/draft") return send(res, 200, await draftPullRequest(w, { expedition, base: typeof body.base === "string" ? body.base : undefined }));
+        if (url.pathname === "/api/repo/pr") {
+          // { update: true }: the branch has a pull request already; change its title and description.
+          if (body.update === true) {
+            const at = await updatePullRequest(w, String(body.title ?? ""), String(body.body ?? ""));
+            void checkPullRequests().catch(() => {});
+            return send(res, 200, { ok: true, url: at, updated: true });
+          }
+          const at = await openPullRequest(w, String(body.title ?? ""), String(body.body ?? ""));
+          const jira = await writeBack("pr", ticketOf(w, expedition), { url: at });
+          void checkPullRequests().catch(() => {});
+          return send(res, 200, { ok: true, url: at, ...(jira ? { jira } : {}) });
+        }
         await removeWorkspace(w);
         return send(res, 200, { ok: true });
       } catch (e: any) {
@@ -778,6 +965,18 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/term/close") return send(res, closeTerminal(String(body.id)) ? 200 : 404, { ok: true });
 
     // Name new conversations with the smallest model ({ on }).
+    // After a quest: how many times it's sent back to fix failing checks ({ fixAttempts }), and
+    // whether changes are reviewed before the report ({ review }).
+    if (url.pathname === "/api/quest-checks") {
+      if (body.fixAttempts !== undefined) {
+        const n = Number(body.fixAttempts);
+        if (!Number.isFinite(n) || n < 0 || n > FIX_ATTEMPTS_MAX) return send(res, 400, { error: `Fix attempts go from 0 to ${FIX_ATTEMPTS_MAX}.` });
+        setFixAttempts(n);
+      }
+      if (body.review !== undefined) setReviewChanges(!!body.review);
+      return send(res, 200, { ok: true, fixAttempts: fixAttempts(), reviewChanges: reviewChangesOn() });
+    }
+
     if (url.pathname === "/api/auto-titles") {
       setAutoTitles(!!body.on);
       return send(res, 200, { ok: true, autoTitles: autoTitlesOn() });
@@ -792,6 +991,25 @@ const server = http.createServer(async (req, res) => {
       fileConversation(w.id, p.id);
       renameConversation(w.id, `Survey of ${p.name}`);
       return send(res, 200, { ok: true, id: w.id, thread: w.id, position: queue.indexOf(w) + 1 });
+    }
+
+    // Write a week's chronicle for a project ({ id, week? }): the camp gathers the week's record,
+    // the Scribe writes it up from that alone, and the result is kept with the project.
+    if (url.pathname === "/api/project/chronicle") {
+      const p = getProject(String(body.id ?? ""));
+      if (!p) return send(res, 404, { error: "No such project" });
+      let week: string, facts: string, conversations: number;
+      try { ({ week, facts, conversations } = weekFacts(p, typeof body.week === "string" && body.week ? body.week : weekOf())); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+      if (!conversations) return send(res, 400, { error: `Nothing happened in ${p.name} in the week of ${weekLabel(week)}, so there's nothing to write up.` });
+      const w = enqueue({ label: "@scribe", task: `Chronicle of ${p.name}`, run: async (signal, id, steering) => {
+        const r = await runDirect("scribe", chronicleRequest(p, week, facts), "direct", undefined, signal, id, undefined, { steering, project: p.id, links: [] });
+        if (r?.status === "done" && r.text.trim()) saveChronicle(p.id, week, r.text);
+        return r;
+      } });
+      fileConversation(w.id, p.id);
+      renameConversation(w.id, `Chronicle: ${weekLabel(week)}`);
+      return send(res, 200, { ok: true, id: w.id, thread: w.id, position: queue.indexOf(w) + 1, week });
     }
 
     // Let agents edit the camp's own source ({ on }).
@@ -845,6 +1063,16 @@ const server = http.createServer(async (req, res) => {
     // "Try anyway": start queued work even though the plan's limit was reported as used up.
     if (url.pathname === "/api/limits/resume") {
       resumeNow();
+      drain();
+      return send(res, 200, { ok: true });
+    }
+
+    // A chained request that's held (what it waited on didn't finish cleanly), or still waiting:
+    // start it without waiting any longer ({ id }).
+    if (url.pathname === "/api/queue/release") {
+      const w = queue.find((q) => q.id === String(body.id));
+      if (!w) return send(res, 404, { error: "That one isn't waiting any more." });
+      delete w.after; delete w.held;
       drain();
       return send(res, 200, { ok: true });
     }
@@ -910,6 +1138,8 @@ startPhoneBridge((askId, answer) => {
   pending.resolve(answer);
   return true;
 });
+
+startPrWatch();
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`🏕️  Mission control is up: http://127.0.0.1:${PORT}/?t=${TOKEN}`);

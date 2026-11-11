@@ -1,11 +1,12 @@
 // The header chips and the Quests card, on a Claude subscription with a plan limit used up
 // (the parts a fake-API run can't show), plus the busy chip with several expeditions.
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createFeedStore } from "../feed/store.ts";
 import { Quests } from "../panels/Quests.tsx";
 import type { CampEvent, CampState } from "../types.ts";
 import { Header } from "./Header.tsx";
+import type { Need } from "../needs.ts";
 
 const posts: { path: string; body: unknown }[] = [];
 beforeEach(() => {
@@ -115,4 +116,33 @@ test("focus mode: one button closes the panels, and shows when they're closed", 
   expect(screen.queryByRole("button", { name: /the terminal/ })).toBeNull(); // the terminal has its own tab now
   rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused onToggleFocus={onToggleFocus} />);
   expect(screen.getByRole("button", { name: "Leave focus mode" }).getAttribute("aria-pressed")).toBe("true");
+});
+
+test("what needs you is one chip: several things open a list, and each row goes to its own", () => {
+  const onNeed = vi.fn(), onSeenAll = vi.fn();
+  const need = (kind: string, conversation: string, title: string, says: string) => ({ key: `${kind}:${conversation}`, kind, conversation, title, says }) as Need;
+  const list = [need("decision", "d", "Still going", "Waiting on your decision"), need("pr", "a", "Open button", "Pull request #7: 1 failing check"), need("finished", "c", "Fix the nav", "Finished since you last looked")];
+  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} needs={list} onNeed={onNeed} onSeenAll={onSeenAll} />);
+  const chip = screen.getByRole("button", { name: "2 things need you · 1 finished" });
+  expect(chip.className).toContain("needs");
+  fireEvent.click(chip);
+  const rows = within(screen.getByRole("menu", { name: "What needs you" })).getAllByRole("menuitem");
+  expect(rows.map((r) => r.textContent)).toEqual(["Still goingWaiting on your decision", "Open buttonPull request #7: 1 failing check", "Fix the navFinished since you last looked", "Mark what's finished as seen"]);
+  fireEvent.click(rows[1]);
+  expect(onNeed).toHaveBeenCalledWith(list[1]);
+  expect(screen.queryByRole("menu")).toBeNull();
+  // One thing: the chip goes straight to it.
+  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} needs={[list[1]]} onNeed={onNeed} />);
+  fireEvent.click(screen.getByRole("button", { name: "1 pull request needs you" }));
+  expect(onNeed).toHaveBeenLastCalledWith(list[1]);
+  // Only news (runs that finished): a quiet chip, and one click clears it.
+  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} needs={[list[2], { ...list[2], key: "finished:x" }]} onNeed={onNeed} onSeenAll={onSeenAll} />);
+  const news = screen.getByRole("button", { name: "2 finished" });
+  expect(news.className).not.toContain("needs");
+  fireEvent.click(news);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Mark what's finished as seen" }));
+  expect(onSeenAll).toHaveBeenCalledTimes(1);
+  // Nothing: no chip.
+  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} needs={[]} onNeed={onNeed} />);
+  expect(screen.queryByRole("button", { name: /need/ })).toBeNull();
 });

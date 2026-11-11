@@ -3,9 +3,10 @@
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type Ref } from "react";
 import { MessageInput, type MessageInputHandle } from "./MessageInput.tsx";
-import { api, errorText } from "../api.ts";
+import { api, errorText, storeGet, storeRemove, storeSet } from "../api.ts";
+import { COMMANDS, parseCommand, say } from "../bus.ts";
 import type { FeedStore } from "../feed/store.ts";
-import type { CampState, Link, PendingAttachment, SendResult, Snippet, Uploaded } from "../types.ts";
+import type { CampState, Link, PendingAttachment, SendResult, Snippet, Uploaded, JiraRef } from "../types.ts";
 import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { WorkIn, chosenWorkspaces, useRepos, type WorkChoice } from "./WorkIn.tsx";
@@ -19,6 +20,7 @@ export type ComposerHandle = {
   setText: (text: string) => void;               // an example prompt
   attachLink: (link: Link) => void;              // "Attach" on a linked folder
   mention: (path: string) => void;               // a file or folder picked in the Files flyout
+  attachJira: (issue: Pick<JiraRef, "key" | "summary">) => void; // "Attach to message" on a ticket
   setReply: (expId: string, task: string) => void; // "Reply" on a finished expedition
   focus: () => void;
 };
@@ -48,12 +50,18 @@ function mentionToken(el: Pick<MessageInputHandle, "value" | "selectionStart">) 
 // conversation it follows that conversation's latest run; on a new page it can name a project.
 // folders: the linked folders that belong here (the "work in" picker shows only these).
 // newWorktree: the project starts each new conversation in its own worktree.
-export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean };
+export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean;
+  working?: Record<string, string> }; // a conversation working in worktrees: the branch in each repository
 
 // onFolders: told which linked folders are attached to the message being written (by name).
-export function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders }: {
+// draftKey: where you are (a conversation, a new page in a project…). What you've typed and not
+// sent is kept under it in this browser, so it's still there after a reload, or when you come back.
+// hidden: on a page that isn't a conversation (Projects, Jira, the wiki) there's no message box.
+// It stays in the page, out of sight, so what's attached or half-written is still there when you're back.
+export function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders, draftKey, hidden }: {
+  hidden?: boolean;
   S: CampState | null; store: FeedStore; refresh: () => void; patch: (fn: (s: CampState) => CampState) => void; ref: Ref<ComposerHandle>;
-  context?: SendContext; onSent?: (r: SendResult) => void; onFolders?: (names: string[]) => void;
+  context?: SendContext; onSent?: (r: SendResult) => void; onFolders?: (names: string[]) => void; draftKey?: string;
 }) {
   const [text, setText] = useState("");
   const [pending, setPending] = useState<PendingAttachment[]>([]);
@@ -63,14 +71,35 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const [reply, setReply] = useState<{ id: string; task: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [workChoice, setWorkChoice] = useState<WorkChoice>({});
+  // A chained request: it waits for this run to finish before it starts.
+  const [after, setAfter] = useState<{ id: string; name: string } | null>(null);
+  const [afterOpen, setAfterOpen] = useState(false);
+  const inFlight = [...(S?.running ?? []), ...(S?.queued ?? [])];
+  const afterLive = after && inFlight.some((w) => w.id === after.id) ? after : null; // it finished meanwhile: nothing to wait for
   const [sends, setSends] = useState(0);
-  const { repos, reload: reloadRepos } = useRepos(S?.links); // links added or removed: look again
+  const { repos, reload: reloadRepos, switchBranch } = useRepos(S?.links); // links added or removed: look again
   // Moving to another project starts from that project's own default for where to work.
   const projectKey = `${context?.project ?? ""}|${context?.newWorktree ? "new" : ""}|${(context?.folders ?? []).join(",")}`;
   useEffect(() => {
-    setWorkChoice(context?.newWorktree ? Object.fromEntries((context.folders ?? []).filter((l) => repos.find((r) => r.link === l)?.access === "write").map((l) => [l, "new"])) : {});
+    const fresh = context?.newWorktree ? "new" : "";
+    const editable = repos.filter((r) => r.access === "write" && (context?.folders ?? []).includes(r.link));
+    setWorkChoice(fresh ? Object.fromEntries(editable.map((r) => [r.link, fresh])) : {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey, repos.length]);
+
+  // The draft for where you are: picked up on arriving, kept as you type, gone once it's sent.
+  const drafted = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!draftKey) return;
+    const key = `camp-draft:${draftKey}`;
+    if (drafted.current !== draftKey) {
+      drafted.current = draftKey;
+      const saved = storeGet(key) ?? "";
+      if (saved !== text) return setText(saved); // kept on the next pass, once the box holds it
+    }
+    if (text) storeSet(key, text.slice(0, 20_000)); else storeRemove(key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey, text]);
 
   const input = useRef<MessageInputHandle>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -145,6 +174,18 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const linkedNow = pending.filter((a) => a.kind === "folder" && a.path?.startsWith("links/")).map((a) => a.path!.slice(6)).join("\n");
   useEffect(() => { onFolders?.(linkedNow ? linkedNow.split("\n") : []); }, [linkedNow]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A Jira ticket: the camp reads it now and keeps it with this message's uploads, so the crew
+  // gets the ticket as it stood when you attached it.
+  async function attachJira(issue: Pick<JiraRef, "key" | "summary">) {
+    setError("");
+    const key = add({ kind: "file", name: `${issue.key} · ${issue.summary}`.slice(0, 80), status: "uploading" });
+    try {
+      const r = await api<Uploaded>("/api/jira/attach", { key: issue.key, batch: batch.current });
+      batch.current = r.batch;
+      update(key, { path: r.path, status: "ready" });
+    } catch (e) { update(key, { status: "error" }); setError(errorText(e)); }
+  }
+
   // Linked folders: attached by reference (links/<name>), nothing uploaded.
   function attachLink(link: Link) {
     if (pendingNow.current.some((a) => a.path === `links/${link.name}`)) return;
@@ -196,6 +237,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       const t = ev.target as Node;
       if (!box.current?.querySelector(".attach-menu")?.contains(t) && !attachBtn.current?.contains(t) && !(t as Element).closest?.(".work-in")) setMenu(null);
       if (!mentionBox.current?.contains(t) && !input.current?.el?.contains(t)) setMention(null);
+      if (!(t as Element).closest?.(".after-pick")) setAfterOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -226,6 +268,13 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     const el = input.current;
     const t = el && mentionToken(el);
     clearTimeout(mentionTimer.current);
+    // A message that starts with / is a command for the page: offer the ones that fit.
+    const typed = el ? el.value.slice(0, el.selectionStart) : "";
+    if (el && /^\/[a-z]*$/.test(typed) && el.value === typed) {
+      const items = COMMANDS.filter((c) => c.name.startsWith(typed.slice(1))).map((c) => ({ value: `/${c.name}`, label: `/${c.name}${c.arg ? ` ${c.arg}` : ""}`, hint: c.does }));
+      closeMenu();
+      return setMention(items.length ? { items, index: 0, start: 0 } : null);
+    }
     if (!el || !t) return setMention(null);
     closeMenu();
     mentionTimer.current = setTimeout(async () => {
@@ -245,7 +294,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     const it = mention?.items[i];
     if (!el || !mention || !it) return;
     const before = el.value.slice(0, mention.start);
-    const insert = `@${it.value} `;
+    const insert = it.value.startsWith("/") ? `${it.value} ` : `@${it.value} `;
     select.current = [before.length + insert.length, before.length + insert.length];
     setText(before + insert + el.value.slice(el.selectionStart));
     setMention(null);
@@ -291,17 +340,28 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     const attachments = pending.filter((a) => a.status === "ready").map(({ kind, name, path, url }) => ({ kind, name, path, url }));
     if (!message && !attachments.length) return;
     setError("");
+    // /new, /focus, /good…: for the page itself, not the crew.
+    const command = attachments.length ? null : parseCommand(message);
+    if (command) {
+      say({ do: "command", name: command.name, arg: command.arg || undefined });
+      setText("");
+      return setMention(null);
+    }
     try {
       const follows = reply?.id ?? context?.replyTo;
-      const r = await api<SendResult>("/api/send", { text: message, attachments, ...(follows ? { replyTo: follows } : { workspaces: chosenWorkspaces(workChoice), project: context?.project }) });
+      const r = await api<SendResult>("/api/send", { text: message, attachments, ...(afterLive ? { after: afterLive.id } : {}),
+        ...(follows ? { replyTo: follows } : { workspaces: chosenWorkspaces(workChoice), project: context?.project }) });
+      if (draftKey) storeRemove(`camp-draft:${draftKey}`); // sent: it's no longer a draft, here or on a fresh page
       onSent?.(r);
       setSends((n) => n + 1); // a new worktree shows up in the picker a moment later
       setReply(null);
+      setAfter(null);
       setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
       setPending([]);
       batch.current = undefined;
       setMention(null);
-      if (r.position > 0) {
+      if (r.after) store.addSys(`Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
+      else if (r.position > 0) {
         store.addSys(S?.pausedUntil
           ? `Queued (#${r.position}): it starts when your plan's limit resets`
           : `Queued (#${r.position}): ${S?.parallel ?? 3} expeditions are already running, so it starts when one finishes`);
@@ -320,17 +380,24 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     setText: (t) => { setText(t); focus(); },
     attachLink: (link) => { attachLink(link); focus(); },
     mention: insertRef,
+    attachJira: (issue) => { void attachJira(issue); focus(); },
     setReply: (id, task) => { setReply({ id, task }); focus(); },
     focus,
   }));
 
   return (
-    <div className={dragging ? "composer dragging" : "composer"} ref={box} onDragOver={onDragOver} onDrop={onDrop}
+    <div className={dragging ? "composer dragging" : "composer"} ref={box} hidden={hidden} onDragOver={onDragOver} onDrop={onDrop}
       onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setDragging(false); }}>
       {reply && (
         <div className="reply-bar">
           <Icon name="reply" /><span>Following up on</span><b>{reply.task || "that expedition"}</b>
           <button type="button" className="att-x" aria-label="Stop following up" title="Send as a new request instead" onClick={() => setReply(null)}>×</button>
+        </div>
+      )}
+      {afterLive && (
+        <div className="reply-bar">
+          <Icon name="clock" /><span>Starts after</span><b>{afterLive.name}</b>
+          <button type="button" className="att-x" aria-label="Don't wait: send it now" title="Send it without waiting" onClick={() => setAfter(null)}>×</button>
         </div>
       )}
       {pending.length > 0 && (
@@ -351,6 +418,8 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       {menu && (
         <AttachMenu S={S} view={menu} setView={setMenu} text={text} onClose={closeMenu}
           repos={workRepos} work={workChoice} workLocked={followsUp}
+          onBranch={switchBranch}
+          onJira={(issue) => { void attachJira(issue); focus(); }} onConnectJira={() => say({ do: "command", name: "connectors" })}
           onWork={(link, v) => {
             setWorkChoice((c) => { const next = { ...c }; if (v) next[link] = v; else delete next[link]; return next; });
             if (workRepos.length === 1) { closeMenu(); focus(); } // with several, you may want to set the others too
@@ -373,8 +442,31 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
             onClick={() => { setMention(null); setMenu(menu ? null : "main"); }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           </button>
-          <WorkIn repos={workRepos} choice={workChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"}
+          <WorkIn repos={workRepos} choice={workChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"} working={context?.working}
             onOpen={() => { setMention(null); setMenu(menu === "work" ? null : "work"); }} />
+          {inFlight.length > 0 && (
+            <span className="after-pick">
+              <button type="button" className={afterLive ? "work-btn changed" : "work-btn"} aria-haspopup="menu" aria-expanded={afterOpen}
+                title="Chain it: have this start only once something that's running or waiting has finished. It's told what that work did, and carries on where it worked."
+                onClick={() => { setMention(null); setMenu(null); setAfterOpen((o) => !o); }}><Icon name="clock" /><span>{afterLive ? "After" : "Start after…"}</span></button>
+              {afterOpen && (
+                <div className="popover after-menu" role="menu" aria-label="Start after">
+                  <div className="menu-label">Start this once it has finished</div>
+                  {inFlight.map((w) => {
+                    const name = w.task || w.label;
+                    const here = w.id === context?.replyTo;
+                    return (
+                      <button key={w.id} type="button" role="menuitemradio" aria-checked={afterLive?.id === w.id} className="mention-item"
+                        onClick={() => { setAfter({ id: w.id, name: here ? "this conversation's current run" : name }); setAfterOpen(false); focus(); }}>
+                        <span>{here ? "This conversation's current run" : name}</span><small>{(S?.queued ?? []).some((q) => q.id === w.id) ? "waiting" : w.label}</small>
+                      </button>
+                    );
+                  })}
+                  {afterLive && <button type="button" role="menuitem" className="mention-item" onClick={() => { setAfter(null); setAfterOpen(false); focus(); }}><span>Don't wait: send it now</span></button>}
+                </div>
+              )}
+            </span>
+          )}
           {S && (inCode
             ? <span className="composer-tip" title="You're in a code block: Enter adds a line of code. Move below the block, or press ⌘/Ctrl+Enter, to send.">⌘Enter to send</span>
             : <span className="composer-tip" title="Shift+Enter for a new line. ⌘/Ctrl+Enter sends from anywhere.">Enter to send</span>)}

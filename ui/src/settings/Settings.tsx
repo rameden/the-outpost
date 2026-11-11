@@ -1,26 +1,30 @@
 // Settings: one place for how the camp runs. A modal over mission control (the camp stays in
 // view behind it; click outside or press Escape to close), with a section list on the left: the runtime and look, each crew member (who they are, their model),
 // how much the crew may do without asking, limits, phone approvals, the camp's activity (usage,
-// jobs, inbox), and its knowledge (memory, wiki, skills, connectors).
+// jobs, inbox), and its knowledge (memory, skills, connectors). (The wiki has a page of its own: components/Wiki.tsx.)
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { About } from "../components/AgentDrawer.tsx";
 import { useModelList } from "../components/ModelPicker.tsx";
 import { Quests } from "../panels/Quests.tsx";
-import { Connectors, Inbox, Jobs, Memory, Skills, Wiki } from "../panels/Records.tsx";
+import { Connectors, Inbox, Jobs, Memory, Skills } from "../panels/Records.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { cClass, cx, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
+import { Confirm } from "../components/Confirm.tsx";
+import { Presence } from "../motion.tsx";
+import { SkillImport } from "./SkillImport.tsx";
+import { SkillEditor } from "./SkillEditor.tsx";
 
-export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "jobs" | "inbox" | "memory" | "wiki" | "skills" | "connectors";
+export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "jobs" | "inbox" | "memory" | "skills" | "connectors";
 const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] = [
   { title: "Camp", items: [
     ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["phone", "Phone", "phone"],
   ] },
   { title: "Activity", items: [["usage", "Usage & quests", "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
-  { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["wiki", "Wiki", "book"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
+  { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
 export const isSettingsSection = (s: string | null): s is SettingsSection => ALL.some(([id]) => id === s);
@@ -263,6 +267,20 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
           {range(S.settings.questsMax).map((n) => <option key={n}>{n}</option>)}
         </select>
       </Row>
+      <Row label="When a check fails" help="After a quest changes files in a linked folder, the camp runs that folder's checks (set on its project page). If one fails, the same crew member is sent back with the failing output to fix what it broke, and the checks run again. Each time is another quest's worth of usage.">
+        <select aria-label="When a check fails" value={S.settings.fixAttempts} onChange={(ev) => tryIt(() => api("/api/quest-checks", { fixAttempts: Number(ev.target.value) }), refresh)}>
+          <option value={0}>Just report it</option>
+          {range(S.settings.fixAttemptsMax).map((n) => <option key={n} value={n}>{n === 1 ? "Send it back once" : `Send it back up to ${n} times`}</option>)}
+        </select>
+      </Row>
+      <Row label="Review changes before reporting" help="Before the Quartermaster sums up an expedition that changed files in a linked folder, it sends the Scout to read the actual diff and look for bugs, missing pieces and changes beyond the request; a real problem gets one fix. Another quest's worth of usage each time, so it's off unless you want it.">
+        <label className="switch"><input type="checkbox" checked={S.settings.reviewChanges}
+          onChange={(ev) => tryIt(() => api("/api/quest-checks", { review: ev.target.checked }), refresh)} /> {S.settings.reviewChanges ? "On" : "Off"}</label>
+      </Row>
+      <Row label="Watch open pull requests" help="Every few minutes while mission control is open, the camp looks (with the GitHub CLI, as you) at the pull requests of worktrees the crew worked in lately: failing checks, review comments, conflicts with the base. A conversation whose pull request needs you says so at its top, where one click brings the feedback into a reply for you to read and send. Nothing is answered, pushed or merged by itself.">
+        <label className="switch"><input type="checkbox" checked={S.settings.prWatch}
+          onChange={(ev) => tryIt(() => api("/api/pr-watch", { on: ev.target.checked }), refresh)} /> {S.settings.prWatch ? "On" : "Off"}</label>
+      </Row>
     </>
   );
 }
@@ -314,21 +332,69 @@ function Phone({ S, refresh }: { S: CampState; refresh: () => void }) {
 }
 
 // ---------- Installed skills (the approved ones on disk) ----------
-function InstalledSkills({ S }: { S: CampState }) {
+// Who follows a skill always. Normally a skill is listed for the crew by name and description,
+// and opened when a task seems to match. Ticked here, its instructions go into every one of that
+// crew member's prompts, so they follow it without having to notice it applies.
+export function AlwaysOn({ S, skill, refresh }: { S: CampState; skill: CampState["installedSkills"][number]; refresh: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const on = skill.alwaysFor ?? [];
+  const who = S.characters.filter((c) => skill.owner === "shared" || c.id === skill.owner);
+  if (!who.length) return null;
+  const set = async (id: string, yes: boolean) => {
+    setBusy(true);
+    try { await api("/api/skills/always", { owner: skill.owner, name: skill.name, agents: yes ? [...on, id] : on.filter((x) => x !== id) }); refresh(); }
+    catch (e) { alert(errorText(e)); }
+    setBusy(false);
+  };
+  return (
+    <div className="skill-always" role="group" aria-label={`Who always follows ${skill.name}`}
+      title="Ticked, this skill's instructions are in every one of that crew member's prompts. Unticked, they see its name and description and open it when a task seems to match. Each one that's always on makes every prompt a little longer.">
+      <span className="meta">Always on for</span>
+      {who.map((c) => (
+        <label key={c.id} className={cx("skill-always-who", on.includes(c.id) && "on")}>
+          <input type="checkbox" checked={on.includes(c.id)} disabled={busy} onChange={(ev) => set(c.id, ev.target.checked)} /> {c.emoji} {c.name}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function InstalledSkills({ S, refresh }: { S: CampState; refresh: () => void }) {
+  const [asking, setAsking] = useState<{ owner: string; name: string } | null>(null);
+  const [editing, setEditing] = useState<{ owner: string; name: string } | null>(null);
+  const closeEditor = useCallback(() => setEditing(null), []);
+  const remove = async () => {
+    if (!asking) return;
+    try { await api("/api/skills/remove", asking); } catch (e) { alert(errorText(e)); }
+    setAsking(null);
+    refresh();
+  };
   const owners = [...new Set(S.installedSkills.map((s) => s.owner))];
   const label = (o: string) => { const c = S.characters.find((x) => x.id === o); return c ? `${c.emoji} ${c.name}` : o === "shared" ? "Shared by everyone" : o; };
   return (
     <div className="wiki-group" style={{ marginTop: 22 }}>
       <h4>Installed</h4>
-      <p>Approved skills in skills/&lt;owner&gt;/. Each crew member uses its own plus the shared ones.</p>
+      <p>Approved skills in skills/&lt;owner&gt;/. Each crew member uses its own plus the shared ones, opening one when a task seems to match. Tick a crew member under a skill to have them follow it always.</p>
       {!owners.length && <div className="meta">None yet.</div>}
+      <Presence>{editing && <SkillEditor key={`${editing.owner}/${editing.name}`} owner={editing.owner} name={editing.name} onClose={closeEditor} onSaved={refresh} />}</Presence>
+      <Presence>{asking && (
+        <Confirm title={`Remove ${asking.owner}/${asking.name}?`} action="Remove the skill" danger onConfirm={remove} onCancel={() => setAsking(null)}>
+          <p>Its folder, skills/{asking.owner}/{asking.name}/, is deleted, along with any commands you let it run without asking. The crew stops seeing it from their next run.</p>
+        </Confirm>
+      )}</Presence>
       {owners.map((o) => (
         <div key={o} className="skill-owner">
           <div className="set-sub">{label(o)}</div>
           <ul className="list">
             {S.installedSkills.filter((s) => s.owner === o).map((s) => (
-              <li key={s.path} className="card"><div className="card-top"><span className="who"><Icon name="spark" /> {s.name}</span></div>
-                <div className="meta">{s.description || "No description."}</div><div className="meta"><code>{s.path}</code></div></li>
+              <li key={s.path} className="card"><div className="card-top"><span className="who"><Icon name="spark" /> {s.name}</span>
+                  <span className="skill-actions">
+                    <button type="button" className="linkish" title="Change this skill's instructions, or the files beside them" onClick={() => setEditing({ owner: s.owner, name: s.name })}>Edit</button>
+                    <button type="button" className="linkish" title="Take this skill off the disk" onClick={() => setAsking({ owner: s.owner, name: s.name })}>Remove</button>
+                  </span></div>
+                <div className="meta">{s.description || "No description."}</div><div className="meta"><code>{s.path}</code></div>
+                {s.commands?.length > 0 && <div className="meta skill-commands">Runs without asking: {s.commands.map((c) => <code key={c}>{c}</code>)}</div>}
+                <AlwaysOn S={S} skill={s} refresh={refresh} /></li>
             ))}
           </ul>
         </div>
@@ -342,17 +408,16 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
   S: CampState | null; section: SettingsSection; setSection: (s: SettingsSection) => void; refresh: () => void;
   onAttachLink: (link: Link) => void; onClose: () => void;
 }) {
-  const [wikiOpen, setWikiOpen] = useState<string | null>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
   const pressedOutside = useRef(false);
   useEffect(() => {
     closeBtn.current?.focus();
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape" && !document.querySelector(".popover")) onClose(); };
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape" && !document.querySelector('.popover, [role="alertdialog"]')) onClose(); }; // a menu or a question on top closes first
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
   const title = ALL.find(([id]) => id === section)?.[1] ?? "";
-  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, inbox: S?.inbox.length };
+  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, inbox: S?.inboxCount ?? S?.inbox?.length };
   return (
     // A press that starts and ends on the dimmed backdrop closes it; a drag that began inside
     // (selecting text in a field, say) doesn't.
@@ -366,7 +431,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             <div className="set-group-title">{g.title}</div>
             {g.items.map(([id, label, icon]) => (
               <button key={id} type="button" className="set-nav-item" aria-current={section === id ? "page" : undefined}
-                onClick={() => { setWikiOpen(null); setSection(id); }}>
+                onClick={() => setSection(id)}>
                 <Icon name={icon} />{label}
                 {!!counts[id] && <span className="count">{counts[id]}</span>}
               </button>
@@ -390,8 +455,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "jobs" ? <Jobs S={S} refresh={refresh} />
             : section === "inbox" ? <Inbox S={S} refresh={refresh} />
             : section === "memory" ? <Memory S={S} refresh={refresh} />
-            : section === "wiki" ? <Wiki S={S} refresh={refresh} open={wikiOpen} setOpen={setWikiOpen} />
-            : section === "skills" ? <><Skills S={S} refresh={refresh} /><InstalledSkills S={S} /></>
+            : section === "skills" ? <><Skills S={S} refresh={refresh} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>
             : <Connectors S={S} refresh={refresh} onAttachLink={(l) => { onAttachLink(l); onClose(); }} />}
         </div>
       </div>

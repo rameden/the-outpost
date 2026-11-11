@@ -92,8 +92,13 @@ test("steering, Resume, and a worktree's Commit each post to the right place", a
   expect(posts).toEqual([{ path: "/api/send", body: { resume: "exp-a" } }]);
 
   posts.length = 0;
-  vi.stubGlobal("prompt", () => "Summarize memory papers");
-  await act(async () => { fireEvent.click(a.getByRole("button", { name: "Commit…" })); });
+  // Commit asks for the message in the page's own dialog, starting from the request.
+  fireEvent.click(a.getByRole("button", { name: "Commit…" }));
+  const dialog = within(screen.getByRole("dialog", { name: "Commit to camp/memory" }));
+  expect((dialog.getByLabelText("Message") as HTMLTextAreaElement).value).toBe("Research memory");
+  fireEvent.change(dialog.getByLabelText("Message"), { target: { value: "Summarize memory papers" } });
+  await act(async () => { fireEvent.click(dialog.getByRole("button", { name: "Commit" })); });
+  expect(a.queryByRole("button", { name: "PR feedback…" })).toBeNull(); // feedback is brought in from the strip at the top, in one place
   expect(posts[0]).toEqual({ path: "/api/repo/commit", body: { link: "site", path: "/repos/site-wt", message: "Summarize memory papers" } });
   expect(within(card("Write the changelog")).queryByRole("button", { name: "Resume" })).toBeNull(); // still running
 });

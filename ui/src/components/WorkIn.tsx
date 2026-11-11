@@ -4,17 +4,20 @@
 // linked checkout (the default), a new worktree and branch (editable links only), or a
 // worktree that already exists. A follow-up keeps working where its conversation was.
 
-import { useCallback, useEffect, useState } from "react";
-import { api } from "../api.ts";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { api, errorText } from "../api.ts";
 import type { RepoInfo } from "../types.ts";
 import { Icon } from "./bits.tsx";
 
-// link → "new" | a worktree's path. A link that isn't here works in its linked checkout.
+// link → "new" | "new:<branch>" (a new worktree on a branch by that name) | a worktree's path.
+// A link that isn't here works in its linked checkout.
 export type WorkChoice = Record<string, string>;
+export const isNewWork = (v: string) => v === "new" || v.startsWith("new:");
+const branchOf = (v: string) => (v.startsWith("new:") ? v.slice(4) : "");
 
 export function chosenWorkspaces(choice: WorkChoice) {
-  const out: Record<string, { mode: "new" } | { mode: "existing"; path: string }> = {};
-  for (const [link, v] of Object.entries(choice)) out[link] = v === "new" ? { mode: "new" } : { mode: "existing", path: v };
+  const out: Record<string, { mode: "new"; branch?: string } | { mode: "existing"; path: string }> = {};
+  for (const [link, v] of Object.entries(choice)) out[link] = isNewWork(v) ? { mode: "new", ...(branchOf(v) ? { branch: branchOf(v) } : {}) } : { mode: "existing", path: v };
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -25,23 +28,31 @@ export function useRepos(reloadKey: unknown) {
     try { setRepos((await api<{ repos: RepoInfo[] }>("/api/repos")).repos); } catch { setRepos([]); }
   }, []);
   useEffect(() => { void load(); }, [load, reloadKey]);
-  return { repos, reload: load };
+  // Switch your checkout of a linked repository to a branch (or a new one), then look again.
+  const switchBranch = useCallback(async (link: string, name: string, create: boolean) => {
+    const r = await api<{ repos: RepoInfo[] }>("/api/repo/branch", { link, name, create });
+    setRepos(r.repos);
+  }, []);
+  return { repos, reload: load, switchBranch };
 }
 
 // What the next request will work on in this repository: "" is the linked checkout, "new" a
 // fresh worktree and branch, anything else an existing worktree's path.
 export function workingOn(r: RepoInfo, value: string) {
-  return value === "new" ? "new branch" : r.worktrees.find((w) => w.path === value)?.branch ?? r.branch;
+  return isNewWork(value) ? branchOf(value) || "new branch" : r.worktrees.find((w) => w.path === value)?.branch ?? r.branch;
 }
 
-export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen }: {
+// working: for a follow-up, the branch its conversation is working on in each repository (when
+// that's a worktree rather than your linked checkout).
+export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, working }: {
   repos: RepoInfo[]; choice: WorkChoice; setChoice: (fn: (c: WorkChoice) => WorkChoice) => void; followUp: boolean;
   open: boolean; onOpen: () => void; // the + menu's "Work in" panel
+  working?: Record<string, string>;
 }) {
   // Forget a choice whose worktree is gone.
   useEffect(() => {
     setChoice((c) => {
-      const stale = Object.entries(c).filter(([link, v]) => v !== "new" && !repos.find((r) => r.link === link)?.worktrees.some((w) => w.path === v));
+      const stale = Object.entries(c).filter(([link, v]) => !isNewWork(v) && !repos.find((r) => r.link === link)?.worktrees.some((w) => w.path === v));
       if (!stale.length) return c;
       const next = { ...c };
       for (const [link] of stale) delete next[link];
@@ -54,11 +65,12 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen }: {
     <div className="work-in">
       {repos.map((r) => {
         const value = choice[r.link] ?? "";
-        const now = workingOn(r, value);
+        const there = followUp ? working?.[r.link] : undefined;
+        const now = there ?? workingOn(r, value);
         return (
-          <button key={r.link} type="button" className={value ? "work-btn changed" : "work-btn"} aria-haspopup="dialog" aria-expanded={open}
+          <button key={r.link} type="button" className={value || there ? "work-btn changed" : "work-btn"} aria-haspopup="dialog" aria-expanded={open}
             aria-label={`Where to work in ${r.link}: ${now}`} onClick={onOpen}
-            title={followUp ? "A follow-up keeps working where its conversation was."
+            title={followUp ? `A follow-up keeps working where its conversation was${there ? `: its own worktree, on ${there}` : ""}.`
               : value ? `The next request works on ${now} in ${r.link}, not your linked checkout. Click to change.`
               : `The next request works in your linked checkout of ${r.link}, on ${r.branch}. Click to change.`}>
             <Icon name="branch" /><span>{r.link}</span><b>{now}</b>
@@ -71,28 +83,99 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen }: {
 
 const tail = (path: string) => `…/${path.split("/").slice(-2).join("/")}`;
 
+// Your own checkout's branch, right under "Linked checkout": one box to find a branch or name a
+// new one. Typing narrows the branches there are; pick one to switch to it, or make the branch
+// you typed from where the checkout stands. It's `git switch`, so git refuses (and says why) if
+// work you haven't committed would be overwritten. This works on a follow-up too: it's your
+// checkout that changes, and the conversation carries on in it.
+const SHOWN_BRANCHES = 8;
+function BranchPicker({ r, onBranch }: { r: RepoInfo; onBranch: (link: string, name: string, create: boolean) => Promise<void> }) {
+  const [typed, setTyped] = useState("");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+  const name = typed.trim();
+  // A branch that's checked out in a worktree can't be checked out here too.
+  const others = (r.branches ?? []).filter((b) => b !== r.branch && !r.worktrees.some((w) => w.branch === b));
+  const matches = others.filter((b) => b.toLowerCase().includes(name.toLowerCase()));
+  const exists = (r.branches ?? []).includes(name) || r.worktrees.some((w) => w.branch === name);
+  const go = async (branch: string, create: boolean) => {
+    setBusy(true); setError(""); setDone("");
+    try { await onBranch(r.link, branch, create); setTyped(""); setOpen(false); setDone(create ? `Made ${branch} and switched to it.` : `Switched to ${branch}.`); }
+    catch (e) { setError(errorText(e)); }
+    setBusy(false);
+  };
+  // Enter does what you typed: the branch by that name if there is one, otherwise a new branch by that name.
+  const submit = (ev: FormEvent) => {
+    ev.preventDefault(); ev.stopPropagation();
+    if (!name || busy) return;
+    if (others.includes(name)) void go(name, false);
+    else if (!exists) void go(name, true);
+  };
+  return (
+    <div className="work-branch">
+      <form className="menu-form" onSubmit={submit}>
+        <input aria-label={`Switch or create a branch in ${r.link}`} placeholder={`Switch branch (now ${r.branch}), or name a new one…`} value={typed} disabled={busy}
+          spellCheck={false} autoCapitalize="off" autoComplete="off" onFocus={() => setOpen(true)}
+          onChange={(ev) => { setTyped(ev.target.value); setOpen(true); setError(""); setDone(""); }} onKeyDown={(ev) => { ev.stopPropagation(); if (ev.key === "Escape") { setOpen(false); (ev.target as HTMLElement).blur(); } }} />
+      </form>
+      {open && (
+        <div className="work-branch-list" role="group" aria-label={`Branches of ${r.link}`}>
+          {name && !exists && (
+            <button type="button" className="work-opt work-new" disabled={busy} title={`Make ${name} from ${r.branch} and switch your checkout to it`} onClick={() => go(name, true)}>
+              <span className="work-opt-name">Create <span className="mono">{name}</span></span>
+              <small>A new branch from {r.branch}</small>
+            </button>
+          )}
+          {matches.slice(0, SHOWN_BRANCHES).map((b) => (
+            <button key={b} type="button" className="work-opt" disabled={busy} title={`Switch your checkout of ${r.link} to ${b}`} onClick={() => go(b, false)}>
+              <span className="work-opt-name mono">{b}</span>
+            </button>
+          ))}
+          {matches.length > SHOWN_BRANCHES && <div className="menu-tip">{matches.length - SHOWN_BRANCHES} more: type to narrow them down.</div>}
+          {!matches.length && (!name || exists) && <div className="menu-tip">{name ? (name === r.branch ? "You're on that branch." : "That branch is checked out in a worktree: pick the worktree below.") : "No other branches yet. Type a name to make one."}</div>}
+        </div>
+      )}
+      {done && <div className="menu-tip work-done" role="status">{done}</div>}
+      {error && <div className="form-error" role="alert">{error}</div>}
+    </div>
+  );
+}
+
 // The choices, one group per repository, for the + menu's "Work in" panel.
-export function WorkOptions({ repos, choice, locked, onPick }: {
+const SHOWN_WORKTREES = 3;
+export function WorkOptions({ repos, choice, locked, onPick, onBranch }: {
   repos: RepoInfo[]; choice: WorkChoice; locked: boolean; onPick: (link: string, value: string) => void;
+  onBranch?: (link: string, name: string, create: boolean) => Promise<void>;
 }) {
+  const [all, setAll] = useState<string[]>([]); // repositories whose every worktree is listed
   return (
     <>
-      {locked && <div className="menu-tip">A follow-up keeps working where its conversation was.</div>}
+      {locked && <div className="menu-tip">A follow-up keeps working where its conversation was{onBranch ? ". You can still switch your checkout's branch." : "."}</div>}
       {repos.map((r) => {
         const value = choice[r.link] ?? "";
-        const option = (v: string, name: string, note: string, mono = false) => (
-          <button key={v} type="button" role="menuitemradio" aria-checked={value === v} className="work-opt" disabled={locked} onClick={() => onPick(r.link, v)}>
-            <span className={mono ? "work-opt-name mono" : "work-opt-name"}>{name}</span>
-            <small>{note}</small>
-            {value === v && <Icon name="check" />}
-          </button>
-        );
+        const option = (v: string, name: string, note: string, mono = false) => {
+          const on = value === v || (v === "new" && isNewWork(value)); // a new worktree, whatever its branch is to be called
+          return (
+            <button key={v} type="button" role="menuitemradio" aria-checked={on} className="work-opt" disabled={locked} onClick={() => onPick(r.link, v)}>
+              <span className={mono ? "work-opt-name mono" : "work-opt-name"}>{name}</span>
+              <small>{note}</small>
+              {on && <Icon name="check" />}
+            </button>
+          );
+        };
+        // A repository can have a great many worktrees: the first few (and the one chosen), then the rest on request.
+        const listed = all.includes(r.link) ? r.worktrees : r.worktrees.filter((w, i) => i < SHOWN_WORKTREES || w.path === value);
+        const more = r.worktrees.length - listed.length;
         return (
           <div key={r.link} role="group" aria-label={r.link}>
             <div className="menu-label">{r.link}</div>
             {option("", "Linked checkout", `Your own working copy, on ${r.branch}`)}
-            {r.access === "write" && option("new", "New worktree", "A fresh branch, so your checkout isn't touched")}
-            {r.worktrees.map((w) => option(w.path, w.branch, tail(w.path), true))}
+            {onBranch && <BranchPicker r={r} onBranch={onBranch} />}
+            {r.access === "write" && option("new", "New worktree", branchOf(value) ? `On a new branch, ${branchOf(value)}` : "A fresh branch, so your checkout isn't touched")}
+            {listed.map((w) => option(w.path, w.branch, tail(w.path), true))}
+            {more > 0 && <button type="button" className="hist-all" onClick={() => setAll((l) => [...l, r.link])}>Show {more} more {more === 1 ? "worktree" : "worktrees"}</button>}
           </div>
         );
       })}

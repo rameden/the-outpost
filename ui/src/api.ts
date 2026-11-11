@@ -30,4 +30,5 @@ export const outputUrl = (id: string, path: string) => withToken(`/api/agent/out
 export const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function storeGet(k: string): string | null { try { return localStorage.getItem(k); } catch { return null; } }
+export function storeRemove(k: string) { try { localStorage.removeItem(k); } catch { /* nothing was kept */ } }
 export function storeSet(k: string, v: string) { try { localStorage.setItem(k, v); } catch { /* private mode: nothing is remembered */ } }

@@ -13,15 +13,17 @@ import { findLink, loadLinks, type Link } from "./links.js";
 import type { Workspace } from "./context.js";
 
 const run = promisify(execFile);
-async function git(cwd: string, args: string[], timeout = 60_000): Promise<string> {
+export async function git(cwd: string, args: string[], timeout = 60_000): Promise<string> {
   const { stdout } = await run("git", args, { cwd, timeout, maxBuffer: 20_000_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
   return stdout.trim();
 }
-const tryGit = (cwd: string, args: string[]) => git(cwd, args).catch(() => "");
-const fail = (e: any) => new Error(String(e?.stderr || e?.message || e).trim().split("\n").slice(-3).join(" "));
+export const tryGit = (cwd: string, args: string[]) => git(cwd, args).catch(() => "");
+export const fail = (e: any) => new Error(String(e?.stderr || e?.message || e).trim().split("\n").slice(-3).join(" "));
 
 export type Worktree = { path: string; branch: string; head: string; main: boolean };
-export type RepoInfo = { link: string; access: Link["access"]; branch: string; worktrees: Worktree[] };
+// branches: the repository's local branches, the most recently committed-to first.
+export type RepoInfo = { link: string; access: Link["access"]; branch: string; worktrees: Worktree[]; branches: string[] };
+const MAX_BRANCHES = 40;
 
 export async function listWorktrees(repo: string): Promise<Worktree[]> {
   const out = await tryGit(repo, ["worktree", "list", "--porcelain"]);
@@ -44,7 +46,8 @@ export async function linkedRepos(): Promise<RepoInfo[]> {
     if (!top || resolve(top) !== resolve(l.path)) continue; // only when the link is the repo itself
     const worktrees = await listWorktrees(l.path);
     const here = worktrees.find((w) => resolve(w.path) === resolve(l.path));
-    out.push({ link: l.name, access: l.access, branch: here?.branch ?? "(detached)", worktrees: worktrees.filter((w) => resolve(w.path) !== resolve(l.path)) });
+    const branches = (await tryGit(l.path, ["for-each-ref", "--sort=-committerdate", `--count=${MAX_BRANCHES}`, "--format=%(refname:short)", "refs/heads"])).split("\n").filter(Boolean);
+    out.push({ link: l.name, access: l.access, branch: here?.branch ?? "(detached)", worktrees: worktrees.filter((w) => resolve(w.path) !== resolve(l.path)), branches });
   }
   return out;
 }
@@ -87,19 +90,21 @@ export async function prepareWorkspaces(choices: Record<string, WorkspaceChoice>
   return out;
 }
 
-export type WorkspaceStatus = Workspace & { changed: number; commits: number; exists: boolean };
+// ahead: commits on the branch that aren't on its upstream yet (0 when it has no upstream: it was never pushed).
+export type WorkspaceStatus = Workspace & { changed: number; commits: number; exists: boolean; ahead: number };
 
 // Where a workspace stands: uncommitted files, and commits made since the expedition started.
 export async function workspaceStatus(w: Workspace): Promise<WorkspaceStatus> {
-  if (!existsSync(w.path)) return { ...w, changed: 0, commits: 0, exists: false };
+  if (!existsSync(w.path)) return { ...w, changed: 0, commits: 0, exists: false, ahead: 0 };
   const dirty = await tryGit(w.path, ["status", "--porcelain"]);
   const commits = w.base ? Number(await tryGit(w.path, ["rev-list", "--count", `${w.base}..HEAD`])) || 0 : 0;
   const branch = (await tryGit(w.path, ["rev-parse", "--abbrev-ref", "HEAD"])) || w.branch;
-  return { ...w, branch, changed: dirty ? dirty.split("\n").length : 0, commits, exists: true };
+  const ahead = Number(await tryGit(w.path, ["rev-list", "--count", "@{u}..HEAD"])) || 0;
+  return { ...w, branch, changed: dirty ? dirty.split("\n").length : 0, commits, exists: true, ahead };
 }
 
 // A workspace must be a real worktree of a linked repo before anything below touches it.
-async function checked(w: Pick<Workspace, "link" | "path">): Promise<string> {
+export async function checked(w: Pick<Workspace, "link" | "path">): Promise<string> {
   const link = findLink(w.link);
   if (!link) throw new Error(`No linked folder named "${w.link}".`);
   const hit = (await listWorktrees(link.path)).find((x) => resolve(x.path) === resolve(w.path));
@@ -118,6 +123,17 @@ export async function commitWorkspace(w: Pick<Workspace, "link" | "path">, messa
   } catch (e) { throw fail(e); }
 }
 
+// Push new commits to where the branch already goes (its upstream): what you do after
+// answering a pull request's feedback. A branch that was never pushed has nowhere to go yet;
+// opening its pull request is what pushes it the first time.
+export async function pushWorkspace(w: Pick<Workspace, "link" | "path">): Promise<string> {
+  const dir = await checked(w);
+  const upstream = await tryGit(dir, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+  if (!upstream) throw new Error("This branch hasn't been pushed before. Open its pull request first: that pushes it.");
+  try { await git(dir, ["push"], 300_000); } catch (e) { throw fail(e); }
+  return `${await git(dir, ["log", "-1", "--format=%h"])} to ${upstream}`;
+}
+
 // Push the branch and open a pull request with the GitHub CLI. Returns the PR's address.
 export async function openPullRequest(w: Pick<Workspace, "link" | "path">, title: string, body: string): Promise<string> {
   const dir = await checked(w);
@@ -134,6 +150,55 @@ export async function openPullRequest(w: Pick<Workspace, "link" | "path">, title
 }
 
 // Remove a worktree the camp made. Git refuses if it has uncommitted changes; that's left alone.
+// Your own checkout of a linked repository, switched to another branch, or to a new one made
+// from where it stands. This is `git switch`, so it never throws work away: git refuses if
+// uncommitted changes would be overwritten (and says which files), or if the branch is checked
+// out in a worktree. Only ever done when you ask from the page; no agent has a tool for it.
+export async function switchBranch(linkName: string, name: string, create: boolean): Promise<string> {
+  const link = findLink(linkName);
+  if (!link) throw new Error(`No linked folder named "${linkName}".`);
+  const top = await tryGit(link.path, ["rev-parse", "--show-toplevel"]);
+  if (!top || resolve(top) !== resolve(link.path)) throw new Error(`links/${linkName} isn't a git repository of its own.`);
+  const branch = name.trim();
+  if (!branch || branch.startsWith("-")) throw new Error("Give the branch a name.");
+  try { await git(link.path, ["check-ref-format", "--branch", branch]); }
+  catch { throw new Error(`"${branch}" isn't a name git allows for a branch (no spaces, "..", or ~ ^ : ? * [ \\).`); }
+  try { await git(link.path, create ? ["switch", "-c", branch] : ["switch", branch], 60_000); }
+  catch (e) { throw fail(e); }
+  return branch;
+}
+
+// What reviewers and the checks have said on the pull request for a worktree's branch: failing
+// checks, reviews, comments on lines, and comments on the pull request. Returned as text for you
+// to read and send on; none of it is acted on by itself, since anyone who can comment on the
+// pull request wrote it.
+export type PrFeedback = { url: string; number: number; title: string; failing: number; comments: number; text: string };
+export async function pullRequestFeedback(w: Pick<Workspace, "link" | "path">): Promise<PrFeedback> {
+  const dir = await checked(w);
+  const gh = async (args: string[]) => {
+    try { return (await run("gh", args, { cwd: dir, timeout: 60_000, maxBuffer: 8 * 1024 * 1024 })).stdout; }
+    catch (e: any) {
+      if (e?.code === "ENOENT") throw new Error("The GitHub CLI (gh) isn't installed, so the pull request can't be read from here.");
+      throw fail(e);
+    }
+  };
+  let pr: any;
+  try { pr = JSON.parse(await gh(["pr", "view", "--json", "number,url,title,reviews,comments,statusCheckRollup"])); }
+  catch (e: any) { throw new Error(/no pull requests? found/i.test(e.message) ? "There's no pull request for this branch yet." : e.message); }
+  let inline: any[] = [];
+  try { inline = JSON.parse(await gh(["api", `repos/{owner}/{repo}/pulls/${pr.number}/comments`, "--paginate"])); } catch { /* reviews and checks still say a lot */ }
+  const clip = (s: unknown, n = 1500) => { const t = String(s ?? "").trim(); return t.length > n ? `${t.slice(0, n)}…` : t; };
+  const failing = (pr.statusCheckRollup ?? []).filter((c: any) => /FAIL|ERROR|TIMED_OUT|CANCELLED|ACTION_REQUIRED/i.test(String(c.conclusion ?? c.state ?? "")));
+  const reviews = (pr.reviews ?? []).filter((r: any) => String(r.body ?? "").trim() || r.state === "CHANGES_REQUESTED");
+  const general = (pr.comments ?? []).filter((c: any) => String(c.body ?? "").trim());
+  const parts: string[] = [];
+  if (failing.length) parts.push("Failing checks:\n" + failing.map((c: any) => `- ${c.name ?? c.context ?? "check"} (${String(c.conclusion ?? c.state).toLowerCase()})${c.detailsUrl || c.targetUrl ? ` ${c.detailsUrl ?? c.targetUrl}` : ""}`).join("\n"));
+  if (reviews.length) parts.push("Reviews:\n" + reviews.map((r: any) => `- ${r.author?.login ?? "someone"} (${String(r.state ?? "").toLowerCase().replace(/_/g, " ")}): ${clip(r.body) || "(no comment)"}`).join("\n"));
+  if (inline.length) parts.push("Comments on lines:\n" + inline.map((c: any) => `- ${c.path}${c.line ?? c.original_line ? `:${c.line ?? c.original_line}` : ""} — ${c.user?.login ?? "someone"}: ${clip(c.body)}`).join("\n"));
+  if (general.length) parts.push("Comments on the pull request:\n" + general.map((c: any) => `- ${c.author?.login ?? "someone"}: ${clip(c.body)}`).join("\n"));
+  return { url: pr.url, number: pr.number, title: pr.title, failing: failing.length, comments: reviews.length + inline.length + general.length, text: parts.join("\n\n") };
+}
+
 export async function removeWorkspace(w: Pick<Workspace, "link" | "path">): Promise<void> {
   const dir = await checked(w);
   const link = findLink(w.link)!;

@@ -8,14 +8,16 @@ import { CREW, findCrew } from "./crew.js";
 import { rememberTool, type SessionSource } from "./memory.js";
 import { listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
 import { gitFor } from "./git.js";
+import { jiraTool } from "./jira.js";
 import { requestDisplay, viewFileFor, type Attachment, type RequestContent } from "./attachments.js";
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { randomUUID } from "node:crypto";
 import { currentSignal, currentWorkspaces, withExpedition, withQuest, type Steering, type Workspace } from "./context.js";
 import { runChecks } from "./verify.js";
+import { FINDINGS_FORMAT, REVIEW_SCOPE } from "./review.js";
 import { workspaceStatus } from "./repos.js";
-import { budgetUsd, questLimit } from "./settings.js";
+import { budgetUsd, fixAttempts, questLimit, reviewChangesOn } from "./settings.js";
 import { changedFiles } from "./checkpoints.js";
 import { recordTurn, threadFor } from "./threads.js";
 import { getProject } from "./conversations.js";
@@ -142,15 +144,11 @@ function makeDispatch(exp: Expedition): Tool {
       emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId });
       const started = new Date();
       try {
-        const { result, checks } = await withQuest(questId, async () => {
-          const result = await runAgent(spec, brief, { depth: 1, source: "brief" });
-          // Your own checks for a linked folder run after any quest that changed files there.
-          const checks = result.status === "stopped" ? "" : await runChecks(questId, { who: spec.name, emoji: spec.emoji, questId });
-          return { result, checks };
-        });
-        logQuest("quest", spec.name, brief, started, result, exp.job);
+        const { result, checks, text } = await withQuest(questId, () => questWithChecks(spec, questId,
+          (task) => runAgent(spec, task ?? brief, { depth: 1, source: "brief" }),
+          (r, task, from) => logQuest("quest", spec.name, task ?? brief, from, r, exp.job)));
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId });
-        return `${spec.name}'s report:\n${result.text}` + (checks ? `\n\n${checks}` : "");
+        return `${spec.name}'s report:\n${text}` + (checks ? `\n\n${checks}` : "");
       } catch (err: any) {
         logFailure("quest", spec.name, brief, started, err, exp.job);
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });
@@ -160,6 +158,59 @@ function makeDispatch(exp: Expedition): Tool {
       }
     },
   };
+}
+
+// Whether changes are reviewed before the report in this project: its own default if it set one, else the camp's.
+export function reviewsHere(project: string | undefined): boolean {
+  const own = getProject(project)?.settings?.review;
+  return own ? own === "on" : reviewChangesOn();
+}
+
+// With "review changes" on in Settings, the Quartermaster has what changed looked over before it reports.
+export const REVIEW_RULE =
+  "## Review before you report (the user turned this on)\n" +
+  "If this expedition changed files in a linked folder, then after the last quest that changed them and before your final summary, dispatch the Scout once to review the change. " +
+  "Brief it with: what the user asked for, which files changed, and these two paragraphs word for word, so its findings come back in the form the user's page can show:\n\n" +
+  `> ${REVIEW_SCOPE}\n>\n> ${FINDINGS_FORMAT.replace(/\n/g, "\n> ")}\n\n` +
+  "- If it finds a blocker or something that should be fixed, send one fix quest for those, then report. Don't review a second time.\n" +
+  "- In your summary, say the change was reviewed and what came of it. If any finding was left unfixed (you judged it wrong, out of scope, or small), end your summary with those in the same ```findings block, so the user can decide.\n" +
+  "- If it finds nothing, say in your summary that the change was reviewed and nothing was found.\n" +
+  "- Skip the review when nothing in a linked folder changed, or when the change is only docs or notes.";
+
+// A quest, then your checks for any linked folder it changed. If a check fails, the same
+// adventurer is sent back with the failing output to fix what it broke, and the checks run again:
+// up to fixAttempts() times, so a red check doesn't cost you a round trip. Every run is logged
+// (each one used tokens). What comes back: the last run, the checks as they ended, and the
+// reports of every run joined in order.
+export const checksFailed = (checks: string) => /^✗ /m.test(checks);
+async function questWithChecks(
+  spec: { name: string; emoji: string }, questId: string,
+  run: (fixTask?: string) => Promise<AgentResult>,
+  log: (result: AgentResult, fixTask: string | undefined, started: Date) => void,
+): Promise<{ result: AgentResult; checks: string; text: string }> {
+  const who = { who: spec.name, emoji: spec.emoji, questId };
+  let started = new Date();
+  let result = await run();
+  log(result, undefined, started);
+  let checks = result.status === "stopped" ? "" : await runChecks(questId, who);
+  let text = result.text;
+  for (let n = 1; n <= fixAttempts() && checksFailed(checks) && result.status === "done" && !currentSignal()?.aborted; n++) {
+    emit({ type: "notice", ...who, depth: 1, text: `🔁 A check failed: sending ${spec.name} back to fix it (${n} of ${fixAttempts()}).` });
+    const fixTask = fixBrief(checks);
+    started = new Date();
+    result = await run(fixTask);
+    log(result, fixTask, started);
+    text += `\n\n(The camp's checks failed after that, so ${spec.name} was sent back to fix them, and reported:)\n${result.text}`;
+    checks = result.status === "stopped" ? "" : await runChecks(questId, who);
+  }
+  return { result, checks, text };
+}
+export function fixBrief(checks: string): string {
+  return "The camp ran the project's own checks after your changes, and at least one failed. Fix what your changes broke, and nothing else.\n" +
+    "- Read the failing output below, find the cause in the files you changed, and correct it.\n" +
+    "- If a failure has nothing to do with your changes (it failed before you started, or it's the environment), don't paper over it: say so plainly.\n" +
+    "- Don't weaken, skip, or delete a check or a test to make it pass.\n" +
+    "The checks run again when you finish.\n\n" + checks;
 }
 
 // A run that failed still used tokens and left a transcript: log it like any other.
@@ -263,6 +314,7 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
       grepFor("quartermaster"),
       outlineFor("quartermaster"),
       gitFor("quartermaster"),
+      jiraTool(),
       rememberTool("quartermaster"),
       wikiWrite(["facts", "notes"]),
       proposeSkill,
@@ -283,7 +335,9 @@ export async function runExpedition(
     stillRunning?: (expedition: string) => boolean;
     // project: the project the conversation is filed under. links: folders attached beyond the
     // project's own. Given either, the run sees only those folders; given neither, all of them.
-    project?: string; links?: string[] } = {}
+    project?: string; links?: string[];
+    jira?: string;       // the Jira ticket a new conversation is working on (its key)
+    review?: boolean } = {} // have the changes reviewed before the report (or not) for this run, whatever the project and camp are set to
 ): Promise<AgentResult> {
   const exp: Expedition = { planApproved: !APPROVE_PLANS || !!opts.unattended, job: opts.job };
   const id = opts.id ?? randomUUID();
@@ -293,7 +347,7 @@ export async function runExpedition(
   // A follow-up keeps working where the conversation was working (the same worktree), unless told otherwise.
   const workspaces = opts.workspaces ?? thread?.workspaces;
   const where = placeOf(opts);
-  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}) };
+  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.jira ? { jira: opts.jira } : {}) };
   emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
     ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
@@ -303,6 +357,7 @@ export async function runExpedition(
       source: opts.source ?? (opts.job ? "job" : "user"),
       extraSystem:
         `## Skill catalog (every live skill in camp, by owner)\n${skillCatalog()}` +
+        ((opts.review ?? reviewsHere(where.project)) && !opts.job ? `\n\n${REVIEW_RULE}` : "") +
         (opts.extraSystem ? `\n\n${opts.extraSystem}` : "") +
         (thread ? `\n\n${thread.history}` : ""),
     }));
@@ -335,7 +390,8 @@ export async function runDirect(
   id: string = randomUUID(),
   replyTo?: string,
   more: { workspaces?: Record<string, Workspace>; steering?: Steering; extraSystem?: string; stillRunning?: (expedition: string) => boolean;
-    project?: string; links?: string[] } = {}
+    project?: string; links?: string[]; jira?: string;
+    aside?: boolean } = {} // aside: stepping into someone else's conversation for one turn
 ): Promise<AgentResult | null> {
   const who = findCrew(adventurer);
   if (who?.id === "quartermaster") return runExpedition(task, { source, attached, signal, id, replyTo, ...more });
@@ -343,10 +399,10 @@ export async function runDirect(
   if (!spec) return null;
   const started = new Date();
   const shown = requestDisplay(task);
-  const thread = threadFor(replyTo, more.stillRunning);
+  const thread = threadFor(replyTo, more.stillRunning, more.aside ? spec.id : undefined);
   const workspaces = more.workspaces ?? thread?.workspaces;
   const where = placeOf(more);
-  const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(more.links?.length ? { links: more.links } : {}) };
+  const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(more.links?.length ? { links: more.links } : {}), ...(more.jira ? { jira: more.jira } : {}), ...(more.aside ? { aside: true } : {}) };
   emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached, ...(thread ? { replyTo } : {}), thread: turn.thread });
   recordTurn({ ...turn, reply: "", status: "running" });
   const questId = randomUUID();
@@ -357,12 +413,13 @@ export async function runDirect(
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));
   try {
     const result = await withExpedition({ id, budget: where.budget, signal, workspaces, steering: more.steering, project: where.project, scope: where.scope }, () => withQuest(questId, async () => {
-      const r = await runAgent(spec, content, { depth: 1, source, extraSystem: [more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined });
-      const checks = r.status === "stopped" ? "" : await runChecks(questId, { who: spec.name, emoji: spec.emoji, questId });
+      const extraSystem = [more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;
+      const { result: r, checks, text } = await questWithChecks(spec, questId,
+        (task) => runAgent(spec, task ?? content, { depth: 1, source, extraSystem }),
+        (run, task, from) => logQuest("quest", spec.name, task ?? shown, from, run, undefined, where.project));
       if (checks) emit({ type: "text", who: spec.name, emoji: spec.emoji, depth: 1, questId, text: checks });
-      return checks ? { ...r, text: `${r.text}\n\n${checks}` } : r;
+      return { ...r, text: checks ? `${text}\n\n${checks}` : text };
     }));
-    logQuest("quest", spec.name, shown, started, result, undefined, where.project);
     recordTurn({ ...turn, reply: result.text, status: result.status });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId, expeditionId: id });
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });

@@ -30,7 +30,21 @@ type Settings = {
   selfEdit?: boolean;     // let agents edit the camp's own source (src/, tests/, evals/, package.json)
   autoTitles?: boolean;   // name new conversations with the smallest model (titles.ts)
   phone?: PhoneSettings;
+  jiraFilter?: string;    // which Jira tickets are pulled in (JQL); see jira.ts
+  fixAttempts?: number;   // how many times a quest is sent back to fix its own failing checks (0 = never)
+  reviewChanges?: boolean; // have the Scout review what changed before the Quartermaster reports
+  prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
+  jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
+  alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
+  skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
 };
+// Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
+// work starts from it and when its pull request opens, and (if you name a status) moves it.
+export type JiraWrite = { on?: boolean; startStatus?: string; prStatus?: string };
+// A command an imported skill may run without asking. For one of the skill's own scripts: the
+// command as it's typed, the script it runs, and that file's fingerprint when you approved it (a
+// script that has changed since asks again). Otherwise just a command prefix, like "pnpm add".
+export type SkillCommand = { prefix: string; file?: string; sha256?: string };
 
 function load(): Settings {
   if (!existsSync(SETTINGS_PATH)) return { agents: {} };
@@ -93,6 +107,69 @@ export const QUESTS_MAX = 16;
 export function setQuestLimit(n: number) {
   const s = load();
   s.questsAtOnce = Math.min(QUESTS_MAX, Math.max(1, Math.round(n)));
+  save(s);
+}
+
+// The Jira tickets the camp pulls in (the Jira page, and the attach menu's first list), as JQL.
+export const JIRA_FILTER_DEFAULT = "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC";
+export const jiraFilter = () => load().jiraFilter?.trim() || JIRA_FILTER_DEFAULT;
+export function setJiraFilter(jql: string) {
+  const s = load();
+  const clean = jql.trim();
+  if (clean && clean !== JIRA_FILTER_DEFAULT) s.jiraFilter = clean.slice(0, 2000); else delete s.jiraFilter;
+  save(s);
+}
+
+// When your checks fail after a quest, the same adventurer is sent back to fix them, this many times at most.
+export const FIX_ATTEMPTS_DEFAULT = 1;
+export const FIX_ATTEMPTS_MAX = 3;
+export const fixAttempts = () => Math.min(FIX_ATTEMPTS_MAX, Math.max(0, Math.round(load().fixAttempts ?? FIX_ATTEMPTS_DEFAULT)));
+export function setFixAttempts(n: number) {
+  const s = load();
+  s.fixAttempts = Math.min(FIX_ATTEMPTS_MAX, Math.max(0, Math.round(n)));
+  save(s);
+}
+// A second pair of eyes on changes before they're reported. Off unless you turn it on: it's another quest's worth of usage.
+export const reviewChangesOn = () => load().reviewChanges === true;
+export function setReviewChanges(on: boolean) {
+  const s = load();
+  if (on) s.reviewChanges = true; else delete s.reviewChanges;
+  save(s);
+}
+
+export const prWatchOn = () => load().prWatch !== false;
+export function setPrWatch(on: boolean) {
+  const s = load();
+  if (on) delete s.prWatch; else s.prWatch = false;
+  save(s);
+}
+
+export const jiraWrite = (): JiraWrite => load().jiraWrite ?? {};
+export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; prStatus?: unknown }) {
+  const s = load();
+  const name = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+  const next: JiraWrite = { ...(w.on ? { on: true } : {}), ...(name(w.startStatus) ? { startStatus: name(w.startStatus) } : {}), ...(name(w.prStatus) ? { prStatus: name(w.prStatus) } : {}) };
+  if (Object.keys(next).length) s.jiraWrite = next; else delete s.jiraWrite;
+  save(s);
+}
+
+// Skills a crew member always follows: their instructions go into every prompt in full, instead
+// of waiting to be opened when a task seems to match.
+export const alwaysSkills = (): Record<string, string[]> => load().alwaysSkills ?? {};
+export function setAlwaysSkills(all: Record<string, string[]>) {
+  const s = load();
+  const clean: Record<string, string[]> = {};
+  for (const [id, list] of Object.entries(all)) if (list.length) clean[id] = [...new Set(list)];
+  if (Object.keys(clean).length) s.alwaysSkills = clean; else delete s.alwaysSkills;
+  save(s);
+}
+
+export const skillCommands = (): Record<string, SkillCommand[]> => load().skillCommands ?? {};
+export function setSkillCommands(skill: string, commands: SkillCommand[] | null) {
+  const s = load();
+  const all = { ...(s.skillCommands ?? {}) };
+  if (commands?.length) all[skill] = commands; else delete all[skill];
+  if (Object.keys(all).length) s.skillCommands = all; else delete s.skillCommands;
   save(s);
 }
 

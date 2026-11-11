@@ -243,7 +243,7 @@ export function About({ a }: { a: AgentDetail }) {
       <Row label="Also called"><span>{a.aliases.map((x) => `@${x}`).join(", ") || "–"}</span></Row>
       <Row label="Last active"><span>{s.lastActive ? when(s.lastActive) : "Not yet"}</span></Row>
       <Row label="Tools"><span className="tool-chips" style={{ margin: 0 }}>{a.tools.map((t, i) => <code key={i} className={t.startsWith("mcp__") ? "write" : ""}>{t}</code>)}</span></Row>
-      <Row label="Skills"><span>{a.skills.length ? a.skills.map((k) => <div key={`${k.owner}/${k.name}`}><b>{k.owner === "shared" ? "shared/" : ""}{k.name}</b> <span className="meta">{k.description}</span></div>) : "None yet"}</span></Row>
+      <Row label="Skills"><span>{a.skills.length ? a.skills.map((k) => <div key={`${k.owner}/${k.name}`}><b>{k.owner === "shared" ? "shared/" : ""}{k.name}</b>{k.always && <span className="pill live" title="Its instructions are in every one of this crew member's prompts (set under Settings → Skills)">Always on</span>} <span className="meta">{k.description}</span></div>) : "None yet"}</span></Row>
       <Row label="Workspace"><span><code>camp/agents/{a.id}/</code></span></Row>
     </>
   );

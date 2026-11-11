@@ -129,3 +129,56 @@ test("costs: from token usage and model prices", () => {
   assert.equal(costOf("claude-haiku-4-5-20251001", u), 1 + 0.5, "dated ids use their family's price");
   assert.equal(costOf("claude-unknown-9", u), 0);
 });
+
+test("wiki: you can add a page of your own, change it, and take it away", async () => {
+  const wiki = await import("../src/wiki.ts");
+  const { existsSync, readFileSync, writeFileSync, mkdirSync } = await import("node:fs");
+  const fixable = (re: RegExp) => (e: any) => e.fixable === true && re.test(e.message);
+  assert.equal(wiki.pageName("  Release process (2026)! "), "release-process-2026");
+  assert.equal(wiki.pageName("Ünïcode & symbols"), "unicode-symbols");
+  assert.equal(wiki.pageName("???"), "");
+
+  // A fact: yours to state, so no sources are asked for. It gets its title as a heading.
+  const added = wiki.saveWikiPage({ create: true, section: "facts", title: "Release process", summary: "  How releases   go out. ", text: "Tag the commit, then deploy from main.\r\n" });
+  const today = new Date().toISOString().slice(0, 10);
+  assert.deepEqual(added, { section: "facts", path: "camp/wiki/facts/release-process.md", summary: "How releases go out.", updated: today });
+  assert.equal(readFileSync(added.path, "utf8"), `---\nsummary: How releases go out.\nupdated: ${today}\n---\n\n# Release process\n\nTag the commit, then deploy from main.\n`);
+  // The crew sees it in the index like any other page.
+  assert.match(wikiIndex(), /camp\/wiki\/facts\/release-process\.md: How releases go out\./);
+  assert.ok(wiki.wikiPages().some((p) => p.path === added.path && p.section === "facts" && p.updated === today));
+
+  // What a new page needs, and what it can't be.
+  const base = { create: true, section: "notes", title: "Vite upgrade", summary: "What changed in Vite 8.", text: "# Vite 8\n\nNotes." };
+  assert.throws(() => wiki.saveWikiPage({ ...base, title: "Release process", section: "facts" }), fixable(/already a fact called release-process/));
+  assert.throws(() => wiki.saveWikiPage({ ...base, title: "!!!" }), fixable(/Give the page a title/));
+  assert.throws(() => wiki.saveWikiPage({ ...base, section: "secrets" }), fixable(/whether it's a fact or a note/));
+  assert.throws(() => wiki.saveWikiPage({ ...base, summary: "  " }), fixable(/one-line summary/));
+  assert.throws(() => wiki.saveWikiPage({ ...base, text: "\n \n" }), fixable(/Write something/));
+  assert.throws(() => wiki.saveWikiPage({ ...base, text: "x".repeat(100_001) }), fixable(/split it into pages/));
+  assert.equal(existsSync("camp/wiki/notes/vite-upgrade.md"), false, "a refused page isn't written");
+  // A title is only ever a name: one that looks like a path becomes a plain file in the wiki.
+  assert.equal(wiki.saveWikiPage({ ...base, title: "../../../etc/passwd" }).path, "camp/wiki/notes/etc-passwd.md");
+  wiki.removeWikiPage("camp/wiki/notes/etc-passwd.md");
+  // A note of your own; a heading you wrote yourself is kept as the page's title.
+  const note = wiki.saveWikiPage(base);
+  assert.equal(note.path, "camp/wiki/notes/vite-upgrade.md");
+  assert.equal(readFileSync(note.path, "utf8"), `---\nsummary: What changed in Vite 8.\nupdated: ${today}\n---\n\n# Vite 8\n\nNotes.\n`);
+
+  // Changing a page: its summary and text; its name and kind stay.
+  const changed = wiki.saveWikiPage({ path: added.path, summary: "How releases go out, and who signs off.", text: "# Release process\n\nTag, get sign-off, then deploy." });
+  assert.equal(changed.path, added.path);
+  assert.match(readFileSync(added.path, "utf8"), /^---\nsummary: How releases go out, and who signs off\.\n[\s\S]*get sign-off, then deploy\.\n$/);
+  // Only pages of the wiki, by the path the list gave.
+  mkdirSync("camp/agents/scout", { recursive: true });
+  writeFileSync("camp/settings-copy.md", "x");
+  for (const bad of ["camp/settings-copy.md", "camp/wiki/facts/../../settings-copy.md", "camp/wiki/facts/Release.md", "/etc/hosts", "camp/wiki/other/x.md", "camp/wiki/facts/no-such-page.md", ""]) {
+    assert.throws(() => wiki.saveWikiPage({ path: bad, summary: "s", text: "t" }), fixable(/isn't a page of the wiki|isn't in the wiki any more/), bad);
+    assert.throws(() => wiki.removeWikiPage(bad), fixable(/isn't a page of the wiki|isn't in the wiki any more/), bad);
+  }
+  assert.equal(readFileSync("camp/settings-copy.md", "utf8"), "x");
+
+  assert.equal(wiki.removeWikiPage(note.path), true);
+  assert.equal(existsSync(note.path), false);
+  assert.throws(() => wiki.removeWikiPage(note.path), fixable(/isn't in the wiki any more/));
+  assert.ok(!wikiIndex().includes("vite-upgrade"));
+});

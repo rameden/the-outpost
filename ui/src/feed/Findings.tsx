@@ -1,0 +1,80 @@
+// A review's findings, as a list you can act on. A reviewer asked for them ends its answer with
+// a fenced block (```findings, holding a JSON list); the feed shows that block as this list
+// instead of as code. Each finding says how serious it is, where it is (click to open the file)
+// and what's wrong; tick the ones you want fixed and they're put in the message box as a
+// change request, for you to read and send. Nothing is sent for you: the reviewer's words are
+// its opinion, and may be wrong.
+
+import { useState } from "react";
+import { say } from "../bus.ts";
+import { cx, plural } from "../format.ts";
+
+export type Finding = { severity: "blocker" | "should" | "nit"; file: string; line?: number; title: string; detail: string };
+const LABEL = { blocker: "Must fix", should: "Should fix", nit: "Small" } as const;
+const ORDER = { blocker: 0, should: 1, nit: 2 } as const;
+const MAX_FINDINGS = 60;
+
+// What the block holds, if it's a list of findings we can show (null: show it as code).
+export function parseFindings(text: string): Finding[] | null {
+  let raw: unknown;
+  try { raw = JSON.parse(text); } catch { return null; }
+  if (!Array.isArray(raw)) return null;
+  const out: Finding[] = [];
+  for (const r of raw.slice(0, MAX_FINDINGS)) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const title = String(o.title ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
+    if (!title) continue;
+    const sev = String(o.severity ?? "").toLowerCase();
+    const line = Number(o.line);
+    out.push({
+      severity: sev === "blocker" || sev === "nit" ? sev : "should",
+      file: String(o.file ?? "").trim().slice(0, 300),
+      ...(Number.isInteger(line) && line > 0 ? { line } : {}),
+      title, detail: String(o.detail ?? "").trim().slice(0, 2000),
+    });
+  }
+  return out.sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
+}
+
+// The change request the ticked findings become.
+export function fixRequest(list: Finding[]): string {
+  return "Fix these review findings. Where you think one is wrong, say why instead of changing the code.\n\n" +
+    list.map((f, i) => `${i + 1}. [${LABEL[f.severity].toLowerCase()}] ${f.file ? `\`${f.file}${f.line ? `:${f.line}` : ""}\` — ` : ""}${f.title}${f.detail ? `\n   ${f.detail.replace(/\n/g, "\n   ")}` : ""}`).join("\n");
+}
+
+export function Findings({ list }: { list: Finding[] }) {
+  const [picked, setPicked] = useState<boolean[]>(() => list.map((f) => f.severity !== "nit"));
+  const [sent, setSent] = useState(false);
+  if (!list.length) return <div className="findings none">The review found nothing to fix.</div>;
+  const chosen = list.filter((_, i) => picked[i]);
+  const blockers = list.filter((f) => f.severity === "blocker").length;
+  return (
+    <div className="findings" role="group" aria-label="Review findings">
+      <div className="findings-head"><b>{list.length} {plural(list.length, "finding")}</b>{blockers > 0 && <span className="pill bad">{blockers} must fix</span>}</div>
+      <ul>
+        {list.map((f, i) => (
+          <li key={i} className={cx("finding", f.severity)}>
+            <input type="checkbox" checked={picked[i]} aria-label={`Include: ${f.title}`} onChange={(ev) => { setSent(false); setPicked((p) => p.map((v, j) => (j === i ? ev.target.checked : v))); }} />
+            <div>
+              <div className="finding-top">
+                <span className={cx("pill", f.severity === "blocker" ? "bad" : f.severity === "should" && "live")}>{LABEL[f.severity]}</span>
+                <b>{f.title}</b>
+              </div>
+              {f.file && (
+                <code className="path-link" role="link" tabIndex={0} title="Open this file" onClick={() => say({ do: "open-file", path: f.file, line: f.line })}
+                  onKeyDown={(ev) => { if (ev.key === "Enter") say({ do: "open-file", path: f.file, line: f.line }); }}>{f.file}{f.line ? `:${f.line}` : ""}</code>
+              )}
+              {f.detail && <p>{f.detail}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="findings-foot">
+        <button type="button" className="btn small primary" disabled={!chosen.length} title="Put the ticked findings in the message box as a change request, for you to read and send"
+          onClick={() => { say({ do: "compose", text: fixRequest(chosen) }); setSent(true); }}>Ask for {chosen.length === list.length ? "these" : `${chosen.length} of them`} to be fixed</button>
+        <span className="meta" role="status">{sent ? "It's in the message box: read it over, then send." : "A reviewer's opinion, not a verdict: untick what you disagree with."}</span>
+      </div>
+    </div>
+  );
+}

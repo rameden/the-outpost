@@ -2,6 +2,7 @@
 // connectors and linked folders, and the inbox.
 
 import { useEffect, useState } from "react";
+import { JiraConnection } from "../components/Jira.tsx";
 import { api, errorText } from "../api.ts";
 import { Empty, Icon } from "../components/bits.tsx";
 import { cClass, cx, stripFrontmatter, when } from "../format.ts";
@@ -67,53 +68,6 @@ export function Jobs({ S, refresh }: Panel) {
   );
 }
 
-// ---------- Wiki ----------
-function WikiPage({ path, onBack }: { path: string; onBack: () => void }) {
-  const [page, setPage] = useState<{ text?: string; error?: string } | null>(null);
-  useEffect(() => {
-    let gone = false;
-    api<{ text: string }>(`/api/wiki?path=${encodeURIComponent(path)}`).then(
-      (p) => { if (!gone) setPage({ text: p.text }); },
-      (e) => { if (!gone) setPage({ error: errorText(e) }); },
-    );
-    return () => { gone = true; };
-  }, [path]);
-  return (
-    <>
-      <div className="viewer-head"><button className="btn small" type="button" onClick={onBack}>← Wiki</button><code>{path}</code></div>
-      {page?.text != null ? <Markdown text={stripFrontmatter(page.text)} /> : <div className="md">{page?.error ?? "Loading…"}</div>}
-    </>
-  );
-}
-
-const WIKI_SECTIONS = [
-  ["facts", "Facts", "What you told or decided. Treated as true."],
-  ["notes", "Notes", "What the crew found, with sources. Treated as claims."],
-] as const;
-
-export function Wiki({ S, open, setOpen }: Panel & { open: string | null; setOpen: (path: string | null) => void }) {
-  if (open) return <WikiPage path={open} onBack={() => setOpen(null)} />;
-  if (!S.wiki.length) return <Empty title="The wiki is empty">Facts you share and findings the crew brings back are saved here as Markdown in camp/wiki/.</Empty>;
-  return (
-    <>
-      {WIKI_SECTIONS.map(([section, title, blurb]) => {
-        const pages = S.wiki.filter((p) => p.section === section);
-        return (
-          <div className="wiki-group" key={section}>
-            <h4>{title}</h4><p>{blurb}</p>
-            {!pages.length && <div className="meta">Nothing yet.</div>}
-            {pages.map((p) => (
-              <button key={p.path} type="button" className="page-link" onClick={() => setOpen(p.path)}>
-                <strong>{p.path.split("/").pop()!.replace(/\.md$/, "")}</strong><span>{p.summary}{p.updated ? ` · ${p.updated}` : ""}</span>
-              </button>
-            ))}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
 // ---------- Skills ----------
 export function Skills({ S, refresh }: Panel) {
   const act = (owner: string, name: string, action: "approve" | "reject") => api("/api/skills", { owner, name, action }).then(refresh, (e) => alert(errorText(e)));
@@ -167,6 +121,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
   const links = S.links ?? [];
   return (
     <>
+      <JiraConnection S={S} refresh={refresh} />
       <div className="wiki-group">
         <h4>Linked folders</h4>
         <p>Folders on your disk the crew can read as links/&lt;name&gt;/, without uploading. Add one from the + menu.</p>

@@ -8,12 +8,12 @@
 // size is its zone's: drag the line beside it.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import { api, errorText, storeGet, storeSet, treeImageUrl, treeQuery } from "../api.ts";
+import { api, errorText, storeGet, storeSet, treeQuery } from "../api.ts";
 import { cx } from "../format.ts";
-import type { FilePreview, Listing, TreeEntry } from "../types.ts";
+import type { Listing, TreeEntry } from "../types.ts";
 import { Icon } from "./bits.tsx";
 import { Presence } from "../motion.tsx";
-import { colourCode, languageOf } from "../code.ts";
+import { FileViewer } from "./FileViewer.tsx";
 
 // path and branch: a worktree of that linked folder, shown in its place.
 export type FileRoot = { link: string; path?: string; branch?: string };
@@ -22,9 +22,9 @@ const rootKey = (r: FileRoot) => `${r.link}|${r.path ?? ""}`;
 const keyOf = (r: FileRoot, rel: string) => `${rootKey(r)}\n${rel}`;
 const join = (rel: string, name: string) => (rel ? `${rel}/${name}` : name);
 // How the crew (and your message) names a place in a linked folder.
-const refOf = (r: FileRoot, rel: string, dir: boolean) => `links/${r.link}/${rel}${dir && rel ? "/" : ""}`;
-const sizeText = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
-const isImage = (name: string) => /\.(png|jpe?g|gif|webp)$/i.test(name);
+export const refOf = (r: FileRoot, rel: string, dir: boolean) => `links/${r.link}/${rel}${dir && rel ? "/" : ""}`;
+export const sizeText = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+export const isImage = (name: string) => /\.(png|jpe?g|gif|webp)$/i.test(name);
 
 // What kind of thing a file or folder is, for the colour of its icon (see .fk-… in styles.css).
 // Folders are told apart by what they hold; files by what they're written in.
@@ -227,62 +227,5 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
       </div>
       <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={() => setViewing(null)} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
     </aside>
-  );
-}
-
-// One file, opened over the page: its text with line numbers, or the image.
-function FileViewer({ root, rel, onClose, onMention }: { root: FileRoot; rel: string; onClose: () => void; onMention: (path: string) => void }) {
-  const [file, setFile] = useState<FilePreview | null>(null);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const ref = refOf(root, rel, false);
-
-  useEffect(() => {
-    let gone = false;
-    api<FilePreview>(`/api/tree/file?${treeQuery(root.link, root.path, rel)}`).then((f) => { if (!gone) setFile(f); }, (e) => { if (!gone) setError(errorText(e)); });
-    const esc = (ev: globalThis.KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => { gone = true; document.removeEventListener("keydown", esc); };
-  }, [root.link, root.path, rel, onClose]);
-
-  const lines = file && "text" in file ? file.text.replace(/\n$/, "").split("\n") : null;
-  // The code, coloured by its language (told from the file's name), where it's one we know.
-  const language = lines ? languageOf(rel) : null;
-  const coloured = useMemo(() => (lines ? colourCode(lines.join("\n"), rel) : null), [file, rel]); // eslint-disable-line react-hooks/exhaustive-deps
-  const kind = `fk-${kindOf(rel.split("/").pop() ?? rel, false)}`;
-  async function copy() {
-    try { await navigator.clipboard.writeText(file?.abs ?? ref); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* no clipboard here */ }
-  }
-
-  return (
-    <>
-      <div className="drawer-backdrop" onClick={onClose} />
-      <div className="dialog file-view" role="dialog" aria-modal="true" aria-label={ref}>
-        <header className={cx("file-head", kind)}>
-          <Icon name={isImage(rel) ? "image" : "file"} />
-          <b title={file?.abs}>{ref}</b>
-          {file && <small>{language && coloured !== null ? `${language.name} · ` : ""}{sizeText(file.size)}{lines ? ` · ${lines.length} ${lines.length === 1 ? "line" : "lines"}` : ""}</small>}
-          <button type="button" className="hist-icon" aria-label="Close the file" title="Close (Esc)" onClick={onClose}>×</button>
-        </header>
-        <div className="file-body">
-          {error ? <div className="form-error" role="alert">{error}</div>
-            : !file ? <div className="ft-note">Loading…</div>
-            : lines ? (
-              <div className="file-text">
-                <pre className="file-nums" aria-hidden="true">{lines.map((_, i) => i + 1).join("\n")}</pre>
-                {coloured !== null
-                  ? <pre className="file-code hljs" dangerouslySetInnerHTML={{ __html: coloured }} />
-                  : <pre className="file-code">{lines.join("\n")}</pre>}
-              </div>
-            )
-            : "image" in file ? <img className="file-image" alt={rel} src={treeImageUrl(root.link, root.path, rel)} />
-            : <div className="ft-note">{"tooLarge" in file ? `This file is ${sizeText(file.size)}, too large to show here.` : "This isn't a text file, so there's nothing to show."} The crew can still read it.</div>}
-        </div>
-        <div className="dialog-actions">
-          <button type="button" className="btn" onClick={copy} disabled={!file}>{copied ? "Copied" : "Copy path"}</button>
-          <button type="button" className="btn primary" onClick={() => onMention(ref)}>Mention in message</button>
-        </div>
-      </div>
-    </>
   );
 }

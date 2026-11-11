@@ -6,7 +6,9 @@
 //   "shell": { "allow": ["npm run build", "pytest"] }      or  "shell": { "autoApprove": false }
 // "Always allow" on an approval adds that exact command to "shell": { "exact": [...] }.
 
-import { shellSettings, approvalLevel, type ApprovalLevel } from "./settings.js";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { shellSettings, approvalLevel, skillCommands, type ApprovalLevel } from "./settings.js";
 import { currentProjectId } from "./context.js";
 import { getProject } from "./conversations.js";
 
@@ -31,6 +33,18 @@ export const DEFAULT_ALLOW = [
   "python3 --version", "python --version",
 ];
 
+// Commands you approved for an imported skill (skillpacks.ts) that still stand. One of the
+// skill's own scripts counts only while its file is as it was when you approved it: change the
+// file and the command asks again.
+export function approvedSkillPrefixes(): string[] {
+  const out: string[] = [];
+  for (const list of Object.values(skillCommands())) for (const c of list) {
+    if (!c.file) { out.push(c.prefix); continue; }
+    try { if (createHash("sha256").update(readFileSync(c.file)).digest("hex") === c.sha256) out.push(c.prefix); } catch { /* the file is gone: it asks */ }
+  }
+  return out;
+}
+
 const UNSAFE_CHARS = /[;&|<>`$(){}\n\r\\]/;
 // find can delete or run commands; git can be told to run a pager or editor.
 const UNSAFE_ARGS = /(^|\s)(-exec|-execdir|-delete|-ok|-okdir|-fprint\S*|-fls|--output|-o\s|--exec|-c\s|--config|--ext-diff|--textconv)(\s|=|$)/;
@@ -50,6 +64,6 @@ export function isAutoApproved(command: string): boolean {
     if (bare.startsWith("/") || bare.startsWith("~") || /(^|[/:])\.\.(\/|$)/.test(bare) || /(^|[/:])\.env/.test(bare)) return false;
     if (/(^|[/:])camp\/agents(\/|$)/.test(bare) || /[*?[]/.test(bare)) return false; // private workspaces; globs
   }
-  const allow = [...DEFAULT_ALLOW, ...(s.allow ?? [])];
+  const allow = [...DEFAULT_ALLOW, ...(s.allow ?? []), ...approvedSkillPrefixes()];
   return allow.some((prefix) => cmd === prefix || cmd.startsWith(prefix + " "));
 }

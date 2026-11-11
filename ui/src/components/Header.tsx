@@ -1,13 +1,14 @@
 // The top bar: what needs you, what runs the crew, today's spend, how busy the camp is, the
 // connection, notifications, the theme, and Settings.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
 import type { Connection } from "../camp.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cx, money, resetIn } from "../format.ts";
-import { Icon } from "./bits.tsx";
+import { Icon, type IconName } from "./bits.tsx";
+import { needsDoing, needsLabel, type Need } from "../needs.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import type { SettingsSection } from "../settings/Settings.tsx";
 import type { CampState, GithubStatus } from "../types.ts";
@@ -97,7 +98,43 @@ function toggleTheme() {
   storeSet("camp-theme", root.dataset.theme);
 }
 
-export function Header({ S, store, conn, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout }: {
+// What needs you, as a list under its chip: each row goes to where the thing is.
+const NEED_ICON: Record<Need["kind"], IconName> = { decision: "check", pr: "branch", held: "clock", failed: "down", finished: "reply" };
+function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) => void; onSeenAll?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (ev: MouseEvent) => { if (!box.current?.contains(ev.target as Node)) setOpen(false); };
+    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  if (!list.length) return null;
+  const doing = needsDoing(list).length > 0; // something to do, rather than only something to read
+  return (
+    <span className="needs-pick" ref={box}>
+      <button className={cx("chip", doing ? "needs" : "news")} type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => (list.length === 1 ? onGo(list[0]) : setOpen((o) => !o))}>{needsLabel(list)}</button>
+      {open && (
+        <div className="popover needs-menu" role="menu" aria-label="What needs you">
+          {list.map((n) => (
+            <button key={n.key} type="button" role="menuitem" className={cx("needs-item", n.kind)} onClick={() => { setOpen(false); onGo(n); }}>
+              <Icon name={NEED_ICON[n.kind]} /><span><b>{n.title}</b><small>{n.says}</small></span>
+            </button>
+          ))}
+          {onSeenAll && list.some((n) => n.kind === "finished") && (
+            <button type="button" role="menuitem" className="needs-item needs-clear" onClick={() => { setOpen(false); onSeenAll(); }}><span><small>Mark what's finished as seen</small></span></button>
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
+
+// needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
+export function Header({ S, store, conn, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout, needs, onNeed, onSeenAll }: {
+  needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
   // conversation; again brings back the ones it closed.
@@ -116,7 +153,7 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
     <header className="top">
       <div className="brand"><h1>🎒 Satchel</h1><span>Mission control</span></div>
       <div className="top-right">
-        {asks.length > 0 && (
+        {needs && onNeed ? <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} /> : asks.length > 0 && (
           <button className="chip needs" type="button" onClick={() => document.getElementById(`ask-${asks[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
             {asks.length === 1 ? "1 decision needs you" : `${asks.length} decisions need you`}
           </button>
