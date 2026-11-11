@@ -194,7 +194,10 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
         <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}><Icon name="theme" /></button>
         {onOpenSettings && (
           <button className="icon-btn" type="button" title="Settings" aria-label="Settings" onClick={() => onOpenSettings()}>
-            <Icon name="gear" />{!!S?.skills.length && <span className="badge" title={`${S.skills.length} skill proposals to review`}>{S.skills.length}</span>}
+            <Icon name="gear" />{(() => {
+              const skills = S?.skills.length ?? 0, memory = S?.memoryProposals?.length ?? 0;
+              return skills + memory > 0 && <span className="badge" title={[skills && `${skills} skill ${skills === 1 ? "proposal" : "proposals"} to review`, memory && `${memory} about memory waiting for you`].filter(Boolean).join(" · ")}>{skills + memory}</span>;
+            })()}
           </button>
         )}
       </div>

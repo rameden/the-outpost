@@ -68,8 +68,8 @@ export function giveFeedback(expedition: string, o: { rating: unknown; note?: un
   else if (note && o.keep) {
     const who = CREW[turn.agent] ?? CREW.quartermaster;
     const entry = `Feedback from the user (${o.rating === "up" ? "this worked well" : "do this differently"}): ${note.replace(/\s+/g, " ")}`;
-    if (inProject) { addProjectNote(project.id, entry); f.kept = `${project.name}'s notes`; }
-    else { appendMemory(who.id, entry); f.kept = `the ${who.name}'s memory`; }
+    if (inProject) { addProjectNote(project.id, entry, "feedback", expedition); f.kept = `${project.name}'s notes`; }
+    else { appendMemory(who.id, entry, "feedback", expedition); f.kept = `the ${who.name}'s memory`; }
   }
   mkdirSync("camp", { recursive: true });
   appendFileSync(FEEDBACK_PATH, JSON.stringify(f) + "\n");

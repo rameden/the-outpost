@@ -35,6 +35,7 @@ type Settings = {
   reviewChanges?: boolean; // have the Scout review what changed before the Quartermaster reports
   prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
   jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
+  memoryCare?: { tidy?: boolean; suggest?: boolean }; // looking after what the crew remembers (see keeping.ts)
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
@@ -151,6 +152,20 @@ export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; prStatus?
   const name = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
   const next: JiraWrite = { ...(w.on ? { on: true } : {}), ...(name(w.startStatus) ? { startStatus: name(w.startStatus) } : {}), ...(name(w.prStatus) ? { prStatus: name(w.prStatus) } : {}) };
   if (Object.keys(next).length) s.jiraWrite = next; else delete s.jiraWrite;
+  save(s);
+}
+
+// Looking after memory. tidy: when a memory or a project's notes near what a prompt can hold,
+// have the smallest model draft a merged version for you to approve (on unless you turn it off;
+// it runs rarely). suggest: after each run, have it propose up to three things worth keeping
+// (off unless you turn it on: it's a small call on every run).
+export const memoryCare = (): { tidy: boolean; suggest: boolean } => ({ tidy: load().memoryCare?.tidy !== false, suggest: load().memoryCare?.suggest === true });
+export function setMemoryCare(c: { tidy?: unknown; suggest?: unknown }) {
+  const s = load();
+  const now = memoryCare();
+  const next = { tidy: typeof c.tidy === "boolean" ? c.tidy : now.tidy, suggest: typeof c.suggest === "boolean" ? c.suggest : now.suggest };
+  const kept = { ...(next.tidy ? {} : { tidy: false }), ...(next.suggest ? { suggest: true } : {}) };
+  if (Object.keys(kept).length) s.memoryCare = kept; else delete s.memoryCare;
   save(s);
 }
 

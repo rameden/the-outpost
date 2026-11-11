@@ -9,6 +9,7 @@ import { wikiIndex } from "./wiki.js";
 import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
 import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } from "./memory.js";
+import { aboutBlock } from "./memlog.js";
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, type ClaudeCodeFailure } from "./claude-code.js";
@@ -222,7 +223,7 @@ export async function runAgent(
   // then what you remember, then the shared camp knowledge.
   const system =
     `${identityBlock(spec.id)}\n\n## How you work\n${spec.persona}\n\n` +
-    `${continuityBlock(spec.id)}\n\n## Your skills\n` +
+    `${continuityBlock(spec.id)}\n\n` + (aboutBlock() ? `${aboutBlock()}\n\n` : "") + `## Your skills\n` +
     `When a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, alwaysOn(spec.id, spec.skillDirs).map((s) => s.dir))}` +
     alwaysBlock(spec.id, spec.skillDirs) +
     `\n\n${wikiIndex()}` +

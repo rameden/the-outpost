@@ -24,7 +24,7 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -53,6 +53,8 @@ import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
+import { afterRun, forgetLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
+import { logKept, writeAbout } from "./memlog.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./chronicle.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
@@ -301,6 +303,9 @@ async function fullState(full: boolean) {
         overridden: !!(override.model || override.effort || override.maxTurns),
       };
     }),
+    // What's remembered, line by line, and what's waiting for your say (keeping.ts).
+    memory: none(() => memoryOverview()),
+    memoryProposals: none(() => proposals()),
     memories: none(() => CREW_IDS.map((id) => ({ id, name: CREW[id].name, emoji: CREW[id].emoji, memory: readMemory(id), sessions: recentSessions(id, 1000).length }))),
     xp,
     running: [...running.values()].map((w) => ({ id: w.id, label: w.label, task: w.task ?? "" })),
@@ -323,6 +328,7 @@ async function fullState(full: boolean) {
       reviewChanges: reviewChangesOn(),
       prWatch: prWatchOn(),
       termActions: termActions(),
+      memoryCare: memoryCare(),
       jiraWrite: writeBackSettings(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
@@ -702,6 +708,7 @@ const server = http.createServer(async (req, res) => {
             const c = chained();
             const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem, aside });
             if (isNew && r) void titleConversation(id, text, r.text);
+            if (r && !aside) void afterRun({ run: id, who: target.id, project: where.project, task: text, reply: r.text });
             return r;
           } })
         : enqueue({ label: "expedition", task, after, run: async (signal, id, steering) => {
@@ -710,6 +717,7 @@ const server = http.createServer(async (req, res) => {
             const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem,
               ...(typeof body.review === "boolean" ? { review: body.review } : {}) });
             if (isNew) void titleConversation(id, text, r.text);
+            void afterRun({ run: id, who: "quartermaster", project: where.project, task: text, reply: r.text });
             return r;
           } });
       const position = queue.indexOf(w) + 1; // 0: it started right away
@@ -1061,6 +1069,25 @@ const server = http.createServer(async (req, res) => {
       if (body.action === "add") return send(res, 200, addSnippet(String(body.title ?? ""), String(body.text ?? "")));
       if (body.action === "delete") return send(res, deleteSnippet(String(body.id)) ? 200 : 404, { ok: true });
       return send(res, 400, { error: "Unknown action" });
+    }
+
+    // Looking after memory (keeping.ts). about: your own edit of the note the whole crew shares.
+    // forget: take one line out. tidy: draft a merged version, to approve. proposal: your answer to
+    // one that's waiting ({ id, action: "approve" | "dismiss", text? }). care: the two switches.
+    if (url.pathname.startsWith("/api/memory/")) {
+      try {
+        if (url.pathname === "/api/memory/about") {
+          if (typeof body.text !== "string" || body.text.length > 20_000) return send(res, 400, { error: "That's too long for a note about you." });
+          writeAbout(body.text);
+          logKept("about", "Edited by you.", "you");
+          emit({ type: "changed", what: "memory" });
+          return send(res, 200, { ok: true });
+        }
+        if (url.pathname === "/api/memory/forget") return send(res, 200, { ok: forgetLine(String(body.where ?? ""), String(body.line ?? "")) });
+        if (url.pathname === "/api/memory/tidy") return send(res, 200, { ok: true, proposal: await proposeTidy(String(body.where ?? "")) });
+        if (url.pathname === "/api/memory/proposal") return send(res, 200, settleProposal(String(body.id ?? ""), body.action === "approve" ? "approve" : "dismiss", typeof body.text === "string" ? body.text : undefined));
+        if (url.pathname === "/api/memory/care") { setMemoryCare({ tidy: body.tidy, suggest: body.suggest }); return send(res, 200, { ok: true, memoryCare: memoryCare() }); }
+      } catch (e: any) { return send(res, e.fixable || /no such memory/i.test(e.message) ? 400 : 500, { error: e.message }); }
     }
 
     // Edit a crew member's memory by hand ({ id, text }).

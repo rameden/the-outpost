@@ -8,7 +8,8 @@ import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { About } from "../components/AgentDrawer.tsx";
 import { useModelList } from "../components/ModelPicker.tsx";
 import { Quests } from "../panels/Quests.tsx";
-import { Connectors, Inbox, Jobs, Memory, Skills } from "../panels/Records.tsx";
+import { Connectors, Inbox, Jobs, Skills } from "../panels/Records.tsx";
+import { MemoryPage } from "./MemoryPage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { cClass, cx, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
@@ -418,7 +419,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
   const title = ALL.find(([id]) => id === section)?.[1] ?? "";
-  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, inbox: S?.inboxCount ?? S?.inbox?.length };
+  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, inbox: S?.inboxCount ?? S?.inbox?.length, memory: S?.memoryProposals?.length };
   return (
     // A press that starts and ends on the dimmed backdrop closes it; a drag that began inside
     // (selecting text in a field, say) doesn't.
@@ -456,7 +457,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "usage" ? <Quests S={S} refresh={refresh} onOpenSettings={() => setSection("limits")} />
             : section === "jobs" ? <Jobs S={S} refresh={refresh} />
             : section === "inbox" ? <Inbox S={S} refresh={refresh} />
-            : section === "memory" ? <Memory S={S} refresh={refresh} />
+            : section === "memory" ? <MemoryPage S={S} refresh={refresh} />
             : section === "skills" ? <><Skills S={S} refresh={refresh} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>
             : <Connectors S={S} refresh={refresh} onAttachLink={(l) => { onAttachLink(l); onClose(); }} />}
         </div>

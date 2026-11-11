@@ -8,11 +8,14 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { CREW, type CrewId } from "./crew.js";
+import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
+import { addAbout, logKept, type KeptHow } from "./memlog.js";
 import type { Tool } from "./tools.js";
 
 export const AGENTS_DIR = join("camp", "agents");
-const MEMORY_MAX_CHARS = 5000;
+export const MEMORY_MAX_CHARS = 5000; // characters of memory loaded into a prompt (the newest)
+const MEMORY_NUDGE = 4000;            // past this, the agent is asked to tidy it
 const LEGACY_LEDGER = join("camp", "ledger.md");
 
 export function workspace(id: CrewId) {
@@ -56,6 +59,11 @@ export function ensureWorkspace(id: CrewId) {
   }
 }
 
+// The whole of an agent's memory, as it is on disk (the prompt gets the newest part: readMemory).
+export function fullMemory(id: CrewId): string {
+  try { return readFileSync(workspace(id).memory, "utf8").replace(/^# .*\n+/, "").trim(); } catch { return ""; }
+}
+
 export function readMemory(id: CrewId): string {
   ensureWorkspace(id);
   const ws = workspace(id);
@@ -75,6 +83,7 @@ export function rememberTool(id: CrewId): Tool {
         `Save something to YOUR memory (${me.name}) so future sessions start with it. Only keep what ` +
         `helps you in your role (${me.handles}): user preferences for your kind of work, lessons, ` +
         `recurring facts. Things that are only true of one project go in that project's notes (project_remember). ` +
+        `Something true of the user whoever they work with (how they like answers, what they call things) goes to about "user": the whole crew starts with it. ` +
         `Things for another role belong to that teammate; shared findings belong ` +
         `in the wiki. Your name, role, and personality are fixed: never record changes to them. ` +
         `'append' adds one dated line (default). 'rewrite' replaces the whole memory: use it to ` +
@@ -84,34 +93,46 @@ export function rememberTool(id: CrewId): Tool {
         properties: {
           entry: { type: "string", description: "One line for 'append', or the full memory for 'rewrite'." },
           mode: { type: "string", enum: ["append", "rewrite"] },
+          about: { type: "string", enum: ["me", "user"], description: "'me' (default): your own memory. 'user': the note about the user that every crew member is given (one line; append only)." },
         },
         required: ["entry"],
       },
     },
-    run: async ({ entry, mode = "append" }) => {
+    run: async ({ entry, mode = "append", about = "me" }) => {
       const ws = workspace(id);
       ensureWorkspace(id);
+      if (about === "user") {
+        addAbout(String(entry).split("\n")[0], "remember", currentExpeditionId());
+        emit({ type: "changed", what: "memory" });
+        return "Noted about the user: the whole crew will start with it.";
+      }
       if (mode === "rewrite") {
         writeFileSync(ws.memory, `# ${me.name}'s memory\n\n${String(entry).trim()}\n`);
       } else {
         appendFileSync(ws.memory, `- ${today()} ${String(entry).replace(/\s+/g, " ").trim()}\n`);
+        logKept(`agent:${id}`, String(entry), "remember", currentExpeditionId());
       }
       emit({ type: "changed", what: "memory" });
-      return mode === "rewrite" ? "Memory rewritten." : "Remembered.";
+      const size = fullMemory(id).length;
+      // Only the newest part is loaded: past the limit, the oldest lines are left behind. Say so before it happens.
+      const nudge = size > MEMORY_NUDGE ? ` Your memory is getting long (${size} characters; about ${MEMORY_MAX_CHARS} are loaded, newest first, and older lines drop out of your prompt). When you have a moment, use mode 'rewrite' to merge it into fewer, still-true lines. recall can still find what's dropped out.` : "";
+      return (mode === "rewrite" ? "Memory rewritten." : "Remembered.") + nudge;
     },
   };
 }
 
 // Add one dated line to an agent's memory (what remember does; also used when you keep a feedback note).
-export function appendMemory(id: CrewId, entry: string) {
+export function appendMemory(id: CrewId, entry: string, how: KeptHow = "feedback", run?: string) {
   ensureWorkspace(id);
   appendFileSync(workspace(id).memory, `- ${today()} ${String(entry).replace(/\s+/g, " ").trim()}\n`);
+  logKept(`agent:${id}`, String(entry), how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "memory" });
 }
 
 // ---------- Sessions ----------
 export type SessionSource = "user" | "direct" | "brief" | "job" | "discord";
-export type SessionLine = { time: string; source: SessionSource; task: string; result: string; status: string; file: string };
+// project: the project the session was part of (recall keeps one project's sessions out of another's search).
+export type SessionLine = { time: string; source: SessionSource; task: string; result: string; status: string; file: string; project?: string };
 
 const clip = (s: string, n: number) => {
   const flat = s.replace(/\s+/g, " ").trim();
@@ -130,7 +151,8 @@ export function recordSession(
   // Image and PDF data is left out (it's most of a transcript's size and is never read back).
   writeFileSync(file, JSON.stringify({ time, agent: id, source: s.source, status: s.status, task: s.task, result: s.result, messages: stripMedia(s.messages) }));
   pruneTranscripts(ws.sessions);
-  const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clip(s.result, 1500), status: s.status, file };
+  const project = currentProjectId();
+  const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clip(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
   appendFileSync(ws.index, JSON.stringify(line) + "\n");
   return file;
 }
@@ -229,6 +251,7 @@ export function continuityBlock(id: CrewId): string {
     `## Your memory (camp/agents/${id}/memory.md; save to it with remember)\n${readMemory(id)}\n\n` +
     `## Your recent sessions (build on these; full transcripts are in camp/agents/${id}/sessions/)\n` +
     (digest || "(none yet: this is your first session)") +
+    `\nAnything older (earlier sessions, earlier conversations in this project, the wiki's text, memory that no longer fits above) can be searched with recall.` +
     `\n\n## Your workspace\nSave your own files to camp/agents/${id}/outputs/ unless you're given another path. ` +
     `You can read teammates' outputs (camp/agents/<name>/outputs/), but not their memory or sessions.`
   );
