@@ -10,7 +10,7 @@ import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
 import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } from "./memory.js";
 import { requestText, type RequestContent } from "./attachments.js";
-import { agentSettings, campRuntime, DEFAULT_TURNS, EFFORTS, type Effort, type Runtime } from "./settings.js";
+import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, type ClaudeCodeFailure } from "./claude-code.js";
 import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering } from "./context.js";
 import { filesWrittenBy } from "./checkpoints.js";
@@ -157,8 +157,37 @@ export type AgentResult = {
   costUsd?: number;    // Claude Code's own figure at API prices (an estimate on a subscription)
 };
 
+// Skills you set to "always on" for a crew member: their instructions, in full, in every prompt.
+// (Only skills that member can use anyway: their own and the shared ones.)
+const ALWAYS_EACH = 8000, ALWAYS_ALL = 24_000;
+export function alwaysOn(id: string, dirs: string[]): { key: string; name: string; dir: string; body: string }[] {
+  const out: { key: string; name: string; dir: string; body: string }[] = [];
+  let used = 0;
+  for (const key of alwaysSkills()[id] ?? []) {
+    const dir = join("skills", key);
+    const path = join(dir, "SKILL.md");
+    if (!dirs.some((d) => dir.startsWith(`${d}/`)) || !/^[a-z0-9_-]+\/[a-z0-9-]+$/.test(key) || !existsSync(path)) continue;
+    const text = readFileSync(path, "utf8");
+    let body = text.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+    const room = Math.min(ALWAYS_EACH, ALWAYS_ALL - used);
+    if (room <= 0) break;
+    if (body.length > room) body = `${body.slice(0, room)}\n…[cut for length: read the rest in ${path}]`;
+    used += body.length;
+    out.push({ key, name: text.match(/^name:\s*(.+)$/m)?.[1]?.trim() ?? key.split("/")[1], dir, body });
+  }
+  return out;
+}
+export function alwaysBlock(id: string, dirs: string[]): string {
+  const on = alwaysOn(id, dirs);
+  if (!on.length) return "";
+  return "\n\n## Skills you always follow\nThe user has set these to apply to everything you do. Their instructions are here in full: follow them without being asked, and without opening them first. " +
+    "Where one doesn't bear on the task in front of you, it simply doesn't apply.\n\n" +
+    on.map((s) => `### ${s.name}\n${s.body}\n(Anything else it refers to, scripts or reference pages, is in ${s.dir}/.)`).join("\n\n");
+}
+
 // Progressive disclosure: only name + description go in the prompt.
-export function skillIndex(dirs: string[]): string {
+// always: skills whose instructions are in the prompt already (see alwaysBlock), marked so.
+export function skillIndex(dirs: string[], always: string[] = []): string {
   const lines: string[] = [];
   for (const dir of dirs) {
     if (!existsSync(dir)) continue;
@@ -168,7 +197,7 @@ export function skillIndex(dirs: string[]): string {
       const text = readFileSync(path, "utf8");
       const name = text.match(/^name:\s*(.+)$/m)?.[1] ?? sub;
       const desc = text.match(/^description:\s*(.+)$/m)?.[1] ?? "";
-      lines.push(`- ${name}: ${desc} (read ${path} before using)`);
+      lines.push(always.includes(join(dir, sub)) ? `- ${name}: ${desc} (always on: its instructions are below)` : `- ${name}: ${desc} (read ${path} before using)`);
     }
   }
   return lines.join("\n") || "(none)";
@@ -194,7 +223,8 @@ export async function runAgent(
   const system =
     `${identityBlock(spec.id)}\n\n## How you work\n${spec.persona}\n\n` +
     `${continuityBlock(spec.id)}\n\n## Your skills\n` +
-    `When a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs)}` +
+    `When a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, alwaysOn(spec.id, spec.skillDirs).map((s) => s.dir))}` +
+    alwaysBlock(spec.id, spec.skillDirs) +
     `\n\n${wikiIndex()}` +
     (linksBlock() ? `\n\n${linksBlock()}` : "") +
     (projectInstructions() ? `\n\n${projectInstructions()}` : "") +

@@ -111,5 +111,29 @@ test("a conversation carries the folders attached to it and the worktree it last
   turn("t3", {});
   const c = history().conversations.find((x) => x.id === "t1")!;
   assert.deepEqual(c.links, [link.name]);
-  assert.deepEqual(c.workspaces, { [link.name]: { path: "/tmp/wt", branch: "camp/fix-it" } });
+  assert.deepEqual(c.workspaces, { [link.name]: { path: "/tmp/wt", branch: "camp/fix-it", created: true } });
+});
+
+test("finding a file by name: the name itself counts most, and secrets never come back", async () => {
+  const found = await ex.findFiles(repo, "app");
+  assert.equal(found[0], "src/app.ts");
+  assert.ok(found.includes("src/new file.ts") === false);
+  assert.deepEqual(await ex.findFiles(repo, "util"), ["src/deep/util.ts"]);
+  assert.deepEqual(await ex.findFiles(repo, "deep util"), ["src/deep/util.ts"], "every word has to be in the path");
+  assert.deepEqual(await ex.findFiles(repo, "env"), [], "a secret is never offered");
+  assert.deepEqual(await ex.findFiles(repo, "  "), []);
+  assert.ok((await ex.findFiles(repo, "todo")).includes("notes/todo.md"), "files git doesn't know yet are found too");
+  assert.deepEqual(await ex.findFiles(elsewhere, "private"), ["private.txt"], "outside a repository the folder is walked");
+});
+
+test("one file's changes since the last commit, as a diff", async () => {
+  const changed = await ex.fileDiff(repo, "src/app.ts");
+  assert.equal(changed.untracked, false);
+  assert.match(changed.diff, /^-export const a = 1;$/m);
+  assert.match(changed.diff, /^\+export const a = 2;$/m);
+  const fresh = await ex.fileDiff(repo, "notes/todo.md");
+  assert.deepEqual(fresh, { diff: "@@ -0,0 +1,1 @@\n+- one", untracked: true }, "a file git doesn't know is all additions");
+  assert.deepEqual(await ex.fileDiff(repo, "README.md"), { diff: "", untracked: false });
+  await assert.rejects(ex.fileDiff(repo, ".env"), /secret/);
+  await assert.rejects(ex.fileDiff(repo, "../outside.txt"), /leaves/);
 });

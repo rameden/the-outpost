@@ -174,3 +174,32 @@ test("a run that was cut off can be resumed from what the feed recorded", () => 
   assert.ok(!done.unfinished && done.turns === 1);
   assert.match(done.history, /You answered \(done\):\nRenamed\./);
 });
+
+test("your checkout can be switched to a branch, or a new one made, and git's refusals come back as they are", async () => {
+  const start = git(repo, "rev-parse", "--abbrev-ref", "HEAD");
+  assert.equal(await repos.switchBranch(link.name, "mp-601-new", true), "mp-601-new");
+  assert.equal(git(repo, "rev-parse", "--abbrev-ref", "HEAD"), "mp-601-new");
+  const listed = (await repos.linkedRepos()).find((r) => r.link === link.name)!;
+  assert.equal(listed.branch, "mp-601-new");
+  assert.ok(listed.branches.includes("mp-601-new") && listed.branches.includes(start), "the branches there are to switch to are listed");
+  assert.equal(await repos.switchBranch(link.name, start, false), start);
+  assert.equal(git(repo, "rev-parse", "--abbrev-ref", "HEAD"), start);
+
+  await assert.rejects(repos.switchBranch(link.name, "mp-601-new", true), /already exists/);
+  await assert.rejects(repos.switchBranch(link.name, "no-such-branch", false), /invalid reference|did not match|no-such-branch/);
+  await assert.rejects(repos.switchBranch(link.name, "has space", true), /isn't a name git allows/);
+  await assert.rejects(repos.switchBranch(link.name, "--force", true), /Give the branch a name/);
+  await assert.rejects(repos.switchBranch(link.name, "  ", true), /Give the branch a name/);
+  await assert.rejects(repos.switchBranch("nope", "x", true), /No linked folder/);
+
+  // Work you haven't committed is never thrown away: git refuses, and says which file.
+  git(repo, "switch", "-q", "mp-601-new");
+  writeFileSync(join(repo, "app.txt"), "on the new branch\n");
+  git(repo, "commit", "-qam", "diverge");
+  git(repo, "switch", "-q", start);
+  const before = readFileSync(join(repo, "app.txt"), "utf8");
+  writeFileSync(join(repo, "app.txt"), "uncommitted work\n");
+  await assert.rejects(repos.switchBranch(link.name, "mp-601-new", false), /app\.txt/);
+  assert.equal(readFileSync(join(repo, "app.txt"), "utf8"), "uncommitted work\n");
+  writeFileSync(join(repo, "app.txt"), before);
+});

@@ -60,7 +60,8 @@ const project = (name: string) => screen.getByRole("button", { name: name }).clo
 
 test("conversations sit under their projects, and opening one selects it", () => {
   const { setView } = setup({ kind: "conversation", id: "c2" });
-  expect(within(project("General")).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Rebuild the UI⋯", "@scout · What's new in memory research?⋯"]);
+  // The Quartermaster's conversation is listed; the chat with the Scout waits behind the Scout's name.
+  expect(within(project("General")).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Rebuild the UI⋯", "›@scout1"]);
   expect(within(project("mi-web-app")).getByRole("button", { name: /^Fix the flaky test/ }).getAttribute("aria-current")).toBe("page");
   fireEvent.click(screen.getByRole("button", { name: /^Rebuild the UI/ }));
   expect(setView).toHaveBeenCalledWith({ kind: "conversation", id: "c1" });
@@ -218,6 +219,16 @@ test("a project's page: what the crew is told, what they've learned, usage, file
 
   // Survey: starts a conversation with the Scout, and takes you to it.
   fireEvent.click(screen.getAllByRole("button", { name: "Survey this project" })[0]);
+  // It asks first, in the page's own dialog, saying what it does and what it costs.
+  const ask = screen.getByRole("alertdialog", { name: "Survey mi-web-app?" });
+  expect(ask.textContent).toContain("links/mi-web-app/");
+  expect(ask.textContent).toContain("uses some of your plan");
+  expect(posts.find((p) => p.path === "/api/project/survey")).toBeUndefined();
+  fireEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(posts.find((p) => p.path === "/api/project/survey")).toBeUndefined();
+  fireEvent.click(screen.getAllByRole("button", { name: "Survey this project" })[0]);
+  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Survey" }));
   await vi.waitFor(() => expect(setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "s1" }));
   expect(posts.find((p) => p.path === "/api/project/survey")!.body).toEqual({ id: "p1" });
 });
@@ -263,4 +274,52 @@ test("history closes to a tab, and the tab brings it back", () => {
   render(<HistoryRail onShow={onShow} />);
   fireEvent.click(screen.getByRole("button", { name: "Show history" }));
   expect(onShow).toHaveBeenCalled();
+});
+
+test("chats with a crew member are kept together under the project, behind their name", () => {
+  const history: HistoryData = {
+    projects: HISTORY.projects,
+    conversations: [conv("q1", "Fix the flaky test", "p1"), conv("s1", "Survey of mi-web-app", "p1", { agent: "scout", direct: true }), conv("s2", "What changed in v5?", "p1", { agent: "scout", direct: true }),
+      conv("w1", "Tidy the README", "p1", { agent: "scribe", direct: true })],
+  };
+  const store = createFeedStore(), setView = vi.fn();
+  const draw = (view: View) => render(<History S={{ ...S, history } as CampState} store={store} view={view} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} />);
+  const { unmount } = draw({ kind: "new" });
+  const items = () => within(project("mi-web-app")).getAllByRole("listitem").map((li) => li.textContent);
+  expect(items()).toEqual(["Fix the flaky test⋯", "›@scout2", "›@scribe1"]); // the Quartermaster's stays out in the open
+  const scout = screen.getByRole("button", { name: /@scout/ });
+  expect(scout.getAttribute("aria-expanded")).toBe("false");
+  expect(scout.closest("li")!.className).toContain("c-scout"); // in the Scout's colour
+  fireEvent.click(scout);
+  expect(scout.getAttribute("aria-expanded")).toBe("true");
+  expect(within(scout.closest("li")!).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Survey of mi-web-app⋯", "What changed in v5?⋯"]); // no "@scout ·" in front: it's under the name
+  fireEvent.click(screen.getByRole("button", { name: /^What changed in v5\?/ }));
+  expect(setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "s2" });
+  fireEvent.click(scout);
+  expect(screen.queryByText("What changed in v5?")).toBeNull();
+  expect(JSON.parse(localStorage.getItem("camp-agents-open")!)).toEqual([]);
+  unmount();
+
+  // The group holding the chat you're in is open whether or not you opened it.
+  draw({ kind: "conversation", id: "w1" });
+  expect(screen.getByRole("button", { name: /@scribe/ }).getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByRole("button", { name: /^Tidy the README/ }).getAttribute("aria-current")).toBe("page");
+  expect(screen.getByRole("button", { name: /@scout/ }).getAttribute("aria-expanded")).toBe("false");
+});
+
+test("with Jira linked, the sidebar offers Start a ticket, then Jira and the Wiki under Projects", () => {
+  const setView = vi.fn(), onOpenWiki = vi.fn(), onStartTicket = vi.fn();
+  const linked = { ...S, jira: { connected: true } } as CampState;
+  const { rerender } = render(<History S={linked} store={createFeedStore()} view={{ kind: "wiki" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}}
+    onOpenWiki={onOpenWiki} onStartTicket={onStartTicket} />);
+  const nav = screen.getByRole("navigation");
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Jira", "Wiki", "Search", "All activity"]);
+  expect(within(nav).getByRole("button", { name: "Wiki" }).getAttribute("aria-current")).toBe("page"); // you're on it
+  fireEvent.click(within(nav).getByRole("button", { name: "Wiki" }));
+  expect(onOpenWiki).toHaveBeenCalledTimes(1);
+  fireEvent.click(within(nav).getByRole("button", { name: "Start a ticket" }));
+  expect(onStartTicket).toHaveBeenCalledTimes(1);
+  // Without Jira there's no ticket to start, but the wiki is still there.
+  rerender(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onOpenWiki={onOpenWiki} onStartTicket={onStartTicket} />);
+  expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Wiki", "Search", "All activity"]);
 });

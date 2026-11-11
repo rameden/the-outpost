@@ -5,11 +5,12 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { api, errorText } from "../api.ts";
-import type { CampState, Link, PickResult, RepoInfo, Snippet } from "../types.ts";
+import type { CampState, Link, PickResult, RepoInfo, Snippet, JiraRef } from "../types.ts";
+import { JiraPicker } from "./Jira.tsx";
 import { WorkOptions, workingOn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon as LineIcon } from "./bits.tsx";
 
-export type MenuView = "main" | "crew" | "work" | "url" | "link" | "snippets";
+export type MenuView = "main" | "crew" | "work" | "url" | "link" | "jira" | "snippets";
 type Fly = Exclude<MenuView, "main">;
 
 const Icon = ({ d, children }: { d?: string; children?: ReactNode }) => (
@@ -17,7 +18,7 @@ const Icon = ({ d, children }: { d?: string; children?: ReactNode }) => (
 );
 const FOLDER = "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z";
 
-export function AttachMenu({ S, view, setView, text, repos, work, workLocked, onWork, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets }: {
+export function AttachMenu({ S, view, setView, text, repos, work, workLocked, onWork, onBranch, onJira, onConnectJira, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets }: {
   S: CampState | null;
   view: MenuView;
   setView: (v: MenuView) => void;
@@ -26,6 +27,9 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, on
   work: WorkChoice;                               // where it will, for each
   workLocked: boolean;                            // a follow-up: it stays where its conversation was
   onWork: (link: string, value: string) => void;
+  onBranch?: (link: string, name: string, create: boolean) => Promise<void>;
+  onJira?: (issue: JiraRef) => void;          // a Jira ticket picked to attach
+  onConnectJira?: () => void;                 // open Settings to link Jira
   onClose: () => void;
   onTalkTo: (id: string | null) => void;          // send straight to this crew member; null is the Quartermaster, as usual
   onPick: (what: "files" | "folder" | "images") => void;
@@ -158,6 +162,7 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, on
           Link a folder<LineIcon name="chevronRight" />
         </button>
         <button type="button" {...flyRow("url")}><Icon d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" /></Icon>URL<LineIcon name="chevronRight" /></button>
+        {onJira && <button type="button" {...flyRow("jira")}><LineIcon name="check" />Jira ticket<LineIcon name="chevronRight" /></button>}
         <div className="menu-sep" />
         <button type="button" {...flyRow("snippets")}><Icon d="M4 5h16v11H8l-4 4z"><path d="M8 9h8M8 12h5" /></Icon>Prompt snippets<LineIcon name="chevronRight" /></button>
         <div className="menu-sep" />
@@ -192,7 +197,7 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, on
         <div className="fly" role="dialog" aria-label="Where to work" onKeyDown={onFlyKeys}>
           <div className="fly-head">Where to work <small>for the next request</small></div>
           <div className="fly-list" role="menu">
-            <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} />
+            <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} onBranch={onBranch} />
           </div>
         </div>
       )}
@@ -237,6 +242,13 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, on
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {view === "jira" && onJira && (
+        <div className="fly fly-wide" role="dialog" aria-label="Attach a Jira ticket" onKeyDown={onFlyKeys}>
+          <div className="fly-head">Attach a Jira ticket <small>read when attached</small></div>
+          <JiraPicker connected={!!S?.jira?.connected} onPick={(i) => { onJira(i); onClose(); }} onConnect={() => { onConnectJira?.(); onClose(); }} />
         </div>
       )}
 

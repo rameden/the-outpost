@@ -33,6 +33,7 @@ export type ProjectSettings = {
   web?: "careful" | "off";             // careful: keep the project's names and code out of searches. off: no web tools at all
   budgetUsd?: number;                  // per-expedition budget, instead of the camp's
   approval?: "ask" | "safe" | "sandbox"; // how shell commands are approved here (see settings.ts)
+  review?: "on" | "off";               // have changes reviewed before the Quartermaster reports, here, whatever the camp's setting
   agents?: Record<string, { model?: string; effort?: string }>; // per crew member
 };
 export type Project = {
@@ -60,8 +61,10 @@ export type Conversation = {
   expeditions: string[]; // its runs, oldest first
   status: string;        // how the latest run ended ("running" while it's going)
   suggest?: string;      // filed under General, but it used a folder that belongs to this project
+  jira?: string;         // the Jira ticket it's working on (its key), if it was started from one
   links?: string[];      // linked folders attached to it along the way, beyond its project's own
-  workspaces?: Record<string, { path: string; branch: string }>; // the worktrees its latest run worked in, by linked folder
+  // The worktrees its latest run worked in, by linked folder. base: the commit the work started from. created: the camp made it.
+  workspaces?: Record<string, { path: string; branch: string; base?: string; created?: boolean }>;
 };
 export type History = { projects: Project[]; conversations: Conversation[] };
 
@@ -99,7 +102,8 @@ function withLinkProjects(s: Saved): Saved {
 }
 
 export function titleOf(task: string): string {
-  const flat = task.replace(/^@\w+\s+/, "").replace(/\s+/g, " ").trim();
+  // Its first line: a long request (a brief with a checklist, say) is named by how it opens.
+  const flat = (task.replace(/^@\w+\s+/, "").split("\n").find((l) => l.trim()) ?? "").replace(/\s+/g, " ").trim();
   return flat.length > 64 ? flat.slice(0, 63).trimEnd() + "…" : flat || "Untitled";
 }
 
@@ -110,7 +114,7 @@ function folders(turns: Turn[]): Pick<Conversation, "links" | "workspaces"> {
   const ws = [...turns].reverse().find((t) => t.workspaces && Object.keys(t.workspaces).length)?.workspaces;
   return {
     ...(links.length ? { links } : {}),
-    ...(ws ? { workspaces: Object.fromEntries(Object.entries(ws).map(([l, w]) => [l, { path: w.path, branch: w.branch }])) } : {}),
+    ...(ws ? { workspaces: Object.fromEntries(Object.entries(ws).map(([l, w]) => [l, { path: w.path, branch: w.branch, ...(w.base ? { base: w.base } : {}), ...(w.created ? { created: true } : {}) }])) } : {}),
   };
 }
 
@@ -124,13 +128,16 @@ export function history(): History {
     const meta = s.meta[id] ?? {};
     if (meta.removed) continue;
     const first = turns[0], last = turns[turns.length - 1];
+    // Who it's with: an aside (a second opinion, a review) doesn't take the conversation over.
+    const own = [...turns].reverse().find((t) => !t.aside) ?? last;
+    const jira = turns.find((t) => t.jira)?.jira;
     const project = meta.project && known.has(meta.project) ? meta.project : GENERAL;
     // Unfiled, but it used exactly one project's folder: offer to move it there.
     const used = new Set(turns.flatMap((t) => [...(t.links ?? []), ...Object.keys(t.workspaces ?? {})]));
     const owners = project === GENERAL ? s.projects.filter((p) => p.links?.some((l) => used.has(l))) : [];
     conversations.push({
       id, title: meta.title || titleOf(first.task), project, ...(owners.length === 1 ? { suggest: owners[0].id } : {}),
-      created: first.time, updated: last.time, agent: last.agent, direct: last.direct,
+      created: first.time, updated: last.time, agent: own.agent, direct: own.direct, ...(jira ? { jira } : {}),
       expeditions: turns.map((t) => t.expedition), status: last.status,
       ...folders(turns),
     });
@@ -167,6 +174,7 @@ export function cleanSettings(raw: unknown): ProjectSettings | undefined {
   const budget = Number(r.budgetUsd);
   if (r.budgetUsd !== "" && r.budgetUsd != null && Number.isFinite(budget) && budget > 0) out.budgetUsd = Math.round(budget * 100) / 100;
   if (r.approval === "ask" || r.approval === "safe" || r.approval === "sandbox") out.approval = r.approval;
+  if (r.review === "on" || r.review === "off") out.review = r.review;
   if (r.agents && typeof r.agents === "object") {
     const agents: NonNullable<ProjectSettings["agents"]> = {};
     for (const [id, a] of Object.entries(r.agents as Record<string, any>)) {

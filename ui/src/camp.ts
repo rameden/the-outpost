@@ -12,15 +12,26 @@ export type Connection = "connecting" | "live" | "reconnecting";
 
 // Everything the side panels, the crew cards, and the header chips show. `refresh` reloads it
 // (a moment later, so a burst of events means one request); `patch` changes it in place.
-export function useCampState() {
+// The records only Settings shows (memories, the quest log, the wiki…) come with the first load
+// and then only while `records` is on; other refreshes skip them and keep what was there.
+export function useCampState(records = false) {
   const [S, setS] = useState<CampState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const want = useRef(records);
+  const loaded = useRef(false);
   const refresh = useCallback(() => {
     clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      try { setS(await api<CampState>("/api/state")); } catch (e) { console.warn(e); }
+      const full = want.current || !loaded.current;
+      try {
+        const next = await api<CampState>(full ? "/api/state" : "/api/state?full=0");
+        loaded.current = true;
+        // A light answer leaves the records out (undefined): keep the ones already here.
+        setS((was) => (was && !full ? { ...was, ...Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined)) } as CampState : next));
+      } catch (e) { console.warn(e); }
     }, 150);
   }, []);
+  useEffect(() => { want.current = records; if (records && loaded.current) refresh(); }, [records, refresh]);
   const patch = useCallback((fn: (s: CampState) => CampState) => setS((s) => (s ? fn(s) : s)), []);
   useEffect(() => () => clearTimeout(timer.current), []);
   return { S, refresh, patch };

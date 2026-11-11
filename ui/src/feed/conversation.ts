@@ -12,13 +12,15 @@ import { applyEvent, emptyFeed, type ExpNode, type FeedNode, type FeedState } fr
 // What the middle of the page shows: everything, a blank page for a new conversation (optionally
 // filed under a project), one conversation, one project's page, or all your projects.
 export type View = { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string }
-  | { kind: "project"; id: string } | { kind: "projects" };
+  | { kind: "project"; id: string } | { kind: "projects" } | { kind: "jira" } | { kind: "wiki"; page?: string }; // wiki: every page, or one being read
 
 export function parseView(saved: string | null): View {
   try {
     const v = JSON.parse(saved ?? "") as View;
     if (v?.kind === "all") return { kind: "all" };
     if (v?.kind === "projects") return { kind: "projects" };
+    if (v?.kind === "jira") return { kind: "jira" };
+    if (v?.kind === "wiki") return { kind: "wiki", ...(typeof v.page === "string" ? { page: v.page } : {}) };
     if ((v?.kind === "conversation" || v?.kind === "project") && typeof v.id === "string") return { kind: v.kind, id: v.id };
   } catch { /* nothing saved */ }
   return { kind: "new" };

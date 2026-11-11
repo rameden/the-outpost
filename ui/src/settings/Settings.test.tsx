@@ -98,6 +98,7 @@ test("the camp's records that used to be in the side panel are sections here", (
   expect(screen.getByText("No budget · up to 3 at once")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Change limits" }));
   expect(setSection).toHaveBeenCalledWith("limits");
-  for (const name of ["Scheduled jobs", "Memory", "Wiki", "Skills", "Connectors"]) expect(screen.getByRole("button", { name: new RegExp(name) })).toBeTruthy();
+  for (const name of ["Scheduled jobs", "Memory", "Skills", "Connectors"]) expect(screen.getByRole("button", { name: new RegExp(name) })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /^Wiki/ })).toBeNull(); // the wiki has a page of its own now, in the sidebar
   expect(screen.getByRole("button", { name: /Inbox/ }).textContent).toContain("1");
 });

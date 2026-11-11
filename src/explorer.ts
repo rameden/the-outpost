@@ -110,6 +110,58 @@ const run = (cwd: string, args: string[]) => new Promise<string>((done) => {
     (err, stdout) => done(err ? "" : String(stdout)));
 });
 
+// Files under the folder whose path matches what was typed, best first. Git's own list is used
+// where there is one (quick, and it leaves out what .gitignore leaves out); otherwise the folder
+// is walked. Secrets and git's own data never come back.
+const MAX_FOUND = 40;
+const MAX_WALK = 20_000;
+export async function findFiles(root: string, query: string): Promise<string[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  let all = (await run(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "."])).split("\0").filter(Boolean);
+  if (!all.length) {
+    const stack = [""];
+    while (stack.length && all.length < MAX_WALK) {
+      const dir = stack.pop()!;
+      let entries;
+      try { entries = readdirSync(join(root, dir), { withFileTypes: true }); } catch { continue; }
+      for (const e of entries) {
+        if (HIDDEN.has(e.name) || e.name === "node_modules") continue;
+        const rel = dir ? `${dir}/${e.name}` : e.name;
+        if (e.isDirectory()) stack.push(rel); else if (e.isFile()) all.push(rel);
+      }
+    }
+  }
+  const words = q.split(/\s+/);
+  const hits: { path: string; score: number }[] = [];
+  for (const path of all) {
+    const low = path.toLowerCase();
+    if (!words.every((w) => low.includes(w))) continue;
+    if (path.split("/").some((seg) => SECRET_NAME.test(seg) || seg === ".git")) continue;
+    const name = low.slice(low.lastIndexOf("/") + 1);
+    // The name itself matching beats a folder matching; a name that starts with it beats that; shorter paths first.
+    const score = (name === q ? 0 : name.startsWith(words[0]) ? 1 : words.every((w) => name.includes(w)) ? 2 : 3) * 1000 + path.length;
+    hits.push({ path, score });
+  }
+  return hits.sort((a, b) => a.score - b.score).slice(0, MAX_FOUND).map((h) => h.path);
+}
+
+// What has changed in one file since the last commit, as a unified diff ("" when nothing has,
+// or the folder isn't a repository). A file git doesn't know yet is all additions.
+const MAX_DIFF = 400_000;
+export async function fileDiff(root: string, rel: string): Promise<{ diff: string; untracked: boolean }> {
+  const { path } = checkedFile(root, rel);
+  const status = await run(root, ["status", "--porcelain=v1", "--", path]);
+  if (status.startsWith("??")) {
+    const { abs, size } = checkedFile(root, rel);
+    if (size > MAX_DIFF) return { diff: "", untracked: true };
+    const lines = readFileSync(abs, "utf8").replace(/\n$/, "").split("\n");
+    return { diff: `@@ -0,0 +1,${lines.length} @@\n${lines.map((l) => `+${l}`).join("\n")}`, untracked: true };
+  }
+  const diff = await run(root, ["diff", "--no-color", "--no-ext-diff", "HEAD", "--", path]);
+  return { diff: diff.length > MAX_DIFF ? "" : diff, untracked: false };
+}
+
 // What git reports as changed under the folder, or nothing when it isn't a repository.
 export async function changedFiles(root: string): Promise<Record<string, string>> {
   const out = await run(root, ["status", "--porcelain=v1", "-z", "--", "."]);

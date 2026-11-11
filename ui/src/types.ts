@@ -10,7 +10,9 @@ export type { PickResult } from "../../src/picker.ts";
 export type { GithubStatus } from "../../src/github.ts";
 export type { SessionLine } from "../../src/memory.ts";
 export type { RepoInfo, WorkspaceStatus } from "../../src/repos.ts";
+export type { PrDraft, PrState } from "../../src/prs.ts";
 export type { TerminalInfo } from "../../src/term.ts";
+export type { JiraCard, JiraDetail, JiraPull, JiraRef, JiraStatus } from "../../src/jira.ts";
 export type { TreeEntry, Listing, FilePreview } from "../../src/explorer.ts";
 
 import type { CampEvent } from "../../src/events.ts";
@@ -29,7 +31,8 @@ export type Uploaded = ReturnType<typeof saveUpload>;
 // The worktrees a finished expedition worked in, and where each stood when it ended.
 export type Workspaces = NonNullable<EventOf<"expedition_end">["workspaces"]>;
 // thread: the conversation the request landed in (a new one is named after its first run).
-export type SendResult = { ok: true; id: string; position: number; attached: number; thread: string };
+// after: it's a chained request, waiting for that run to finish before it starts.
+export type SendResult = { ok: true; id: string; position: number; attached: number; thread: string; after?: string };
 export type { History, Project, Conversation, ProjectSettings } from "../../src/conversations.ts";
 import type { ProjectPageData as PageData } from "../../src/projects.ts";
 import type { WorkspaceStatus as Standing } from "../../src/repos.ts";
@@ -43,3 +46,8 @@ export type Transcript = { messages?: { role: string; content: string | Transcri
 // Something attached to a message: waiting in the composer, or shown on an expedition.
 export type Attached = { kind: string; name: string; path?: string; url?: string; count?: number; image?: boolean };
 export type PendingAttachment = Attached & { key: number; status: "uploading" | "ready" | "error" };
+
+import type { chroniclePage } from "../../src/chronicle.ts";
+export type ChroniclePage = NonNullable<ReturnType<typeof chroniclePage>>;
+export type { PackPreview, SkillDetail, SkillFile } from "../../src/skillpacks.ts";
+export type { Payoff } from "../../src/payoff.ts";

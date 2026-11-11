@@ -3,15 +3,35 @@
 // formatting, and http(s) links.
 
 import { Fragment, memo, useMemo, type CSSProperties, type ReactNode } from "react";
+import { say } from "./bus.ts";
+import { Findings, parseFindings } from "./feed/Findings.tsx";
 
 type Part = string | { node: ReactNode };
 type Stage = { re: RegExp; render: (m: RegExpExecArray, next: (text: string) => ReactNode[]) => Part[] };
 
 const link = (href: string, children: ReactNode): Part => ({ node: <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> });
 
+// A code span that's a file path (src/app.ts, links/site/README.md, lib/a.ts:42) opens that
+// file in the viewer when clicked: the page looks for it in the folders attached where you are.
+const PATH = /^(?:\.{0,2}\/)?(?:[\w.@()[\]~+-]+\/)+[\w.@()[\]~+-]*\.[A-Za-z][A-Za-z0-9]{0,9}(?::(\d+)(?::\d+)?)?$/;
+export function pathIn(code: string): { path: string; line?: number } | null {
+  const m = code.match(PATH);
+  if (!m || code.length > 300 || /^https?:/.test(code)) return null;
+  return { path: code.replace(/:\d+(?::\d+)?$/, ""), ...(m[1] ? { line: Number(m[1]) } : {}) };
+}
+function codeSpan(code: string): ReactNode {
+  const file = pathIn(code);
+  if (!file) return <code>{code}</code>;
+  const open = () => say({ do: "open-file", ...file });
+  return (
+    <code className="path-link" role="link" tabIndex={0} title="Open this file" onClick={open}
+      onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(); } }}>{code}</code>
+  );
+}
+
 // In order: code spans first (nothing inside them is formatted), then bold, italics, links.
 const STAGES: Stage[] = [
-  { re: /`([^`]+)`/g, render: (m) => [{ node: <code>{m[1]}</code> }] },
+  { re: /`([^`]+)`/g, render: (m) => [{ node: codeSpan(m[1]) }] },
   { re: /\*\*([^*]+)\*\*/g, render: (m, next) => [{ node: <strong>{next(m[1])}</strong> }] },
   { re: /(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:!?]|$)/g, render: (m, next) => [m[1], { node: <em>{next(m[2])}</em> }] },
   { re: /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, render: (m) => [link(m[2], m[1])] },
@@ -52,10 +72,13 @@ export function renderMarkdown(src: string): ReactNode[] {
     const key = out.length;
     if (FENCE.test(line)) {
       const code: string[] = [];
+      const lang = line.replace(FENCE, "").trim().toLowerCase();
       i++;
       while (i < lines.length && !FENCE.test(lines[i])) code.push(lines[i++]);
       i++;
-      out.push(<pre key={key}><code>{code.join("\n")}</code></pre>);
+      // A review's findings come as a block of their own, shown as a list you can act on.
+      const found = lang === "findings" ? parseFindings(code.join("\n")) : null;
+      out.push(found ? <Findings key={key} list={found} /> : <pre key={key}><code>{code.join("\n")}</code></pre>);
       continue;
     }
     const h = line.match(/^(#{1,4})\s+(.*)$/);

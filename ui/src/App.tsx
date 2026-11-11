@@ -14,6 +14,13 @@ import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
 import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
 import { Presence } from "./motion.tsx";
+import { hear, COMMANDS } from "./bus.ts";
+import { Palette, type PaletteItem } from "./components/Palette.tsx";
+import { FileViewer } from "./components/FileViewer.tsx";
+import { JiraPage, JiraTicket, type TicketStart } from "./components/JiraPage.tsx";
+import { TicketWizard } from "./components/TicketWizard.tsx";
+import { WikiHome } from "./components/Wiki.tsx";
+import { treeQuery } from "./api.ts";
 import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
@@ -27,17 +34,25 @@ import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
 import { Feed } from "./feed/Feed.tsx";
+import { NextStep } from "./feed/NextStep.tsx";
+import { Waiting } from "./components/Waiting.tsx";
+import { loadSeen, markSeen, needsOf, seenAll, type Need } from "./needs.ts";
+import { activityOf } from "./feed/conversation.ts";
 import { Settings, isSettingsSection, type SettingsSection } from "./settings/Settings.tsx";
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link } from "./types.ts";
 
 export function App({ store }: { store: FeedStore }) {
-  const { S, refresh, patch } = useCampState();
+  // Settings opens over everything; the last section is remembered. (While it's open, refreshes
+  // bring the records it shows; the rest of the time they're left out.)
+  const [settings, setSettings] = useState<SettingsSection | null>(null);
+  // Which conversation (or page) the middle of the screen shows (remembered across reloads).
+  const [view, setViewState] = useState<View>(() => parseView(storeGet("camp-view")));
+  // The camp's records (memories, the wiki, the quest log…) come along while something that shows them is open.
+  const { S, refresh, patch } = useCampState(!!settings || view.kind === "wiki");
   const conn = useCampEvents(store, refresh);
   const composer = useRef<ComposerHandle>(null);
 
-  // Settings opens over everything; the last section is remembered.
-  const [settings, setSettings] = useState<SettingsSection | null>(null);
   const openSettings = useCallback((s?: SettingsSection) => {
     const saved = storeGet("camp-settings");
     setSettings(s ?? (isSettingsSection(saved) ? saved : "general"));
@@ -62,8 +77,6 @@ export function App({ store }: { store: FeedStore }) {
   }, []);
   const picking = picker && S?.characters.find((c) => c.id === picker.id);
 
-  // Which conversation the middle of the page shows (remembered across reloads).
-  const [view, setViewState] = useState<View>(() => parseView(storeGet("camp-view")));
   const setView = useCallback((v: View) => {
     setViewState(v);
     storeSet("camp-view", JSON.stringify(v));
@@ -75,13 +88,20 @@ export function App({ store }: { store: FeedStore }) {
   const conversation = thread ? S?.history.conversations.find((c) => c.id === thread) : undefined;
   const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : view.kind === "project" ? view.id : conversation?.project));
   // A project's page, or the list of them (also where a deleted project's page lands).
-  const page = view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
+  const page = view.kind === "wiki" ? "wiki" : view.kind === "jira" ? (S?.jira?.connected ? "jira" : "projects") // unlinked since: there's nothing to show
+    : view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
+  // The ticket kickoff stepper: open, and on which ticket if one was already picked.
+  const [wizard, setWizard] = useState<{ ticket?: TicketStart } | null>(null);
+  const closeWizard = useCallback(() => setWizard(null), []);
+  const [ticketOpen, setTicketOpen] = useState<string | null>(null); // a conversation's ticket, opened over it
+  const closeTicket = useCallback(() => setTicketOpen(null), []);
   // What you send follows the conversation you're in; on a new page it starts one (in that project).
   const context = useMemo<SendContext | undefined>(() => {
-    if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), placeholder: "Reply in this conversation…", ...(project && project.id !== "general" ? { folders: project.links ?? [] } : {}) };
+    if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), placeholder: "Reply in this conversation…", ...(project && project.id !== "general" ? { folders: project.links ?? [] } : {}),
+      ...(conversation?.workspaces ? { working: Object.fromEntries(Object.entries(conversation.workspaces).map(([l, w]) => [l, w.branch])) } : {}) };
     if (view.kind === "all") return undefined;
-    // A new page, or a project's own page: what you send starts a conversation (in that project).
-    const inProject = project && project.id !== "general" && (view.kind === "project" || (view.kind === "new" && !!view.project));
+    // A new page: what you send starts a conversation (in that project, if it's a project's).
+    const inProject = project && project.id !== "general" && view.kind === "new" && !!view.project;
     return {
       project: inProject ? project.id : undefined,
       placeholder: inProject ? `Start a conversation in ${project.name}…` : "Start a new conversation…",
@@ -156,6 +176,125 @@ export function App({ store }: { store: FeedStore }) {
     for (const p of plan.reopen) set(p, true);
   };
 
+  // ---------- Getting about from the keyboard ----------
+  // The command palette (⌘P / Ctrl+P), and a file opened over the page from it or from a path in an answer.
+  const [palette, setPalette] = useState<{ start: string } | null>(null);
+  const closePalette = useCallback(() => setPalette(null), []);
+  const [opened, setOpened] = useState<{ root: FileRoot; rel: string; line?: number } | null>(null);
+  const closeOpened = useCallback(() => setOpened(null), []);
+  const openFile = useCallback((root: FileRoot, rel: string, line?: number) => setOpened({ root, rel, line }), []);
+  const asks = useFeed(store, (s) => s.asks);
+
+  // Everything that needs you, wherever it is (needs.ts). Having a conversation open marks what's in it as seen.
+  const activity = useFeed(store, activityOf);
+  const [seen, setSeen] = useState(loadSeen);
+  useEffect(() => {
+    if (!conversation) return;
+    setSeen((was) => markSeen(was, conversation, new Set(S?.history.conversations.map((c) => c.id))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation?.id, conversation?.updated]);
+  const needs = useMemo(() => needsOf({ conversations: S?.history.conversations ?? [], prs: S?.prs, queued: S?.queued, activity, seen, viewing: thread }),
+    [S?.history.conversations, S?.prs, S?.queued, activity, seen, thread]);
+  const goToNeed = (n: Need) => {
+    if (n.kind === "decision") return nextDecision(n.conversation);
+    setView({ kind: "conversation", id: n.conversation });
+  };
+
+  // The next decision waiting on you (in that conversation, if one is named): go to its
+  // conversation, bring it into view, and leave its first button focused, so Enter approves.
+  const nextDecision = (inConversation?: string) => {
+    const of = (a: (typeof asks)[number]) => S?.history.conversations.find((c) => !!a.expId && c.expeditions.includes(a.expId));
+    const ask = (inConversation ? asks.find((a) => of(a)?.id === inConversation) : undefined) ?? asks[0];
+    if (!ask) return store.addSys("Nothing is waiting on you.");
+    const conv = of(ask) ?? (inConversation ? S?.history.conversations.find((c) => c.id === inConversation) : undefined);
+    if (conv && view.kind !== "all" && !(view.kind === "conversation" && view.id === conv.id)) setView({ kind: "conversation", id: conv.id });
+    let tries = 0;
+    const look = () => {
+      const card = document.getElementById(`ask-${ask.id}`);
+      if (!card) { if (tries++ < 30) setTimeout(look, 50); return; }
+      card.scrollIntoView({ block: "center" });
+      card.querySelector<HTMLElement>("button.primary, button, input")?.focus();
+    };
+    look();
+  };
+
+  // A path as the crew wrote it: links/<name>/…, a full path inside a linked folder, or a path
+  // inside one of the folders attached here. The first place it's found is opened.
+  const openPath = async (raw: string, line?: number) => {
+    const path = raw.replace(/^\.\//, "");
+    const tries: { root: FileRoot; rel: string }[] = [];
+    const named = path.match(/^links\/([A-Za-z0-9_-]+)\/(.+)$/);
+    if (named && S?.links.some((l) => l.name === named[1])) {
+      tries.push({ root: fileRoots.find((r) => r.link === named[1]) ?? { link: named[1] }, rel: named[2] });
+    } else {
+      for (const r of fileRoots) if (r.path && path.startsWith(`${r.path}/`)) tries.push({ root: r, rel: path.slice(r.path.length + 1) });
+      for (const l of S?.links ?? []) if (path.startsWith(`${l.path}/`)) tries.push({ root: { link: l.name }, rel: path.slice(l.path.length + 1) });
+      if (!path.startsWith("/")) for (const r of fileRoots) tries.push({ root: r, rel: path });
+    }
+    for (const t of tries) {
+      try { await api(`/api/tree/file?${treeQuery(t.root.link, t.root.path, t.rel)}`); return openFile(t.root, t.rel, line); } catch { /* not there: try the next */ }
+    }
+    store.addSys(`Couldn't find ${raw} in the folders attached here.`);
+  };
+
+  // /good and /bad: rate the latest finished answer in this conversation.
+  const rate = async (rating: "up" | "down", note?: string) => {
+    const id = conversation?.status !== "running" ? conversation?.expeditions.at(-1) : conversation.expeditions.at(-2);
+    if (!id) return store.addSys("There's no finished answer here to rate yet.");
+    try { await api("/api/feedback", { id, rating, note: note || undefined }); store.addSys(`Rated ${rating === "up" ? "👍" : "👎"}${note ? `: ${note}` : ""}`); }
+    catch (e) { store.addSys(errorText(e)); }
+  };
+
+  // One place for everything a typed /command, the palette, or a shortcut can ask for.
+  const command = (name: string, arg?: string) => {
+    if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
+    else if (name === "focus") toggleFocus();
+    else if (name === "files") { if (hasFiles) toggleFiles(); else store.addSys("No folder is attached here, so there are no files to show."); }
+    else if (name === "terminal") toggleTerminal();
+    else if (name === "history") toggleHistory();
+    else if (name === "find") setPalette({ start: arg ?? "" });
+    else if (name === "next") { if (asks.length || !needs.length) nextDecision(); else goToNeed(needs[0]); }
+    else if (name === "good") void rate("up", arg);
+    else if (name === "bad") void rate("down", arg);
+    else if (name === "layout") setLayoutEditor({});
+    else if (name === "settings") openSettings();
+    else if (name === "connectors") openSettings("connectors");
+    else if (name === "wiki") setView({ kind: "wiki" });
+    else if (name === "ticket") { if (S?.jira?.connected) setWizard({}); else { store.addSys("Link your Jira account first (Settings → Connectors)."); openSettings("connectors"); } }
+  };
+  const act = useRef({ command, openPath });
+  act.current = { command, openPath };
+  useEffect(() => hear((ask) => {
+    if (ask.do === "command") act.current.command(ask.name, ask.arg);
+    else if (ask.do === "open-file") void act.current.openPath(ask.path, ask.line);
+    else if (ask.do === "compose") { if (ask.replyTo) composer.current?.setReply(ask.replyTo, ask.task ?? ""); composer.current?.setText(ask.text); }
+  }), []);
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      const mac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
+      const mod = mac ? ev.metaKey && !ev.ctrlKey : ev.ctrlKey && !ev.metaKey;
+      if (mod && !ev.shiftKey && !ev.altKey && ev.code === "KeyP") { ev.preventDefault(); setPalette((p) => (p ? null : { start: "" })); }
+      else if (ev.ctrlKey && ev.shiftKey && !ev.metaKey && !ev.altKey && ev.code === "KeyA") { ev.preventDefault(); act.current.command("next"); }
+    };
+    addEventListener("keydown", onKey, true);
+    return () => removeEventListener("keydown", onKey, true);
+  }, []);
+  const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
+    ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
+      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : "focus",
+      label: c.does, hint: `/${c.name}`, run: () => act.current.command(c.name),
+    })),
+    ...S.history.conversations.map((c): PaletteItem => ({
+      id: `c:${c.id}`, group: "Conversations", icon: "reply", label: c.title, hint: S.history.projects.find((p) => p.id === c.project)?.name, run: () => setView({ kind: "conversation", id: c.id }),
+    })),
+    ...S.history.projects.filter((p) => p.id !== "general").map((p): PaletteItem => ({
+      id: `p:${p.id}`, group: "Projects", icon: "folder", label: p.name, hint: (p.links ?? []).map((l) => `links/${l}`).join(", "), run: () => setView({ kind: "project", id: p.id }),
+    })),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [palette, S?.history]);
+  // Where you are, for the draft kept in the message box.
+  const draftKey = view.kind === "conversation" ? `c:${view.id}` : view.kind === "new" ? `new:${view.project ?? ""}` : view.kind === "project" ? `p:${view.id}` : view.kind;
+
   // The crew dialog: a new crew member (the + at the end of the crew bar), or one you added being edited.
   const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
   const closeCrewDialog = useCallback(() => setCrewDialog(null), []);
@@ -188,6 +327,14 @@ export function App({ store }: { store: FeedStore }) {
     } catch (e) { alert(errorText(e)); }
   }, [patch, setView]);
 
+  // Where you were last talking (a conversation, or a new one): where "Attach to message" on a page takes you back to.
+  const talking = useRef<View>({ kind: "new" });
+  if (view.kind === "conversation" || view.kind === "new" || view.kind === "all") talking.current = view;
+  const attachTicket = (issue: { key: string; summary: string }) => {
+    composer.current?.attachJira(issue);
+    setView(talking.current.kind === "all" ? { kind: "new" } : talking.current);
+  };
+
   const onReply = useCallback((expId: string, task: string) => composer.current?.setReply(expId, task), []);
   const onExample = useCallback((text: string) => composer.current?.setText(text), []);
   const onAttachLink = useCallback((link: Link) => composer.current?.attachLink(link), []);
@@ -196,7 +343,8 @@ export function App({ store }: { store: FeedStore }) {
     <>
       <div className="app">
         <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={toggleFocus}
-          filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={() => setLayoutEditor({})} />
+          filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={() => setLayoutEditor({})}
+          needs={needs} onNeed={goToNeed} onSeenAll={() => setSeen(seenAll())} />
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
             switch (zone.part) {
@@ -205,13 +353,18 @@ export function App({ store }: { store: FeedStore }) {
                   onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
               );
               case "history": return state === "collapsed" ? <HistoryRail onShow={toggleHistory} /> : (
-                <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory}
+                <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory} needs={needs}
+                  onOpenWiki={() => setView({ kind: "wiki" })} onStartTicket={() => setWizard({})}
                   onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
               );
               case "chat": return (
                 <main className="mission">
                   {page === "project" && S && project ? (
                     <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
+                  ) : page === "jira" && S ? (
+                    <JiraPage S={S} onAttach={attachTicket} onFilter={() => openSettings("connectors")} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
+                  ) : page === "wiki" && S ? (
+                    <WikiHome S={S} open={view.kind === "wiki" ? view.page : undefined} onOpen={(path) => setView(path ? { kind: "wiki", page: path } : { kind: "wiki" })} refresh={refresh} />
                   ) : page === "projects" && S ? (
                     <ProjectsOverview S={S} setView={setView} onNew={() => setDialog({ project: null })} />
                   ) : (
@@ -221,17 +374,29 @@ export function App({ store }: { store: FeedStore }) {
                         {project && project.id !== "general" && (
                           <button type="button" className="pill pill-link" title={`Open the project ${project.name}`} onClick={() => setView({ kind: "project", id: project.id })}>{project.name}</button>
                         )}
+                        {conversation?.jira && (S?.jira?.connected
+                          ? <button type="button" className="pill pill-link jira-key" title={`This conversation is working on ${conversation.jira}. Open the ticket.`} onClick={() => setTicketOpen(conversation.jira!)}>{conversation.jira}</button>
+                          : <span className="pill jira-key" title={`This conversation is working on ${conversation.jira}`}>{conversation.jira}</span>)}
                         {conversation?.suggest && suggested && (
                           <span className="conv-suggest">It used {suggested.name}'s folder.
                             <button type="button" className="linkish" onClick={() => moveTo(conversation.id, suggested.id)}>Move it to {suggested.name}</button>
                           </span>
                         )}
                       </div>
+                      {/* Where its branch stands and the next step (one strip per worktree; none while it has nothing to step through). */}
+                      {conversation && (Object.keys(conversation.workspaces ?? {}).length
+                        ? Object.entries(conversation.workspaces!).map(([link, w]) => (
+                            <NextStep key={w.path} ws={{ link, ...w }} pr={(S?.prs ?? []).find((p) => p.path === w.path)} running={!!activity[conversation.id]?.running} status={conversation.status}
+                              title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)} />
+                          ))
+                        : <NextStep running={!!activity[conversation.id]?.running} status={conversation.status} title={conversation.title} lastRun={conversation.expeditions.at(-1)} />)}
                       <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} />
                     </>
                   )}
+                  {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
+                  {S && !page && <Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} />}
                   <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
-                    onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} onFolders={setAttached} />
+                    onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
                 </main>
               );
               case "files": return state === "collapsed"
@@ -260,6 +425,13 @@ export function App({ store }: { store: FeedStore }) {
       <Presence>{layoutEditor && <LayoutEditor layout={layout} onChange={setLayout} onClose={closeLayoutEditor} select={layoutEditor.select} />}</Presence>
       <Presence>{crewDialog && <CrewDialog key={crewDialog.member?.id ?? "new"} member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />}</Presence>
       <Presence>{dialog && <ProjectDialog key={dialog.project?.id ?? "new"} S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />}</Presence>
+      <Presence>{ticketOpen && S && <JiraTicket key={ticketOpen} id={ticketOpen} summary="" onClose={closeTicket} onOpen={setTicketOpen} />}</Presence>
+      <Presence>{wizard && S && (
+        <TicketWizard key={wizard.ticket?.key ?? "pick"} S={S} start={wizard.ticket} onClose={closeWizard}
+          onStarted={(thread) => { setWizard(null); refresh(); setView({ kind: "conversation", id: thread }); }} />
+      )}</Presence>
+      <Presence>{palette && <Palette items={paletteItems} roots={fileRoots} start={palette.start} onOpenFile={openFile} onClose={closePalette} />}</Presence>
+      <Presence>{opened && <FileViewer key={`${opened.root.link}|${opened.rel}`} root={opened.root} rel={opened.rel} line={opened.line} onClose={closeOpened} onMention={(p) => { onMention(p); setOpened(null); }} />}</Presence>
       {picker && picking && S && (
         <ModelPicker key={picker.id} c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />
       )}

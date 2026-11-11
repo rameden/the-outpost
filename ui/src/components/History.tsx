@@ -10,9 +10,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { activityOf, type View } from "../feed/conversation.ts";
+import type { Need } from "../needs.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
-import { cx, when } from "../format.ts";
+import { cClass, cx, when } from "../format.ts";
 import { Icon } from "./bits.tsx";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
 
@@ -49,7 +50,10 @@ export function HistoryRail({ onShow }: { onShow: () => void }) {
   );
 }
 
-export function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide }: {
+// needs: what's waiting on you (needs.ts), for the marks beside a conversation's title.
+// onOpenWiki: go to the wiki's page. onStartTicket: open the ticket kickoff stepper.
+export function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide, needs, onOpenWiki, onStartTicket }: {
+  needs?: Need[]; onOpenWiki?: () => void; onStartTicket?: () => void;
   S: CampState | null; store: FeedStore; view: View; setView: (v: View) => void; patch: (fn: (s: CampState) => CampState) => void;
   onNewProject: () => void; onEditProject: (p: Project) => void;
   onHide?: () => void; // the « beside New conversation: close History to its tab
@@ -99,15 +103,34 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
   const selected = view.kind === "conversation" ? view.id : null;
   const projects = history?.projects ?? [];
 
-  const row = (c: Conversation) => {
+  // Chats you had with one crew member directly are kept together under the project, behind
+  // that crew member's name; they open when you click it (and stay open, in this browser).
+  const [agentsOpen, setAgentsOpen] = useState<string[]>(() => { try { return JSON.parse(storeGet("camp-agents-open") ?? "[]") as string[]; } catch { return []; } });
+  function toggleAgent(key: string) {
+    setAgentsOpen((list) => {
+      const next = list.includes(key) ? list.filter((x) => x !== key) : [...list, key];
+      storeSet("camp-agents-open", JSON.stringify(next.slice(-100)));
+      return next;
+    });
+  }
+
+  // What needs you in each conversation, other than a decision (which has its own count).
+  const marks = new Map<string, Need[]>();
+  for (const n of needs ?? []) if (n.kind !== "decision" && n.kind !== "held") marks.set(n.conversation, [...(marks.get(n.conversation) ?? []), n]);
+
+  // grouped: it sits under its crew member's name already, so the title doesn't repeat it.
+  const row = (c: Conversation, grouped = false) => {
     const a = activity[c.id];
     return (
       <li key={c.id} className={cx("hist-row", selected === c.id && "selected")}>
         <button type="button" className="hist-open" title={`${c.title}\n${when(c.updated)}`} aria-current={selected === c.id ? "page" : undefined}
           onClick={() => setView({ kind: "conversation", id: c.id })}>
           {a?.running && <span className="dot live" title="Something is running here" />}
-          <span className="hist-title">{c.direct ? `@${c.agent} · ` : ""}{c.title}</span>
+          <span className="hist-title">{c.direct && !grouped ? `@${c.agent} · ` : ""}{c.title}</span>
           {a?.needs ? <span className="hist-needs" title={`${a.needs} waiting for your decision`}>{a.needs}</span> : null}
+          {!a?.needs && marks.get(c.id)?.map((n) => (
+            <span key={n.key} className={cx("hist-mark", n.kind)} title={n.says}>{n.kind === "pr" ? "PR" : n.kind === "failed" ? "!" : ""}<span className="sr-only">{n.says}</span></span>
+          ))}
         </button>
         <Menu label={`Options for ${c.title}`}>{(close) => (
           <>
@@ -135,9 +158,36 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
   const section = (p: Project) => {
     const list = grouped.get(p.id) ?? [];
     const open = !closed.includes(p.id);
+    // The Quartermaster's conversations are listed as they are; a direct chat with a crew member
+    // goes in that crew member's group.
+    const own = list.filter((c) => !c.direct);
+    const byAgent = new Map<string, Conversation[]>();
+    for (const c of list) if (c.direct) byAgent.set(c.agent, [...(byAgent.get(c.agent) ?? []), c]);
     // The newest few, plus the one you're in if it's further down.
-    const shown = list.filter((c, i) => i < SHOWN || c.id === selected);
+    const shown = own.filter((c, i) => i < SHOWN || c.id === selected);
     const onPage = view.kind === "project" && view.id === p.id;
+    const group = ([agent, chats]: [string, Conversation[]]) => {
+      const key = `${p.id}:${agent}`;
+      const who = S?.characters.find((c) => c.id === agent);
+      const here = chats.some((c) => c.id === selected);
+      const isOpen = agentsOpen.includes(key) || here; // the one you're in is never hidden from you
+      const running = chats.some((c) => activity[c.id]?.running);
+      const needs = chats.reduce((n, c) => n + (activity[c.id]?.needs ?? 0), 0);
+      return (
+        <li key={key} className={cx("hist-agent", who && cClass(who.name))}>
+          <button type="button" className="hist-agent-head" aria-expanded={isOpen} disabled={here && !agentsOpen.includes(key)}
+            title={`${chats.length} ${chats.length === 1 ? "chat" : "chats"} with ${who?.name ?? `@${agent}`} in ${p.name}${here && !agentsOpen.includes(key) ? " (open because you're in one)" : ""}`}
+            onClick={() => toggleAgent(key)}>
+            <span className="hist-agent-twist" aria-hidden="true">{isOpen ? "⌄" : "›"}</span>
+            <span className="hist-agent-name">@{agent}</span>
+            {running && <span className="dot live" title="Something is running here" />}
+            <span className="hist-agent-count">{chats.length}</span>
+            {needs ? <span className="hist-needs" title={`${needs} waiting for your decision`}>{needs}</span> : null}
+          </button>
+          {isOpen && <ul className="hist-list hist-agent-list">{chats.map((c) => row(c, true))}</ul>}
+        </li>
+      );
+    };
     return (
       <section key={p.id} className="hist-project">
         <header className={cx("hist-project-head", onPage && "selected")}>
@@ -165,9 +215,9 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
             onClick={() => setView({ kind: "new", project: p.id })}>+</button>
         </header>
         {open && (list.length
-          ? <ul className="hist-list">{shown.map(row)}</ul>
+          ? <ul className="hist-list">{shown.map((c) => row(c))}{[...byAgent].map(group)}</ul>
           : <div className="hist-empty">No conversations yet.</div>)}
-        {open && list.length > shown.length && (
+        {open && own.length > shown.length && (
           <button type="button" className="hist-all" onClick={() => setView({ kind: "project", id: p.id })}>View all {list.length}</button>
         )}
       </section>
@@ -183,12 +233,28 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
           </button>
           {onHide && <button type="button" className="hist-icon" aria-label="Hide the history" title="Hide the history. Its tab brings it back." onClick={onHide}>«</button>}
         </div>
+        {onStartTicket && S?.jira?.connected && (
+          <button type="button" className="hist-nav-item hist-ticket" title="Pick up a ticket: choose it, check its details, say where and who, and start" onClick={onStartTicket}>
+            <Icon name="spark" />Start a ticket
+          </button>
+        )}
         <div className={cx("hist-nav-row", view.kind === "projects" && "selected")}>
           <button type="button" className="hist-nav-item" aria-current={view.kind === "projects" ? "page" : undefined} onClick={() => setView({ kind: "projects" })}>
             <Icon name="folder" />Projects
           </button>
           <button type="button" className="hist-icon" aria-label="Create project" title="Create project" onClick={onNewProject}>+</button>
         </div>
+        {S?.jira?.connected && (
+          <button type="button" className={cx("hist-nav-item", view.kind === "jira" && "selected")} aria-current={view.kind === "jira" ? "page" : undefined} onClick={() => setView({ kind: "jira" })}>
+            <Icon name="check" />Jira
+          </button>
+        )}
+        {onOpenWiki && (
+          <button type="button" className={cx("hist-nav-item", view.kind === "wiki" && "selected")} aria-current={view.kind === "wiki" ? "page" : undefined}
+            title="The camp's wiki: facts you've told the crew, and notes it brought back" onClick={onOpenWiki}>
+            <Icon name="book" />Wiki
+          </button>
+        )}
         <button type="button" className={cx("hist-nav-item", searching && "selected")} onClick={() => { setSearching((v) => !v); setQuery(""); }}>
           <Icon name="search" />Search
         </button>

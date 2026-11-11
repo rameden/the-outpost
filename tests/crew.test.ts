@@ -32,7 +32,7 @@ test("a new crew member joins the crew and the roster, with the abilities you ti
   assert.deepEqual(crew.CREW_IDS, ["quartermaster", "scout", "scribe", "artificer", "testpilot"]);
   assert.equal(crew.findCrew("@testpilot")?.id, "testpilot");
   assert.equal(crew.findCrew("QA")?.id, "testpilot", "aliases work");
-  assert.deepEqual(toolNames("testpilot"), ["bash", "edit_file", "git", "glob", "grep", "list_dir", "outline", "read_file", "remember", "view_file", "write_file"]);
+  assert.deepEqual(toolNames("testpilot"), ["bash", "edit_file", "git", "glob", "grep", "jira", "list_dir", "outline", "read_file", "remember", "view_file", "write_file"]);
   assert.match(ROSTER.testpilot.persona, /Reproduce first[\s\S]*Quest rules:/);
   assert.deepEqual(ROSTER.testpilot.skillDirs, ["skills/shared", "skills/testpilot"]);
   // The rest of the camp knows about them straight away.
@@ -46,10 +46,10 @@ test("a new crew member joins the crew and the roster, with the abilities you ti
 
 test("abilities decide the kit: a reader with the web keeps to its own outputs folder", () => {
   crew.addMember({ name: "Librarian", role: "Finds and summarizes documents.", abilities: { web: true, write: "outputs", wiki: true } });
-  assert.deepEqual(toolNames("librarian"), ["git", "glob", "grep", "list_dir", "outline", "read_file", "remember", "view_file", "web_fetch", "web_search", "wiki_write", "write_file"]);
+  assert.deepEqual(toolNames("librarian"), ["git", "glob", "grep", "jira", "list_dir", "outline", "read_file", "remember", "view_file", "web_fetch", "web_search", "wiki_write", "write_file"]);
   assert.match((ROSTER.librarian.tools.find((t) => "name" in t.def && t.def.name === "write_file")!.def as any).description, /You can't write anywhere else/);
   crew.addMember({ name: "Reader", role: "Reads things." });
-  assert.deepEqual(toolNames("reader"), ["git", "glob", "grep", "list_dir", "outline", "read_file", "remember", "view_file"], "no abilities: read, search (git history too), remember");
+  assert.deepEqual(toolNames("reader"), ["git", "glob", "grep", "jira", "list_dir", "outline", "read_file", "remember", "view_file"], "no abilities: read, search (git history and Jira tickets too), remember");
 });
 
 test("you can message them directly and the Quartermaster can send them", async () => {

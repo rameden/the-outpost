@@ -1,0 +1,250 @@
+// Picking up a ticket, step by step: which ticket, what "done" means, where the work happens,
+// who does it, and a last look before it starts.
+//
+// Each step is filled in already with what the camp can work out (the ticket's own acceptance
+// criteria, the project you used last, a branch named after the ticket, the Quartermaster), so
+// most of the time it's Next, Next, Next, Start. Anything can be changed on the way, and the
+// brief on the last step is yours to edit: nothing is sent until you press Start there.
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { api, errorText, storeGet, storeSet } from "../api.ts";
+import { cx, plural } from "../format.ts";
+import { Markdown } from "../markdown.tsx";
+import type { CampState, JiraDetail, JiraRef, RepoInfo, SendResult, Uploaded } from "../types.ts";
+import { Icon } from "./bits.tsx";
+import { startBrief, ticketBranch } from "./JiraPage.tsx";
+
+export const WIZARD_STEPS = ["Ticket", "Details", "Where", "Who", "Start"] as const;
+type Criterion = { text: string; on: boolean };
+
+// What the wizard sends: everything /api/send needs to start the work (the ticket itself is attached first).
+export function kickoff(o: { key: string; brief: string; who: string; project: string; repos: string[]; branch: string; review: boolean | null; attachment: { name: string; path: string } }) {
+  return {
+    text: (o.who === "quartermaster" ? "" : `@${o.who} `) + o.brief.trim(),
+    attachments: [{ kind: "file", name: o.attachment.name, path: o.attachment.path }],
+    jira: o.key,
+    ...(o.project === "general" ? {} : { project: o.project }),
+    ...(o.repos.length ? { workspaces: Object.fromEntries(o.repos.map((l) => [l, { mode: "new", branch: o.branch }])) } : {}),
+    ...(o.who === "quartermaster" && o.review !== null ? { review: o.review } : {}),
+  };
+}
+
+// start: a ticket already chosen (from its page): the wizard opens on its details.
+export function TicketWizard({ S, start, onClose, onStarted }: {
+  S: CampState; start?: { key: string; summary: string }; onClose: () => void; onStarted: (thread: string) => void;
+}) {
+  const [step, setStep] = useState(start ? 1 : 0);
+  const [reached, setReached] = useState(start ? 1 : 0);
+  const go = (n: number) => { setStep(n); setReached((r) => Math.max(r, n)); setError(""); };
+  const [error, setError] = useState("");
+
+  // ---------- 1: the ticket ----------
+  const [query, setQuery] = useState("");
+  const [issues, setIssues] = useState<JiraRef[] | null>(null);
+  const [ticket, setTicket] = useState<{ key: string; summary: string } | null>(start ?? null);
+  useEffect(() => {
+    if (step !== 0) return;
+    let gone = false;
+    const t = setTimeout(() => {
+      api<{ issues: JiraRef[] }>(`/api/jira/issues?q=${encodeURIComponent(query.trim())}`)
+        .then((r) => { if (!gone) { setIssues(r.issues); setError(""); } }, (e) => { if (!gone) { setIssues([]); setError(errorText(e)); } });
+    }, query ? 250 : 0);
+    return () => { gone = true; clearTimeout(t); };
+  }, [query, step]);
+
+  // ---------- 2: its details ----------
+  const [detail, setDetail] = useState<JiraDetail | null>(null);
+  const [criteria, setCriteria] = useState<Criterion[]>([]);
+  const [notes, setNotes] = useState("");
+  useEffect(() => {
+    if (!ticket) return;
+    let gone = false;
+    setDetail(null);
+    api<JiraDetail>(`/api/jira/ticket?key=${encodeURIComponent(ticket.key)}`).then((d) => {
+      if (gone) return;
+      setDetail(d);
+      setCriteria(d.criteria.map((text) => ({ text, on: true })));
+      setBrief(null);
+    }, (e) => { if (!gone) setError(errorText(e)); });
+    return () => { gone = true; };
+  }, [ticket?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- 3: where ----------
+  const projects = S.history.projects;
+  const [project, setProject] = useState(() => { const last = storeGet("camp-jira-project"); return projects.some((p) => p.id === last) ? last! : projects.find((p) => p.links?.length)?.id ?? projects[0]?.id ?? "general"; });
+  const [repos, setRepos] = useState<RepoInfo[]>([]);
+  useEffect(() => { api<{ repos: RepoInfo[] }>("/api/repos").then((r) => setRepos(r.repos), () => setRepos([])); }, []);
+  const chosen = projects.find((p) => p.id === project);
+  // The project's repositories the crew may change: each can have a worktree of its own for this.
+  const editable = useMemo(() => (chosen?.links ?? []).filter((l) => repos.some((r) => r.link === l && r.access === "write")), [chosen, repos]);
+  const always = chosen?.settings?.workIn === "worktree"; // the project does this for every conversation anyway
+  const [ownBranch, setOwnBranch] = useState(true);
+  const [branchTyped, setBranchTyped] = useState("");
+  const branch = branchTyped.trim() || (ticket ? ticketBranch(ticket.key, detail?.summary ?? ticket.summary) : "");
+  const inWorktree = editable.length > 0 && (ownBranch || always);
+
+  // ---------- 4: who ----------
+  const [who, setWho] = useState("quartermaster");
+  const reviewDefault = chosen?.settings?.review ? chosen.settings.review === "on" : !!S.settings?.reviewChanges;
+  const [reviewPick, setReviewPick] = useState<boolean | null>(null); // null: as the project and camp are set
+  const review = reviewPick ?? reviewDefault;
+  const member = S.characters.find((c) => c.id === who);
+
+  // ---------- 5: the brief ----------
+  const drafted = ticket ? startBrief({ key: ticket.key, summary: detail?.summary ?? ticket.summary, criteria: criteria.filter((c) => c.on && c.text.trim()).map((c) => c.text.trim()) }, notes) : "";
+  const [brief, setBrief] = useState<string | null>(null); // null: as drafted from the steps before
+  const [busy, setBusy] = useState(false);
+
+  const close = useCallback(() => { if (!busy) onClose(); }, [busy, onClose]);
+  useEffect(() => {
+    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") close(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [close]);
+
+  async function startWork() {
+    if (!ticket) return;
+    setBusy(true); setError("");
+    try {
+      const attachment = await api<Uploaded>("/api/jira/attach", { key: ticket.key });
+      storeSet("camp-jira-project", project);
+      const r = await api<SendResult>("/api/send", kickoff({ key: ticket.key, brief: brief ?? drafted, who, project, repos: inWorktree ? editable : [], branch, review: reviewPick, attachment }));
+      onStarted(r.thread);
+    } catch (e) { setError(errorText(e)); setBusy(false); }
+  }
+
+  const canNext = step === 0 ? !!ticket : step === 1 ? !!detail : true;
+  const next = () => { if (canNext && step < 4) go(step + 1); };
+  const edit = (i: number, change: Partial<Criterion>) => { setCriteria((l) => l.map((c, j) => (j === i ? { ...c, ...change } : c))); setBrief(null); };
+  const included = criteria.filter((c) => c.on && c.text.trim()).length;
+
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={close} />
+      <form className="dialog file-view wizard" role="dialog" aria-modal="true" aria-label="Start a ticket"
+        onSubmit={(ev) => { ev.preventDefault(); if (step === 4) void startWork(); else next(); }}>
+        <header className="file-head">
+          <b>Start a ticket{ticket ? `: ${ticket.key}` : ""}</b>
+          <small>{ticket ? detail?.summary ?? ticket.summary : ""}</small>
+          <button type="button" className="hist-icon" aria-label="Close" title="Close (Esc)" onClick={close}>×</button>
+        </header>
+        <ol className="wizard-steps" aria-label="Steps">
+          {WIZARD_STEPS.map((name, i) => (
+            <li key={name}>
+              <button type="button" className={cx(i === step && "now", i < step && "done")} aria-current={i === step ? "step" : undefined} disabled={i > reached || busy}
+                onClick={() => go(i)}><span>{i + 1}</span>{name}</button>
+            </li>
+          ))}
+        </ol>
+
+        <div className="wizard-body">
+          {step === 0 && (
+            <section aria-label="Choose a ticket">
+              <label className="fly-search wizard-search">
+                <Icon name="search" />
+                <input autoFocus aria-label="Find a ticket" placeholder="A key like APP-123, or words… (empty: the tickets your filter pulls in)" value={query} autoComplete="off" spellCheck={false} onChange={(ev) => setQuery(ev.target.value)} />
+              </label>
+              <div className="wizard-list" role="listbox" aria-label="Tickets">
+                {issues === null && !error && <div className="meta">Asking Jira…</div>}
+                {issues?.length === 0 && !error && <div className="meta">{query.trim() ? "No tickets match." : "Your filter matches nothing right now. Type a key or some words."}</div>}
+                {issues?.map((i) => (
+                  <button key={i.key} type="button" role="option" aria-selected={ticket?.key === i.key} className={cx("jira-item", ticket?.key === i.key && "on")}
+                    onClick={() => { setTicket({ key: i.key, summary: i.summary }); go(1); }}>
+                    <span className="jira-key">{i.key}</span><span className="jira-summary">{i.summary}</span><small>{[i.type, i.status].filter(Boolean).join(" · ")}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {step === 1 && (
+            <section aria-label="The ticket's details">
+              {!detail ? <div className="meta">{error ? "" : "Reading the ticket…"}</div> : (
+                <>
+                  <div className="meta">{[detail.type, detail.status, detail.priority, detail.assignee ?? "Unassigned"].filter(Boolean).join(" · ")}{detail.epic ? ` · in ${detail.epic.key} ${detail.epic.summary}` : ""}</div>
+                  <details className="wizard-desc"><summary>What the ticket says</summary>{detail.description ? <Markdown text={detail.description} /> : <div className="meta">It has no description.</div>}</details>
+                  <h3>What "done" means</h3>
+                  <div className="meta">{detail.criteria.length ? "From the ticket's acceptance criteria. Untick, reword or add to them: the crew is asked to go through these one by one at the end." : "The ticket lists no acceptance criteria. Add your own, or leave it and the crew is asked to say what it takes \"done\" to mean before changing anything."}</div>
+                  <ul className="wizard-criteria">
+                    {criteria.map((c, i) => (
+                      <li key={i}>
+                        <input type="checkbox" checked={c.on} aria-label={`Include: ${c.text || "this one"}`} onChange={(ev) => edit(i, { on: ev.target.checked })} />
+                        <input aria-label={`Criterion ${i + 1}`} value={c.text} placeholder="What has to be true when it's done" onChange={(ev) => edit(i, { text: ev.target.value })} />
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="button" className="linkish" onClick={() => { setCriteria((l) => [...l, { text: "", on: true }]); setBrief(null); }}>Add one</button>
+                  <label className="field">Anything else the crew should know
+                    <textarea aria-label="Anything else the crew should know" rows={3} value={notes} placeholder="Where to look, what to leave alone, how you want it done… (optional)" onChange={(ev) => { setNotes(ev.target.value); setBrief(null); }} />
+                  </label>
+                </>
+              )}
+            </section>
+          )}
+
+          {step === 2 && (
+            <section aria-label="Where the work happens">
+              <label className="field">Project
+                <select aria-label="Project" value={project} onChange={(ev) => setProject(ev.target.value)}>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}{p.links?.length ? ` (${p.links.map((l) => `links/${l}`).join(", ")})` : ""}</option>)}</select>
+                <span className="field-hint">The conversation is filed there, and the crew sees that project's folders, notes and defaults.</span>
+              </label>
+              {editable.length > 0 ? (
+                <>
+                  <label className="dialog-check"><input type="checkbox" checked={ownBranch || always} disabled={always} onChange={(ev) => setOwnBranch(ev.target.checked)} />
+                    In a new worktree and branch of {editable.map((l) => `links/${l}`).join(", ")}</label>
+                  <div className="field-hint">{always ? "This project starts every conversation in its own worktree." : "Ticked, your own checkout isn't touched and the work can become a pull request. Unticked, the crew works in your checkout as it stands."}</div>
+                  {inWorktree && <label className="field">Branch<input aria-label="Branch" className="mono" spellCheck={false} autoCapitalize="off" value={branchTyped} placeholder={ticket ? ticketBranch(ticket.key, detail?.summary ?? ticket.summary) : ""} onChange={(ev) => setBranchTyped(ev.target.value)} /></label>}
+                </>
+              ) : <div className="meta">{chosen?.links?.length ? "This project has no git repository the crew may edit, so there's no branch to make." : "This project has no folder. The crew can still read the ticket and answer, but has no code to work in."} The conversation is tied to the ticket either way.</div>}
+            </section>
+          )}
+
+          {step === 3 && (
+            <section aria-label="Who does it">
+              <div className="wizard-who" role="radiogroup" aria-label="Who does it">
+                {S.characters.map((c) => (
+                  <label key={c.id} className={cx("wizard-pick", who === c.id && "on")}>
+                    <input type="radio" name="who" checked={who === c.id} onChange={() => setWho(c.id)} />
+                    <span><b>{c.emoji} {c.name}</b>{c.id === "quartermaster" && <span className="pill">Usual</span>}
+                      <small>{c.id === "quartermaster" ? "Plans it, shows you the plan, and sends whoever each part needs." : `Straight to ${c.name}, with no plan first. ${c.role}`}</small></span>
+                  </label>
+                ))}
+              </div>
+              {who === "quartermaster" ? (
+                <label className="dialog-check"><input type="checkbox" checked={review} onChange={(ev) => setReviewPick(ev.target.checked)} />
+                  Have the Scout review the changes before it reports{reviewPick === null ? ` (${reviewDefault ? "on" : "off"} for this project)` : ""}</label>
+              ) : <div className="meta">A review isn't part of a direct chat. When {member?.name ?? "they"} has finished, "Review changes…" on the answer asks someone else to read the diff.</div>}
+            </section>
+          )}
+
+          {step === 4 && ticket && (
+            <section aria-label="Check and start">
+              <dl className="wizard-summary">
+                <div><dt>Ticket</dt><dd><span className="jira-key">{ticket.key}</span> {detail?.summary ?? ticket.summary} <span className="meta">· attached as it stands now</span></dd></div>
+                <div><dt>Done means</dt><dd>{included ? `${included} ${plural(included, "criterion").replace("criterions", "criteria")}` : "the crew says what it takes \"done\" to mean first"}</dd></div>
+                <div><dt>Where</dt><dd>{chosen?.name ?? "General"}{inWorktree ? <> · a new worktree on <code>{branch}</code></> : editable.length ? " · your own checkout" : ""}</dd></div>
+                <div><dt>Who</dt><dd>{member ? `${member.emoji} ${member.name}` : who}{who === "quartermaster" ? (review ? " · the Scout reviews the changes before it reports" : " · no review before it reports") : ""}</dd></div>
+                {S.settings?.jiraWrite?.on && <div><dt>Jira</dt><dd>a comment says work has started{S.settings.jiraWrite.startStatus ? `, and the ticket moves to ${S.settings.jiraWrite.startStatus}` : ""}</dd></div>}
+              </dl>
+              <label className="field">The brief
+                <textarea className="wizard-brief" aria-label="The brief" rows={11} value={brief ?? drafted} spellCheck={false} onChange={(ev) => setBrief(ev.target.value)} />
+                <span className="field-hint">This is what's sent, word for word. {brief !== null && brief !== drafted
+                  ? <button type="button" className="linkish" onClick={() => setBrief(null)}>Put back the one drafted from your choices</button>
+                  : "Change anything."}</span>
+              </label>
+            </section>
+          )}
+        </div>
+
+        {error && <div className="form-error" role="alert">{error}</div>}
+        <div className="dialog-actions">
+          {step > 0 && <button type="button" className="btn wizard-back" disabled={busy} onClick={() => go(step - 1)}>Back</button>}
+          <button type="button" className="btn" disabled={busy} onClick={close}>Cancel</button>
+          {step < 4
+            ? <button type="submit" className="btn primary" disabled={!canNext}>Next: {WIZARD_STEPS[step + 1]}</button>
+            : <button type="submit" className="btn primary" disabled={busy || !(brief ?? drafted).trim()}>{busy ? "Starting…" : "Start the work"}</button>}
+        </div>
+      </form>
+    </>
+  );
+}

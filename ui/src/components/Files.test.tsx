@@ -15,6 +15,7 @@ beforeEach(() => {
     const q = new URL(url, "http://camp").searchParams;
     const path = q.get("path");
     if (q.get("root") && worktreeGone) return new Response(JSON.stringify({ error: "That isn't a worktree of links/demo." }), { status: 400 });
+    if (url.startsWith("/api/tree/diff")) return new Response(JSON.stringify({ diff: "@@ -1,2 +1,2 @@\n # Demo\n-Hi.\n+Hello.\n", untracked: false }));
     if (url.startsWith("/api/tree/file")) return new Response(JSON.stringify({ path, abs: `/work/demo/${path}`, size: 14, text: "# Demo\nHello.\n" }));
     if (path === "") return new Response(JSON.stringify({
       root: "/work/demo", changed: { "src/app.ts": "M", "notes/": "U" },
@@ -132,4 +133,18 @@ test("the tab on the right edge brings it back", () => {
   render(<FilesRail onShow={onShow} />);
   fireEvent.click(screen.getByRole("button", { name: "Show files" }));
   expect(onShow).toHaveBeenCalled();
+});
+
+test("a file's changes since the last commit are shown old beside new", async () => {
+  show();
+  fireEvent.click(await screen.findByText("README.md"));
+  const dialog = await screen.findByRole("dialog", { name: "links/demo/README.md" });
+  await waitFor(() => expect(dialog.querySelector(".file-code")).not.toBeNull());
+  fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
+  await waitFor(() => expect(dialog.querySelectorAll(".fd-row").length).toBe(2));
+  expect(gets.at(-1)).toBe("/api/tree/diff?link=demo&path=README.md");
+  const cells = [...dialog.querySelectorAll(".fd-row")[1].children].map((c) => `${c.className}=${c.textContent}`);
+  expect(cells).toEqual(["fd-n del=2", "fd-t del=Hi.", "fd-n add=2", "fd-t add=Hello."]);
+  fireEvent.click(screen.getByRole("tab", { name: "File" }));
+  expect(dialog.querySelector(".file-code")?.textContent).toBe("# Demo\nHello.");
 });

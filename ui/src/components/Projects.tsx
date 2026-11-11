@@ -14,6 +14,10 @@ import { money, plural, shortModel, spaced, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Conversation, History, Project, ProjectPageData, SendResult } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { Confirm } from "./Confirm.tsx";
+import { ChronicleSection } from "./Chronicle.tsx";
+import { PayoffSection } from "./Payoff.tsx";
+import { Presence } from "../motion.tsx";
 
 // A description as one plain line, for a card (the project's page shows it formatted).
 const plain = (text?: string) => (text ?? "").replace(/[*_`#>]+/g, "").replace(/^\s*[-•]\s+/gm, "").replace(/\s+/g, " ").trim();
@@ -27,6 +31,7 @@ function defaultsOf(p: Project): string[] {
     s.web === "careful" ? "Confidential web searches" : s.web === "off" ? "Web off" : "",
     s.approval ? `Shell: ${s.approval === "ask" ? "ask every time" : s.approval === "sandbox" ? "sandboxed" : "read-only runs"}` : "",
     s.budgetUsd ? `Budget ${money(s.budgetUsd)} per expedition` : "",
+    s.review ? `Changes reviewed before reporting: ${s.review === "on" ? "always" : "never"}` : "",
     ...Object.entries(s.agents ?? {}).map(([id, a]) => `${id}: ${shortModel(a.model ?? "")}${a.effort ? ` · ${a.effort}` : ""}`),
   ].filter(Boolean);
 }
@@ -94,8 +99,10 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
     patch((s) => ({ ...s, history: r.history }));
     setSaves((n) => n + 1);
   };
+  // Surveying is asked about first: it sends the Scout through the project's folders, which uses some of your plan.
+  const [askSurvey, setAskSurvey] = useState(false);
   async function survey() {
-    if (page?.brief && !confirm("Survey the project again? The Scout reads through its folders and replaces the current survey. It uses some of your plan.")) return;
+    setAskSurvey(false);
     setSurveying(true);
     try {
       const r = await api<SendResult>("/api/project/survey", { id: project.id });
@@ -108,6 +115,15 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
 
   return (
     <div className="feed proj-page">
+      <Presence>{askSurvey && (
+        <Confirm title={page?.brief ? `Survey ${project.name} again?` : `Survey ${project.name}?`} action={page?.brief ? "Survey again" : "Survey"} busy={surveying}
+          onConfirm={survey} onCancel={() => setAskSurvey(false)}>
+          <p>The Scout reads through {(project.links ?? []).map((l) => `links/${l}/`).join(", ") || "the project's folders"} and writes up the stack, the layout and the commands that work.
+            The crew is given that at the start of every conversation here, so it stops rediscovering them.</p>
+          {page?.brief ? <p><b>The survey you have now is replaced</b> when the new one comes back.</p> : null}
+          <p className="meta">It runs as a conversation with the Scout, which opens when you start it, and uses some of your plan.</p>
+        </Confirm>
+      )}</Presence>
       <header className="proj-head">
         <div>
           <h2>{project.pinned && <><Icon name="pin" /> </>}{project.name}</h2>
@@ -115,7 +131,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
         </div>
         <div className="proj-actions">
           <button type="button" className="btn small primary" onClick={() => setView({ kind: "new", project: general ? undefined : project.id })}>New conversation</button>
-          {hasFolders && <button type="button" className="btn small" disabled={surveying} title="The Scout reads through the project's folders and writes a brief for the crew" onClick={survey}>{page?.brief ? "Survey again" : "Survey this project"}</button>}
+          {hasFolders && <button type="button" className="btn small" disabled={surveying} title="The Scout reads through the project's folders and writes a brief for the crew" onClick={() => setAskSurvey(true)}>{page?.brief ? "Survey again" : "Survey this project"}</button>}
           <button type="button" className="btn small" onClick={() => onEdit(project)}>Edit…</button>
           {!general && <button type="button" className="btn small danger" onClick={() => onDelete(project)}>Delete</button>}
         </div>
@@ -139,13 +155,15 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
       {!general && hasFolders && (
         <Editable label="Survey of the project" text={page?.brief ?? ""} onSave={save("project.brief", {})}
           hint="Markdown. The crew sees this in every conversation in the project."
-          empty={<>Not surveyed yet. <button type="button" className="linkish" disabled={surveying} onClick={survey}>Survey this project</button> and the Scout will write up its stack, layout, and commands, so the crew stops rediscovering them.</>} />
+          empty={<>Not surveyed yet. <button type="button" className="linkish" disabled={surveying} onClick={() => setAskSurvey(true)}>Survey this project</button> and the Scout will write up its stack, layout, and commands, so the crew stops rediscovering them.</>} />
       )}
       {!general && (
         <Editable label="What the crew has learned here" text={page?.notes ?? ""} onSave={save("project.notes", {})}
           hint="One lesson per line. The crew adds to this with project_remember; it's loaded only in this project."
           empty="Nothing yet. As the crew works here they keep what's worth remembering about this project: its layout, the commands that work, how you like things done." />
       )}
+
+      {!general && <ChronicleSection project={project} reloadKey={stamp} onOpen={(thread) => { refresh(); setView({ kind: "conversation", id: thread }); }} />}
 
       {page && page.usage.runs > 0 && (
         <section>
@@ -157,6 +175,8 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
           </div>
         </section>
       )}
+
+      <PayoffSection project={project} reloadKey={stamp} estimated={S.runtime === "claude-code"} />
 
       {page && page.workspaces.length > 0 && (
         <section>
@@ -189,7 +209,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
       <section>
         <div className="section-label">Conversations</div>
         {list.length === 0
-          ? <div className="meta">None yet. Type below to start one.</div>
+          ? <div className="meta">None yet. <button type="button" className="linkish" onClick={() => setView({ kind: "new", project: general ? undefined : project.id })}>Start one</button></div>
           : <ul className="proj-list">{list.map((c) => <ConversationRow key={c.id} c={c} activity={activity[c.id]} onOpen={() => setView({ kind: "conversation", id: c.id })} />)}</ul>}
       </section>
     </div>

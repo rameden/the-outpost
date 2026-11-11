@@ -33,6 +33,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
   const [workIn, setWorkIn] = useState(st.workIn ?? "");
   const [web, setWeb] = useState(st.web ?? "");
   const [approval, setApproval] = useState(st.approval ?? "");
+  const [review, setReview] = useState(st.review ?? "");
   const [budget, setBudget] = useState(st.budgetUsd ? String(st.budgetUsd) : "");
   const [agents, setAgents] = useState<NonNullable<ProjectSettings["agents"]>>(st.agents ?? {});
   const [picking, setPicking] = useState(false);
@@ -79,7 +80,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
     try {
       const settings: ProjectSettings = {
         ...(workIn ? { workIn: "worktree" as const } : {}), ...(web ? { web: web as ProjectSettings["web"] } : {}),
-        ...(approval ? { approval: approval as ProjectSettings["approval"] } : {}), ...(budget.trim() ? { budgetUsd: Number(budget) } : {}),
+        ...(approval ? { approval: approval as ProjectSettings["approval"] } : {}), ...(review ? { review: review as ProjectSettings["review"] } : {}), ...(budget.trim() ? { budgetUsd: Number(budget) } : {}),
         ...(Object.keys(agents).length ? { agents } : {}),
       };
       const r = await api<{ history: History; project?: string }>("/api/history", {
@@ -101,7 +102,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
     if (!merged.model) delete next[id]; else next[id] = merged;
     return next;
   });
-  const customized = [workIn, web, approval, budget.trim(), Object.keys(agents).length ? "x" : ""].filter(Boolean).length;
+  const customized = [workIn, web, approval, review, budget.trim(), Object.keys(agents).length ? "x" : ""].filter(Boolean).length;
 
   return (
     <>
@@ -193,6 +194,14 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
               <option value="safe">Run simple read-only commands; ask about the rest</option>
               {S?.sandbox?.available && <option value="sandbox">Run the rest in the sandbox without asking</option>}
             </select>
+          </label>
+          <label className="field">Review changes before reporting
+            <select value={review} onChange={(ev) => setReview(ev.target.value as typeof review)}>
+              <option value="">Same as the camp ({S?.settings.reviewChanges ? "on" : "off"})</option>
+              <option value="on">Always here: the Scout reads the diff first</option>
+              <option value="off">Never here</option>
+            </select>
+            <span className="field-hint">Each review is another quest's worth of usage. This project's page shows what its reviews have been finding.</span>
           </label>
           <label className="field">Budget per expedition ($)
             <input type="number" min="0" step="0.25" value={budget} placeholder={S?.budgetUsd ? `Same as the camp ($${S.budgetUsd})` : "Same as the camp (none)"} onChange={(ev) => setBudget(ev.target.value)} />

@@ -4,7 +4,12 @@ export function slug(name: string | undefined | null) { return String(name || ""
 // Crew members you added, by name: the colour you picked for each (the page sets this when the
 // crew loads or changes, so messages and cards anywhere on the page can look it up).
 const addedColors = new Map<string, string>();
-export function setCrewColors(crew: { name: string; custom?: boolean; color?: string | null }[]) {
+type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null };
+let crewList: CrewLine[] = [];
+// The crew as the page last loaded it, for parts of the page far from where it's passed down.
+export const crewNow = () => crewList;
+export function setCrewColors(crew: CrewLine[]) {
+  crewList = crew;
   addedColors.clear();
   for (const c of crew) if (c.custom && c.color) addedColors.set(slug(c.name), c.color);
 }
