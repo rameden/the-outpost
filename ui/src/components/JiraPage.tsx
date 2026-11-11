@@ -26,12 +26,14 @@ export type TicketStart = { key: string; summary: string };
 
 // The brief for work on a ticket, drafted for you to read and change before it's sent. The
 // ticket itself rides along as an attachment. notes: anything you added for the crew.
-export function startBrief(t: { key: string; summary: string; criteria: string[] }, notes = ""): string {
+// extras: the names of what you attached for context (designs, a spec, a link), so the crew is told to look.
+export function startBrief(t: { key: string; summary: string; criteria: string[] }, notes = "", extras: string[] = []): string {
   const list = t.criteria.length
     ? `Acceptance criteria (from the ticket):\n${t.criteria.map((c) => `- [ ] ${c}`).join("\n")}\n\n`
     : "The ticket lists no acceptance criteria: before changing anything, tell me what you take \"done\" to mean here.\n\n";
   const more = notes.trim() ? `Also, from me:\n${notes.trim()}\n\n` : "";
-  return `Work on ${t.key}: ${t.summary}\n\nThe ticket is attached: read it first.\n\n${list}${more}` +
+  const context = extras.length ? `I've also attached ${extras.length === 1 ? "this" : "these"} for context (designs, references): ${extras.join(", ")}. Look at ${extras.length === 1 ? "it" : "them"} before you plan, and say so if ${extras.length === 1 ? "it disagrees" : "any of them disagree"} with the ticket.\n\n` : "";
+  return `Work on ${t.key}: ${t.summary}\n\nThe ticket is attached: read it first.\n\n${context}${list}${more}` +
     "When you're done, go through the criteria one by one and say which are met (with the file or test that shows it) and which aren't.";
 }
 export const ticketBranch = (key: string, summary: string) =>

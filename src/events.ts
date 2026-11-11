@@ -21,7 +21,8 @@ export type CampEventBody =
   | ({ type: "text_delta"; delta: string } & Who) // live streaming; not kept in the replay buffer
   | ({ type: "tool"; tool: string; input: string } & Who)
   | ({ type: "notice"; text: string } & Who)
-  | { type: "dispatch"; who: string; emoji: string; questId?: string }
+  // brief: the quest in a line (how its brief opens), so two quests by the same crew member can be told apart
+  | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string }
   | { type: "return"; who: string; emoji: string; status: string; questId?: string }
   | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string }
   | { type: "answered"; id: string; answer: string; lapsed?: boolean } // lapsed: the camp restarted before you answered

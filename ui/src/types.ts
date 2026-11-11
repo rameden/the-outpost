@@ -12,6 +12,7 @@ export type { SessionLine } from "../../src/memory.ts";
 export type { RepoInfo, WorkspaceStatus } from "../../src/repos.ts";
 export type { PrDraft, PrState } from "../../src/prs.ts";
 export type { TerminalInfo } from "../../src/term.ts";
+export type { TermAction } from "../../src/settings.ts";
 export type { JiraCard, JiraDetail, JiraPull, JiraRef, JiraStatus } from "../../src/jira.ts";
 export type { TreeEntry, Listing, FilePreview } from "../../src/explorer.ts";
 

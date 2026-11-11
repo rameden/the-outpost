@@ -11,8 +11,8 @@ import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { LEFT_OUT, USED, WorkIn, chosenWorkspaces, leftOut, outsideChoice, outsidePick, replyPick, useRepos, usedIn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
+import { uploadFile as sendFile } from "../upload.ts";
 
-const MAX_FILE = 25 * 1024 * 1024;
 const MAX_FOLDER_FILES = 200;
 
 // What the rest of the page can ask of the composer.
@@ -27,15 +27,6 @@ export type ComposerHandle = {
 
 type MentionItem = { value: string; label: string; hint: string };
 type Mention = { items: MentionItem[]; index: number; start: number };
-
-function toBase64(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-    r.onerror = () => reject(r.error);
-    r.readAsDataURL(file);
-  });
-}
 
 // The @word the caret is in, if any: crew at the start of a message, project files anywhere.
 function mentionToken(el: Pick<MessageInputHandle, "value" | "selectionStart">) {
@@ -147,8 +138,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const add = (a: Omit<PendingAttachment, "key">) => { const key = nextKey.current++; setPending((list) => [...list, { ...a, key }]); return key; };
 
   async function uploadFile(file: File, relPath?: string) {
-    if (file.size > MAX_FILE) throw new Error(`${file.name} is over 25 MB`);
-    const r = await api<Uploaded>("/api/upload", { name: file.name, data: await toBase64(file), batch: batch.current, relPath });
+    const r = await sendFile(file, batch.current, relPath);
     batch.current = r.batch;
     return r;
   }

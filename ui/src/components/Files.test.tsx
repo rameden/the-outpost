@@ -71,7 +71,11 @@ test("a file opens in a viewer with its text, and can be mentioned from there", 
   const { onMention } = show();
   fireEvent.click(await screen.findByText("README.md"));
   const dialog = await screen.findByRole("dialog", { name: "links/demo/README.md" });
-  await waitFor(() => expect(dialog.querySelector(".file-code")?.textContent).toBe("# Demo\nHello."));
+  // A Markdown file opens laid out to read; its source is a tab away.
+  await waitFor(() => expect(dialog.querySelector(".file-page h1")?.textContent).toBe("Demo"));
+  expect(dialog.className).toBe("drawer file-view"); // a flyout from the right, not a box in the middle
+  fireEvent.click(screen.getByRole("tab", { name: "Source" }));
+  expect(dialog.querySelector(".file-code")?.textContent).toBe("# Demo\nHello.");
   expect(dialog.textContent).toContain("2 lines");
   expect(dialog.textContent).toContain("Markdown ·");                     // its language, told from its name
   expect(dialog.querySelector(".file-code .hljs-section")?.textContent).toBe("# Demo"); // and coloured as that
@@ -124,8 +128,10 @@ test("arrow keys walk the tree, refresh reads it again, and it hides", async () 
   const before = gets.length;
   fireEvent.click(screen.getByRole("button", { name: "Refresh the files" }));
   await waitFor(() => expect(gets.slice(before)).toEqual(["/api/tree?link=demo&path=", "/api/tree?link=demo&path=src"]));
+  expect(onHide).not.toHaveBeenCalled(); // the rail's own buttons don't close it
   fireEvent.click(screen.getByRole("button", { name: "Hide the files" }));
   expect(onHide).toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Hide the files" }).textContent).toBe("Files");
 });
 
 test("the tab on the right edge brings it back", () => {
@@ -139,12 +145,12 @@ test("a file's changes since the last commit are shown old beside new", async ()
   show();
   fireEvent.click(await screen.findByText("README.md"));
   const dialog = await screen.findByRole("dialog", { name: "links/demo/README.md" });
-  await waitFor(() => expect(dialog.querySelector(".file-code")).not.toBeNull());
+  await waitFor(() => expect(dialog.querySelector(".file-page")).not.toBeNull());
   fireEvent.click(screen.getByRole("tab", { name: "Changes" }));
   await waitFor(() => expect(dialog.querySelectorAll(".fd-row").length).toBe(2));
   expect(gets.at(-1)).toBe("/api/tree/diff?link=demo&path=README.md");
   const cells = [...dialog.querySelectorAll(".fd-row")[1].children].map((c) => `${c.className}=${c.textContent}`);
   expect(cells).toEqual(["fd-n del=2", "fd-t del=Hi.", "fd-n add=2", "fd-t add=Hello."]);
-  fireEvent.click(screen.getByRole("tab", { name: "File" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Source" }));
   expect(dialog.querySelector(".file-code")?.textContent).toBe("# Demo\nHello.");
 });

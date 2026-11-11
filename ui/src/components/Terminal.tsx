@@ -6,14 +6,14 @@
 // in. Hide the pane with its ⌄ button or Ctrl+` and bring it back the same way. Its size is its
 // zone's: drag the line beside it.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Terminal as Xterm, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { api, errorText, storeGet, storeSet, termStreamUrl } from "../api.ts";
 import { cx } from "../format.ts";
-import { Icon } from "./bits.tsx";
-import type { TerminalInfo } from "../types.ts";
+import { DrawerHead, Icon } from "./bits.tsx";
+import type { TerminalInfo, TermAction } from "../types.ts";
 
 // The page allows no inline styles, except <style> elements carrying this launch's nonce (the
 // camp server puts it in a <meta> tag). xterm.js writes its colours and cell sizes into style
@@ -116,17 +116,87 @@ function TerminalView({ id, onExit }: { id: string; onExit: (code: number) => vo
   return <div className="term-view" ref={box} />;
 }
 
+// While the pane is hidden: the last line your last terminal printed, checked every couple of
+// seconds (and when you come back to the page). Null when there's no terminal to show.
+const PEEK_EVERY = 2000;
+function useLastLine(): { line: string; ended: boolean } | null {
+  const [peek, setPeek] = useState<{ line: string; ended: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const check = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const { terminals } = await api<{ terminals: TerminalInfo[] }>("/api/term");
+        const chosen = storeGet("camp-term-tab");
+        const t = terminals.find((x) => x.id === chosen) ?? terminals.at(-1);
+        if (live) setPeek(t ? { line: t.last, ended: t.exited !== null } : null);
+      } catch { /* the camp is restarting: keep what's shown */ }
+    };
+    void check();
+    const timer = setInterval(check, PEEK_EVERY);
+    const back = () => { void check(); };
+    document.addEventListener("visibilitychange", back);
+    return () => { live = false; clearInterval(timer); document.removeEventListener("visibilitychange", back); };
+  }, []);
+  return peek;
+}
+
 // The slim tab the terminal leaves behind while it's hidden; your shells keep running meanwhile.
+// Along the bottom (or top) it also shows the last line your last terminal printed.
 export function TerminalRail({ onShow }: { onShow: () => void }) {
+  const peek = useLastLine();
+  const line = peek?.line ? (peek.ended ? `${peek.line} (ended)` : peek.line) : "";
   return (
-    <button type="button" className="zone-rail" aria-label="Show terminal" title="Show the terminal (Ctrl+`). Your shells kept running." onClick={onShow}>
+    <button type="button" className="zone-rail" aria-label="Show terminal" onClick={onShow}
+      title={`${line ? `Last line: ${line}\n\n` : ""}Show the terminal (Ctrl+\`). Your shells kept running.`}>
       <Icon name="terminal" /><span>Terminal</span>
+      {line && <code className="rail-peek">{line}</code>}
     </button>
   );
 }
 
+// What a quick action types: its commands as one line, each running only if the one before it
+// succeeded, and Enter unless the action leaves that to you.
+export const actionLine = (a: TermAction) => a.commands.join(" && ");
+export const actionInput = (a: TermAction) => actionLine(a) + (a.ask ? "" : "\r");
+// What its chip says when you rest on it.
+export function actionTitle(a: TermAction, live: boolean) {
+  const where = a.where === "current" ? "in this terminal" : `in a new terminal${a.folder ? `, in ${a.folder}${a.sub ? `/${a.sub}` : ""}` : ""}`;
+  return live ? `${a.label} has its own tab open: click to go to it. Click again while you're there to run it again in that tab.\n\n${actionLine(a)}`
+    : `${a.ask ? "Types" : "Runs"} ${where}${a.ask ? ", and waits for you to press Enter" : ""}:\n\n${a.commands.join("\n")}`;
+}
+
+// A quick action was about to type into a terminal you locked: it didn't. What now is yours to
+// say: somewhere else (a new terminal, the safe way on), here after all, or nowhere.
+function LockedWarning({ title, children, onNew, onHere, onCancel }: { title: string; children: ReactNode; onNew: () => void; onHere: () => void; onCancel: () => void }) {
+  const safe = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    safe.current?.focus();
+    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onCancel]);
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onCancel} />
+      <div className="dialog confirm term-locked" role="alertdialog" aria-modal="true" aria-labelledby="term-locked-title" aria-describedby="term-locked-body">
+        <h2 id="term-locked-title">{title}</h2>
+        <div className="confirm-body" id="term-locked-body">{children}</div>
+        <div className="dialog-actions">
+          <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+          <button type="button" className="btn" onClick={onHere}>Unlock and run here</button>
+          <button type="button" ref={safe} className="btn primary" onClick={onNew}>Run in a new terminal</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ready: the page knows which project you're in (so the first terminal starts in the right folder).
-export function TerminalPanel({ project, onHide, ready = true }: { project?: string; onHide: () => void; ready?: boolean }) {
+// actions: your quick actions (Settings → Terminal), shown as chips in the header. onSetUp: open that page.
+export function TerminalPanel({ project, onHide, ready = true, actions = [], onSetUp }: {
+  project?: string; onHide: () => void; ready?: boolean; actions?: TermAction[]; onSetUp?: () => void;
+}) {
   const [tabs, setTabs] = useState<TerminalInfo[] | null>(null); // null: still asking the camp what's open
   const [active, setActive] = useState<string | null>(() => storeGet("camp-term-tab"));
   const [error, setError] = useState("");
@@ -163,22 +233,88 @@ export function TerminalPanel({ project, onHide, ready = true }: { project?: str
   }
 
   const shown = tabs?.find((t) => t.id === active) ?? tabs?.at(-1);
+  const pane = useRef<HTMLElement>(null);
+  const toKeys = () => setTimeout(() => pane.current?.querySelector<HTMLElement>(".term-view textarea")?.focus(), 0);
+  // The tab a "new terminal" action opened, while its shell is still alive: its chip leads back
+  // there, so a dev server isn't started twice by a second click. Clicked while you're already
+  // looking at that tab, it runs again there (you can see what's going on in it).
+  const liveTab = (a: TermAction) => (a.where === "new" ? tabs?.find((t) => t.action === a.label && t.exited === null) : undefined);
+  // A quick action that was stopped by a lock, waiting for your answer.
+  const [stopped, setStopped] = useState<{ action: TermAction; tab: TerminalInfo } | null>(null);
+  const noAnswer = useCallback(() => setStopped(null), []);
+
+  // Lock a terminal so quick actions leave it alone, or unlock it. The camp keeps it with the session.
+  async function lock(id: string, on: boolean) {
+    setTabs((list) => (list ?? []).map((t) => (t.id === id ? { ...t, locked: on || undefined } : t)));
+    try { await api("/api/term/lock", { id, on }); } catch (e) { setError(errorText(e)); }
+  }
+
+  // how: "new" sends an "in this terminal" action to a fresh terminal instead; "here" goes ahead in a locked one.
+  async function run(a: TermAction, how?: "new" | "here") {
+    setError("");
+    const going = liveTab(a);
+    if (going && going.id !== shown?.id) { choose(going.id); return void toKeys(); }
+    const here = how !== "new" && (a.where === "current" || !!going) && shown && shown.exited === null ? shown : undefined;
+    // A locked terminal takes only the action that opened it. Anything else stops and asks.
+    if (here?.locked && here.action !== a.label && how !== "here") return setStopped({ action: a, tab: here });
+    try {
+      // In this terminal, if there's one whose shell is alive; otherwise it gets a fresh one.
+      if (here) await api("/api/term/input", { id: here.id, data: actionInput(a) });
+      else {
+        // A terminal a chip opens for itself (a dev server, say) starts locked: the other chips don't type into it.
+        const made = a.where === "new" ? { folder: a.folder, sub: a.sub, title: a.label, action: a.label, locked: true } : {};
+        const t = await api<TerminalInfo>("/api/term/open", { project, cols: 100, rows: 24, ...made, type: actionInput(a) });
+        setTabs((list) => [...(list ?? []), t]);
+        choose(t.id);
+      }
+      toKeys();
+    } catch (e) { setError(errorText(e)); }
+  }
+
   return (
-    <section className="term" aria-label="Terminal">
-      <header className="term-head">
-        <span className="term-label">Terminal</span>
+    <section className="term" aria-label="Terminal" ref={pane}>
+      <DrawerHead className="term-head" icon="terminal" label="Terminal" onHide={onHide}
+        hideLabel="Hide the terminal" hideTitle="Hide the terminal (Ctrl+`). Your shells keep running.">
         <div className="term-tabs" role="tablist">
           {(tabs ?? []).map((t, i) => (
             <span key={t.id} className={cx("term-tab", shown?.id === t.id && "selected")}>
               <button type="button" role="tab" aria-selected={shown?.id === t.id} title={t.cwd} onClick={() => choose(t.id)}>{i + 1}: {t.title}{t.exited !== null ? " (ended)" : ""}</button>
+              <button type="button" className={cx("term-lock", t.locked && "on")} aria-pressed={!!t.locked} aria-label={`${t.locked ? "Unlock" : "Lock"} terminal ${i + 1}`}
+                title={t.locked ? "Locked: quick actions won't type into this terminal (you still can). Click to unlock." : "Lock this terminal, so quick actions can't type into it"}
+                onClick={() => lock(t.id, !t.locked)}><Icon name={t.locked ? "lock" : "unlock"} /></button>
               <button type="button" className="att-x" aria-label={`Close terminal ${i + 1}`} title="Close this terminal (ends its shell)" onClick={() => close(t.id)}>×</button>
             </span>
           ))}
         </div>
+        {(actions.length > 0 || onSetUp) && (
+          <div className="term-actions" role="group" aria-label="Quick actions">
+            {actions.map((a) => {
+              const live = !!liveTab(a);
+              return (
+                <button key={a.label} type="button" className={cx("term-chip", live && "live")} title={actionTitle(a, live)} onClick={() => run(a)}>
+                  {a.where === "new" && <Icon name={live ? "terminal" : "plus"} />}<span>{a.label}</span>
+                </button>
+              );
+            })}
+            {onSetUp && (
+              <button type="button" className={actions.length ? "hist-icon" : "term-chip quiet"} aria-label="Set up quick actions"
+                title="Quick actions: your own commands as chips here, to run in this terminal or a new one. Set them up in Settings." onClick={onSetUp}>
+                <Icon name="gear" />{!actions.length && <span>Quick actions</span>}
+              </button>
+            )}
+          </div>
+        )}
         <button type="button" className="hist-icon" aria-label="New terminal" title="New terminal" onClick={open}>+</button>
-        <button type="button" className="hist-icon" aria-label="Hide the terminal" title="Hide (Ctrl+`). Your shells keep running." onClick={onHide}>⌄</button>
-      </header>
+      </DrawerHead>
       {error && <div className="form-error term-error" role="alert">{error}</div>}
+      {stopped && (
+        <LockedWarning title={`Terminal ${(tabs ?? []).findIndex((t) => t.id === stopped.tab.id) + 1} (${stopped.tab.title}) is locked`} onCancel={noAnswer}
+          onNew={() => { const a = stopped.action; setStopped(null); void run(a, "new"); }}
+          onHere={() => { const { action, tab } = stopped; setStopped(null); void lock(tab.id, false).then(() => run(action, "here")); }}>
+          <p><b>{stopped.action.label}</b> wasn't run. You locked this terminal so quick actions don't type into it.</p>
+          <pre className="term-would"><code>{actionLine(stopped.action)}</code></pre>
+        </LockedWarning>
+      )}
       {shown
         ? <TerminalView key={shown.id} id={shown.id} onExit={(code) => setTabs((list) => (list ?? []).map((t) => (t.id === shown.id ? { ...t, exited: code } : t)))} />
         : tabs && !error && <div className="term-empty">No terminal open. <button type="button" className="linkish" onClick={open}>Open one</button></div>}

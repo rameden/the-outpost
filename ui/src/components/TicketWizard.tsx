@@ -6,11 +6,13 @@
 // most of the time it's Next, Next, Next, Start. Anything can be changed on the way, and the
 // brief on the last step is yours to edit: nothing is sent until you press Start there.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { cx, plural } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
-import type { CampState, JiraDetail, JiraRef, RepoInfo, SendResult, Uploaded } from "../types.ts";
+import type { CampState, JiraDetail, JiraRef, PendingAttachment, RepoInfo, SendResult, Uploaded } from "../types.ts";
+import { linkAttachment, uploadFile } from "../upload.ts";
+import { AttachmentChip } from "./AttachmentChip.tsx";
 import { Icon } from "./bits.tsx";
 import { startBrief, ticketBranch } from "./JiraPage.tsx";
 
@@ -18,10 +20,11 @@ export const WIZARD_STEPS = ["Ticket", "Details", "Where", "Who", "Start"] as co
 type Criterion = { text: string; on: boolean };
 
 // What the wizard sends: everything /api/send needs to start the work (the ticket itself is attached first).
-export function kickoff(o: { key: string; brief: string; who: string; project: string; repos: string[]; branch: string; review: boolean | null; attachment: { name: string; path: string } }) {
+export function kickoff(o: { key: string; brief: string; who: string; project: string; repos: string[]; branch: string; review: boolean | null; attachment: { name: string; path: string };
+  extras?: { kind: string; name: string; path?: string; url?: string }[] }) { // what you added for context: designs, files, links
   return {
     text: (o.who === "quartermaster" ? "" : `@${o.who} `) + o.brief.trim(),
-    attachments: [{ kind: "file", name: o.attachment.name, path: o.attachment.path }],
+    attachments: [{ kind: "file", name: o.attachment.name, path: o.attachment.path }, ...(o.extras ?? [])],
     jira: o.key,
     ...(o.project === "general" ? {} : { project: o.project }),
     ...(o.repos.length ? { workspaces: Object.fromEntries(o.repos.map((l) => [l, { mode: "new", branch: o.branch }])) } : {}),
@@ -69,6 +72,36 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
     return () => { gone = true; };
   }, [ticket?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Extra context: files, images (a design, a screenshot) and links (a Figma page) to go with the
+  // ticket. They're uploaded as you add them, into one batch the ticket itself joins at the end.
+  const [extras, setExtras] = useState<PendingAttachment[]>([]);
+  const batch = useRef<string | undefined>(undefined);
+  const nextKey = useRef(0);
+  const pick = useRef<HTMLInputElement>(null);
+  const [linkTyped, setLinkTyped] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const putExtra = (a: Omit<PendingAttachment, "key">) => { const key = nextKey.current++; setExtras((l) => [...l, { ...a, key }]); setBrief(null); return key; };
+  async function addFiles(files: File[]) {
+    setError("");
+    for (const f of files) {
+      const key = putExtra({ kind: "file", name: f.name, status: "uploading", image: (f.type || "").startsWith("image/") });
+      try {
+        const r = await uploadFile(f, batch.current);
+        batch.current = r.batch;
+        setExtras((l) => l.map((a) => (a.key === key ? { ...a, path: r.path, name: r.name, status: "ready" } : a)));
+      } catch (e) { setExtras((l) => l.map((a) => (a.key === key ? { ...a, status: "error" } : a))); setError(errorText(e)); }
+    }
+  }
+  function addLink() {
+    const made = linkAttachment(linkTyped);
+    if (!made) return setError("That doesn't look like a link.");
+    setError("");
+    if (!extras.some((a) => a.url === made.url)) putExtra({ ...made, status: "ready" });
+    setLinkTyped("");
+  }
+  const ready = extras.filter((a) => a.status === "ready");
+  const uploading = extras.some((a) => a.status === "uploading");
+
   // ---------- 3: where ----------
   const projects = S.history.projects;
   const [project, setProject] = useState(() => { const last = storeGet("camp-jira-project"); return projects.some((p) => p.id === last) ? last! : projects.find((p) => p.links?.length)?.id ?? projects[0]?.id ?? "general"; });
@@ -91,7 +124,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
   const member = S.characters.find((c) => c.id === who);
 
   // ---------- 5: the brief ----------
-  const drafted = ticket ? startBrief({ key: ticket.key, summary: detail?.summary ?? ticket.summary, criteria: criteria.filter((c) => c.on && c.text.trim()).map((c) => c.text.trim()) }, notes) : "";
+  const drafted = ticket ? startBrief({ key: ticket.key, summary: detail?.summary ?? ticket.summary, criteria: criteria.filter((c) => c.on && c.text.trim()).map((c) => c.text.trim()) }, notes, ready.map((a) => a.name)) : "";
   const [brief, setBrief] = useState<string | null>(null); // null: as drafted from the steps before
   const [busy, setBusy] = useState(false);
 
@@ -104,11 +137,13 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
 
   async function startWork() {
     if (!ticket) return;
+    if (uploading) return setError("Still uploading. It'll be ready in a moment.");
     setBusy(true); setError("");
     try {
-      const attachment = await api<Uploaded>("/api/jira/attach", { key: ticket.key });
+      const attachment = await api<Uploaded>("/api/jira/attach", { key: ticket.key, batch: batch.current });
       storeSet("camp-jira-project", project);
-      const r = await api<SendResult>("/api/send", kickoff({ key: ticket.key, brief: brief ?? drafted, who, project, repos: inWorktree ? editable : [], branch, review: reviewPick, attachment }));
+      const r = await api<SendResult>("/api/send", kickoff({ key: ticket.key, brief: brief ?? drafted, who, project, repos: inWorktree ? editable : [], branch, review: reviewPick, attachment,
+        extras: ready.map(({ kind, name, path, url }) => ({ kind, name, path, url })) }));
       onStarted(r.thread);
     } catch (e) { setError(errorText(e)); setBusy(false); }
   }
@@ -121,7 +156,11 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
   return (
     <>
       <div className="drawer-backdrop" onClick={close} />
-      <form className="dialog file-view wizard" role="dialog" aria-modal="true" aria-label="Start a ticket"
+      <form className={cx("dialog file-view wizard", dragging && "dragging")} role="dialog" aria-modal="true" aria-label="Start a ticket"
+        onDragOver={(ev) => { if (step === 1 && [...ev.dataTransfer.types].includes("Files")) { ev.preventDefault(); setDragging(true); } }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(ev) => { if (step !== 1) return; ev.preventDefault(); setDragging(false); void addFiles([...ev.dataTransfer.files].filter((f) => f.type || f.size > 0)); }}
+        onPaste={(ev) => { if (step !== 1) return; const files = [...ev.clipboardData.files]; if (files.length) { ev.preventDefault(); void addFiles(files); } }}
         onSubmit={(ev) => { ev.preventDefault(); if (step === 4) void startWork(); else next(); }}>
         <header className="file-head">
           <b>Start a ticket{ticket ? `: ${ticket.key}` : ""}</b>
@@ -177,6 +216,22 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
                   <label className="field">Anything else the crew should know
                     <textarea aria-label="Anything else the crew should know" rows={3} value={notes} placeholder="Where to look, what to leave alone, how you want it done… (optional)" onChange={(ev) => { setNotes(ev.target.value); setBrief(null); }} />
                   </label>
+                  <h3>Extra context</h3>
+                  <div className="meta">Designs, screenshots, a spec, a link to the Figma page: anything the ticket doesn't carry. The crew gets them with the ticket and is told to look before it plans. Drop files here, paste an image, or:</div>
+                  <div className="wizard-extras">
+                    <input ref={pick} type="file" multiple hidden aria-label="Files to attach" onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
+                    <button type="button" className="btn small" onClick={() => pick.current?.click()}><Icon name="plus" /> Files or images…</button>
+                    <span className="wizard-link">
+                      <input aria-label="A link to attach" placeholder="…or paste a link (Figma, a doc)" value={linkTyped} spellCheck={false} autoCapitalize="off"
+                        onChange={(ev) => setLinkTyped(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); addLink(); } }} />
+                      <button type="button" className="btn small" disabled={!linkTyped.trim()} onClick={addLink}>Add link</button>
+                    </span>
+                  </div>
+                  {extras.length > 0 && (
+                    <div className="composer-atts wizard-atts" aria-label="Attached for context">
+                      {extras.map((a) => <AttachmentChip key={a.key} a={a} big status={a.status} onRemove={() => { setExtras((l) => l.filter((x) => x.key !== a.key)); setBrief(null); }} />)}
+                    </div>
+                  )}
                 </>
               )}
             </section>
@@ -221,6 +276,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
             <section aria-label="Check and start">
               <dl className="wizard-summary">
                 <div><dt>Ticket</dt><dd><span className="jira-key">{ticket.key}</span> {detail?.summary ?? ticket.summary} <span className="meta">· attached as it stands now</span></dd></div>
+                {ready.length > 0 && <div><dt>Also attached</dt><dd>{ready.map((a) => a.name).join(", ")}</dd></div>}
                 <div><dt>Done means</dt><dd>{included ? `${included} ${plural(included, "criterion").replace("criterions", "criteria")}` : "the crew says what it takes \"done\" to mean first"}</dd></div>
                 <div><dt>Where</dt><dd>{chosen?.name ?? "General"}{inWorktree ? <> · a new worktree on <code>{branch}</code></> : editable.length ? " · your own checkout" : ""}</dd></div>
                 <div><dt>Who</dt><dd>{member ? `${member.emoji} ${member.name}` : who}{who === "quartermaster" ? (review ? " · the Scout reviews the changes before it reports" : " · no review before it reports") : ""}</dd></div>
@@ -242,7 +298,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
           <button type="button" className="btn" disabled={busy} onClick={close}>Cancel</button>
           {step < 4
             ? <button type="submit" className="btn primary" disabled={!canNext}>Next: {WIZARD_STEPS[step + 1]}</button>
-            : <button type="submit" className="btn primary" disabled={busy || !(brief ?? drafted).trim()}>{busy ? "Starting…" : "Start the work"}</button>}
+            : <button type="submit" className="btn primary" disabled={busy || uploading || !(brief ?? drafted).trim()}>{busy ? "Starting…" : uploading ? "Uploading…" : "Start the work"}</button>}
         </div>
       </form>
     </>

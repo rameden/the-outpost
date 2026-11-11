@@ -35,6 +35,7 @@ type Settings = {
   reviewChanges?: boolean; // have the Scout review what changed before the Quartermaster reports
   prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
   jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
+  termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
 };
@@ -151,6 +152,48 @@ export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; prStatus?
   const next: JiraWrite = { ...(w.on ? { on: true } : {}), ...(name(w.startStatus) ? { startStatus: name(w.startStatus) } : {}), ...(name(w.prStatus) ? { prStatus: name(w.prStatus) } : {}) };
   if (Object.keys(next).length) s.jiraWrite = next; else delete s.jiraWrite;
   save(s);
+}
+
+// The terminal's quick actions: chips in the terminal's header that run a command of yours.
+// where: in a new terminal (which can start in a linked folder, or a folder inside one), or in the
+// terminal you're looking at. commands: run in order, each only if the one before it succeeded.
+// ask: type it in and leave Enter to you, for something you'd rather read before it runs.
+// They live in camp/settings.json, which no crew member can read or write: only you set what runs.
+export type TermAction = { label: string; commands: string[]; where: "new" | "current"; folder?: string; sub?: string; ask?: boolean };
+export const TERM_ACTIONS_MAX = 5;
+const TERM_LABEL_MAX = 14, TERM_COMMANDS_MAX = 8, TERM_COMMAND_MAX = 400;
+// What you sent, checked and tidied. It throws (saying which action and why) rather than keep half of it.
+export function cleanTermActions(raw: unknown): TermAction[] {
+  if (!Array.isArray(raw)) throw new Error("Send the quick actions as a list.");
+  if (raw.length > TERM_ACTIONS_MAX) throw new Error(`That's more than ${TERM_ACTIONS_MAX} quick actions. Remove one first.`);
+  const seen = new Set<string>();
+  return raw.map((a: any, i) => {
+    const n = `Quick action ${i + 1}`;
+    const label = String(a?.label ?? "").replace(/\s+/g, " ").trim();
+    if (!label) throw new Error(`${n} needs a name.`);
+    if (label.length > TERM_LABEL_MAX) throw new Error(`${n}: keep the name to ${TERM_LABEL_MAX} characters (it's a chip).`);
+    if (seen.has(label.toLowerCase())) throw new Error(`Two quick actions are called "${label}". Give each its own name.`);
+    seen.add(label.toLowerCase());
+    const lines = (Array.isArray(a?.commands) ? a.commands : String(a?.commands ?? "").split("\n")).map((l: unknown) => String(l).trim()).filter(Boolean);
+    if (!lines.length) throw new Error(`"${label}" needs a command.`);
+    if (lines.length > TERM_COMMANDS_MAX) throw new Error(`"${label}": at most ${TERM_COMMANDS_MAX} commands in a chain.`);
+    // Typed into a shell as they are, so nothing that isn't plain text (an escape or control character would act as a key press).
+    if (lines.some((l: string) => l.length > TERM_COMMAND_MAX || /[\x00-\x1f\x7f]/.test(l))) throw new Error(`"${label}": each command is one line of plain text, up to ${TERM_COMMAND_MAX} characters.`);
+    const where = a?.where === "current" ? "current" : "new";
+    const folder = where === "new" ? String(a?.folder ?? "").trim() : "";
+    if (folder && !/^[A-Za-z0-9_-]+$/.test(folder)) throw new Error(`"${label}": pick one of your linked folders.`);
+    const sub = folder ? String(a?.sub ?? "").trim().replace(/^\.\//, "").replace(/\/+$/, "") : "";
+    if (sub && (sub.startsWith("/") || sub.startsWith("~") || sub.split("/").includes("..") || sub.length > 200 || /[\x00-\x1f\x7f]/.test(sub))) throw new Error(`"${label}": the folder inside ${folder} is a path within it, like apps/web.`);
+    return { label, commands: lines, where, ...(folder ? { folder } : {}), ...(sub ? { sub } : {}), ...(a?.ask ? { ask: true } : {}) };
+  });
+}
+export const termActions = (): TermAction[] => { try { return cleanTermActions(load().termActions ?? []); } catch { return []; } };
+export function setTermActions(raw: unknown): TermAction[] {
+  const list = cleanTermActions(raw);
+  const s = load();
+  if (list.length) s.termActions = list; else delete s.termActions;
+  save(s);
+  return list;
 }
 
 // Skills a crew member always follows: their instructions go into every prompt in full, instead

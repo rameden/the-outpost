@@ -141,7 +141,7 @@ function makeDispatch(exp: Expedition): Tool {
       if (!(await questSlot(currentSignal()))) return "Not sent: the expedition was stopped.";
       // Each quest gets its own id, so parallel quests keep their events and approvals apart.
       const questId = randomUUID();
-      emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId });
+      emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, brief: briefLine(brief) });
       const started = new Date();
       try {
         const { result, checks, text } = await withQuest(questId, () => questWithChecks(spec, questId,
@@ -231,6 +231,13 @@ export function placeOf(opts: { project?: string; links?: string[]; without?: st
     scope: scoped ? [...new Set([...own, ...(opts.links ?? [])])] : undefined,
     budget: p?.settings?.budgetUsd ?? budgetUsd(),
   };
+}
+
+// A quest in a line, for the page: how its brief opens, without the markdown, cut to a label's length.
+export function briefLine(brief: unknown): string {
+  const first = String(brief ?? "").split("\n").map((l) => l.replace(/^[#>\-*\s]+/, "").replace(/[*_`]/g, "").trim()).find(Boolean) ?? "";
+  const line = first.replace(/^(goal|task|quest|objective|your (task|quest|goal))\s*[:.-]\s*/i, "").replace(/\s+/g, " ");
+  return line.length > 90 ? line.slice(0, 89).trimEnd() + "…" : line;
 }
 
 // A reply carries on in its conversation's worktrees, except in a folder that's been taken out of

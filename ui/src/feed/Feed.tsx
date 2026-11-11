@@ -52,9 +52,10 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
 function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   const ok = quest.status === "done";
   return (
-    <section className={cx("quest", cClass(quest.who))}>
+    <section className={cx("quest", cClass(quest.who))} id={`quest-${quest.id}`}>
       <div className="quest-head">
         <span>{quest.emoji} {quest.who} sets out</span>
+        {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
         {quest.status === null ? <span className="pill live">On quest</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
       </div>
       <div className="quest-body"><Nodes nodes={quest.nodes} onReply={onReply} /></div>

@@ -239,3 +239,57 @@ describe("working in linked repositories", () => {
     expect(exp(ended, "B").end?.workspaces).toEqual([]);
   });
 });
+
+describe("who's out", () => {
+  const smith = { who: "Artificer", emoji: "🔨", depth: 1 };
+  const out = (s: FeedState) => s.quests.map((q) => `${q.who} | ${q.brief} | ${q.line}${q.waiting ? " | waiting" : ""}`);
+
+  test("two quests by the same crew member are two quests out, each with its own brief and what it's doing", () => {
+    let s = feedOf([
+      start("A", "Share a whole thread"),
+      { type: "dispatch", ...smith, questId: "q1", expeditionId: "A", brief: "Backend: thread links in the export module" },
+      { type: "dispatch", ...smith, questId: "q2", expeditionId: "A", brief: "Studio UI: Share in the history menu" },
+      { type: "dispatch", ...scout, questId: "q3", expeditionId: "A" },
+      { type: "tool", ...smith, tool: "read_file", input: "{}", questId: "q1", expeditionId: "A" },
+      { type: "text_delta", ...smith, delta: "Adding", questId: "q2", expeditionId: "A" },
+    ]);
+    expect(out(s)).toEqual([
+      "Artificer | Backend: thread links in the export module | Using read_file",
+      "Artificer | Studio UI: Share in the history menu | Writing…",
+      "Scout |  | Setting out",
+    ]);
+    expect(s.quests[0].started).toBe(Date.UTC(2026, 0, 1, 9, 0, 2));
+    // The crew bar's own status is one per member: it can only show one of the two.
+    expect(s.crew.Artificer.line).toBe("Using read_file");
+    // Their blocks in the feed carry the brief too.
+    expect(findNodes(s.items, "quest").map((q) => q.brief)).toEqual(["Backend: thread links in the export module", "Studio UI: Share in the history menu", undefined]);
+
+    // One asks for your OK (its quest waits, the other carries on); answered, it's working again.
+    s = feedOf([
+      { type: "ask", id: "ok1", kind: "shell", title: "Run npm test?", body: "", questId: "q1", expeditionId: "A" },
+      { type: "text", ...smith, text: "Wired the **menu item**.", questId: "q2", expeditionId: "A" },
+    ], s);
+    expect(out(s).slice(0, 2)).toEqual(["Artificer | Backend: thread links in the export module | Using read_file | waiting", "Artificer | Studio UI: Share in the history menu | Wired the menu item."]);
+    s = feedOf([{ type: "answered", id: "ok1", answer: "y" }], s);
+    expect(s.quests[0].waiting).toBe(false);
+
+    // One comes back: it's no longer out, and the other still is.
+    s = feedOf([{ type: "return", ...smith, status: "done", questId: "q2", expeditionId: "A" }], s);
+    expect(s.quests.map((q) => q.id)).toEqual(["q1", "q3"]);
+    expect(s.crew.Artificer).toEqual({ status: "active", line: "Using read_file" }); // back from one, still out on the other: not "at camp"
+    // The run is stopped with quests still out: nobody's out any more.
+    s = feedOf([{ type: "expedition_end", id: "A", status: "stopped", text: "Stopped by you." }], s);
+    expect(s.quests).toEqual([]);
+  });
+
+  test("quests in different runs with the same id are kept apart", () => {
+    const s = feedOf([
+      start("A", "One"), start("B", "Two"),
+      { type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "For A" },
+      { type: "dispatch", ...scribe, questId: "q1", expeditionId: "B", brief: "For B" },
+      { type: "tool", ...scribe, tool: "write_file", input: "{}", questId: "q1", expeditionId: "B" },
+      { type: "return", ...scout, status: "done", questId: "q1", expeditionId: "A" },
+    ]);
+    expect(out(s)).toEqual(["Scribe | For B | Using write_file"]);
+  });
+});

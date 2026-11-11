@@ -9,7 +9,7 @@ import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
 import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
 import { History, HistoryRail } from "./components/History.tsx";
 import { TerminalPanel, TerminalRail } from "./components/Terminal.tsx";
-import { FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
+import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
 import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
 import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
@@ -221,14 +221,31 @@ export function App({ store }: { store: FeedStore }) {
     look();
   };
 
+  // A quest that's out, picked in the crew bar: open its conversation and bring its own block into view.
+  const openQuest = (q: { expId: string; node: string }) => {
+    const run = store.getState().items.find((n) => n.kind === "exp" && n.expId === q.expId);
+    const thread = run?.kind === "exp" ? run.thread : undefined;
+    if (thread && view.kind !== "all" && !(view.kind === "conversation" && view.id === thread)) setView({ kind: "conversation", id: thread });
+    let tries = 0;
+    const look = () => {
+      const block = document.getElementById(`quest-${q.node}`);
+      if (!block) { if (tries++ < 30) setTimeout(look, 50); return; }
+      block.scrollIntoView({ block: "center", behavior: "smooth" });
+    };
+    look();
+  };
+
   // A path as the crew wrote it: links/<name>/…, a full path inside a linked folder, or a path
   // inside one of the folders attached here. The first place it's found is opened.
   const openPath = async (raw: string, line?: number) => {
     const path = raw.replace(/^\.\//, "");
     const tries: { root: FileRoot; rel: string }[] = [];
     const named = path.match(/^links\/([A-Za-z0-9_-]+)\/(.+)$/);
+    const own = path.match(/^(?:.*\/)?camp\/((?:agents\/[^/]+\/outputs|wiki|uploads)\/.+)$/); // what the camp keeps: an output, a wiki page, an upload
     if (named && S?.links.some((l) => l.name === named[1])) {
       tries.push({ root: fileRoots.find((r) => r.link === named[1]) ?? { link: named[1] }, rel: named[2] });
+    } else if (own) {
+      tries.push({ root: { link: CAMP_FILES }, rel: own[1] });
     } else {
       for (const r of fileRoots) if (r.path && path.startsWith(`${r.path}/`)) tries.push({ root: r, rel: path.slice(r.path.length + 1) });
       for (const l of S?.links ?? []) if (path.startsWith(`${l.path}/`)) tries.push({ root: { link: l.name }, rel: path.slice(l.path.length + 1) });
@@ -237,7 +254,7 @@ export function App({ store }: { store: FeedStore }) {
     for (const t of tries) {
       try { await api(`/api/tree/file?${treeQuery(t.root.link, t.root.path, t.rel)}`); return openFile(t.root, t.rel, line); } catch { /* not there: try the next */ }
     }
-    store.addSys(`Couldn't find ${raw} in the folders attached here.`);
+    store.addSys(own ? `Couldn't find ${raw} in the camp folder.` : `Couldn't find ${raw} in the folders attached here.`);
   };
 
   // /good and /bad: rate the latest finished answer in this conversation.
@@ -352,7 +369,7 @@ export function App({ store }: { store: FeedStore }) {
           {(zone, state) => {
             switch (zone.part) {
               case "roster": return (
-                <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker}
+                <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} onOpenQuest={openQuest}
                   onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
               );
               case "history": return state === "collapsed" ? <HistoryRail onShow={toggleHistory} /> : (
@@ -407,7 +424,7 @@ export function App({ store }: { store: FeedStore }) {
                 : <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />;
               case "terminal": return state === "collapsed"
                 ? <TerminalRail onShow={toggleTerminal} />
-                : <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} />;
+                : <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={() => openSettings("terminal")} />;
               default: return (
                 <div className="zone-empty">
                   <b>Empty zone</b>

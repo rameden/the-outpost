@@ -14,7 +14,7 @@ import type { Need } from "../needs.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, when } from "../format.ts";
-import { Icon } from "./bits.tsx";
+import { Drawer, Icon } from "./bits.tsx";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
 
 const GENERAL = "general";
@@ -56,7 +56,7 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
   needs?: Need[]; onOpenWiki?: () => void; onStartTicket?: () => void;
   S: CampState | null; store: FeedStore; view: View; setView: (v: View) => void; patch: (fn: (s: CampState) => CampState) => void;
   onNewProject: () => void; onEditProject: (p: Project) => void;
-  onHide?: () => void; // the « beside New conversation: close History to its tab
+  onHide?: () => void; // clicking History's rail closes it
 }) {
   const activity = useFeed(store, activityOf);
   const running = useFeed(store, runningCount);
@@ -224,14 +224,13 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
     );
   };
 
-  return (
+  const panel = (
     <aside className="history" aria-label="History">
       <nav className="hist-nav">
         <div className="hist-top">
           <button type="button" className={cx("hist-nav-item", "hist-new", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
             <Icon name="plus" />New conversation
           </button>
-          {onHide && <button type="button" className="hist-icon" aria-label="Hide the history" title="Hide the history. Its tab brings it back." onClick={onHide}>«</button>}
         </div>
         {onStartTicket && S?.jira?.connected && (
           <button type="button" className="hist-nav-item hist-ticket" title="Pick up a ticket: choose it, check its details, say where and who, and start" onClick={onStartTicket}>
@@ -290,4 +289,7 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
       </div>
     </aside>
   );
+  return onHide
+    ? <Drawer icon="list" label="History" onHide={onHide} hideLabel="Hide the history" hideTitle="Hide the history. Its tab brings it back.">{panel}</Drawer>
+    : panel;
 }

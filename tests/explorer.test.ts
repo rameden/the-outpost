@@ -137,3 +137,22 @@ test("one file's changes since the last commit, as a diff", async () => {
   await assert.rejects(ex.fileDiff(repo, ".env"), /secret/);
   await assert.rejects(ex.fileDiff(repo, "../outside.txt"), /leaves/);
 });
+
+test("the camp's own files: a crew member's outputs, the wiki and uploads can be opened; nothing else in camp/ can", () => {
+  const camp = process.cwd();
+  assert.deepEqual(ex.campFile("agents/scribe/outputs/MP-745.md", camp), { root: join(camp, "camp"), path: "agents/scribe/outputs/MP-745.md" });
+  assert.equal(ex.campFile("./wiki/facts/a.md", camp).path, "wiki/facts/a.md");
+  assert.equal(ex.campFile("uploads/b1/shot.png", camp).path, "uploads/b1/shot.png");
+  for (const no of ["settings.json", "jira.json", "mcp.json", "threads.jsonl", "agents/scribe/memory.md", "agents/scribe/sessions/a.json",
+    "agents/scribe/outputs/../memory.md", "agents/scribe/outputs/../../../settings.json", "wiki/../settings.json", "../package.json", "/etc/hosts", "wiki", "agents/scribe/outputs/"]) {
+    assert.throws(() => ex.campFile(no, camp), /Only the crew's outputs, the wiki and your uploads/, no);
+  }
+  // Read through the same checks as any file: it has to be there, and a secret's name is still refused.
+  mkdirSync(join(camp, "camp", "agents", "scribe", "outputs"), { recursive: true });
+  writeFileSync(join(camp, "camp", "agents", "scribe", "outputs", "note.md"), "# Hi\n");
+  writeFileSync(join(camp, "camp", "agents", "scribe", "outputs", ".env"), "KEY=1\n");
+  const at = (p: string) => { const f = ex.campFile(p, camp); return ex.previewFile(f.root, f.path); };
+  assert.equal((at("agents/scribe/outputs/note.md") as any).text, "# Hi\n");
+  assert.throws(() => at("agents/scribe/outputs/.env"), /secret/);
+  assert.throws(() => at("agents/scribe/outputs/missing.md"), /no longer there/);
+});

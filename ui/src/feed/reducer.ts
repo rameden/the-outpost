@@ -17,7 +17,11 @@ export type NoticeNode = { kind: "notice"; id: string; text: string };
 export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
 export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null };
-export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[] }; // status null: still out
+// status null: still out. brief: the quest in a line. started: when it set out.
+export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[]; brief?: string; started?: string };
+// A quest that's out right now: whose it is, what it's for, and what it's doing this moment. Two
+// quests by the same crew member are two of these, which the crew's own status (one per member) can't show.
+export type QuestOut = { id: string; expId: string; node: string; who: string; emoji: string; brief: string; started: number; line: string; waiting: boolean };
 export type ExpNode = {
   kind: "exp"; id: string; expId: string; task: string; source: "user" | "direct" | "job"; job?: string; followUp: boolean;
   thread?: string; // the conversation it belongs to (jobs have none)
@@ -29,7 +33,7 @@ export type FeedNode = MsgNode | ToolNode | NoticeNode | SysNode | SteerNode | A
 
 // A running expedition: where its card is, its quests by id, and who is working in it.
 type OpenExpedition = { node: string; started: number; members: string[]; quests: Record<string, { node: string; who: string }> };
-export type OpenAsk = { id: string; node: string; who: string; expId?: string };
+export type OpenAsk = { id: string; node: string; who: string; expId?: string; questId?: string };
 
 export type FeedState = {
   lastSeq: number;                        // events at or below this were already applied (replay after a reconnect)
@@ -38,10 +42,11 @@ export type FeedState = {
   live: Record<string, string>;           // replies streaming in right now: expedition + quest (or + "top:<who>") → message
   asks: OpenAsk[];                        // approvals waiting for you, oldest first
   crew: Record<string, CrewStatus>;       // by name
+  quests: QuestOut[];                     // every quest that's out right now, in the order they set out
   localSeq: number;                       // for lines the page adds itself ("Queued (#2)…")
 };
 
-export const emptyFeed: FeedState = { lastSeq: 0, items: [], open: {}, live: {}, asks: [], crew: {}, localSeq: 0 };
+export const emptyFeed: FeedState = { lastSeq: 0, items: [], open: {}, live: {}, asks: [], crew: {}, quests: [], localSeq: 0 };
 
 export const liveKey = (e: { expeditionId?: string; questId?: string; who: string }) => `${e.expeditionId ?? ""}|${e.questId || `top:${e.who}`}`;
 export const runningCount = (s: FeedState) => Object.keys(s.open).length;
@@ -80,6 +85,13 @@ function setCrew(s: FeedState, name: string, status: CrewStatus["status"], line?
   s.crew = { ...s.crew, [name]: { status, line: line ?? s.crew[name]?.line ?? "" } };
 }
 
+// What a quest that's out is doing now (or that it's waiting on you).
+function touchQuest(s: FeedState, e: { expeditionId?: string; questId?: string }, change: Partial<Pick<QuestOut, "line" | "waiting">>) {
+  if (!e.questId || !s.quests.some((q) => q.id === e.questId && q.expId === e.expeditionId)) return;
+  s.quests = s.quests.map((q) => (q.id === e.questId && q.expId === e.expeditionId ? { ...q, ...change } : q));
+}
+const snippet = (text: string) => text.replace(/[#*`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+
 // A reply cut off mid-stream (Stop, budget, error) never gets its final text: close it out as it is.
 function finishLive(s: FeedState, match: (key: string) => boolean) {
   const keys = Object.keys(s.live).filter(match);
@@ -114,6 +126,7 @@ function endExpedition(s: FeedState, e: EventOf<"expedition_end">) {
   });
   const { [e.id]: _ended, ...stillOpen } = s.open;
   s.open = stillOpen;
+  if (s.quests.some((q) => q.expId === e.id)) s.quests = s.quests.filter((q) => q.expId !== e.id); // stopped mid-quest: nobody's out any more
   finishLive(s, (key) => key.startsWith(`${e.id}|`));
   // Crew who worked here go back to camp, unless they're still busy in another expedition.
   const elsewhere = new Set(Object.values(s.open).flatMap((o) => o.members));
@@ -131,6 +144,7 @@ function addDelta(s: FeedState, e: EventOf<"text_delta">) {
     const node: MsgNode = { kind: "msg", id: `m${e.seq}`, who: e.who, emoji: e.emoji, text: e.delta, streaming: true };
     place(s, node, e.questId, e.expeditionId);
     s.live = { ...s.live, [key]: node.id };
+    touchQuest(s, e, { line: "Writing…" });
   }
   if (s.crew[e.who]?.status !== "active") setCrew(s, e.who, "active", "Writing…");
 }
@@ -146,15 +160,17 @@ function addText(s: FeedState, e: EventOf<"text">) {
   } else {
     place(s, { kind: "msg", id: `m${e.seq}`, who: e.who, emoji: e.emoji, text: e.text, streaming: false }, e.questId, e.expeditionId);
   }
-  setCrew(s, e.who, "active", e.text.replace(/[#*`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 80));
+  setCrew(s, e.who, "active", snippet(e.text));
+  touchQuest(s, e, { line: snippet(e.text) });
 }
 
 function addDispatch(s: FeedState, e: EventOf<"dispatch">) {
   const exp = e.expeditionId ? s.open[e.expeditionId] : undefined;
   if (exp && e.expeditionId) {
-    const node: QuestNode = { kind: "quest", id: `q${e.seq}`, who: e.who, emoji: e.emoji, status: null, nodes: [] };
+    const node: QuestNode = { kind: "quest", id: `q${e.seq}`, who: e.who, emoji: e.emoji, status: null, nodes: [], ...(e.brief ? { brief: e.brief } : {}), started: e.time };
     s.items = appendTo(exp.node, node)(s.items); // quests sit side by side in the expedition, never inside each other
     const questId = e.questId ?? `q${Object.keys(exp.quests).length}`;
+    s.quests = [...s.quests, { id: questId, expId: e.expeditionId, node: node.id, who: e.who, emoji: e.emoji, brief: e.brief ?? "", started: new Date(e.time).getTime(), line: "Setting out", waiting: false }];
     s.open = { ...s.open, [e.expeditionId]: { ...exp, quests: { ...exp.quests, [questId]: { node: node.id, who: e.who } } } };
   }
   setCrew(s, e.who, "active", "Setting out");
@@ -165,6 +181,10 @@ function addReturn(s: FeedState, e: EventOf<"return">) {
   finishLive(s, (k) => k === key);
   const quest = e.expeditionId && e.questId ? s.open[e.expeditionId]?.quests[e.questId] : undefined;
   if (quest) s.items = replaceNode(s.items, quest.node, (n) => (n.kind === "quest" ? { ...n, status: e.status } : n));
+  if (e.questId) s.quests = s.quests.filter((q) => !(q.id === e.questId && q.expId === e.expeditionId));
+  // Back from this one, but still out on another: they aren't at camp yet.
+  const still = s.quests.find((q) => q.who === e.who);
+  if (still) return setCrew(s, e.who, still.waiting ? "waiting" : "active", still.line);
   setCrew(s, e.who, "idle", e.status === "done" ? "Returned with a report" : `Returned (${e.status.replace(/_/g, " ")})`);
 }
 
@@ -174,8 +194,9 @@ function addAsk(s: FeedState, e: EventOf<"ask">) {
   const who = e.kind === "plan" || e.kind === "job" ? "Quartermaster" : questOwner ?? "Quartermaster";
   const node: AskNode = { kind: "ask", id: `a${e.seq}`, askId: e.id, askKind: e.kind, title: e.title, body: e.body, who, outcome: null };
   place(s, node, e.questId, e.expeditionId);
-  s.asks = [...s.asks, { id: e.id, node: node.id, who, expId: e.expeditionId }];
+  s.asks = [...s.asks, { id: e.id, node: node.id, who, expId: e.expeditionId, questId: e.questId }];
   setCrew(s, who, "waiting");
+  touchQuest(s, e, { waiting: true });
 }
 
 function resolveAsk(s: FeedState, e: EventOf<"answered">) {
@@ -184,6 +205,8 @@ function resolveAsk(s: FeedState, e: EventOf<"answered">) {
   s.items = replaceNode(s.items, ask.node, (n) => (n.kind === "ask" ? { ...n, outcome: askOutcome(n.askKind, e.answer, e.lapsed) } : n));
   s.asks = s.asks.filter((a) => a.id !== e.id);
   setCrew(s, ask.who, "active");
+  // Still waiting only if another of its questions is open.
+  if (!s.asks.some((a) => a.questId === ask.questId && a.expId === ask.expId)) touchQuest(s, { expeditionId: ask.expId, questId: ask.questId }, { waiting: false });
 }
 
 const JOB_LINES = {
@@ -211,6 +234,7 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
       finishLive(s, (k) => k === liveKey(e)); // the next words after a tool call start a new message
       place(s, { kind: "tool", id: `t${e.seq}`, who: e.who, tool: e.tool, input: e.input }, e.questId, e.expeditionId);
       setCrew(s, e.who, "active", `Using ${e.tool}`);
+      touchQuest(s, e, { line: `Using ${e.tool}` });
       break;
     case "notice": place(s, { kind: "notice", id: `n${e.seq}`, text: e.text }, e.questId, e.expeditionId); break;
     case "dispatch": addDispatch(s, e); break;
