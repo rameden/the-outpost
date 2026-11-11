@@ -25,7 +25,10 @@ export type CampEventBody =
   | ({ type: "file"; path: string; change: "created" | "updated"; bytes: number } & Who)
   | ({ type: "notice"; text: string } & Who)
   // brief: the quest in a line (how its brief opens), so two quests by the same crew member can be told apart
-  | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string }
+  // step: the numbered step of the approved plan this quest carries out, when the Quartermaster said
+  | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string; step?: number }
+  // The plan you approved, as its numbered steps: the feed keeps them as a list that fills in as quests go out and come back.
+  | { type: "plan"; steps: { n: number; text: string }[] }
   | { type: "return"; who: string; emoji: string; status: string; questId?: string }
   | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string }
   | { type: "answered"; id: string; answer: string; lapsed?: boolean } // lapsed: the camp restarted before you answered

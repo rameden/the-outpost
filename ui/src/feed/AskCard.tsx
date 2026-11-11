@@ -27,7 +27,10 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   return (
     <div className={cx("ask", resolved && "resolved")} id={`ask-${ask.askId}`} data-kind={kind}>
       <div className="ask-title">{ask.title.replace(/^\S+\s+/, "")}</div>
-      <div className={kind === "shell" || kind === "tool" ? "ask-body cmd" : "ask-body"}>{ask.body}</div>
+      {/* An approved plan is shown as the live list under this card: its own wording folds away. */}
+      {ask.listed
+        ? <details className="ask-written"><summary>The plan as it was written</summary><div className="ask-body">{ask.body}</div></details>
+        : <div className={kind === "shell" || kind === "tool" ? "ask-body cmd" : "ask-body"}>{ask.body}</div>}
       {resolved ? <div className="ask-outcome">{ask.outcome}</div> : (
         <>
           <div className="ask-note">{ASK_LABELS[kind]?.note ?? ""}</div>

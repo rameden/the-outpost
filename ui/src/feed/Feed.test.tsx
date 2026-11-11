@@ -247,3 +247,32 @@ test("a file the crew wrote shows as a card in place of its tool line, and opens
   window.removeEventListener("camp:ask", on);
   expect(heard).toEqual([{ do: "open-file", path }]);
 });
+
+test("the approved plan is a live list: each step's state and who has it, and a step takes you to its quest", () => {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  const smith = { who: "Artificer", emoji: "🔨", depth: 1 };
+  send(store, { type: "expedition_start", id: "exp-pl", task: "Share a whole thread", source: "user" },
+    { type: "ask", id: "pl-1", kind: "plan", title: "🗺️  The Quartermaster's plan:", body: "1. Backend\n2. Studio UI\n3. I read the diffs", expeditionId: "exp-pl" });
+  expect(screen.queryByRole("group", { name: "The plan, step by step" })).toBeNull(); // not until it's approved
+  send(store, { type: "answered", id: "pl-1", answer: "" },
+    { type: "plan", steps: [{ n: 1, text: "Backend" }, { n: 2, text: "Studio UI" }, { n: 3, text: "I read the diffs" }], expeditionId: "exp-pl" },
+    { type: "dispatch", ...smith, questId: "q1", expeditionId: "exp-pl", brief: "Backend", step: 1 },
+    { type: "dispatch", ...smith, questId: "q2", expeditionId: "exp-pl", brief: "Studio UI", step: 2 },
+    { type: "return", ...smith, status: "done", questId: "q1", expeditionId: "exp-pl" });
+  const list = screen.getByRole("group", { name: "The plan, step by step" });
+  expect(list.querySelector(".plan-head")!.textContent).toBe("Plan1 of 3 done · 1 out");
+  const rows = within(list).getAllByRole("listitem").map((li) => [...li.firstElementChild!.children].map((c) => c.textContent).join(" | "));
+  expect(rows).toEqual(["✓ | 1 | Backend | 🔨 Artificer | Done", "● | 2 | Studio UI | 🔨 Artificer | Out", "○ | 3 | I read the diffs | Not started"]);
+  // The plan's own card keeps its wording a click away, not twice on the page.
+  const card = document.getElementById("ask-pl-1")!;
+  expect(card.querySelector("details.ask-written summary")!.textContent).toBe("The plan as it was written");
+  expect(card.querySelector(":scope > .ask-body")).toBeNull();
+  // Each quest's block says which step it is, and a step with a quest leads there.
+  expect([...document.querySelectorAll(".quest-step")].map((x) => x.textContent)).toEqual(["Step 1", "Step 2"]);
+  const seen = vi.fn();
+  (document.querySelectorAll(".quest")[1] as HTMLElement).scrollIntoView = seen;
+  fireEvent.click(within(list).getAllByRole("button")[1]);
+  expect(seen).toHaveBeenCalled();
+  expect(within(list).getAllByRole("button").length).toBe(2); // the Quartermaster's own step has nowhere to go
+});
