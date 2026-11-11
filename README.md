@@ -243,6 +243,8 @@ npm run typecheck   # source, tests, and evals, then the page in ui/
 npm run eval        # 8 standard tasks against the real API (spends tokens; capped at $2 per case)
 ```
 
+Every pull request, and `main` after a merge, is checked on GitHub by `.github/workflows/ci.yml`: the types (`npm run typecheck`) and this whole suite, on Linux. It needs no secrets, since the tests only ever talk to stand-ins for the model and for Jira.
+
 - **Tests** run each file in a throwaway camp, against a fake streaming API. The page's tests (`ui/src/**/*.test.ts(x)`) cover the feed: several expeditions at once, streaming replies, approvals, and Stop.
 - **Evals** run each case in a throwaway camp with your current model settings. To compare models without changing your settings, use `npm run eval -- --set scout=claude-haiku-5-5:low`. Results are saved to `evals/results/`.
 
