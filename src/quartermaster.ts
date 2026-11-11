@@ -54,11 +54,15 @@ function makeSubmitPlan(exp: Expedition): Tool {
       },
     },
     run: async ({ plan }) => {
-      if (exp.planApproved && (campMode.unattended || !APPROVE_PLANS)) return "Approved. Go ahead.";
+      const steps = planSteps(String(plan));
+      // Once it stands, the plan goes out as its steps: the page keeps them as a list that fills in.
+      const stands = () => { if (steps.length >= 2) emit({ type: "plan", steps }); };
+      if (exp.planApproved && (campMode.unattended || !APPROVE_PLANS)) { stands(); return "Approved. Go ahead."; }
       const answer = await ask({ kind: "plan", title: "🗺️  The Quartermaster's plan:", body: String(plan) });
       if (answer === "" || answer.toLowerCase() === "y") {
         exp.planApproved = true;
-        return "The user approved the plan. Go ahead and dispatch.";
+        stands();
+        return "The user approved the plan. Go ahead and dispatch." + (steps.length >= 2 ? " Give each dispatch the number of the plan step it carries out (step), so the user can see the plan fill in." : "");
       }
       exp.planApproved = false;
       if (answer.toLowerCase() === "n") return "The user stopped this plan. Don't dispatch; ask what they want instead.";
@@ -128,11 +132,12 @@ function makeDispatch(exp: Expedition): Tool {
         properties: {
           adventurer: { type: "string", enum: Object.keys(ROSTER) },
           brief: { type: "string" },
+          step: { type: "integer", description: "The number of the plan step this quest carries out (from the plan you submitted). The user watches the plan fill in step by step." },
         },
         required: ["adventurer", "brief"],
       },
     },
-    run: async ({ adventurer, brief }) => {
+    run: async ({ adventurer, brief, step }) => {
       const spec = ROSTER[adventurer];
       if (!spec) return `No adventurer named ${adventurer}.`;
       if (!exp.planApproved) return "Blocked: submit your plan with submit_plan and get the user's approval first.";
@@ -142,7 +147,8 @@ function makeDispatch(exp: Expedition): Tool {
       if (!(await questSlot(currentSignal()))) return "Not sent: the expedition was stopped.";
       // Each quest gets its own id, so parallel quests keep their events and approvals apart.
       const questId = randomUUID();
-      emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, brief: briefLine(brief) });
+      const n = Number(step);
+      emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, brief: briefLine(brief), ...(Number.isInteger(n) && n > 0 && n < 100 ? { step: n } : {}) });
       const started = new Date();
       try {
         const { result, checks, text } = await withQuest(questId, () => questWithChecks(spec, questId,
@@ -234,6 +240,21 @@ export function placeOf(opts: { project?: string; links?: string[]; without?: st
   };
 }
 
+// A plan as its numbered steps ("1. …", "2) …"). A line under a step that isn't numbered belongs to
+// it; anything after a blank line that isn't a step (assumptions, a closing note) is left out.
+export function planSteps(plan: string): { n: number; text: string }[] {
+  const steps: { n: number; text: string }[] = [];
+  let open = false;
+  for (const raw of String(plan).split("\n")) {
+    const m = raw.match(/^\s*(\d{1,2})[.)]\s+(.+)$/);
+    if (m) { steps.push({ n: Number(m[1]), text: m[2].trim() }); open = true; }
+    else if (!raw.trim()) open = false;
+    else if (open && steps.length) steps[steps.length - 1].text += " " + raw.trim();
+  }
+  const seen = new Set<number>();
+  return steps.filter((s) => !seen.has(s.n) && !!seen.add(s.n)).map((s) => ({ n: s.n, text: s.text.replace(/\s+/g, " ").slice(0, 400) })).slice(0, 30);
+}
+
 // A quest in a line, for the page: how its brief opens, without the markdown, cut to a label's length.
 export function briefLine(brief: unknown): string {
   const first = String(brief ?? "").split("\n").map((l) => l.replace(/^[#>\-*\s]+/, "").replace(/[*_`]/g, "").trim()).find(Boolean) ?? "";
@@ -260,6 +281,7 @@ How you work:
    before your first dispatch, and follow the user's changes if they ask for any.
 4. Dispatch with excellent briefs. Adventurers know nothing except what you write.
    Independent quests (research while the Artificer builds) go out together in one turn.
+   Give each dispatch the number of the plan step it carries out (step): the user watches the plan fill in.
    Pass along findings from earlier reports and point them at relevant wiki pages.
    When someone writes about code changes (release notes, a PR description, docs), the brief
    says what changed: the files, what each change added or removed (new functions, props,

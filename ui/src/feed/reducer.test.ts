@@ -1,7 +1,7 @@
 // The feed reducer: several expeditions at once, replies streaming in, approvals, and Stop.
 import { describe, expect, test } from "vitest";
 import type { CampEvent } from "../types.ts";
-import { addSysLine, applyEvent, emptyFeed, findNodes, runningCount, type ExpNode, type FeedState } from "./reducer.ts";
+import { addSysLine, applyEvent, emptyFeed, findNodes, runningCount, stepState, type ExpNode, type FeedState, type PlanNode } from "./reducer.ts";
 
 // Events as the server sends them: numbered in order, a second apart.
 type Body = CampEvent extends infer E ? (E extends CampEvent ? Omit<E, "seq" | "time"> : never) : never;
@@ -337,5 +337,59 @@ describe("files the crew writes", () => {
     const quest = exp(s, "A").nodes[0] as Extract<ExpNode["nodes"][number], { kind: "quest" }>;
     expect(kinds(quest.nodes)).toEqual(["tool", "file"]);
     expect(kinds(s.items)).toEqual(["exp", "file"]);
+  });
+});
+
+describe("the plan as a list", () => {
+  const smith = { who: "Artificer", emoji: "🔨", depth: 1 };
+  const steps = [{ n: 1, text: "Backend" }, { n: 2, text: "Studio UI" }, { n: 3, text: "I read the diffs" }];
+  const plan = (s: FeedState) => findNodes(s.items, "plan")[0] as PlanNode;
+  const says = (s: FeedState) => plan(s).steps.map((st) => `${st.n} ${stepState(st, plan(s).ended)}${st.quests.length ? ` (${st.quests.map((q) => q.who).join(", ")})` : ""}`);
+  const approved: Parameters<typeof feedOf>[0] = [
+    start("A", "Share a whole thread"),
+    { type: "ask", id: "pl", kind: "plan", title: "🗺️  The Quartermaster's plan:", body: "1. Backend\n2. Studio UI\n3. I read the diffs", expeditionId: "A" },
+    { type: "answered", id: "pl", answer: "" },
+    { type: "plan", steps, expeditionId: "A" },
+  ];
+
+  test("it fills in as quests go out and come back; a step nobody is sent on is the Quartermaster's", () => {
+    let s = feedOf(approved);
+    expect(says(s)).toEqual(["1 todo", "2 todo", "3 todo"]);
+    // The list sits right after the approved plan's card, which folds its own text away.
+    expect(kinds(exp(s, "A").nodes)).toEqual(["ask", "plan"]);
+    expect(findNodes(s.items, "ask")[0].listed).toBe(true);
+    s = feedOf([
+      { type: "dispatch", ...smith, questId: "q1", expeditionId: "A", brief: "Backend", step: 1 },
+      { type: "dispatch", ...smith, questId: "q2", expeditionId: "A", brief: "Studio UI", step: 2 },
+      { type: "dispatch", ...scout, questId: "q3", expeditionId: "A", brief: "Check the docs", step: 2 },
+      { type: "dispatch", ...scout, questId: "q4", expeditionId: "A", brief: "Not part of the plan" },
+    ], s);
+    expect(says(s)).toEqual(["1 out (Artificer)", "2 out (Artificer, Scout)", "3 todo"]);
+    expect(findNodes(s.items, "quest").map((q) => q.step)).toEqual([1, 2, 2, undefined]);
+    expect(s.quests.map((q) => q.step)).toEqual([1, 2, 2, undefined]);
+    s = feedOf([
+      { type: "return", ...smith, status: "done", questId: "q1", expeditionId: "A" },
+      { type: "return", ...scout, status: "done", questId: "q3", expeditionId: "A" },
+    ], s);
+    expect(says(s)).toEqual(["1 done (Artificer)", "2 out (Artificer, Scout)", "3 todo"]); // step 2 still has one out
+    s = feedOf([{ type: "return", ...smith, status: "max_turns", questId: "q2", expeditionId: "A" }], s);
+    expect(says(s)[1]).toBe("2 failed (Artificer, Scout)");
+    // The run finishes well: what the Quartermaster kept for itself is done with it.
+    s = feedOf([{ type: "return", ...scout, status: "done", questId: "q4", expeditionId: "A" }, { type: "expedition_end", id: "A", status: "done", text: "Done." }], s);
+    expect(says(s)).toEqual(["1 done (Artificer)", "2 failed (Artificer, Scout)", "3 done"]);
+  });
+
+  test("stopped mid-way, what was out is cut short; a plan submitted again keeps the quests already sent", () => {
+    let s = feedOf([...approved, { type: "dispatch", ...smith, questId: "q1", expeditionId: "A", step: 1 }]);
+    const again = feedOf([{ type: "plan", steps: [{ n: 1, text: "Backend, narrower" }, { n: 2, text: "Viewer" }], expeditionId: "A" }], s);
+    expect(findNodes(again.items, "plan").length).toBe(1);
+    expect(says(again)).toEqual(["1 out (Artificer)", "2 todo"]);
+    expect(plan(again).steps[0].text).toBe("Backend, narrower");
+    s = feedOf([{ type: "expedition_end", id: "A", status: "stopped", text: "Stopped by you." }], s);
+    expect(says(s)).toEqual(["1 stopped (Artificer)", "2 stopped", "3 stopped"]);
+    // A dispatch naming a step the plan doesn't have, or with no plan at all, is just a quest.
+    const none = feedOf([start("B", "No plan"), { type: "dispatch", ...scout, questId: "q9", expeditionId: "B", step: 4 }]);
+    expect(findNodes(none.items, "plan")).toEqual([]);
+    expect(findNodes(none.items, "quest")[0].step).toBe(4);
   });
 });

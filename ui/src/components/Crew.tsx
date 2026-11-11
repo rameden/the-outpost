@@ -40,7 +40,7 @@ function QuestsOut({ quests, onOpen }: { quests: QuestOut[]; onOpen?: (q: QuestO
           <li key={`${q.expId}|${q.id}`}>
             <button type="button" className={cx("co-row", cClass(q.who), q.waiting && "waiting")} title={`${q.who}: ${q.brief || "a quest"}\nClick to go to it.`} onClick={() => onOpen?.(q)}>
               <span className="co-who"><span aria-hidden="true">{q.emoji}</span> {q.who}</span>
-              <span className="co-brief">{q.brief || "A quest"}</span>
+              <span className="co-brief">{q.step ? <b className="co-step" title={`Step ${q.step} of the plan`}>{q.step}</b> : null}{q.brief || "A quest"}</span>
               <span className="co-doing">{q.waiting ? "Waiting for your OK" : q.line}</span>
               <time className="co-time">{outFor(now - q.started)}</time>
             </button>

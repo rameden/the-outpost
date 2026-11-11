@@ -14,7 +14,7 @@ import { FileCard } from "./FileCard.tsx";
 import { WorkspaceBox } from "./Workspaces.tsx";
 import { AsideButton } from "./Aside.tsx";
 import { cardsFor, type View } from "./conversation.ts";
-import type { ExpNode, FeedNode, QuestNode } from "./reducer.ts";
+import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type StepState } from "./reducer.ts";
 import { useFeed, type FeedStore } from "./store.ts";
 
 const EXAMPLES = [
@@ -32,6 +32,7 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
     case "exp": return <ExpeditionCard exp={node} onReply={onReply} />;
     case "quest": return <QuestCard quest={node} onReply={onReply} />;
     case "ask": return <AskCard ask={node} />;
+    case "plan": return <PlanList plan={node} />;
     case "msg":
       return (
         <div className={cx("msg", cClass(node.who))}>
@@ -51,12 +52,52 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
   }
 });
 
+// The plan you approved, as a list that fills in while the run goes: each step says whether it's
+// not started, out (and with whom), done, or didn't make it. A step with a quest goes to that
+// quest's block when clicked. Steps nobody was sent on are the Quartermaster's own.
+const STEP_SAYS: Record<StepState, string> = { todo: "Not started", out: "Out", done: "Done", failed: "Didn't finish", stopped: "Cut short" };
+const STEP_MARK: Record<StepState, string> = { todo: "○", out: "●", done: "✓", failed: "!", stopped: "–" };
+function PlanList({ plan }: { plan: PlanNode }) {
+  const states = plan.steps.map((s) => stepState(s, plan.ended));
+  const count = (st: StepState) => states.filter((x) => x === st).length;
+  const goTo = (id: string) => document.getElementById(`quest-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  return (
+    <div className="plan-list" role="group" aria-label="The plan, step by step">
+      <div className="plan-head"><b>Plan</b><span>{count("done")} of {plan.steps.length} done{count("out") ? ` · ${count("out")} out` : ""}{count("failed") ? ` · ${count("failed")} didn't finish` : ""}</span></div>
+      <ol>
+        {plan.steps.map((s, i) => {
+          const state = states[i];
+          const who = [...new Map(s.quests.map((q) => [q.who, q])).values()];
+          const target = s.quests.find((q) => q.status === null) ?? s.quests.at(-1);
+          const row = (
+            <>
+              <span className="plan-mark" aria-hidden="true">{STEP_MARK[state]}</span>
+              <span className="plan-n">{s.n}</span>
+              <span className="plan-text">{s.text}</span>
+              {who.length > 0 && <span className="plan-who">{who.map((q) => `${q.emoji} ${q.who}${s.quests.filter((x) => x.who === q.who).length > 1 ? ` ×${s.quests.filter((x) => x.who === q.who).length}` : ""}`).join(", ")}</span>}
+              <span className={cx("pill", state === "out" ? "live" : state === "done" ? "done" : state === "todo" ? "" : "bad")}>{STEP_SAYS[state]}</span>
+            </>
+          );
+          return (
+            <li key={s.n} className={cx("plan-step", state)}>
+              {target
+                ? <button type="button" title="Go to this step's quest" onClick={() => goTo(target.node)}>{row}</button>
+                : <div title={state === "todo" ? "Nobody has been sent on this yet: it may be the Quartermaster's own to do" : undefined}>{row}</div>}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   const ok = quest.status === "done";
   return (
     <section className={cx("quest", cClass(quest.who))} id={`quest-${quest.id}`}>
       <div className="quest-head">
         <span>{quest.emoji} {quest.who} sets out</span>
+        {quest.step && <span className="quest-step" title={`Step ${quest.step} of the plan`}>Step {quest.step}</span>}
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
         {quest.status === null ? <span className="pill live">On quest</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
       </div>

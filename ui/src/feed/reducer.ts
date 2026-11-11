@@ -18,12 +18,25 @@ export type FileNode = { kind: "file"; id: string; who: string; path: string; ch
 export type NoticeNode = { kind: "notice"; id: string; text: string };
 export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
-export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null };
+// listed: an approved plan whose steps are shown as the live list under it (so the card itself folds its text away).
+export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null; listed?: boolean };
+// The plan you approved, as a list that fills in: each numbered step, and the quests carrying it out.
+// ended: how the run finished, once it has (a step still out then was cut short).
+export type PlanQuest = { node: string; who: string; emoji: string; status: string | null };
+export type PlanStep = { n: number; text: string; quests: PlanQuest[] };
+export type PlanNode = { kind: "plan"; id: string; steps: PlanStep[]; ended?: string };
+export type StepState = "todo" | "out" | "done" | "failed" | "stopped";
+// How a step stands. With no quest of its own it's the Quartermaster's to do: done when the run finishes well.
+export function stepState(step: PlanStep, ended?: string): StepState {
+  if (!step.quests.length) return ended === "done" ? "done" : ended ? "stopped" : "todo";
+  if (step.quests.some((q) => q.status === null)) return ended ? "stopped" : "out";
+  return step.quests.every((q) => q.status === "done") ? "done" : "failed";
+}
 // status null: still out. brief: the quest in a line. started: when it set out.
-export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[]; brief?: string; started?: string };
+export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[]; brief?: string; started?: string; step?: number };
 // A quest that's out right now: whose it is, what it's for, and what it's doing this moment. Two
 // quests by the same crew member are two of these, which the crew's own status (one per member) can't show.
-export type QuestOut = { id: string; expId: string; node: string; who: string; emoji: string; brief: string; started: number; line: string; waiting: boolean };
+export type QuestOut = { id: string; expId: string; node: string; who: string; emoji: string; brief: string; started: number; line: string; waiting: boolean; step?: number };
 export type ExpNode = {
   kind: "exp"; id: string; expId: string; task: string; source: "user" | "direct" | "job"; job?: string; followUp: boolean;
   thread?: string; // the conversation it belongs to (jobs have none)
@@ -31,10 +44,10 @@ export type ExpNode = {
   end: { status: string; seconds: number; changed: number; workspaces: Workspaces } | null; // null: still running
   feedback?: { rating: "up" | "down"; note?: string; kept?: string }; // what you said about it once it finished
 };
-export type FeedNode = MsgNode | ToolNode | FileNode | NoticeNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
+export type FeedNode = MsgNode | ToolNode | FileNode | PlanNode | NoticeNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
 
 // A running expedition: where its card is, its quests by id, and who is working in it.
-type OpenExpedition = { node: string; started: number; members: string[]; quests: Record<string, { node: string; who: string }> };
+type OpenExpedition = { node: string; started: number; members: string[]; quests: Record<string, { node: string; who: string }>; plan?: string };
 export type OpenAsk = { id: string; node: string; who: string; expId?: string; questId?: string };
 
 export type FeedState = {
@@ -148,6 +161,7 @@ function endExpedition(s: FeedState, e: EventOf<"expedition_end">) {
     nodes: failed ? [...n.nodes, { kind: "notice", id: `n${e.seq}`, text: e.text }] : n.nodes,
     end: { status: e.status, seconds, changed: e.changed ?? 0, workspaces: e.workspaces ?? [] },
   });
+  if (exp.plan) s.items = replaceNode(s.items, exp.plan, (n) => (n.kind === "plan" ? { ...n, ended: e.status } : n));
   const { [e.id]: _ended, ...stillOpen } = s.open;
   s.open = stillOpen;
   if (s.quests.some((q) => q.expId === e.id)) s.quests = s.quests.filter((q) => q.expId !== e.id); // stopped mid-quest: nobody's out any more
@@ -191,10 +205,15 @@ function addText(s: FeedState, e: EventOf<"text">) {
 function addDispatch(s: FeedState, e: EventOf<"dispatch">) {
   const exp = e.expeditionId ? s.open[e.expeditionId] : undefined;
   if (exp && e.expeditionId) {
-    const node: QuestNode = { kind: "quest", id: `q${e.seq}`, who: e.who, emoji: e.emoji, status: null, nodes: [], ...(e.brief ? { brief: e.brief } : {}), started: e.time };
+    const node: QuestNode = { kind: "quest", id: `q${e.seq}`, who: e.who, emoji: e.emoji, status: null, nodes: [], ...(e.brief ? { brief: e.brief } : {}), started: e.time, ...(e.step ? { step: e.step } : {}) };
+    // It's carrying out a step of the plan: the plan's list shows it against that step.
+    if (e.step && exp.plan) {
+      s.items = replaceNode(s.items, exp.plan, (n) => n.kind !== "plan" ? n
+        : { ...n, steps: n.steps.map((st) => (st.n === e.step ? { ...st, quests: [...st.quests, { node: node.id, who: e.who, emoji: e.emoji, status: null }] } : st)) });
+    }
     s.items = appendTo(exp.node, node)(s.items); // quests sit side by side in the expedition, never inside each other
     const questId = e.questId ?? `q${Object.keys(exp.quests).length}`;
-    s.quests = [...s.quests, { id: questId, expId: e.expeditionId, node: node.id, who: e.who, emoji: e.emoji, brief: e.brief ?? "", started: new Date(e.time).getTime(), line: "Setting out", waiting: false }];
+    s.quests = [...s.quests, { id: questId, expId: e.expeditionId, node: node.id, who: e.who, emoji: e.emoji, brief: e.brief ?? "", started: new Date(e.time).getTime(), line: "Setting out", waiting: false, ...(e.step ? { step: e.step } : {}) }];
     s.open = { ...s.open, [e.expeditionId]: { ...exp, quests: { ...exp.quests, [questId]: { node: node.id, who: e.who } } } };
   }
   setCrew(s, e.who, "active", "Setting out");
@@ -205,11 +224,36 @@ function addReturn(s: FeedState, e: EventOf<"return">) {
   finishLive(s, (k) => k === key);
   const quest = e.expeditionId && e.questId ? s.open[e.expeditionId]?.quests[e.questId] : undefined;
   if (quest) s.items = replaceNode(s.items, quest.node, (n) => (n.kind === "quest" ? { ...n, status: e.status } : n));
+  const plan = quest && e.expeditionId ? s.open[e.expeditionId]?.plan : undefined;
+  if (quest && plan) {
+    s.items = replaceNode(s.items, plan, (n) => n.kind !== "plan" ? n
+      : { ...n, steps: n.steps.map((st) => (st.quests.some((q) => q.node === quest.node) ? { ...st, quests: st.quests.map((q) => (q.node === quest.node ? { ...q, status: e.status } : q)) } : st)) });
+  }
   if (e.questId) s.quests = s.quests.filter((q) => !(q.id === e.questId && q.expId === e.expeditionId));
   // Back from this one, but still out on another: they aren't at camp yet.
   const still = s.quests.find((q) => q.who === e.who);
   if (still) return setCrew(s, e.who, still.waiting ? "waiting" : "active", still.line);
   setCrew(s, e.who, "idle", e.status === "done" ? "Returned with a report" : `Returned (${e.status.replace(/_/g, " ")})`);
+}
+
+// The plan stands: its steps become a list in the run, right where the approved plan's card is.
+// A plan submitted again (after changes) replaces the list, keeping the quests already sent against their steps.
+function addPlan(s: FeedState, e: EventOf<"plan">) {
+  const exp = e.expeditionId ? s.open[e.expeditionId] : undefined;
+  if (!exp || !e.expeditionId) return;
+  let before: PlanStep[] = [];
+  s.items = replaceNode(s.items, exp.node, (x) => {
+    if (x.kind !== "exp") return x;
+    const old = x.nodes.find((n): n is PlanNode => n.kind === "plan");
+    before = old?.steps ?? [];
+    const node: PlanNode = { kind: "plan", id: `p${e.seq}`, steps: e.steps.map((st) => ({ n: st.n, text: st.text, quests: before.find((b) => b.n === st.n)?.quests ?? [] })) };
+    // The card it was approved on folds its text away: the list says it now. (The newest approved plan card.)
+    const card = x.nodes.findLastIndex((n) => n.kind === "ask" && n.askKind === "plan" && n.outcome !== null);
+    const approved = card >= 0 ? x.nodes[card] : null;
+    const nodes = x.nodes.filter((n) => n.kind !== "plan").map((n) => (n === approved && n.kind === "ask" ? { ...n, listed: true } : n));
+    return { ...x, nodes: [...nodes, node] };
+  });
+  s.open = { ...s.open, [e.expeditionId]: { ...s.open[e.expeditionId], plan: `p${e.seq}` } };
 }
 
 function addAsk(s: FeedState, e: EventOf<"ask">) {
@@ -263,6 +307,7 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
     case "file": addFile(s, e); break;
     case "notice": place(s, { kind: "notice", id: `n${e.seq}`, text: e.text }, e.questId, e.expeditionId); break;
     case "dispatch": addDispatch(s, e); break;
+    case "plan": addPlan(s, e); break;
     case "return": addReturn(s, e); break;
     case "ask": addAsk(s, e); break;
     case "answered": resolveAsk(s, e); break;

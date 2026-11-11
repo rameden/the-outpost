@@ -228,3 +228,46 @@ test("out of turns: the agent is warned near the limit, and the report carries a
     setAgentSettings("scout", { maxTurns: null });
   }
 });
+
+test("an approved plan goes out as its numbered steps, and each dispatch says which step it carries out", async () => {
+  const { planSteps } = await import("../src/quartermaster.ts");
+  assert.deepEqual(planSteps("Here's the plan:\n1. Artificer, backend: add thread links\n   Done = specs and build.\n2) Artificer, Studio UI\n\n3. I read the diffs\n\nAssumptions you can correct now:\n- Expiry is 30 days\n3. a repeat is ignored"), [
+    { n: 1, text: "Artificer, backend: add thread links Done = specs and build." }, { n: 2, text: "Artificer, Studio UI" }, { n: 3, text: "I read the diffs" }]);
+  assert.deepEqual(planSteps("Just ask the Scout and report back."), []);
+
+  script = (b) => {
+    const who = whoAsks(b), res = lastToolResults(b);
+    if (who === "Scout" || who === "Scribe") return { text: `${who} report` };
+    if (isFirstTurn(b)) return { tools: [{ name: "submit_plan", input: { plan: "1. Scout looks it up\n2. Scribe writes it up\n3. I check both" } }] };
+    if (res.includes("approved the plan")) return { tools: [
+      { name: "dispatch", input: { adventurer: "scout", brief: "Look it up", step: 1 } },
+      { name: "dispatch", input: { adventurer: "scribe", brief: "Write it up", step: 2 } },
+      { name: "dispatch", input: { adventurer: "scout", brief: "No step given" } },
+      { name: "dispatch", input: { adventurer: "scout", brief: "A step that isn't a number", step: "two" } },
+    ] };
+    return { text: "All back." };
+  };
+  await runExpedition("Research and write");
+  const plan = events.find((e) => e.type === "plan");
+  assert.deepEqual(plan.steps, [{ n: 1, text: "Scout looks it up" }, { n: 2, text: "Scribe writes it up" }, { n: 3, text: "I check both" }]);
+  assert.ok(plan.expeditionId, "it belongs to its run");
+  assert.ok(events.findIndex((e) => e.type === "answered") < events.indexOf(plan), "it's sent once you've approved, not before");
+  assert.deepEqual(events.filter((e) => e.type === "dispatch").map((e) => [e.who, e.brief, e.step]), [
+    ["Scout", "Look it up", 1], ["Scribe", "Write it up", 2], ["Scout", "No step given", undefined], ["Scout", "A step that isn't a number", undefined]]);
+  // The Quartermaster is told to number its dispatches, in its rules and again on approval.
+  const qm = api.seen.filter((x) => x.who === "Quartermaster");
+  assert.match(qm[0].body.system.map((x: any) => x.text).join("\n"), /Give each dispatch the number of the plan step it carries out \(step\)/);
+  assert.match(JSON.stringify(qm[1].body.messages.at(-1)), /Give each dispatch the number of the plan step it carries out/);
+
+  // A plan that isn't a numbered list is approved as before, with no list to keep.
+  events.length = 0;
+  script = (b) => (whoAsks(b) === "Scout" ? { text: "report" } : isFirstTurn(b) ? { tools: [{ name: "submit_plan", input: { plan: "Ask the Scout, then report." } }] }
+    : lastToolResults(b).includes("approved the plan") ? { tools: [{ name: "dispatch", input: { adventurer: "scout", brief: "Go" } }] } : { text: "Done." });
+  await runExpedition("Something small");
+  assert.equal(events.some((e) => e.type === "plan"), false);
+  // A plan you stopped never becomes a list.
+  events.length = 0; answer = "n";
+  script = (b) => (isFirstTurn(b) ? { tools: [{ name: "submit_plan", input: { plan: "1. One\n2. Two" } }] } : { text: "Stopped." });
+  await runExpedition("Stop me");
+  assert.equal(events.some((e) => e.type === "plan"), false);
+});
