@@ -8,6 +8,7 @@ import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cx, money, resetIn } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
+import { Wordmark } from "./Wordmark.tsx";
 import { needsDoing, needsLabel, type Need } from "../needs.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import type { SettingsSection } from "../settings/Settings.tsx";
@@ -151,7 +152,7 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
 
   return (
     <header className="top">
-      <div className="brand"><h1>🎒 Satchel</h1><span>Mission control</span></div>
+      <div className="brand"><h1><Wordmark className="wordmark" /></h1></div>
       <div className="top-right">
         {needs && onNeed ? <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} /> : asks.length > 0 && (
           <button className="chip needs" type="button" onClick={() => document.getElementById(`ask-${asks[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>

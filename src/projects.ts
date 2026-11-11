@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, sta
 import { join } from "node:path";
 import { GENERAL, getProject, history, type Project } from "./conversations.js";
 import { changedFiles } from "./checkpoints.js";
-import { currentProjectId, inScope, type Workspace } from "./context.js";
+import { currentProjectId, inScope, leftOutHere, type Workspace } from "./context.js";
 import { emit } from "./events.js";
 import { loadJobs } from "./jobs.js";
 import { loadLinks } from "./links.js";
@@ -127,7 +127,7 @@ export function projectBlock(self: string, id = currentProjectId()): string {
   return `## Project: ${p.name}\n` +
     (general ? "This conversation isn't filed under a particular project." : `The user filed this conversation under their project "${p.name}".`) +
     (links.length ? ` It is about ${links.map((l) => `links/${l.name}/ (${l.access === "write" ? "you may edit files there" : "read-only"})`).join(" and ")}: unless they say otherwise, that's where the work is.` : "") +
-    (left.length ? ` The user started this conversation without ${left.map((l) => `links/${l}/`).join(" and ")}: nothing from ${left.length === 1 ? "it" : "them"} is part of this conversation. Work without ${left.length === 1 ? "it" : "them"}, and don't ask for ${left.length === 1 ? "it" : "them"} unless the request can't be done otherwise.` : "") +
+    (left.length ? ` The user left ${left.map((l) => `links/${l}/`).join(" and ")} out of this conversation: nothing from ${left.length === 1 ? "it" : "them"} is part of this conversation. Work without ${left.length === 1 ? "it" : "them"}, and don't ask for ${left.length === 1 ? "it" : "them"} unless the request can't be done otherwise.` : "") +
     (general ? "" : " Other projects' folders aren't part of this conversation.") +
     (p.settings?.web === "careful" ? "\nThis project is confidential. Never put its name, its code, its internal names, or anything else from its files into a web search or a fetched address: phrase research generically (the library, the error message, the pattern)." : "") +
     (p.settings?.web === "off" ? "\nWeb search and fetch are turned off for this project. Work from the files, and say so if something needs looking up." : "") +
@@ -135,6 +135,18 @@ export function projectBlock(self: string, id = currentProjectId()): string {
     (brief ? `\n\n### Survey of the project (from the crew's own look through its folders; check the files if it matters)\n${cap(brief, BRIEF_MAX)}` : "") +
     (notes ? `\n\n### What the crew has learned about this project (add to it with project_remember)\n${cap(notes, NOTES_MAX)}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
     pinsBlock(p, self);
+}
+
+// Folders the user took out of this conversation that aren't its project's own (those are named in
+// the project's block): the crew may have worked in one earlier, so it's told the folder is gone on purpose.
+export function leftOutBlock(id = currentProjectId()): string {
+  const own = getProject(id)?.links ?? [];
+  const out = loadLinks().map((l) => l.name).filter((l) => leftOutHere().includes(l) && !inScope(l) && !own.includes(l));
+  if (!out.length) return "";
+  const it = out.length === 1 ? "it" : "them";
+  return `## Folders taken out of this conversation
+The user took ${out.map((l) => `links/${l}/`).join(" and ")} out of this conversation: nothing from ${it} is part of it now, even where earlier messages worked there. ` +
+    `Work without ${it}, and don't ask for ${it} back unless the request can't be done otherwise.`;
 }
 
 // The request "Survey this project" sends, for the Scout.

@@ -150,3 +150,63 @@ test("feedback given earlier comes back with the feed, and jobs aren't rated", a
   expect(within(rated).getByText("“Right length.”")).toBeTruthy();
   expect(within(card("Nightly check")).queryByRole("button", { name: "Good answer" })).toBeNull();
 });
+
+test("a run reads as an exchange: your message, formatted, then the answer; no card header", () => {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  send(store, { type: "expedition_start", id: "exp-m", task: "Swap the buttons in `mp-544`: it should be **Open** then Export\n- keep the icons", source: "user" });
+  const ask = screen.getByRole("heading", { level: 3 });
+  // What you typed is shown the way the message box showed it, not with its markers.
+  expect(ask.className).toBe("ask-bubble");
+  expect(within(ask).getByText("mp-544").tagName).toBe("CODE");
+  expect(within(ask).getByText("Open").tagName).toBe("STRONG");
+  expect(within(ask).getByRole("listitem").textContent).toBe("keep the icons");
+  const run = ask.closest("article")!;
+  expect(run.querySelector(".exp-head")).toBeNull();
+  expect(within(run).queryByText("Expedition")).toBeNull();
+  expect(within(run).queryByText(/Follow-up/)).toBeNull();
+  expect(run.querySelector(".exp-ask time")).toBeTruthy();
+  // Your message first, the answer after it. Until something comes back, the answer says it's on its way.
+  expect([...run.children].map((c) => c.className)).toEqual(["exp-ask", "exp-reply"]);
+  expect(within(run).getByRole("status").textContent).toBe("Reading your message…");
+  // Stop is at the foot of the answer, beside the box for saying something to the run.
+  expect(within(run).getByRole("button", { name: "Stop" }).closest(".exp-steer")).toBeTruthy();
+  send(store, { type: "text", ...qm, text: "On it.", expeditionId: "exp-m" });
+  expect(within(run).queryByRole("status")).toBeNull();
+  expect(within(run.querySelector(".exp-reply") as HTMLElement).getByText("On it.")).toBeTruthy();
+});
+
+test("under the message: a reply says it follows on, and a scheduled job says it wasn't typed just now", () => {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  send(store,
+    { type: "expedition_start", id: "exp-1", task: "First question", source: "user" },
+    { type: "expedition_end", id: "exp-1", status: "done", text: "Answered." },
+    { type: "expedition_start", id: "exp-2", task: "And another thing", source: "user", replyTo: "exp-1" },
+    { type: "expedition_start", id: "exp-3", task: "Summarise the wiki", source: "job", job: "wiki-digest" },
+  );
+  expect(card("First question").querySelector(".ask-meta")!.textContent).not.toMatch(/Follow-up|job/);
+  expect(within(card("And another thing")).getByText("Follow-up").title).toBe("Carries the earlier conversation");
+  const job = card("Summarise the wiki");
+  expect(within(job).getByText("Scheduled job · wiki-digest")).toBeTruthy();
+  // A job has nobody to talk to: it can be stopped, and that's all.
+  expect(within(job).queryByLabelText("Message to the running expedition")).toBeNull();
+  expect(within(job).getByText("A scheduled job is running.")).toBeTruthy();
+  expect(within(job).getByRole("button", { name: "Stop" })).toBeTruthy();
+  expect(within(job).getByRole("status").textContent).toBe("Starting…");
+});
+
+test("a very long message is folded until you ask for all of it", () => {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  const brief = "Pick up APP-12\n" + Array.from({ length: 20 }, (_, i) => `- criterion ${i + 1}`).join("\n");
+  send(store, { type: "expedition_start", id: "exp-long", task: brief, source: "user" }, { type: "expedition_start", id: "exp-short", task: "Short one", source: "user" });
+  const ask = card("Short one").parentElement!.querySelector<HTMLElement>('[data-id="exp-long"] .ask-bubble')!;
+  expect(ask.className).toBe("ask-bubble folded");
+  const more = within(ask.closest("article")!).getByRole("button", { name: "Show all of it" });
+  expect(more.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(more);
+  expect(ask.className).toBe("ask-bubble");
+  expect(within(ask.closest("article")!).getByRole("button", { name: "Show less" }).getAttribute("aria-expanded")).toBe("true");
+  expect(within(card("Short one")).queryByRole("button", { name: /Show/ })).toBeNull();
+});

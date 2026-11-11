@@ -146,3 +146,14 @@ test("what needs you is one chip: several things open a list, and each row goes 
   rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} needs={[]} onNeed={onNeed} />);
   expect(screen.queryByRole("button", { name: /need/ })).toBeNull();
 });
+
+test("the name is the wordmark, drawn in the theme's text colour, with no subtitle beside it", () => {
+  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  const name = screen.getByRole("heading", { level: 1 });
+  const mark = within(name).getByRole("img", { name: "Satchel" });
+  expect(mark.querySelector("path")!.getAttribute("fill")).toBe("currentColor");
+  expect(mark.getAttribute("viewBox")).toBe("36 -656 2633 805");
+  expect(mark.querySelector("metadata")).toBeNull(); // the outline only
+  expect(screen.queryByText("Mission control")).toBeNull();
+  expect(name.textContent).toBe(""); // no emoji, no words: the drawing is the name
+});
