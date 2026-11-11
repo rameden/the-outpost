@@ -45,7 +45,9 @@ function fakeSession(calls: { name: string; args: any }[], finalText: string) {
     await server.connect(b);
     const client = new Client({ name: "fake-claude", version: "0" });
     await client.connect(a);
-    seen.tools = (await client.listTools()).tools.map((t: any) => t.name);
+    const listed = (await client.listTools()).tools;
+    seen.tools = listed.map((t: any) => t.name);
+    seen.sideBySide = listed.filter((t: any) => t.annotations?.readOnlyHint).map((t: any) => t.name).sort();
     seen.results = [];
     for (const c of calls) {
       yield { type: "assistant", parent_tool_use_id: null, message: { content: [{ type: "tool_use", id: `tu_${c.name}`, name: `mcp__camp__${c.name}`, input: c.args }] } };
@@ -178,4 +180,21 @@ test("steering: what you say mid-run is passed into the running session", async 
   const r = await runDirect("scribe", "Write the release notes", "direct", undefined, undefined, undefined, undefined, { steering });
   assert.equal(r?.status, "done");
   assert.match(got.message.content, /The user sent this while you were working[\s\S]*Skip the changelog/);
+});
+
+test("tools that only read, and dispatch, are marked so Claude Code runs several at once; writers and commands aren't", async () => {
+  const { SIDE_BY_SIDE } = await import("../src/claude-code.ts");
+  // The Quartermaster: two quests sent in one turn have to set out together, not in a queue.
+  useQueryForTests(fakeSession([], "I'm the Quartermaster.") as any);
+  const { runExpedition } = await import("../src/quartermaster.ts");
+  await runExpedition("Who are you?");
+  assert.ok(seen.sideBySide.includes("dispatch"));
+  assert.ok(seen.sideBySide.includes("read_file") && seen.sideBySide.includes("grep") && seen.sideBySide.includes("recall"));
+  for (const one of ["submit_plan", "ask_user", "remember", "schedule_job"]) assert.ok(!seen.sideBySide.includes(one), `${one} stays one at a time`);
+  // The Artificer: reading goes side by side; writing, editing and the shell don't.
+  useQueryForTests(fakeSession([], "Done.") as any);
+  await runDirect("artificer", "Hello");
+  assert.ok(seen.tools.includes("bash") && seen.tools.includes("write_file") && seen.tools.includes("edit_file"));
+  for (const one of ["bash", "write_file", "edit_file", "wiki_write", "remember"]) assert.ok(!seen.sideBySide.includes(one), `${one} stays one at a time`);
+  assert.deepEqual(seen.sideBySide.filter((t: string) => !SIDE_BY_SIDE.has(t)), []);
 });

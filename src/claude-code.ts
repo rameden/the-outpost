@@ -89,16 +89,24 @@ function toMcpContent(out: ToolOutput) {
   });
 }
 
+// Tools Claude Code may run at the same time when the model calls several in one turn. It runs
+// tools one after another unless they're marked read-only, so without this two quests sent
+// together set out in a queue, and five file reads are five round trips. dispatch is on the list
+// because quests are built to run side by side (the camp's own limit on quests at once still
+// holds); the rest only read. Anything that writes, runs a command, or asks you stays one at a time.
+export const SIDE_BY_SIDE = new Set(["dispatch", "read_file", "view_file", "list_dir", "glob", "grep", "outline", "git", "recall", "jira"]);
+
 // An MCP server (inside this process) exposing the agent's camp tools. Handlers run in the
 // run's own context, so budgets, quests, and Stop work across tool calls.
 function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R, note: () => string | null = () => null): McpSdkServerConfigWithInstance {
   const server = new McpServer({ name: "camp", version: "1.0.0" }, { capabilities: { tools: {} } });
   const handlers = new Map<string, NonNullable<Tool["run"]>>();
-  const listed: { name: string; description?: string; inputSchema: Record<string, unknown> }[] = [];
+  const listed: { name: string; description?: string; inputSchema: Record<string, unknown>; annotations?: { readOnlyHint: true } }[] = [];
   for (const t of tools) {
     if (!t.run || !("name" in t.def) || !("input_schema" in t.def)) continue;
     handlers.set(t.def.name, t.run);
-    listed.push({ name: t.def.name, description: t.def.description, inputSchema: t.def.input_schema as Record<string, unknown> });
+    listed.push({ name: t.def.name, description: t.def.description, inputSchema: t.def.input_schema as Record<string, unknown>,
+      ...(SIDE_BY_SIDE.has(t.def.name) ? { annotations: { readOnlyHint: true as const } } : {}) });
   }
   server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: listed as any }));
   server.server.setRequestHandler(CallToolRequestSchema, async (req) => {
