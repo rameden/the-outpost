@@ -75,6 +75,7 @@ export function expeditionDigest(id: string, maxChars = 14_000): string {
     const clip = (s: string, n: number) => (String(s).length > n ? String(s).slice(0, n) + "…" : String(s));
     if (e.type === "text") lines.push(`${e.who} said: ${clip(e.text, 1500)}`);
     else if (e.type === "tool") lines.push(`${e.who} used ${e.tool} ${clip(e.input, 160)}`);
+    else if (e.type === "file") lines.push(`${e.who} ${e.change} ${e.path}.`);
     else if (e.type === "dispatch") lines.push(`${e.who} was sent on a quest.`);
     else if (e.type === "return") lines.push(`${e.who} came back (${e.status}).`);
     else if (e.type === "steer") lines.push(`The user added: ${clip(e.text, 600)}`);

@@ -223,3 +223,27 @@ test("each quest's own block says what it's for, so two by the same crew member 
   expect(blocks.every((b) => /^quest-q\d+$/.test(b.id))).toBe(true); // the crew bar's rows lead here
   expect(document.querySelector(".whos-out")).toBeNull();            // nothing floats over the answer
 });
+
+test("a file the crew wrote shows as a card in place of its tool line, and opens in the viewer", () => {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  const scribe = { who: "Scribe", emoji: "✒️", depth: 0 };
+  const path = "camp/agents/scribe/outputs/release-notes.md";
+  send(store,
+    { type: "expedition_start", id: "exp-f", task: "@scribe write the release notes", source: "direct" },
+    { type: "tool", ...scribe, tool: "write_file", input: JSON.stringify({ path, content: "# Notes" }), expeditionId: "exp-f" },
+    { type: "file", ...scribe, path, change: "created", bytes: 2300, expeditionId: "exp-f" },
+  );
+  const art = screen.getByRole("button", { name: "Open release-notes.md, created by Scribe" });
+  expect(art.textContent).toContain("release-notes.md");
+  expect(art.querySelector(".art-meta")?.textContent).toBe("Created · Markdown · 2 KB · camp/agents/scribe/outputs");
+  expect(art.className).toContain("fk-doc");
+  expect(screen.queryByText("write_file")).toBeNull(); // the card stands in for the call
+
+  const heard: unknown[] = [];
+  const on = (ev: Event) => heard.push((ev as CustomEvent).detail);
+  window.addEventListener("camp:ask", on);
+  fireEvent.click(art);
+  window.removeEventListener("camp:ask", on);
+  expect(heard).toEqual([{ do: "open-file", path }]);
+});
