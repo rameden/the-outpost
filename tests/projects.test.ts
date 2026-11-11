@@ -50,7 +50,7 @@ test("a run in a project reaches that project's folders and no others", async ()
   await withExpedition({ id: "e1", project: workP().id, scope: [W] }, async () => {
     assert.match(await read(`links/${W}/src/app.ts`), /export const app/);
     await assert.rejects(() => read(`links/${H}/plan.md`), /isn't part of this conversation: it belongs to another project/);
-    assert.match(await grepFor("scout").run!({ pattern: "shed", path: "." }).then(String), /^No matches/);
+    assert.match(await grepFor("scout").run!({ pattern: "\\bshed\\b", path: "." }).then(String), /^No matches/);
     await assert.rejects(() => bashFor("artificer").run!({ command: "ls", cwd: `links/${H}` }) as Promise<unknown>, /isn't part of this conversation/);
     assert.match(linksBlock(), new RegExp(`links/${W}/`));
     assert.doesNotMatch(linksBlock(), new RegExp(`links/${H}/`));
