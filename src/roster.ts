@@ -8,6 +8,7 @@ import { CREW, isBuiltIn, onCrewChange, type CrewId, type Identity } from "./cre
 import { readFileFor, writeFileFor, bash, bashFor, webSearch, webFetch } from "./tools.js";
 import { wikiWrite } from "./wiki.js";
 import { rememberTool } from "./memory.js";
+import { recallTool } from "./recall.js";
 import { viewFileFor } from "./attachments.js";
 import { editFileFor, listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
 import { gitFor } from "./git.js";
@@ -47,7 +48,7 @@ export const ROSTER: Record<string, AgentSpec> = {
     "Range ahead to gather intelligence: search, read, cross-check, and bring back findings with " +
       "sources. Prefer primary sources. Separate what you confirmed from what you suspect." + NOTES_RULE,
     {
-      tools: [webSearch, webFetch, readFileFor("scout"), viewFileFor("scout"), ...search("scout"), writeFileFor("scout", { outputsOnly: true }), wikiWrite(["notes"]), rememberTool("scout")],
+      tools: [webSearch, webFetch, readFileFor("scout"), viewFileFor("scout"), ...search("scout"), writeFileFor("scout", { outputsOnly: true }), wikiWrite(["notes"]), rememberTool("scout"), recallTool("scout")],
       skillDirs: ["skills/shared", "skills/scout"],
       effort: "medium",
     }
@@ -58,7 +59,7 @@ export const ROSTER: Record<string, AgentSpec> = {
       "invent facts that weren't in your brief or sources. When you write about code changes, check " +
       "what actually changed with git (diff, log, show) instead of guessing from the code as it is now.",
     {
-      tools: [readFileFor("scribe"), viewFileFor("scribe"), ...search("scribe"), writeFileFor("scribe"), editFileFor("scribe"), rememberTool("scribe")],
+      tools: [readFileFor("scribe"), viewFileFor("scribe"), ...search("scribe"), writeFileFor("scribe"), editFileFor("scribe"), rememberTool("scribe"), recallTool("scribe")],
       skillDirs: ["skills/shared", "skills/scribe"],
       effort: "medium",
     }
@@ -69,7 +70,7 @@ export const ROSTER: Record<string, AgentSpec> = {
       "change; make focused changes with edit_file (write_file only for new files); and run tests " +
       "to prove your work." + NOTES_RULE,
     {
-      tools: [readFileFor("artificer"), viewFileFor("artificer"), ...search("artificer"), writeFileFor("artificer"), editFileFor("artificer"), bash, wikiWrite(["notes"]), rememberTool("artificer")],
+      tools: [readFileFor("artificer"), viewFileFor("artificer"), ...search("artificer"), writeFileFor("artificer"), editFileFor("artificer"), bash, wikiWrite(["notes"]), rememberTool("artificer"), recallTool("artificer")],
       skillDirs: ["skills/shared", "skills/artificer"],
       maxTurns: 60, // read, edit, test, repeat: code work takes many turns
       effort: "high",
@@ -91,7 +92,7 @@ function addedMember(m: Identity): AgentSpec {
       ...(a.write === "project" ? [writeFileFor(m.id), editFileFor(m.id)] : a.write === "outputs" ? [writeFileFor(m.id, { outputsOnly: true })] : []),
       ...(a.shell ? [bashFor(m.id, m.name)] : []),
       ...(a.wiki ? [wikiWrite(["notes"])] : []),
-      rememberTool(m.id),
+      rememberTool(m.id), recallTool(m.id),
     ],
     skillDirs: ["skills/shared", `skills/${m.id}`],
     effort: "medium",

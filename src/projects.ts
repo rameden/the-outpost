@@ -17,12 +17,14 @@ import { currentProjectId, inScope, leftOutHere, type Workspace } from "./contex
 import { emit } from "./events.js";
 import { loadJobs } from "./jobs.js";
 import { loadLinks } from "./links.js";
+import { logKept, type KeptHow } from "./memlog.js";
+import { currentExpeditionId } from "./context.js";
 import { questCost, recentQuests } from "./questlog.js";
 import { allTurns } from "./threads.js";
 import { campPath, type Tool } from "./tools.js";
 
 export const PROJECTS_DIR = join("camp", "projects");
-const NOTES_MAX = 6000;       // characters of notes loaded into a prompt
+export const NOTES_MAX = 6000;       // characters of notes loaded into a prompt
 const NOTES_NUDGE = 4500;     // past this, the crew is asked to tidy them
 const BRIEF_MAX = 8000;
 const PIN_MAX = 6000;         // per pinned file
@@ -47,10 +49,11 @@ export const setProjectNotes = (id: string, text: string) => write(id, "notes.md
 export const setProjectBrief = (id: string, text: string) => write(id, "brief.md", String(text).slice(0, 20_000));
 
 // Add one dated line to a project's notes (what project_remember does; also used when you keep a feedback note).
-export function addProjectNote(id: string, text: string) {
+export function addProjectNote(id: string, text: string, how: KeptHow = "remember", run?: string) {
   if (!SAFE_ID.test(id)) throw new Error("No such project.");
   mkdirSync(dir(id), { recursive: true });
   appendFileSync(join(dir(id), "notes.md"), `- ${today()} ${text.replace(/\s+/g, " ").trim()}\n`);
+  logKept(`project:${id}`, text, how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "history" });
 }
 

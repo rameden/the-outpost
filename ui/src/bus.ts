@@ -5,6 +5,7 @@
 export type Ask =
   | { do: "open-file"; path: string; line?: number }        // a path as the crew wrote it (links/…, or inside an attached folder)
   | { do: "compose"; text: string; replyTo?: string; task?: string } // put this in the message box (as a reply to a run, named by its request)
+  | { do: "open-conversation"; id: string }                 // go to a conversation (a memory line's origin, say)
   | { do: "command"; name: string; arg?: string };          // /new, /focus, /good…
 
 const NAME = "camp:ask";

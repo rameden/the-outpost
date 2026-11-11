@@ -287,6 +287,7 @@ export function App({ store }: { store: FeedStore }) {
   useEffect(() => hear((ask) => {
     if (ask.do === "command") act.current.command(ask.name, ask.arg);
     else if (ask.do === "open-file") void act.current.openPath(ask.path, ask.line);
+    else if (ask.do === "open-conversation") { setSettings(null); setView({ kind: "conversation", id: ask.id }); }
     else if (ask.do === "compose") { if (ask.replyTo) composer.current?.setReply(ask.replyTo, ask.task ?? ""); composer.current?.setText(ask.text); }
   }), []);
   useEffect(() => {

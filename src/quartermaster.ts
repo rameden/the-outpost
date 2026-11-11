@@ -6,6 +6,7 @@ import { ROSTER } from "./roster.js";
 import { readFileFor, campMode, type Tool } from "./tools.js";
 import { CREW, findCrew } from "./crew.js";
 import { rememberTool, type SessionSource } from "./memory.js";
+import { recallTool } from "./recall.js";
 import { listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
 import { gitFor } from "./git.js";
 import { jiraTool } from "./jira.js";
@@ -334,6 +335,7 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
       gitFor("quartermaster"),
       jiraTool(),
       rememberTool("quartermaster"),
+      recallTool("quartermaster"),
       wikiWrite(["facts", "notes"]),
       proposeSkill,
       scheduleJob,
