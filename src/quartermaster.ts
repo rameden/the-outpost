@@ -233,6 +233,13 @@ export function placeOf(opts: { project?: string; links?: string[]; without?: st
   };
 }
 
+// A reply carries on in its conversation's worktrees, except in a folder that's been taken out of
+// the conversation since: that one isn't worked in any more.
+function stillHere<W>(workspaces: Record<string, W> | undefined, scope: string[] | undefined): Record<string, W> | undefined {
+  if (!workspaces || !scope) return workspaces;
+  return Object.fromEntries(Object.entries(workspaces).filter(([link]) => scope.includes(link)));
+}
+
 const PERSONA = `You take the user's request, plan it, and send the right adventurers to carry it out.
 Questions about you or the crew (who you are, who does what) you simply answer yourself.
 
@@ -350,15 +357,15 @@ export async function runExpedition(
   const shown = opts.displayTask ?? requestDisplay(task);
   const thread = threadFor(opts.replyTo, opts.stillRunning); // a follow-up carries the conversation it continues
   // A follow-up keeps working where the conversation was working (the same worktree), unless told otherwise.
-  const workspaces = opts.workspaces ?? thread?.workspaces;
   const where = placeOf(opts);
+  const workspaces = stillHere(opts.workspaces ?? thread?.workspaces, where.scope);
   const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.without?.length ? { without: opts.without } : {}), ...(opts.jira ? { jira: opts.jira } : {}) };
   emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
     ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
   try {
     // One shared spending tally (and the optional budget) for the Quartermaster and every quest it sends.
-    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope }, () => runAgent(buildQuartermaster(exp), task, {
+    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without }, () => runAgent(buildQuartermaster(exp), task, {
       source: opts.source ?? (opts.job ? "job" : "user"),
       extraSystem:
         `## Skill catalog (every live skill in camp, by owner)\n${skillCatalog()}` +
@@ -405,8 +412,8 @@ export async function runDirect(
   const started = new Date();
   const shown = requestDisplay(task);
   const thread = threadFor(replyTo, more.stillRunning, more.aside ? spec.id : undefined);
-  const workspaces = more.workspaces ?? thread?.workspaces;
   const where = placeOf(more);
+  const workspaces = stillHere(more.workspaces ?? thread?.workspaces, where.scope);
   const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(more.links?.length ? { links: more.links } : {}), ...(more.without?.length ? { without: more.without } : {}), ...(more.jira ? { jira: more.jira } : {}), ...(more.aside ? { aside: true } : {}) };
   emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached, ...(thread ? { replyTo } : {}), thread: turn.thread });
   recordTurn({ ...turn, reply: "", status: "running" });
@@ -417,7 +424,7 @@ export async function runDirect(
     ? note + task
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));
   try {
-    const result = await withExpedition({ id, budget: where.budget, signal, workspaces, steering: more.steering, project: where.project, scope: where.scope }, () => withQuest(questId, async () => {
+    const result = await withExpedition({ id, budget: where.budget, signal, workspaces, steering: more.steering, project: where.project, scope: where.scope, without: more.without }, () => withQuest(questId, async () => {
       const extraSystem = [more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;
       const { result: r, checks, text } = await questWithChecks(spec, questId,
         (task) => runAgent(spec, task ?? content, { depth: 1, source, extraSystem }),

@@ -90,9 +90,12 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
   .crew .crew-toggle { position: static; align-self: flex-end; margin-left: 0; }
 }
 .top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 9px 16px 9px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
-.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.brand h1 { margin: 0; font: 600 20px/1.2 var(--serif); letter-spacing: .01em; white-space: nowrap; }
-.brand span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.brand { display: flex; align-items: center; min-width: 0; }
+.brand h1 { margin: 0; display: flex; align-items: center; color: var(--wordmark); }
+.wordmark { display: block; height: 26px; width: auto; flex: none; } /* the name, drawn (Wordmark.tsx), in the artwork's own ink for each theme */
+:root { --wordmark: #14161A; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wordmark: #ECE6D8; } }
+:root[data-theme="dark"] { --wordmark: #ECE6D8; }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
 /* Status reads as plain text until something needs you; only then does a chip fill in. */
 .chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; background: none; font-size: 13px; color: var(--muted); white-space: nowrap; transition: background .12s, color .12s; }
@@ -610,7 +613,7 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 
 /* ---------- Mission feed ---------- */
 .mission { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-.feed { flex: 1; min-height: 0; overflow: auto; padding: 20px clamp(16px, 3vw, 32px) 28px; display: flex; flex-direction: column; gap: 16px; }
+.feed { flex: 1; min-height: 0; overflow: auto; padding: 20px clamp(16px, 3vw, 32px) 28px; display: flex; flex-direction: column; gap: 26px; }
 /* A card that's scrolled out of view isn't laid out until it comes near: a long conversation
    costs what's on screen, not everything in it, when the page changes width. (The browser keeps
    each card's last real height, so the scrollbar holds its place.) */
@@ -623,11 +626,27 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .example { text-align: left; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--muted); font-size: 14px; transition: border-color .12s, color .12s, box-shadow .12s; }
 .example:hover { border-color: var(--border-strong); color: var(--text); box-shadow: var(--shadow); }
 
-.exp { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-lg); overflow: hidden; }
-.exp-head { display: flex; gap: 10px; align-items: flex-start; padding: 14px 18px 12px; border-bottom: 1px solid var(--border); }
-.exp-head h3 { margin: 0; font-size: 16px; line-height: 1.35; font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.exp-head time { color: var(--faint); font-size: 12px; white-space: nowrap; padding-top: 2px; }
-.exp-head .stop-btn { flex: none; margin: -3px 0 -3px 4px; padding: 3px 10px; font-size: 12.5px; }
+/* A run is one exchange: what you asked, as a message on the right, and the crew's answer under it
+   on the left. (No shadow on the answer: a run that's off screen is skipped by the browser, which
+   clips whatever its children paint outside it.) */
+.exp { display: flex; flex-direction: column; gap: 10px; }
+.exp-ask { align-self: flex-end; max-width: min(78%, 720px); min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.ask-bubble { max-width: 100%; min-width: 0; padding: 10px 15px; border-radius: 18px 18px 6px 18px; background: var(--accent-soft); font-size: 15px; overflow-wrap: anywhere; }
+.ask-bubble .md { line-height: 1.5; }
+.ask-bubble .md code, .ask-bubble .md pre { background: color-mix(in srgb, var(--text) 9%, transparent); }
+.ask-bubble.folded { max-height: 240px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 65%, transparent); mask-image: linear-gradient(#000 65%, transparent); }
+.ask-meta { display: flex; gap: 6px 10px; flex-wrap: wrap; justify-content: flex-end; align-items: center; padding-right: 4px; font-size: 12px; color: var(--faint); }
+.ask-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.ask-meta .icon { width: 12px; height: 12px; }
+.exp-ask .exp-atts { padding: 0; border: 0; justify-content: flex-end; }
+.exp-reply { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.exp-body:empty { display: none; }
+.exp-reply > :first-child { border-top: 0; }
+.exp-wait { color: var(--faint); font-size: 13.5px; }
+.exp-wait::after { content: "▍"; margin-left: 2px; animation: caret 1s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) { .exp-wait::after { animation: none; } }
+.exp-steer .stop-btn { flex: none; }
+.exp-steer .steer-note { flex: 1; align-self: center; font-size: 12.5px; color: var(--muted); }
 .exp-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
 .exp-foot { padding: 9px 18px; background: var(--surface-2); border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
 
@@ -754,6 +773,9 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .attach-btn:hover, .attach-btn[aria-expanded="true"] { color: var(--text); background: var(--surface-2); }
 .attach-btn[aria-expanded="true"] svg { transform: rotate(45deg); }
 .popover { position: absolute; bottom: calc(100% - 4px); left: clamp(16px, 3vw, 32px); z-index: 20; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 14px 36px rgba(0, 0, 0, .18); padding: 6px; }
+/* The message box is centred once the page is wider than it (980px), so its menus start at the
+   box's own left edge, not the page's. */
+.composer > .popover { left: max(clamp(16px, 3vw, 32px), calc(50% - 490px)); }
 .attach-menu { width: min(300px, calc(100% - 32px)); }
 .menu-label { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; padding: 8px 10px 4px; }
 .menu-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; font-size: 14.5px; }
@@ -899,11 +921,12 @@ details summary { cursor: pointer; font-size: 12.5px; color: var(--muted); margi
 }
 @media (max-width: 760px) {
   .top { padding: 10px 16px; }
-  .brand span { display: none; }
+  .wordmark { height: 22px; }
   .crew { padding: 10px 16px; }
   .member { flex: 0 0 220px; }
   .history { max-height: 240px; }
   .feed { padding: 16px; }
+  .exp-ask { max-width: 92%; }
   .composer { padding: 10px 16px 12px; }
   .tool, .notice { padding-left: 0; }
 }
@@ -968,7 +991,7 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .work-opt > .icon { grid-column: 2; grid-row: 1 / span 2; color: var(--accent); }
 .exp-steer { display: flex; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border); }
 .exp-steer input { flex: 1; min-width: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 13px; }
-.steer-msg { align-self: flex-end; max-width: 80%; margin: 4px 0 4px auto; padding: 7px 11px; border-radius: 12px; background: var(--accent-soft); font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; width: fit-content; }
+.steer-msg { align-self: flex-end; max-width: 80%; margin: 4px 0 4px auto; padding: 7px 12px; border-radius: 14px 14px 5px 14px; background: var(--accent-soft); font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; width: fit-content; }
 .steer-msg small { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 2px; }
 .exp-work { border-top: 1px solid var(--border); padding: 9px 16px; font-size: 12.5px; color: var(--muted); display: grid; gap: 8px; }
 .exp-work .ws { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
@@ -1307,5 +1330,8 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .wiki-edit textarea.wiki-text { font: 13px/1.6 var(--mono); min-height: 320px; resize: vertical; }
 .wiki-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
 
+.work-btn.none-used, .work-btn.none-used > .icon { color: var(--faint); } /* outside a project, nothing picked: quiet */
 .work-btn.left-out b { color: var(--faint); font-weight: 400; }
 .work-btn.left-out span { color: var(--faint); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.work-opt.work-none { border-bottom: 1px solid var(--border); border-radius: 0; margin-bottom: 4px; }

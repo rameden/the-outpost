@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, readdirSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir } from "node:os";
-import { currentWorkspaces, inScope } from "./context.js";
+import { currentWorkspaces, inScope, leftOutHere } from "./context.js";
 
 export const LINKS_PATH = "camp/links.json";
 export type LinkAccess = "read" | "write";
@@ -136,6 +136,7 @@ export function resolveLinked(path: string, mode: "read" | "write"): string | un
     link = findLink(parts[1]);
     if (!link) throw new Error(`No linked folder named "${parts[1]}". Linked: ${loadLinks().filter((l) => inScope(l.name)).map((l) => l.name).join(", ") || "none"}.`);
     // A conversation only reaches the folders of its own project (plus any the user attached).
+    if (!inScope(link.name) && leftOutHere().includes(link.name)) throw new Error(`links/${link.name}/ isn't part of this conversation: the user left it out. Work without it; if the request can't be done otherwise, tell the user, who can bring it back.`);
     if (!inScope(link.name)) throw new Error(`links/${link.name}/ isn't part of this conversation: it belongs to another project. If you need it, tell the user; they can attach it or move this conversation to that project.`);
     abs = resolve(linkRoot(link), ...parts.slice(2));
   } else if (isAbsolute(path)) {

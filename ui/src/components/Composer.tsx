@@ -9,7 +9,7 @@ import type { FeedStore } from "../feed/store.ts";
 import type { CampState, Link, PendingAttachment, SendResult, Snippet, Uploaded, JiraRef } from "../types.ts";
 import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
-import { WorkIn, chosenWorkspaces, leftOut, useRepos, type WorkChoice } from "./WorkIn.tsx";
+import { LEFT_OUT, USED, WorkIn, chosenWorkspaces, leftOut, outsideChoice, outsidePick, replyPick, useRepos, usedIn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
 
 const MAX_FILE = 25 * 1024 * 1024;
@@ -72,6 +72,15 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const [reply, setReply] = useState<{ id: string; task: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [workChoice, setWorkChoice] = useState<WorkChoice>({});
+  // Outside a project (General, or no project at all) a conversation gets no linked folder unless
+  // one is picked or attached, so there the picker is opt-in: every folder starts as not used.
+  const optIn = !context?.folders;
+  // Whether this is a follow-up, which stays where its conversation was working.
+  const follows = reply?.id ?? context?.replyTo;
+  const followsUp = !!follows;
+  // A pick made on one kind of page means nothing on another: "use" in a project, "leave out" outside
+  // one. A follow-up's only picks are a folder taken out of its conversation, or brought into it.
+  const picks: WorkChoice = Object.fromEntries(Object.entries(workChoice).filter(([, v]) => (followsUp ? v === LEFT_OUT || v === USED : v !== (optIn ? LEFT_OUT : USED))));
   // A chained request: it waits for this run to finish before it starts.
   const [after, setAfter] = useState<{ id: string; name: string } | null>(null);
   const [afterOpen, setAfterOpen] = useState(false);
@@ -79,8 +88,10 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const afterLive = after && inFlight.some((w) => w.id === after.id) ? after : null; // it finished meanwhile: nothing to wait for
   const [sends, setSends] = useState(0);
   const { repos, reload: reloadRepos, switchBranch } = useRepos(S?.links); // links added or removed: look again
-  // Moving to another project starts from that project's own default for where to work.
-  const projectKey = `${context?.project ?? ""}|${context?.newWorktree ? "new" : ""}|${(context?.folders ?? []).join(",")}`;
+  // Moving to another project starts from that project's own default for where to work. So does
+  // moving anywhere else (another conversation, a reply to a particular run): a pick belongs to the
+  // place it was made, and mustn't follow you into a conversation it wasn't meant for.
+  const projectKey = `${context?.project ?? ""}|${context?.newWorktree ? "new" : ""}|${(context?.folders ?? []).join(",")}|${draftKey ?? ""}|${reply?.id ?? ""}`;
   useEffect(() => {
     const fresh = context?.newWorktree ? "new" : "";
     const editable = repos.filter((r) => r.access === "write" && (context?.folders ?? []).includes(r.link));
@@ -172,7 +183,9 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   }
 
   // The linked folders attached right now, for whoever wants to show them (the Files flyout).
-  const linkedNow = pending.filter((a) => a.kind === "folder" && a.path?.startsWith("links/")).map((a) => a.path!.slice(6)).join("\n");
+  // (and, outside a project, the ones picked under "Where to work").
+  const attachedLinks = pending.filter((a) => a.kind === "folder" && a.path?.startsWith("links/")).map((a) => a.path!.slice(6));
+  const linkedNow = [...new Set([...attachedLinks, ...(usedIn(picks) ?? [])])].join("\n");
   useEffect(() => { onFolders?.(linkedNow ? linkedNow.split("\n") : []); }, [linkedNow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A Jira ticket: the camp reads it now and keeps it with this message's uploads, so the crew
@@ -230,9 +243,22 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
 
   // ---------- The + menu ----------
   const closeMenu = () => setMenu(null);
-  // The repositories this conversation can work in, and whether it is a follow-up (which stays put).
+  // The repositories this conversation can work in.
   const workRepos = context?.folders ? repos.filter((r) => context.folders!.includes(r.link)) : repos;
-  const followsUp = !!reply || !!context?.replyTo;
+  // The folders that aren't git repositories: no branch to pick, but they can be used or left out too.
+  const plainFolders = (optIn ? (S?.links ?? []).map((l) => l.name) : context!.folders!).filter((f) => !repos.some((r) => r.link === f) && !!S?.links.some((l) => l.name === f));
+  const everyFolder = [...workRepos.map((r) => r.link), ...plainFolders];
+  // What the picker shows. Outside a project that's "not used" for everything but what's been picked
+  // or attached to the message; a pick of "use it" reads as the linked checkout.
+  // On a follow-up it's only what this reply changes.
+  const shownChoice = optIn && !followsUp ? outsideChoice(picks, everyFolder, attachedLinks) : picks;
+  // A follow-up outside a project: everything its conversation doesn't already have is "not used".
+  const followed = follows ? S?.history.conversations.find((c) => c.expeditions.includes(follows)) : undefined;
+  const followedProject = followed && followed.project !== "general" ? S?.history.projects.find((p) => p.id === followed.project) : undefined;
+  const there = followed && [...(followedProject?.links ?? []), ...(followed.links ?? []), ...Object.keys(followed.workspaces ?? {})].filter((l) => !followed.without?.includes(l));
+  const notUsed = optIn && followsUp ? (there ? everyFolder.filter((l) => !there.includes(l)) : undefined) : context?.without;
+  const working = context?.working ?? (optIn && followed?.workspaces ? Object.fromEntries(Object.entries(followed.workspaces).map(([l, w]) => [l, w.branch])) : undefined);
+  const dropLinks = (names: string[]) => setPending((list) => list.filter((a) => !(a.kind === "folder" && names.some((n) => a.path === `links/${n}`))));
   useEffect(() => {
     const onDown = (ev: MouseEvent) => {
       const t = ev.target as Node;
@@ -349,12 +375,12 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       return setMention(null);
     }
     try {
-      const follows = reply?.id ?? context?.replyTo;
       const r = await api<SendResult>("/api/send", { text: message, attachments, ...(afterLive ? { after: afterLive.id } : {}),
-        ...(follows ? { replyTo: follows } : { workspaces: chosenWorkspaces(workChoice), without: leftOut(workChoice), project: context?.project }) });
+        ...(follows ? { replyTo: follows, use: usedIn(picks), without: leftOut(picks) } : { workspaces: chosenWorkspaces(picks), use: usedIn(picks), without: leftOut(picks), project: context?.project }) });
       if (draftKey) storeRemove(`camp-draft:${draftKey}`); // sent: it's no longer a draft, here or on a fresh page
       onSent?.(r);
       setSends((n) => n + 1); // a new worktree shows up in the picker a moment later
+      setWorkChoice({}); // the picks were for that request: the next one starts clean
       setReply(null);
       setAfter(null);
       setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
@@ -418,12 +444,22 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       )}
       {menu && (
         <AttachMenu S={S} view={menu} setView={setMenu} text={text} onClose={closeMenu}
-          repos={workRepos} work={workChoice} workLocked={followsUp} workOptional={!!context?.folders} workWithout={context?.without}
+          repos={workRepos} work={shownChoice} workLocked={followsUp} workOptional workOptIn={optIn} workWithout={notUsed} workPlain={plainFolders} workWorking={working}
+          onWorkAll={(v) => {
+            // A reply: take out everything the conversation has, or bring back everything it's without.
+            if (followsUp) return setWorkChoice(() => Object.fromEntries(everyFolder.flatMap((l) => { const kept = replyPick(v, !!notUsed?.includes(l)); return kept ? [[l, kept]] : []; })));
+            // Outside a project "none" is simply nothing picked, and nothing attached.
+            if (optIn) { setWorkChoice((c) => Object.fromEntries(Object.entries(c).filter(([l]) => !everyFolder.includes(l)))); return dropLinks(everyFolder); }
+            setWorkChoice((c) => { const next = { ...c }; for (const l of everyFolder) { if (v) next[l] = v; else if (next[l] === "none") delete next[l]; } return next; });
+          }}
           onBranch={switchBranch}
           onJira={(issue) => { void attachJira(issue); focus(); }} onConnectJira={() => say({ do: "command", name: "connectors" })}
           onWork={(link, v) => {
-            setWorkChoice((c) => { const next = { ...c }; if (v) next[link] = v; else delete next[link]; return next; });
-            if (workRepos.length === 1) { closeMenu(); focus(); } // with several, you may want to set the others too
+            // Outside a project the linked checkout has to be asked for ("use"), and "not used" is no pick at all.
+            const kept = followsUp ? replyPick(v, !!notUsed?.includes(link)) : optIn ? outsidePick(v) : v;
+            if (v === LEFT_OUT && (optIn || followsUp)) dropLinks([link]); // not used, so not attached to the message either
+            setWorkChoice((c) => { const next = { ...c }; if (kept) next[link] = kept; else delete next[link]; return next; });
+            if (everyFolder.length === 1) { closeMenu(); focus(); } // with several, you may want to set the others too
           }}
           onTalkTo={(id) => { setText((id ? `@${id} ` : "") + text.replace(/^@\w+\s*/, "")); closeMenu(); focus(); }}
           onPick={pick}
@@ -443,8 +479,9 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
             onClick={() => { setMention(null); setMenu(menu ? null : "main"); }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           </button>
-          <WorkIn repos={workRepos} choice={workChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"} working={context?.working} without={context?.without}
-            onOpen={() => { setMention(null); setMenu(menu === "work" ? null : "work"); }} />
+          {/* A follow-up to a run that isn't in the record yet: nothing is known about its folders, so nothing is claimed. */}
+          {!(optIn && followsUp && !there) && <WorkIn repos={workRepos} choice={shownChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"} working={working} without={notUsed} plain={plainFolders} optIn={optIn}
+            onOpen={() => { setMention(null); setMenu(menu === "work" ? null : "work"); }} />}
           {inFlight.length > 0 && (
             <span className="after-pick">
               <button type="button" className={afterLive ? "work-btn changed" : "work-btn"} aria-haspopup="menu" aria-expanded={afterOpen}

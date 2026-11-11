@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type R
 import { api, errorText } from "../api.ts";
 import type { CampState, Link, PickResult, RepoInfo, Snippet, JiraRef } from "../types.ts";
 import { JiraPicker } from "./Jira.tsx";
-import { WorkOptions, workingOn, type WorkChoice } from "./WorkIn.tsx";
+import { WorkOptions, outOnReply, workingOn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon as LineIcon } from "./bits.tsx";
 
 export type MenuView = "main" | "crew" | "work" | "url" | "link" | "jira" | "snippets";
@@ -18,7 +18,7 @@ const Icon = ({ d, children }: { d?: string; children?: ReactNode }) => (
 );
 const FOLDER = "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z";
 
-export function AttachMenu({ S, view, setView, text, repos, work, workLocked, workOptional, workWithout, onWork, onBranch, onJira, onConnectJira, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets }: {
+export function AttachMenu({ S, view, setView, text, repos, work, workLocked, workOptional, workWithout, workPlain = [], workOptIn, workWorking, onWorkAll, onWork, onBranch, onJira, onConnectJira, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets }: {
   S: CampState | null;
   view: MenuView;
   setView: (v: MenuView) => void;
@@ -28,6 +28,10 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
   workLocked: boolean;                            // a follow-up: it stays where its conversation was
   workOptional?: boolean;                         // these are a project's folders: a conversation can be started without one
   workWithout?: string[];                         // a follow-up: the folders its conversation was started without
+  workPlain?: string[];                           // the folders that aren't git repositories (they can be left out too)
+  workOptIn?: boolean;                            // outside a project: no folder is used unless it's picked
+  workWorking?: Record<string, string>;           // a follow-up: the branch its conversation works on, where that's a worktree
+  onWorkAll?: (value: "" | "none") => void;       // leave every folder out, or use them all again
   onWork: (link: string, value: string) => void;
   onBranch?: (link: string, name: string, create: boolean) => Promise<void>;
   onJira?: (issue: JiraRef) => void;          // a Jira ticket picked to attach
@@ -42,6 +46,10 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
   onInsertSnippet: (text: string) => void;
   onSnippets: (fn: (list: Snippet[]) => Snippet[]) => void;
 }) {
+  // The folders left out right now: chosen for the next request, or (a follow-up) by the conversation.
+  const leftOutNow = [...repos.map((r) => r.link), ...workPlain].filter((l) => (workLocked ? outOnReply(work, workWithout, l) : work[l] === "none"));
+  const usedNow = [...repos.map((r) => r.link), ...workPlain].filter((l) => !leftOutNow.includes(l));
+  const usedRepo = repos.find((r) => r.link === usedNow[0]);
   const box = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState("");
   const [access, setAccess] = useState<"read" | "write">("read");
@@ -53,7 +61,7 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
 
   // The menu opens with the keyboard on its first row; a panel, on its first control.
   useEffect(() => {
-    const first = view === "main" ? '[data-view="main"] .menu-item' : view === "link" ? ".fly .pick-folder" : view === "snippets" ? ".fly button" : view === "work" ? ".fly .work-opt" : ".fly input";
+    const first = view === "main" ? '[data-view="main"] .menu-item' : view === "link" ? ".fly .pick-folder" : view === "snippets" ? ".fly button" : view === "work" ? '.fly .work-opt[role="menuitemradio"]'  : ".fly input";
     box.current?.querySelector<HTMLElement>(first)?.focus();
   }, [view]);
 
@@ -145,11 +153,14 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
           <button type="button" {...flyRow("crew")}><LineIcon name="users" />Crew<LineIcon name="chevronRight" /></button>
           <div className="menu-sep" />
         </>}
-        {repos.length > 0 && <>
+        {(repos.length > 0 || (workOptional && workPlain.length > 0)) && <>
           <div className="menu-label">Work in</div>
           <button type="button" {...flyRow("work")}>
-            <LineIcon name="branch" />Branch
-            <small className="menu-now">{repos.length === 1 ? (workLocked && workWithout?.includes(repos[0].link) ? "not used" : workingOn(repos[0], work[repos[0].link] ?? "")) : `${repos.length} repositories`}</small>
+            <LineIcon name={repos.length && !workOptIn ? "branch" : "folder"} />{repos.length && !workOptIn ? "Branch" : "Folders"}
+            <small className="menu-now">{leftOutNow.length && leftOutNow.length === repos.length + workPlain.length ? "none used"
+              : workOptIn ? (usedNow.length === 1 ? (usedRepo ? `${usedRepo.link} · ${workingOn(usedRepo, work[usedRepo.link] ?? "")}` : usedNow[0]) : `${usedNow.length} used`)
+              : repos.length === 1 && !workPlain.length ? (leftOutNow.includes(repos[0].link) ? "not used" : workingOn(repos[0], work[repos[0].link] ?? ""))
+              : leftOutNow.length ? `${leftOutNow.length} left out` : repos.length + workPlain.length === 1 ? "used" : `${repos.length + workPlain.length} folders`}</small>
             <LineIcon name="chevronRight" />
           </button>
           <div className="menu-sep" />
@@ -199,7 +210,7 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
         <div className="fly" role="dialog" aria-label="Where to work" onKeyDown={onFlyKeys}>
           <div className="fly-head">Where to work <small>for the next request</small></div>
           <div className="fly-list" role="menu">
-            <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} onBranch={onBranch} canLeaveOut={workOptional} without={workWithout} />
+            <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} onBranch={onBranch} canLeaveOut={workOptional} without={workWithout} plain={workPlain} onPickAll={onWorkAll} optIn={workOptIn} working={workWorking} />
           </div>
         </div>
       )}

@@ -660,11 +660,16 @@ const server = http.createServer(async (req, res) => {
       const project = projectOf(replyTo ? thread?.thread : undefined, body.project);
       const named = new Set(loadLinks().map((l) => l.name));
       const mentioned = [...attached.map((a) => a.path ?? ""), text].flatMap((t) => [...t.matchAll(/(?:^|[\s@("'`])links\/([A-Za-z0-9_-]+)/g)].map((m) => m[1]));
-      const links = [...new Set([...(replyTo ? thread?.links ?? [] : []), ...mentioned, ...Object.keys(workspaces ?? {})])].filter((l) => named.has(l));
-      // { without: [<link>, …] }: folders of the project this conversation is started without. A reply keeps
-      // its conversation's. One that's attached or mentioned here is in after all.
-      const without = (replyTo ? thread?.without ?? [] : Array.isArray(body.without) ? body.without.map(String) : [])
-        .filter((l: string) => named.has(l) && !links.includes(l));
+      // { use: [<link>, …] }: folders picked for a new conversation under "Where to work", to be used as
+      // they are (their linked checkout). It's how a conversation outside a project is given one.
+      // On a reply it brings a folder into the conversation from then on.
+      const picked: string[] = Array.isArray(body.use) ? body.use.map(String) : [];
+      // { without: [<link>, …] }: folders this conversation goes without. On a new one, folders of its
+      // project it's started without; on a reply, folders taken out from this message on (the reply
+      // keeps its conversation's others). One that's attached, mentioned or picked here is in after all.
+      const asked: string[] = Array.isArray(body.without) ? body.without.map(String) : [];
+      const links = [...new Set([...(replyTo ? (thread?.links ?? []).filter((l) => !asked.includes(l)) : []), ...mentioned, ...picked, ...Object.keys(workspaces ?? {})])].filter((l) => named.has(l));
+      const without = [...new Set([...(replyTo ? thread?.without ?? [] : []), ...asked])].filter((l) => named.has(l) && !links.includes(l));
       // A project can start every new conversation in its own worktree of each of its repos.
       if (!replyTo && !workspaces && !after && project.settings?.workIn === "worktree" && project.links?.length) {
         try {
@@ -684,7 +689,7 @@ const server = http.createServer(async (req, res) => {
         const before = allTurns().find((t) => t.expedition === after);
         return {
           workspaces: workspaces ?? (replyTo ? undefined : before?.workspaces),
-          links: [...new Set([...where.links, ...(before?.links ?? []), ...Object.keys(before?.workspaces ?? {})])].filter((l) => named.has(l)),
+          links: [...new Set([...where.links, ...(before?.links ?? []), ...Object.keys(before?.workspaces ?? {})])].filter((l) => named.has(l) && !without.includes(l)),
           extraSystem: chainNote(before, !!thread && before?.thread === thread.thread),
         };
       };

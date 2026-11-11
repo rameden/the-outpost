@@ -32,7 +32,7 @@ const { grepFor } = await import("../src/codetools.ts");
 const { isAutoApproved, approvalNow } = await import("../src/shell.ts");
 const { runExpedition, runDirect, placeOf } = await import("../src/quartermaster.ts");
 const { recentQuests } = await import("../src/questlog.ts");
-const { threadFor, recordTurn } = await import("../src/threads.ts");
+const { threadFor, recordTurn, foldersOf, allTurns } = await import("../src/threads.ts");
 const { setBudgetUsd, setAutoTitles } = await import("../src/settings.ts");
 const { cleanTitle } = await import("../src/titles.ts");
 const { scheduleJob, loadJobs } = await import("../src/jobs.ts");
@@ -181,6 +181,9 @@ test("a conversation can be started without its project's folder: the crew is gi
   assert.deepEqual(placeOf({ project: id, links: [H], without: [W] }).scope, [H], "another folder attached to it is still in");
   assert.deepEqual(placeOf({ project: id, links: [W], without: [W] }).scope, [W], "attached or mentioned after all, it's back");
   assert.equal(placeOf({}).scope, undefined, "outside mission control, nothing is scoped");
+  // Outside a project there's nothing to leave out: a conversation has only what was brought in.
+  assert.deepEqual(placeOf({ project: "general", links: [] }).scope, []);
+  assert.deepEqual(placeOf({ project: "general", links: [W] }).scope, [W], "picked under Where to work, attached, or mentioned");
 
   api.seen.length = 0;
   script = () => ({ text: "Answered from what I know." });
@@ -188,7 +191,7 @@ test("a conversation can be started without its project's folder: the crew is gi
   const system = api.seen[0].body.system.map((x: any) => x.text).join("\n");
   assert.ok(!system.includes("WORK RULES"), "the folder's own instructions aren't loaded");
   assert.doesNotMatch(system, new RegExp(`It is about links/${W}/`));
-  assert.match(system, new RegExp(`The user started this conversation without links/${W}/: nothing from it is part of this conversation\\.`));
+  assert.match(system, new RegExp(`The user left links/${W}/ out of this conversation: nothing from it is part of this conversation\\.`));
   assert.match(system, /## Project: /, "it's still that project's conversation: its notes and description apply");
   // The crew can't reach into it either.
   await withExpedition({ id: "noctx-read", project: id, scope: placeOf({ project: id, links: [], without: [W] }).scope }, async () => {
@@ -209,4 +212,61 @@ test("a conversation can be started without its project's folder: the crew is gi
   await runExpedition("And with the project's folder?", { id: "ctx1", project: id, links: [] });
   assert.ok(api.seen[0].body.system.map((x: any) => x.text).join("\n").includes("WORK RULES"));
   assert.equal(threadFor("ctx1")!.without?.length, 0);
+});
+
+test("a folder can be taken out of a conversation part-way: from that reply on the crew has nothing from it, and is told so", async () => {
+  // A conversation's folders are read off its runs in order: taken out, it's out; given again later, it's back.
+  assert.deepEqual(foldersOf([{ links: [W, H] }, { links: [H], without: [W] }, { links: [H], without: [W] }]), { links: [H], without: [W] });
+  assert.deepEqual(foldersOf([{ links: [W] }, { without: [W] }, { links: [W] }]), { links: [W], without: [] });
+  assert.deepEqual(foldersOf([{ without: [W] }, { links: [W], without: [W] }]), { links: [W], without: [] }, "given and left out by the same run: it was given");
+
+  // Outside a project: a conversation that was given a folder, in its own worktree.
+  const system = () => api.seen[0].body.system.map((x: any) => x.text).join("\n");
+  const worktree = { [W]: { link: W, path: work, branch: "camp/try", created: true } };
+  script = () => ({ text: "Looked." });
+  api.seen.length = 0;
+  await runExpedition("What's in the app?", { id: "drop1", project: "general", links: [W], workspaces: worktree });
+  assert.match(system(), new RegExp(`- links/${W}/ \\(you may edit files here`));
+  assert.ok(system().includes("WORK RULES"));
+  assert.doesNotMatch(system(), /Folders taken out of this conversation/);
+
+  // The reply takes it out (what the page sends as `without`; the server drops it from the conversation's folders).
+  api.seen.length = 0;
+  await runExpedition("Now just tell me about pnpm.", { id: "drop2", replyTo: "drop1", project: "general", links: [], without: [W] });
+  assert.doesNotMatch(system(), new RegExp(`- links/${W}/ \\(`), "it's not among the linked folders");
+  assert.ok(!system().includes("WORK RULES"), "its own instructions aren't loaded any more");
+  assert.match(system(), new RegExp(`## Folders taken out of this conversation\\nThe user took links/${W}/ out of this conversation: nothing from it is part of it now, even where earlier messages worked there\\.`));
+  assert.equal(allTurns().find((t) => t.expedition === "drop2")!.workspaces, undefined, "it isn't worked in any more, worktree or not");
+  assert.deepEqual(threadFor("drop2")!.links, []);
+  assert.deepEqual(threadFor("drop2")!.without, [W]);
+  const listed = () => c.history().conversations.find((x) => x.id === "drop1")!;
+  assert.equal(listed().links, undefined);
+  assert.deepEqual(listed().without, [W]);
+  // The crew can't reach into it, and the refusal says why.
+  await withExpedition({ id: "drop-read", project: "general", scope: [], without: [W] }, async () => {
+    await assert.rejects(() => read(`links/${W}/src/app.ts`), /isn't part of this conversation: the user left it out\. Work without it/);
+    await assert.rejects(() => read(`links/${H}/plan.md`), /it belongs to another project/, "a folder that was never here still says that");
+  });
+
+  // The next reply stays that way; one that's given the folder again has it back.
+  api.seen.length = 0;
+  await runExpedition("And yarn?", { id: "drop3", replyTo: "drop2", project: "general", links: threadFor("drop2")!.links, without: threadFor("drop2")!.without });
+  assert.match(system(), /## Folders taken out of this conversation/);
+  api.seen.length = 0;
+  await runExpedition(`Back to links/${W}/src/app.ts`, { id: "drop4", replyTo: "drop3", project: "general", links: [W] });
+  assert.match(system(), new RegExp(`- links/${W}/ \\(you may edit files here`));
+  assert.doesNotMatch(system(), /Folders taken out of this conversation/);
+  assert.deepEqual(listed().links, [W]);
+  assert.equal(listed().without, undefined);
+  assert.deepEqual(allTurns().find((t) => t.expedition === "drop3")!.workspaces, undefined);
+  assert.deepEqual(allTurns().find((t) => t.expedition === "drop4")!.workspaces, worktree, "brought back, it picks up in the worktree it was working in");
+
+  // In a project, its own folder taken out part-way is named in the project's block, once.
+  const id = workP().id;
+  await runExpedition("Where's the entry point?", { id: "pdrop1", project: id, links: [] });
+  api.seen.length = 0;
+  await runExpedition("Thanks. Unrelated: what's a good name for a cat?", { id: "pdrop2", replyTo: "pdrop1", project: id, links: [], without: [W] });
+  assert.match(system(), new RegExp(`The user left links/${W}/ out of this conversation: nothing from it is part of this conversation\\.`));
+  assert.doesNotMatch(system(), /Folders taken out of this conversation/);
+  assert.ok(!system().includes("WORK RULES"));
 });

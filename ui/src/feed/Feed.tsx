@@ -1,7 +1,8 @@
-// The live feed: one card per expedition (several can be running), each with its quests, the
-// crew's messages and tool calls, and any approvals waiting inside it.
+// The live feed, as a back and forth: each run is what you asked (a message on the right) and the
+// crew's answer under it (on the left: its quests, the crew's messages and tool calls, and any
+// approvals waiting inside it). Several can be running at once.
 
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, errorText } from "../api.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { cClass, clock, cx, plural, spaced } from "../format.ts";
@@ -61,8 +62,32 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   );
 }
 
-// While an expedition runs you can say something to it; the agents working in it see it on their next step.
-function SteerBar({ expId }: { expId: string }) {
+// Your side of the exchange: what you asked, set as a message. It's formatted the way the message
+// box showed it as you typed (code, bold, lists), and a very long one (a ticket's brief, say) is
+// folded until you ask for the rest. Under it: when, and what kind of request it was if that isn't plain.
+const LONG_ASK = { chars: 900, lines: 14 };
+function Ask({ exp }: { exp: ExpNode }) {
+  const [whole, setWhole] = useState(false);
+  const long = exp.task.length > LONG_ASK.chars || exp.task.split("\n").length > LONG_ASK.lines;
+  return (
+    <div className="exp-ask">
+      {exp.attachments.length > 0 && <div className="exp-atts">{exp.attachments.map((a, i) => <AttachmentChip key={i} a={a} big />)}</div>}
+      {/* Still the run's heading, so it can be found and jumped to like one. */}
+      <div className={cx("ask-bubble", long && !whole && "folded")} role="heading" aria-level={3}><Markdown text={exp.task} /></div>
+      {long && <button type="button" className="linkish" aria-expanded={whole} onClick={() => setWhole((v) => !v)}>{whole ? "Show less" : "Show all of it"}</button>}
+      <div className="ask-meta">
+        {exp.source === "job" && <span title="Sent by a scheduled job, not typed just now">Scheduled job · {exp.job}</span>}
+        {exp.followUp && <span title="Carries the earlier conversation"><Icon name="reply" /> Follow-up</span>}
+        <time>{clock(exp.time)}</time>
+      </div>
+    </div>
+  );
+}
+
+// While an expedition runs you can say something to it; the agents working in it see it on their
+// next step. Stop sits beside it: at the foot of the answer, where the newest lines are.
+// canSteer: a scheduled job has nobody to talk to, so it gets only Stop.
+function SteerBar({ expId, stop, canSteer }: { expId: string; stop: ReactNode; canSteer: boolean }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLInputElement>(null);
@@ -76,11 +101,13 @@ function SteerBar({ expId }: { expId: string }) {
     setBusy(false);
     box.current?.focus();
   }
+  if (!canSteer) return <div className="exp-steer"><span className="steer-note">A scheduled job is running.</span>{stop}</div>;
   return (
     <form className="exp-steer" onSubmit={send}>
       <input ref={box} value={text} disabled={busy} onChange={(ev) => setText(ev.target.value)}
         placeholder="Say something to this expedition while it works…" aria-label="Message to the running expedition" />
       <button className="btn small" type="submit" disabled={busy}>Send</button>
+      {stop}
     </form>
   );
 }
@@ -143,7 +170,6 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
   const [stop, setStop] = useState<"idle" | "stopping" | "gone">("idle");
   const [showChanges, setShowChanges] = useState(false);
   const [resuming, setResuming] = useState(false);
-  const label = exp.source === "job" ? `Job · ${exp.job}` : exp.source === "direct" ? "Direct" : "Expedition";
   const end = exp.end;
   const ok = end?.status === "done";
   const answeredBy = exp.source === "direct" ? exp.task.match(/^@(\w+)/)?.[1] : undefined; // a direct chat's own crew member
@@ -162,41 +188,39 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
 
   return (
     <article className="exp" data-id={exp.expId}>
-      <header className="exp-head">
-        <span className={cx("badge", exp.source === "job" ? "job" : exp.source === "direct" ? "direct" : "")}>{label}</span>
-        {exp.followUp && <span className="badge follow" title="Carries the earlier conversation"><Icon name="reply" /> Follow-up</span>}
-        <h3>{exp.task}</h3>
-        <time>{clock(exp.time)}</time>
-        {!end && stop !== "gone" && (
+      <Ask exp={exp} />
+      <div className="exp-reply">
+        <div className="exp-body">
+          {/* Nothing back yet: say so, so the answer's place isn't an empty box. */}
+          {!end && exp.nodes.length === 0 ? <div className="exp-wait" role="status">{exp.source === "job" ? "Starting…" : "Reading your message…"}</div> : <Nodes nodes={exp.nodes} onReply={onReply} />}
+        </div>
+        {!end && <SteerBar expId={exp.expId} canSteer={exp.source !== "job"} stop={stop !== "gone" && (
           <button type="button" className="btn small danger stop-btn" title="Stop this expedition and every quest in it" disabled={stop === "stopping"} onClick={stopIt}>
             {stop === "stopping" ? "Stopping…" : "Stop"}
           </button>
+        )} />}
+        {end && showChanges && <Changes expId={exp.expId} />}
+        {end && end.workspaces.length > 0 && <WorkspaceBox workspaces={end.workspaces} task={exp.task} expId={exp.expId} />}
+        {end && exp.source !== "job" && <FeedbackBar expId={exp.expId} given={exp.feedback} />}
+        {end && (
+          <footer className="exp-foot">
+            <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Complete" : spaced(end.status)}</span>
+            <span>{end.seconds < 90 ? `${end.seconds}s` : `${Math.round(end.seconds / 60)} min`}</span>
+            {end.changed > 0 && <span>· {end.changed} {plural(end.changed, "file")} changed</span>}
+            <span className="foot-actions">
+              {end.changed > 0 && <button type="button" className="btn small" onClick={() => setShowChanges((v) => !v)}>{showChanges ? "Hide changes" : "View changes"}</button>}
+              {!ok && exp.source !== "job" && (
+                <button type="button" className="btn small primary" title="Start again from what this run had done, without redoing finished work" disabled={resuming} onClick={resume}>Resume</button>
+              )}
+              {ok && exp.source !== "job" && (end.changed > 0 || end.workspaces.length > 0) && <AsideButton expId={exp.expId} kind="review" answeredBy={answeredBy} />}
+              {ok && exp.source !== "job" && <AsideButton expId={exp.expId} kind="opinion" answeredBy={answeredBy} />}
+              {exp.source !== "job" && (
+                <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>
+              )}
+            </span>
+          </footer>
         )}
-      </header>
-      {exp.attachments.length > 0 && <div className="exp-atts">{exp.attachments.map((a, i) => <AttachmentChip key={i} a={a} big />)}</div>}
-      <div className="exp-body"><Nodes nodes={exp.nodes} onReply={onReply} /></div>
-      {!end && exp.source !== "job" && <SteerBar expId={exp.expId} />}
-      {end && showChanges && <Changes expId={exp.expId} />}
-      {end && end.workspaces.length > 0 && <WorkspaceBox workspaces={end.workspaces} task={exp.task} expId={exp.expId} />}
-      {end && exp.source !== "job" && <FeedbackBar expId={exp.expId} given={exp.feedback} />}
-      {end && (
-        <footer className="exp-foot">
-          <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Complete" : spaced(end.status)}</span>
-          <span>{end.seconds < 90 ? `${end.seconds}s` : `${Math.round(end.seconds / 60)} min`}</span>
-          {end.changed > 0 && <span>· {end.changed} {plural(end.changed, "file")} changed</span>}
-          <span className="foot-actions">
-            {end.changed > 0 && <button type="button" className="btn small" onClick={() => setShowChanges((v) => !v)}>{showChanges ? "Hide changes" : "View changes"}</button>}
-            {!ok && exp.source !== "job" && (
-              <button type="button" className="btn small primary" title="Start again from what this run had done, without redoing finished work" disabled={resuming} onClick={resume}>Resume</button>
-            )}
-            {ok && exp.source !== "job" && (end.changed > 0 || end.workspaces.length > 0) && <AsideButton expId={exp.expId} kind="review" answeredBy={answeredBy} />}
-            {ok && exp.source !== "job" && <AsideButton expId={exp.expId} kind="opinion" answeredBy={answeredBy} />}
-            {exp.source !== "job" && (
-              <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>
-            )}
-          </span>
-        </footer>
-      )}
+      </div>
     </article>
   );
 }

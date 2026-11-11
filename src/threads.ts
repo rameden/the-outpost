@@ -28,7 +28,8 @@ const DRAWER_WINDOW_MS = 6 * 3_600_000;
 export type Turn = { thread: string; expedition: string; agent: string; direct: boolean; time: string; task: string; reply: string; status: string;
   workspaces?: Record<string, Workspace>;
   links?: string[];   // linked folders attached along the way, beyond its project's own
-  // Folders of its project that this conversation was started without: nothing from them is given to the crew.
+  // Folders this conversation is without from this run on: its project's folders it was started
+  // without, and any folder taken out along the way. Nothing from them is given to the crew.
   without?: string[];
   jira?: string;      // the Jira ticket this conversation is working on (its key), set when it's started from one
   // aside: someone else stepping in for one turn (a second opinion, a review). It reads the
@@ -57,6 +58,18 @@ export const allTurns = (): Turn[] => all();
 export function recordTurn(t: Omit<Turn, "time">) {
   mkdirSync("camp", { recursive: true });
   appendFileSync(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }) + "\n");
+}
+
+// The folders a conversation has, as its runs leave them, oldest first: each run adds the ones it
+// was given and takes out the ones it was sent without. So a folder taken out part-way is out from
+// then on, and one that's attached or mentioned again later is back.
+export function foldersOf(turns: Pick<Turn, "links" | "without">[]): { links: string[]; without: string[] } {
+  const links = new Set<string>(), without = new Set<string>();
+  for (const t of turns) {
+    for (const l of t.without ?? []) { without.add(l); links.delete(l); }
+    for (const l of t.links ?? []) { links.add(l); without.delete(l); }
+  }
+  return { links: [...links], without: [...without] };
 }
 
 export type ThreadContext = { thread: string; agent: string; direct: boolean; turns: number; history: string;
@@ -97,11 +110,14 @@ export function threadFor(replyTo: string | undefined, stillRunning: (expedition
   const dropped = mine.length - blocks.length;
   const last = [...mine].reverse().find((t) => !t.aside) ?? mine[mine.length - 1];
   const jira = mine.find((t) => t.jira)?.jira;
+  // Where the conversation last worked in each folder, up to the run being replied to. Usually
+  // that's just where that run worked; but a folder that was taken out for a while and is brought
+  // back picks up in its worktree again, not in your own checkout.
+  const worked: Record<string, Workspace> = Object.assign({}, ...mine.slice(0, mine.indexOf(hit) + 1).map((t) => t.workspaces ?? {}));
   return {
     thread: hit.thread, agent: last.agent, direct: last.direct, turns: mine.length, ...(jira ? { jira } : {}),
-    unfinished: hit.status !== "done", workspaces: hit.workspaces,
-    links: [...new Set(mine.flatMap((t) => t.links ?? []))],
-    without: [...new Set(mine.flatMap((t) => t.without ?? []))],
+    unfinished: hit.status !== "done", workspaces: Object.keys(worked).length ? worked : hit.workspaces,
+    ...foldersOf(mine),
     history:
       (reader
         ? `## The conversation you're stepping into\nThe user has asked you into a conversation they were having with someone else, for this one turn. What was asked and answered so far is below: ` +
