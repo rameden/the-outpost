@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, sta
 import { join } from "node:path";
 import { GENERAL, getProject, history, type Project } from "./conversations.js";
 import { changedFiles } from "./checkpoints.js";
-import { currentProjectId, type Workspace } from "./context.js";
+import { currentProjectId, inScope, type Workspace } from "./context.js";
 import { emit } from "./events.js";
 import { loadJobs } from "./jobs.js";
 import { loadLinks } from "./links.js";
@@ -121,11 +121,13 @@ export function projectBlock(self: string, id = currentProjectId()): string {
   const notes = general ? "" : projectNotes(p.id);
   const brief = general ? "" : projectBrief(p.id);
   if (general && !p.description && !p.pins?.length) return "";
-  const links = loadLinks().filter((l) => p.links?.includes(l.name));
+  const links = loadLinks().filter((l) => p.links?.includes(l.name) && inScope(l.name));
+  const left = loadLinks().filter((l) => p.links?.includes(l.name) && !inScope(l.name)).map((l) => l.name); // the ones this conversation was started without
   const cap = (text: string, max: number) => (text.length > max ? "…\n" + text.slice(-max) : text);
   return `## Project: ${p.name}\n` +
     (general ? "This conversation isn't filed under a particular project." : `The user filed this conversation under their project "${p.name}".`) +
     (links.length ? ` It is about ${links.map((l) => `links/${l.name}/ (${l.access === "write" ? "you may edit files there" : "read-only"})`).join(" and ")}: unless they say otherwise, that's where the work is.` : "") +
+    (left.length ? ` The user started this conversation without ${left.map((l) => `links/${l}/`).join(" and ")}: nothing from ${left.length === 1 ? "it" : "them"} is part of this conversation. Work without ${left.length === 1 ? "it" : "them"}, and don't ask for ${left.length === 1 ? "it" : "them"} unless the request can't be done otherwise.` : "") +
     (general ? "" : " Other projects' folders aren't part of this conversation.") +
     (p.settings?.web === "careful" ? "\nThis project is confidential. Never put its name, its code, its internal names, or anything else from its files into a web search or a fetched address: phrase research generically (the library, the error message, the pattern)." : "") +
     (p.settings?.web === "off" ? "\nWeb search and fetch are turned off for this project. Work from the files, and say so if something needs looking up." : "") +

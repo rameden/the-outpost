@@ -18,7 +18,7 @@ const Icon = ({ d, children }: { d?: string; children?: ReactNode }) => (
 );
 const FOLDER = "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z";
 
-export function AttachMenu({ S, view, setView, text, repos, work, workLocked, onWork, onBranch, onJira, onConnectJira, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets }: {
+export function AttachMenu({ S, view, setView, text, repos, work, workLocked, workOptional, workWithout, onWork, onBranch, onJira, onConnectJira, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets }: {
   S: CampState | null;
   view: MenuView;
   setView: (v: MenuView) => void;
@@ -26,6 +26,8 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, on
   repos: RepoInfo[];                              // linked git repositories the next request could work in
   work: WorkChoice;                               // where it will, for each
   workLocked: boolean;                            // a follow-up: it stays where its conversation was
+  workOptional?: boolean;                         // these are a project's folders: a conversation can be started without one
+  workWithout?: string[];                         // a follow-up: the folders its conversation was started without
   onWork: (link: string, value: string) => void;
   onBranch?: (link: string, name: string, create: boolean) => Promise<void>;
   onJira?: (issue: JiraRef) => void;          // a Jira ticket picked to attach
@@ -147,7 +149,7 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, on
           <div className="menu-label">Work in</div>
           <button type="button" {...flyRow("work")}>
             <LineIcon name="branch" />Branch
-            <small className="menu-now">{repos.length === 1 ? workingOn(repos[0], work[repos[0].link] ?? "") : `${repos.length} repositories`}</small>
+            <small className="menu-now">{repos.length === 1 ? (workLocked && workWithout?.includes(repos[0].link) ? "not used" : workingOn(repos[0], work[repos[0].link] ?? "")) : `${repos.length} repositories`}</small>
             <LineIcon name="chevronRight" />
           </button>
           <div className="menu-sep" />
@@ -197,7 +199,7 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, on
         <div className="fly" role="dialog" aria-label="Where to work" onKeyDown={onFlyKeys}>
           <div className="fly-head">Where to work <small>for the next request</small></div>
           <div className="fly-list" role="menu">
-            <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} onBranch={onBranch} />
+            <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} onBranch={onBranch} canLeaveOut={workOptional} without={workWithout} />
           </div>
         </div>
       )}

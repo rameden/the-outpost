@@ -28,6 +28,8 @@ const DRAWER_WINDOW_MS = 6 * 3_600_000;
 export type Turn = { thread: string; expedition: string; agent: string; direct: boolean; time: string; task: string; reply: string; status: string;
   workspaces?: Record<string, Workspace>;
   links?: string[];   // linked folders attached along the way, beyond its project's own
+  // Folders of its project that this conversation was started without: nothing from them is given to the crew.
+  without?: string[];
   jira?: string;      // the Jira ticket this conversation is working on (its key), set when it's started from one
   // aside: someone else stepping in for one turn (a second opinion, a review). It reads the
   // conversation and is part of it, but the conversation stays with whoever it was with.
@@ -61,6 +63,7 @@ export type ThreadContext = { thread: string; agent: string; direct: boolean; tu
   unfinished: boolean;                       // the run being replied to never finished: this is a resume
   workspaces?: Record<string, Workspace>;    // where that run was working, so the reply carries on there
   links?: string[];
+  without?: string[];                        // its project's folders this conversation leaves out
   jira?: string }                            // the ticket the conversation is working on;                        // folders attached earlier in the conversation stay attached
 
 // The conversation a reply continues, ready to put in the prompt. `replyTo` is an expedition id.
@@ -98,6 +101,7 @@ export function threadFor(replyTo: string | undefined, stillRunning: (expedition
     thread: hit.thread, agent: last.agent, direct: last.direct, turns: mine.length, ...(jira ? { jira } : {}),
     unfinished: hit.status !== "done", workspaces: hit.workspaces,
     links: [...new Set(mine.flatMap((t) => t.links ?? []))],
+    without: [...new Set(mine.flatMap((t) => t.without ?? []))],
     history:
       (reader
         ? `## The conversation you're stepping into\nThe user has asked you into a conversation they were having with someone else, for this one turn. What was asked and answered so far is below: ` +

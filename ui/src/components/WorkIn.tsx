@@ -7,17 +7,22 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import type { RepoInfo } from "../types.ts";
+import { cx } from "../format.ts";
 import { Icon } from "./bits.tsx";
 
-// link → "new" | "new:<branch>" (a new worktree on a branch by that name) | a worktree's path.
+// link → "new" | "new:<branch>" (a new worktree on a branch by that name) | a worktree's path
+// | "none" (leave the folder out of this conversation altogether).
 // A link that isn't here works in its linked checkout.
 export type WorkChoice = Record<string, string>;
+export const LEFT_OUT = "none";
 export const isNewWork = (v: string) => v === "new" || v.startsWith("new:");
+// The folders a new conversation is started without (what /api/send takes as `without`).
+export const leftOut = (choice: WorkChoice) => { const l = Object.keys(choice).filter((k) => choice[k] === LEFT_OUT); return l.length ? l : undefined; };
 const branchOf = (v: string) => (v.startsWith("new:") ? v.slice(4) : "");
 
 export function chosenWorkspaces(choice: WorkChoice) {
   const out: Record<string, { mode: "new"; branch?: string } | { mode: "existing"; path: string }> = {};
-  for (const [link, v] of Object.entries(choice)) out[link] = isNewWork(v) ? { mode: "new", ...(branchOf(v) ? { branch: branchOf(v) } : {}) } : { mode: "existing", path: v };
+  for (const [link, v] of Object.entries(choice)) if (v !== LEFT_OUT) out[link] = isNewWork(v) ? { mode: "new", ...(branchOf(v) ? { branch: branchOf(v) } : {}) } : { mode: "existing", path: v };
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -39,12 +44,14 @@ export function useRepos(reloadKey: unknown) {
 // What the next request will work on in this repository: "" is the linked checkout, "new" a
 // fresh worktree and branch, anything else an existing worktree's path.
 export function workingOn(r: RepoInfo, value: string) {
+  if (value === LEFT_OUT) return "not used";
   return isNewWork(value) ? branchOf(value) || "new branch" : r.worktrees.find((w) => w.path === value)?.branch ?? r.branch;
 }
 
 // working: for a follow-up, the branch its conversation is working on in each repository (when
-// that's a worktree rather than your linked checkout).
-export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, working }: {
+// that's a worktree rather than your linked checkout). without: the folders its conversation left out.
+export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, working, without }: {
+  without?: string[];
   repos: RepoInfo[]; choice: WorkChoice; setChoice: (fn: (c: WorkChoice) => WorkChoice) => void; followUp: boolean;
   open: boolean; onOpen: () => void; // the + menu's "Work in" panel
   working?: Record<string, string>;
@@ -52,7 +59,7 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, worki
   // Forget a choice whose worktree is gone.
   useEffect(() => {
     setChoice((c) => {
-      const stale = Object.entries(c).filter(([link, v]) => !isNewWork(v) && !repos.find((r) => r.link === link)?.worktrees.some((w) => w.path === v));
+      const stale = Object.entries(c).filter(([link, v]) => !isNewWork(v) && v !== LEFT_OUT && !repos.find((r) => r.link === link)?.worktrees.some((w) => w.path === v));
       if (!stale.length) return c;
       const next = { ...c };
       for (const [link] of stale) delete next[link];
@@ -65,12 +72,15 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, worki
     <div className="work-in">
       {repos.map((r) => {
         const value = choice[r.link] ?? "";
+        const out = followUp ? !!without?.includes(r.link) : value === LEFT_OUT;
         const there = followUp ? working?.[r.link] : undefined;
-        const now = there ?? workingOn(r, value);
+        const now = out ? "not used" : there ?? workingOn(r, value);
         return (
-          <button key={r.link} type="button" className={value || there ? "work-btn changed" : "work-btn"} aria-haspopup="dialog" aria-expanded={open}
+          <button key={r.link} type="button" className={cx("work-btn", (value || there) && !out && "changed", out && "left-out")} aria-haspopup="dialog" aria-expanded={open}
             aria-label={`Where to work in ${r.link}: ${now}`} onClick={onOpen}
-            title={followUp ? `A follow-up keeps working where its conversation was${there ? `: its own worktree, on ${there}` : ""}.`
+            title={out ? (followUp ? `This conversation was started without links/${r.link}: the crew sees nothing of it here. Attach the folder to bring it in.`
+                : `The next request leaves links/${r.link} out: the crew is given nothing from it. Click to change.`)
+              : followUp ? `A follow-up keeps working where its conversation was${there ? `: its own worktree, on ${there}` : ""}.`
               : value ? `The next request works on ${now} in ${r.link}, not your linked checkout. Click to change.`
               : `The next request works in your linked checkout of ${r.link}, on ${r.branch}. Click to change.`}>
             <Icon name="branch" /><span>{r.link}</span><b>{now}</b>
@@ -145,7 +155,10 @@ function BranchPicker({ r, onBranch }: { r: RepoInfo; onBranch: (link: string, n
 
 // The choices, one group per repository, for the + menu's "Work in" panel.
 const SHOWN_WORKTREES = 3;
-export function WorkOptions({ repos, choice, locked, onPick, onBranch }: {
+// canLeaveOut: these are a project's folders, which a conversation there gets unless it's started without them.
+// without: for a follow-up, the folders its conversation was started without (shown as chosen).
+export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveOut, without }: {
+  canLeaveOut?: boolean; without?: string[];
   repos: RepoInfo[]; choice: WorkChoice; locked: boolean; onPick: (link: string, value: string) => void;
   onBranch?: (link: string, name: string, create: boolean) => Promise<void>;
 }) {
@@ -154,7 +167,7 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch }: {
     <>
       {locked && <div className="menu-tip">A follow-up keeps working where its conversation was{onBranch ? ". You can still switch your checkout's branch." : "."}</div>}
       {repos.map((r) => {
-        const value = choice[r.link] ?? "";
+        const value = locked && without?.includes(r.link) ? LEFT_OUT : choice[r.link] ?? "";
         const option = (v: string, name: string, note: string, mono = false) => {
           const on = value === v || (v === "new" && isNewWork(value)); // a new worktree, whatever its branch is to be called
           return (
@@ -176,6 +189,7 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch }: {
             {r.access === "write" && option("new", "New worktree", branchOf(value) ? `On a new branch, ${branchOf(value)}` : "A fresh branch, so your checkout isn't touched")}
             {listed.map((w) => option(w.path, w.branch, tail(w.path), true))}
             {more > 0 && <button type="button" className="hist-all" onClick={() => setAll((l) => [...l, r.link])}>Show {more} more {more === 1 ? "worktree" : "worktrees"}</button>}
+            {(canLeaveOut || value === LEFT_OUT) && option(LEFT_OUT, "Leave it out", `Don't use links/${r.link} here: the crew is given nothing from it`)}
           </div>
         );
       })}

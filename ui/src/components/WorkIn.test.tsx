@@ -4,7 +4,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { RepoInfo } from "../types.ts";
-import { WorkOptions, chosenWorkspaces, workingOn } from "./WorkIn.tsx";
+import { WorkIn, WorkOptions, chosenWorkspaces, leftOut, workingOn } from "./WorkIn.tsx";
 
 afterEach(cleanup);
 const wt = (branch: string) => ({ path: `/w/web-quests/${branch.replace("/", "-")}`, branch });
@@ -117,4 +117,43 @@ test("a new worktree can be given its branch's name (starting work from a ticket
   const row = screen.getByRole("menuitemradio", { name: /New worktree/ });
   expect(row.getAttribute("aria-checked")).toBe("true");
   expect(within(row).getByText("On a new branch, MP-544-open-button")).toBeTruthy();
+});
+
+test("a project's folder can be left out of a conversation: nothing is sent for it but its name", () => {
+  const r = { link: "web", access: "write", branch: "main", worktrees: [], branches: ["main"] } as RepoInfo;
+  expect(leftOut({ web: "none", api: "new" })).toEqual(["web"]);
+  expect(leftOut({ api: "new" })).toBeUndefined();
+  expect(chosenWorkspaces({ web: "none", api: "new" })).toEqual({ api: { mode: "new" } }); // no worktree for a folder that's out
+  expect(chosenWorkspaces({ web: "none" })).toBeUndefined();
+  expect(workingOn(r, "none")).toBe("not used");
+
+  // In a project the menu offers it, last; outside one there's nothing to leave out.
+  const onPick = vi.fn();
+  const { rerender } = render(<WorkOptions repos={[r]} choice={{}} locked={false} onPick={onPick} canLeaveOut />);
+  const rows = screen.getAllByRole("menuitemradio");
+  expect(rows.map((b) => b.querySelector(".work-opt-name")!.textContent)).toEqual(["Linked checkout", "New worktree", "Leave it out"]);
+  expect(within(rows[2]).getByText("Don't use links/web here: the crew is given nothing from it")).toBeTruthy();
+  fireEvent.click(rows[2]);
+  expect(onPick).toHaveBeenCalledWith("web", "none");
+  rerender(<WorkOptions repos={[r]} choice={{ web: "none" }} locked={false} onPick={onPick} canLeaveOut />);
+  expect(screen.getAllByRole("menuitemradio").map((b) => b.getAttribute("aria-checked"))).toEqual(["false", "false", "true"]);
+  rerender(<WorkOptions repos={[r]} choice={{}} locked={false} onPick={onPick} />);
+  expect(screen.queryByRole("menuitemradio", { name: /Leave it out/ })).toBeNull();
+  // A reply in a conversation that was started without it: shown as it is, and not changeable.
+  rerender(<WorkOptions repos={[r]} choice={{}} locked onPick={onPick} without={["web"]} />);
+  const kept = screen.getByRole("menuitemradio", { name: /Leave it out/ }) as HTMLButtonElement;
+  expect(kept.getAttribute("aria-checked")).toBe("true");
+  expect(kept.disabled).toBe(true);
+});
+
+test("the label beside Send says when a folder isn't being used", () => {
+  const r = { link: "web", access: "write", branch: "main", worktrees: [], branches: ["main"] } as RepoInfo;
+  const { rerender } = render(<WorkIn repos={[r]} choice={{ web: "none" }} setChoice={() => {}} followUp={false} open={false} onOpen={() => {}} />);
+  const label = screen.getByRole("button", { name: "Where to work in web: not used" });
+  expect(label.className).toContain("left-out");
+  expect(label.title).toMatch(/leaves links\/web out: the crew is given nothing from it/);
+  rerender(<WorkIn repos={[r]} choice={{}} setChoice={() => {}} followUp open={false} onOpen={() => {}} without={["web"]} />);
+  expect(screen.getByRole("button", { name: "Where to work in web: not used" }).title).toMatch(/was started without links\/web/);
+  rerender(<WorkIn repos={[r]} choice={{}} setChoice={() => {}} followUp={false} open={false} onOpen={() => {}} />);
+  expect(screen.getByRole("button", { name: "Where to work in web: main" }).className).not.toContain("left-out");
 });

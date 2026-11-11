@@ -219,12 +219,16 @@ function logFailure(kind: "expedition" | "quest" | "job", who: string, task: str
 }
 
 // Where a run happens: its project, the linked folders it may use, and its budget.
-function placeOf(opts: { project?: string; links?: string[] }): { project?: string; scope?: string[]; budget?: number } {
+// without: folders of the project that this conversation leaves out. They're not in its scope
+// (nothing from them reaches the crew: not their files, not their AGENTS.md) unless one is
+// attached or mentioned after all, which puts it back.
+export function placeOf(opts: { project?: string; links?: string[]; without?: string[] }): { project?: string; scope?: string[]; budget?: number } {
   const p = getProject(opts.project);
   const scoped = opts.project !== undefined || opts.links !== undefined;
+  const own = (p?.links ?? []).filter((l) => !opts.without?.includes(l));
   return {
     project: p?.id,
-    scope: scoped ? [...new Set([...(p?.links ?? []), ...(opts.links ?? [])])] : undefined,
+    scope: scoped ? [...new Set([...own, ...(opts.links ?? [])])] : undefined,
     budget: p?.settings?.budgetUsd ?? budgetUsd(),
   };
 }
@@ -336,6 +340,7 @@ export async function runExpedition(
     // project: the project the conversation is filed under. links: folders attached beyond the
     // project's own. Given either, the run sees only those folders; given neither, all of them.
     project?: string; links?: string[];
+    without?: string[];  // folders of the project this conversation leaves out
     jira?: string;       // the Jira ticket a new conversation is working on (its key)
     review?: boolean } = {} // have the changes reviewed before the report (or not) for this run, whatever the project and camp are set to
 ): Promise<AgentResult> {
@@ -347,7 +352,7 @@ export async function runExpedition(
   // A follow-up keeps working where the conversation was working (the same worktree), unless told otherwise.
   const workspaces = opts.workspaces ?? thread?.workspaces;
   const where = placeOf(opts);
-  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.jira ? { jira: opts.jira } : {}) };
+  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.without?.length ? { without: opts.without } : {}), ...(opts.jira ? { jira: opts.jira } : {}) };
   emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
     ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
@@ -390,7 +395,7 @@ export async function runDirect(
   id: string = randomUUID(),
   replyTo?: string,
   more: { workspaces?: Record<string, Workspace>; steering?: Steering; extraSystem?: string; stillRunning?: (expedition: string) => boolean;
-    project?: string; links?: string[]; jira?: string;
+    project?: string; links?: string[]; without?: string[]; jira?: string;
     aside?: boolean } = {} // aside: stepping into someone else's conversation for one turn
 ): Promise<AgentResult | null> {
   const who = findCrew(adventurer);
@@ -402,7 +407,7 @@ export async function runDirect(
   const thread = threadFor(replyTo, more.stillRunning, more.aside ? spec.id : undefined);
   const workspaces = more.workspaces ?? thread?.workspaces;
   const where = placeOf(more);
-  const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(more.links?.length ? { links: more.links } : {}), ...(more.jira ? { jira: more.jira } : {}), ...(more.aside ? { aside: true } : {}) };
+  const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(more.links?.length ? { links: more.links } : {}), ...(more.without?.length ? { without: more.without } : {}), ...(more.jira ? { jira: more.jira } : {}), ...(more.aside ? { aside: true } : {}) };
   emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached, ...(thread ? { replyTo } : {}), thread: turn.thread });
   recordTurn({ ...turn, reply: "", status: "running" });
   const questId = randomUUID();

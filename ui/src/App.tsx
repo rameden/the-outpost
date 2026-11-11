@@ -98,7 +98,8 @@ export function App({ store }: { store: FeedStore }) {
   // What you send follows the conversation you're in; on a new page it starts one (in that project).
   const context = useMemo<SendContext | undefined>(() => {
     if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), placeholder: "Reply in this conversation…", ...(project && project.id !== "general" ? { folders: project.links ?? [] } : {}),
-      ...(conversation?.workspaces ? { working: Object.fromEntries(Object.entries(conversation.workspaces).map(([l, w]) => [l, w.branch])) } : {}) };
+      ...(conversation?.workspaces ? { working: Object.fromEntries(Object.entries(conversation.workspaces).map(([l, w]) => [l, w.branch])) } : {}),
+      ...(conversation?.without?.length ? { without: conversation.without } : {}) };
     if (view.kind === "all") return undefined;
     // A new page: what you send starts a conversation (in that project, if it's a project's).
     const inProject = project && project.id !== "general" && view.kind === "new" && !!view.project;
@@ -129,7 +130,8 @@ export function App({ store }: { store: FeedStore }) {
   const [attached, setAttached] = useState<string[]>([]);
   const fileRoots = useMemo<FileRoot[]>(() => {
     const names = new Set([...(project && project.id !== "general" ? project.links ?? [] : []), ...(conversation?.links ?? []), ...Object.keys(conversation?.workspaces ?? {}), ...attached]);
-    return [...names].filter((n) => S?.links.some((l) => l.name === n)).map((n) => {
+    // A folder this conversation was started without isn't shown for it either.
+    return [...names].filter((n) => S?.links.some((l) => l.name === n) && !conversation?.without?.includes(n)).map((n) => {
       const w = conversation?.workspaces?.[n]; // it worked in its own worktree: show that
       return w ? { link: n, path: w.path, branch: w.branch } : { link: n };
     });
