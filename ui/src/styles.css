@@ -1306,3 +1306,6 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .wiki-edit .field input, .wiki-edit .field textarea { padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg); color: var(--text); font: 14px/1.55 var(--sans); }
 .wiki-edit textarea.wiki-text { font: 13px/1.6 var(--mono); min-height: 320px; resize: vertical; }
 .wiki-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+
+.work-btn.left-out b { color: var(--faint); font-weight: 400; }
+.work-btn.left-out span { color: var(--faint); text-decoration: line-through; text-decoration-thickness: 1px; }

@@ -30,7 +30,7 @@ const p = await import("../src/projects.ts");
 const { readFileFor, bashFor, rl } = await import("../src/tools.ts");
 const { grepFor } = await import("../src/codetools.ts");
 const { isAutoApproved, approvalNow } = await import("../src/shell.ts");
-const { runExpedition, runDirect } = await import("../src/quartermaster.ts");
+const { runExpedition, runDirect, placeOf } = await import("../src/quartermaster.ts");
 const { recentQuests } = await import("../src/questlog.ts");
 const { threadFor, recordTurn } = await import("../src/threads.ts");
 const { setBudgetUsd, setAutoTitles } = await import("../src/settings.ts");
@@ -171,4 +171,42 @@ test("history: pinned projects first, a filing suggestion, search inside convers
   c.renameConversation("g2", "My own name");
   assert.ok(!c.autoTitle("g2", "A model's idea"), "a title you gave is never replaced");
   setAutoTitles(false);
+});
+
+test("a conversation can be started without its project's folder: the crew is given nothing from it, and replies stay that way", async () => {
+  const id = workP().id;
+  // What a run in the project sees, with and without the folder.
+  assert.deepEqual(placeOf({ project: id, links: [] }).scope, [W]);
+  assert.deepEqual(placeOf({ project: id, links: [], without: [W] }).scope, []);
+  assert.deepEqual(placeOf({ project: id, links: [H], without: [W] }).scope, [H], "another folder attached to it is still in");
+  assert.deepEqual(placeOf({ project: id, links: [W], without: [W] }).scope, [W], "attached or mentioned after all, it's back");
+  assert.equal(placeOf({}).scope, undefined, "outside mission control, nothing is scoped");
+
+  api.seen.length = 0;
+  script = () => ({ text: "Answered from what I know." });
+  await runExpedition("What do you think of pnpm in general?", { id: "noctx1", project: id, links: [], without: [W] });
+  const system = api.seen[0].body.system.map((x: any) => x.text).join("\n");
+  assert.ok(!system.includes("WORK RULES"), "the folder's own instructions aren't loaded");
+  assert.doesNotMatch(system, new RegExp(`It is about links/${W}/`));
+  assert.match(system, new RegExp(`The user started this conversation without links/${W}/: nothing from it is part of this conversation\\.`));
+  assert.match(system, /## Project: /, "it's still that project's conversation: its notes and description apply");
+  // The crew can't reach into it either.
+  await withExpedition({ id: "noctx-read", project: id, scope: placeOf({ project: id, links: [], without: [W] }).scope }, async () => {
+    await assert.rejects(() => read(`links/${W}/src/app.ts`), /isn't part of this conversation/);
+    assert.doesNotMatch(linksBlock(), new RegExp(`links/${W}/`));
+    assert.equal(projectInstructions(), "");
+  });
+
+  // It's remembered with the conversation: a reply is started the same way, and the list of conversations says so.
+  assert.deepEqual(threadFor("noctx1")!.without, [W]);
+  assert.deepEqual(c.history().conversations.find((x) => x.id === "noctx1")!.without, [W]);
+  // Mentioned in a later message, it's part of the conversation from then on.
+  recordTurn({ thread: "noctx1", expedition: "noctx2", agent: "quartermaster", direct: false, task: `Look at links/${W}/src/app.ts after all`, reply: "Done.", status: "done", links: [W], without: [W] });
+  assert.equal(c.history().conversations.find((x) => x.id === "noctx1")!.without, undefined);
+  assert.deepEqual(placeOf({ project: id, links: threadFor("noctx2")!.links, without: threadFor("noctx2")!.without }).scope, [W]);
+  // A conversation started the usual way has the folder, as before.
+  api.seen.length = 0;
+  await runExpedition("And with the project's folder?", { id: "ctx1", project: id, links: [] });
+  assert.ok(api.seen[0].body.system.map((x: any) => x.text).join("\n").includes("WORK RULES"));
+  assert.equal(threadFor("ctx1")!.without?.length, 0);
 });

@@ -63,6 +63,7 @@ export type Conversation = {
   suggest?: string;      // filed under General, but it used a folder that belongs to this project
   jira?: string;         // the Jira ticket it's working on (its key), if it was started from one
   links?: string[];      // linked folders attached to it along the way, beyond its project's own
+  without?: string[];    // folders of its project it was started without (the crew sees nothing of them here)
   // The worktrees its latest run worked in, by linked folder. base: the commit the work started from. created: the camp made it.
   workspaces?: Record<string, { path: string; branch: string; base?: string; created?: boolean }>;
 };
@@ -109,11 +110,14 @@ export function titleOf(task: string): string {
 
 // The folders a conversation has in play beyond its project's: what was attached, and where its
 // latest run that used a worktree worked (for the Files flyout).
-function folders(turns: Turn[]): Pick<Conversation, "links" | "workspaces"> {
+function folders(turns: Turn[]): Pick<Conversation, "links" | "workspaces" | "without"> {
   const links = [...new Set(turns.flatMap((t) => t.links ?? []))];
+  // Left out when it started, and not brought back since by attaching or mentioning it.
+  const without = [...new Set(turns.flatMap((t) => t.without ?? []))].filter((l) => !links.includes(l));
   const ws = [...turns].reverse().find((t) => t.workspaces && Object.keys(t.workspaces).length)?.workspaces;
   return {
     ...(links.length ? { links } : {}),
+    ...(without.length ? { without } : {}),
     ...(ws ? { workspaces: Object.fromEntries(Object.entries(ws).map(([l, w]) => [l, { path: w.path, branch: w.branch, ...(w.base ? { base: w.base } : {}), ...(w.created ? { created: true } : {}) }])) } : {}),
   };
 }

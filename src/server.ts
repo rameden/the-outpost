@@ -661,17 +661,21 @@ const server = http.createServer(async (req, res) => {
       const named = new Set(loadLinks().map((l) => l.name));
       const mentioned = [...attached.map((a) => a.path ?? ""), text].flatMap((t) => [...t.matchAll(/(?:^|[\s@("'`])links\/([A-Za-z0-9_-]+)/g)].map((m) => m[1]));
       const links = [...new Set([...(replyTo ? thread?.links ?? [] : []), ...mentioned, ...Object.keys(workspaces ?? {})])].filter((l) => named.has(l));
+      // { without: [<link>, …] }: folders of the project this conversation is started without. A reply keeps
+      // its conversation's. One that's attached or mentioned here is in after all.
+      const without = (replyTo ? thread?.without ?? [] : Array.isArray(body.without) ? body.without.map(String) : [])
+        .filter((l: string) => named.has(l) && !links.includes(l));
       // A project can start every new conversation in its own worktree of each of its repos.
       if (!replyTo && !workspaces && !after && project.settings?.workIn === "worktree" && project.links?.length) {
         try {
           const repos = new Set((await linkedRepos()).filter((r) => r.access === "write").map((r) => r.link));
-          const chosen = Object.fromEntries(project.links.filter((l) => repos.has(l)).map((l) => [l, { mode: "new" as const }]));
+          const chosen = Object.fromEntries(project.links.filter((l) => repos.has(l) && !without.includes(l)).map((l) => [l, { mode: "new" as const }]));
           if (Object.keys(chosen).length) workspaces = await prepareWorkspaces(chosen, direct ? direct[2] ?? text : text, randomUUID());
         } catch (e: any) {
           return send(res, 400, { error: `Couldn't set up this project's worktree: ${e.message}` });
         }
       }
-      const where = { project: project.id, links, ...(jira ? { jira } : {}) };
+      const where = { project: project.id, links, ...(without.length ? { without } : {}), ...(jira ? { jira } : {}) };
       const isNew = !replyTo;
       const task = (direct ? direct[2] ?? text : text).replace(/\s+/g, " ").slice(0, 90);
       // Worked out when it starts, not now: a chained request follows what its predecessor ended up doing.

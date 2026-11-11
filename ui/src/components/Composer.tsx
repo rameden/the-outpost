@@ -9,7 +9,7 @@ import type { FeedStore } from "../feed/store.ts";
 import type { CampState, Link, PendingAttachment, SendResult, Snippet, Uploaded, JiraRef } from "../types.ts";
 import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
-import { WorkIn, chosenWorkspaces, useRepos, type WorkChoice } from "./WorkIn.tsx";
+import { WorkIn, chosenWorkspaces, leftOut, useRepos, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
 
 const MAX_FILE = 25 * 1024 * 1024;
@@ -51,7 +51,8 @@ function mentionToken(el: Pick<MessageInputHandle, "value" | "selectionStart">) 
 // folders: the linked folders that belong here (the "work in" picker shows only these).
 // newWorktree: the project starts each new conversation in its own worktree.
 export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean;
-  working?: Record<string, string> }; // a conversation working in worktrees: the branch in each repository
+  working?: Record<string, string>;   // a conversation working in worktrees: the branch in each repository
+  without?: string[] };               // a conversation started without some of its project's folders: which
 
 // onFolders: told which linked folders are attached to the message being written (by name).
 // draftKey: where you are (a conversation, a new page in a project…). What you've typed and not
@@ -350,7 +351,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     try {
       const follows = reply?.id ?? context?.replyTo;
       const r = await api<SendResult>("/api/send", { text: message, attachments, ...(afterLive ? { after: afterLive.id } : {}),
-        ...(follows ? { replyTo: follows } : { workspaces: chosenWorkspaces(workChoice), project: context?.project }) });
+        ...(follows ? { replyTo: follows } : { workspaces: chosenWorkspaces(workChoice), without: leftOut(workChoice), project: context?.project }) });
       if (draftKey) storeRemove(`camp-draft:${draftKey}`); // sent: it's no longer a draft, here or on a fresh page
       onSent?.(r);
       setSends((n) => n + 1); // a new worktree shows up in the picker a moment later
@@ -417,7 +418,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       )}
       {menu && (
         <AttachMenu S={S} view={menu} setView={setMenu} text={text} onClose={closeMenu}
-          repos={workRepos} work={workChoice} workLocked={followsUp}
+          repos={workRepos} work={workChoice} workLocked={followsUp} workOptional={!!context?.folders} workWithout={context?.without}
           onBranch={switchBranch}
           onJira={(issue) => { void attachJira(issue); focus(); }} onConnectJira={() => say({ do: "command", name: "connectors" })}
           onWork={(link, v) => {
@@ -442,7 +443,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
             onClick={() => { setMention(null); setMenu(menu ? null : "main"); }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           </button>
-          <WorkIn repos={workRepos} choice={workChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"} working={context?.working}
+          <WorkIn repos={workRepos} choice={workChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"} working={context?.working} without={context?.without}
             onOpen={() => { setMention(null); setMenu(menu === "work" ? null : "work"); }} />
           {inFlight.length > 0 && (
             <span className="after-pick">
