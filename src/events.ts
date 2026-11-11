@@ -20,6 +20,9 @@ export type CampEventBody =
   | ({ type: "text"; text: string } & Who)
   | ({ type: "text_delta"; delta: string } & Who) // live streaming; not kept in the replay buffer
   | ({ type: "tool"; tool: string; input: string } & Who)
+  // A file it wrote whole (a report, a page, a script): the feed shows it as a card that opens it.
+  // path: as the camp shows it (camp/agents/<id>/outputs/…, links/<name>/…). bytes: its size now.
+  | ({ type: "file"; path: string; change: "created" | "updated"; bytes: number } & Who)
   | ({ type: "notice"; text: string } & Who)
   // brief: the quest in a line (how its brief opens), so two quests by the same crew member can be told apart
   | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string }
@@ -59,6 +62,8 @@ export function attachConsole() {
         return console.log(`\n${pad}${e.emoji} ${e.who}: ${e.text.replace(/\n/g, "\n" + pad)}`);
       case "tool":
         return console.log(`${pad}  🔧 ${e.tool} ${e.input}`);
+      case "file":
+        return console.log(`${pad}  📄 ${e.change === "created" ? "Created" : "Updated"} ${e.path}`);
       case "notice":
         return console.log(`${pad}  ${e.text}`);
       case "dispatch":

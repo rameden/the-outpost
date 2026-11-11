@@ -293,3 +293,49 @@ describe("who's out", () => {
     expect(out(s)).toEqual(["Scribe | For B | Using write_file"]);
   });
 });
+
+describe("files the crew writes", () => {
+  const path = "camp/agents/scribe/outputs/brief.md";
+  const call = (p: string) => ({ type: "tool", ...scribe, tool: "write_file", input: JSON.stringify({ path: p, content: "# Brief" }), questId: "q1", expeditionId: "A" }) as Body;
+  const made = (change: "created" | "updated", bytes: number) => ({ type: "file", ...scribe, path, change, bytes, questId: "q1", expeditionId: "A" }) as Body;
+
+  test("a written file takes the place of the write_file line it came from, in its own quest", () => {
+    const s = feedOf([
+      start("A", "Write a brief"),
+      { type: "dispatch", ...scribe, questId: "q1", expeditionId: "A" },
+      call(path),
+      { type: "tool", ...scribe, tool: "read_file", input: "{}", questId: "q1", expeditionId: "A" },
+      made("created", 7),
+      { type: "text", ...scribe, text: "Done", questId: "q1", expeditionId: "A" },
+    ]);
+    const quest = exp(s, "A").nodes[0] as Extract<ExpNode["nodes"][number], { kind: "quest" }>;
+    expect(kinds(quest.nodes)).toEqual(["file", "tool", "msg"]);
+    expect(quest.nodes[0]).toMatchObject({ kind: "file", who: "Scribe", path, change: "created", bytes: 7 });
+  });
+
+  test("a second write of it is a second card; with no line to stand in for, it goes at the end", () => {
+    const s = feedOf([
+      start("A", "Write a brief"),
+      { type: "dispatch", ...scribe, questId: "q1", expeditionId: "A" },
+      call(path), made("created", 7),
+      call(path), made("updated", 12),
+      made("updated", 20), // its call fell out of the replay buffer
+    ]);
+    const quest = exp(s, "A").nodes[0] as Extract<ExpNode["nodes"][number], { kind: "quest" }>;
+    expect(quest.nodes.map((n) => (n.kind === "file" ? `${n.change}:${n.bytes}` : n.kind))).toEqual(["created:7", "updated:12", "updated:20"]);
+  });
+
+  test("a write of another file is left alone; one after its run ended goes at the end of the feed", () => {
+    const s = feedOf([
+      start("A", "Write a brief"),
+      { type: "dispatch", ...scribe, questId: "q1", expeditionId: "A" },
+      call("camp/agents/scribe/outputs/other.md"),
+      made("created", 7),
+      { type: "expedition_end", id: "A", status: "done", text: "" },
+      { ...made("updated", 9), expeditionId: "gone" } as Body,
+    ]);
+    const quest = exp(s, "A").nodes[0] as Extract<ExpNode["nodes"][number], { kind: "quest" }>;
+    expect(kinds(quest.nodes)).toEqual(["tool", "file"]);
+    expect(kinds(s.items)).toEqual(["exp", "file"]);
+  });
+});

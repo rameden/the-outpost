@@ -10,6 +10,7 @@ import { Icon } from "../components/bits.tsx";
 import { Markdown } from "../markdown.tsx";
 import { AskCard } from "./AskCard.tsx";
 import { Changes } from "./Changes.tsx";
+import { FileCard } from "./FileCard.tsx";
 import { WorkspaceBox } from "./Workspaces.tsx";
 import { AsideButton } from "./Aside.tsx";
 import { cardsFor, type View } from "./conversation.ts";
@@ -43,6 +44,7 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
         </div>
       );
     case "tool": return <div className={cx("tool", cClass(node.who))}><b>{node.tool}</b><code title={node.input}>{node.input}</code></div>;
+    case "file": return <FileCard file={node} />;
     case "notice": return <div className="notice">{node.text}</div>;
     case "sys": return <div className="sys">{node.text}</div>;
     case "steer": return <div className="steer-msg"><small>You, while it was working</small>{node.text}</div>;

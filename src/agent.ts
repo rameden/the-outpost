@@ -2,9 +2,9 @@
 // A character = persona + tools + skill folders. The loop doesn't care who it's running.
 
 import Anthropic from "@anthropic-ai/sdk";
-import { readdirSync, existsSync, readFileSync } from "node:fs";
+import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { clipOutput, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
+import { campPath, clipOutput, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import { wikiIndex } from "./wiki.js";
 import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
@@ -204,6 +204,28 @@ export function skillIndex(dirs: string[], always: string[] = []): string {
   return lines.join("\n") || "(none)";
 }
 
+// write_file, made to say what it made: once a file is written, the feed gets a card for it (the
+// same in both runtimes, since they share these handlers). Edits to a file that's already there
+// are left to "View changes"; a write that was refused, or left the file as it was, says nothing.
+function announcingFiles(t: Tool, self: string, me: { who: string; emoji: string; depth: number; questId?: string }): Tool {
+  const run = t.run;
+  if (!run || !("name" in t.def) || t.def.name !== "write_file") return t;
+  return {
+    ...t,
+    run: async (input: any) => {
+      let abs: string | null = null;
+      try { abs = campPath(String(input?.path ?? ""), "write", self); } catch { /* the tool itself says why */ }
+      const was = abs && existsSync(abs) ? statSync(abs) : null;
+      const out = await run(input);
+      const now = abs && existsSync(abs) ? statSync(abs) : null;
+      if (abs && now?.isFile() && (!was || now.mtimeMs !== was.mtimeMs || now.size !== was.size)) {
+        emit({ type: "file", ...me, path: displayPath(abs), change: was ? "updated" : "created", bytes: now.size });
+      }
+      return out;
+    },
+  };
+}
+
 function preview(input: unknown): string {
   const s = JSON.stringify(input);
   return s.length > 120 ? s.slice(0, 120) + "…" : s;
@@ -240,7 +262,8 @@ export async function runAgent(
   const inProject = !!project && project.id !== "general";
   const webOff = project?.settings?.web === "off";
   const isWeb = (t: Tool) => "name" in t.def && (t.def.name === "web_search" || t.def.name === "web_fetch");
-  const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject ? [projectRemember] : []), ...(await mcpToolsFor(spec.id))];
+  const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject ? [projectRemember] : []), ...(await mcpToolsFor(spec.id))]
+    .map((t) => announcingFiles(t, spec.id, me));
   const defs = toolsFor(model, tools.map((t) => t.def));
   const handlers = new Map<string, NonNullable<Tool["run"]>>();
   for (const t of tools) {

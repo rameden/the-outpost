@@ -101,6 +101,28 @@ test("refusals stop the run without running tools", async () => {
   assert.ok(!existsSync("nope.txt"));
 });
 
+test("a file written whole is announced to the feed, once it's there; a refused write and an edit are not", async () => {
+  let turn = 0;
+  const out = "camp/agents/scribe/outputs/brief.md";
+  script = () => {
+    turn++;
+    if (turn === 1) return { tools: [{ name: "write_file", input: { path: out, content: "# Brief\n" } }] };
+    if (turn === 2) return { tools: [{ name: "write_file", input: { path: out, content: "# Brief\nMore.\n" } }] };
+    if (turn === 3) return { tools: [{ name: "write_file", input: { path: "camp/settings.json", content: "{}" } }, { name: "edit_file", input: { path: out, old_string: "More.", new_string: "Most." } }] };
+    return { text: "Wrote the brief." };
+  };
+  const r = await runDirect("scribe", "write a brief");
+  assert.equal(r?.status, "done");
+  const files = events.filter((e) => e.type === "file").map((e) => ({ who: e.who, path: e.path, change: e.change, bytes: e.bytes }));
+  assert.deepEqual(files, [
+    { who: "Scribe", path: out, change: "created", bytes: 8 },
+    { who: "Scribe", path: out, change: "updated", bytes: 14 },
+  ]);
+  // It comes after the tool call it belongs to, so the page can put the card where that call was.
+  const order = events.filter((e) => e.type === "tool" || e.type === "file").map((e) => e.type);
+  assert.deepEqual(order.slice(0, 4), ["tool", "file", "tool", "file"]);
+});
+
 test("each run links to its transcript in the quest log", async () => {
   script = () => ({ text: "Here's my report." });
   const r = await runDirect("scout", "quick question");

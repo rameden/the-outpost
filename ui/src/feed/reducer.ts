@@ -13,6 +13,8 @@ export type CrewStatus = { status: "idle" | "active" | "waiting"; line: string }
 
 export type MsgNode = { kind: "msg"; id: string; who: string; emoji: string; text: string; streaming: boolean };
 export type ToolNode = { kind: "tool"; id: string; who: string; tool: string; input: string };
+// A file the crew wrote whole: a card that opens it. It takes the place of the write_file line it came from.
+export type FileNode = { kind: "file"; id: string; who: string; path: string; change: "created" | "updated"; bytes: number };
 export type NoticeNode = { kind: "notice"; id: string; text: string };
 export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
@@ -29,7 +31,7 @@ export type ExpNode = {
   end: { status: string; seconds: number; changed: number; workspaces: Workspaces } | null; // null: still running
   feedback?: { rating: "up" | "down"; note?: string; kept?: string }; // what you said about it once it finished
 };
-export type FeedNode = MsgNode | ToolNode | NoticeNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
+export type FeedNode = MsgNode | ToolNode | FileNode | NoticeNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
 
 // A running expedition: where its card is, its quests by id, and who is working in it.
 type OpenExpedition = { node: string; started: number; members: string[]; quests: Record<string, { node: string; who: string }> };
@@ -79,6 +81,28 @@ function place(s: FeedState, node: FeedNode, questId?: string, expeditionId?: st
   if (!exp) { s.items = [...s.items, node]; return; }
   const quest = questId ? exp.quests[questId] : undefined;
   s.items = appendTo(quest?.node ?? exp.node, node)(s.items);
+}
+
+// The card for a written file goes where its write_file line was (the newest of that crew member's
+// that names it), so it reads as what that call made; failing that, at the end, like anything else.
+function addFile(s: FeedState, e: EventOf<"file">) {
+  const node: FileNode = { kind: "file", id: `f${e.seq}`, who: e.who, path: e.path, change: e.change, bytes: e.bytes };
+  const exp = e.expeditionId ? s.open[e.expeditionId] : undefined;
+  const home = exp && ((e.questId ? exp.quests[e.questId]?.node : undefined) ?? exp.node);
+  const name = JSON.stringify(e.path.split("/").pop()).slice(1, -1);
+  const itsCall = (n: FeedNode) => n.kind === "tool" && n.tool === "write_file" && n.who === e.who && n.input.includes(name);
+  if (home) {
+    let swapped = false;
+    s.items = replaceNode(s.items, home, (h) => {
+      if (!isBranch(h)) return h;
+      const at = h.nodes.findLastIndex(itsCall);
+      if (at < 0) return h;
+      swapped = true;
+      return { ...h, nodes: h.nodes.with(at, node) };
+    });
+    if (swapped) return;
+  }
+  place(s, node, e.questId, e.expeditionId);
 }
 
 function setCrew(s: FeedState, name: string, status: CrewStatus["status"], line?: string) {
@@ -236,6 +260,7 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
       setCrew(s, e.who, "active", `Using ${e.tool}`);
       touchQuest(s, e, { line: `Using ${e.tool}` });
       break;
+    case "file": addFile(s, e); break;
     case "notice": place(s, { kind: "notice", id: `n${e.seq}`, text: e.text }, e.questId, e.expeditionId); break;
     case "dispatch": addDispatch(s, e); break;
     case "return": addReturn(s, e); break;

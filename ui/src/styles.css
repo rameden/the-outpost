@@ -793,6 +793,27 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .tool code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--faint); }
 .notice { font-size: 13px; color: var(--muted); padding-left: 40px; font-style: italic; }
 
+/* A file the crew wrote: a card under the message, set in from the avatars like the tool lines. */
+.artifact {
+  display: flex; align-items: center; gap: 12px; margin-left: 40px; width: min(440px, calc(100% - 40px));
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  font: inherit; color: var(--text); text-align: left; cursor: pointer;
+  transition: border-color .12s ease, background-color .12s ease;
+}
+.artifact:hover { border-color: var(--border-strong); background: color-mix(in srgb, var(--surface-2) 45%, var(--surface)); }
+.artifact:focus-visible { border-radius: 10px; }
+.art-icon {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px;
+  color: var(--fk, var(--muted)); background: color-mix(in srgb, var(--fk, var(--muted)) 14%, var(--surface));
+}
+.art-icon .icon { width: 20px; height: 20px; }
+.art-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.art-name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.art-meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.art-where { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+.art-open { flex: none; font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 4px 10px; border: 1px solid var(--border); border-radius: 7px; }
+.artifact:hover .art-open { color: var(--text); border-color: var(--border-strong); }
+
 .quest { --c: var(--c-other); border: 1px solid color-mix(in srgb, var(--c) 35%, var(--border)); border-radius: 10px; background: var(--bg); }
 .quest-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13.5px; font-weight: 600; }
 .quest-head .pill { margin-left: auto; }
