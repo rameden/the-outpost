@@ -19,13 +19,17 @@ export function useCampState(records = false) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const want = useRef(records);
   const loaded = useRef(false);
+  const historySeen = useRef<string | undefined>(undefined);
   const refresh = useCallback(() => {
     clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       const full = want.current || !loaded.current;
       try {
-        const next = await api<CampState>(full ? "/api/state" : "/api/state?full=0");
+        // A light refresh says which history it has, so an unchanged one isn't sent again.
+        const seen = historySeen.current;
+        const next = await api<CampState>(full ? "/api/state" : `/api/state?full=0${seen ? `&history=${encodeURIComponent(seen)}` : ""}`);
         loaded.current = true;
+        historySeen.current = next.historyVersion;
         // A light answer leaves the records out (undefined): keep the ones already here.
         setS((was) => (was && !full ? { ...was, ...Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined)) } as CampState : next));
       } catch (e) { console.warn(e); }

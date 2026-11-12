@@ -15,14 +15,14 @@
 // title, its project, whether it's been removed from the list) is in camp/conversations.json.
 // Removing a conversation only hides it: its record stays in the camp's files.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { CREW, type CrewId } from "./crew.js";
 import type { CampEvent } from "./events.js";
 import { emit } from "./events.js";
-import { FEED_PATH } from "./feed.js";
-import { loadLinks } from "./links.js";
-import { allTurns, copyTurns, foldersOf, type Turn } from "./threads.js";
+import { feedEventsOf } from "./feed.js";
+import { loadLinks, LINKS_PATH } from "./links.js";
+import { allTurns, copyTurns, foldersOf, THREADS_PATH, type Turn } from "./threads.js";
 import { undoCheckpoint } from "./checkpoints.js";
 
 export const CONVERSATIONS_PATH = "camp/conversations.json";
@@ -299,15 +299,10 @@ export function searchConversations(query: string, limit = 30): { id: string; sn
 export function conversationEvents(thread: string, feedbackOf?: (expedition: string) => { rating: "up" | "down"; note?: string; kept?: string } | undefined): CampEvent[] {
   const turns = allTurns().filter((t) => t.thread === thread);
   if (!turns.length) return [];
-  const ids = new Set(turns.map((t) => t.expedition));
   const byRun = new Map<string, CampEvent[]>();
-  if (existsSync(FEED_PATH)) {
-    for (const line of readFileSync(FEED_PATH, "utf8").split("\n")) {
-      if (!line || !line.includes('"expeditionId"')) continue;
-      let e: CampEvent;
-      try { e = JSON.parse(line) as CampEvent; } catch { continue; }
-      if (e.expeditionId && ids.has(e.expeditionId)) byRun.set(e.expeditionId, [...(byRun.get(e.expeditionId) ?? []), e]);
-    }
+  for (const e of feedEventsOf(turns.map((t) => t.expedition))) {
+    const list = byRun.get(e.expeditionId!);
+    if (list) list.push(e); else byRun.set(e.expeditionId!, [e]);
   }
   const out: CampEvent[] = [];
   for (const t of turns) {
@@ -357,4 +352,12 @@ export function forkConversation(expedition: string, opts: { rewind?: boolean; r
   s.meta[thread] = { ...(meta.project ? { project: meta.project } : {}), title, titled: true };
   save(s);
   return { thread, expedition: copies[copies.length - 1].expedition, restored, skipped };
+}
+
+// A short stamp that changes whenever history() could answer differently: the record of runs,
+// your filing and titles, and the linked folders (each can add a project). The page sends back the
+// one it has, and a light refresh leaves history out when it's the same.
+export function historyVersion(): string {
+  const stamp = (p: string) => { try { const st = statSync(p); return `${st.size}.${st.mtimeMs}.${st.ctimeMs}`; } catch { return "-"; } };
+  return [THREADS_PATH, CONVERSATIONS_PATH, LINKS_PATH].map(stamp).join("|");
 }

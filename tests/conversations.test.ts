@@ -145,3 +145,35 @@ test("a conversation can be forked from any finished run, or gone back to with l
   assert.deepEqual(c.forkConversation("fk1", { rewind: true, running: (e) => e === "fk2" }), { error: "A later run in this conversation is still going. Stop it first." });
   assert.deepEqual(c.forkConversation("nope"), { error: "There's no record of that run." });
 });
+
+test("one expedition's events are read from the feed without reading the rest, as the file grows and after it's rewritten", async () => {
+  const { feedEventsOf, FEED_PATH } = await import("../src/feed.ts");
+  const { appendFileSync, writeFileSync } = await import("node:fs");
+  const ev = (exp: string, text: string) => JSON.stringify({ type: "text", who: "Scout", emoji: "🏹", depth: 0, text, expeditionId: exp, time: "t", seq: 1 });
+  writeFileSync(FEED_PATH, [ev("ix1", "one"), ev("ix2", "two"), ev("ix1", 'quotes "expeditionId":"ix2" inside a text')].join("\n") + "\n");
+  assert.deepEqual(feedEventsOf(["ix1"]).map((e: any) => e.text), ["one", 'quotes "expeditionId":"ix2" inside a text']);
+  assert.deepEqual(feedEventsOf(["ix2"]).map((e: any) => e.text), ["two"], "a text that looks like a key doesn't count");
+  appendFileSync(FEED_PATH, ev("ix2", "three") + "\n" + ev("ix1", "half-writ").slice(0, 20));
+  assert.deepEqual(feedEventsOf(["ix2"]).map((e: any) => e.text), ["two", "three"], "what's appended is picked up");
+  assert.deepEqual(feedEventsOf(["ix1"]).length, 2, "a line still being written isn't read");
+  appendFileSync(FEED_PATH, ev("ix1", "half-writ").slice(20) + "\n");
+  assert.deepEqual(feedEventsOf(["ix1"]).map((e: any) => e.text).at(-1), "half-writ", "and is once it's finished");
+  assert.deepEqual(feedEventsOf(["ix1", "ix2"]).map((e: any) => e.text), ["one", "two", 'quotes "expeditionId":"ix2" inside a text', "three", "half-writ"], "several at once, in file order");
+  writeFileSync(FEED_PATH, ev("ix3", "after a trim") + "\n");
+  assert.deepEqual(feedEventsOf(["ix1"]), [], "a rewritten file is read again from the start");
+  assert.deepEqual(feedEventsOf(["ix3"]).map((e: any) => e.text), ["after a trim"]);
+});
+
+test("the history stamp changes with a new run, a rename, or a new linked folder, and not otherwise", async () => {
+  const { mkdtempSync: mk, realpathSync: real } = await import("node:fs");
+  const v0 = c.historyVersion();
+  assert.equal(c.historyVersion(), v0, "steady while nothing changes");
+  turn("hv", "hv1", "Stamp me", "Stamped.");
+  const v1 = c.historyVersion();
+  assert.notEqual(v1, v0, "a run is recorded");
+  c.renameConversation("hv", "Stamped conversation");
+  const v2 = c.historyVersion();
+  assert.notEqual(v2, v1, "a title changes");
+  addLink(real(mk(join(tmpdir(), "satchel-hv-"))), "read");
+  assert.notEqual(c.historyVersion(), v2, "a folder is linked");
+});

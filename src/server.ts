@@ -51,7 +51,7 @@ import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Att
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadLinks, addLink, removeLink, setLinkVerify, setLinkSetup } from "./links.js";
 import { githubStatus, switchGithub } from "./github.js";
-import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, GENERAL } from "./conversations.js";
+import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
 import { afterRun, forgetLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
@@ -317,10 +317,14 @@ export type AgentDetail = Awaited<ReturnType<typeof agentDetail>>;
 // log, the wiki, connectors, the inbox, installed skills) are left out: the page asks for those
 // when Settings is open, and every other refresh stays light.
 export type CampState = Awaited<ReturnType<typeof fullState>>;
-async function state(full = true): Promise<CampState> {
-  return fullState(full);
+// historySeen: the history stamp the page already has. A light refresh leaves history out when
+// it's unchanged (it's most of the answer, and the sidebar needn't redraw).
+async function state(full = true, historySeen?: string): Promise<CampState> {
+  return fullState(full, historySeen);
 }
-async function fullState(full: boolean) {
+async function fullState(full: boolean, historySeen?: string) {
+  const historyNow = historyVersion();
+  const sameHistory = !full && historySeen === historyNow;
   const all = recentQuests(Number.MAX_SAFE_INTEGER);
   const none = <T,>(make: () => T): T => (full ? make() : (undefined as T)); // not sent: the page keeps what it had
   const xp: Record<string, number> = {};
@@ -400,7 +404,8 @@ async function fullState(full: boolean) {
     inbox: none(() => inboxEntries()),
     snippets: loadSnippets(),
     links: loadLinks(),
-    history: history(), // your conversations, filed under projects (the sidebar)
+    history: sameHistory ? (undefined as unknown as ReturnType<typeof history>) : history(), // your conversations, filed under projects (the sidebar)
+    historyVersion: historyNow,
     jira: jiraStatus(),   // whether your Jira account is linked, and as whom (never the token)
     // The pull requests of recent worktrees, as the camp last saw them (prs.ts). attention: there's something new to look at.
     prs: prStates().map((p) => ({ ...p, attention: needsYou(p) })),
@@ -481,7 +486,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "GET" && url.pathname === "/api/state") { freshenUsage(); return send(res, 200, await state(url.searchParams.get("full") !== "0")); }
+    if (req.method === "GET" && url.pathname === "/api/state") { freshenUsage(); return send(res, 200, await state(url.searchParams.get("full") !== "0", url.searchParams.get("history") ?? undefined)); }
 
     if (req.method === "GET" && url.pathname === "/api/wiki") {
       const rel = normalize(url.searchParams.get("path") ?? "");

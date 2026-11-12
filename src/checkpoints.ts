@@ -14,7 +14,8 @@
 // one last read it, the write is refused until the file has been read again.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, copyFileSync, utimesSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
@@ -65,9 +66,35 @@ const ID_ENV = { GIT_AUTHOR_NAME: "Satchel", GIT_AUTHOR_EMAIL: "satchel@localhos
 const gitIn = (root: string, args: string[], env: Record<string, string> = {}) =>
   execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50_000_000, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...env } }).trim();
 
+const run = promisify(execFile);
+const gitAsync = async (root: string, args: string[], env: Record<string, string> = {}) =>
+  (await run("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50_000_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...env } })).stdout.trim();
+
 // The working tree as it is right now, as a git tree (and a commit holding it), without touching
 // the repository's own index, HEAD, or branches. Starts from a copy of the real index, so only
-// files that changed are read again.
+// files that changed are read again. The async form is for the snapshots taken while work is
+// going (on a large repository they take a fifth of a second, and the camp shouldn't stall);
+// the plain one is for View changes and Undo, which you're waiting on anyway.
+async function treeNowAsync(root: string): Promise<string> {
+  const git = gitAsync;
+  const tmp = join(tmpdir(), `satchel-index-${randomUUID()}`);
+  try {
+    const index = resolve(root, await git(root, ["rev-parse", "--git-path", "index"]));
+    if (existsSync(index)) { copyFileSync(index, tmp); const st = statSync(index); utimesSync(tmp, st.atime, st.mtime); }
+    const env = { GIT_INDEX_FILE: tmp };
+    await git(root, ["add", "-A", "--", ".", ...LEAVE_OUT], env);
+    const tracked = (await git(root, ["ls-files", "-z", "--", ...SECRET_GLOBS.map((g) => `:(glob)**/${g}`)], env)).split("\0").filter(Boolean);
+    if (tracked.length) await git(root, ["rm", "-q", "--cached", "--", ...tracked], env);
+    return await git(root, ["write-tree"], env);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+}
+async function commitOfAsync(root: string, tree: string, ref: string): Promise<string> {
+  const commit = await gitAsync(root, ["commit-tree", tree, "-m", "Satchel checkpoint (not a branch; safe to delete)"], ID_ENV);
+  await gitAsync(root, ["update-ref", ref, commit]);
+  return commit;
+}
 function treeNow(root: string): string {
   const tmp = join(tmpdir(), `satchel-index-${randomUUID()}`);
   try {
@@ -85,11 +112,6 @@ function treeNow(root: string): string {
     rmSync(tmp, { force: true });
   }
 }
-function commitOf(root: string, tree: string, ref: string): string {
-  const commit = gitIn(root, ["commit-tree", tree, "-m", "Satchel checkpoint (not a branch; safe to delete)"], ID_ENV);
-  gitIn(root, ["update-ref", ref, commit]);
-  return commit;
-}
 const refFor = (id: string, n: number, when: "before" | "after") => `refs/satchel/checkpoints/${id}/${n}-${when}`;
 function dropRefs(snap: Snapshot, id: string) {
   try {
@@ -99,32 +121,50 @@ function dropRefs(snap: Snapshot, id: string) {
 
 // Before a shell command runs in `dir`: if it's inside a git repository the crew sees as a linked
 // folder (`shown` is its top, as the crew sees it), record the working tree once per expedition.
-export function snapshotBeforeShell(dir: string, showTop: (abs: string) => string | undefined) {
+// Two quests starting commands in the same repository at once share one snapshot.
+const taking = new Map<string, Promise<void>>();
+export function snapshotBeforeShell(dir: string, showTop: (abs: string) => string | undefined): Promise<void> {
   const id = currentExpeditionId();
-  if (!id || !SAFE_ID.test(id)) return;
-  let root: string;
-  try { root = resolve(gitIn(dir, ["rev-parse", "--show-toplevel"])); } catch { return; } // not a repository
-  const shown = showTop(root);
-  if (!shown) return;
-  const m = load(id) ?? { id, started: new Date().toISOString(), files: [] };
-  const snaps = m.snapshots ?? [];
-  if (snaps.some((x) => x.root === root)) return;
-  if (!m.files.length && !snaps.length) prune();
-  try {
-    const before = commitOf(root, treeNow(root), refFor(id, snaps.length, "before"));
-    save({ ...m, snapshots: [...snaps, { root, shown, before }] });
-  } catch { /* an unusual repository: shell changes there just aren't tracked */ }
+  if (!id || !SAFE_ID.test(id)) return Promise.resolve();
+  const key = `${id}|${dir}`;
+  const busy = taking.get(key);
+  if (busy) return busy;
+  const job = (async () => {
+    let root: string;
+    try { root = resolve(await gitAsync(dir, ["rev-parse", "--show-toplevel"])); } catch { return; } // not a repository
+    const shown = showTop(root);
+    if (!shown || load(id)?.snapshots?.some((x) => x.root === root)) return;
+    const rootKey = `${id}|root:${root}`;
+    const other = taking.get(rootKey);
+    if (other) return other; // the same repository, reached from another folder inside it
+    const snap = (async () => {
+      try {
+        const n = load(id)?.snapshots?.length ?? 0;
+        const before = await commitOfAsync(root, await treeNowAsync(root), refFor(id, n, "before"));
+        // Read the record again: the file tools may have added to it while git was working.
+        const m = load(id) ?? { id, started: new Date().toISOString(), files: [] };
+        if (!m.files.length && !m.snapshots?.length) prune();
+        save({ ...m, snapshots: [...(m.snapshots ?? []), { root, shown, before }] });
+      } catch { /* an unusual repository: shell changes there just aren't tracked */ }
+    })();
+    taking.set(rootKey, snap);
+    try { await snap; } finally { taking.delete(rootKey); }
+  })();
+  taking.set(key, job);
+  return job.finally(() => taking.delete(key));
 }
 
 // When an expedition ends: record where each repository it ran commands in was left.
-export function sealSnapshots(id: string) {
-  const m = load(id);
-  if (!m?.snapshots?.some((x) => !x.after)) return;
-  m.snapshots = m.snapshots.map((x, n) => {
-    if (x.after) return x;
-    try { return { ...x, after: commitOf(x.root, treeNow(x.root), refFor(id, n, "after")) }; } catch { return x; }
-  });
-  save(m);
+export async function sealSnapshots(id: string): Promise<void> {
+  const first = load(id);
+  if (!first?.snapshots?.some((x) => !x.after)) return;
+  const after = new Map<string, string>();
+  for (const [n, x] of first.snapshots.entries()) {
+    if (x.after) continue;
+    try { after.set(x.root, await commitOfAsync(x.root, await treeNowAsync(x.root), refFor(id, n, "after"))); } catch { /* left open: shown as it is now */ }
+  }
+  const m = load(id) ?? first;
+  save({ ...m, snapshots: (m.snapshots ?? []).map((x) => (after.has(x.root) ? { ...x, after: after.get(x.root) } : x)) });
 }
 
 type ShellChange = { snap: Snapshot; rel: string; abs: string; change: ChangedFile["change"] };
