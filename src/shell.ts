@@ -3,8 +3,15 @@
 //   - no chaining, pipes, redirects, or substitutions (; & | < > ` $ ( ) { } and newlines)
 //   - no paths outside the camp (absolute paths, ~, ..) and nothing touching .env
 // Anything else still asks you. Add your own in camp/settings.json:
-//   "shell": { "allow": ["npm run build", "pytest"] }      or  "shell": { "autoApprove": false }
+//   "shell": { "allow": ["npm run build", "npm run test:*"] }      or  "shell": { "autoApprove": false }
 // "Always allow" on an approval adds that exact command to "shell": { "exact": [...] }.
+//
+// Rules come first, and win over everything above:
+//   "shell": { "deny": ["git push*", "rm -rf *"], "ask": ["npm install*"] }
+// A command that matches a deny rule never runs (not with "always allow", not in the sandbox, not
+// with your OK). One that matches an ask rule always waits for you, even where the sandbox would
+// have run it. Each part of a chained command (a && b; c | d) is checked on its own, so
+// "cd web && git push" is caught by "git push*". * matches anything; the rest matches as written.
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -49,9 +56,35 @@ const UNSAFE_CHARS = /[;&|<>`$(){}\n\r\\]/;
 // find can delete or run commands; git can be told to run a pager or editor.
 const UNSAFE_ARGS = /(^|\s)(-exec|-execdir|-delete|-ok|-okdir|-fprint\S*|-fls|--output|-o\s|--exec|-c\s|--config|--ext-diff|--textconv)(\s|=|$)/;
 
+// "git push*" → matches "git push" and "git push origin main" (spaces collapsed, whole command).
+export function globToRegex(pattern: string): RegExp {
+  const p = pattern.trim().replace(/\s+/g, " ");
+  return new RegExp("^" + p.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$");
+}
+// The parts a chained command runs: split on ; && || | & and newlines, and what's inside $( ) or backticks.
+export function commandParts(command: string): string[] {
+  const flat = command.replace(/\$\(|`|\)/g, ";");
+  const parts = flat.split(/;|&&|\|\||\||&|\n/).map((p) => p.trim().replace(/\s+/g, " ")).filter(Boolean);
+  // A leading "sudo", "env X=1", or a subshell's "(" doesn't hide the command it runs.
+  return [command.trim().replace(/\s+/g, " "), ...parts.flatMap((p) => [p, p.replace(/^(sudo|exec|command|nohup|time|env(\s+\w+=\S+)*)\s+/, "")])];
+}
+// The first of your rules this command meets: deny before ask.
+export function shellRule(command: string): { verdict: "deny" | "ask"; rule: string } | null {
+  const s = shellSettings();
+  const parts = commandParts(String(command));
+  for (const verdict of ["deny", "ask"] as const) {
+    for (const rule of s[verdict] ?? []) {
+      const re = globToRegex(rule);
+      if (parts.some((p) => re.test(p))) return { verdict, rule };
+    }
+  }
+  return null;
+}
+
 export function isAutoApproved(command: string): boolean {
   const s = shellSettings();
   if (approvalNow() === "ask") return false;
+  if (shellRule(command)) return false; // your deny and ask rules win over every allow
   // Commands you chose "Always allow" for run as-is, but only that exact command.
   if (s.exact?.includes(command.trim())) return true;
   const cmd = command.trim().replace(/\s+/g, " ");
@@ -65,5 +98,5 @@ export function isAutoApproved(command: string): boolean {
     if (/(^|[/:])camp\/agents(\/|$)/.test(bare) || /[*?[]/.test(bare)) return false; // private workspaces; globs
   }
   const allow = [...DEFAULT_ALLOW, ...(s.allow ?? []), ...approvedSkillPrefixes()];
-  return allow.some((prefix) => cmd === prefix || cmd.startsWith(prefix + " "));
+  return allow.some((prefix) => (prefix.includes("*") ? globToRegex(prefix).test(cmd) : cmd === prefix || cmd.startsWith(prefix + " ")));
 }

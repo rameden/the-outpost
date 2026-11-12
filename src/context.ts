@@ -9,7 +9,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 export type Ledger = { spent: number; budget?: number };
 // Where an expedition works inside a linked repo: its own worktree and branch instead of the
 // folder that was linked. Keyed by link name; the file tools and the shell follow it.
-export type Workspace = { link: string; path: string; branch: string; base?: string; created?: boolean };
+// ready: the camp has run the link's setup commands in this (new) worktree, so a follow-up doesn't run them again.
+export type Workspace = { link: string; path: string; branch: string; base?: string; created?: boolean; ready?: boolean };
 // Messages the user sends to an expedition while it runs. Every agent working in it sees them.
 export type Steering = { messages: { text: string; at: number }[]; waiters: Set<() => void> };
 // project: the project this run's conversation is filed under.

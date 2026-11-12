@@ -22,7 +22,8 @@ import type { CampEvent } from "./events.js";
 import { emit } from "./events.js";
 import { FEED_PATH } from "./feed.js";
 import { loadLinks } from "./links.js";
-import { allTurns, foldersOf, type Turn } from "./threads.js";
+import { allTurns, copyTurns, foldersOf, type Turn } from "./threads.js";
+import { undoCheckpoint } from "./checkpoints.js";
 
 export const CONVERSATIONS_PATH = "camp/conversations.json";
 export const GENERAL = "general";
@@ -322,4 +323,38 @@ export function conversationEvents(thread: string, feedbackOf?: (expedition: str
     if (rated) out.push({ ...base, type: "feedback", id: t.expedition, rating: rated.rating, note: rated.note, kept: rated.kept });
   }
   return out;
+}
+
+// ---------- Forking and going back ----------
+// Fork: a new conversation that starts as a copy of this one up to and including the run you
+// picked, so you can try something else from there and keep the original as it was. It keeps the
+// same project, folders and worktree (so the two share files until one of them moves on).
+// Going back is a fork that first puts back what every later run in the conversation changed,
+// newest first, so the files are as they were right after the run you picked.
+export type Fork = { thread: string; expedition: string; restored: string[]; skipped: string[] };
+export function forkConversation(expedition: string, opts: { rewind?: boolean; running?: (expedition: string) => boolean } = {}): Fork | { error: string } {
+  const turns = allTurns();
+  const hit = turns.find((t) => t.expedition === expedition);
+  if (!hit) return { error: "There's no record of that run." };
+  if (hit.status === "running") return { error: "That run hasn't finished yet." };
+  const mine = turns.filter((t) => t.thread === hit.thread);
+  const upTo = mine.slice(0, mine.indexOf(hit) + 1);
+  const later = mine.slice(mine.indexOf(hit) + 1);
+  if (opts.rewind && later.some((t) => t.status === "running" || opts.running?.(t.expedition))) return { error: "A later run in this conversation is still going. Stop it first." };
+  const restored: string[] = [], skipped: string[] = [];
+  if (opts.rewind) for (const t of [...later].reverse()) {
+    const r = undoCheckpoint(t.expedition);
+    restored.push(...r.restored.filter((p) => !restored.includes(p)));
+    skipped.push(...r.skipped.filter((p) => !skipped.includes(p)));
+  }
+  const thread = randomBytes(8).toString("hex");
+  const tag = randomBytes(4).toString("hex");
+  const copies = upTo.map((t) => ({ ...t, thread, expedition: `${t.expedition.slice(0, 60)}-f${tag}` }));
+  copyTurns(copies);
+  const s = load();
+  const meta = s.meta[hit.thread] ?? {};
+  const title = `${meta.title || titleOf(mine[0].task)}`.replace(/ \(fork\)$/, "") + " (fork)";
+  s.meta[thread] = { ...(meta.project ? { project: meta.project } : {}), title, titled: true };
+  save(s);
+  return { thread, expedition: copies[copies.length - 1].expedition, restored, skipped };
 }

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx --import ./scripts/env.mjs src/camp.ts",
     "watch": "tsx --import ./scripts/env.mjs src/watch.ts",
+    "headless": "tsx --import ./scripts/env.mjs src/headless.ts",
     "watch:install": "tsx scripts/watch-agent.ts",
     "watch:uninstall": "tsx scripts/watch-agent.ts --uninstall",
     "ui": "tsx --import ./scripts/env.mjs scripts/ui-dev.ts",

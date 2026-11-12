@@ -17,7 +17,11 @@ export const DEFAULT_TURNS = 20;
 export const TURNS_MIN = 5;
 export const TURNS_MAX = 200;
 // sandbox: on macOS, run commands with no network and writes limited to the working folder, without asking (see sandbox.ts).
-export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[]; sandbox?: boolean };
+// deny / ask: patterns (with * for anything) a command is checked against before anything else:
+// a denied one never runs, whatever else would allow it; an "ask" one always waits for you, even
+// in the sandbox. reviewer: the smallest model clears routine commands before you're asked (reviewer.ts).
+// allowHosts: hosts a sandboxed command may reach, through the camp's proxy (netproxy.ts; macOS).
+export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[]; sandbox?: boolean; deny?: string[]; ask?: string[]; reviewer?: boolean; allowHosts?: string[] };
 // Phone notifications through an ntfy server (see phone.ts). Off unless a topic is set.
 export type PhoneSettings = { server?: string; topic?: string; approve?: string[] };
 type Settings = {
@@ -299,7 +303,13 @@ export function setApprovalLevel(level: ApprovalLevel) {
 }
 
 // Your own allow-list (command prefixes that run without asking) and the "Always allow" commands.
-export function setShellLists(patch: { allow?: string[]; exact?: string[] }) {
+export function setShellReviewer(on: boolean) {
+  const s = load();
+  s.shell = { ...(s.shell ?? {}), reviewer: on };
+  if (!on) delete s.shell.reviewer;
+  save(s);
+}
+export function setShellLists(patch: { allow?: string[]; exact?: string[]; deny?: string[]; ask?: string[]; allowHosts?: string[] }) {
   const s = load();
   // Prefixes are matched against the command with spaces collapsed; exact commands as typed (trimmed).
   const clean = (l: string[], collapse: boolean) =>
@@ -307,6 +317,9 @@ export function setShellLists(patch: { allow?: string[]; exact?: string[] }) {
   const sh: ShellSettings = { ...(s.shell ?? {}) };
   if (patch.allow) sh.allow = clean(patch.allow, true);
   if (patch.exact) sh.exact = clean(patch.exact, false);
+  if (patch.deny) sh.deny = clean(patch.deny, true);
+  if (patch.ask) sh.ask = clean(patch.ask, true);
+  if (patch.allowHosts) sh.allowHosts = clean(patch.allowHosts, true).map((h) => h.toLowerCase()).filter((h) => /^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h));
   s.shell = sh;
   save(s);
 }

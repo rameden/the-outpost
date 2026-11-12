@@ -18,7 +18,8 @@ import { currentWorkspaces, inScope, leftOutHere } from "./context.js";
 export const LINKS_PATH = "camp/links.json";
 export type LinkAccess = "read" | "write";
 // verify: commands you want run automatically after a quest changes files here (typecheck, tests…).
-export type Link = { name: string; path: string; access: LinkAccess; added: string; files?: number; verify?: string[] };
+// setup: commands run once in each new worktree the camp creates for this repository (npm ci…).
+export type Link = { name: string; path: string; access: LinkAccess; added: string; files?: number; verify?: string[]; setup?: string[] };
 
 // Where links/<name>/ points for the expedition that's running: its own worktree if it has one,
 // else the folder that was linked.
@@ -59,15 +60,17 @@ function saveLinks(links: Link[]) {
 
 export const findLink = (name: string) => loadLinks().find((l) => l.name === name);
 
-export function setLinkVerify(name: string, commands: string[]): boolean {
+export function setLinkCommands(name: string, field: "verify" | "setup", commands: string[]): boolean {
   const links = loadLinks();
   const link = links.find((l) => l.name === name);
   if (!link) return false;
-  const clean = commands.map((c) => String(c).trim()).filter(Boolean).slice(0, 8);
-  if (clean.length) link.verify = clean; else delete link.verify;
+  const clean = commands.map((c) => String(c).trim()).filter((c) => c && !c.includes("\n")).slice(0, 8);
+  if (clean.length) link[field] = clean; else delete link[field];
   saveLinks(links);
   return true;
 }
+export const setLinkVerify = (name: string, commands: string[]) => setLinkCommands(name, "verify", commands);
+export const setLinkSetup = (name: string, commands: string[]) => setLinkCommands(name, "setup", commands);
 
 function slug(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "folder";
@@ -182,7 +185,7 @@ export function linksBlock(): string {
       const w = ws[l.name];
       return `- links/${l.name}/ (${l.access === "write" ? "you may edit files here" : "read-only"}${l.files != null ? `, ~${l.files} files` : ""})` +
         (w ? `. For this expedition it is ${w.created ? "a new" : "an existing"} git worktree on branch ${w.branch}: your changes stay on that branch, apart from the user's own checkout.` +
-          (w.created ? " A new worktree has no installed dependencies yet (no node_modules), so tests may need an install first: say so rather than assume." : "") : "") +
+          (w.created ? (l.setup?.length ? ` The camp ran this folder's setup in it before you started (${l.setup.join(" ; ")}); its result is in your prompt.` : " A new worktree has no installed dependencies yet (no node_modules), so tests may need an install first: say so rather than assume.") : "") : "") +
         (l.verify?.length ? ` After a quest changes files here, the camp runs: ${l.verify.join(" ; ")}.` : "");
     }).join("\n")
   );

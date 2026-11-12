@@ -6,7 +6,7 @@
 // They're your commands, so they run without asking: inside the sandbox when it's on, plainly
 // otherwise. They run in the folder the quest worked in (this expedition's worktree, if it has one).
 
-import { filesWrittenBy } from "./checkpoints.js";
+import { filesWrittenBy, snapshotBeforeShell } from "./checkpoints.js";
 import { currentSignal } from "./context.js";
 import { emit } from "./events.js";
 import { linkRoot, linkedDisplayPath, loadLinks } from "./links.js";
@@ -21,6 +21,7 @@ export async function runChecks(runKey: string, who: { who: string; emoji: strin
   for (const link of loadLinks()) {
     if (!link.verify?.length || !touched.some((p) => p.startsWith(`links/${link.name}/`))) continue;
     const dir = linkRoot(link);
+    snapshotBeforeShell(dir, linkedDisplayPath); // a check can change files too (a formatter, codegen)
     const lines: string[] = [];
     for (const command of link.verify) {
       if (currentSignal()?.aborted) break;

@@ -56,6 +56,13 @@ function all(): Turn[] {
 // Every run on record, oldest first (one entry per run: its ending, if it got that far).
 export const allTurns = (): Turn[] => all();
 
+// Turns copied as they are, times included (a fork of a conversation starts with its history).
+export function copyTurns(turns: Turn[]) {
+  if (!turns.length) return;
+  mkdirSync("camp", { recursive: true });
+  appendFileSync(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n") + "\n");
+}
+
 export function recordTurn(t: Omit<Turn, "time">) {
   mkdirSync("camp", { recursive: true });
   appendFileSync(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }) + "\n");

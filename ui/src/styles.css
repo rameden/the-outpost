@@ -1540,3 +1540,10 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .work-btn.left-out span { color: var(--faint); text-decoration: line-through; text-decoration-thickness: 1px; }
 
 .work-opt.work-none { border-bottom: 1px solid var(--border); border-radius: 0; margin-bottom: 4px; }
+
+/* Adding a trigger (Jobs tab): label above each field, full width. */
+.trigger-form { display: grid; gap: 10px; margin-top: 8px; }
+.trigger-form > label:not(.switch) { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.trigger-form input:not([type="checkbox"]), .trigger-form select, .trigger-form textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+.trigger-form textarea { min-height: 64px; resize: vertical; }
+.trigger-form input:focus-visible, .trigger-form select:focus-visible, .trigger-form textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
