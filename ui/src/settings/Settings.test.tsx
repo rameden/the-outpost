@@ -20,7 +20,7 @@ const camp = (over: Partial<CampState["settings"]> = {}) => ({
   characters: [], skills: [], installedSkills: [], wiki: [], connectors: [], links: [], inbox: [],
   parallel: 3, budgetUsd: null, runtime: "api", login: null, sandbox: { on: false, available: true },
   settings: {
-    approval: "safe", allow: ["npm run build"], exact: ["npm test -- --watch=false"], defaultAllow: ["ls", "git status"],
+    approval: "safe", allow: ["npm run build"], exact: ["npm test -- --watch=false"], deny: ["git push*"], askAlways: [], reviewer: false, allowHosts: [], defaultAllow: ["ls", "git status"],
     questsAtOnce: 4, questsMax: 16, parallelMax: 8, selfEdit: false,
     phone: { topic: "", server: "", approve: null, on: false }, runtimeLocked: null, ...over,
   },
@@ -48,7 +48,7 @@ test("the approval level, the allow-list, and removing an always-allowed command
   expect((screen.getByRole("radio", { name: /Allow safe commands/ }) as HTMLInputElement).checked).toBe(true);
   await act(async () => { fireEvent.click(screen.getByRole("radio", { name: /Ask every time/ })); });
   fireEvent.change(screen.getByLabelText("Allowed command prefixes"), { target: { value: "npm run build\npytest" } });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save" })); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save allowed command prefixes" })); });
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Remove" })); });
   expect(posts).toEqual([
     { path: "/api/approvals", body: { level: "ask" } },

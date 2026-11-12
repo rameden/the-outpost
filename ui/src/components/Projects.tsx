@@ -14,6 +14,7 @@ import { money, plural, shortModel, spaced, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Conversation, History, Project, ProjectPageData, SendResult } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { LinkCommands } from "../panels/Records.tsx";
 import { Confirm } from "./Confirm.tsx";
 import { ChronicleSection } from "./Chronicle.tsx";
 import { PayoffSection } from "./Payoff.tsx";
@@ -38,19 +39,12 @@ function defaultsOf(p: Project): string[] {
 
 function Folder({ S, name, refresh }: { S: CampState; name: string; refresh: () => void }) {
   const link = S.links.find((l) => l.name === name);
-  const [checks, setChecks] = useState((link?.verify ?? []).join("\n"));
   if (!link) return <div className="proj-folder"><Icon name="folder" /> <code>links/{name}/</code><span>This folder isn't linked any more.</span></div>;
-  const saved = (link.verify ?? []).join("\n");
   return (
     <div className="proj-folder" title={link.path}>
       <Icon name="folder" /> <code>links/{name}/</code><span>{link.path} · {link.access === "write" ? "the crew can edit" : "read-only"}</span>
-      <details className="checks-edit">
-        <summary>Checks after changes{link.verify?.length ? ` (${link.verify.length})` : ""}</summary>
-        <div className="meta">Commands the camp runs by itself after a quest changes files here, one per line (for example <code>npm run typecheck</code>). Results go into the quest's report.</div>
-        <textarea spellCheck={false} aria-label={`Checks for ${name}`} value={checks} onChange={(ev) => setChecks(ev.target.value)} />
-        <div><button type="button" className="btn small" disabled={checks.trim() === saved}
-          onClick={async () => { try { await api("/api/links/verify", { name, commands: checks.split("\n") }); refresh(); } catch (e) { alert(errorText(e)); } }}>Save checks</button></div>
-      </details>
+      <LinkCommands link={link} kind="verify" refresh={refresh} open={false} />
+      <LinkCommands link={link} kind="setup" refresh={refresh} open={false} />
     </div>
   );
 }

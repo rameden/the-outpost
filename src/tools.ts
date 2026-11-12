@@ -8,12 +8,15 @@ import { execFileSync } from "node:child_process";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ask } from "./ask.js";
-import { currentSignal, isUnattended } from "./context.js";
-import { isAutoApproved, approvalNow } from "./shell.js";
+import { currentQuestId, currentSignal, isUnattended } from "./context.js";
+import { emit } from "./events.js";
+import { isAutoApproved, approvalNow, shellRule } from "./shell.js";
+import { reviewCommand, reviewerOn } from "./reviewer.js";
 import { resolveLinked, linkedDisplayPath, SECRET_NAME } from "./links.js";
 import { allowShellCommand, selfEditAllowed, shellSettings } from "./settings.js";
-import { sandboxAvailable, sandboxed, type SandboxPlan } from "./sandbox.js";
-import { afterWrite, beforeWrite, noteRead } from "./checkpoints.js";
+import { sandboxAvailable, sandboxKind, sandboxed, type SandboxPlan } from "./sandbox.js";
+import { allowedHosts, ensureProxy, proxyEnv, refusedSince } from "./netproxy.js";
+import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell } from "./checkpoints.js";
 
 // How a real path is shown to agents: relative inside the camp, links/<name>/… inside a linked folder.
 export function displayPath(abs: string): string {
@@ -53,7 +56,7 @@ function isHarnessCode(abs: string): boolean {
   return HARNESS_FILES.includes(rel) || HARNESS_DIRS.includes(rel.split(sep)[0]);
 }
 // Camp files that can hold tokens (connector env, the phone topic). Nobody's file tools read them.
-const PRIVATE_CAMP_FILES = new Set(["mcp.json", "settings.json", "jira.json"]); // jira.json holds your Jira API token
+const PRIVATE_CAMP_FILES = new Set(["mcp.json", "settings.json", "jira.json", "triggers.json"]); // jira.json holds your Jira API token; triggers.json what starts work on its own
 
 // Near the turn limit, a note rides along with a tool result so the agent lands the work instead
 // of being cut off mid-step. Used by both runtimes.
@@ -223,13 +226,18 @@ export function writeFileFor(self: string, opts: { outputsOnly?: boolean } = {})
 const SHELL_TIMEOUT_MS = 120_000;
 const SHELL_MAX_BYTES = 2_000_000;
 export type ShellOpts = { signal?: AbortSignal; timeoutMs?: number; cwd?: string; sandbox?: SandboxPlan };
-export function runShell(command: string, signalOrOpts?: AbortSignal | ShellOpts, timeout?: number): Promise<string> {
+export async function runShell(command: string, signalOrOpts?: AbortSignal | ShellOpts, timeout?: number): Promise<string> {
   const o: ShellOpts = signalOrOpts instanceof AbortSignal || signalOrOpts === undefined ? { signal: signalOrOpts, timeoutMs: timeout } : signalOrOpts;
   const { signal, cwd = CAMP_ROOT } = o;
   const timeoutMs = o.timeoutMs ?? SHELL_TIMEOUT_MS;
+  // Sandboxed, with hosts you allow: through the camp's proxy (macOS; see netproxy.ts).
+  let env: NodeJS.ProcessEnv | undefined;
+  if (o.sandbox && sandboxKind() === "seatbelt" && allowedHosts().length) {
+    try { env = { ...process.env, ...proxyEnv(await ensureProxy()) }; } catch { /* no proxy: no network, as before */ }
+  }
   return new Promise((done) => {
     if (signal?.aborted) return done("Not run: the expedition was stopped.");
-    const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"] };
+    const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"], ...(env ? { env } : {}) };
     const box = o.sandbox ? sandboxed(command, o.sandbox) : null;
     const child = box ? spawn(box.file, box.args, io) : spawn(command, { ...io, shell: true });
     let out = "";
@@ -286,7 +294,7 @@ export function sandboxPlanFor(dir: string): SandboxPlan {
   // Hooks and git config run later, outside the sandbox, so a command can't plant them.
   const readOnly = common ? [resolve(common, "hooks"), resolve(common, "config")] : [];
   const camp = real(CAMP_ROOT);
-  const unreadable = [resolve(camp, "camp", "mcp.json"), resolve(camp, "camp", "settings.json"), resolve(camp, "camp", "jira.json"), resolve(camp, "camp", "agents")];
+  const unreadable = [resolve(camp, "camp", "mcp.json"), resolve(camp, "camp", "settings.json"), resolve(camp, "camp", "jira.json"), resolve(camp, "camp", "triggers.json"), resolve(camp, "camp", "agents")];
   if (root === camp || camp.startsWith(root + sep)) {
     readOnly.push(resolve(camp, "camp"), resolve(camp, "skills"), resolve(camp, "plugins"));
     if (!selfEditAllowed()) readOnly.push(...HARNESS_DIRS.map((d) => resolve(HARNESS_ROOT, d)), ...HARNESS_FILES.map((f) => resolve(HARNESS_ROOT, f)));
@@ -295,7 +303,7 @@ export function sandboxPlanFor(dir: string): SandboxPlan {
 }
 
 export const sandboxOn = () => approvalNow() === "sandbox" && sandboxAvailable();
-const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network, and writes only inside this project. If that is why it failed " +
+const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network (beyond any hosts the user allowed), and writes only inside this project. If that is why it failed " +
   "(an install, a download, a push), call bash again with unsandboxed: true and the user will be asked.]";
 
 export function bashFor(self: string, name = "Artificer"): Tool {
@@ -322,17 +330,37 @@ export function bashFor(self: string, name = "Artificer"): Tool {
       const dir = shellDir(cwd, self);
       const where = dir === CAMP_ROOT ? "" : `\n(in ${displayPath(dir)})`;
       const signal = currentSignal();
+      // Record a linked repository's working tree before the expedition's first command there, so
+      // View changes and Undo cover what commands change too (see checkpoints.ts).
+      snapshotBeforeShell(dir, linkedDisplayPath);
+      // Your rules first: a denied command never runs; an "ask" one always waits for you.
+      const rule = shellRule(String(command));
+      if (rule?.verdict === "deny") return `Not run: the user's rules don't allow commands like this ("${rule.rule}"). Don't try to get around it with another command; find another way or say what you needed.`;
       // Simple, read-only commands (ls, git status…) run without asking; see shell.ts.
       if (isAutoApproved(command)) return runShell(String(command), { signal, cwd: dir });
-      if (sandboxOn() && !unsandboxed) {
+      if (sandboxOn() && !unsandboxed && !rule) {
+        const from = Date.now();
         const out = await runShell(String(command), { signal, cwd: dir, sandbox: sandboxPlanFor(dir) });
-        return /^(Exit code|Couldn't run)/.test(out) ? out + SANDBOX_HINT : out;
+        if (!/^(Exit code|Couldn't run)/.test(out)) return out;
+        const hosts = refusedSince(from);
+        return out + (hosts.length ? `\n\n[Ran in the sandbox, where only the user's allowed hosts can be reached. It tried: ${hosts.join(", ")}.]` : "") + SANDBOX_HINT;
       }
       if (campMode.unattended) {
         return "Not run: this is a scheduled job with nobody here to approve that command. " +
           "Only simple read-only commands (ls, git status, git diff…) run unattended. Report what you would have run.";
       }
-      const ok = (await ask({ kind: "shell", title: `⚔️  The ${name} wants to run a shell command:`, body: command + where })).toLowerCase();
+      // The reviewer (if you turned it on) may clear a routine command; otherwise it says why you're being asked.
+      let note = "";
+      if (reviewerOn() && !rule) {
+        const review = await reviewCommand(String(command), where.replace(/^\n\(in |\)$/g, ""), name);
+        if (review.cleared) {
+          emit({ type: "notice", who: name, emoji: "🛡️", depth: 1, questId: currentQuestId(), text: `Reviewer cleared: ${String(command).split("\n")[0].slice(0, 120)} (${review.reason})` });
+          return runShell(String(command), { signal, cwd: dir });
+        }
+        note = `\n\nReviewer: ${review.reason}`;
+      }
+      if (rule) note = `\n\nYour rule "${rule.rule}" says to always ask about this.`;
+      const ok = (await ask({ kind: "shell", title: `⚔️  The ${name} wants to run a shell command:`, body: command + where + note })).toLowerCase();
       // "always": run it, and stop asking about this exact command.
       if (ok === "a" || ok === "always") allowShellCommand(String(command));
       else if (ok !== "y") return "The user declined to run this command.";

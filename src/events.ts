@@ -33,7 +33,7 @@ export type CampEventBody =
   | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string }
   | { type: "answered"; id: string; answer: string; lapsed?: boolean } // lapsed: the camp restarted before you answered
   | { type: "job"; name: string; outcome: "running" | "quiet" | "reported" | "failed"; text?: string }
-  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" };
+  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" | "triggers" };
 
 export type AskKind = "plan" | "shell" | "job" | "tool" | "question";
 // expeditionId: which expedition an event belongs to (several can run at once). Added by emit().

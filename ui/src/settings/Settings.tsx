@@ -200,14 +200,14 @@ function ListEditor({ label, value, placeholder, onSave }: { label: string; valu
   return (
     <div className="list-edit">
       <textarea aria-label={label} spellCheck={false} placeholder={placeholder} value={text} onChange={(ev) => setText(ev.target.value)} />
-      <div><button type="button" className="btn small" disabled={text === saved} onClick={() => onSave(text.split("\n"))}>Save</button></div>
+      <div><button type="button" className="btn small" aria-label={`Save ${label.toLowerCase()}`} disabled={text === saved} onClick={() => onSave(text.split("\n"))}>Save</button></div>
     </div>
   );
 }
 
 function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
   const st = S.settings;
-  const noSandbox = S.sandbox.available ? undefined : "Needs macOS (sandbox-exec).";
+  const noSandbox = S.sandbox.available ? undefined : "Needs macOS (sandbox-exec), or Linux with bubblewrap (bwrap) installed.";
   return (
     <>
       <Row label="Approval level" help="What the crew's shell commands may do without asking you. Plans, new scheduled jobs and connector writes always ask." wide>
@@ -217,7 +217,21 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
           { id: "sandbox", label: "Sandbox the rest", help: "Everything else runs without asking, with no network and writes only inside the project. Installs and pushes still ask.", disabled: noSandbox },
         ]} />
       </Row>
-      <Row label="Your allow-list" help={<>Command prefixes that run without asking, one per line. <code>npm run build</code> also allows <code>npm run build --watch</code>. Only simple commands match (no pipes, chaining or paths outside the camp). Test runners run project code the Artificer can edit, so add them only if that's fine with you.</>} wide>
+      <Row label="Hosts the sandbox can reach" help={S.sandbox.kind === "bwrap"
+        ? "On Linux the sandbox has no network at all for now, so this list isn't used: commands that need the network ask to run outside it."
+        : <>Sandboxed commands can reach these hosts, and only these, through a proxy the camp runs, so installs and fetches stop asking. One per line; <code>*.github.com</code> covers its subdomains. Tools that ignore proxy settings still get no network.</>} wide>
+        <ListEditor label="Hosts the sandbox can reach" value={st.allowHosts} placeholder={"registry.npmjs.org\npypi.org\nfiles.pythonhosted.org"} onSave={(allowHosts) => tryIt(() => api("/api/shell", { allowHosts }), refresh)} />
+      </Row>
+      <Row label="Never run" help={<>Commands that never run, whatever else allows them: not with your OK, not in the sandbox. One per line; <code>*</code> matches anything, so <code>git push*</code> covers every push. Each part of a chained command is checked, so <code>cd web &amp;&amp; git push</code> is caught too.</>} wide>
+        <ListEditor label="Commands that never run" value={st.deny} placeholder={"git push*\nrm -rf *"} onSave={(deny) => tryIt(() => api("/api/shell", { deny }), refresh)} />
+      </Row>
+      <Row label="Always ask" help="Commands that always wait for your OK, even where the sandbox or your allow-list would run them. Same patterns as above." wide>
+        <ListEditor label="Commands that always ask" value={st.askAlways} placeholder={"npm install*\ngit commit*"} onSave={(ask) => tryIt(() => api("/api/shell", { ask }), refresh)} />
+      </Row>
+      <Row label="Approval reviewer" help="Before a command waits for you, the smallest model looks at it. It can run a routine one (tests, builds, formatters, read-only commands) and says so in the feed, or leave it for you with its reason. It never declines for you, and it can't clear anything with sudo, deleting, pushing, installs or the network, or anything in a scheduled job. Each look is a small call.">
+        <label className="switch"><input type="checkbox" checked={st.reviewer} onChange={(ev) => tryIt(() => api("/api/shell-reviewer", { on: ev.target.checked }), refresh)} /> {st.reviewer ? "On" : "Off"}</label>
+      </Row>
+      <Row label="Your allow-list" help={<>Command prefixes that run without asking, one per line. <code>npm run build</code> also allows <code>npm run build --watch</code>, and <code>*</code> matches anything (<code>npm run test:*</code>). Only simple commands match (no pipes, chaining or paths outside the camp). Test runners run project code the Artificer can edit, so add them only if that's fine with you.</>} wide>
         <ListEditor label="Allowed command prefixes" value={st.allow} placeholder={"npm run build\npytest"} onSave={(allow) => tryIt(() => api("/api/shell", { allow }), refresh)} />
       </Row>
       <Row label="Always allowed" help="Exact commands you chose “Always allow” for on an approval. Remove one to be asked again." wide>

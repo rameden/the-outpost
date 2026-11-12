@@ -19,12 +19,12 @@ import { setAsker, type Question } from "./ask.js";
 import { currentExpeditionId, newSteering, steer, type Steering } from "./context.js";
 import { linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, pullRequestFeedback, pushWorkspace, removeWorkspace, switchBranch } from "./repos.js";
 import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, checkPullRequests, markSeen, startPrWatch } from "./prs.js";
-import { sandboxAvailable } from "./sandbox.js";
+import { sandboxAvailable, sandboxKind, SANDBOX_NEEDS } from "./sandbox.js";
 import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -32,6 +32,7 @@ import { CAMP_ROOT } from "./tools.js";
 import { CREW, CREW_IDS, findCrew, addMember, updateMember, removeMember, type CrewId } from "./crew.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
+import { briefFor, cleanTrigger, loadTriggers, pollTrigger, saveTriggers, setTriggerEnabled, POLL_MS, type Trigger, type TriggerItem } from "./triggers.js";
 import { recentQuests, questCost } from "./questlog.js";
 import { wikiPages, WIKI_DIR, saveWikiPage, removeWikiPage } from "./wiki.js";
 import { pendingDetails, approveSkill, rejectSkill } from "./forge.js";
@@ -48,9 +49,9 @@ import { projectPayoff } from "./payoff.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
-import { loadLinks, addLink, removeLink, setLinkVerify } from "./links.js";
+import { loadLinks, addLink, removeLink, setLinkVerify, setLinkSetup } from "./links.js";
 import { githubStatus, switchGithub } from "./github.js";
-import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, GENERAL } from "./conversations.js";
+import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
 import { afterRun, forgetLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
@@ -173,6 +174,43 @@ setInterval(() => {
   if (!claimScheduler("ui")) return; // `npm run watch` already has the jobs
   for (const job of dueJobs()) if (!queuedJob(job.name)) enqueue({ label: `job:${job.name}`, run: (signal, id) => runJob(job, signal, id) });
 }, TICK_MS);
+
+// ---------- Triggers: work that starts when an issue or ticket arrives (triggers.ts) ----------
+// Each new item starts an ordinary expedition, filed under the trigger's project, whose plan
+// waits for your OK like any other.
+async function startFromTrigger(t: Trigger, item: TriggerItem) {
+  const brief = await briefFor(t, item);
+  const project = projectOf(undefined, t.project);
+  let workspaces: Awaited<ReturnType<typeof prepareWorkspaces>> | undefined;
+  if (t.worktree) {
+    const repos = new Set((await linkedRepos()).filter((r) => r.access === "write").map((r) => r.link));
+    const wanted = t.link ? [t.link] : project.links ?? [];
+    const chosen = Object.fromEntries(wanted.filter((l) => repos.has(l)).map((l) => [l, { mode: "new" as const, branch: `camp/${t.kind === "jira" ? item.id.toLowerCase() : `issue-${item.id.slice(1)}`}` }]));
+    try { if (Object.keys(chosen).length) workspaces = await prepareWorkspaces(chosen, item.title, randomUUID()); }
+    catch (e: any) { console.error(`💥 trigger ${t.name}: ${e.message}`); }
+  }
+  const links = [...new Set([...(t.link ? [t.link] : []), ...Object.keys(workspaces ?? {})])];
+  const shown = `${t.kind === "jira" ? item.id : `Issue ${item.id}`}: ${item.title}`;
+  const stillRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
+  enqueue({ label: `trigger:${t.name}`, task: shown.slice(0, 90), run: async (signal, id, steering) => {
+    const r = await runExpedition(brief, { signal, id, steering, stillRunning, displayTask: shown, workspaces, project: project.id, links,
+      ...(item.jira ? { jira: item.jira } : {}) });
+    void titleConversation(id, shown, r.text);
+    return r;
+  } });
+}
+let polling = false;
+async function pollTriggers() {
+  if (polling || pausedUntil()) return;
+  polling = true;
+  try {
+    for (const t of loadTriggers().filter((x) => x.enabled)) {
+      for (const item of await pollTrigger(t)) await startFromTrigger(t, item).catch((e) => console.error(`💥 trigger ${t.name}: ${e.message}`));
+    }
+  } finally { polling = false; }
+}
+setInterval(() => void pollTriggers(), POLL_MS).unref();
+setTimeout(() => void pollTriggers(), 15_000).unref();
 
 // ---------- State for the panels ----------
 // Spending from the quest log: every API call is logged once (the Quartermaster's own calls,
@@ -311,12 +349,16 @@ async function fullState(full: boolean) {
     running: [...running.values()].map((w) => ({ id: w.id, label: w.label, task: w.task ?? "" })),
     queued: queue.map((w) => ({ id: w.id, label: w.label, task: w.task ?? "", after: w.after ?? null, held: w.held ?? null })),
     parallel: parallelLimit(),
-    sandbox: { on: shellSettings().sandbox === true, available: sandboxAvailable() },
+    sandbox: { on: shellSettings().sandbox === true, available: sandboxAvailable(), kind: sandboxKind() },
     // Everything the Settings page shows that isn't already above.
     settings: {
       approval: approvalLevel(),
       allow: shellSettings().allow ?? [],
       exact: shellSettings().exact ?? [],
+      deny: shellSettings().deny ?? [],
+      allowHosts: shellSettings().allowHosts ?? [],
+      askAlways: shellSettings().ask ?? [],
+      reviewer: shellSettings().reviewer === true,
       defaultAllow: DEFAULT_ALLOW,
       questsAtOnce: questLimit(),
       questsMax: QUESTS_MAX,
@@ -341,6 +383,7 @@ async function fullState(full: boolean) {
     phone: !!phoneConfig(),
     asks: [...pendingAsks.entries()].map(([id, { q }]) => ({ id, ...q })),
     jobs: loadJobs(),
+    triggers: loadTriggers().map(({ seen, ...t }) => ({ ...t, seen: seen?.length ?? 0 })),
     quests: none(() => all.slice(-80).reverse().map((q) => ({ ...q, cost: questCost(q) }))),
     spend: spending(all),
     budgetUsd: budgetUsd() ?? null,
@@ -857,6 +900,12 @@ const server = http.createServer(async (req, res) => {
       if (ok) emit({ type: "changed", what: "links" });
       return send(res, ok ? 200 : 404, { ok });
     }
+    // Commands to run once in each new worktree the camp creates for a linked repository ({ name, commands: [...] }).
+    if (url.pathname === "/api/links/setup") {
+      const ok = setLinkSetup(String(body.name), Array.isArray(body.commands) ? body.commands : []);
+      if (ok) emit({ type: "changed", what: "links" });
+      return send(res, ok ? 200 : 404, { ok });
+    }
 
     // Say something to a running expedition ({ id, text }). The agents working in it see it on their next step.
     if (url.pathname === "/api/steer") {
@@ -948,7 +997,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/sandbox") {
-      if (body.on && !sandboxAvailable()) return send(res, 400, { error: "The sandbox needs macOS (sandbox-exec)." });
+      if (body.on && !sandboxAvailable()) return send(res, 400, { error: SANDBOX_NEEDS });
       setShellSandbox(!!body.on);
       return send(res, 200, { ok: true, on: !!body.on });
     }
@@ -957,7 +1006,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/approvals") {
       const level = body.level;
       if (level !== "ask" && level !== "safe" && level !== "sandbox") return send(res, 400, { error: "level must be ask, safe or sandbox" });
-      if (level === "sandbox" && !sandboxAvailable()) return send(res, 400, { error: "The sandbox needs macOS (sandbox-exec)." });
+      if (level === "sandbox" && !sandboxAvailable()) return send(res, 400, { error: SANDBOX_NEEDS });
       setApprovalLevel(level);
       return send(res, 200, { ok: true, level: approvalLevel() });
     }
@@ -965,8 +1014,13 @@ const server = http.createServer(async (req, res) => {
     // Your shell allow-list and "Always allow" commands ({ allow?: string[], exact?: string[] }).
     if (url.pathname === "/api/shell") {
       const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : undefined);
-      setShellLists({ allow: list(body.allow), exact: list(body.exact) });
+      setShellLists({ allow: list(body.allow), exact: list(body.exact), deny: list(body.deny), ask: list(body.ask), allowHosts: list(body.allowHosts) });
       return send(res, 200, { ok: true });
+    }
+    // The approval reviewer ({ on }): the smallest model clears routine commands before you're asked (reviewer.ts).
+    if (url.pathname === "/api/shell-reviewer") {
+      setShellReviewer(!!body.on);
+      return send(res, 200, { ok: true, on: !!body.on });
     }
 
     // How many dispatched quests run at once, camp-wide ({ n: 1–16 }).
@@ -1108,6 +1162,15 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, ...r });
     }
 
+    // Fork a conversation from one of its runs ({ id, rewind }): a copy up to that run, to carry on
+    // from there. With rewind, what every later run changed is put back first.
+    if (url.pathname === "/api/fork") {
+      const r = forkConversation(String(body.id ?? ""), { rewind: !!body.rewind, running: (e) => running.has(e) });
+      if ("error" in r) return send(res, 409, r);
+      if (body.rewind) emit({ type: "changed", what: "checkpoints" });
+      return send(res, 200, { ok: true, ...r });
+    }
+
     // "Try anyway": start queued work even though the plan's limit was reported as used up.
     if (url.pathname === "/api/limits/resume") {
       resumeNow();
@@ -1151,6 +1214,27 @@ const server = http.createServer(async (req, res) => {
       const { owner, name, action } = body;
       const ok = action === "approve" ? approveSkill(owner, name) : action === "reject" ? rejectSkill(owner, name) : false;
       return send(res, ok ? 200 : 404, { ok });
+    }
+
+    // Triggers ({ action: "add", trigger } | { action: "enable" | "disable" | "delete" | "check", name }).
+    if (url.pathname === "/api/triggers") {
+      const action = String(body.action ?? "");
+      if (action === "add") {
+        const t = cleanTrigger(body.trigger);
+        if ("error" in t) return send(res, 400, t);
+        const list = loadTriggers();
+        if (list.some((x) => x.name === t.name)) return send(res, 409, { error: `There's already a trigger named ${t.name}.` });
+        saveTriggers([...list, t]);
+        void pollTriggers(); // its first look: notes what's already there
+        return send(res, 200, { ok: true });
+      }
+      const name = String(body.name ?? "");
+      if (!loadTriggers().some((t) => t.name === name)) return send(res, 404, { error: `No trigger named ${name}.` });
+      if (action === "enable" || action === "disable") setTriggerEnabled(name, action === "enable");
+      else if (action === "delete") saveTriggers(loadTriggers().filter((t) => t.name !== name));
+      else if (action === "check") await pollTriggers();
+      else return send(res, 400, { error: "Unknown action." });
+      return send(res, 200, { ok: true });
     }
 
     if (url.pathname === "/api/jobs") {

@@ -115,3 +115,33 @@ test("a reply to a run that is still going says so, instead of calling it cut of
   assert.match(threadFor("live", () => true)!.history, /still going, in parallel with this one/);
   assert.match(threadFor("live")!.history, /cut off before it finished/);
 });
+
+test("a conversation can be forked from any finished run, or gone back to with later runs' file changes put back", async () => {
+  const { withExpedition } = await import("../src/context.ts");
+  const { writeFileFor } = await import("../src/tools.ts");
+  const { readFileSync, writeFileSync } = await import("node:fs");
+  turn("fk", "fk1", "Write a plan", "Plan written.", "done", { agent: "scribe", direct: true });
+  // A later run changes a file with the file tools.
+  await withExpedition({ id: "fk2" }, () => writeFileFor("scribe").run!({ path: "camp/agents/scribe/outputs/plan.md", content: "second draft\n" }));
+  turn("fk", "fk2", "Redo it", "Redone.", "done", { agent: "scribe", direct: true });
+  c.renameConversation("fk", "The plan");
+
+  const f = c.forkConversation("fk1");
+  assert.ok(!("error" in f));
+  if ("error" in f) return;
+  const h = c.history();
+  const copy = h.conversations.find((x) => x.id === f.thread)!;
+  assert.equal(copy.title, "The plan (fork)");
+  assert.equal(copy.expeditions.length, 1, "the copy stops at the run you picked");
+  assert.equal(f.expedition, copy.expeditions[0]);
+  assert.ok(h.conversations.find((x) => x.id === "fk")!.expeditions.length === 2, "the original is untouched");
+  assert.match(threadFor(f.expedition)!.history, /Write a plan[\s\S]*Plan written\./);
+  assert.doesNotMatch(threadFor(f.expedition)!.history, /Redo it/);
+  assert.equal(readFileSync("camp/agents/scribe/outputs/plan.md", "utf8"), "second draft\n", "a plain fork leaves files alone");
+
+  const back = c.forkConversation("fk1", { rewind: true });
+  assert.ok(!("error" in back) && back.restored.includes("camp/agents/scribe/outputs/plan.md"));
+  assert.throws(() => readFileSync("camp/agents/scribe/outputs/plan.md", "utf8"), /ENOENT/, "the later run's new file is gone again");
+  assert.deepEqual(c.forkConversation("fk1", { rewind: true, running: (e) => e === "fk2" }), { error: "A later run in this conversation is still going. Stop it first." });
+  assert.deepEqual(c.forkConversation("nope"), { error: "There's no record of that run." });
+});
