@@ -153,7 +153,11 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
 
   return (
     <header className="top">
-      <div className="brand"><h1><Wordmark className="wordmark" /></h1></div>
+      <div className="brand">
+        <h1><Wordmark className="wordmark" /></h1>
+        {/* The tour (docs/index.html, served at /splash), in its own tab so nothing here is interrupted. */}
+        <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Satchel (opens in a new tab)">Tour</a>
+      </div>
       <div className="top-right">
         {needs && onNeed ? <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} /> : asks.length > 0 && (
           <button className="chip needs" type="button" onClick={() => document.getElementById(`ask-${asks[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>

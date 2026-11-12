@@ -24,6 +24,13 @@ const EXAMPLES = [
   "@scout What's new in agent memory research this month?",
 ];
 
+// Outside a project a blank page is a plain chat with a model; the crew comes in with an @.
+const PLAIN_EXAMPLES = [
+  "Explain the difference between a rebase and a merge, and when I'd want each.",
+  "@scout What's new in agent memory research this month?",
+  "@quartermaster Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.",
+];
+
 export type OnReply = (expId: string, task: string) => void;
 
 const Nodes = ({ nodes, onReply }: { nodes: FeedNode[]; onReply: OnReply }) => <>{nodes.map((n) => <NodeView key={n.id} node={n} onReply={onReply} />)}</>;
@@ -276,8 +283,9 @@ const NO_PAST: FeedNode[] = [];
 
 // view: everything (the default), a blank page for a new conversation, or one conversation.
 // past: that conversation's earlier runs, read back from history. waiting: a line for a blank page.
-export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting }: {
-  store: FeedStore; onReply: OnReply; onExample: (text: string) => void; view?: View; past?: FeedNode[]; waiting?: string;
+// plain: a blank page outside any project, where a message is a plain chat with a model.
+export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting, plain }: {
+  store: FeedStore; onReply: OnReply; onExample: (text: string) => void; view?: View; past?: FeedNode[]; waiting?: string; plain?: boolean;
 }) {
   const live = useFeed(store, (s) => s.items);
   const items = useMemo(() => cardsFor(view, live, past), [view, live, past]);
@@ -315,11 +323,11 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
         <div className="empty-feed"><div>{waiting ?? "Loading this conversation…"}</div></div>
       ) : items.length === 0 ? (
         <div className="empty-feed">
-          <div className="fire">🔥</div>
-          <h2>{view.kind === "new" ? "A new conversation" : "The camp is quiet"}</h2>
+          <div className="fire">{plain ? "💬" : "🔥"}</div>
+          <h2>{plain ? "Ask anything" : view.kind === "new" ? "A new conversation" : "The camp is quiet"}</h2>
           <div>{waiting ?? "Send the Quartermaster on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here."}</div>
           <div className="examples">
-            {EXAMPLES.map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
+            {(plain ? PLAIN_EXAMPLES : EXAMPLES).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>
         </div>
       ) : <Nodes nodes={items} onReply={onReply} />}

@@ -8,7 +8,8 @@ import { currentExpeditionId } from "./context.js";
 type Who = { who: string; emoji: string; depth: number; questId?: string };
 
 export type CampEventBody =
-  | { type: "expedition_start"; id: string; task: string; source: "user" | "direct" | "job"; job?: string; replyTo?: string;
+  // chat: a plain chat with a model, outside any project: nobody from the crew is in it.
+  | { type: "expedition_start"; id: string; task: string; source: "user" | "direct" | "job"; job?: string; replyTo?: string; chat?: boolean;
       thread?: string; // the conversation it belongs to (its first run's id); jobs have none
       attachments?: { kind: string; name: string; path?: string; url?: string }[] }
   // changed: files its file tools changed. workspaces: the worktrees it worked in, and where each stands.

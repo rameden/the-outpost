@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { uiPage, uiAsset, uiCsp, UI_CSP } from "../src/ui-files.ts";
+import { uiPage, uiAsset, uiCsp, UI_CSP, splashPage, SPLASH_CSP, SPLASH_FILE } from "../src/ui-files.ts";
 
 const dist = mkdtempSync(join(tmpdir(), "satchel-ui-"));
 mkdirSync(join(dist, "assets"));
@@ -63,4 +63,15 @@ test("the terminal's style rules get a per-launch nonce, and nothing else is loo
   assert.equal(uiCsp("x'; script-src *"), UI_CSP, "a value that isn't a nonce is never put into the policy");
   writeFileSync(join(dist, "index.html"), '<meta name="camp-token" content="__CAMP_TOKEN__"><meta name="camp-style-nonce" content="__CAMP_NONCE__">');
   assert.match(uiPage("tok", dist, "abcDEF123456_-abcDEF12")!, /<meta name="camp-style-nonce" content="abcDEF123456_-abcDEF12">/);
+});
+
+test("the tour is the repo's docs page, under a policy that reaches nothing of the camp", () => {
+  const page = splashPage()!;
+  assert.ok(page, `${SPLASH_FILE} exists`);
+  assert.match(page, /<title>Satchel<\/title>/);
+  assert.equal(splashPage(join(dist, "missing.html")), null);
+  assert.doesNotMatch(SPLASH_CSP, /connect-src|'self'/, "no requests back to the camp");
+  assert.match(SPLASH_CSP, /default-src 'none'/);
+  assert.match(SPLASH_CSP, /form-action 'none'/);
+  assert.match(SPLASH_CSP, /frame-ancestors 'none'/);
 });

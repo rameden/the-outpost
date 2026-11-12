@@ -8,6 +8,19 @@ import type { Character, ModelList } from "../types.ts";
 const lists = new Map<string, ModelList>();
 
 // The model list for this runtime, loaded once and shared (the picker and the Settings page).
+// A provider was connected or disconnected: the lists are out of date.
+export const forgetModelLists = () => lists.clear();
+// The options of a model <select>: Claude's first, then each connected provider's under its own heading.
+export function ModelOptions({ models, defaultModel }: { models: ModelList["models"]; defaultModel?: string }) {
+  const label = (x: ModelList["models"][number]) => `${x.name}${x.price ? ` · ${x.price}` : ""}${x.id === defaultModel ? " (default)" : ""}`;
+  const groups = [...new Set(models.filter((m) => m.provider).map((m) => m.provider!))];
+  return (
+    <>
+      {models.filter((m) => !m.provider).map((x) => <option key={x.id} value={x.id}>{label(x)}</option>)}
+      {groups.map((g) => <optgroup key={g} label={g}>{models.filter((m) => m.provider === g).map((x) => <option key={x.id} value={x.id}>{label(x)}</option>)}</optgroup>)}
+    </>
+  );
+}
 export function useModelList(runtime: string) {
   const [list, setList] = useState<ModelList | null>(lists.get(runtime) ?? null);
   const [error, setError] = useState("");
@@ -82,7 +95,7 @@ export function ModelPicker({ c, runtime, at, onClose, onSaved }: {
         <select ref={select} value={list ? model : ""} disabled={!list} onChange={(ev) => { setModel(ev.target.value); setError(""); }}>
           {!list && <option value="">Loading models…</option>}
           {list && !list.models.some((x) => x.id === c.model) && <option value={c.model}>{c.model}</option>}
-          {list?.models.map((x) => <option key={x.id} value={x.id}>{x.name}{x.price ? ` · ${x.price}` : ""}{x.id === c.defaultModel ? " (default)" : ""}</option>)}
+          {list && <ModelOptions models={list.models} defaultModel={c.defaultModel} />}
         </select>
       </label>
       <label className="field">Effort

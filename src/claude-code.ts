@@ -24,7 +24,7 @@ import { clipOutput, steerNote, wrapUpNote, type Tool, type ToolOutput } from ".
 import type { Steering } from "./context.js";
 import type { RequestContent } from "./attachments.js";
 import { costOf } from "./costs.js";
-import { noteRateLimit, pausedUntil, pauseMessage } from "./limits.js";
+import { noteRateLimit, noteUsage, pausedUntil, pauseMessage, type UsageWindow } from "./limits.js";
 
 const run = promisify(execFile);
 export const LOGIN_HELP = "Run `claude auth login` in a terminal and sign in with your Claude account (Pro or Max), then try again.";
@@ -284,6 +284,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
   } finally {
     finished();
     r.signal?.removeEventListener("abort", onAbort);
+    void refreshPlanUsage(); // the run used some of your plan: read how full its windows are now
   }
 
   if (abort.signal.aborted) return stopped();
@@ -323,6 +324,73 @@ export async function askClaudeCode(system: string, prompt: string, model: strin
 }
 
 // ---------- Models your subscription can use ----------
+// ---------- Your plan's usage ----------
+// What Claude Code's `/usage` shows, as windows the camp understands. Percentages there are 0–100.
+export function usageWindows(rate: any): UsageWindow[] {
+  if (!rate || typeof rate !== "object") return [];
+  const out: UsageWindow[] = [];
+  const add = (type: string, w: any) => {
+    if (!w || typeof w.utilization !== "number") return;
+    const at = w.resets_at ? Date.parse(w.resets_at) : NaN;
+    out.push({ type, utilization: w.utilization / 100, ...(Number.isFinite(at) ? { resetsAt: at } : {}) });
+  };
+  for (const type of ["five_hour", "seven_day", "seven_day_opus", "seven_day_sonnet"]) add(type, rate[type]);
+  // A weekly limit of its own for one model, named as your plan names it.
+  for (const m of Array.isArray(rate.model_scoped) ? rate.model_scoped : []) {
+    const name = String(m?.display_name ?? "").replace(/[^\w .-]/g, "").trim().slice(0, 30);
+    if (name) add(`model:${name}`, m);
+  }
+  return out;
+}
+
+// Reads your plan's usage from Claude Code and notes it. Like the model list, it opens a session
+// and closes it without sending a message, so it uses none of your plan. At most once a minute;
+// never throws (the meter just keeps what it had). Returns whether it got figures.
+let usageAsked = 0;
+let usageInFlight: Promise<boolean> | null = null;
+export function refreshPlanUsage(force = false): Promise<boolean> {
+  if (queryOverride) return Promise.resolve(false); // tests
+  if (usageInFlight) return usageInFlight;
+  if (!force && Date.now() - usageAsked < 60_000) return Promise.resolve(false);
+  usageAsked = Date.now();
+  usageInFlight = (async () => {
+    try {
+      if (!(await claudeLogin()).ok) return false;
+      const { query } = await import("@anthropic-ai/claude-agent-sdk");
+      const abort = new AbortController();
+      let release!: () => void;
+      const held = new Promise<void>((ok) => (release = ok));
+      async function* idle(): AsyncGenerator<SDKUserMessage> { await held; }
+      const q = query({
+        prompt: idle(),
+        options: { abortController: abort, cwd: process.cwd(), pathToClaudeCodeExecutable: claudeExecutable(), tools: [], settingSources: [], strictMcpConfig: true, persistSession: false, env: cliEnv() },
+      });
+      const drain = (async () => { try { for await (const _ of q) { /* nothing is sent, so nothing arrives */ } } catch { /* closed */ } })();
+      try {
+        // The SDK marks this call experimental: if it changes or goes, the meter falls back to what the run events say.
+        const ask = (q as any).usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET;
+        if (typeof ask !== "function") return false;
+        const u: any = await Promise.race([
+          ask.call(q, { skipBehaviors: true }),
+          new Promise<never>((_, no) => setTimeout(() => no(new Error("timed out")), 20_000)),
+        ]);
+        const windows = u?.rate_limits_available ? usageWindows(u.rate_limits) : [];
+        noteUsage(windows);
+        return windows.length > 0;
+      } finally {
+        release();
+        abort.abort();
+        await drain;
+      }
+    } catch {
+      return false;
+    } finally {
+      usageInFlight = null;
+    }
+  })();
+  return usageInFlight;
+}
+
 export type ClaudeCodeModel = { id: string; name: string; efforts: string[] };
 let modelsCache: { at: number; models: ClaudeCodeModel[] } | null = null;
 

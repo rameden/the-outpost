@@ -13,7 +13,8 @@ import { aboutBlock } from "./memlog.js";
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, type ClaudeCodeFailure } from "./claude-code.js";
-import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering } from "./context.js";
+import { PROVIDERS, maySend, otherModel, providerChat, providerModels } from "./providers.js";
+import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering, conversationModel } from "./context.js";
 import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
 import { mcpToolsFor } from "./mcp.js";
@@ -44,7 +45,8 @@ const CONTEXT_MANAGEMENT: Anthropic.Beta.BetaContextManagementConfig = {
 };
 
 // ---------- Models you can pick from ----------
-export type ModelInfo = { id: string; name: string; efforts: Effort[]; price?: string };
+// provider: a model from another company (Gemini, Groq, OpenRouter), named "<provider>:<model>". free: it costs nothing there.
+export type ModelInfo = { id: string; name: string; efforts: Effort[]; price?: string; provider?: string; free?: boolean };
 
 // Used when the Models API can't be reached.
 const FALLBACK_MODELS: ModelInfo[] = [
@@ -59,6 +61,18 @@ let modelCache: { at: number; models: ModelInfo[]; live: boolean; runtime: Runti
 // The models you can use, with the effort levels each one supports: from Claude Code on your
 // subscription, or from the Models API with an API key.
 export async function listModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
+  const claude = await claudeModels();
+  // After Claude's: the models of each provider you've connected (none of them takes an effort level).
+  const others: ModelInfo[] = [];
+  for (const p of PROVIDERS) {
+    try {
+      // OpenRouter lists hundreds: only its free ones are offered here.
+      for (const m of (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free)) others.push({ id: `${p.id}:${m.id}`, name: m.name, efforts: [], provider: p.name, ...(m.free ? { free: true, price: "free" } : {}) });
+    } catch { /* it can't be reached just now: its models are left off the list */ }
+  }
+  return { models: [...claude.models, ...others], live: claude.live };
+}
+async function claudeModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
   const runtime = campRuntime();
   if (modelCache && modelCache.runtime === runtime && Date.now() - modelCache.at < 10 * 60_000) return modelCache;
   if (runtime === "claude-code") {
@@ -234,16 +248,29 @@ function preview(input: unknown): string {
 export async function runAgent(
   spec: AgentSpec,
   task: RequestContent, // text, or text plus image/PDF blocks the user attached
-  opts: { extraSystem?: string; depth?: number; source?: SessionSource } = {}
+  // plain: not a crew member at all (a plain chat with a model): no identity, memory, skills,
+  // wiki or session history of its own; just what it's told here, and the tools it's handed.
+  opts: { extraSystem?: string; depth?: number; source?: SessionSource; plain?: boolean } = {}
 ): Promise<AgentResult> {
   const me = { who: spec.name, emoji: spec.emoji, depth: opts.depth ?? 0, questId: currentQuestId() };
   await listModels(); // so effort support is known (cached for 10 minutes)
-  const { model, effort } = resolveModel(spec);
+  // A conversation can name its own model (picked beside the message box): whoever you're talking
+  // to answers on it. Crew sent out on quests keep the models they're set to (see withQuest).
+  const picked = conversationModel();
+  const own = resolveModel(spec);
+  const model = picked ?? own.model;
+  const effort = picked && picked !== own.model ? (knownModel(picked)?.efforts.includes(own.effort as Effort) ? own.effort : undefined) : own.effort;
   const maxTurns = resolveTurns(spec);
-  ensureWorkspace(spec.id);
+  if (!opts.plain) ensureWorkspace(spec.id);
   // Order matters for caching and for the model: who you are first, then how you work,
   // then what you remember, then the shared camp knowledge.
-  const system =
+  const system = opts.plain
+    ? spec.persona + (aboutBlock() ? `\n\n${aboutBlock()}` : "") +
+      (linksBlock() ? `\n\n${linksBlock()}` : "") +
+      (projectInstructions() ? `\n\n${projectInstructions()}` : "") +
+      (leftOutBlock() ? `\n\n${leftOutBlock()}` : "") +
+      (opts.extraSystem ? `\n\n${opts.extraSystem}` : "")
+    :
     `${identityBlock(spec.id)}\n\n## How you work\n${spec.persona}\n\n` +
     `${continuityBlock(spec.id)}\n\n` + (aboutBlock() ? `${aboutBlock()}\n\n` : "") + `## Your skills\n` +
     `When a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, alwaysOn(spec.id, spec.skillDirs).map((s) => s.dir))}` +
@@ -262,7 +289,7 @@ export async function runAgent(
   const inProject = !!project && project.id !== "general";
   const webOff = project?.settings?.web === "off";
   const isWeb = (t: Tool) => "name" in t.def && (t.def.name === "web_search" || t.def.name === "web_fetch");
-  const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject ? [projectRemember] : []), ...(await mcpToolsFor(spec.id))]
+  const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject && !opts.plain ? [projectRemember] : []), ...(opts.plain ? [] : await mcpToolsFor(spec.id))]
     .map((t) => announcingFiles(t, spec.id, me));
   const defs = toolsFor(model, tools.map((t) => t.def));
   const handlers = new Map<string, NonNullable<Tool["run"]>>();
@@ -280,7 +307,8 @@ export async function runAgent(
     const result: AgentResult = { text: lastText + note, status, turns: turn, usage, model, effort };
     // Every conversation lands in this agent's own session history, so the next one can build on it.
     const asked = requestText(task).replace(/^\(Sent directly by the user[^)]*\)\s*/, "");
-    result.session = recordSession(spec.id, { source: opts.source ?? "user", task: asked, result: result.text, status, messages });
+    // (A plain chat has no crew member to keep it for: its conversation is its record.)
+    if (!opts.plain) result.session = recordSession(spec.id, { source: opts.source ?? "user", task: asked, result: result.text, status, messages });
     return result;
   };
 
@@ -314,9 +342,20 @@ export async function runAgent(
 
   // A failure part-way (a network error, the plan's limit) still leaves a transcript and a cost.
   let failedCost: number | undefined;
+  // A model from another provider ("groq:…"): the same loop as the API's, talking to them instead.
+  const other = otherModel(model);
   const work = async (): Promise<AgentResult> => {
+    if (other) {
+      // A project you've marked confidential (web: careful, or off) keeps its files with Claude:
+      // another provider would be sent the prompt, and with it whatever the crew reads there.
+      // The exception is a provider you've approved for confidential work (Settings → Models).
+      if (!maySend(other.provider, getProject(currentProjectId())?.settings?.web)) {
+        throw new Error(`${spec.name} is set to run on ${other.name} (${other.model}), but this project is marked confidential, so nothing from it is sent to another provider. ` +
+          `If ${other.name} is approved for this work, say so under Settings → Models. Otherwise put ${spec.name} back on a Claude model for this project (the project's page → Crew).`);
+      }
+    }
     // ---------- On your Claude subscription, through Claude Code ----------
-    if (campRuntime() === "claude-code") {
+    if (campRuntime() === "claude-code" && !other) {
       if (signal?.aborted) return finish("stopped", stoppedNote);
       if (overBudget()) return finish("over_budget", budgetNote());
       let spentLive = 0;
@@ -354,6 +393,16 @@ export async function runAgent(
         turn--;
         return finish("over_budget", budgetNote());
       }
+      let resp: { content: any[]; stop_reason: string | null; usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null } };
+      if (other) {
+        try {
+          resp = await providerChat({ provider: other.provider, model: other.model, system, messages: messages as any, tools: defs, maxTokens: MAX_TOKENS, signal,
+            onDelta: (delta) => emit({ type: "text_delta", ...me, delta }) });
+        } catch (err) {
+          if (signal?.aborted) return finish("stopped", stoppedNote);
+          throw err;
+        }
+      } else {
       const stream = client().beta.messages.stream({
         model,
         max_tokens: MAX_TOKENS,
@@ -369,12 +418,12 @@ export async function runAgent(
       }, { signal });
       // Words appear in mission control as they're written.
       stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
-      let resp;
       try {
         resp = await stream.finalMessage();
       } catch (err) {
         if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
         throw err;
+      }
       }
       messages.push({ role: "assistant", content: resp.content as unknown as Anthropic.ContentBlockParam[] });
       const turnUsage = {
@@ -474,7 +523,7 @@ export async function runAgent(
     if (signal?.aborted) return finish("stopped", stoppedNote);
     const e: AgentFailure = err instanceof Error ? err : new Error(String(err));
     const partial = finish("error", `\n\n[Failed: ${e.message}]`);
-    e.partial = campRuntime() === "claude-code" ? { ...partial, runtime: "claude-code", costUsd: failedCost ?? 0 } : partial;
+    e.partial = campRuntime() === "claude-code" && !other ? { ...partial, runtime: "claude-code", costUsd: failedCost ?? 0 } : partial;
     throw e;
   }
 }

@@ -166,3 +166,11 @@ test("the connection only shows when it's lost or not made yet", () => {
   rerender(<Header S={camp()} store={createFeedStore()} conn="connecting" refresh={() => {}} />);
   expect(screen.getByText("Connecting…")).toBeTruthy();
 });
+
+test("a Tour link beside the wordmark opens the splash page in a new tab", () => {
+  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  const link = screen.getByRole("link", { name: "Tour" });
+  expect(link.getAttribute("href")).toBe("/splash");
+  expect(link.getAttribute("target")).toBe("_blank");
+  expect(link.getAttribute("rel")).toContain("noopener");
+});

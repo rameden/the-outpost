@@ -10,6 +10,7 @@ import { useModelList } from "../components/ModelPicker.tsx";
 import { Quests } from "../panels/Quests.tsx";
 import { Connectors, Inbox, Jobs, Skills } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
+import { ModelsPage } from "./ModelsPage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { cClass, cx, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
@@ -20,10 +21,10 @@ import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
 import { TerminalActions } from "./TerminalActions.tsx";
 
-export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "jobs" | "inbox" | "memory" | "skills" | "connectors" | "terminal";
+export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "jobs" | "inbox" | "memory" | "skills" | "connectors" | "terminal" | "models";
 const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] = [
   { title: "Camp", items: [
-    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
+    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["models", "Models", "spark"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
   ] },
   { title: "Activity", items: [["usage", "Usage & quests", "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
   { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
@@ -467,6 +468,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "approvals" ? <Approvals S={S} refresh={refresh} />
             : section === "limits" ? <Limits S={S} refresh={refresh} />
             : section === "terminal" ? <TerminalActions S={S} refresh={refresh} />
+            : section === "models" ? <ModelsPage S={S} refresh={refresh} />
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
             : section === "usage" ? <Quests S={S} refresh={refresh} onOpenSettings={() => setSection("limits")} />
             : section === "jobs" ? <Jobs S={S} refresh={refresh} />

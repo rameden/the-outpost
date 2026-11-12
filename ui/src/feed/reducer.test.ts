@@ -393,3 +393,20 @@ describe("the plan as a list", () => {
     expect(findNodes(none.items, "quest")[0].step).toBe(4);
   });
 });
+
+describe("a plain chat", () => {
+  test("nobody from the crew is in it: the Quartermaster isn't lit up, and the words come from the model", () => {
+    const s = feedOf([
+      { type: "expedition_start", id: "C", task: "What's a rebase?", source: "user", chat: true },
+      { type: "text_delta", who: "Chat", emoji: "💬", depth: 0, delta: "A rebase", expeditionId: "C" },
+      { type: "text", who: "Chat", emoji: "💬", depth: 0, text: "A rebase replays your commits.", expeditionId: "C" },
+    ]);
+    expect(s.crew.Quartermaster).toBeUndefined();
+    expect(findNodes(s.items, "msg").map((m) => `${m.who}: ${m.text}`)).toEqual(["Chat: A rebase replays your commits."]);
+    expect(s.quests).toEqual([]);
+    // The same request as an expedition does light the Quartermaster up.
+    expect(feedOf([start("E", "Plan it")]).crew.Quartermaster.status).toBe("active");
+    const done = feedOf([{ type: "expedition_end", id: "C", status: "done", text: "A rebase replays your commits." }], s);
+    expect(exp(done, "C").end?.status).toBe("done");
+  });
+});
