@@ -17,7 +17,8 @@ export type Steering = { messages: { text: string; at: number }[]; waiters: Set<
 // terminal camp, and jobs that don't belong to a project); mission control always sets it.
 type RunContext = { ledger: Ledger; expeditionId?: string; questId?: string; signal?: AbortSignal; unattended?: boolean;
   workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[];
-  without?: string[] }; // folders the user left out of this conversation, or took out of it part-way
+  without?: string[];   // folders the user left out of this conversation, or took out of it part-way
+  model?: string };     // the model you picked for this conversation: whoever you're talking to answers on it (the quests they send keep their own)
 
 const store = new AsyncLocalStorage<RunContext>();
 
@@ -36,9 +37,11 @@ export const currentScope = () => store.getStore()?.scope;
 export const inScope = (link: string) => { const s = store.getStore()?.scope; return !s || s.includes(link); };
 // The folders the user left or took out of this conversation (so the crew can be told it was on purpose).
 export const leftOutHere = () => store.getStore()?.without ?? [];
+// The model picked for this conversation, for whoever it's with (not for the quests they send out).
+export const conversationModel = () => store.getStore()?.model;
 
 export type ExpeditionOpts = { id?: string; budget?: number; signal?: AbortSignal; unattended?: boolean;
-  workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[]; without?: string[] };
+  workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[]; without?: string[]; model?: string };
 
 export const newSteering = (): Steering => ({ messages: [], waiters: new Set() });
 export function steer(s: Steering, text: string) {
@@ -49,11 +52,13 @@ export function steer(s: Steering, text: string) {
 // A new expedition: fresh tally, optional budget in dollars, stop signal, and unattended mode.
 export function withExpedition<T>(opts: ExpeditionOpts, fn: () => Promise<T>): Promise<T> {
   return store.run({ ledger: { spent: 0, budget: opts.budget }, expeditionId: opts.id, signal: opts.signal, unattended: opts.unattended,
-    workspaces: opts.workspaces, steering: opts.steering, project: opts.project, scope: opts.scope, without: opts.without }, fn);
+    workspaces: opts.workspaces, steering: opts.steering, project: opts.project, scope: opts.scope, without: opts.without, model: opts.model }, fn);
 }
 
 // A quest inside the current expedition (same tally, stop signal, and mode; its own id).
-export function withQuest<T>(questId: string, fn: () => Promise<T>): Promise<T> {
+// lead: this quest is whoever you're talking to yourself (a direct chat), so the model you picked
+// for the conversation is theirs. A quest the Quartermaster sends out isn't: it keeps its own model.
+export function withQuest<T>(questId: string, fn: () => Promise<T>, lead = false): Promise<T> {
   const parent = store.getStore();
-  return store.run({ ...parent, ledger: parent?.ledger ?? { spent: 0 }, questId }, fn);
+  return store.run({ ...parent, ledger: parent?.ledger ?? { spent: 0 }, questId, model: lead ? parent?.model : undefined }, fn);
 }

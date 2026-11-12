@@ -13,6 +13,7 @@ export type PlanLimit = {
   utilization?: number;                           // 0–1
   resetsAt?: number;                              // ms since epoch
   seen: number;                                   // when Claude Code last reported it
+  measured?: number;                              // when its utilization was last read from your plan's own usage figures
 };
 type Saved = { limits: Record<string, PlanLimit>; resumed?: number };
 
@@ -34,7 +35,8 @@ const LABELS: Record<string, string> = {
   five_hour: "5-hour limit", seven_day: "weekly limit", seven_day_opus: "weekly Opus limit",
   seven_day_sonnet: "weekly Sonnet limit", overage: "extra usage",
 };
-export const limitLabel = (type: string) => LABELS[type] ?? type.replace(/_/g, " ");
+// "model:Fable" is a weekly limit of its own for one model.
+export const limitLabel = (type: string) => LABELS[type] ?? (type.startsWith("model:") ? `weekly ${type.slice(6)} limit` : type.replace(/_/g, " "));
 
 // From Claude Code's rate_limit_event. Times may arrive in seconds; utilization as 0–1 or 0–100.
 export function noteRateLimit(info: { status?: string; resetsAt?: number; rateLimitType?: string; utilization?: number; isUsingOverage?: boolean }) {
@@ -46,12 +48,39 @@ export function noteRateLimit(info: { status?: string; resetsAt?: number; rateLi
   const status = info.status === "rejected" && info.isUsingOverage ? "allowed_warning" : info.status;
   const s = load();
   const before = s.limits[type];
-  const next: PlanLimit = { type, status, utilization: utilization ?? (status === "rejected" ? 1 : before?.utilization), resetsAt: resetsAt ?? before?.resetsAt, seen: Date.now() };
-  const changed = !before || before.status !== next.status || before.resetsAt !== next.resetsAt ||
+  // Most events say only "allowed", with no figure. The figure we have is kept only while it's
+  // still about the same window, and never a "used up" that the window has since moved past:
+  // otherwise a limit that reset shows as 100% used for the rest of the day.
+  // (The two sources name a window's reset to different precision, so "the same" is within a minute.)
+  const sameWindow = !!before && (resetsAt === undefined || (before.resetsAt !== undefined && Math.abs(before.resetsAt - resetsAt) < 60_000));
+  const kept = sameWindow && !(before!.status === "rejected" && status !== "rejected") ? before!.utilization : undefined;
+  const next: PlanLimit = { type, status, utilization: utilization ?? (status === "rejected" ? 1 : kept), resetsAt: resetsAt ?? before?.resetsAt, seen: Date.now(),
+    ...(utilization === undefined && kept !== undefined && before?.measured ? { measured: before.measured } : {}) };
+  const changed = !before || before.status !== next.status || !sameWindow ||
     Math.round((before.utilization ?? 0) * 100) !== Math.round((next.utilization ?? 0) * 100);
   save({ ...s, limits: { ...s.limits, [type]: next } });
   if (changed) emit({ type: "changed", what: "limits" });
 }
+
+// Your plan's own usage figures (what `/usage` shows in Claude Code): each window, how full, and
+// when it resets. These are the real numbers; the events above mostly say only "still allowed".
+// A window you've been told is used up stays used up until the figures say there's room again.
+export type UsageWindow = { type: string; utilization: number; resetsAt?: number }; // utilization 0–1
+export function noteUsage(windows: UsageWindow[], now = Date.now()) {
+  if (!windows.length) return;
+  const s = load();
+  const limits = { ...s.limits };
+  for (const w of windows) {
+    const before = limits[w.type];
+    const u = Math.max(0, Math.min(1, w.utilization));
+    const status: PlanLimit["status"] = before?.status === "rejected" && u >= 1 ? "rejected" : u >= 0.8 ? "allowed_warning" : "allowed";
+    limits[w.type] = { type: w.type, status, utilization: u, resetsAt: w.resetsAt ?? before?.resetsAt, seen: now, measured: now };
+  }
+  save({ ...s, limits });
+  emit({ type: "changed", what: "limits" });
+}
+// When the figures were last read (0: never).
+export const usageMeasuredAt = () => Math.max(0, ...Object.values(load().limits).map((l) => l.measured ?? 0));
 
 // Current windows (ones whose reset time has passed are dropped).
 export function planLimits(now = Date.now()): PlanLimit[] {

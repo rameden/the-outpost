@@ -11,6 +11,7 @@ import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { LEFT_OUT, USED, WorkIn, chosenWorkspaces, leftOut, outsideChoice, outsidePick, replyPick, useRepos, usedIn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
+import { ChatModel } from "./ChatModel.tsx";
 import { uploadFile as sendFile } from "../upload.ts";
 
 const MAX_FOLDER_FILES = 200;
@@ -63,6 +64,10 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const [reply, setReply] = useState<{ id: string; task: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [workChoice, setWorkChoice] = useState<WorkChoice>({});
+  // Outside a project: the model picked for this conversation (undefined: not touched; null: back to their own).
+  const [chatModel, setChatModel] = useState<string | null | undefined>(undefined);
+  // A new chat starts on the model you used last (kept in this browser), until you pick another.
+  const pickChatModel = (m: string | null) => { setChatModel(m); if (m) storeSet("camp-chat-model", m); else storeRemove("camp-chat-model"); };
   // Outside a project (General, or no project at all) a conversation gets no linked folder unless
   // one is picked or attached, so there the picker is opt-in: every folder starts as not used.
   const optIn = !context?.folders;
@@ -87,6 +92,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     const fresh = context?.newWorktree ? "new" : "";
     const editable = repos.filter((r) => r.access === "write" && (context?.folders ?? []).includes(r.link));
     setWorkChoice(fresh ? Object.fromEntries(editable.map((r) => [r.link, fresh])) : {});
+    setChatModel(undefined); // a model picked in one place doesn't follow you to another
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey, repos.length]);
 
@@ -248,6 +254,8 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const there = followed && [...(followedProject?.links ?? []), ...(followed.links ?? []), ...Object.keys(followed.workspaces ?? {})].filter((l) => !followed.without?.includes(l));
   const notUsed = optIn && followsUp ? (there ? everyFolder.filter((l) => !there.includes(l)) : undefined) : context?.without;
   const working = context?.working ?? (optIn && followed?.workspaces ? Object.fromEntries(Object.entries(followed.workspaces).map(([l, w]) => [l, w.branch])) : undefined);
+  // What goes with the next message: your pick, or (on a new chat you haven't touched) the model you used last.
+  const chatModelNow = chatModel !== undefined ? chatModel : !followsUp ? storeGet("camp-chat-model") ?? undefined : undefined;
   const dropLinks = (names: string[]) => setPending((list) => list.filter((a) => !(a.kind === "folder" && names.some((n) => a.path === `links/${n}`))));
   useEffect(() => {
     const onDown = (ev: MouseEvent) => {
@@ -366,11 +374,13 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
     }
     try {
       const r = await api<SendResult>("/api/send", { text: message, attachments, ...(afterLive ? { after: afterLive.id } : {}),
+        ...(optIn && !followedProject && chatModelNow !== undefined ? { model: chatModelNow } : {}),
         ...(follows ? { replyTo: follows, use: usedIn(picks), without: leftOut(picks) } : { workspaces: chosenWorkspaces(picks), use: usedIn(picks), without: leftOut(picks), project: context?.project }) });
       if (draftKey) storeRemove(`camp-draft:${draftKey}`); // sent: it's no longer a draft, here or on a fresh page
       onSent?.(r);
       setSends((n) => n + 1); // a new worktree shows up in the picker a moment later
       setWorkChoice({}); // the picks were for that request: the next one starts clean
+      setChatModel(undefined); // it's the conversation's now
       setReply(null);
       setAfter(null);
       setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
@@ -472,6 +482,8 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
           {/* A follow-up to a run that isn't in the record yet: nothing is known about its folders, so nothing is claimed. */}
           {!(optIn && followsUp && !there) && <WorkIn repos={workRepos} choice={shownChoice} setChoice={setWorkChoice} followUp={followsUp} open={menu === "work"} working={working} without={notUsed} plain={plainFolders} optIn={optIn}
             onOpen={() => { setMention(null); setMenu(menu === "work" ? null : "work"); }} />}
+          {/* Outside a project you choose who answers: the model for this conversation. */}
+          {optIn && S && !followedProject && <ChatModel S={S} picked={chatModelNow} standing={followed?.model} onPick={pickChatModel} />}
           {inFlight.length > 0 && (
             <span className="after-pick">
               <button type="button" className={afterLive ? "work-btn changed" : "work-btn"} aria-haspopup="menu" aria-expanded={afterOpen}

@@ -35,6 +35,8 @@ type Settings = {
   reviewChanges?: boolean; // have the Scout review what changed before the Quartermaster reports
   prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
   jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
+  providersApproved?: string[];             // other providers you've said may be sent confidential projects' work (approved where you work, say)
+  smallModel?: string;                      // what does the camp's own small jobs (titles, tidying a memory, suggestions): a Claude model, or "<provider>:<model>"
   memoryCare?: { tidy?: boolean; suggest?: boolean }; // looking after what the crew remembers (see keeping.ts)
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
@@ -152,6 +154,29 @@ export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; prStatus?
   const name = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
   const next: JiraWrite = { ...(w.on ? { on: true } : {}), ...(name(w.startStatus) ? { startStatus: name(w.startStatus) } : {}), ...(name(w.prStatus) ? { prStatus: name(w.prStatus) } : {}) };
   if (Object.keys(next).length) s.jiraWrite = next; else delete s.jiraWrite;
+  save(s);
+}
+
+// Other providers you've cleared for confidential work. By default a project marked confidential
+// (web: careful, or off) is never sent to another provider; one you've approved here is the exception.
+// It's your statement about your own agreement with that provider: the camp can't check it.
+export const providersApproved = (): string[] => load().providersApproved ?? [];
+export const providerApproved = (id: string) => providersApproved().includes(id);
+export function setProviderApproved(id: string, on: boolean) {
+  const s = load();
+  const next = new Set(s.providersApproved ?? []);
+  if (on) next.add(id); else next.delete(id);
+  if (next.size) s.providersApproved = [...next].sort(); else delete s.providersApproved;
+  save(s);
+}
+
+// The camp's own small jobs (naming a conversation, tidying a memory, suggesting what to keep)
+// go to the smallest Claude model unless you've pointed them somewhere else, such as a free model
+// from a provider you've connected. Null: the default.
+export const smallModel = (): string | null => load().smallModel ?? null;
+export function setSmallModel(model: string | null) {
+  const s = load();
+  if (model) s.smallModel = model; else delete s.smallModel;
   save(s);
 }
 

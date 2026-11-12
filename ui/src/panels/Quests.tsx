@@ -1,6 +1,7 @@
 // Quests: what the camp has spent and your plan's limits (the budget and how many run at once
 // are changed in Settings), then the log of every quest, expedition, and job run.
 
+import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
 import { cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, when } from "../format.ts";
@@ -12,11 +13,19 @@ const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
 
 // Your plan's usage windows, as Claude Code last reported them.
 function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
+  const [reading, setReading] = useState(false);
+  const [error, setError] = useState("");
   if (S.runtime !== "claude-code") return null;
+  // Ask Claude Code for the plan's own figures now. It sends no message, so it uses none of the plan.
+  const read = async () => {
+    setReading(true); setError("");
+    try { await api("/api/limits/refresh", {}); refresh(); } catch (e) { setError(errorText(e)); }
+    setReading(false);
+  };
   return (
     <>
       <div className="limits">
-        {!S.limits.length && <div className="meta">Plan usage appears here after the next run.</div>}
+        {!S.limits.length && <div className="meta">Your plan's usage hasn't been read yet.</div>}
         {S.limits.map((l) => {
           const full = l.status === "rejected";
           const pct = l.utilization == null ? null : Math.min(100, Math.round(l.utilization * 100));
@@ -31,6 +40,11 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
             </div>
           );
         })}
+        <div className="limit-as-of">
+          <span>{S.limitsMeasured ? `Your plan's own figures, as of ${new Date(S.limitsMeasured).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.` : "These are from what the last run reported; they haven't been read from your plan yet."}</span>
+          <button type="button" className="linkish" disabled={reading} title="Read your plan's usage now. It sends no message, so it uses none of your plan." onClick={read}>{reading ? "Reading…" : "Refresh"}</button>
+        </div>
+        {error && <div className="form-error" role="alert">{error}</div>}
       </div>
       {S.pausedUntil && (
         <div className="pause-note">

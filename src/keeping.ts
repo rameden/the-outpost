@@ -145,7 +145,7 @@ export function cleanTidy(before: string, raw: string): string | null {
 }
 
 // Draft a tidy of one place, to wait for your approval. ask: the model call (swapped out in tests).
-export async function proposeTidy(where: Where, ask: (system: string, prompt: string) => Promise<string> = askSmall): Promise<Proposal> {
+export async function proposeTidy(where: Where, ask: (system: string, prompt: string) => Promise<string> = (s, p) => askSmall(s, p, 1500, { project: place(where).kind === "project" ? place(where).id : undefined })): Promise<Proposal> {
   const before = textOf(where);
   if (before.split("\n").filter((l) => l.trim().startsWith("-")).length < 4) throw Object.assign(new Error("There's too little there to tidy."), { fixable: true });
   const after = cleanTidy(before, await ask(TIDY_SYSTEM, `The notes (${nameOf(where)}):\n\n${before.slice(-24_000)}`));
@@ -178,7 +178,7 @@ export function parseKeeps(raw: string): { where: "user" | "project" | "me"; tex
 }
 
 // After a run: what might be worth keeping, to wait for your approval. Returns what it added.
-export async function suggestKeeps(o: { run: string; who: CrewId; project?: string; task: string; reply: string }, ask: (system: string, prompt: string) => Promise<string> = askSmall): Promise<Proposal[]> {
+export async function suggestKeeps(o: { run: string; who: CrewId; project?: string; task: string; reply: string }, ask: (system: string, prompt: string) => Promise<string> = (s, p) => askSmall(s, p, 1500, { project: o.project })): Promise<Proposal[]> {
   if (!CREW[o.who] || o.reply.trim().length < 40) return [];
   const inProject = !!o.project && o.project !== GENERAL && !!getProject(o.project);
   const places = { me: `agent:${o.who}`, user: "about", project: inProject ? `project:${o.project}` : `agent:${o.who}` };

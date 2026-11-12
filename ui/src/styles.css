@@ -1002,6 +1002,28 @@ a.att-name { color: var(--accent); }
 .tab:hover { color: var(--text); }
 .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .count { font-size: 11px; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0 6px; line-height: 17px; }
+/* The model for a conversation, beside the message box. */
+.model-pick { position: relative; display: inline-flex; min-width: 0; }
+.model-pick > .work-btn b { max-width: 200px; }
+.model-pick > .work-btn:not(.changed) b { font: 400 12.5px/28px var(--sans); color: var(--muted); }
+.model-pick > .work-btn > .icon { color: var(--muted); }
+.popover.model-menu { position: absolute; bottom: calc(100% + 6px); left: 0; right: auto; width: min(340px, 86vw); padding: 12px; z-index: 30; }
+.model-menu .field { margin: 0 0 8px; }
+.model-menu select { width: 100%; }
+/* Settings → Models */
+.prov { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 12px 14px; margin: 0 0 10px; }
+.prov-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.prov-head h4 { margin: 0 auto 0 0; font: 600 15px var(--serif); }
+.prov .set-note { margin-bottom: 8px; }
+.prov .set-actions { padding: 0; }
+.prov-approve { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: baseline; margin: 0 0 10px; font-size: 13px; }
+.prov-approve .field-hint { grid-column: 2; }
+.prov-key { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.prov-key input { flex: 1 1 260px; min-width: 0; font: 13px var(--mono); color: var(--text); padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg); }
+.prov-key a { font-size: 12.5px; }
+.prov-small { max-width: 460px; }
+.prov-notes { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.prov-notes b { color: var(--text); font-weight: 600; }
 /* Settings → Memory */
 .mem-waiting { list-style: none; margin: 8px 0 18px; padding: 0; display: grid; gap: 10px; }
 .mem-wait { border: 2px solid var(--accent); border-radius: 10px; background: var(--accent-soft); padding: 12px 14px; display: grid; gap: 8px; }
@@ -1132,6 +1154,7 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .chip.paused { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); cursor: pointer; }
 .limits { margin-top: 10px; display: grid; gap: 8px; }
 .limit-row { font-size: 12.5px; color: var(--muted); }
+.limit-as-of { display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: space-between; font-size: 12px; color: var(--faint); }
 .limit-row .limit-top { display: flex; justify-content: space-between; gap: 8px; }
 .limit-row .limit-top b { color: var(--text); font-weight: 600; }
 .meter { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
