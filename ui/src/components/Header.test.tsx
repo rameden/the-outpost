@@ -50,7 +50,7 @@ test("the busy chip counts running expeditions and what's queued, and the title 
   render(<Header S={S} store={store} conn="live" refresh={() => {}} />);
   expect(screen.getByText("Idle · 1 queued")).toBeTruthy();
   expect(screen.getByText("$1.50 today")).toBeTruthy();
-  expect(screen.getByText("Live")).toBeTruthy();
+  expect(screen.queryByText("Live")).toBeNull(); // connected is the normal state: nothing to show
 
   events(store, { type: "expedition_start", id: "a", task: "One", source: "user" });
   expect(screen.getByText("On expedition · 1 queued")).toBeTruthy();
@@ -156,4 +156,13 @@ test("the name is the wordmark, drawn in the theme's text colour, with no subtit
   expect(mark.querySelector("metadata")).toBeNull(); // the outline only
   expect(screen.queryByText("Mission control")).toBeNull();
   expect(name.textContent).toBe(""); // no emoji, no words: the drawing is the name
+});
+
+test("the connection only shows when it's lost or not made yet", () => {
+  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  expect(screen.queryByTitle(/Connection to the camp/)).toBeNull();
+  rerender(<Header S={camp()} store={createFeedStore()} conn="reconnecting" refresh={() => {}} />);
+  expect(screen.getByText("Reconnecting…")).toBeTruthy();
+  rerender(<Header S={camp()} store={createFeedStore()} conn="connecting" refresh={() => {}} />);
+  expect(screen.getByText("Connecting…")).toBeTruthy();
 });
