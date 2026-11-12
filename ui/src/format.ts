@@ -16,7 +16,7 @@ export function setCrewColors(crew: CrewLine[]) {
 // The CSS class that gives a crew member their colour.
 export function cClass(name: string | undefined | null) {
   const s = slug(name);
-  if (["quartermaster", "scout", "scribe", "artificer"].includes(s)) return `c-${s}`;
+  if (["quartermaster", "scout", "scribe", "artificer", "warden"].includes(s)) return `c-${s}`;
   const mine = addedColors.get(s);
   return mine ? `c-x-${mine}` : "";
 }

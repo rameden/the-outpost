@@ -19,7 +19,7 @@ img { max-width: 100%; }
   --text: #2a231c; --muted: #6e6255; --faint: #9a8d7e;
   --accent: #b4690e; --accent-soft: #f6e3c6; --accent-ink: #fffaf2;
   --good: #3f7d3a; --good-soft: #e1eedb;
-  --c-qm: #b4690e; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a;
+  --c-qm: #b4690e; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
   --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a;
   --shadow: 0 1px 2px rgba(60,40,20,.06), 0 12px 32px rgba(60,40,20,.09);
   --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
@@ -33,7 +33,7 @@ img { max-width: 100%; }
     --text: #efe7da; --muted: #a3968a; --faint: #74695e;
     --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
     --good: #93c47d; --good-soft: #1f2a1b;
-    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
     --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
     color-scheme: dark;
@@ -44,7 +44,7 @@ img { max-width: 100%; }
   --text: #efe7da; --muted: #a3968a; --faint: #74695e;
   --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
   --good: #93c47d; --good-soft: #1f2a1b;
-  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
   --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
   color-scheme: dark;
@@ -121,7 +121,7 @@ section { padding-block: 88px 0; }
 .doc::before { content: ""; width: 10px; height: 12px; border: 1.5px solid var(--muted); border-radius: 2px; }
 
 /* Crew */
-.crew { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.crew { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
 .member { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; display: grid; gap: 14px; align-content: start; min-width: 0; }
 .member .badge { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; border: 2px solid var(--tone); background: var(--surface-2); }
 .member h3 { color: var(--tone); }
@@ -129,7 +129,7 @@ section { padding-block: 88px 0; }
 .member dl { margin: 0; display: grid; gap: 8px; font-size: 14px; }
 .member dt { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
 .member dd { margin: 0; }
-.member.qm { --tone: var(--c-qm); } .member.scout { --tone: var(--c-scout); } .member.scribe { --tone: var(--c-scribe); } .member.art { --tone: var(--c-art); }
+.member.qm { --tone: var(--c-qm); } .member.scout { --tone: var(--c-scout); } .member.scribe { --tone: var(--c-scribe); } .member.art { --tone: var(--c-art); } .member.warden { --tone: var(--c-warden); }
 .wrong { font: 600 13px var(--body); color: var(--text); background: transparent; border: 1px dashed var(--border-strong); border-radius: 8px; padding: 8px 10px; cursor: pointer; text-align: left; }
 .wrong:hover { border-style: solid; }
 .decline { font-size: 14px; font-style: italic; color: var(--tone); min-height: 1.6em; }
@@ -264,7 +264,7 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow">The crew</div>
-      <h2>Four specialists who know their trade, and stay in it.</h2>
+      <h2>Five specialists who know their trade, and stay in it.</h2>
       <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
     </div>
     <div class="crew">
@@ -298,6 +298,14 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
         <p class="role">Code: reads, edits, runs and tests, with shell commands you approve.</p>
         <dl><dt>Doesn't</dt><dd>Prose or open-ended research.</dd></dl>
         <button class="wrong" type="button" data-say="Open-ended research is the Scout's job.">Ask it to survey the market</button>
+        <p class="decline" aria-live="polite"></p>
+      </article>
+      <article class="member warden">
+        <div class="badge" aria-hidden="true">🛡️</div>
+        <h3>Warden</h3>
+        <p class="role">Reviews pull requests and changes: the whole change first, then the few things that would matter.</p>
+        <dl><dt>Doesn't</dt><dd>Nitpicks, fixes, or posting anything you haven't approved.</dd></dl>
+        <button class="wrong" type="button" data-say="Fixing it is the Artificer's job. I'll tell you what needs fixing.">Ask it to fix what it found</button>
         <p class="decline" aria-live="polite"></p>
       </article>
     </div>

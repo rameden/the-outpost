@@ -54,7 +54,7 @@ function onCampEvent(e: CampEvent, kinds: Map<string, string>, started: Map<stri
   if (!cfg) return;
   if (e.type === "ask") {
     kinds.set(e.id, e.kind);
-    const remote = cfg.approve.includes(e.kind) && e.kind !== "question"; // questions need typing: answer at your desk
+    const remote = cfg.approve.includes(e.kind) && e.kind !== "question" && e.kind !== "post"; // questions need typing: answer at your desk
     const reply = `${cfg.server}/${cfg.topic}-reply`;
     const button = (label: string, a: string) => ({ action: "http", label, url: reply, method: "POST", body: `${NONCE}:${e.id} ${a}`, clear: true });
     void publish(cfg, `Satchel: ${ASK_TITLES[e.kind] ?? "Decision needed"}`, e.body + (remote ? "" : "\n\n(Answer this one in mission control.)"),
@@ -91,7 +91,8 @@ async function listen(answer: Answerer, kinds: Map<string, string>, stop: AbortS
           if (msg?.event !== "message") continue;
           const r = parseReply(msg.message);
           // Only kinds you allowed can be answered from the phone, whatever the message says.
-          if (r && phoneConfig()?.approve.includes(kinds.get(r.askId) ?? "")) answer(r.askId, r.answer);
+          // Posting on GitHub as you is never answered from a phone, even if the settings list it.
+          if (r && kinds.get(r.askId) !== "post" && phoneConfig()?.approve.includes(kinds.get(r.askId) ?? "")) answer(r.askId, r.answer);
         }
       }
     } catch { /* dropped: try again */ }

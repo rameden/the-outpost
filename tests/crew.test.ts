@@ -29,7 +29,7 @@ test("a new crew member joins the crew and the roster, with the abilities you ti
   });
   assert.deepEqual([m.id, m.name, m.color, m.custom], ["testpilot", "Test Pilot", "rose", true]);
   assert.deepEqual(m.abilities, { write: "project", shell: true });
-  assert.deepEqual(crew.CREW_IDS, ["quartermaster", "scout", "scribe", "artificer", "testpilot"]);
+  assert.deepEqual(crew.CREW_IDS, ["quartermaster", "scout", "scribe", "artificer", "warden", "testpilot"]);
   assert.equal(crew.findCrew("@testpilot")?.id, "testpilot");
   assert.equal(crew.findCrew("QA")?.id, "testpilot", "aliases work");
   assert.deepEqual(toolNames("testpilot"), ["bash", "edit_file", "git", "glob", "grep", "jira", "list_dir", "outline", "read_file", "recall", "remember", "view_file", "write_file"]);
@@ -70,7 +70,7 @@ test("you can message them directly and the Quartermaster can send them", async 
   assert.equal(r.text, "The Test Pilot says all three pass.");
 });
 
-test("names and handles can't collide, and the original four can't be changed or removed", () => {
+test("names and handles can't collide, and the original crew can't be changed or removed", () => {
   assert.throws(() => crew.addMember({ name: "Scout", role: "x" }), /already a crew member/);
   assert.throws(() => crew.addMember({ name: "Research", role: "x" }), /already a crew member/, "an existing alias");
   assert.throws(() => crew.addMember({ name: "Other", id: "testpilot", role: "x" }), /already a crew member/);
@@ -91,6 +91,6 @@ test("changing, removing, and reloading", () => {
   assert.equal(crew.findCrew("reader"), undefined);
   // Another process (the terminal camp, the watcher) reads the same file.
   crew.loadCrew();
-  assert.deepEqual(crew.CREW_IDS, ["quartermaster", "scout", "scribe", "artificer", "testpilot", "librarian"]);
+  assert.deepEqual(crew.CREW_IDS, ["quartermaster", "scout", "scribe", "artificer", "warden", "testpilot", "librarian"]);
   assert.equal(ROSTER.testpilot.role, "Testing, now with flight checks.");
 });

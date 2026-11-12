@@ -184,16 +184,29 @@ function withExpeditionSync(ws: Parameters<typeof setUpWorkspaces>[0]) {
   return out;
 }
 
+// How a refusal reads depends on the sandbox: sandbox-exec (macOS) says "Operation not permitted";
+// bubblewrap (Linux) mounts things read-only ("Read-only file system") and hides what's private
+// (an empty file, or a folder that isn't there). Either way the write doesn't land and the
+// private text isn't shown.
+const REFUSED = /Operation not permitted|Read-only file system|Permission denied/;
+// A write that must not land: refused out loud on macOS; on Linux it's refused or goes nowhere.
+function refused(out: string) { if (process.platform === "darwin") assert.match(out, /Operation not permitted/); }
+function kept(out: string, secret: RegExp) {
+  assert.doesNotMatch(out, secret, "the private text isn't shown");
+  if (process.platform === "darwin") assert.match(out, /Operation not permitted/);
+}
+
 test("sandbox: no network, no writes outside the project, no reading secrets; commits still work", { skip: !sandboxAvailable() }, async () => {
   const sandbox = sandboxPlanFor(repo);
   const outside = join(homedir(), `.satchel-sandbox-probe-${process.pid}`);
-  assert.match(await runShell(`echo x > ${outside}`, { cwd: repo, sandbox }), /Operation not permitted/);
+  assert.match(await runShell(`echo x > ${outside}`, { cwd: repo, sandbox }), REFUSED);
   assert.ok(!existsSync(outside));
   assert.equal(await runShell("echo ok > inside.txt && cat inside.txt", { cwd: repo, sandbox }), "ok");
   writeFileSync(join(repo, ".env"), "SECRET=1\n");
-  assert.match(await runShell("cat .env", { cwd: repo, sandbox }), /Operation not permitted/);
+  kept(await runShell("cat .env", { cwd: repo, sandbox }), /SECRET=1/);
   assert.match(await runShell("curl -sS -m 5 https://example.com", { cwd: repo, sandbox }), /^Exit code/);
-  assert.match(await runShell("echo x > .git/hooks/pre-commit", { cwd: repo, sandbox }), /Operation not permitted/);
+  refused(await runShell("echo x > .git/hooks/pre-commit", { cwd: repo, sandbox }));
+  assert.ok(!existsSync(join(repo, ".git/hooks/pre-commit")));
   assert.match(await runShell("git add inside.txt && git commit -qm sandboxed && git log --oneline -1", { cwd: repo, sandbox }), /sandboxed/);
 
   // With the sandbox on, a command that would have asked runs without asking; "unsandboxed" asks.
@@ -212,9 +225,12 @@ test("the camp's own rules hold inside the sandbox when it runs in the camp fold
   mkdirSync("camp/agents/scout", { recursive: true });
   writeFileSync("camp/agents/scout/memory.md", "private\n");
   const sandbox = sandboxPlanFor(process.cwd());
-  assert.match(await runShell("cat camp/agents/scout/memory.md", { sandbox }), /Operation not permitted/);
-  assert.match(await runShell("echo x > camp/settings.json", { sandbox }), /Operation not permitted/);
-  assert.match(await runShell("mkdir -p skills/shared/evil", { sandbox }), /Operation not permitted/);
+  kept(await runShell("cat camp/agents/scout/memory.md", { sandbox }), /private/);
+  const settingsBefore = existsSync("camp/settings.json") ? readFileSync("camp/settings.json", "utf8") : null;
+  refused(await runShell("echo x > camp/settings.json", { sandbox }));
+  assert.equal(existsSync("camp/settings.json") ? readFileSync("camp/settings.json", "utf8") : null, settingsBefore);
+  refused(await runShell("mkdir -p skills/shared/evil", { sandbox }));
+  assert.ok(!existsSync("skills/shared/evil"));
 });
 
 test("near the turn limit the agent is told to land the work", () => {

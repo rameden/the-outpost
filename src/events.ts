@@ -36,7 +36,7 @@ export type CampEventBody =
   | { type: "job"; name: string; outcome: "running" | "quiet" | "reported" | "failed"; text?: string }
   | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" | "triggers" };
 
-export type AskKind = "plan" | "shell" | "job" | "tool" | "question";
+export type AskKind = "plan" | "shell" | "job" | "tool" | "question" | "post"; // post: something written on GitHub as you
 // expeditionId: which expedition an event belongs to (several can run at once). Added by emit().
 export type CampEvent = CampEventBody & { time: string; seq: number; expeditionId?: string };
 

@@ -290,7 +290,7 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
           {range(S.settings.fixAttemptsMax).map((n) => <option key={n} value={n}>{n === 1 ? "Send it back once" : `Send it back up to ${n} times`}</option>)}
         </select>
       </Row>
-      <Row label="Review changes before reporting" help="Before the Quartermaster sums up an expedition that changed files in a linked folder, it sends the Scout to read the actual diff and look for bugs, missing pieces and changes beyond the request; a real problem gets one fix. Another quest's worth of usage each time, so it's off unless you want it.">
+      <Row label="Review changes before reporting" help="Before the Quartermaster sums up an expedition that changed files in a linked folder, it sends the Warden to read the actual diff and look for bugs, missing pieces and changes beyond the request; a real problem gets one fix. Another quest's worth of usage each time, so it's off unless you want it.">
         <label className="switch"><input type="checkbox" checked={S.settings.reviewChanges}
           onChange={(ev) => tryIt(() => api("/api/quest-checks", { review: ev.target.checked }), refresh)} /> {S.settings.reviewChanges ? "On" : "Off"}</label>
       </Row>

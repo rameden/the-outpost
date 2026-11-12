@@ -872,7 +872,7 @@ const server = http.createServer(async (req, res) => {
         const id = String(body.id ?? "");
         if (body.action === "remove") {
           if ([...running.values(), ...queue].some((w) => w.label === `@${id}`)) return send(res, 409, { error: "They're in the middle of something. Wait for it to finish, or stop it first." });
-          if (!removeMember(id)) return send(res, 404, { error: "No such crew member (the four original ones can't be removed)." });
+          if (!removeMember(id)) return send(res, 404, { error: "No such crew member (the original ones can't be removed)." });
         } else if (body.action === "update") updateMember(id, body.member ?? {});
         else if (body.action === "add") addMember(body.member ?? {});
         else return send(res, 400, { error: "Unknown action" });
