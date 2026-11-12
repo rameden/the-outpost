@@ -11,6 +11,8 @@ A small, hackable multi-agent harness built on the Claude API. A **Quartermaster
 
 Ask a crew member for work outside its role and it declines in one line, naming the right teammate ("That's the Artificer's job.").
 
+For the short tour, open [`docs/index.html`](docs/index.html): a one-page introduction to the crew, how an expedition runs, and how to get started.
+
 ## Quick start
 
 Requires Node 22.9 or later, and either a Claude subscription (Pro or Max) or an Anthropic API key.

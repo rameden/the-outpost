@@ -63,7 +63,7 @@ import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTermi
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
-import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
+import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP } from "./ui-files.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
 const TOKEN = randomBytes(24).toString("hex");
@@ -406,6 +406,13 @@ const server = http.createServer(async (req, res) => {
       const page = uiPage(TOKEN, undefined, STYLE_NONCE);
       if (!page) return send(res, 503, UI_NOT_BUILT, "text/plain; charset=utf-8");
       res.setHeader("content-security-policy", uiCsp(STYLE_NONCE));
+      return send(res, 200, page, "text/html; charset=utf-8");
+    }
+    // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
+    if (req.method === "GET" && url.pathname === "/splash") {
+      const page = splashPage();
+      if (!page) return send(res, 404, "The tour page (docs/index.html) is missing.", "text/plain; charset=utf-8");
+      res.setHeader("content-security-policy", SPLASH_CSP);
       return send(res, 200, page, "text/html; charset=utf-8");
     }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
