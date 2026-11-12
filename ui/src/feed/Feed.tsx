@@ -13,6 +13,7 @@ import { Changes } from "./Changes.tsx";
 import { FileCard } from "./FileCard.tsx";
 import { WorkspaceBox } from "./Workspaces.tsx";
 import { AsideButton } from "./Aside.tsx";
+import { ForkButton } from "./Fork.tsx";
 import { cardsFor, type View } from "./conversation.ts";
 import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type StepState } from "./reducer.ts";
 import { useFeed, type FeedStore } from "./store.ts";
@@ -258,6 +259,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
               )}
               {ok && exp.source !== "job" && (end.changed > 0 || end.workspaces.length > 0) && <AsideButton expId={exp.expId} kind="review" answeredBy={answeredBy} />}
               {ok && exp.source !== "job" && <AsideButton expId={exp.expId} kind="opinion" answeredBy={answeredBy} />}
+              {exp.source !== "job" && <ForkButton expId={exp.expId} />}
               {exp.source !== "job" && (
                 <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>
               )}

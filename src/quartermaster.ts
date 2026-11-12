@@ -16,10 +16,11 @@ import { emit } from "./events.js";
 import { randomUUID } from "node:crypto";
 import { currentSignal, currentWorkspaces, withExpedition, withQuest, type Steering, type Workspace } from "./context.js";
 import { runChecks } from "./verify.js";
+import { setUpWorkspaces } from "./setup.js";
 import { FINDINGS_FORMAT, REVIEW_SCOPE } from "./review.js";
 import { workspaceStatus } from "./repos.js";
 import { budgetUsd, fixAttempts, questLimit, reviewChangesOn } from "./settings.js";
-import { changedFiles } from "./checkpoints.js";
+import { changedFiles, sealSnapshots } from "./checkpoints.js";
 import { recordTurn, threadFor } from "./threads.js";
 import { getProject } from "./conversations.js";
 import { proposeSkill, skillCatalog } from "./forge.js";
@@ -396,21 +397,28 @@ export async function runExpedition(
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
   try {
     // One shared spending tally (and the optional budget) for the Quartermaster and every quest it sends.
-    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without }, () => runAgent(buildQuartermaster(exp), task, {
-      source: opts.source ?? (opts.job ? "job" : "user"),
-      extraSystem:
-        `## Skill catalog (every live skill in camp, by owner)\n${skillCatalog()}` +
-        ((opts.review ?? reviewsHere(where.project)) && !opts.job ? `\n\n${REVIEW_RULE}` : "") +
-        (opts.extraSystem ? `\n\n${opts.extraSystem}` : "") +
-        (thread ? `\n\n${thread.history}` : ""),
-    }));
+    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without }, async () => {
+      // A worktree the camp just made gets its setup (installs…) before anyone works in it.
+      const setup = await setUpWorkspaces(workspaces, { who: "Quartermaster", emoji: "🧭" });
+      return runAgent(buildQuartermaster(exp), task, {
+        source: opts.source ?? (opts.job ? "job" : "user"),
+        extraSystem:
+          `## Skill catalog (every live skill in camp, by owner)\n${skillCatalog()}` +
+          ((opts.review ?? reviewsHere(where.project)) && !opts.job ? `\n\n${REVIEW_RULE}` : "") +
+          (setup ? `\n\n${setup}\nMention a failed setup in your briefs: the crew's checks and tests may fail because of it.` : "") +
+          (opts.extraSystem ? `\n\n${opts.extraSystem}` : "") +
+          (thread ? `\n\n${thread.history}` : ""),
+      });
+    });
     logQuest(opts.job ? "job" : "expedition", "Quartermaster", shown, started, result, opts.job, where.project);
     if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status });
+    sealSnapshots(id);
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     return result;
   } catch (err: any) {
     logFailure(opts.job ? "job" : "expedition", "Quartermaster", shown, started, err, opts.job, where.project);
     if (!opts.job) recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
+    sealSnapshots(id);
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     throw err;
   }
@@ -456,7 +464,8 @@ export async function runDirect(
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));
   try {
     const result = await withExpedition({ id, budget: where.budget, signal, workspaces, steering: more.steering, project: where.project, scope: where.scope, without: more.without }, () => withQuest(questId, async () => {
-      const extraSystem = [more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;
+      const setup = await setUpWorkspaces(workspaces, { who: spec.name, emoji: spec.emoji });
+      const extraSystem = [setup, more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;
       const { result: r, checks, text } = await questWithChecks(spec, questId,
         (task) => runAgent(spec, task ?? content, { depth: 1, source, extraSystem }),
         (run, task, from) => logQuest("quest", spec.name, task ?? shown, from, run, undefined, where.project));
@@ -465,12 +474,14 @@ export async function runDirect(
     }));
     recordTurn({ ...turn, reply: result.text, status: result.status });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId, expeditionId: id });
+    sealSnapshots(id);
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     return result;
   } catch (err: any) {
     logFailure("quest", spec.name, shown, started, err, undefined, where.project);
     recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId, expeditionId: id });
+    sealSnapshots(id);
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length });
     throw err;
   }

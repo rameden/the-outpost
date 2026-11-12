@@ -7,7 +7,7 @@ import { dirname } from "node:path";
 import type { AgentResult } from "./agent.js";
 import { emit } from "./events.js";
 import { costOf, usd } from "./costs.js";
-import { currentProjectId } from "./context.js";
+import { currentExpeditionId, currentProjectId } from "./context.js";
 
 export const QUEST_LOG_PATH = "camp/quest-log.jsonl";
 
@@ -16,6 +16,7 @@ export type QuestEntry = {
   kind: "expedition" | "quest" | "job";  // Quartermaster run, adventurer dispatch, scheduled run
   character: string;
   job?: string;
+  expedition?: string;                   // the expedition a dispatched quest belonged to
   project?: string;                      // the project its conversation is filed under
   task: string;                          // first 200 chars of the request or brief
   result: string;                        // first 300 chars of the report or summary
@@ -55,6 +56,7 @@ export function logQuest(
     kind,
     character,
     ...(job ? { job } : {}),
+    ...(currentExpeditionId() ? { expedition: currentExpeditionId() } : {}),
     ...(project && project !== "general" ? { project } : {}),
     task: clip(task, 200),
     result: clip(result.text, 300),
@@ -109,3 +111,8 @@ export function formatQuests(entries = recentQuests()): string {
     })
     .join("\n");
 }
+
+// What an expedition's quests cost, from their log lines (the Quartermaster's own run is logged
+// outside the expedition, so whoever has its result adds that).
+export const questsCostOf = (expedition: string) =>
+  allQuests().filter((q) => q.expedition === expedition && q.kind === "quest").reduce((sum, q) => sum + questCost(q), 0);

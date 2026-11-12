@@ -4,7 +4,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { enterSandbox } from "./helpers/sandbox.ts";
@@ -22,7 +22,9 @@ writeFileSync(join(repo, "CLAUDE.md"), "@AGENTS.md\n");
 git(repo, "add", "-A");
 git(repo, "commit", "-qm", "first");
 
-const { addLink, linksBlock, projectInstructions, setLinkVerify } = await import("../src/links.ts");
+const { addLink, linksBlock, projectInstructions, setLinkVerify, setLinkSetup, findLink } = await import("../src/links.ts");
+const { setUpWorkspaces } = await import("../src/setup.ts");
+const { changedFiles, checkpointDiff, sealSnapshots, undoCheckpoint } = await import("../src/checkpoints.ts");
 const { withExpedition, withQuest, newSteering, steer } = await import("../src/context.ts");
 const { bashFor, readFileFor, writeFileFor, sandboxPlanFor, runShell, shellDir, wrapUpNote, rl } = await import("../src/tools.ts");
 const { editFileFor } = await import("../src/codetools.ts");
@@ -104,6 +106,69 @@ test("your checks run by themselves after a quest changes files in that folder",
   setLinkVerify(link.name, []);
   git(repo, "checkout", "-q", "app.txt");
 });
+
+test("a new worktree gets the folder's setup once, before work starts; your checkout and picked worktrees never do", async () => {
+  setLinkSetup(link.name, ["echo installed > .setup-ran", "  ", "false", "echo never > .after-fail"]);
+  assert.deepEqual(findLink(link.name)!.setup, ["echo installed > .setup-ran", "false", "echo never > .after-fail"], "blank lines are dropped");
+  const ws = await repos.prepareWorkspaces({ [link.name]: { mode: "new" } }, "Set it up", "5e7up000");
+  const w = ws[link.name];
+  const note = await withExpedition({ id: "exp-setup", workspaces: ws }, () => setUpWorkspaces(ws, { who: "Artificer", emoji: "🔨" }));
+  assert.equal(readFileSync(join(w.path, ".setup-ran"), "utf8"), "installed\n", "it ran in the new worktree");
+  assert.ok(!existsSync(join(w.path, ".after-fail")), "a failing command stops the rest");
+  assert.match(note, /✓ echo installed[\s\S]*✗ false/);
+  assert.ok(w.ready, "marked as set up");
+  assert.match(withExpeditionSync(ws), /ran this folder's setup/);
+
+  rmSync(join(w.path, ".setup-ran"));
+  assert.equal(await setUpWorkspaces(ws, { who: "Artificer", emoji: "🔨" }), "", "a follow-up in the same worktree doesn't run it again");
+  assert.ok(!existsSync(join(w.path, ".setup-ran")));
+
+  const picked = await repos.prepareWorkspaces({ [link.name]: { mode: "existing", path: w.path } }, "more", "5e7up001");
+  assert.equal(await setUpWorkspaces(picked, { who: "Artificer", emoji: "🔨" }), "", "a worktree you picked isn't set up by the camp");
+  assert.ok(!existsSync(join(repo, ".setup-ran")), "nor is the linked checkout");
+  setLinkSetup(link.name, []);
+  assert.equal(findLink(link.name)!.setup, undefined);
+  await repos.removeWorkspace(w);
+});
+test("what shell commands change in a linked repo is in View changes, and Undo puts it back unless it was changed again", async () => {
+  writeFileSync(join(repo, ".env"), "TOKEN=secret\n");
+  const headBefore = git(repo, "rev-parse", "HEAD"), branchesBefore = git(repo, "branch", "--list");
+  setAsker(async () => "y");
+  try {
+    await withExpedition({ id: "exp-shell" }, async () => {
+      await bashFor("artificer").run!({ command: "printf 'v9\\n' > app.txt && echo new > made.txt && rm CLAUDE.md && printf 'TOKEN=other\\n' > .env", cwd: L });
+      await writeFileFor("artificer").run!({ path: `${L}/notes.txt`, content: "by the file tool\n" });
+    });
+  } finally { setAsker(async (q) => { asked.push(q.body); return "n"; }); }
+  sealSnapshots("exp-shell");
+  const changed = changedFiles("exp-shell").map((f) => `${f.change} ${f.path}`).sort();
+  assert.deepEqual(changed, [`created ${L}/made.txt`, `created ${L}/notes.txt`, `deleted ${L}/CLAUDE.md`, `modified ${L}/app.txt`], "shell changes and the file tool's, each once; .env is never in it");
+  const { diff } = checkpointDiff("exp-shell");
+  assert.match(diff, /Changed by shell commands in links\/[\w-]+[\s\S]*\+v9/);
+  assert.doesNotMatch(diff, /TOKEN/);
+  const refs = git(repo, "for-each-ref", "--format=%(refname)", "refs/satchel/checkpoints/exp-shell/").split("\n");
+  assert.equal(refs.length, 2, "a before and an after snapshot");
+  assert.doesNotMatch(git(repo, "ls-tree", "-r", "--name-only", refs[0]), /\.env/, "secret files aren't kept in a snapshot");
+  assert.equal(git(repo, "rev-parse", "HEAD"), headBefore, "HEAD doesn't move");
+  assert.equal(git(repo, "branch", "--list"), branchesBefore, "no branch is made");
+
+  writeFileSync(join(repo, "made.txt"), "the user's own edit\n"); // changed again after the expedition
+  const r = undoCheckpoint("exp-shell");
+  assert.deepEqual(r.restored.sort(), [`${L}/CLAUDE.md`, `${L}/app.txt`, `${L}/notes.txt`]);
+  assert.deepEqual(r.skipped, [`${L}/made.txt (changed again since)`]);
+  assert.equal(readFileSync(join(repo, "app.txt"), "utf8"), "v1\n");
+  assert.equal(readFileSync(join(repo, "CLAUDE.md"), "utf8"), "@AGENTS.md\n");
+  assert.equal(readFileSync(join(repo, "made.txt"), "utf8"), "the user's own edit\n", "someone else's later change is left alone");
+  assert.equal(readFileSync(join(repo, ".env"), "utf8"), "TOKEN=other\n", "secrets are never touched by Undo");
+  assert.equal(git(repo, "status", "--short"), "?? .env\n?? made.txt".replace(/\n/g, "\n"), "the index is untouched: only the leftovers show");
+  rmSync(join(repo, "made.txt")); rmSync(join(repo, ".env"));
+});
+
+function withExpeditionSync(ws: Parameters<typeof setUpWorkspaces>[0]) {
+  let out = "";
+  withExpedition({ id: "exp-setup-block", workspaces: ws }, async () => { out = linksBlock(); });
+  return out;
+}
 
 test("sandbox: no network, no writes outside the project, no reading secrets; commits still work", { skip: !sandboxAvailable() }, async () => {
   const sandbox = sandboxPlanFor(repo);

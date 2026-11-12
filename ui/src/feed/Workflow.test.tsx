@@ -8,6 +8,7 @@ import { setCrewColors } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState } from "../types.ts";
 import { AsideButton } from "./Aside.tsx";
+import { ForkButton } from "./Fork.tsx";
 import { Findings, fixRequest, parseFindings } from "./Findings.tsx";
 import { NextStep, commitStart, prSays, stageOf } from "./NextStep.tsx";
 import { CommitDialog } from "./CommitDialog.tsx";
@@ -280,4 +281,21 @@ test("the commit dialog: a refusal from git is shown and the dialog stays", asyn
   expect(onDone).not.toHaveBeenCalled();
   fireEvent.keyDown(document, { key: "Escape" });
   expect(onClose).toHaveBeenCalled();
+});
+
+test("fork: a plain fork goes straight to the new conversation; going back asks first, then says what it put back", async () => {
+  answer = (_url, body) => ({ json: { ok: true, thread: body.rewind ? "t-back" : "t-fork", expedition: "x", restored: body.rewind ? ["links/web/a.ts"] : [], skipped: [] } });
+  render(<ForkButton expId="run1" />);
+  fireEvent.click(screen.getByRole("button", { name: "Fork…" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: /Fork from here/ }));
+  await waitFor(() => expect(asks).toContainEqual({ do: "open-conversation", id: "t-fork" }));
+  expect(calls[0]).toEqual({ url: "/api/fork", body: { id: "run1", rewind: false } });
+
+  fireEvent.click(screen.getByRole("button", { name: "Fork…" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: /Go back to here/ }));
+  expect(calls.length).toBe(1); // nothing yet: it asks
+  fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Go back" }));
+  await waitFor(() => expect(asks).toContainEqual({ do: "open-conversation", id: "t-back" }));
+  expect(calls[1].body).toEqual({ id: "run1", rewind: true });
+  expect(screen.getByRole("status").textContent).toBe("↩ Put back 1 file.");
 });
