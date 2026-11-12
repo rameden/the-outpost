@@ -13,4 +13,5 @@ description: Use when asked to write a PR title and description for code changes
 4. **Pairs of PRs across repos:** name the other PR, say which one deploys first, and leave an `<!-- add PR link -->` placeholder.
 5. **Size:** if the PR is over the repo's LoC limit, say so with the line counts and suggest one split point.
 6. Write for senior reviewers: keep it terse, use bullets, and keep each body under about 60 lines so it can be pasted as is. Never commit, push or open the PR.
+   - **A PR that's already open:** read it first (`pull_request` view, then diff) and keep what its author put there on purpose (linked issues, checklists, screenshots). When the user asks you to update it, call `describe_pull_request` with the whole new description (and a title only if it should change). They see the exact text and approve it, or send it back with changes. Never update one unasked.
 7. **Return:** the file paths, the final titles, the endpoints or public APIs touched, and any differences from the brief.

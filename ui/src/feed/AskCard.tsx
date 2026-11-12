@@ -1,5 +1,5 @@
 // An approval card: a plan, a shell command, a new job, a connector call, a question, or a
-// review to post on GitHub as you.
+// review to post, or a pull request description to put up, on GitHub as you.
 // The buttons post the answer; the card closes when the camp confirms it (an "answered" event),
 // so it also closes when you answer from the terminal or your phone.
 
@@ -51,11 +51,11 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
                 <button type="button" className="btn primary" disabled={sending} onClick={sendAnswer}>Answer</button>
                 <button type="button" className="btn" disabled={sending} onClick={() => answer("")}>Skip (let them decide)</button>
               </>
-            ) : kind === "post" ? (
+            ) : kind === "post" || kind === "describe" ? (
               <>
-                <button type="button" className="btn primary" disabled={sending} onClick={() => answer("y")}>Post as me</button>
-                <button type="button" className="btn danger" disabled={sending} onClick={() => answer("n")}>Don't post</button>
-                <input placeholder="Or say what to change…" aria-label="Changes to the review" value={draft} disabled={sending}
+                <button type="button" className="btn primary" disabled={sending} onClick={() => answer("y")}>{kind === "post" ? "Post as me" : "Update as me"}</button>
+                <button type="button" className="btn danger" disabled={sending} onClick={() => answer("n")}>{kind === "post" ? "Don't post" : "Don't update"}</button>
+                <input placeholder="Or say what to change…" aria-label={kind === "post" ? "Changes to the review" : "Changes to the description"} value={draft} disabled={sending}
                   onChange={(ev) => setDraft(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") sendChanges(); }} />
                 <button type="button" className="btn" disabled={sending} onClick={sendChanges}>Request changes</button>
               </>

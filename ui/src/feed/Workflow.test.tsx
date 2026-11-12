@@ -334,3 +334,17 @@ test("a review to post waits on a card with its exact text: post it as you, don'
   expect([askOutcome("post", "y"), askOutcome("post", "n"), askOutcome("post", ""), askOutcome("post", "Softer"), askOutcome("post", "always")])
     .toEqual(["✓ Posted as you", "✕ Not posted", "✕ Not posted", "↺ Changes requested: Softer", "↺ Changes requested: always"]);
 });
+
+test("a new pull request description waits on its own card: update it as you, don't, or say what to change", async () => {
+  const ask = { kind: "ask" as const, id: "n2", askId: "ask_11", askKind: "describe" as const, who: "Scribe", outcome: null,
+    title: "🪶 The Scribe wants to replace the description of pull request #42, as ryley-test:", body: "#42 Export threads\nhttps://github.com/acme/widgets/pull/42\n\n## Summary\nShare links." };
+  answer = () => ({ json: { ok: true } });
+  const { container } = render(<AskCard ask={ask} />);
+  expect(container.querySelector(".ask-body")!.textContent).toContain("## Summary\nShare links.");
+  expect(container.querySelector(".ask-note")!.textContent).toMatch(/replaces the pull request's description on GitHub, under your name/);
+  expect(screen.getByRole("button", { name: "Don't update" })).toBeTruthy();
+  expect(screen.getByLabelText("Changes to the description")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Update as me" }));
+  await waitFor(() => expect(calls).toEqual([{ url: "/api/answer", body: { id: "ask_11", answer: "y" } }]));
+  expect([askOutcome("describe", "y"), askOutcome("describe", "n"), askOutcome("describe", "Shorter")]).toEqual(["✓ Updated as you", "✕ Not updated", "↺ Changes requested: Shorter"]);
+});
