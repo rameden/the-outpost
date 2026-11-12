@@ -1,5 +1,5 @@
 // The top bar: what needs you, what runs the crew, today's spend, how busy the camp is, the
-// connection, notifications, the theme, and Settings.
+// connection (only when it drops), notifications, the theme, and Settings.
 
 import { useEffect, useRef, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
@@ -175,10 +175,13 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
           <span className={cx("dot", running > 0 && "live")} />
           <span>{running === 0 ? "Idle" : running === 1 ? "On expedition" : `${running} expeditions running`}{questsOut > 1 ? ` · ${questsOut} quests out` : ""}{queued ? ` · ${queued} queued` : ""}</span>
         </span>
-        <span className="chip" title="Connection to the camp">
-          <span className={cx("dot", conn === "live" && "live", conn === "reconnecting" && "warn")} />
-          <span>{conn === "live" ? "Live" : conn === "reconnecting" ? "Reconnecting…" : "Connecting…"}</span>
-        </span>
+        {/* Connected is the normal state and says nothing; only a lost or not-yet-made connection shows. */}
+        {conn !== "live" && (
+          <span className="chip" title="Connection to the camp: the page isn't getting updates until it's back" role="status">
+            <span className={cx("dot", conn === "reconnecting" && "warn")} />
+            <span>{conn === "reconnecting" ? "Reconnecting…" : "Connecting…"}</span>
+          </span>
+        )}
         <Bell />
         {onToggleFocus && (
           <button className={cx("icon-btn", focused && "on")} type="button" aria-pressed={!!focused} aria-label={focused ? "Leave focus mode" : "Focus mode"}
