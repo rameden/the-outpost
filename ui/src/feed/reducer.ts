@@ -147,8 +147,10 @@ function startExpedition(s: FeedState, e: EventOf<"expedition_start">) {
     attachments: e.attachments ?? [], time: e.time, nodes: [], end: null,
   };
   s.items = [...s.items, node];
-  s.open = { ...s.open, [e.id]: { node: node.id, started: new Date(e.time).getTime(), members: e.source === "direct" ? [] : ["Quartermaster"], quests: {} } };
-  if (e.source !== "direct") setCrew(s, "Quartermaster", "active", "Planning the expedition");
+  // A plain chat has nobody from the crew in it: the Quartermaster isn't planning anything.
+  const crewless = e.source === "direct" || !!e.chat;
+  s.open = { ...s.open, [e.id]: { node: node.id, started: new Date(e.time).getTime(), members: crewless ? [] : ["Quartermaster"], quests: {} } };
+  if (!crewless) setCrew(s, "Quartermaster", "active", "Planning the expedition");
 }
 
 function endExpedition(s: FeedState, e: EventOf<"expedition_end">) {

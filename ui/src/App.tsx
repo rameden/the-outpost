@@ -106,15 +106,18 @@ export function App({ store }: { store: FeedStore }) {
     const inProject = project && project.id !== "general" && view.kind === "new" && !!view.project;
     return {
       project: inProject ? project.id : undefined,
-      placeholder: inProject ? `Start a conversation in ${project.name}…` : "Start a new conversation…",
+      placeholder: inProject ? `Start a conversation in ${project.name}…` : "Ask a model anything, or start with @ to bring in the crew…",
       // In a project, the "work in" picker offers that project's folders only.
       ...(inProject ? { folders: project.links ?? [], newWorktree: project.settings?.workIn === "worktree" } : {}),
     };
   }, [view, liveRun, conversation, project]);
   const heading = view.kind === "all" ? "All activity" : view.kind === "new" ? "New conversation" : conversation?.title ?? "Conversation";
   const waiting = view.kind === "conversation" && S && !conversation ? "This one is waiting its turn. It shows up here when it starts."
-    : view.kind === "new" && project && view.project ? `It will be filed under ${project.name}. Ask the Quartermaster for something, or @ a crew member directly.`
+    : view.kind === "new" && project && view.project && project.id !== "general" ? `It will be filed under ${project.name}. Ask the Quartermaster for something, or @ a crew member directly.`
+    : view.kind === "new" ? "Outside a project this is a plain chat: what you ask goes straight to the model named beside the message box, with nobody from the crew involved. To put the crew on it, start your message with @ (for example @quartermaster), or work in a project."
     : undefined;
+  // What a blank page offers to start from: a plain question outside a project, crew work inside one.
+  const plainPage = view.kind === "new" && !(project && view.project && project.id !== "general");
 
   // The terminal pane along the bottom: shown or hidden (remembered), toggled with Ctrl+`.
   const [terminal, setTerminal] = useState(() => storeGet("camp-term-open") === "1");
@@ -286,7 +289,7 @@ export function App({ store }: { store: FeedStore }) {
   act.current = { command, openPath };
   useEffect(() => hear((ask) => {
     if (ask.do === "command") act.current.command(ask.name, ask.arg);
-    else if (ask.do === "open-file") void act.current.openPath(ask.path, ask.line);
+    else if (ask.do === "open-file") { setSettings(null); void act.current.openPath(ask.path, ask.line); } // (Settings steps aside: the file opens over the page)
     else if (ask.do === "open-conversation") { setSettings(null); setView({ kind: "conversation", id: ask.id }); }
     else if (ask.do === "compose") { if (ask.replyTo) composer.current?.setReply(ask.replyTo, ask.task ?? ""); composer.current?.setText(ask.text); }
   }), []);
@@ -411,7 +414,7 @@ export function App({ store }: { store: FeedStore }) {
                               title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)} />
                           ))
                         : <NextStep running={!!activity[conversation.id]?.running} status={conversation.status} title={conversation.title} lastRun={conversation.expeditions.at(-1)} />)}
-                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} />
+                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} />
                     </>
                   )}
                   {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}

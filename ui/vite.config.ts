@@ -33,6 +33,7 @@ export default defineConfig({
     proxy: {
       "/api": { target: CAMP, changeOrigin: true },
       "/events": { target: CAMP, changeOrigin: true },
+      "/splash": { target: CAMP, changeOrigin: true },
     },
   },
   test: {

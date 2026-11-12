@@ -21,11 +21,11 @@ import { linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openP
 import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, checkPullRequests, markSeen, startPrWatch } from "./prs.js";
 import { sandboxAvailable, sandboxKind, SANDBOX_NEEDS } from "./sandbox.js";
 import { DEFAULT_ALLOW } from "./shell.js";
-import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec } from "./quartermaster.js";
+import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare } from "./settings.js";
-import { claudeLogin } from "./claude-code.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel } from "./settings.js";
+import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT } from "./tools.js";
@@ -40,7 +40,7 @@ import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, save
 import { skillCommands } from "./settings.js";
 import { dueJobs, runJob, inboxEntries, claimScheduler, schedulerOwner } from "./scheduler.js";
 import { keepInFeed, loadFeed, saveToFeed } from "./feed.js";
-import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel } from "./limits.js";
+import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { allTurns, latestDirect, threadFor } from "./threads.js";
 import { chainNote, chainReady } from "./chains.js";
@@ -56,13 +56,15 @@ import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./
 import { titleConversation } from "./titles.js";
 import { afterRun, forgetLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
 import { logKept, writeAbout } from "./memlog.js";
+import { approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
+import { writeModelGuide } from "./modelguide.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./chronicle.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
-import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT } from "./ui-files.js";
+import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP } from "./ui-files.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
 const TOKEN = randomBytes(24).toString("hex");
@@ -341,6 +343,8 @@ async function fullState(full: boolean) {
         overridden: !!(override.model || override.effort || override.maxTurns),
       };
     }),
+    // Other models you've connected (Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
+    providers: none(() => providersState()),
     // What's remembered, line by line, and what's waiting for your say (keeping.ts).
     memory: none(() => memoryOverview()),
     memoryProposals: none(() => proposals()),
@@ -371,12 +375,14 @@ async function fullState(full: boolean) {
       prWatch: prWatchOn(),
       termActions: termActions(),
       memoryCare: memoryCare(),
+      smallModel: smallModel(),
       jiraWrite: writeBackSettings(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
     },
     installedSkills: none(() => installedSkills()),
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
+    limitsMeasured: usageMeasuredAt() || null, // when the plan's own usage figures were last read
     pausedUntil: pausedUntil(),
     pauseMessage: pausedUntil() ? pauseMessage(pausedUntil()!) : null,
     jobsRunBy: schedulerOwner()?.owner ?? null, // "ui" (here), "watch" (a terminal or background watcher), or nobody yet
@@ -445,6 +451,13 @@ const server = http.createServer(async (req, res) => {
       res.setHeader("content-security-policy", uiCsp(STYLE_NONCE));
       return send(res, 200, page, "text/html; charset=utf-8");
     }
+    // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
+    if (req.method === "GET" && url.pathname === "/splash") {
+      const page = splashPage();
+      if (!page) return send(res, 404, "The tour page (docs/index.html) is missing.", "text/plain; charset=utf-8");
+      res.setHeader("content-security-policy", SPLASH_CSP);
+      return send(res, 200, page, "text/html; charset=utf-8");
+    }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
 
     // The page's built scripts and styles (ui/dist/assets). The page links them with the token.
@@ -468,7 +481,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "GET" && url.pathname === "/api/state") return send(res, 200, await state(url.searchParams.get("full") !== "0"));
+    if (req.method === "GET" && url.pathname === "/api/state") { freshenUsage(); return send(res, 200, await state(url.searchParams.get("full") !== "0")); }
 
     if (req.method === "GET" && url.pathname === "/api/wiki") {
       const rel = normalize(url.searchParams.get("path") ?? "");
@@ -733,7 +746,17 @@ const server = http.createServer(async (req, res) => {
           return send(res, 400, { error: `Couldn't set up this project's worktree: ${e.message}` });
         }
       }
-      const where = { project: project.id, links, ...(without.length ? { without } : {}), ...(jira ? { jira } : {}) };
+      // { model }: the model whoever this conversation is with answers on (a Claude model, or
+      // "<provider>:<model>"). A reply keeps its conversation's unless it names another; null goes
+      // back to their own. Someone stepping in for a turn (a second opinion) uses their own.
+      let model: string | undefined = replyTo ? thread?.model : undefined;
+      if (body.model === null) model = undefined;
+      else if (typeof body.model === "string" && body.model) {
+        if (!(await listModels()).models.some((m) => m.id === body.model)) return send(res, 400, { error: `Unknown model "${body.model}". Pick another beside the message box.` });
+        model = body.model;
+      }
+      if (aside) model = undefined;
+      const where = { project: project.id, links, ...(without.length ? { without } : {}), ...(jira ? { jira } : {}), ...(model ? { model } : {}) };
       const isNew = !replyTo;
       const task = (direct ? direct[2] ?? text : text).replace(/\s+/g, " ").slice(0, 90);
       // Worked out when it starts, not now: a chained request follows what its predecessor ended up doing.
@@ -746,7 +769,18 @@ const server = http.createServer(async (req, res) => {
           extraSystem: chainNote(before, !!thread && before?.thread === thread.thread),
         };
       };
-      const w = target && target.id !== "quartermaster"
+      // A plain chat: outside any project, a message with no @ goes to a model and nobody else (no
+      // Quartermaster, no plan, no quests). A reply in one stays one. Asking for a worktree, or
+      // starting from a ticket, is asking for work to be done, so that still goes to the crew.
+      const plain = !who && !aside && !jira && !workspaces && (replyTo ? thread?.agent === CHAT : project.id === GENERAL);
+      const w = plain
+        ? enqueue({ label: "chat", task, after, run: async (signal, id, steering) => {
+            const c = chained();
+            const r = await runChat(content, { attached, signal, id, replyTo, steering, stillRunning, links: c.links, without: where.without, model: where.model, extraSystem: c.extraSystem });
+            if (isNew) void titleConversation(id, text, r.text);
+            return r;
+          } })
+        : target && target.id !== "quartermaster"
         ? enqueue({ label: `@${target.id}`, task, after, run: async (signal, id, steering) => {
             const c = chained();
             const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem, aside });
@@ -1125,6 +1159,41 @@ const server = http.createServer(async (req, res) => {
       return send(res, 400, { error: "Unknown action" });
     }
 
+    // Other models (providers.ts). connect: keep a provider's key ({ id, key }), once the provider
+    // has accepted it. disconnect: forget it ({ id }). small: which model does the camp's own small
+    // jobs ({ model }: a Claude model, "<provider>:<model>", or null for the default).
+    if (url.pathname.startsWith("/api/providers/")) {
+      try {
+        // guide: write the wiki's models guide now (it's also rewritten whenever what's connected changes).
+        if (url.pathname === "/api/providers/guide") return send(res, 200, { ok: true, path: await writeModelGuide() });
+        if (url.pathname === "/api/providers/connect") {
+          const provider = await connectProvider(String(body.id ?? ""), body.key);
+          void writeModelGuide().catch(() => {});
+          return send(res, 200, { ok: true, provider });
+        }
+        if (url.pathname === "/api/providers/disconnect") {
+          const id = String(body.id ?? "");
+          const gone = disconnectProvider(id);
+          if (gone && smallModel()?.startsWith(`${id}:`)) setSmallModel(null); // its small-jobs model went with it
+          if (gone) void writeModelGuide().catch(() => {});
+          return send(res, 200, { ok: gone });
+        }
+        // approve: say a provider may be sent confidential projects' work ({ id, on }).
+        if (url.pathname === "/api/providers/approve") {
+          const ok = approveProvider(String(body.id ?? ""), body.on === true);
+          if (ok) void writeModelGuide().catch(() => {});
+          return send(res, 200, { ok });
+        }
+        if (url.pathname === "/api/providers/small") {
+          const model = body.model ? String(body.model) : null;
+          if (model && !(await listModels()).models.some((m) => m.id === model)) return send(res, 400, { error: `Unknown model "${model}"` });
+          setSmallModel(model);
+          emit({ type: "changed", what: "settings" });
+          return send(res, 200, { ok: true, smallModel: smallModel() });
+        }
+      } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+
     // Looking after memory (keeping.ts). about: your own edit of the note the whole crew shares.
     // forget: take one line out. tidy: draft a merged version, to approve. proposal: your answer to
     // one that's waiting ({ id, action: "approve" | "dismiss", text? }). care: the two switches.
@@ -1160,6 +1229,13 @@ const server = http.createServer(async (req, res) => {
       const r = undoCheckpoint(id);
       emit({ type: "changed", what: "checkpoints" });
       return send(res, 200, { ok: true, ...r });
+    }
+
+    // Read your plan's usage figures now (it sends no message, so it uses none of your plan).
+    if (url.pathname === "/api/limits/refresh") {
+      if (campRuntime() !== "claude-code") return send(res, 400, { error: "Plan limits only apply when the crew runs on your Claude subscription." });
+      const ok = await refreshPlanUsage(true);
+      return send(res, ok ? 200 : 502, ok ? { ok: true } : { error: "Claude Code didn't report your plan's usage. Check that you're signed in (claude /login), then try again." });
     }
 
     // Fork a conversation from one of its runs ({ id, rewind }): a copy up to that run, to carry on
@@ -1273,7 +1349,12 @@ startPhoneBridge((askId, answer) => {
 
 startPrWatch();
 
+// On the subscription: read the plan's usage as the camp starts, and again whenever the page asks
+// for its state and the figures are more than five minutes old (it costs nothing; see refreshPlanUsage).
+const USAGE_STALE = 5 * 60_000;
+const freshenUsage = () => { if (campRuntime() === "claude-code" && Date.now() - usageMeasuredAt() > USAGE_STALE) void refreshPlanUsage(); };
 server.listen(PORT, "127.0.0.1", () => {
+  freshenUsage();
   console.log(`🏕️  Mission control is up: http://127.0.0.1:${PORT}/?t=${TOKEN}`);
   console.log(`   Scheduled jobs run while this is open. Ctrl+C to break camp.`);
   void announceRuntime();

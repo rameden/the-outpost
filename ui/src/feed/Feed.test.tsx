@@ -276,3 +276,20 @@ test("the approved plan is a live list: each step's state and who has it, and a 
   expect(seen).toHaveBeenCalled();
   expect(within(list).getAllByRole("button").length).toBe(2); // the Quartermaster's own step has nowhere to go
 });
+
+test("a blank page outside a project offers a plain chat, and says how to bring the crew in", () => {
+  const onExample = vi.fn();
+  const { rerender } = render(<Feed store={createFeedStore()} onReply={() => {}} onExample={onExample} view={{ kind: "new" }} plain
+    waiting="Outside a project this is a plain chat: what you ask goes straight to the model named beside the message box." />);
+  expect(screen.getByRole("heading", { name: "Ask anything" })).toBeTruthy();
+  expect(screen.getByText(/Outside a project this is a plain chat/)).toBeTruthy();
+  const examples = screen.getAllByRole("button").map((b) => b.textContent!);
+  expect(examples[0]).toMatch(/^Explain the difference between a rebase and a merge/);
+  expect(examples.filter((e) => e.startsWith("@")).length).toBe(2); // the crew is an @ away
+  fireEvent.click(screen.getAllByRole("button")[0]);
+  expect(onExample).toHaveBeenCalledWith(examples[0]);
+  // In a project the page is the Quartermaster's, as before.
+  rerender(<Feed store={createFeedStore()} onReply={() => {}} onExample={onExample} view={{ kind: "new" }} />);
+  expect(screen.getByRole("heading", { name: "A new conversation" })).toBeTruthy();
+  expect(screen.getAllByRole("button")[0].textContent).toMatch(/^Scout how other agent harnesses/);
+});

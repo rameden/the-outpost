@@ -3,12 +3,10 @@
 // little of your plan's usage (or a fraction of a cent on the API). Without it a conversation is
 // named after its first request, and you can rename any of them yourself.
 
-import Anthropic from "@anthropic-ai/sdk";
-import { askClaudeCode } from "./claude-code.js";
-import { autoTitle, hasTitle } from "./conversations.js";
-import { autoTitlesOn, campRuntime } from "./settings.js";
+import { autoTitle, hasTitle, projectOf } from "./conversations.js";
+import { autoTitlesOn } from "./settings.js";
+import { askSmall } from "./small.js";
 
-const TITLE_MODEL = "claude-haiku-5-5";
 const SYSTEM = "You name conversations for a sidebar. Reply with a title of 3 to 6 words that says what the conversation is about. " +
   "No quotes, no trailing punctuation, nothing but the title.";
 
@@ -22,17 +20,10 @@ export async function titleConversation(thread: string, task: string, reply: str
   try {
     if (!autoTitlesOn() || hasTitle(thread)) return null;
     const prompt = `The user asked:\n${task.slice(0, 1200)}\n\nThe answer began:\n${reply.slice(0, 600)}`;
-    const text = campRuntime() === "claude-code"
-      ? (await askClaudeCode(SYSTEM, prompt, TITLE_MODEL)).text
-      : await askApi(prompt);
+    const text = await askSmall(SYSTEM, prompt, 40, { project: projectOf(thread).id });
     const title = cleanTitle(text);
     return title && autoTitle(thread, title) ? title : null;
   } catch {
     return null;
   }
-}
-
-async function askApi(prompt: string): Promise<string> {
-  const r = await new Anthropic().messages.create({ model: TITLE_MODEL, max_tokens: 40, system: SYSTEM, messages: [{ role: "user", content: prompt }] });
-  return r.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
 }

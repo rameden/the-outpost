@@ -154,6 +154,64 @@ test("plan limits: a used-up window pauses the camp until it resets", () => {
   limits.resetLimitsForTests();
 });
 
+test("plan limits: a window that reset isn't shown as still full, and the plan's own figures are what the meter shows", async () => {
+  limits.resetLimitsForTests();
+  const five = () => limits.planLimits().find((l) => l.type === "five_hour")!;
+  const sec = (ms: number) => Math.floor(ms / 1000);
+  const first = Date.now() + 3_600_000, next = first + 5 * 3_600_000;
+  // Used up, then the window resets. Later runs say only "allowed", with no figure: the 100% must not be carried over.
+  limits.noteRateLimit({ status: "rejected", rateLimitType: "five_hour", resetsAt: sec(first) });
+  assert.equal(five().utilization, 1);
+  limits.noteRateLimit({ status: "allowed", rateLimitType: "five_hour", resetsAt: sec(next) });
+  assert.deepEqual([five().status, five().utilization], ["allowed", undefined], "a new window: nothing is known about how full it is");
+  // Allowed again in the same window (you chose "try anyway", or extra usage kicked in): still not "100% used".
+  limits.noteRateLimit({ status: "rejected", rateLimitType: "five_hour", resetsAt: sec(next) });
+  limits.noteRateLimit({ status: "allowed", rateLimitType: "five_hour", resetsAt: sec(next) });
+  assert.equal(five().utilization, undefined);
+  // A figure that came with an event is kept while the window is the same, and dropped when it isn't.
+  limits.noteRateLimit({ status: "allowed_warning", rateLimitType: "five_hour", utilization: 0.83, resetsAt: sec(next) });
+  limits.noteRateLimit({ status: "allowed", rateLimitType: "five_hour", resetsAt: sec(next) });
+  assert.equal(five().utilization, 0.83);
+  limits.noteRateLimit({ status: "allowed", rateLimitType: "five_hour", resetsAt: sec(next) + 18_000 });
+  assert.equal(five().utilization, undefined);
+
+  // The plan's own figures: every window, 0 to 100 as Claude Code gives them, with a weekly limit for one model.
+  const { usageWindows } = await import("../src/claude-code.ts");
+  const windows = usageWindows({
+    five_hour: { utilization: 94, resets_at: "2026-11-12T01:10:00.073671+00:00" },
+    seven_day: { utilization: 24, resets_at: "2026-11-12T02:00:00+00:00" },
+    seven_day_opus: null, seven_day_sonnet: { utilization: null, resets_at: null },
+    model_scoped: [{ display_name: "Fable", utilization: 41, resets_at: "2026-11-12T02:00:00+00:00" }, { display_name: "", utilization: 5 }],
+    extra_usage: { utilization: null },
+  });
+  assert.deepEqual(windows, [
+    { type: "five_hour", utilization: 0.94, resetsAt: Date.parse("2026-11-12T01:10:00.073671+00:00") },
+    { type: "seven_day", utilization: 0.24, resetsAt: Date.parse("2026-11-12T02:00:00+00:00") },
+    { type: "model:Fable", utilization: 0.41, resetsAt: Date.parse("2026-11-12T02:00:00+00:00") }]);
+  assert.deepEqual(usageWindows(null), []);
+  assert.equal(usageWindows({ five_hour: { utilization: 1, resets_at: null } })[0].utilization, 0.01, "1 means one percent here, not full");
+
+  assert.equal(limits.usageMeasuredAt(), 0);
+  const soon = Date.now() + 3_600_000;
+  limits.noteUsage(windows.map((w) => ({ ...w, resetsAt: soon })), 5_000);
+  const by = Object.fromEntries(limits.planLimits().map((l) => [l.type, [l.status, l.utilization]]));
+  assert.deepEqual(by, { five_hour: ["allowed_warning", 0.94], seven_day: ["allowed", 0.24], "model:Fable": ["allowed", 0.41] });
+  assert.equal(limits.usageMeasuredAt(), 5_000);
+  assert.equal(limits.limitLabel("model:Fable"), "weekly Fable limit");
+  assert.equal(limits.pausedUntil(), null, "94% is a warning, not a pause");
+  // A run says "allowed" with no figure: the measured one stays, and stays marked as measured.
+  limits.noteRateLimit({ status: "allowed", rateLimitType: "five_hour", resetsAt: sec(soon) });
+  assert.deepEqual([five().utilization, five().measured], [0.94, 5_000]);
+  // Told it's used up, the figures agreeing doesn't lift the pause; figures showing room again does.
+  limits.noteRateLimit({ status: "rejected", rateLimitType: "five_hour", resetsAt: sec(soon) });
+  limits.noteUsage([{ type: "five_hour", utilization: 1, resetsAt: five().resetsAt }]);
+  assert.equal(five().status, "rejected");
+  limits.noteUsage([{ type: "five_hour", utilization: 0.02, resetsAt: soon + 18_000_000 }]);
+  assert.deepEqual([five().status, five().utilization], ["allowed", 0.02]);
+  assert.equal(limits.pausedUntil(), null);
+  limits.resetLimitsForTests();
+});
+
 test("follow-ups carry the whole conversation", () => {
   recordTurn({ thread: "e1", expedition: "e1", agent: "scribe", direct: true, task: "Draft a post about tents", reply: "Here is the full draft: " + "tent ".repeat(600), status: "done" });
   recordTurn({ thread: "e1", expedition: "e2", agent: "scribe", direct: true, task: "Make it shorter", reply: "Shorter version.", status: "done" });

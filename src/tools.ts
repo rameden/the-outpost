@@ -56,7 +56,7 @@ function isHarnessCode(abs: string): boolean {
   return HARNESS_FILES.includes(rel) || HARNESS_DIRS.includes(rel.split(sep)[0]);
 }
 // Camp files that can hold tokens (connector env, the phone topic). Nobody's file tools read them.
-const PRIVATE_CAMP_FILES = new Set(["mcp.json", "settings.json", "jira.json", "triggers.json"]); // jira.json holds your Jira API token; triggers.json what starts work on its own
+const PRIVATE_CAMP_FILES = new Set(["mcp.json", "settings.json", "jira.json", "providers.json", "triggers.json"]); // jira.json holds your Jira API token; providers.json your other models' keys; triggers.json what starts work on its own
 
 // Near the turn limit, a note rides along with a tool result so the agent lands the work instead
 // of being cut off mid-step. Used by both runtimes.
@@ -294,7 +294,7 @@ export function sandboxPlanFor(dir: string): SandboxPlan {
   // Hooks and git config run later, outside the sandbox, so a command can't plant them.
   const readOnly = common ? [resolve(common, "hooks"), resolve(common, "config")] : [];
   const camp = real(CAMP_ROOT);
-  const unreadable = [resolve(camp, "camp", "mcp.json"), resolve(camp, "camp", "settings.json"), resolve(camp, "camp", "jira.json"), resolve(camp, "camp", "triggers.json"), resolve(camp, "camp", "agents")];
+  const unreadable = [resolve(camp, "camp", "mcp.json"), resolve(camp, "camp", "settings.json"), resolve(camp, "camp", "jira.json"), resolve(camp, "camp", "providers.json"), resolve(camp, "camp", "triggers.json"), resolve(camp, "camp", "agents")];
   if (root === camp || camp.startsWith(root + sep)) {
     readOnly.push(resolve(camp, "camp"), resolve(camp, "skills"), resolve(camp, "plugins"));
     if (!selfEditAllowed()) readOnly.push(...HARNESS_DIRS.map((d) => resolve(HARNESS_ROOT, d)), ...HARNESS_FILES.map((f) => resolve(HARNESS_ROOT, f)));
