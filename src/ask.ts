@@ -15,6 +15,7 @@ const CLI_PROMPTS: Record<AskKind, string> = {
   tool: "   Allow it? [y/N] ",
   question: "   Your answer: ",
   post: "   Post it as you? [y/N, or type what to change] ",
+  describe: "   Update it as you? [y/N, or type what to change] ",
 };
 
 // Parallel quests can ask at the same time; the terminal takes their questions one at a time.
