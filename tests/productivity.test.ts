@@ -90,7 +90,7 @@ test("with review on, the Quartermaster is told to have changes looked over befo
   await runExpedition("Say hello again");
   assert.equal(whoAsks(api.seen[0].body), "Quartermaster");
   assert.ok(system(0).includes(REVIEW_RULE));
-  assert.match(REVIEW_RULE, /dispatch the Scout once/);
+  assert.match(REVIEW_RULE, /dispatch the Warden once/);
   // One run can ask for it, or go without, whatever the camp is set to (the ticket stepper does).
   api.seen.length = 0;
   await runExpedition("Say hello without a review", { review: false });

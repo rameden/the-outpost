@@ -2,7 +2,8 @@
 // a fenced block (```findings, holding a JSON list); the feed shows that block as this list
 // instead of as code. Each finding says how serious it is, where it is (click to open the file)
 // and what's wrong; tick the ones you want fixed and they're put in the message box as a
-// change request, for you to read and send. Nothing is sent for you: the reviewer's words are
+// change request, for you to read and send, or as a request to post them on the pull request
+// (which the Warden drafts and you approve, word for word, before it goes). Nothing is sent for you: the reviewer's words are
 // its opinion, and may be wrong.
 
 import { useState } from "react";
@@ -43,6 +44,13 @@ export function fixRequest(list: Finding[]): string {
     list.map((f, i) => `${i + 1}. [${LABEL[f.severity].toLowerCase()}] ${f.file ? `\`${f.file}${f.line ? `:${f.line}` : ""}\` — ` : ""}${f.title}${f.detail ? `\n   ${f.detail.replace(/\n/g, "\n   ")}` : ""}`).join("\n");
 }
 
+// The request to post the ticked findings on the pull request. The Warden drafts the comment
+// from these and shows you the exact text on an approval card before anything is posted.
+export function postRequest(list: Finding[]): string {
+  return "Post these findings on the pull request as a review comment from me. Show me the exact text before it goes.\n\n" +
+    list.map((f, i) => `${i + 1}. ${f.file ? `\`${f.file}${f.line ? `:${f.line}` : ""}\` — ` : ""}${f.title}${f.detail ? `\n   ${f.detail.replace(/\n/g, "\n   ")}` : ""}`).join("\n");
+}
+
 export function Findings({ list }: { list: Finding[] }) {
   const [picked, setPicked] = useState<boolean[]>(() => list.map((f) => f.severity !== "nit"));
   const [sent, setSent] = useState(false);
@@ -73,6 +81,8 @@ export function Findings({ list }: { list: Finding[] }) {
       <div className="findings-foot">
         <button type="button" className="btn small primary" disabled={!chosen.length} title="Put the ticked findings in the message box as a change request, for you to read and send"
           onClick={() => { say({ do: "compose", text: fixRequest(chosen) }); setSent(true); }}>Ask for {chosen.length === list.length ? "these" : `${chosen.length} of them`} to be fixed</button>
+        <button type="button" className="btn small" disabled={!chosen.length} title="Put a request in the message box to post the ticked findings on the pull request as you. You approve the exact text before anything is posted."
+          onClick={() => { say({ do: "compose", text: postRequest(chosen) }); setSent(true); }}>Post on the pull request…</button>
         <span className="meta" role="status">{sent ? "It's in the message box: read it over, then send." : "A reviewer's opinion, not a verdict: untick what you disagree with."}</span>
       </div>
     </div>

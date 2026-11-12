@@ -58,7 +58,7 @@ test("Next, Next, Next, Start: every step is filled in, and what's sent is what 
   next("Who");
   // 4: the Quartermaster, with review as the project and camp have it.
   expect((within(dialog).getByRole("radio", { name: /Quartermaster/ }) as HTMLInputElement).checked).toBe(true);
-  expect(within(dialog).getByText(/Have the Scout review the changes before it reports \(off for this project\)/)).toBeTruthy();
+  expect(within(dialog).getByText(/Have the Warden review the changes before it reports \(off for this project\)/)).toBeTruthy();
   next("Start");
   // 5: what will happen, and the brief word for word.
   const summary = dialog.querySelector(".wizard-summary")!.textContent!;
@@ -98,12 +98,12 @@ test("anything can be changed on the way: the criteria, the notes, where, who, a
   fireEvent.change(within(dialog).getByLabelText("Project"), { target: { value: "p1" } });
   fireEvent.change(await within(dialog).findByLabelText("Branch"), { target: { value: "feat/open-button" } });
   next("Who");
-  fireEvent.click(within(dialog).getByText(/Have the Scout review the changes before it reports/)); // ask for a review, this once
+  fireEvent.click(within(dialog).getByText(/Have the Warden review the changes before it reports/)); // ask for a review, this once
   next("Start");
   const box = within(dialog).getByLabelText("The brief") as HTMLTextAreaElement;
   expect(box.value).toContain("- [ ] An Open button on every report\n- [ ] It works from the keyboard\n\nAlso, from me:\nLeave the old nav alone.");
   expect(box.value).not.toContain("Closing returns to the chat");
-  expect(dialog.querySelector(".wizard-summary")!.textContent).toContain("the Scout reviews the changes before it reports");
+  expect(dialog.querySelector(".wizard-summary")!.textContent).toContain("the Warden reviews the changes before it reports");
   // Your own words in the brief are kept, even if you go back and forward.
   fireEvent.change(box, { target: { value: `${box.value}\n\nPS: small commits, please.` } });
   fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));

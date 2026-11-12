@@ -267,7 +267,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
               </div>
               {who === "quartermaster" ? (
                 <label className="dialog-check"><input type="checkbox" checked={review} onChange={(ev) => setReviewPick(ev.target.checked)} />
-                  Have the Scout review the changes before it reports{reviewPick === null ? ` (${reviewDefault ? "on" : "off"} for this project)` : ""}</label>
+                  Have the Warden review the changes before it reports{reviewPick === null ? ` (${reviewDefault ? "on" : "off"} for this project)` : ""}</label>
               ) : <div className="meta">A review isn't part of a direct chat. When {member?.name ?? "they"} has finished, "Review changes…" on the answer asks someone else to read the diff.</div>}
             </section>
           )}
@@ -279,7 +279,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
                 {ready.length > 0 && <div><dt>Also attached</dt><dd>{ready.map((a) => a.name).join(", ")}</dd></div>}
                 <div><dt>Done means</dt><dd>{included ? `${included} ${plural(included, "criterion").replace("criterions", "criteria")}` : "the crew says what it takes \"done\" to mean first"}</dd></div>
                 <div><dt>Where</dt><dd>{chosen?.name ?? "General"}{inWorktree ? <> · a new worktree on <code>{branch}</code></> : editable.length ? " · your own checkout" : ""}</dd></div>
-                <div><dt>Who</dt><dd>{member ? `${member.emoji} ${member.name}` : who}{who === "quartermaster" ? (review ? " · the Scout reviews the changes before it reports" : " · no review before it reports") : ""}</dd></div>
+                <div><dt>Who</dt><dd>{member ? `${member.emoji} ${member.name}` : who}{who === "quartermaster" ? (review ? " · the Warden reviews the changes before it reports" : " · no review before it reports") : ""}</dd></div>
                 {S.settings?.jiraWrite?.on && <div><dt>Jira</dt><dd>a comment says work has started{S.settings.jiraWrite.startStatus ? `, and the ticket moves to ${S.settings.jiraWrite.startStatus}` : ""}</dd></div>}
               </dl>
               <label className="field">The brief

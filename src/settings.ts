@@ -36,7 +36,7 @@ type Settings = {
   phone?: PhoneSettings;
   jiraFilter?: string;    // which Jira tickets are pulled in (JQL); see jira.ts
   fixAttempts?: number;   // how many times a quest is sent back to fix its own failing checks (0 = never)
-  reviewChanges?: boolean; // have the Scout review what changed before the Quartermaster reports
+  reviewChanges?: boolean; // have the Warden review what changed before the Quartermaster reports
   prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
   jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
   providersApproved?: string[];             // other providers you've said may be sent confidential projects' work (approved where you work, say)

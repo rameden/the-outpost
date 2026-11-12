@@ -9,7 +9,9 @@ import { Markdown } from "../markdown.tsx";
 import type { CampState } from "../types.ts";
 import { AsideButton } from "./Aside.tsx";
 import { ForkButton } from "./Fork.tsx";
-import { Findings, fixRequest, parseFindings } from "./Findings.tsx";
+import { Findings, fixRequest, parseFindings, postRequest } from "./Findings.tsx";
+import { AskCard } from "./AskCard.tsx";
+import { askOutcome } from "./asks.ts";
 import { NextStep, commitStart, prSays, stageOf } from "./NextStep.tsx";
 import { CommitDialog } from "./CommitDialog.tsx";
 import { PrDialog } from "./PrDialog.tsx";
@@ -298,4 +300,37 @@ test("fork: a plain fork goes straight to the new conversation; going back asks 
   await waitFor(() => expect(asks).toContainEqual({ do: "open-conversation", id: "t-back" }));
   expect(calls[1].body).toEqual({ id: "run1", rewind: true });
   expect(screen.getByRole("status").textContent).toBe("↩ Put back 1 file.");
+});
+
+test("ticked findings can be put in the message box as a request to post them; nothing is posted from here", () => {
+  render(<Findings list={parseFindings(BLOCK)!} />);
+  const box = screen.getByRole("group", { name: "Review findings" });
+  fireEvent.click(within(box).getByRole("button", { name: "Post on the pull request…" }));
+  const text = (asks[0] as Extract<Ask, { do: "compose" }>).text;
+  expect(text).toContain("Post these findings on the pull request as a review comment from me. Show me the exact text before it goes.");
+  expect(text).toContain("1. `src/app.ts:42` — Closing doesn't return to the chat");
+  expect(text).not.toContain("Name could be clearer"); // unticked
+  expect(text).not.toMatch(/must fix|should fix/); // severity labels are ours, not for the author
+  expect(calls).toEqual([]);
+  expect(postRequest([])).toMatch(/^Post these findings/);
+});
+
+test("a review to post waits on a card with its exact text: post it as you, don't, or say what to change", async () => {
+  const ask = { kind: "ask" as const, id: "n1", askId: "ask_9", askKind: "post" as const, who: "Warden", outcome: null,
+    title: "🛡️ The Warden wants to post this on pull request #42, as ryley-test:", body: "#42 Export threads\nhttps://github.com/acme/widgets/pull/42\n\nI think the links need an expiry." };
+  answer = () => ({ json: { ok: true } });
+  const { container, unmount } = render(<AskCard ask={ask} />);
+  expect(container.querySelector(".ask-title")!.textContent).toBe("The Warden wants to post this on pull request #42, as ryley-test:");
+  expect(container.querySelector(".ask-body")!.textContent).toContain("I think the links need an expiry.");
+  expect(container.querySelector(".ask-note")!.textContent).toMatch(/under your name, exactly as written here/);
+  expect(screen.queryByText(/Always allow/)).toBeNull();
+  fireEvent.change(screen.getByLabelText("Changes to the review"), { target: { value: "Softer" } });
+  fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
+  await waitFor(() => expect(calls).toEqual([{ url: "/api/answer", body: { id: "ask_9", answer: "Softer" } }]));
+  unmount(); // answered: a card takes one answer
+  render(<AskCard ask={{ ...ask, askId: "ask_10" }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Post as me" }));
+  await waitFor(() => expect(calls[1]).toEqual({ url: "/api/answer", body: { id: "ask_10", answer: "y" } }));
+  expect([askOutcome("post", "y"), askOutcome("post", "n"), askOutcome("post", ""), askOutcome("post", "Softer"), askOutcome("post", "always")])
+    .toEqual(["✓ Posted as you", "✕ Not posted", "✕ Not posted", "↺ Changes requested: Softer", "↺ Changes requested: always"]);
 });

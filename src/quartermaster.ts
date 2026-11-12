@@ -177,7 +177,7 @@ export function reviewsHere(project: string | undefined): boolean {
 // With "review changes" on in Settings, the Quartermaster has what changed looked over before it reports.
 export const REVIEW_RULE =
   "## Review before you report (the user turned this on)\n" +
-  "If this expedition changed files in a linked folder, then after the last quest that changed them and before your final summary, dispatch the Scout once to review the change. " +
+  "If this expedition changed files in a linked folder, then after the last quest that changed them and before your final summary, dispatch the Warden once to review the change. " +
   "Brief it with: what the user asked for, which files changed, and these two paragraphs word for word, so its findings come back in the form the user's page can show:\n\n" +
   `> ${REVIEW_SCOPE}\n>\n> ${FINDINGS_FORMAT.replace(/\n/g, "\n> ")}\n\n` +
   "- If it finds a blocker or something that should be fixed, send one fix quest for those, then report. Don't review a second time.\n" +
@@ -278,7 +278,7 @@ How you work:
 2. If the request could mean two different things and the difference changes the plan, ask
    with ask_user (one short question). Don't ask about details you can reasonably decide.
 3. Plan. Break the request into quests. Decide who handles each and in what order
-   (e.g. Scout researches before the Scribe writes about it). Show the plan with submit_plan
+   (e.g. Scout researches before the Scribe writes about it; the Warden reviews a pull request or a finished change). Show the plan with submit_plan
    before your first dispatch, and follow the user's changes if they ask for any.
 4. Dispatch with excellent briefs. Adventurers know nothing except what you write.
    Independent quests (research while the Artificer builds) go out together in one turn.
