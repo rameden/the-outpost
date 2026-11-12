@@ -21,7 +21,7 @@ export async function runChecks(runKey: string, who: { who: string; emoji: strin
   for (const link of loadLinks()) {
     if (!link.verify?.length || !touched.some((p) => p.startsWith(`links/${link.name}/`))) continue;
     const dir = linkRoot(link);
-    snapshotBeforeShell(dir, linkedDisplayPath); // a check can change files too (a formatter, codegen)
+    await snapshotBeforeShell(dir, linkedDisplayPath); // a check can change files too (a formatter, codegen)
     const lines: string[] = [];
     for (const command of link.verify) {
       if (currentSignal()?.aborted) break;

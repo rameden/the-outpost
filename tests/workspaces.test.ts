@@ -140,7 +140,7 @@ test("what shell commands change in a linked repo is in View changes, and Undo p
       await writeFileFor("artificer").run!({ path: `${L}/notes.txt`, content: "by the file tool\n" });
     });
   } finally { setAsker(async (q) => { asked.push(q.body); return "n"; }); }
-  sealSnapshots("exp-shell");
+  await sealSnapshots("exp-shell");
   const changed = changedFiles("exp-shell").map((f) => `${f.change} ${f.path}`).sort();
   assert.deepEqual(changed, [`created ${L}/made.txt`, `created ${L}/notes.txt`, `deleted ${L}/CLAUDE.md`, `modified ${L}/app.txt`], "shell changes and the file tool's, each once; .env is never in it");
   const { diff } = checkpointDiff("exp-shell");
@@ -162,6 +162,20 @@ test("what shell commands change in a linked repo is in View changes, and Undo p
   assert.equal(readFileSync(join(repo, ".env"), "utf8"), "TOKEN=other\n", "secrets are never touched by Undo");
   assert.equal(git(repo, "status", "--short"), "?? .env\n?? made.txt".replace(/\n/g, "\n"), "the index is untouched: only the leftovers show");
   rmSync(join(repo, "made.txt")); rmSync(join(repo, ".env"));
+});
+
+test("two quests starting commands in one repo at once share one snapshot, and a file the file tools save meanwhile is kept", async () => {
+  const { snapshotBeforeShell } = await import("../src/checkpoints.ts");
+  await withExpedition({ id: "exp-two" }, async () => {
+    const show = (abs: string) => (abs === repo ? L : undefined);
+    const first = snapshotBeforeShell(repo, show);
+    await writeFileFor("artificer").run!({ path: `${L}/during.txt`, content: "saved while git worked\n" });
+    await Promise.all([first, snapshotBeforeShell(repo, show), snapshotBeforeShell(join(repo, "."), show)]);
+  });
+  const refs = git(repo, "for-each-ref", "--format=%(refname)", "refs/satchel/checkpoints/exp-two/").split("\n").filter(Boolean);
+  assert.equal(refs.length, 1, "one snapshot");
+  const r = undoCheckpoint("exp-two");
+  assert.ok(r.restored.includes(`${L}/during.txt`), "the file tool's change is still on record");
 });
 
 function withExpeditionSync(ws: Parameters<typeof setUpWorkspaces>[0]) {

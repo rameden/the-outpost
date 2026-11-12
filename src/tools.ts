@@ -332,7 +332,7 @@ export function bashFor(self: string, name = "Artificer"): Tool {
       const signal = currentSignal();
       // Record a linked repository's working tree before the expedition's first command there, so
       // View changes and Undo cover what commands change too (see checkpoints.ts).
-      snapshotBeforeShell(dir, linkedDisplayPath);
+      await snapshotBeforeShell(dir, linkedDisplayPath);
       // Your rules first: a denied command never runs; an "ask" one always waits for you.
       const rule = shellRule(String(command));
       if (rule?.verdict === "deny") return `Not run: the user's rules don't allow commands like this ("${rule.rule}"). Don't try to get around it with another command; find another way or say what you needed.`;

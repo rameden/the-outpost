@@ -412,13 +412,13 @@ export async function runExpedition(
     });
     logQuest(opts.job ? "job" : "expedition", "Quartermaster", shown, started, result, opts.job, where.project);
     if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status });
-    sealSnapshots(id);
+    await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     return result;
   } catch (err: any) {
     logFailure(opts.job ? "job" : "expedition", "Quartermaster", shown, started, err, opts.job, where.project);
     if (!opts.job) recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
-    sealSnapshots(id);
+    await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     throw err;
   }
@@ -474,14 +474,14 @@ export async function runDirect(
     }));
     recordTurn({ ...turn, reply: result.text, status: result.status });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId, expeditionId: id });
-    sealSnapshots(id);
+    await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     return result;
   } catch (err: any) {
     logFailure("quest", spec.name, shown, started, err, undefined, where.project);
     recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId, expeditionId: id });
-    sealSnapshots(id);
+    await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length });
     throw err;
   }

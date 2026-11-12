@@ -4,7 +4,7 @@
 // down is closed off: an unanswered approval is marked as lapsed, and an unfinished expedition as
 // interrupted, so nothing in the reloaded feed looks like it's still waiting or running.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
 import type { CampEvent } from "./events.js";
 
 export const FEED_PATH = "camp/feed.jsonl";
@@ -55,23 +55,84 @@ export function loadFeed(limit: number): CampEvent[] {
   try {
     if (statSync(FEED_PATH).size > MAX_FILE_BYTES) {
       writeFileSync(FEED_PATH, [...events.slice(-Math.ceil(events.length / 2)), ...closing].map((e) => JSON.stringify(e)).join("\n") + "\n");
+      index = null; // the file was rewritten: the next read indexes it again
     }
     else if (closing.length) appendFileSync(FEED_PATH, closing.map((e) => JSON.stringify(e)).join("\n") + "\n");
   } catch { /* fine */ }
   return all;
 }
 
+// ---------- Reading one expedition's events without reading the whole file ----------
+// The file only grows (it's rewritten just when it's trimmed, at start-up), so the camp keeps
+// where each expedition's lines are, and reads only what was added since it last looked. Opening
+// a conversation then reads its own lines, not tens of megabytes of everyone else's.
+type FeedIndex = { ino: number; size: number; lines: Map<string, [number, number][]> }; // expedition → [start, end) byte ranges
+let index: FeedIndex | null = null;
+const EXPEDITION_KEY = /"expeditionId":"([^"\\]+)"/g;
+const CHUNK = 4_000_000;
+
+function feedIndex(): FeedIndex | null {
+  let st;
+  try { st = statSync(FEED_PATH); } catch { index = null; return null; }
+  if (!index || st.ino !== index.ino || st.size < index.size) index = { ino: st.ino, size: 0, lines: new Map() };
+  if (st.size === index.size) return index;
+  const fd = openSync(FEED_PATH, "r");
+  try {
+    let pos = index.size, carry = Buffer.alloc(0);
+    while (pos < st.size) {
+      const buf = Buffer.alloc(Math.min(CHUNK, st.size - pos));
+      const got = readSync(fd, buf, 0, buf.length, pos);
+      if (got <= 0) break;
+      const data = carry.length ? Buffer.concat([carry, buf.subarray(0, got)]) : buf.subarray(0, got);
+      const base = pos - carry.length;
+      let start = 0;
+      for (let nl = data.indexOf(10); nl !== -1; nl = data.indexOf(10, start)) {
+        const line = data.toString("utf8", start, nl);
+        // Every expedition the line names (a text inside an event can't fake one: its quotes are escaped).
+        for (const m of line.matchAll(EXPEDITION_KEY)) {
+          const list = index.lines.get(m[1]) ?? [];
+          list.push([base + start, base + nl]);
+          index.lines.set(m[1], list);
+        }
+        start = nl + 1;
+      }
+      carry = Buffer.from(data.subarray(start)); // a line still being written waits for next time
+      pos += got;
+      index.size = base + start;
+    }
+  } finally { closeSync(fd); }
+  return index;
+}
+
+// The events of these expeditions, in the order they were written.
+export function feedEventsOf(ids: Iterable<string>): CampEvent[] {
+  const wanted = new Set(ids);
+  const idx = feedIndex();
+  if (!idx || !wanted.size) return [];
+  const byStart = new Map<number, number>();
+  for (const id of wanted) for (const [from, to] of idx.lines.get(id) ?? []) byStart.set(from, to);
+  const ranges = [...byStart].sort((a, b) => a[0] - b[0]);
+  const out: CampEvent[] = [];
+  const fd = openSync(FEED_PATH, "r");
+  try {
+    for (const [from, to] of ranges) {
+      const buf = Buffer.alloc(to - from);
+      readSync(fd, buf, 0, buf.length, from);
+      try {
+        const e = JSON.parse(buf.toString("utf8")) as CampEvent;
+        if (e.expeditionId && wanted.has(e.expeditionId)) out.push(e);
+      } catch { /* a damaged line */ }
+    }
+  } finally { closeSync(fd); }
+  return out;
+}
+
 // What the feed recorded of one expedition, as plain text: the plan, who was sent, what they
 // said and did. Used to resume a run that was cut off, when there's no final answer to go on.
 export function expeditionDigest(id: string, maxChars = 14_000): string {
-  if (!existsSync(FEED_PATH)) return "";
   const lines: string[] = [];
   const asks = new Map<string, string>();
-  for (const l of readFileSync(FEED_PATH, "utf8").split("\n")) {
-    if (!l.includes(id)) continue;
-    let e: any;
-    try { e = JSON.parse(l); } catch { continue; }
-    if (e.expeditionId !== id) continue;
+  for (const e of feedEventsOf([id]) as any[]) {
     const clip = (s: string, n: number) => (String(s).length > n ? String(s).slice(0, n) + "…" : String(s));
     if (e.type === "text") lines.push(`${e.who} said: ${clip(e.text, 1500)}`);
     else if (e.type === "tool") lines.push(`${e.who} used ${e.tool} ${clip(e.input, 160)}`);
