@@ -7,6 +7,7 @@ import { storeGet, storeSet } from "./api.ts";
 import { useCampEvents, useCampState } from "./camp.ts";
 import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
 import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
+import { Dock } from "./components/Dock.tsx";
 import { History, HistoryRail } from "./components/History.tsx";
 import { TerminalPanel, TerminalRail } from "./components/Terminal.tsx";
 import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
@@ -449,15 +450,18 @@ export function App({ store }: { store: FeedStore }) {
                       <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} />
                     </>
                   )}
-                  {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
-                  {S && !page && <Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} />}
                   </ZoneBoundary>
-                  {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows these in the feed itself. */}
-                  {!inAll && <StatusLine />}
-                  <ZoneBoundary name="The message box">
-                    <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
-                      onSent={onSent} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
-                  </ZoneBoundary>
+                  {/* The foot of the pane floats over the thread, which scrolls underneath it (Dock.tsx). */}
+                  <Dock>
+                    {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
+                    {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} /></ZoneBoundary>}
+                    {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows these in the feed itself. */}
+                    {!inAll && <StatusLine />}
+                    <ZoneBoundary name="The message box">
+                      <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
+                        onSent={onSent} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
+                    </ZoneBoundary>
+                  </Dock>
                 </main>
               );
               case "files": return state === "collapsed"
