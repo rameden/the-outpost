@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { enterSandbox } from "./helpers/sandbox.ts";
+import { enterSandbox, WINDOWS } from "./helpers/sandbox.ts";
 import { startFakeApi } from "./helpers/fake-api.ts";
 
 enterSandbox("providers");
@@ -75,7 +75,7 @@ test("connecting: the provider checks the key, it's kept on disk for you alone, 
   const state = await p.connectProvider("groq", "  good-key-123456 ");
   assert.deepEqual([state.connected, state.from, state.models, state.free], [true, "camp", 1, 0]); // the embedding and speech models aren't offered
   assert.equal(seen.at(-1)!.path, "/models");
-  assert.equal(statSync(p.PROVIDERS_PATH).mode & 0o777, 0o600);
+  if (!WINDOWS) assert.equal(statSync(p.PROVIDERS_PATH).mode & 0o777, 0o600); // (Windows has no owner-only mode)
   assert.ok(!JSON.stringify(p.providersState()).includes("good-key"), "the key isn't in what the page gets");
   assert.match(p.providersState()[1].privacy, /free tier/);
   // No crew member can read it.

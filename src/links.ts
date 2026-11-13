@@ -11,7 +11,7 @@
 //    (so a link can't be used to read .env or another agent's memory).
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, readdirSync, lstatSync, readlinkSync } from "node:fs";
-import { isWindows, unlinkable } from "./platform.js";
+import { canon, isWindows, unlinkable } from "./platform.js";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import { currentWorkspaces, inScope, leftOutHere } from "./context.js";
@@ -95,7 +95,7 @@ export function addLink(rawPath: string, access: LinkAccess = "read", campRoot =
     ? "Use the folder's full path, e.g. C:\\Users\\you\\Projects\\site (in Explorer: Shift + right-click, Copy as path)."
     : "Use the folder's full path, e.g. /Users/you/Projects/site (in Finder: right-click, hold Option, Copy as Pathname).");
   if (!existsSync(expanded)) throw new Error(`There's no folder at ${expanded}.`);
-  const real = realpathSync(expanded);
+  const real = canon(expanded); // (on Windows: the full name, not a short one like RUNNER~1, so it matches what git says)
   if (!statSync(real).isDirectory()) throw new Error(`${expanded} is a file, not a folder. Attach files with Files… instead.`);
   if (unlinkable(real, HOME)) {
     throw new Error(`For safety, ${real} can't be linked (system, home, or credential folder). Link a specific project folder instead.`);

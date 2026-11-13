@@ -8,6 +8,14 @@ import { join, resolve } from "node:path";
 
 export const REPO = resolve(import.meta.dirname, "..", "..");
 
+// What a test can't check on Windows, and why. Each is given to node:test's `skip`, so the
+// Windows run says what it left out instead of failing on something that isn't about the camp.
+export const WINDOWS = process.platform === "win32";
+// The stand-ins for gh and claude are shell scripts: Windows can't start one as a program.
+export const NEEDS_SH: string | false = WINDOWS ? "stands a shell script in for a program (gh, claude…), which Windows can't start" : false;
+// File modes, the sandbox, a POSIX shell in the terminal, symlinks without special rights.
+export const NEEDS_POSIX: string | false = WINDOWS ? "checks something only macOS and Linux have (file modes, the sandbox, a POSIX shell, plain symlinks)" : false;
+
 // Tests run on the API runtime against a fake API; evals keep whatever runtime you've configured.
 export function enterSandbox(name: string, opts: { keepRuntime?: boolean } = {}): string {
   const dir = mkdtempSync(join(tmpdir(), `satchel-${name}-`));

@@ -3,7 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { posix } from "node:path";
 import { campPath, clipOutput, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import { wikiIndex } from "./wiki.js";
 import { emit } from "./events.js";
@@ -24,6 +24,9 @@ import { leftOutBlock, projectBlock, projectRemember } from "./projects.js";
 import { feedbackBlock } from "./feedback.js";
 import { currentProjectId } from "./context.js";
 export type { Effort } from "./settings.js";
+// Paths inside the camp are written with forward slashes on every system (Windows takes them too),
+// so what the crew and the page are shown reads the same everywhere.
+const join = posix.join;
 
 // Created on first use: on the Claude Code runtime there may be no API key at all.
 let apiClient: Anthropic | null = null;

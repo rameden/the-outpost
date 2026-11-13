@@ -1,11 +1,14 @@
 // The header's GitHub account button: which account gh uses, and swapping between yours.
 // A stand-in gh keeps the active account in a file, so your real gh sign-in is never touched.
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { REPO } from "./helpers/sandbox.ts";
+import { REPO, NEEDS_SH } from "./helpers/sandbox.ts";
+
+// Every test here runs against a shell-script stand-in (see NEEDS_SH): on Windows they're left out, and say so.
+const test = (name: string, fn: () => void | Promise<void>) => nodeTest(name, { skip: NEEDS_SH }, fn);
 
 const state = join(mkdtempSync(join(tmpdir(), "satchel-gh-")), "active");
 process.env.CAMP_GH = join(REPO, "tests/fixtures/fake-gh.sh");

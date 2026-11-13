@@ -6,7 +6,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
-import { enterSandbox, REPO } from "./helpers/sandbox.ts";
+import { enterSandbox, REPO, WINDOWS } from "./helpers/sandbox.ts";
 
 const camp = enterSandbox("server");
 
@@ -43,7 +43,10 @@ async function start(env: Record<string, string> = {}, opts: { signIn?: boolean 
   const token = opts.signIn === false ? "" : ((await (await login(port, code)).json()) as { token: string }).token;
   return { child, port, code, token, out: () => text, exited };
 }
-const stop = async (c: Camp) => { c.child.kill("SIGTERM"); return c.exited; };
+// On Windows a process can't be sent SIGTERM to handle: kill() ends it on the spot, with no exit
+// code. (Ctrl+C and closing the window do reach the camp there; a test can't press either.) So on
+// Windows this only checks that it stopped.
+const stop = async (c: Camp) => { c.child.kill("SIGTERM"); const code = await c.exited; return WINDOWS ? 0 : code; };
 after(() => { for (const c of started) if (c.exitCode === null) c.kill("SIGKILL"); });
 
 const get = (c: Camp, path: string, token: string | null = c.token) =>
@@ -78,7 +81,7 @@ test("the page's key is the same after a restart (an open tab carries on), is yo
   assert.match(first.token, /^[0-9a-f]{48}$/);
   assert.notEqual(first.code, first.token);
   assert.equal(readFileSync(join(camp, "camp", ".token"), "utf8").trim(), first.token);
-  assert.equal(statSync(join(camp, "camp", ".token")).mode & 0o777, 0o600);
+  if (!WINDOWS) assert.equal(statSync(join(camp, "camp", ".token")).mode & 0o777, 0o600); // (Windows has no owner-only mode)
   assert.equal((await get(first, "/api/state?full=0")).status, 200);
   assert.equal((await get(first, "/api/state?full=0", null)).status, 401, "no key, no answer");
   assert.equal((await get(first, "/api/state?full=0", "0".repeat(48))).status, 401);
@@ -115,7 +118,7 @@ test("it stays up through bad input, and stops promptly when told to", async () 
   const before = Date.now();
   assert.equal(await stop(c), 0, "SIGTERM ends it cleanly");
   assert.ok(Date.now() - before < 5000, "and without hanging");
-  assert.equal((c.child as any).signalCode, null, "it exited on its own terms: the exit hooks ran");
+  if (!WINDOWS) assert.equal((c.child as any).signalCode, null, "it exited on its own terms: the exit hooks ran");
 });
 
 // ---------- LAN mode ----------

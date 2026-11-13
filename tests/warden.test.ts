@@ -1,12 +1,15 @@
 // The Warden: a built-in crew member who reviews pull requests. Their kit only reads, the
 // pull_request tool runs a fixed gh command line (a stand-in plays gh here), and what comes back
 // is shaped for a review: the whole picture first, secrets left out.
-import { test, after } from "node:test";
+import { test as nodeTest, after } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { enterSandbox, REPO } from "./helpers/sandbox.ts";
+import { enterSandbox, REPO, NEEDS_SH } from "./helpers/sandbox.ts";
+
+// Every test here runs against a shell-script stand-in (see NEEDS_SH): on Windows they're left out, and say so.
+const test = (name: string, fn: () => void | Promise<void>) => nodeTest(name, { skip: NEEDS_SH }, fn);
 import { startFakeApi } from "./helpers/fake-api.ts";
 
 const dir = enterSandbox("warden");

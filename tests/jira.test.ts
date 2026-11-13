@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { enterSandbox } from "./helpers/sandbox.ts";
+import { enterSandbox, WINDOWS } from "./helpers/sandbox.ts";
 
 enterSandbox("jira");
 const TOKEN = "fake-jira-token";
@@ -78,7 +78,7 @@ test("linking checks the email and token with Jira first, and a wrong one keeps 
 });
 
 test("the token is kept in a file only you can read, and no agent can open it", () => {
-  assert.equal(statSync(j.JIRA_PATH).mode & 0o777, 0o600);
+  if (!WINDOWS) assert.equal(statSync(j.JIRA_PATH).mode & 0o777, 0o600); // (Windows has no owner-only mode)
   assert.ok(readFileSync(j.JIRA_PATH, "utf8").includes(TOKEN));
   assert.throws(() => campPath("camp/jira.json", "read", "artificer"), /private camp configuration and is off limits/);
   assert.throws(() => campPath("camp/jira.json", "read"), /off limits/);

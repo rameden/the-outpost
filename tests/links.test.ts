@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, cpSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
-import { REPO } from "./helpers/sandbox.ts";
+import { REPO, NEEDS_SH } from "./helpers/sandbox.ts";
 
 // Layout: <parent>/camp-root is the camp; <outside>/site is a 600-file folder to link.
 const parent = realpathSync(mkdtempSync(join(tmpdir(), "satchel-linkparent-")));
@@ -104,7 +104,7 @@ test("attaching a big linked folder sends an overview, not 600 file names", () =
   assert.ok(text.split("\n").length < 40, `${text.split("\n").length} lines`);
 });
 
-test("folder picker: the system dialog's choice comes back as a path; cancel and no dialog are handled", async () => {
+test("folder picker: the system dialog's choice comes back as a path; cancel and no dialog are handled", { skip: NEEDS_SH }, async () => {
   const { pickFolder } = await import("../src/picker.ts");
   const bin = mkdtempSync(join(tmpdir(), "picker-bin-"));
   const saved = process.env.PATH;

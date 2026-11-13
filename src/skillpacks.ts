@@ -18,11 +18,14 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, posix, resolve, sep } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { emit } from "./events.js";
 import { ROSTER } from "./roster.js";
 import { alwaysSkills, setAlwaysSkills, setSkillCommands, skillCommands, type SkillCommand } from "./settings.js";
+// Paths inside the camp are written with forward slashes on every system (Windows takes them too),
+// so what the crew and the page are shown reads the same everywhere.
+const join = posix.join;
 
 const MAX_ARCHIVE = 8 * 1024 * 1024;
 const MAX_ENTRIES = 300;

@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { enterSandbox } from "./helpers/sandbox.ts";
+import { enterSandbox, NEEDS_SH } from "./helpers/sandbox.ts";
 
 enterSandbox("workflow");
 
@@ -164,7 +164,7 @@ test("someone stepping in for a turn reads the conversation as another's work, a
 });
 
 // ---------- Pull requests ----------
-test("a pull request's description is drafted from the record: the ticket, its criteria, what changed, the checks, the report", async () => {
+test("a pull request's description is drafted from the record: the ticket, its criteria, what changed, the checks, the report", { skip: NEEDS_SH }, async () => {
   const w = ws[link.name];
   assert.deepEqual(prs.checksIn(`x\n\nAutomatic checks in links/${link.name} (run by the camp after the changes):\n✓ npm test\n✗ npm run lint\nExit code 1\n\nlater`, link.name), ["✓ npm test", "✗ npm run lint"]);
   const d = await prs.draftPullRequest(w, { expedition: "run1" });
@@ -188,7 +188,7 @@ test("a pull request's description is drafted from the record: the ticket, its c
   await assert.rejects(prs.draftPullRequest({ link: link.name, path: "/etc" }), /isn't a worktree/);
 });
 
-test("the watch keeps where each recent worktree's pull request stands, and says when there's something new", async () => {
+test("the watch keeps where each recent worktree's pull request stands, and says when there's something new", { skip: NEEDS_SH }, async () => {
   const w = ws[link.name];
   // A branch that was never pushed can't have a pull request: GitHub isn't asked.
   assert.deepEqual(await prs.checkPullRequests(), []);
@@ -235,7 +235,7 @@ test("the watch keeps where each recent worktree's pull request stands, and says
   settings.setPrWatch(true);
 });
 
-test("new commits on a branch that has a pull request can be pushed to it; a branch never pushed has nowhere to go yet", async () => {
+test("new commits on a branch that has a pull request can be pushed to it; a branch never pushed has nowhere to go yet", { skip: NEEDS_SH }, async () => {
   const w = ws[link.name];
   assert.equal((await repos.workspaceStatus(w)).ahead, 0, "everything it has is on its upstream");
   writeFileSync(join(w.path, "open.ts"), "export const open = () => true;\n// keyboard support\n");

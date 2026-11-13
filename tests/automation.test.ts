@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { enterSandbox } from "./helpers/sandbox.ts";
+import { enterSandbox, NEEDS_POSIX } from "./helpers/sandbox.ts";
 import { startFakeApi, isFirstTurn, lastToolResults, whoAsks, type Reply } from "./helpers/fake-api.ts";
 
 enterSandbox("automation");
@@ -251,7 +251,7 @@ test("a sandboxed command is pointed at the proxy only when you've allowed hosts
   stopProxy();
 });
 
-test("bubblewrap (Linux): read-only everywhere, the project and temp writable, git's hooks and your secrets covered", () => {
+test("bubblewrap (Linux): read-only everywhere, the project and temp writable, git's hooks and your secrets covered", { skip: NEEDS_POSIX }, () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "satchel-bw-")));
   mkdirSync(join(root, ".git", "hooks"), { recursive: true });
   mkdirSync(join(root, "app", "node_modules", "x"), { recursive: true });

@@ -47,23 +47,24 @@ function measure(dir: string): { bytes: number; files: number; newest: number } 
 function referenced(batches: string[]): Set<string> {
   const used = new Set<string>();
   if (!batches.length) return used;
-  const mark = (text: string) => { for (const b of batches) if (!used.has(b) && text.includes(`uploads/${b}/`)) used.add(b); };
+  // (A path may be written with either slash, and in a JSON file a backslash is doubled: any run of them counts as one.)
+  const mark = (raw: string) => { const text = raw.replace(/[\\/]+/g, "/"); for (const b of batches) if (!used.has(b) && text.includes(`uploads/${b}/`)) used.add(b); };
   // Conversations still in your history: what each of their runs was sent is in the feed.
   const live = new Set(history().conversations.map((c) => c.id));
   const threadOf = new Map(allTurns().map((t) => [t.expedition, t.thread]));
   try {
     for (const line of readFileSync(FEED_PATH, "utf8").split("\n")) {
-      if (!line.includes("uploads/")) continue;
+      if (!/uploads[\\/]/.test(line)) continue;
       let e: any;
       try { e = JSON.parse(line); } catch { continue; }
       const run = e.expeditionId ?? e.id;
       const thread = e.thread ?? threadOf.get(run);
       // A run with no conversation on record (a job, or one from before records were kept) counts: when in doubt, keep.
-      if (!thread || live.has(thread)) mark(line.replace(/\\\\/g, "/").replace(/\\\//g, "/"));
+      if (!thread || live.has(thread)) mark(line);
     }
   } catch { /* no feed yet */ }
   // Files a project pins, and anything the wiki mentions.
-  try { mark(readFileSync(CONVERSATIONS_PATH, "utf8").replace(/\\\\/g, "/")); } catch { /* none yet */ }
+  try { mark(readFileSync(CONVERSATIONS_PATH, "utf8")); } catch { /* none yet */ }
   const pages = (dir: string) => { try { for (const e of readdirSync(dir, { withFileTypes: true })) { const abs = join(dir, e.name); if (e.isDirectory()) pages(abs); else if (e.name.endsWith(".md")) mark(readFileSync(abs, "utf8")); } } catch { /* none yet */ } };
   pages(WIKI_DIR);
   return used;

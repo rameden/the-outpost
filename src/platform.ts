@@ -14,7 +14,7 @@
 // tested on any machine. No imports from the rest of the camp.
 
 import { execFile, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 type Env = Record<string, string | undefined>;
@@ -23,6 +23,22 @@ type Exists = (file: string) => boolean;
 const envOf = (env: Env, name: string) => env[name] ?? env[Object.keys(env).find((k) => k.toLowerCase() === name.toLowerCase()) ?? ""];
 
 export const isWindows = process.platform === "win32";
+
+// ---------- One folder, one spelling ----------
+// The same folder can be written more than one way: through a symlink (/var and /private/var on
+// macOS), and on Windows by its short name (C:\Users\RUNNER~1) or its full one, in either case,
+// with either slash. git answers with the full name; a path you typed or a temp folder may be
+// the short one. So two paths are compared as the system itself names them.
+export function canon(p: string): string {
+  try { return realpathSync.native(p); } catch { return path.resolve(p); }
+}
+export function samePath(a: string, b: string): boolean {
+  const x = canon(a), y = canon(b);
+  return isWindows ? x.toLowerCase() === y.toLowerCase() : x === y;
+}
+// A path inside the camp, as the crew and the page are shown it: always with forward slashes
+// (Windows takes them too), so "skills/shared/x" is the same text on every system.
+export const slash = (p: string) => (path.sep === "/" ? p : p.split(path.sep).join("/"));
 
 // A program on the PATH, as a full path (Windows: trying each extension it would). Null if it isn't there.
 export function onPath(name: string, platform: NodeJS.Platform = process.platform, env: Env = process.env, exists: Exists = existsSync): string | null {

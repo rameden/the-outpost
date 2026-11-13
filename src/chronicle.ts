@@ -9,7 +9,7 @@
 // you ask.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { posix } from "node:path";
 import { CREW } from "./crew.js";
 import { getProject, history, type Project } from "./conversations.js";
 import { emit } from "./events.js";
@@ -18,6 +18,9 @@ import { PROJECTS_DIR } from "./projects.js";
 import { prStates } from "./prs.js";
 import { questCost, recentQuests } from "./questlog.js";
 import { allTurns, shortened } from "./threads.js";
+// Paths inside the camp are written with forward slashes on every system (Windows takes them too),
+// so what the crew and the page are shown reads the same everywhere.
+const join = posix.join;
 
 const SAFE_ID = /^[a-z0-9]{1,24}$/;
 const WEEK = /^\d{4}-\d{2}-\d{2}$/;

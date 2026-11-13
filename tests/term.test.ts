@@ -20,6 +20,9 @@ after(() => { term.closeAllTerminals(); rl.close(); });
 // node-pty ships ready-built for macOS and Windows; elsewhere it has to be compiled first.
 let works = true;
 try { term.closeTerminal(term.openTerminal({}).id); } catch { works = false; }
+// These type POSIX shell commands (pwd, stty, $((…))). On Windows the pane opens PowerShell, which
+// these tests don't speak: left out there, so the pane itself is not covered on Windows yet.
+if (process.platform === "win32") works = false;
 
 // A stand-in for the page's event stream.
 function listener() {

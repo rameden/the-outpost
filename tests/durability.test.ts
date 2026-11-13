@@ -4,7 +4,7 @@
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { enterSandbox } from "./helpers/sandbox.ts";
+import { enterSandbox, WINDOWS } from "./helpers/sandbox.ts";
 import { startFakeApi, type Reply } from "./helpers/fake-api.ts";
 
 enterSandbox("durability");
@@ -34,7 +34,7 @@ test("a state file is replaced whole: no temp file is left, and its mode is the 
   writeJsonAtomic("camp/thing.json", { a: 1 });
   writeJsonAtomic("camp/thing.json", { a: 2 }, { mode: 0o600 });
   assert.deepEqual(JSON.parse(readFileSync("camp/thing.json", "utf8")), { a: 2 });
-  assert.equal(statSync("camp/thing.json").mode & 0o777, 0o600);
+  if (!WINDOWS) assert.equal(statSync("camp/thing.json").mode & 0o777, 0o600); // (Windows has no owner-only mode)
   assert.deepEqual(readdirSync("camp").filter((f) => f.includes(".tmp-")), []);
   // A write that can't happen leaves the file as it was, and no temp file either.
   mkdirSync("camp/a-folder", { recursive: true });
@@ -72,7 +72,7 @@ test("unreadable settings fall back to asking, and your rules survive in the cop
   const copies = damagedCopies("settings.json");
   assert.equal(copies.length, 1, "…but what you had written is still there to recover");
   assert.match(readFileSync(`camp/${copies[0]}`, "utf8"), /rm -rf \*/);
-  assert.equal(statSync("camp/settings.json").mode & 0o777, 0o600);
+  if (!WINDOWS) assert.equal(statSync("camp/settings.json").mode & 0o777, 0o600);
 });
 
 test("a log line torn by a crash doesn't swallow the next one", () => {

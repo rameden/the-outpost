@@ -6,7 +6,7 @@
 // Agents can read each other's outputs, but never each other's memory or sessions.
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { posix, resolve, sep } from "node:path";
 import { CREW, type CrewId } from "./crew.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
@@ -15,6 +15,9 @@ import type { Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
 import { PIN, alike, fitMemory, parseEntry } from "./memfit.js";
 import { norm } from "./memlog.js";
+// Paths inside the camp are written with forward slashes on every system (Windows takes them too),
+// so what the crew and the page are shown reads the same everywhere.
+const join = posix.join;
 
 export const AGENTS_DIR = join("camp", "agents");
 export const MEMORY_MAX_CHARS = 5000; // characters of memory loaded into a prompt (which lines, once it's longer than that: memfit.ts)

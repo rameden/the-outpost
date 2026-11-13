@@ -69,7 +69,8 @@ function rg(args: string[], cwd: string, onLine: (line: string) => boolean, time
 const inCamp = (dir: string) => { const r = relative(CAMP_ROOT, dir); return r === "" || (!r.startsWith(".." + sep) && r !== ".."); };
 function baseArgs(dir: string): string[] {
   const skip = (inCamp(dir) ? SKIP_DIRS : [".git", "node_modules"]).flatMap((d) => ["-g", `!${d}`]);
-  return ["--hidden", ...(inCamp(dir) ? ["--no-ignore"] : []), ...skip, "-g", "!.env*", "-g", "!.DS_Store"];
+  // --path-separator: on Windows ripgrep would answer with backslashes (.\\src\\a.ts); everything here speaks /.
+  return ["--hidden", "--path-separator", "/", ...(inCamp(dir) ? ["--no-ignore"] : []), ...skip, "-g", "!.env*", "-g", "!.DS_Store"];
 }
 
 // ---------- Listing files ----------
@@ -78,7 +79,7 @@ export type FileList = { files: string[]; truncated: boolean }; // paths relativ
 export async function listFiles(dir: string): Promise<FileList> {
   if (ripgrep()) {
     const files: string[] = [];
-    const r = await rg(["--files", ...baseArgs(dir)], dir, (l) => { files.push(l); return files.length < WALK_CAP; });
+    const r = await rg(["--files", ...baseArgs(dir)], dir, (l) => { files.push(l.replace(/^\.\//, "")); return files.length < WALK_CAP; });
     if (r.code === 0 || r.code === 1) return { files, truncated: files.length >= WALK_CAP };
   }
   return listWithoutRipgrep(dir);

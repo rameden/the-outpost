@@ -1,11 +1,14 @@
 // The Claude Code runtime (your subscription): a fake `query` plays Claude Code, talking to the
 // camp's in-process MCP server the way the real CLI does, so we can check what the camp sends,
 // that its tools really run inside the camp (boundaries and all), and how results come back.
-import { test, after, beforeEach } from "node:test";
+import { test as nodeTest, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { enterSandbox, REPO } from "./helpers/sandbox.ts";
+import { enterSandbox, REPO, NEEDS_SH } from "./helpers/sandbox.ts";
+
+// Every test here runs against a shell-script stand-in (see NEEDS_SH): on Windows they're left out, and say so.
+const test = (name: string, fn: () => void | Promise<void>) => nodeTest(name, { skip: NEEDS_SH }, fn);
 
 enterSandbox("claude-code");
 process.env.CAMP_RUNTIME = "claude-code";

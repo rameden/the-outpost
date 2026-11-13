@@ -6,6 +6,7 @@
 // commit, push, and pull requests happen only from your own buttons or commands.
 
 import { execFile } from "node:child_process";
+import { samePath } from "./platform.js";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -43,11 +44,11 @@ export async function linkedRepos(): Promise<RepoInfo[]> {
   for (const l of loadLinks()) {
     if (!existsSync(l.path)) continue;
     const top = await tryGit(l.path, ["rev-parse", "--show-toplevel"]);
-    if (!top || resolve(top) !== resolve(l.path)) continue; // only when the link is the repo itself
+    if (!top || !samePath(top, l.path)) continue; // only when the link is the repo itself
     const worktrees = await listWorktrees(l.path);
-    const here = worktrees.find((w) => resolve(w.path) === resolve(l.path));
+    const here = worktrees.find((w) => samePath(w.path, l.path));
     const branches = (await tryGit(l.path, ["for-each-ref", "--sort=-committerdate", `--count=${MAX_BRANCHES}`, "--format=%(refname:short)", "refs/heads"])).split("\n").filter(Boolean);
-    out.push({ link: l.name, access: l.access, branch: here?.branch ?? "(detached)", worktrees: worktrees.filter((w) => resolve(w.path) !== resolve(l.path)), branches });
+    out.push({ link: l.name, access: l.access, branch: here?.branch ?? "(detached)", worktrees: worktrees.filter((w) => !samePath(w.path, l.path)), branches });
   }
   return out;
 }
@@ -69,9 +70,9 @@ export async function prepareWorkspaces(choices: Record<string, WorkspaceChoice>
     const worktrees = await listWorktrees(link.path);
     if (!worktrees.length) throw new Error(`links/${name} isn't a git repository, so it can't have a worktree.`);
     if (choice.mode === "existing") {
-      const w = worktrees.find((x) => resolve(x.path) === resolve(String(choice.path)));
+      const w = worktrees.find((x) => samePath(x.path, String(choice.path)));
       if (!w) throw new Error(`${choice.path} isn't a worktree of links/${name}.`);
-      if (resolve(w.path) === resolve(link.path)) continue; // the linked checkout itself: nothing to redirect
+      if (samePath(w.path, link.path)) continue; // the linked checkout itself: nothing to redirect
       out[name] = { link: name, path: w.path, branch: w.branch, base: await tryGit(w.path, ["rev-parse", "HEAD"]) };
       continue;
     }
@@ -107,7 +108,7 @@ export async function workspaceStatus(w: Workspace): Promise<WorkspaceStatus> {
 export async function checked(w: Pick<Workspace, "link" | "path">): Promise<string> {
   const link = findLink(w.link);
   if (!link) throw new Error(`No linked folder named "${w.link}".`);
-  const hit = (await listWorktrees(link.path)).find((x) => resolve(x.path) === resolve(w.path));
+  const hit = (await listWorktrees(link.path)).find((x) => samePath(x.path, w.path));
   if (!hit) throw new Error(`${w.path} isn't a worktree of links/${w.link}.`);
   return hit.path;
 }
@@ -158,7 +159,7 @@ export async function switchBranch(linkName: string, name: string, create: boole
   const link = findLink(linkName);
   if (!link) throw new Error(`No linked folder named "${linkName}".`);
   const top = await tryGit(link.path, ["rev-parse", "--show-toplevel"]);
-  if (!top || resolve(top) !== resolve(link.path)) throw new Error(`links/${linkName} isn't a git repository of its own.`);
+  if (!top || !samePath(top, link.path)) throw new Error(`links/${linkName} isn't a git repository of its own.`);
   const branch = name.trim();
   if (!branch || branch.startsWith("-")) throw new Error("Give the branch a name.");
   try { await git(link.path, ["check-ref-format", "--branch", branch]); }
@@ -202,6 +203,6 @@ export async function pullRequestFeedback(w: Pick<Workspace, "link" | "path">): 
 export async function removeWorkspace(w: Pick<Workspace, "link" | "path">): Promise<void> {
   const dir = await checked(w);
   const link = findLink(w.link)!;
-  if (resolve(dir) === resolve(link.path)) throw new Error("That's the linked folder itself, not a worktree.");
+  if (samePath(dir, link.path)) throw new Error("That's the linked folder itself, not a worktree.");
   try { await git(link.path, ["worktree", "remove", dir]); } catch (e) { throw fail(e); }
 }
