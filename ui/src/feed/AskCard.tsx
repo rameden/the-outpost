@@ -29,6 +29,13 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
     <div className={cx("ask", resolved && "resolved")} id={`ask-${ask.askId}`} data-kind={kind}>
       <div className="ask-title">{ask.title.replace(/^\S+\s+/, "")}</div>
       {/* An approved plan is shown as the live list under this card: its own wording folds away. */}
+      {ask.plain && (
+        <div className="ask-plain" role="note" aria-label="In plain words">
+          <div className="ask-plain-head">In plain words</div>
+          <dl>{ask.plain.split("\n").map((line, i) => { const at = line.indexOf(":"); return <div key={i}><dt>{line.slice(0, at)}</dt><dd>{line.slice(at + 1).trim()}</dd></div>; })}</dl>
+          <div className="ask-plain-foot">A summary by the small model, and it can be wrong. What runs is exactly the {kind === "tool" ? "call" : "command"} below.</div>
+        </div>
+      )}
       {ask.listed
         ? <details className="ask-written"><summary>The plan as it was written</summary><div className="ask-body">{ask.body}</div></details>
         : <div className={kind === "shell" || kind === "tool" ? "ask-body cmd" : "ask-body"}>{ask.body}</div>}

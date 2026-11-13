@@ -19,7 +19,7 @@ export type NoticeNode = { kind: "notice"; id: string; text: string };
 export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
 // listed: an approved plan whose steps are shown as the live list under it (so the card itself folds its text away).
-export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null; listed?: boolean };
+export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null; listed?: boolean; plain?: string }; // plain: what it does, in plain words
 // The plan you approved, as a list that fills in: each numbered step, and the quests carrying it out.
 // ended: how the run finished, once it has (a step still out then was cut short).
 export type PlanQuest = { node: string; who: string; emoji: string; status: string | null };
@@ -269,6 +269,12 @@ function addAsk(s: FeedState, e: EventOf<"ask">) {
   touchQuest(s, e, { waiting: true });
 }
 
+// The summary arrives a moment after its card. One that arrives after you've answered is dropped: the decision is made.
+function explainAsk(s: FeedState, e: EventOf<"explained">) {
+  const open = s.asks.find((a) => a.id === e.id);
+  if (open) s.items = replaceNode(s.items, open.node, (n) => (n.kind === "ask" ? { ...n, plain: e.text } : n));
+}
+
 function resolveAsk(s: FeedState, e: EventOf<"answered">) {
   const ask = s.asks.find((a) => a.id === e.id);
   if (!ask) return;
@@ -312,6 +318,7 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
     case "plan": addPlan(s, e); break;
     case "return": addReturn(s, e); break;
     case "ask": addAsk(s, e); break;
+    case "explained": explainAsk(s, e); break;
     case "answered": resolveAsk(s, e); break;
     case "steer": place(s, { kind: "steer", id: `s${e.seq}`, text: e.text }, undefined, e.id); break;
     case "feedback": {

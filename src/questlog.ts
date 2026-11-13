@@ -8,6 +8,7 @@ import type { AgentResult } from "./agent.js";
 import { emit } from "./events.js";
 import { costOf, usd } from "./costs.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
+import { appendLine } from "./atomic.js";
 
 export const QUEST_LOG_PATH = "camp/quest-log.jsonl";
 
@@ -70,8 +71,7 @@ export function logQuest(
     ...(result.runtime ? { runtime: result.runtime } : {}),
     ...(result.costUsd != null ? { costUsd: result.costUsd } : {}),
   };
-  mkdirSync(dirname(QUEST_LOG_PATH), { recursive: true });
-  appendFileSync(QUEST_LOG_PATH, JSON.stringify(entry) + "\n");
+  appendLine(QUEST_LOG_PATH, JSON.stringify(entry));
   emit({ type: "changed", what: "log" });
 }
 

@@ -136,7 +136,13 @@ test("every prompt: identity, crew, memory, recent sessions; streamed with conte
   await runDirect("scribe", "Who are you?");
   await runDirect("writer", "And what did I just ask?");
   const second = api.seen.at(-1)!;
-  const system = second.body.system[0].text as string;
+  const system = second.body.system.map((b: any) => b.text).join("\n\n") as string;
+  // Two blocks, each a cache breakpoint: what stays the same between runs, then what moves.
+  assert.equal(second.body.system.length, 2);
+  assert.match(second.body.system[0].text, /You are the Scribe[\s\S]*## Your skills/);
+  assert.doesNotMatch(second.body.system[0].text, /## Your memory|Who are you\?/, "nothing that changes between runs sits in the cached part");
+  assert.equal(second.body.system[0].text, api.seen.at(-2)!.body.system[0].text, "the fixed part is byte-for-byte the same as the run before, so it's read from the cache");
+  assert.ok(second.body.system.every((b: any) => b.cache_control?.type === "ephemeral"));
   assert.match(system, /You are the Scribe/);
   assert.match(system, /## Your crew/);
   assert.match(system, /## Your memory/);

@@ -3,18 +3,18 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, realpathSync, statSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ask } from "./ask.js";
 import { currentQuestId, currentSignal, isUnattended } from "./context.js";
 import { emit } from "./events.js";
-import { isAutoApproved, approvalNow, shellRule } from "./shell.js";
+import { autoApproval, approvalNow, shellRule } from "./shell.js";
 import { reviewCommand, reviewerOn } from "./reviewer.js";
-import { resolveLinked, linkedDisplayPath, SECRET_NAME } from "./links.js";
+import { resolveLinked, linkedDisplayPath, SECRET_NAME, inside, isSymlink, realTarget, loadLinks, linkRoot } from "./links.js";
 import { allowShellCommand, selfEditAllowed, shellSettings } from "./settings.js";
-import { sandboxAvailable, sandboxKind, sandboxed, type SandboxPlan } from "./sandbox.js";
+import { childEnv, gitSafeEnv, sandboxAvailable, sandboxKind, sandboxed, type SandboxPlan } from "./sandbox.js";
 import { allowedHosts, ensureProxy, proxyEnv, refusedSince } from "./netproxy.js";
 import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell } from "./checkpoints.js";
 
@@ -56,7 +56,19 @@ function isHarnessCode(abs: string): boolean {
   return HARNESS_FILES.includes(rel) || HARNESS_DIRS.includes(rel.split(sep)[0]);
 }
 // Camp files that can hold tokens (connector env, the phone topic). Nobody's file tools read them.
-const PRIVATE_CAMP_FILES = new Set(["mcp.json", "settings.json", "jira.json", "providers.json", "triggers.json"]); // jira.json holds your Jira API token; providers.json your other models' keys; triggers.json what starts work on its own
+const PRIVATE_CAMP_FILES = new Set([
+  "mcp.json", "settings.json", "jira.json", "providers.json", "triggers.json", // jira.json holds your Jira API token; providers.json your other models' keys; triggers.json what starts work on its own
+  ".token", // mission control's access token: with it, a command could drive the camp as you
+  // The camp's own records of every conversation: what you asked, what each agent answered (other
+  // agents' private work included), what was kept in memory, and how you rated it.
+  "feed.jsonl", "threads.jsonl", "quest-log.jsonl", "conversations.json", "memory-log.jsonl", "feedback.jsonl", "limits.json",
+]);
+// And whole folders: checkpoints/ keeps copies of files as they were before each change, from every
+// conversation and project, whatever this one may see.
+const PRIVATE_CAMP_DIRS = new Set(["checkpoints"]);
+// A private file's other forms are as private as it is: the copy set aside when it couldn't be
+// read (settings.json.damaged-<time>), and the temp file a write goes through (….tmp-<pid>-<x>).
+const privateName = (name: string) => PRIVATE_CAMP_FILES.has(name.replace(/\.(damaged-[\w-]+|tmp-\d+-[a-z0-9]+)$/, ""));
 
 // Near the turn limit, a note rides along with a tool result so the agent lands the work instead
 // of being cut off mid-step. Used by both runtimes.
@@ -79,6 +91,12 @@ export function clipOutput<T>(out: T): T {
   return out;
 }
 
+// A folder's real path, and the real camp folder: a path can reach either through a symlink (on
+// macOS /var is one, to /private/var), so "is this inside that" compares real paths.
+const realOf = (p: string) => { try { return realpathSync.native(p); } catch { return resolve(p); } };
+let realCampRoot: string | undefined;
+const realCamp = () => (realCampRoot ??= realOf(CAMP_ROOT));
+
 export function campPath(path: string, mode: "read" | "write", self?: string): string {
   // Linked folders (links/<name>/…) live elsewhere on disk; links.ts enforces their rules.
   const linked = resolveLinked(path, mode);
@@ -86,10 +104,37 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
     const back = relative(CAMP_ROOT, linked);
     // A link that contains the camp doesn't get around the camp's own rules.
     if (back === "" || (!back.startsWith(".." + sep) && back !== ".." && !isAbsolute(back))) return campPath(back || ".", mode, self);
-    if (mode === "write" && isHarnessCode(linked) && !selfEditAllowed()) throw new Error(`${path} is part of the camp's own code, which is read-only.`);
+    // Nor does a symlink inside such a link that leads into the camp.
+    const real = realTarget(linked);
+    if (inside(real, realCamp())) campRules(resolve(CAMP_ROOT, relative(realCamp(), real)), path, mode, self);
+    if (mode === "write" && (isHarnessCode(linked) || isHarnessCode(real)) && !selfEditAllowed()) throw new Error(`${path} is part of the camp's own code, which is read-only.`);
     return linked;
   }
   const abs = resolve(CAMP_ROOT, path);
+  campRules(abs, path, mode, self);
+  // Symlinks. The rules above went by the path as written; a shell command can make a symlink
+  // with an innocent name that points at camp/providers.json or ~/.ssh/id_ed25519. So when the
+  // path really leads somewhere else, that place has to pass the rules too: it must be in the
+  // camp or a linked folder of this conversation, and be something this agent may read (or write).
+  // A symlink that stays inside (node_modules/.bin/…) reads as before.
+  const real = realTarget(abs);
+  if (real !== resolve(realCamp(), relative(CAMP_ROOT, abs))) {
+    const shown = `${path} (which is really ${displayPath(real)})`;
+    if (inside(real, realCamp())) campRules(resolve(CAMP_ROOT, relative(realCamp(), real)), shown, mode, self);
+    else {
+      let inLink: string | undefined;
+      try { inLink = resolveLinked(real, mode); } catch (e: any) { throw new Error(`${path} is a symlink, and where it leads is off limits: ${e.message}`); }
+      if (!inLink) throw new Error(`${path} is a symlink that leads outside the camp, so file tools don't follow it.`);
+      if (mode === "write" && isHarnessCode(real) && !selfEditAllowed()) throw new Error(`${path} is part of the camp's own code, which is read-only.`);
+    }
+    if (mode === "write" && isSymlink(abs)) throw new Error(`${path} is a symlink. File tools don't write through symlinks: write to the file it points to, by its own path.`);
+  }
+  return abs;
+}
+
+// The camp's own rules for one place inside the camp folder. Throws when `abs` isn't allowed.
+// `path` is how the agent named it (for the message).
+function campRules(abs: string, path: string, mode: "read" | "write", self?: string): void {
   const rel = relative(CAMP_ROOT, abs);
   if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) {
     throw new Error(`${path} is outside the camp (${CAMP_ROOT}). Use a path inside it, or ask the user to link that folder.`);
@@ -99,9 +144,10 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
   if (top.startsWith(".env")) throw new Error(`${path} holds secrets and is off limits.`);
   // The same secret names that are off limits in linked folders, at any depth (sub/.env, id_rsa, *.pem…).
   if (parts.some((seg) => SECRET_NAME.test(seg))) throw new Error(`${path} looks like a secret (keys, .env, credentials) and is off limits.`);
-  if (top === "camp" && parts.length === 2 && PRIVATE_CAMP_FILES.has(parts[1])) {
+  if (top === "camp" && parts.length === 2 && privateName(parts[1])) {
     throw new Error(`${path} holds the user's private camp configuration and is off limits.`);
   }
+  if (top === "camp" && PRIVATE_CAMP_DIRS.has(parts[1])) throw new Error(`${path} is part of the camp's own record keeping and is off limits.`);
   // Git's own data at any depth (a nested repository's config and hooks can run programs).
   if (mode === "write" && parts.includes(".git")) throw new Error(`${path} is git's own data, which file tools don't change.`);
   if (mode === "write" && isHarnessCode(abs) && !selfEditAllowed()) {
@@ -118,10 +164,10 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
       throw new Error(`That's the ${owner}'s private ${area === "sessions" ? "session history" : "memory"}. You can read their outputs/ instead.`);
     }
     if (mode === "write") {
-      if (mine && area === "outputs") return abs;
+      if (mine && area === "outputs") return;
       throw new Error(mine ? "Write your files under your outputs/ folder; use remember for your memory." : `camp/agents/${owner}/ is the ${owner}'s workspace, not yours.`);
     }
-    return abs;
+    return;
   }
 
   if (mode === "write" && READ_ONLY.has(top)) {
@@ -131,7 +177,6 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
         : `${top}/ is read-only for file tools.` + (self ? ` Save your work to camp/agents/${self}/outputs/.` : "")
     );
   }
-  return abs;
 }
 
 // File tools bound to one agent, so the boundaries above know whose workspace is whose.
@@ -225,19 +270,22 @@ export function writeFileFor(self: string, opts: { outputsOnly?: boolean } = {})
 // working while it runs. Stop (or the time limit) ends the command and everything it started.
 const SHELL_TIMEOUT_MS = 120_000;
 const SHELL_MAX_BYTES = 2_000_000;
-export type ShellOpts = { signal?: AbortSignal; timeoutMs?: number; cwd?: string; sandbox?: SandboxPlan };
+// env: extra variables for this one command, on top of the camp's environment without its secrets.
+export type ShellOpts = { signal?: AbortSignal; timeoutMs?: number; cwd?: string; sandbox?: SandboxPlan; env?: Record<string, string> };
 export async function runShell(command: string, signalOrOpts?: AbortSignal | ShellOpts, timeout?: number): Promise<string> {
   const o: ShellOpts = signalOrOpts instanceof AbortSignal || signalOrOpts === undefined ? { signal: signalOrOpts, timeoutMs: timeout } : signalOrOpts;
   const { signal, cwd = CAMP_ROOT } = o;
   const timeoutMs = o.timeoutMs ?? SHELL_TIMEOUT_MS;
+  // Every command gets the camp's environment without its secrets (API keys, tokens: see childEnv
+  // in sandbox.ts), sandboxed or not. The owner can let a name through with CAMP_SHELL_ENV_ALLOW.
+  let env = childEnv(o.env);
   // Sandboxed, with hosts you allow: through the camp's proxy (macOS; see netproxy.ts).
-  let env: NodeJS.ProcessEnv | undefined;
   if (o.sandbox && sandboxKind() === "seatbelt" && allowedHosts().length) {
-    try { env = { ...process.env, ...proxyEnv(await ensureProxy()) }; } catch { /* no proxy: no network, as before */ }
+    try { env = { ...env, ...proxyEnv(await ensureProxy()) }; } catch { /* no proxy: no network, as before */ }
   }
   return new Promise((done) => {
     if (signal?.aborted) return done("Not run: the expedition was stopped.");
-    const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"], ...(env ? { env } : {}) };
+    const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"], env };
     const box = o.sandbox ? sandboxed(command, o.sandbox) : null;
     const child = box ? spawn(box.file, box.args, io) : spawn(command, { ...io, shell: true });
     let out = "";
@@ -281,31 +329,75 @@ export function shellDir(cwd: unknown, self?: string): string {
 
 // What a sandboxed command may write: the project it runs in (the git repository around `dir`,
 // else `dir`), minus the parts the file tools protect too.
+//
+// The repository is what git says it is, and git goes by files a sandboxed command can write: a
+// nested repository whose config says core.worktree=/Users/you would make your home folder "the
+// project". So git's answer counts only when it stays inside a folder the camp was given (the camp
+// itself, a linked folder, this expedition's worktree of one) and `dir` is inside it. Otherwise
+// `dir` is the project, and a `dir` outside every such folder gets no writable folder at all.
 export function sandboxPlanFor(dir: string): SandboxPlan {
-  const real = (p: string) => { try { return realpathSync(p); } catch { return p; } };
   const gitAt = (args: string[]) => {
-    try { return execFileSync("git", args, { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; }
+    try { return execFileSync("git", args, { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], env: gitSafeEnv() }).trim(); } catch { return ""; }
   };
-  const top = gitAt(["rev-parse", "--show-toplevel"]);
-  const root = real(top || dir);
-  // A worktree keeps its git data in the main repository's .git folder: commits need to write there.
-  const common = top ? real(resolve(dir, gitAt(["rev-parse", "--git-common-dir"]) || ".git")) : "";
-  const writable = [root, ...(common && !common.startsWith(root + sep) ? [common] : [])];
+  const camp = realCamp();
+  const given = [camp, ...loadLinks().flatMap((l) => [l.path, linkRoot(l)]).map(realOf)];
+  const allowed = (p: string) => given.some((g) => inside(p, g));
+  const here = realOf(dir);
+  const said = gitAt(["rev-parse", "--show-toplevel"]);
+  const top = said && inside(here, realOf(said)) && allowed(realOf(said)) ? realOf(said) : "";
+  const root = top || (allowed(here) ? here : "");
+  // A worktree keeps its git data in the main repository's .git folder: commits need to write
+  // there. That folder has to be the .git of a folder the camp was given, and has to list this
+  // worktree as one of its own (which a command inside the worktree can't arrange).
+  let common = top ? realOf(resolve(dir, gitAt(["rev-parse", "--git-common-dir"]) || ".git")) : "";
+  if (common && !inside(common, root) && !(basename(common) === ".git" && allowed(dirname(common)) && listsWorktree(common, top))) common = "";
+  const writable = [...(root ? [root] : []), ...(common && !inside(common, root) ? [common] : [])];
   // Hooks and git config run later, outside the sandbox, so a command can't plant them.
-  const readOnly = common ? [resolve(common, "hooks"), resolve(common, "config")] : [];
-  const camp = real(CAMP_ROOT);
-  const unreadable = [resolve(camp, "camp", "mcp.json"), resolve(camp, "camp", "settings.json"), resolve(camp, "camp", "jira.json"), resolve(camp, "camp", "providers.json"), resolve(camp, "camp", "triggers.json"), resolve(camp, "camp", "agents")];
-  if (root === camp || camp.startsWith(root + sep)) {
+  const readOnly = common ? [resolve(common, "hooks"), resolve(common, "config"), resolve(common, "modules")] : [];
+  if (root && (root === camp || camp.startsWith(root + sep))) {
     readOnly.push(resolve(camp, "camp"), resolve(camp, "skills"), resolve(camp, "plugins"));
     if (!selfEditAllowed()) readOnly.push(...HARNESS_DIRS.map((d) => resolve(HARNESS_ROOT, d)), ...HARNESS_FILES.map((f) => resolve(HARNESS_ROOT, f)));
   }
-  return { writable, readOnly: readOnly.filter((p) => existsSync(dirname(p))), unreadable };
+  return { writable, readOnly: readOnly.filter((p) => existsSync(dirname(p))), unreadable: sandboxUnreadable() };
+}
+
+// For the simple read-only commands that run without asking (ls, git status…): nothing is
+// writable but temp folders, and the same private files can't be read. So if a repository's
+// config makes "git diff" run a program, that program runs in here and can't change anything.
+export function readOnlyPlanFor(dir: string): SandboxPlan {
+  return { writable: [], unreadable: sandboxUnreadable(), envRoots: [realOf(dir)] };
+}
+
+// The camp files no sandboxed command reads: the same ones the file tools refuse (PRIVATE_CAMP_FILES
+// and PRIVATE_CAMP_DIRS above), and every agent's workspace.
+function sandboxUnreadable(): string[] {
+  const camp = realCamp();
+  // (Their set-aside and half-written forms too: the ones there now. A sandbox names paths, not patterns.)
+  let others: string[] = [];
+  try { others = readdirSync(resolve(camp, "camp")).filter((name) => !PRIVATE_CAMP_FILES.has(name) && privateName(name)); } catch { /* no camp folder yet */ }
+  return [...PRIVATE_CAMP_FILES, ...PRIVATE_CAMP_DIRS, "agents", ...others].map((name) => resolve(camp, "camp", name));
+}
+// Whether a repository's .git folder has `top` on its list of worktrees (.git/worktrees/<name>/gitdir).
+function listsWorktree(common: string, top: string): boolean {
+  try {
+    return readdirSync(resolve(common, "worktrees")).some((name) => {
+      try { return realOf(dirname(readFileSync(resolve(common, "worktrees", name, "gitdir"), "utf8").trim())) === top; } catch { return false; }
+    });
+  } catch { return false; }
 }
 
 export const sandboxOn = () => approvalNow() === "sandbox" && sandboxAvailable();
+const READ_ONLY_HINT = "\n\n[Ran in a read-only sandbox, as simple read-only commands do: no network (beyond any hosts the user allowed) and nothing writable. " +
+  "If that is why it failed, call bash again with unsandboxed: true and the user will be asked.]";
+// How a command says the sandbox stopped it (a write, a private file, the network). A read-only
+// command that just exits non-zero (git diff --quiet, which nothing) doesn't get the hint.
+const SANDBOX_STOPPED = /Operation not permitted|Read-only file system|Permission denied|EPERM|EACCES|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|Could not resolve|network/i;
 const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network (beyond any hosts the user allowed), and writes only inside this project. If that is why it failed " +
   "(an install, a download, a push), call bash again with unsandboxed: true and the user will be asked.]";
 
+// Commands don't see the camp's secrets: API keys, tokens and passwords in its environment are
+// left out (childEnv in sandbox.ts). The owner can let a name through on purpose with
+// CAMP_SHELL_ENV_ALLOW=GH_TOKEN,NPM_TOKEN in the camp's environment.
 export function bashFor(self: string, name = "Artificer"): Tool {
   return {
     def: {
@@ -337,7 +429,18 @@ export function bashFor(self: string, name = "Artificer"): Tool {
       const rule = shellRule(String(command));
       if (rule?.verdict === "deny") return `Not run: the user's rules don't allow commands like this ("${rule.rule}"). Don't try to get around it with another command; find another way or say what you needed.`;
       // Simple, read-only commands (ls, git status…) run without asking; see shell.ts.
-      if (isAutoApproved(command)) return runShell(String(command), { signal, cwd: dir });
+      // Commands the user allowed themselves ("Always allow", their allow list) run as approved.
+      const auto = autoApproval(String(command));
+      if (auto === "yours" || (auto === "builtin" && !sandboxAvailable())) return runShell(String(command), { signal, cwd: dir });
+      // The built-in ones are read-only by definition, so where there is a sandbox they run in it
+      // with nothing writable: "git diff" in a folder whose git config names a program to run
+      // (diff.external, a filter, fsmonitor) can't be used to get out of the sandbox. Git is told
+      // not to take its optional locks, since it can't write the index here. With unsandboxed: true
+      // the command is treated like any other and waits for the user.
+      if (auto === "builtin" && !unsandboxed) {
+        const out = await runShell(String(command), { signal, cwd: dir, sandbox: readOnlyPlanFor(dir), env: { GIT_OPTIONAL_LOCKS: "0" } });
+        return /^(Exit code|Couldn't run)/.test(out) && SANDBOX_STOPPED.test(out) ? out + READ_ONLY_HINT : out;
+      }
       if (sandboxOn() && !unsandboxed && !rule) {
         const from = Date.now();
         const out = await runShell(String(command), { signal, cwd: dir, sandbox: sandboxPlanFor(dir) });

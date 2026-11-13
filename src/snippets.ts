@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
 import { emit } from "./events.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 export const SNIPPETS_PATH = "camp/snippets.json";
 export type Snippet = { id: string; title: string; text: string };
@@ -24,8 +25,7 @@ export function loadSnippets(): Snippet[] {
 }
 
 function save(list: Snippet[]) {
-  mkdirSync(dirname(SNIPPETS_PATH), { recursive: true });
-  writeFileSync(SNIPPETS_PATH, JSON.stringify(list, null, 2) + "\n");
+  writeJsonAtomic(SNIPPETS_PATH, list);
   emit({ type: "changed", what: "snippets" });
 }
 

@@ -12,9 +12,12 @@ import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
 import { addAbout, logKept, type KeptHow } from "./memlog.js";
 import type { Tool } from "./tools.js";
+import { writeAtomic } from "./atomic.js";
+import { PIN, alike, fitMemory, parseEntry } from "./memfit.js";
+import { norm } from "./memlog.js";
 
 export const AGENTS_DIR = join("camp", "agents");
-export const MEMORY_MAX_CHARS = 5000; // characters of memory loaded into a prompt (the newest)
+export const MEMORY_MAX_CHARS = 5000; // characters of memory loaded into a prompt (which lines, once it's longer than that: memfit.ts)
 const MEMORY_NUDGE = 4000;            // past this, the agent is asked to tidy it
 const LEGACY_LEDGER = join("camp", "ledger.md");
 
@@ -64,13 +67,15 @@ export function fullMemory(id: CrewId): string {
   try { return readFileSync(workspace(id).memory, "utf8").replace(/^# .*\n+/, "").trim(); } catch { return ""; }
 }
 
-export function readMemory(id: CrewId): string {
+// What a prompt gets of an agent's memory. All of it while it fits; past that, the pinned lines,
+// the newest, and the older ones that bear on `task` (the request this run is for).
+export function readMemory(id: CrewId, task = ""): string {
   ensureWorkspace(id);
   const ws = workspace(id);
   if (!existsSync(ws.memory)) return "(empty)";
   const text = readFileSync(ws.memory, "utf8").replace(/^# .*\n+/, "").trim();
   if (!text) return "(empty)";
-  return text.length > MEMORY_MAX_CHARS ? "…\n" + text.slice(-MEMORY_MAX_CHARS) : text;
+  return fitMemory(text, MEMORY_MAX_CHARS, task).text;
 }
 
 // The memory tool, bound to one agent. It can only ever touch that agent's memory.md.
@@ -87,18 +92,21 @@ export function rememberTool(id: CrewId): Tool {
         `Things for another role belong to that teammate; shared findings belong ` +
         `in the wiki. Your name, role, and personality are fixed: never record changes to them. ` +
         `'append' adds one dated line (default). 'rewrite' replaces the whole memory: use it to ` +
-        `tidy up, and keep everything still true.`,
+        `tidy up, and keep everything still true (a line that starts with ${PIN} after its date is pinned: keep the mark). ` +
+        `When a new line corrects or updates an old one, give the old line's text in replaces, so the two don't sit side by side contradicting each other.`,
       input_schema: {
         type: "object",
         properties: {
           entry: { type: "string", description: "One line for 'append', or the full memory for 'rewrite'." },
           mode: { type: "string", enum: ["append", "rewrite"] },
           about: { type: "string", enum: ["me", "user"], description: "'me' (default): your own memory. 'user': the note about the user that every crew member is given (one line; append only)." },
+          replaces: { type: "string", description: "With 'append': the text of a line already in your memory that this one corrects or updates. That line is taken out." },
+          pin: { type: "boolean", description: "With 'append': keep this line in every prompt, however long your memory gets. Only for a standing rule that applies to all your work, whatever the task; most lines aren't." },
         },
         required: ["entry"],
       },
     },
-    run: async ({ entry, mode = "append", about = "me" }) => {
+    run: async ({ entry, mode = "append", about = "me", replaces, pin }) => {
       const ws = workspace(id);
       ensureWorkspace(id);
       if (about === "user") {
@@ -106,17 +114,39 @@ export function rememberTool(id: CrewId): Tool {
         emit({ type: "changed", what: "memory" });
         return "Noted about the user: the whole crew will start with it.";
       }
+      let said = "Memory rewritten.";
       if (mode === "rewrite") {
-        writeFileSync(ws.memory, `# ${me.name}'s memory\n\n${String(entry).trim()}\n`);
+        writeAtomic(ws.memory, `# ${me.name}'s memory\n\n${String(entry).trim()}\n`); // a rewrite replaces everything: never leave it half done
       } else {
-        appendFileSync(ws.memory, `- ${today()} ${String(entry).replace(/\s+/g, " ").trim()}\n`);
-        logKept(`agent:${id}`, String(entry), "remember", currentExpeditionId());
+        const line = String(entry).replace(/\s+/g, " ").trim().replace(new RegExp(`^${PIN}\\s*`, "u"), "");
+        if (!line) return "Nothing to remember.";
+        const rows = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8").replace(/\n+$/, "").split("\n") : [`# ${me.name}'s memory`, ""];
+        const isNote = (r: string, text: string) => !!parseEntry(r) && norm(r) === norm(text);
+        // The line this one corrects, taken out first (its pin carries over: a corrected rule is still a rule).
+        let replaced = false, wasPinned = false;
+        if (typeof replaces === "string" && replaces.trim()) {
+          const at = rows.findIndex((r) => isNote(r, replaces));
+          if (at >= 0) { wasPinned = !!parseEntry(rows[at])?.pinned; rows.splice(at, 1); replaced = true; }
+        }
+        const already = rows.some((r) => isNote(r, line));
+        // Before it's added: lines already there that seem to say something on the same subject.
+        const near = already ? [] : rows.flatMap((r) => { const e = parseEntry(r); const score = e ? alike(e.text, line) : 0; return e && score >= 0.5 ? [{ text: e.text, score }] : []; })
+          .sort((a, b) => b.score - a.score).slice(0, 2);
+        if (!already) rows.push(`- ${today()} ${pin === true || wasPinned ? `${PIN} ` : ""}${line}`);
+        if (!already || replaced) writeAtomic(ws.memory, rows.join("\n") + "\n");
+        if (!already) logKept(`agent:${id}`, line, "remember", currentExpeditionId());
+        said = already ? (replaced ? "The old line is gone; the new one was already in your memory." : "That's already in your memory, word for word: nothing was added.")
+          : replaced ? "Remembered, in place of the old line."
+          : "Remembered." + (typeof replaces === "string" && replaces.trim() ? " (The line to replace wasn't found: copy its text exactly as it appears in your memory. Nothing was taken out.)" : "");
+        if (near.length && !replaced) said += ` Already in your memory on what looks like the same subject:\n${near.map((n) => `- ${n.text}`).join("\n")}\nIf the new line corrects one of these, call remember again with the same entry and replaces set to that line's text, so the old one doesn't linger.`;
+        const pinned = fullMemory(id).split("\n").filter((r) => parseEntry(r)?.pinned).join("\n").length;
+        if ((pin === true || wasPinned) && pinned > MEMORY_MAX_CHARS * 0.4) said += ` Your pinned lines now come to ${pinned} characters, more than is kept for them in a prompt: the newest pinned ones load like any other line. Unpin what isn't a standing rule (mode 'rewrite', dropping the ${PIN}).`;
       }
       emit({ type: "changed", what: "memory" });
       const size = fullMemory(id).length;
-      // Only the newest part is loaded: past the limit, the oldest lines are left behind. Say so before it happens.
-      const nudge = size > MEMORY_NUDGE ? ` Your memory is getting long (${size} characters; about ${MEMORY_MAX_CHARS} are loaded, newest first, and older lines drop out of your prompt). When you have a moment, use mode 'rewrite' to merge it into fewer, still-true lines. recall can still find what's dropped out.` : "";
-      return (mode === "rewrite" ? "Memory rewritten." : "Remembered.") + nudge;
+      // Past what a prompt loads, older lines only come along when the task is about them. Say so before it happens.
+      const nudge = size > MEMORY_NUDGE ? ` Your memory is getting long (${size} characters; a prompt loads about ${MEMORY_MAX_CHARS}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge it into fewer, still-true lines. recall can still find what isn't loaded.` : "";
+      return said + nudge;
     },
   };
 }
@@ -187,7 +217,7 @@ export function readSession(id: CrewId, file: string) {
 // You can edit an agent's memory directly (mission control's Memory tab). Agents use remember.
 export function writeMemory(id: CrewId, text: string) {
   ensureWorkspace(id);
-  writeFileSync(workspace(id).memory, `# ${CREW[id].name}'s memory\n\n${text.trim()}\n`);
+  writeAtomic(workspace(id).memory, `# ${CREW[id].name}'s memory\n\n${text.trim()}\n`);
   emit({ type: "changed", what: "memory" });
 }
 
@@ -238,7 +268,8 @@ const SOURCE_LABEL: Record<SessionSource, string> = {
 
 // What goes in the prompt: memory plus a digest of recent sessions, newest last.
 // The last three get more room, so follow-ups ("make it shorter") have the context they need.
-export function continuityBlock(id: CrewId): string {
+// task: the request this run is for, so an older memory line that bears on it is loaded too.
+export function continuityBlock(id: CrewId, task = ""): string {
   const sessions = recentSessions(id);
   const digest = sessions
     .map((s, i) => {
@@ -248,7 +279,7 @@ export function continuityBlock(id: CrewId): string {
     })
     .join("\n");
   return (
-    `## Your memory (camp/agents/${id}/memory.md; save to it with remember)\n${readMemory(id)}\n\n` +
+    `## Your memory (camp/agents/${id}/memory.md; save to it with remember)\n${readMemory(id, task)}\n\n` +
     `## Your recent sessions (build on these; full transcripts are in camp/agents/${id}/sessions/)\n` +
     (digest || "(none yet: this is your first session)") +
     `\nAnything older (earlier sessions, earlier conversations in this project, the wiki's text, memory that no longer fits above) can be searched with recall.` +

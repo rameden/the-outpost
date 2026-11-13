@@ -8,6 +8,7 @@ import { campMode, type Tool } from "./tools.js";
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { currentProjectId } from "./context.js";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 
 export const JOBS_PATH = "camp/jobs.json";
 export const QUIET_TOKEN = "NOTHING_NEW";
@@ -68,13 +69,14 @@ export function isDue(job: Job, now = new Date()): boolean {
 }
 
 export function loadJobs(): Job[] {
-  if (!existsSync(JOBS_PATH)) return [];
-  return JSON.parse(readFileSync(JOBS_PATH, "utf8")) as Job[];
+  // The file invites hand edits, and this runs on a timer: a typo must not take the camp down.
+  // An unreadable file is kept aside (atomic.ts) and no jobs run until it's fixed.
+  const jobs = readJsonFile(JOBS_PATH, []);
+  return Array.isArray(jobs) ? (jobs as Job[]).filter((j) => j && typeof j.name === "string") : [];
 }
 
 export function saveJobs(jobs: Job[]) {
-  mkdirSync(dirname(JOBS_PATH), { recursive: true });
-  writeFileSync(JOBS_PATH, JSON.stringify(jobs, null, 2) + "\n");
+  writeJsonAtomic(JOBS_PATH, jobs);
   emit({ type: "changed", what: "jobs" });
 }
 

@@ -37,8 +37,14 @@ const { judge } = await import("./judge.ts");
 const { rl } = await import("../src/tools.ts");
 
 setBudgetUsd(Number(process.env.EVAL_CASE_BUDGET ?? 2)); // a safety cap per case
-// Approve only the shell commands this case expects; decline everything else.
-setAsker(async (q) => (q.kind === "shell" && c.approveShell?.some((cmd) => q.body.trim() === cmd) ? "y" : "n"));
+// Approve only the shell commands this case expects, and the tool calls whose approval card names
+// one of the things it expects (approveTools); decline everything else. Every approval is noted.
+const asked: { kind: string; title: string; answer: string }[] = [];
+setAsker(async (q) => {
+  const yes = (q.kind === "shell" && c.approveShell?.some((cmd) => q.body.trim() === cmd)) || (q.kind === "tool" && c.approveTools?.some((part) => q.title.includes(part)));
+  asked.push({ kind: q.kind, title: q.title, answer: yes ? "y" : "n" });
+  return yes ? "y" : "n";
+});
 
 const tools: { who: string; tool: string; input: string }[] = [];
 const dispatches: { who: string; at: number }[] = [];
@@ -59,7 +65,7 @@ const seconds = Math.round((Date.now() - t0) / 1000);
 
 let judgeCost = 0;
 const ctx = {
-  result, tools, dispatches,
+  result, tools, dispatches, asked,
   judge: async (rubric: string, evidence: string) => {
     const v = await judge(rubric, evidence);
     judgeCost += v.cost;

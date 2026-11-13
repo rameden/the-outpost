@@ -2,9 +2,10 @@
 //
 // Starts the camp server as usual, then Vite's dev server in front of it. Vite serves the page
 // from ui/src (a saved change shows up in the open page without a refresh) and passes /api and
-// /events through to the camp server. Open the link this prints: it carries the camp's launch
-// token, which the page sends with every request, exactly as the built page does. Vite adds
-// nothing to the requests, so the dev server is no way around the token.
+// /events through to the camp server. Open the link this prints: it carries a one-time sign-in
+// code, which the page trades for the camp's key exactly as the built page does (and keeps for
+// this address, so the next start needs no link). Vite adds nothing to the requests, so the dev
+// server is no way around the key.
 //
 // Only the page reloads. The camp server itself (src/) keeps running until you restart this, so
 // an edit there doesn't cut off an expedition that's under way.
@@ -25,6 +26,8 @@ let vite: ViteDevServer | null = null;
 let starting = false;
 let pending = "";
 let held: string[] | null = null; // what the camp says between its link and ours, kept so ours comes first
+// The camp's links name its own port, where the last build is served: ours name Vite's.
+const ours = (line: string) => (vite ? line.replace(/http:\/\/127\.0\.0\.1:\d+\//g, `http://127.0.0.1:${vite.config.server.port}/`) : line);
 
 // Pass the camp's output through a line at a time, except its own link: that one serves the
 // last build, and two links are one too many. The live link is printed in its place.
@@ -33,20 +36,20 @@ camp.stdout.on("data", (chunk: Buffer) => {
   const lines = pending.split("\n");
   pending = lines.pop() ?? "";
   for (const line of lines) {
-    const token = line.match(/\/\?t=([0-9a-f]+)/)?.[1];
-    if (!token) { if (held) held.push(line); else process.stdout.write(line + "\n"); continue; }
-    if (!starting) { starting = true; held = []; void startVite(token); }
+    const code = line.match(/\/#k=([0-9a-f]+)/)?.[1];
+    if (!code || starting) { if (held) held.push(line); else process.stdout.write(ours(line) + "\n"); continue; }
+    starting = true; held = []; void startVite(code);
   }
 });
 camp.stdout.on("end", () => { if (pending) process.stdout.write(pending); });
 
-async function startVite(token: string) {
+async function startVite(code: string) {
   try {
     vite = await createServer({ configFile: join(ROOT, "ui", "vite.config.ts") });
     await vite.listen();
-    console.log(`🏕️  Mission control is up: http://127.0.0.1:${vite.config.server.port}/?t=${token}`);
+    console.log(`🏕️  Mission control is up: http://127.0.0.1:${vite.config.server.port}/#k=${code}`);
     console.log("   The page reloads as you edit ui/src.");
-    for (const line of held ?? []) console.log(line);
+    for (const line of held ?? []) console.log(ours(line));
     held = null;
   } catch (e) {
     // Most often the port is taken (another `npm run ui`, or CAMP_UI_PORT pointing at something).

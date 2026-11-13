@@ -85,7 +85,7 @@ test("the answerer sees its recent feedback in its next prompt, only where it ap
 
   // And it really is in the prompt of the next run.
   let system = "";
-  script = (b) => { system = b.system[0].text; return { text: "Here's the update." }; };
+  script = (b) => { system = b.system.map((x: any) => x.text).join("\n\n"); return { text: "Here's the update." }; };
   await runExpedition("Write this week's update", { id: "r7" });
   assert.match(system, /## The user's feedback on your recent work[\s\S]*Lead with the decision I need to make\./);
   assert.match(system, /Feedback from the user \(do this differently\): Too many quests/, "the kept note, from memory");

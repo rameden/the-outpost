@@ -137,6 +137,7 @@ export type ClaudeCodeRun = {
   onDelta: (text: string) => void;
   onText: (text: string) => void;
   onTool: (name: string, input: unknown) => void;
+  onNotice?: (text: string) => void; // something worth a line in the feed (a model declined, another carried on)
   // Called after each model reply with what it cost (an estimate at API prices), so the
   // expedition's shared budget is current while the run is still going.
   onSpend?: (usd: number) => void;
@@ -259,6 +260,14 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     for await (const m of query({ prompt: prompt(), options })) {
       if (m.type === "rate_limit_event") {
         noteRateLimit(m.rate_limit_info);
+      } else if (m.type === "system" && ((m as any).subtype === "model_refusal_fallback" || (m as any).subtype === "model_refusal_no_fallback")) {
+        // Claude Code's own handling of a model that declines: it may retry on another model, or not.
+        // Either way the feed says what it reported. (Whether it retries is its decision, not the camp's.)
+        const s = m as any;
+        const why = s.api_refusal_category ? ` (${String(s.api_refusal_category).replace(/_/g, " ")})` : "";
+        r.onNotice?.(s.subtype === "model_refusal_fallback"
+          ? `↪️ ${s.original_model ?? r.model} declined this request${why}; ${s.fallback_model ?? "another model"} carried on.`
+          : `🚫 ${s.original_model ?? r.model} declined this request${why}, and no other model took it up.`);
       } else if (m.type === "stream_event" && !m.parent_tool_use_id) {
         const ev: any = m.event;
         if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") r.onDelta(ev.delta.text);

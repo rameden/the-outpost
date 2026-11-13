@@ -14,6 +14,7 @@ import { join, posix, relative, resolve, sep } from "node:path";
 import { imageType } from "./attachments.js";
 import { findLink, inside, SECRET_NAME } from "./links.js";
 import { listWorktrees } from "./repos.js";
+import { gitFilterOverrides, gitSafeEnv } from "./sandbox.js";
 
 // secret: listed, but not opened. outside: a symlink that leads out of the folder.
 export type TreeEntry = { name: string; dir: boolean; size?: number; secret?: true; outside?: true };
@@ -118,9 +119,15 @@ export function imageFile(root: string, rel: string): { media: string; bytes: Bu
   return { media, bytes: readFileSync(abs) };
 }
 
-const run = (cwd: string, args: string[]) => new Promise<string>((done) => {
-  execFile("git", args, { cwd, timeout: 8000, maxBuffer: 8 * 1024 * 1024, env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" } },
-    (err, stdout) => done(err ? "" : String(stdout)));
+// Git here runs as you, outside the sandbox, in a folder whose git config a sandboxed command may
+// have written. So nothing that config names is run: no fsmonitor, hooks, external diff or
+// textconv (gitSafeEnv, and the flags on each call), and for the calls that compare working files
+// (status, diff) no clean/smudge filters and no look inside submodules. No secrets are passed on.
+const run = (cwd: string, args: string[], filters = false) => new Promise<string>((done) => {
+  void (filters ? gitFilterOverrides(cwd) : Promise.resolve([])).then((more) => {
+    execFile("git", args, { cwd, timeout: 8000, maxBuffer: 8 * 1024 * 1024, env: gitSafeEnv(more) },
+      (err, stdout) => done(err ? "" : String(stdout)));
+  });
 });
 
 // Files under the folder whose path matches what was typed, best first. Git's own list is used
@@ -164,20 +171,20 @@ export async function findFiles(root: string, query: string): Promise<string[]> 
 const MAX_DIFF = 400_000;
 export async function fileDiff(root: string, rel: string): Promise<{ diff: string; untracked: boolean }> {
   const { path } = checkedFile(root, rel);
-  const status = await run(root, ["status", "--porcelain=v1", "--", path]);
+  const status = await run(root, ["status", "--porcelain=v1", "--ignore-submodules=dirty", "--", path], true);
   if (status.startsWith("??")) {
     const { abs, size } = checkedFile(root, rel);
     if (size > MAX_DIFF) return { diff: "", untracked: true };
     const lines = readFileSync(abs, "utf8").replace(/\n$/, "").split("\n");
     return { diff: `@@ -0,0 +1,${lines.length} @@\n${lines.map((l) => `+${l}`).join("\n")}`, untracked: true };
   }
-  const diff = await run(root, ["diff", "--no-color", "--no-ext-diff", "HEAD", "--", path]);
+  const diff = await run(root, ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--", path], true);
   return { diff: diff.length > MAX_DIFF ? "" : diff, untracked: false };
 }
 
 // What git reports as changed under the folder, or nothing when it isn't a repository.
 export async function changedFiles(root: string): Promise<Record<string, string>> {
-  const out = await run(root, ["status", "--porcelain=v1", "-z", "--", "."]);
+  const out = await run(root, ["status", "--porcelain=v1", "-z", "--ignore-submodules=dirty", "--", "."], true);
   if (!out) return {};
   // Git names paths from the top of the repository; the folder may sit below it.
   const prefix = (await run(root, ["rev-parse", "--show-prefix"])).trim();

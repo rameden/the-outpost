@@ -6,6 +6,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import type { Workspace } from "./context.js";
 import { expeditionDigest } from "./feed.js";
+import { appendLine, writeAtomic } from "./atomic.js";
 
 export const THREADS_PATH = "camp/threads.jsonl";
 const MAX_HISTORY_CHARS = 40_000;
@@ -56,16 +57,29 @@ function all(): Turn[] {
 // Every run on record, oldest first (one entry per run: its ending, if it got that far).
 export const allTurns = (): Turn[] => all();
 
+// Each run writes a line when it starts and another when it ends, and only the last counts. So
+// the file carries lines nothing reads any more: how many, and a way to drop them. Compacting
+// writes back exactly what's read today (one line per run), so nothing you can see changes.
+export function threadLines(): { lines: number; runs: number } {
+  if (!existsSync(THREADS_PATH)) return { lines: 0, runs: 0 };
+  return { lines: readFileSync(THREADS_PATH, "utf8").split("\n").filter(Boolean).length, runs: all().length };
+}
+export function compactThreads(): number {
+  const { lines, runs } = threadLines();
+  if (lines <= runs) return 0;
+  writeAtomic(THREADS_PATH, all().map((t) => JSON.stringify(t)).join("\n") + "\n");
+  cache = null;
+  return lines - runs;
+}
+
 // Turns copied as they are, times included (a fork of a conversation starts with its history).
 export function copyTurns(turns: Turn[]) {
   if (!turns.length) return;
-  mkdirSync("camp", { recursive: true });
-  appendFileSync(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n") + "\n");
+  appendLine(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n"));
 }
 
 export function recordTurn(t: Omit<Turn, "time">) {
-  mkdirSync("camp", { recursive: true });
-  appendFileSync(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }) + "\n");
+  appendLine(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }));
 }
 
 // The folders a conversation has, as its runs leave them, oldest first: each run adds the ones it

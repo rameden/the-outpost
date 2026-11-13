@@ -4,7 +4,7 @@
 // tools can't write to camp/).
 // No tool imports here, so anything can read the crew without import cycles.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 
 export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
 export type CrewId = string; // a built-in id, or the handle of a crew member you added
@@ -147,14 +147,14 @@ function apply(members: Identity[]) {
 }
 
 function save() {
-  mkdirSync("camp", { recursive: true });
-  writeFileSync(CREW_PATH, JSON.stringify({ crew: customMembers() }, null, 2) + "\n");
+  writeJsonAtomic(CREW_PATH, { crew: customMembers() });
 }
 
 // Read camp/crew.json again (at start, and when another process may have changed it).
 export function loadCrew() {
   let saved: unknown[] = [];
-  try { if (existsSync(CREW_PATH)) saved = JSON.parse(readFileSync(CREW_PATH, "utf8")).crew ?? []; } catch { /* unreadable: just the built-in crew */ }
+  // Unreadable: just the built-in crew, with the damaged file kept aside (atomic.ts).
+  saved = (readJsonFile(CREW_PATH, {}) as { crew?: unknown[] } | null)?.crew ?? [];
   for (const id of Object.keys(CREW)) if (!isBuiltIn(id)) delete CREW[id];
   const members: Identity[] = [];
   for (const raw of Array.isArray(saved) ? saved : []) {

@@ -6,7 +6,7 @@
 // in. Hide the pane with its ⌄ button or Ctrl+` and bring it back the same way. Its size is its
 // zone's: drag the line beside it.
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Terminal as Xterm, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -91,6 +91,11 @@ function TerminalView({ id, onExit }: { id: string; onExit: (code: number) => vo
     resize();
 
     const stream = new EventSource(termStreamUrl(id));
+    // The camp sends everything the session has printed so far each time the stream connects.
+    // The first time that fills the screen; after a dropped connection it would write it all a
+    // second time under what's there, so the screen is cleared for it first.
+    let connected = false;
+    stream.addEventListener("open", () => { if (connected) term.reset(); connected = true; });
     stream.addEventListener("data", (m) => term.write(JSON.parse((m as MessageEvent).data) as string));
     stream.addEventListener("exit", (m) => {
       const { code } = JSON.parse((m as MessageEvent).data) as { code: number };
@@ -192,9 +197,11 @@ function LockedWarning({ title, children, onNew, onHere, onCancel }: { title: st
   );
 }
 
+const NO_ACTIONS: TermAction[] = [];
+
 // ready: the page knows which project you're in (so the first terminal starts in the right folder).
 // actions: your quick actions (Settings → Terminal), shown as chips in the header. onSetUp: open that page.
-export function TerminalPanel({ project, onHide, ready = true, actions = [], onSetUp }: {
+export const TerminalPanel = memo(function TerminalPanel({ project, onHide, ready = true, actions = NO_ACTIONS, onSetUp }: {
   project?: string; onHide: () => void; ready?: boolean; actions?: TermAction[]; onSetUp?: () => void;
 }) {
   const [tabs, setTabs] = useState<TerminalInfo[] | null>(null); // null: still asking the camp what's open
@@ -320,4 +327,4 @@ export function TerminalPanel({ project, onHide, ready = true, actions = [], onS
         : tabs && !error && <div className="term-empty">No terminal open. <button type="button" className="linkish" onClick={open}>Open one</button></div>}
     </section>
   );
-}
+});

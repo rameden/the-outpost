@@ -2,7 +2,7 @@
 // Results land in camp/inbox.md (and as a macOS notification). When a run finds nothing
 // new, it stays quiet: nothing is written and nothing pings you.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { runExpedition } from "./quartermaster.js";
 import { isDue, loadJobs, saveJobs, QUIET_TOKEN, type Job } from "./jobs.js";
@@ -123,16 +123,22 @@ export function dueJobs(): Job[] {
 }
 
 // The inbox as separate entries, newest first.
+// (Parsed once and kept until the file changes: the page asks for this on every refresh, and the file only grows.)
+let inboxCache: { key: string; all: { heading: string; body: string }[] } | null = null;
 export function inboxEntries(limit = 30): { heading: string; body: string }[] {
   if (!existsSync(INBOX_PATH)) return [];
-  return readFileSync(INBOX_PATH, "utf8")
-    .split(/^## /m)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .map((chunk) => {
-      const [heading, ...rest] = chunk.split("\n");
-      return { heading: heading.trim(), body: rest.join("\n").trim() };
-    })
-    .reverse()
-    .slice(0, limit);
+  const st = statSync(INBOX_PATH);
+  const key = `${process.cwd()}|${st.mtimeMs}:${st.size}`;
+  if (inboxCache?.key !== key) {
+    inboxCache = { key, all: readFileSync(INBOX_PATH, "utf8")
+      .split(/^## /m)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean)
+      .map((chunk) => {
+        const [heading, ...rest] = chunk.split("\n");
+        return { heading: heading.trim(), body: rest.join("\n").trim() };
+      })
+      .reverse() };
+  }
+  return inboxCache.all.slice(0, limit);
 }

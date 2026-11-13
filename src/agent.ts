@@ -11,8 +11,8 @@ import { identityBlock, type CrewId } from "./crew.js";
 import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } from "./memory.js";
 import { aboutBlock } from "./memlog.js";
 import { requestText, type RequestContent } from "./attachments.js";
-import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, type Effort, type Runtime } from "./settings.js";
-import { runClaudeCode, claudeCodeModels, type ClaudeCodeFailure } from "./claude-code.js";
+import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
+import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
 import { PROVIDERS, maySend, otherModel, providerChat, providerModels } from "./providers.js";
 import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering, conversationModel } from "./context.js";
 import { filesWrittenBy } from "./checkpoints.js";
@@ -32,6 +32,37 @@ export const DEFAULT_MODEL = "claude-sonnet-5-5";
 const MAX_TOKENS = 32_000; // replies stream, so long ones can't time out; thinking counts against this too
 const MAX_CUTOFFS = 3;     // give up if a character keeps hitting the token limit
 
+// A reply that fails for a passing reason (the API is overloaded, the connection dropped part-way
+// through the stream) is asked for again, after a pause, instead of ending the whole run: by then
+// an expedition can be many turns and several quests in. The SDK already retries a request that
+// fails before it starts answering; this covers one that breaks once the reply is streaming.
+// Nothing was added to the transcript for the failed reply, so asking again is safe.
+const RETRY_WAITS_MS = [2_000, 8_000, 20_000];
+const PASSING_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 529]);
+const PASSING_TYPE = new Set(["overloaded_error", "api_error", "rate_limit_error", "timeout_error"]);
+export function isPassingFailure(err: unknown): boolean {
+  if (err instanceof Anthropic.APIUserAbortError) return false;
+  if (err instanceof Anthropic.APIConnectionError) return true;
+  if (err instanceof Anthropic.APIError) return (err.status != null && PASSING_STATUS.has(err.status)) || PASSING_TYPE.has(String(err.type));
+  // A connection that drops once the reply is streaming isn't one of the SDK's typed errors: it
+  // comes up from the network layer ("terminated", ECONNRESET…), sometimes wrapped a level or two.
+  for (let e: any = err, depth = 0; e && depth < 4; e = e.cause, depth++) {
+    if (/^(ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|ENOTFOUND|EAI_AGAIN|UND_ERR_)/.test(String(e.code ?? ""))) return true;
+    if (e instanceof TypeError && /^(terminated|fetch failed)$/.test(e.message)) return true;
+  }
+  return false;
+}
+// Tests shorten the waits.
+let retryWaits = RETRY_WAITS_MS;
+export const setRetryWaitsForTests = (ms: number[] | null) => { retryWaits = ms ?? RETRY_WAITS_MS; };
+// Wait, unless Stop comes first (true: waited it out; false: stopped).
+const pause = (ms: number, signal?: AbortSignal) => new Promise<boolean>((ok) => {
+  if (signal?.aborted) return ok(false);
+  const done = () => { clearTimeout(timer); signal?.removeEventListener("abort", done); ok(!signal?.aborted); };
+  const timer = setTimeout(done, ms);
+  signal?.addEventListener("abort", done, { once: true });
+});
+
 // Long quests: once a prompt passes 120k tokens, the API clears the oldest tool results (keeping
 // the 8 most recent) so the run doesn't run out of context. Reports, plans, and memory writes are
 // never cleared. Clearing happens on the server, so what we send stays append-only.
@@ -44,12 +75,53 @@ const CONTEXT_MANAGEMENT: Anthropic.Beta.BetaContextManagementConfig = {
   }],
 };
 
+// ---------- When a model declines ----------
+// The newest models run safety checks that now and then decline a request that was fine (security
+// tooling, a biology question). Left alone that ends the run: "the model declined". With the
+// API's server-side fallback the same request is carried on by another Claude model inside the
+// same call, chosen by Anthropic for the kind of refusal it was. The camp asks for that on the
+// models that have it; the feed says when it happens and who took over, and the run's cost counts
+// each attempt at the rate of the model that made it. Turn it off with "refusalFallback": false in
+// camp/settings.json. (Only on the API. On your subscription Claude Code decides for itself, and
+// the feed passes on what it reports.)
+const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+const HAS_FALLBACK = /^claude-(fable-5(-[12])?|mythos-5(-[12])?|opus-5(-5)?|sonnet-5-5)$/; // not Haiku: it has none
+export const fallsBack = (model: string) => HAS_FALLBACK.test(model) && refusalFallbackOn();
+
+// A reply that fell back holds a "fallback" block where the switch happened. What the first
+// model wrote before it stays in the reply, but only its words carry over: its thinking and any
+// tool call it had begun belong to the attempt that was declined. So of what comes before the
+// last switch, the transcript keeps the text (and web tool calls that have their results) and the
+// switch marks themselves, exactly where they were; everything after it is kept whole. Tool
+// calls before the switch are never run.
+export function afterFallback(content: any[]): { content: any[]; live: any[] } {
+  const at = content.map((b) => b?.type).lastIndexOf("fallback");
+  if (at < 0) return { content, live: content };
+  const answered = new Set(content.slice(0, at).flatMap((b) => (typeof b?.type === "string" && b.type.endsWith("_tool_result") && b.tool_use_id ? [b.tool_use_id] : [])));
+  const before = content.slice(0, at).filter((b) =>
+    b?.type === "text" || b?.type === "fallback" ||
+    (b?.type === "server_tool_use" && answered.has(b.id)) ||
+    (typeof b?.type === "string" && b.type.endsWith("_tool_result") && b.type !== "tool_result"));
+  return { content: [...before, ...content.slice(at)], live: content.slice(at + 1) };
+}
+
+// What one reply cost. Usually the model asked, at its rate. When a fallback served it, each
+// attempt is listed with the model that made it, and is costed at that model's rate.
+export function replyCost(model: string, turn: Usage, iterations: unknown): number {
+  const list = Array.isArray(iterations) ? iterations : [];
+  if (!list.some((i: any) => i?.type === "fallback_message")) return costOf(model, turn);
+  return list.reduce((sum: number, i: any) => sum + (typeof i?.model === "string"
+    ? costOf(i.model, { input: i.input_tokens ?? 0, output: i.output_tokens ?? 0, cacheRead: i.cache_read_input_tokens ?? 0, cacheWrite: i.cache_creation_input_tokens ?? 0 })
+    : 0), 0);
+}
+
 // ---------- Models you can pick from ----------
 // provider: a model from another company (Gemini, Groq, OpenRouter), named "<provider>:<model>". free: it costs nothing there.
 export type ModelInfo = { id: string; name: string; efforts: Effort[]; price?: string; provider?: string; free?: boolean };
 
 // Used when the Models API can't be reached.
 const FALLBACK_MODELS: ModelInfo[] = [
+  { id: "claude-fable-5-2", name: "Claude Fable 5.2", efforts: EFFORTS },
   { id: "claude-fable-5-1", name: "Claude Fable 5.1", efforts: EFFORTS },
   { id: "claude-opus-5-5", name: "Claude Opus 5.5", efforts: EFFORTS },
   { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", efforts: EFFORTS },
@@ -125,8 +197,8 @@ const turnsNote = (name: string, n: number) =>
   `\n\n[Stopped: used all ${n} turns before finishing. Send ${name} back to continue, or raise the turn limit in ${name}'s model picker.]`;
 
 // The newer web search/fetch versions (which filter results before they reach the model) only run
-// on Opus and Sonnet models; anything else gets the basic versions so the Scout keeps working.
-const DYNAMIC_WEB_TOOLS = /^claude-(opus-(5|4-[678])|sonnet-(5|4-6))/;
+// on Fable, Mythos, Opus and Sonnet models; anything else gets the basic versions so the Scout keeps working.
+const DYNAMIC_WEB_TOOLS = /^claude-((fable|mythos)-|opus-(5|4-[678])|sonnet-(5|4-6))/;
 function toolsFor(model: string, defs: Anthropic.ToolUnion[]): Anthropic.ToolUnion[] {
   if (DYNAMIC_WEB_TOOLS.test(model)) return defs;
   return defs.map((d) => {
@@ -200,6 +272,15 @@ export function alwaysBlock(id: string, dirs: string[]): string {
     on.map((s) => `### ${s.name}\n${s.body}\n(Anything else it refers to, scripts or reference pages, is in ${s.dir}/.)`).join("\n\n");
 }
 
+// A front-matter value as it reads, not as it's written: one in quotes (as a description with a
+// colon in it must be) comes out without them and without its backslashes.
+function unquoted(value: string): string {
+  const v = value.trim();
+  if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) { try { return String(JSON.parse(v)); } catch { return v.slice(1, -1); } }
+  if (v.length >= 2 && v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
+  return v;
+}
+
 // Progressive disclosure: only name + description go in the prompt.
 // always: skills whose instructions are in the prompt already (see alwaysBlock), marked so.
 export function skillIndex(dirs: string[], always: string[] = []): string {
@@ -210,8 +291,8 @@ export function skillIndex(dirs: string[], always: string[] = []): string {
       const path = join(dir, sub, "SKILL.md");
       if (!existsSync(path)) continue;
       const text = readFileSync(path, "utf8");
-      const name = text.match(/^name:\s*(.+)$/m)?.[1] ?? sub;
-      const desc = text.match(/^description:\s*(.+)$/m)?.[1] ?? "";
+      const name = unquoted(text.match(/^name:\s*(.+)$/m)?.[1] ?? sub);
+      const desc = unquoted(text.match(/^description:\s*(.+)$/m)?.[1] ?? "");
       lines.push(always.includes(join(dir, sub)) ? `- ${name}: ${desc} (always on: its instructions are below)` : `- ${name}: ${desc} (read ${path} before using)`);
     }
   }
@@ -253,7 +334,7 @@ export async function runAgent(
   opts: { extraSystem?: string; depth?: number; source?: SessionSource; plain?: boolean } = {}
 ): Promise<AgentResult> {
   const me = { who: spec.name, emoji: spec.emoji, depth: opts.depth ?? 0, questId: currentQuestId() };
-  await listModels(); // so effort support is known (cached for 10 minutes)
+  await claudeModels(); // so effort support is known (cached for 10 minutes). Only Claude's list: other providers' models take no effort level, and asking each of them here would hold up every run's start.
   // A conversation can name its own model (picked beside the message box): whoever you're talking
   // to answers on it. Crew sent out on quests keep the models they're set to (see withQuest).
   const picked = conversationModel();
@@ -262,26 +343,35 @@ export async function runAgent(
   const effort = picked && picked !== own.model ? (knownModel(picked)?.efforts.includes(own.effort as Effort) ? own.effort : undefined) : own.effort;
   const maxTurns = resolveTurns(spec);
   if (!opts.plain) ensureWorkspace(spec.id);
-  // Order matters for caching and for the model: who you are first, then how you work,
-  // then what you remember, then the shared camp knowledge.
-  const system = opts.plain
-    ? spec.persona + (aboutBlock() ? `\n\n${aboutBlock()}` : "") +
-      (linksBlock() ? `\n\n${linksBlock()}` : "") +
-      (projectInstructions() ? `\n\n${projectInstructions()}` : "") +
-      (leftOutBlock() ? `\n\n${leftOutBlock()}` : "") +
-      (opts.extraSystem ? `\n\n${opts.extraSystem}` : "")
-    :
-    `${identityBlock(spec.id)}\n\n## How you work\n${spec.persona}\n\n` +
-    `${continuityBlock(spec.id)}\n\n` + (aboutBlock() ? `${aboutBlock()}\n\n` : "") + `## Your skills\n` +
-    `When a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, alwaysOn(spec.id, spec.skillDirs).map((s) => s.dir))}` +
-    alwaysBlock(spec.id, spec.skillDirs) +
-    `\n\n${wikiIndex()}` +
-    (linksBlock() ? `\n\n${linksBlock()}` : "") +
-    (projectInstructions() ? `\n\n${projectInstructions()}` : "") +
-    (projectBlock(spec.id) ? `\n\n${projectBlock(spec.id)}` : "") +
-    (leftOutBlock() ? `\n\n${leftOutBlock()}` : "") +
-    (feedbackBlock(spec.id, currentProjectId()) ? `\n\n${feedbackBlock(spec.id, currentProjectId())}` : "") +
-    (opts.extraSystem ? `\n\n${opts.extraSystem}` : "");
+  // The prompt comes in two parts, and the order is for caching as much as for the model. First
+  // what stays the same from one run to the next: who you are, how you work, your skills. Then
+  // what moves: memory and recent sessions (which change after every run), the wiki, the project,
+  // feedback, the conversation so far. The API caches a prompt up to a breakpoint and only if
+  // everything before it is byte-for-byte what it was: with the moving part first (as it once
+  // was) no run could reuse the one before it; now the fixed part, and the tools ahead of it, are
+  // read back from the cache when the same crew member runs again within a few minutes (sent back
+  // to fix a failing check, a quick follow-up, two quests side by side).
+  const parts = (list: (string | false | undefined)[]) => list.filter((p): p is string => !!p).join("\n\n");
+  const always = opts.plain ? [] : alwaysOn(spec.id, spec.skillDirs);
+  const fixed = opts.plain
+    ? spec.persona
+    : parts([
+        identityBlock(spec.id),
+        `## How you work\n${spec.persona}`,
+        `## Your skills\nWhen a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, always.map((s) => s.dir))}` + alwaysBlock(spec.id, spec.skillDirs),
+      ]);
+  const moving = parts([
+    !opts.plain && continuityBlock(spec.id, requestText(task)),
+    aboutBlock(),
+    !opts.plain && wikiIndex(),
+    linksBlock(),
+    projectInstructions(),
+    !opts.plain && projectBlock(spec.id, undefined, requestText(task)),
+    leftOutBlock(),
+    !opts.plain && feedbackBlock(spec.id, currentProjectId()),
+    opts.extraSystem,
+  ]);
+  const system = parts([fixed, moving]); // as one text, for the runtimes that take it that way
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).
   // In a project, the crew can keep notes about it; a project can also turn the web tools off.
@@ -303,8 +393,11 @@ export async function runAgent(
   let lastText = "";
   let cutoffs = 0;
   let turn = 0;
+  let spentHere = 0;      // what this run's replies cost, attempt by attempt
+  let fellBack = false;   // another model carried on for at least one reply
   const finish = (status: AgentResult["status"], note = ""): AgentResult => {
-    const result: AgentResult = { text: lastText + note, status, turns: turn, usage, model, effort };
+    // (After a fallback the tokens were used at two models' rates: the cost worked out reply by reply is the right one.)
+    const result: AgentResult = { text: lastText + note, status, turns: turn, usage, model, effort, ...(fellBack ? { costUsd: spentHere } : {}) };
     // Every conversation lands in this agent's own session history, so the next one can build on it.
     const asked = requestText(task).replace(/^\(Sent directly by the user[^)]*\)\s*/, "");
     // (A plain chat has no crew member to keep it for: its conversation is its record.)
@@ -371,6 +464,7 @@ export async function runAgent(
         onDelta: (delta) => emit({ type: "text_delta", ...me, delta }),
         onText: (text) => emit({ type: "text", ...me, text }),
         onTool: (tool, input) => emit({ type: "tool", ...me, tool, input: preview(input) }),
+        onNotice: (text) => emit({ type: "notice", ...me, text }),
       }).catch((err: ClaudeCodeFailure) => {
         if (err.partial) { Object.assign(usage, err.partial.usage); turn = err.partial.turns; lastText = err.partial.text; failedCost = err.partial.costUsd; }
         throw err;
@@ -393,7 +487,7 @@ export async function runAgent(
         turn--;
         return finish("over_budget", budgetNote());
       }
-      let resp: { content: any[]; stop_reason: string | null; usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null } };
+      let resp: { content: any[]; stop_reason: string | null; model?: string; usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null; iterations?: unknown } };
       if (other) {
         try {
           resp = await providerChat({ provider: other.provider, model: other.model, system, messages: messages as any, tools: defs, maxTokens: MAX_TOKENS, signal,
@@ -403,29 +497,48 @@ export async function runAgent(
           throw err;
         }
       } else {
-      const stream = client().beta.messages.stream({
-        model,
-        max_tokens: MAX_TOKENS,
-        betas: ["context-management-2025-06-27"],
-        context_management: CONTEXT_MANAGEMENT,
-        ...(effort ? { output_config: { effort } } : {}),
-        // Two cache layers: an explicit breakpoint on the static prefix (tools + system),
-        // and automatic caching for the conversation, which grows by one turn each loop.
-        cache_control: { type: "ephemeral" },
-        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-        tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
-        messages: messages as unknown as Anthropic.Beta.BetaMessageParam[],
-      }, { signal });
-      // Words appear in mission control as they're written.
-      stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
-      try {
-        resp = await stream.finalMessage();
-      } catch (err) {
-        if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
-        throw err;
+      for (let attempt = 0; ; attempt++) {
+        const stream = client().beta.messages.stream({
+          model,
+          max_tokens: MAX_TOKENS,
+          betas: ["context-management-2025-06-27", ...(fallsBack(model) ? [FALLBACK_BETA] : [])],
+          context_management: CONTEXT_MANAGEMENT,
+          ...(fallsBack(model) ? { fallbacks: "default" as const } : {}),
+          ...(effort ? { output_config: { effort } } : {}),
+          // Three cache layers: a breakpoint after the fixed part of the prompt (with the tools
+          // ahead of it), one after the moving part, and automatic caching for the conversation,
+          // which grows by one turn each loop.
+          cache_control: { type: "ephemeral" },
+          system: [
+            { type: "text" as const, text: fixed, cache_control: { type: "ephemeral" as const } },
+            ...(moving ? [{ type: "text" as const, text: moving, cache_control: { type: "ephemeral" as const } }] : []),
+          ],
+          tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
+          messages: messages as unknown as Anthropic.Beta.BetaMessageParam[],
+        }, { signal });
+        // Words appear in mission control as they're written.
+        stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
+        try {
+          resp = await stream.finalMessage();
+          break;
+        } catch (err: any) {
+          if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
+          if (attempt >= retryWaits.length || !isPassingFailure(err)) throw err;
+          emit({ type: "notice", ...me, text: `⏳ The reply was cut off (${String(err?.message ?? err).slice(0, 120)}). Asking again in ${Math.round(retryWaits[attempt] / 1000)}s (${attempt + 1} of ${retryWaits.length}).` });
+          if (!(await pause(retryWaits[attempt], signal))) return finish("stopped", stoppedNote);
+        }
       }
       }
-      messages.push({ role: "assistant", content: resp.content as unknown as Anthropic.ContentBlockParam[] });
+      // Another model carried on after this one declined: say so, and keep only what carries over.
+      const { content: kept, live } = afterFallback(resp.content);
+      for (const b of resp.content) {
+        if (b?.type !== "fallback") continue;
+        fellBack = true;
+        const why = b.trigger?.category ? ` (${String(b.trigger.category).replace(/_/g, " ")})` : "";
+        emit({ type: "notice", ...me, text: `↪️ ${b.from?.model ?? model} declined this request${why}; ${b.to?.model ?? resp.model ?? "another model"} carried on.` });
+      }
+      if (Array.isArray(resp.usage.iterations) && resp.usage.iterations.some((i: any) => i?.type === "fallback_message")) fellBack = true; // (a later reply in a conversation that already fell back has no block)
+      messages.push({ role: "assistant", content: kept as unknown as Anthropic.ContentBlockParam[] });
       const turnUsage = {
         input: resp.usage.input_tokens,
         output: resp.usage.output_tokens,
@@ -436,7 +549,9 @@ export async function runAgent(
       usage.output += turnUsage.output;
       usage.cacheRead += turnUsage.cacheRead;
       usage.cacheWrite += turnUsage.cacheWrite;
-      if (ledger) ledger.spent += costOf(model, turnUsage);
+      const cost = replyCost(model, turnUsage, resp.usage.iterations);
+      spentHere += cost;
+      if (ledger) ledger.spent += cost;
 
       const text = resp.content
         .flatMap((b) => (b.type === "text" ? [b.text] : []))
@@ -463,7 +578,7 @@ export async function runAgent(
           return finish("cut_off", "\n\n[Stopped: responses kept hitting the output token limit.]");
         }
         emit({ type: "notice", ...me, text: `✂️  ${spec.name} hit the token limit; asking them to retry.` });
-        const cut = resp.content.flatMap((b) => (b.type === "tool_use" ? [b] : []));
+        const cut = live.flatMap((b) => (b.type === "tool_use" ? [b] : []));
         messages.push({
           role: "user",
           content: cut.length
@@ -494,22 +609,26 @@ export async function runAgent(
         return finish("over_budget", budgetNote());
       }
 
-      // Run every tool call from this turn at the same time (e.g. two dispatches = two parallel
-      // quests), then return all the results together, in order, in one message.
-      const uses = resp.content.flatMap((b) => (b.type === "tool_use" ? [b] : []));
-      const results: Anthropic.ToolResultBlockParam[] = await Promise.all(
-        uses.map(async (block) => {
-          emit({ type: "tool", ...me, tool: block.name, input: preview(block.input) });
-          const handler = handlers.get(block.name);
-          let out: ToolOutput;
-          try {
-            out = handler ? await handler(block.input) : `Unknown tool: ${block.name}`;
-          } catch (err: any) {
-            out = `Error: ${err.stderr || err.message}`; // let the model adapt instead of crashing
-          }
-          return { type: "tool_result" as const, tool_use_id: block.id, content: clipOutput(out) };
-        })
-      );
+      // This turn's tool calls, with all the results returned together, in order, in one message.
+      // Calls that only read, and dispatches (two dispatches = two quests side by side), run at the
+      // same time. Anything that writes, runs a command, or asks you goes one at a time, in the
+      // order it was called: two commands at once could trip over each other, and two approvals
+      // at once would have you answering out of order. The Claude Code runtime works the same way.
+      const uses = live.flatMap((b) => (b.type === "tool_use" ? [b] : []));
+      const runOne = async (block: any): Promise<Anthropic.ToolResultBlockParam> => {
+        emit({ type: "tool", ...me, tool: block.name, input: preview(block.input) });
+        const handler = handlers.get(block.name);
+        try {
+          const out: ToolOutput = handler ? await handler(block.input) : `Unknown tool: ${block.name}`;
+          return { type: "tool_result" as const, tool_use_id: block.id, content: clipOutput(out), ...(handler ? {} : { is_error: true }) };
+        } catch (err: any) {
+          // Let the model adapt instead of crashing, and tell it plainly that the call failed.
+          return { type: "tool_result" as const, tool_use_id: block.id, content: clipOutput(`Error: ${err.stderr || err.message}`), is_error: true };
+        }
+      };
+      const together = uses.map((b) => (SIDE_BY_SIDE.has(b.name) ? runOne(b) : null));
+      const results: Anthropic.ToolResultBlockParam[] = [];
+      for (const [i, block] of uses.entries()) results[i] = await (together[i] ?? runOne(block));
       // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn limit.
       const notes = [takeSteer(), maxTurns >= 6 ? wrapUpNote(maxTurns - turn) : null].filter((n): n is string => !!n);
       messages.push({ role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] });

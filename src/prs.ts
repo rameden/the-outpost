@@ -18,6 +18,7 @@ import { jiraConnected, ticketDetail } from "./jira.js";
 import { checked, fail, tryGit } from "./repos.js";
 import { prWatchOn } from "./settings.js";
 import { allTurns, shortened } from "./threads.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 const run = promisify(execFile);
 type Where = Pick<Workspace, "link" | "path">;
@@ -129,8 +130,7 @@ function load(): Record<string, PrState> {
   try { return existsSync(PRWATCH_PATH) ? JSON.parse(readFileSync(PRWATCH_PATH, "utf8")).prs ?? {} : {}; } catch { return {}; }
 }
 function save(prs: Record<string, PrState>) {
-  mkdirSync("camp", { recursive: true });
-  writeFileSync(PRWATCH_PATH, JSON.stringify({ prs }, null, 2) + "\n");
+  writeJsonAtomic(PRWATCH_PATH, { prs });
 }
 export const prStates = (): PrState[] => Object.values(load());
 

@@ -348,3 +348,17 @@ test("a new pull request description waits on its own card: update it as you, do
   await waitFor(() => expect(calls).toEqual([{ url: "/api/answer", body: { id: "ask_11", answer: "y" } }]));
   expect([askOutcome("describe", "y"), askOutcome("describe", "n"), askOutcome("describe", "Shorter")]).toEqual(["✓ Updated as you", "✕ Not updated", "↺ Changes requested: Shorter"]);
 });
+
+test("a command's card shows what it does in plain words, above the command, and says it's only a summary", () => {
+  const ask = { kind: "ask" as const, id: "n3", askId: "ask_12", askKind: "shell" as const, who: "Artificer", outcome: null,
+    title: "⚔️  The Artificer wants to run a shell command:", body: "for n in 405 406; do gh api repos/o/r/code-scanning/alerts/$n; done" };
+  const { container, rerender } = render(<AskCard ask={ask} />);
+  expect(container.querySelector(".ask-plain")).toBeNull(); // not there until it arrives (or when the setting is off)
+  rerender(<AskCard ask={{ ...ask, plain: "Does: Downloads two code-scanning alerts.\nChanges: Nothing: it only reads.\nOutside this machine: Reads from GitHub: api.github.com.\nWatch for: Nothing unusual." }} />);
+  const note = screen.getByRole("note", { name: "In plain words" });
+  expect([...note.querySelectorAll("dt")].map((d) => d.textContent)).toEqual(["Does", "Changes", "Outside this machine", "Watch for"]);
+  expect([...note.querySelectorAll("dd")][2].textContent).toBe("Reads from GitHub: api.github.com."); // only the first colon splits
+  expect(note.textContent).toMatch(/it can be wrong\. What runs is exactly the command below\./);
+  expect(note.compareDocumentPosition(container.querySelector(".ask-body")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Run command" })).toBeTruthy();
+});

@@ -20,17 +20,16 @@ writeFileSync(join(dist, "assets", "style-def456.css"), "body{}");
 writeFileSync(join(dist, "assets", "notes.txt"), "not a page asset");
 writeFileSync(join(dist, "secret.js"), "outside assets/");
 
-test("the page carries the launch token, and so does every asset link", () => {
-  const page = uiPage("tok123", dist)!;
-  assert.match(page, /<meta name="camp-token" content="tok123">/);
-  assert.match(page, /src="\/assets\/index-abc123\.js\?t=tok123"/);
-  assert.match(page, /href="\/assets\/style-def456\.css\?t=tok123"/);
-  assert.match(page, /href="https:\/\/example\.com\/assets\/elsewhere\.js"/, "links to other sites are left alone");
-  assert.ok(!page.includes("__CAMP_TOKEN__"));
+test("the page is served as built: the camp's key is never written into it or onto a link", () => {
+  const page = uiPage(dist)!;
+  assert.match(page, /src="\/assets\/index-abc123\.js"/);
+  assert.match(page, /href="\/assets\/style-def456\.css"/);
+  assert.match(page, /href="https:\/\/example\.com\/assets\/elsewhere\.js"/);
+  assert.doesNotMatch(page, /[?&]t=/);
 });
 
 test("no build yet: no page", () => {
-  assert.equal(uiPage("tok123", join(dist, "missing")), null);
+  assert.equal(uiPage(join(dist, "missing")), null);
 });
 
 test("assets are served with the right type", () => {
@@ -61,8 +60,8 @@ test("the terminal's style rules get a per-launch nonce, and nothing else is loo
   assert.ok(!csp.includes("unsafe-inline") && !csp.includes("unsafe-eval"));
   assert.equal(uiCsp(""), UI_CSP, "no nonce, no exception");
   assert.equal(uiCsp("x'; script-src *"), UI_CSP, "a value that isn't a nonce is never put into the policy");
-  writeFileSync(join(dist, "index.html"), '<meta name="camp-token" content="__CAMP_TOKEN__"><meta name="camp-style-nonce" content="__CAMP_NONCE__">');
-  assert.match(uiPage("tok", dist, "abcDEF123456_-abcDEF12")!, /<meta name="camp-style-nonce" content="abcDEF123456_-abcDEF12">/);
+  writeFileSync(join(dist, "index.html"), '<meta name="camp-style-nonce" content="__CAMP_NONCE__">');
+  assert.match(uiPage(dist, "abcDEF123456_-abcDEF12")!, /<meta name="camp-style-nonce" content="abcDEF123456_-abcDEF12">/);
 });
 
 test("the tour is the repo's docs page, under a policy that reaches nothing of the camp", () => {

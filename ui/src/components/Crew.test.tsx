@@ -128,3 +128,20 @@ test("under the crew bar, while anyone is out: one row per quest, and a row take
   send({ type: "expedition_end", id: "A", status: "done", text: "Done." });
   expect(screen.getByRole("group", { name: "Quests out now" }).textContent).toBe("No agents running");
 });
+
+test("the clock that counts how long each quest has been out only runs while someone is out", () => {
+  const store = createFeedStore();
+  let seq = 0;
+  const send = (...bodies: object[]) => act(() => { for (const b of bodies) store.apply({ ...b, seq: ++seq, time: new Date().toISOString() } as CampEvent); vi.advanceTimersByTime(20); });
+  const ticking = vi.spyOn(globalThis, "setInterval");
+  const stopped = vi.spyOn(globalThis, "clearInterval");
+  render(<Crew S={S} store={store} pickerFor={null} onOpenAgent={() => {}} onOpenPicker={() => {}} />);
+  act(() => { vi.advanceTimersByTime(5000); });
+  expect(ticking).not.toHaveBeenCalled(); // nobody's out: nothing to count
+  send({ type: "expedition_start", id: "A", task: "One thing", source: "user" },
+    { type: "dispatch", who: "Scout", emoji: "🏹", depth: 1, questId: "q1", expeditionId: "A", brief: "Look into it" });
+  expect(ticking).toHaveBeenCalledTimes(1);
+  send({ type: "expedition_end", id: "A", status: "done", text: "Done." });
+  expect(stopped).toHaveBeenCalledTimes(1);
+  ticking.mockRestore(); stopped.mockRestore();
+});

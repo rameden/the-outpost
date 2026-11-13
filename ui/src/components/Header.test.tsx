@@ -174,3 +174,22 @@ test("a Tour link beside the wordmark opens the splash page in a new tab", () =>
   expect(link.getAttribute("target")).toBe("_blank");
   expect(link.getAttribute("rel")).toContain("noopener");
 });
+
+test("the connection chip: quiet while live, and after a long outage it says the camp isn't running and what to do", () => {
+  const store = createFeedStore();
+  const refresh = vi.fn();
+  const { rerender } = render(<Header S={camp()} store={store} conn="live" refresh={refresh} />);
+  expect(screen.queryByRole("status")).toBeNull();
+  rerender(<Header S={camp()} store={store} conn="reconnecting" refresh={refresh} />);
+  expect(screen.getByRole("status").textContent).toBe("Reconnecting…");
+  rerender(<Header S={camp()} store={store} conn="offline" refresh={refresh} />);
+  expect(screen.getByRole("status").textContent).toBe("The camp isn't running. Start it again, or reopen the link it prints in the terminal.");
+  // Connected, but the panels' last reload failed: a chip says so, and a click tries again.
+  rerender(<Header S={camp()} store={store} conn="live" stale refresh={refresh} />);
+  expect(screen.queryByRole("status")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Out of date · retry" }));
+  expect(refresh).toHaveBeenCalledTimes(1);
+  // While the stream is down that's the news; the stale chip waits its turn.
+  rerender(<Header S={camp()} store={store} conn="reconnecting" stale refresh={refresh} />);
+  expect(screen.queryByRole("button", { name: "Out of date · retry" })).toBeNull();
+});

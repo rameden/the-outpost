@@ -323,10 +323,15 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
   }, [draft]);
 
   const isQm = agentId === "quartermaster";
+  // One send at a time: a second Enter while the first is still on its way would start two runs.
+  const sendingNow = useRef(false);
+  const [sending, setSending] = useState(false);
   async function send(ev: FormEvent) {
     ev.preventDefault();
     const text = draft.trim();
-    if (!text || !a) return;
+    if (!text || !a || sendingNow.current) return;
+    sendingNow.current = true;
+    setSending(true);
     try {
       const r = await api<SendResult>("/api/send", { text: isQm ? text : `@${a.id} ${text}`, chat: !isQm, project });
       setDraft((now) => (now.startsWith(draft) ? now.slice(draft.length) : now)); // keep anything typed while it was sending
@@ -334,6 +339,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
       dispatchLive({ type: "you", text, note: r.position > 0 ? `Queued (#${r.position}): starts when one of the running expeditions finishes` : undefined });
       setTimeout(() => { if (body.current) body.current.scrollTop = body.current.scrollHeight; }, 0);
     } catch (e) { setHint(errorText(e)); }
+    finally { sendingNow.current = false; setSending(false); }
   }
 
   const name = a?.name ?? character?.name ?? "";
@@ -386,7 +392,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
               <textarea ref={input} rows={1} aria-label="Message" placeholder={isQm ? "Ask the Quartermaster…" : `Message the ${name}…`} value={draft}
                 onChange={(ev) => setDraft(ev.target.value)}
                 onKeyDown={(ev) => { if (ev.key === "Enter" && !ev.shiftKey && !ev.nativeEvent.isComposing) { ev.preventDefault(); ev.currentTarget.form?.requestSubmit(); } }} />
-              <button className="btn primary" type="submit">Send</button>
+              <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>
             </form>
             <div className="drawer-hint">
               {hint || (isQm

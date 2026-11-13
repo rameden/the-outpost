@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { dirname } from "node:path";
 import { emit } from "./events.js";
 import { providerApproved, setProviderApproved } from "./settings.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 export const PROVIDERS_PATH = "camp/providers.json";
 export type ProviderId = "gemini" | "groq" | "openrouter";
@@ -43,8 +44,7 @@ function load(): Saved {
 }
 function save(s: Saved) {
   if (!Object.keys(s).length) { rmSync(PROVIDERS_PATH, { force: true }); return; }
-  mkdirSync(dirname(PROVIDERS_PATH), { recursive: true });
-  writeFileSync(PROVIDERS_PATH, JSON.stringify(s, null, 2) + "\n", { mode: 0o600 });
+  writeJsonAtomic(PROVIDERS_PATH, s, { mode: 0o600 });
 }
 function keyOf(p: Preset): { key: string; from: "env" | "camp" } | null {
   const env = process.env[p.env]?.trim();
@@ -53,15 +53,38 @@ function keyOf(p: Preset): { key: string; from: "env" | "camp" } | null {
   return kept ? { key: kept, from: "camp" } : null;
 }
 
-async function call(p: Preset, key: string, path: string, init: RequestInit = {}): Promise<Response> {
+// A request with no Stop signal of its own (listing models, checking a key) gives up after this
+// long, so a provider that has stopped answering can't hold up the page or a run's start.
+const CALL_TIMEOUT_MS = 20_000;
+// When a provider says "slow down" and says for how long (free tiers do, often), wait and ask
+// again rather than ending the run: up to this many times, and only for waits this short.
+const RATE_RETRIES = 2;
+const RATE_WAIT_MAX_MS = 30_000;
+const waitFor = (ms: number, signal?: AbortSignal | null) => new Promise<void>((ok, no) => {
+  const stop = () => { clearTimeout(timer); no(Object.assign(new Error("Stopped."), { name: "AbortError" })); };
+  if (signal?.aborted) return stop();
+  const timer = setTimeout(() => { signal?.removeEventListener("abort", stop); ok(); }, ms);
+  signal?.addEventListener("abort", stop, { once: true });
+});
+
+async function call(p: Preset, key: string, path: string, init: RequestInit = {}, retries = 0): Promise<Response> {
   let res: Response;
   try {
-    res = await fetch(`${baseUrl(p)}${path}`, { ...init, headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...(p.id === "openrouter" ? { "x-title": "Satchel" } : {}), ...(init.headers ?? {}) } });
+    res = await fetch(`${baseUrl(p)}${path}`, { ...init, signal: init.signal ?? AbortSignal.timeout(CALL_TIMEOUT_MS),
+      headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...(p.id === "openrouter" ? { "x-title": "Satchel" } : {}), ...(init.headers ?? {}) } });
   } catch (e: any) {
     if (e?.name === "AbortError") throw e;
-    throw new ProviderError(`Couldn't reach ${p.name}: ${e?.message ?? e}`);
+    throw new ProviderError(e?.name === "TimeoutError" ? `${p.name} didn't answer within ${CALL_TIMEOUT_MS / 1000} seconds.` : `Couldn't reach ${p.name}: ${e?.message ?? e}`);
   }
   if (res.ok) return res;
+  if (res.status === 429 && retries > 0) {
+    const after = Number(res.headers.get("retry-after"));
+    if (Number.isFinite(after) && after >= 0 && after * 1000 <= RATE_WAIT_MAX_MS) {
+      await res.body?.cancel().catch(() => {});
+      await waitFor(Math.max(250, after * 1000), init.signal);
+      return call(p, key, path, init, retries - 1);
+    }
+  }
   const body = await res.text().catch(() => "");
   let said = "";
   try { const j = JSON.parse(body); said = String((Array.isArray(j) ? j[0] : j)?.error?.message ?? j?.message ?? ""); } catch { said = body.slice(0, 200); }
@@ -194,7 +217,7 @@ export async function providerChat(o: { provider: string; model: string; system:
   const res = await call(p, k.key, "/chat/completions", {
     method: "POST", signal: o.signal,
     body: JSON.stringify({ model: o.model, messages: toChatMessages(o.system, o.messages), ...(tools.length ? { tools } : {}), max_tokens: o.maxTokens ?? 8192, stream: true, stream_options: { include_usage: true } }),
-  });
+  }, RATE_RETRIES);
   let text = "", finish = "", buffer = "";
   const calls: { id: string; name: string; args: string }[] = [];
   const usage = { input_tokens: 0, output_tokens: 0 };

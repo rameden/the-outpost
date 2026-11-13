@@ -4,6 +4,8 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { Settings, type SettingsSection } from "./Settings.tsx";
+import { Header } from "../components/Header.tsx";
+import { createFeedStore } from "../feed/store.ts";
 
 const posts: { path: string; body: unknown }[] = [];
 beforeEach(() => {
@@ -101,4 +103,22 @@ test("the camp's records that used to be in the side panel are sections here", (
   for (const name of ["Scheduled jobs", "Memory", "Skills", "Connectors"]) expect(screen.getByRole("button", { name: new RegExp(name) })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /^Wiki/ })).toBeNull(); // the wiki has a page of its own now, in the sidebar
   expect(screen.getByRole("button", { name: /Inbox/ }).textContent).toContain("1");
+});
+
+test("today's cost can be taken out of the top bar, at once, and stays out in this browser", () => {
+  localStorage.clear();
+  const S = { ...camp(), spend: { today: 1.5 } } as unknown as CampState;
+  render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  show("general", S);
+  const box = screen.getByRole("checkbox", { name: /Shown/ });
+  expect(screen.getByText("$1.50 today")).toBeTruthy();
+
+  fireEvent.click(box);
+  expect(screen.queryByText("$1.50 today")).toBeNull();
+  expect(screen.getByRole("checkbox", { name: /Hidden/ })).toHaveProperty("checked", false);
+  expect(localStorage.getItem("camp-show-cost")).toBe("0");
+
+  fireEvent.click(screen.getByRole("checkbox", { name: /Hidden/ }));
+  expect(screen.getByText("$1.50 today")).toBeTruthy();
+  localStorage.clear();
 });

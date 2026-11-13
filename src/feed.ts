@@ -6,6 +6,7 @@
 
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
 import type { CampEvent } from "./events.js";
+import { appendLine, writeAtomic } from "./atomic.js";
 
 export const FEED_PATH = "camp/feed.jsonl";
 // History reads conversations back from this file, so it keeps a lot before trimming.
@@ -16,8 +17,7 @@ export const keepInFeed = (e: CampEvent) => e.type !== "text_delta" && e.type !=
 
 export function saveToFeed(e: CampEvent) {
   try {
-    mkdirSync("camp", { recursive: true });
-    appendFileSync(FEED_PATH, JSON.stringify(e) + "\n");
+    appendLine(FEED_PATH, JSON.stringify(e));
   } catch { /* the live feed still works */ }
 }
 
@@ -53,13 +53,23 @@ export function loadFeed(limit: number): CampEvent[] {
   // Keep the file from growing forever: once it's large, drop the older half. Conversations
   // whose events are dropped still show in History, from what was asked and the final answer.
   try {
-    if (statSync(FEED_PATH).size > MAX_FILE_BYTES) {
-      writeFileSync(FEED_PATH, [...events.slice(-Math.ceil(events.length / 2)), ...closing].map((e) => JSON.stringify(e)).join("\n") + "\n");
-      index = null; // the file was rewritten: the next read indexes it again
-    }
-    else if (closing.length) appendFileSync(FEED_PATH, closing.map((e) => JSON.stringify(e)).join("\n") + "\n");
+    if (closing.length) appendLine(FEED_PATH, closing.map((e) => JSON.stringify(e)).join("\n"));
+    trimFeed();
   } catch { /* fine */ }
   return all;
+}
+
+// Once the file is large, drop its older half. Called at start-up and now and then while the
+// camp runs (it can stay up for weeks). The new file is written beside the old one and renamed
+// into place, so a crash part-way leaves the feed as it was. Returns whether it trimmed.
+export function trimFeed(maxBytes = MAX_FILE_BYTES): boolean {
+  try {
+    if (statSync(FEED_PATH).size <= maxBytes) return false;
+    const lines = readFileSync(FEED_PATH, "utf8").split("\n").filter(Boolean);
+    writeAtomic(FEED_PATH, lines.slice(-Math.ceil(lines.length / 2)).join("\n") + "\n");
+    index = null; // the file was rewritten: the next read indexes it again
+    return true;
+  } catch { return false; }
 }
 
 // ---------- Reading one expedition's events without reading the whole file ----------

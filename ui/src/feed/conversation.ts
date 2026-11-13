@@ -70,11 +70,19 @@ export function latestLiveRun(live: FeedNode[], thread: string): string | undefi
 
 // What's happening in each conversation right now, for the sidebar: is something running in it,
 // and how many decisions are waiting on you.
+//
+// The feed changes many times a second while an answer is being written, and almost none of
+// those changes touch this. So when the answer comes out the same as last time, the very same
+// object is handed back: whatever reads it (the whole page does) isn't drawn again for nothing.
 export type Activity = Record<string, { running: boolean; needs: number }>;
 let memo: { items: FeedNode[]; asks: FeedState["asks"]; out: Activity } | null = null;
+function sameActivity(a: Activity, b: Activity): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => !!b[k] && a[k].running === b[k].running && a[k].needs === b[k].needs);
+}
 export function activityOf(s: FeedState): Activity {
   if (memo && memo.items === s.items && memo.asks === s.asks) return memo.out;
-  const out: Activity = {};
+  let out: Activity = {};
   const threadOf = new Map<string, string>();
   for (const n of s.items) {
     if (!isRun(n) || !n.thread) continue;
@@ -85,6 +93,7 @@ export function activityOf(s: FeedState): Activity {
     const thread = a.expId ? threadOf.get(a.expId) : undefined;
     if (thread) (out[thread] ??= { running: false, needs: 0 }).needs++;
   }
+  if (memo && sameActivity(memo.out, out)) out = memo.out;
   memo = { items: s.items, asks: s.asks, out };
   return out;
 }

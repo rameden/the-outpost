@@ -410,3 +410,14 @@ describe("a plain chat", () => {
     expect(exp(done, "C").end?.status).toBe("done");
   });
 });
+
+describe("approvals in plain words", () => {
+  test("the summary joins its open card; one that arrives after you've answered is dropped", () => {
+    let s = feedOf([start("A", "Fix it"), { type: "ask", id: "ask_1", kind: "shell", title: "⚔️ Run?", body: "gh api x | jq .", expeditionId: "A" },
+      { type: "explained", id: "ask_1", text: "Does: Reads an alert.", expeditionId: "A" }]);
+    expect(findNodes(s.items, "ask").map((a) => [a.body, a.plain])).toEqual([["gh api x | jq .", "Does: Reads an alert."]]);
+    s = feedOf([{ type: "ask", id: "ask_2", kind: "shell", title: "⚔️ Run?", body: "ls", expeditionId: "A" }, { type: "answered", id: "ask_2", answer: "y" },
+      { type: "explained", id: "ask_2", text: "Does: Lists files.", expeditionId: "A" }, { type: "explained", id: "ask_nope", text: "Does: ?" }], s);
+    expect(findNodes(s.items, "ask").map((a) => a.plain)).toEqual(["Does: Reads an alert.", undefined]);
+  });
+});

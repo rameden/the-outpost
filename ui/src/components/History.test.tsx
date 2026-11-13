@@ -1,6 +1,7 @@
 // History on screen: conversations under their projects, what's running or waiting on you,
 // opening one, starting a new one in a project, and moving one between projects.
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { Profiler } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cardsFor, cardsFrom, latestLiveRun, parseView, type View } from "../feed/conversation.ts";
 import { createFeedStore } from "../feed/store.ts";
@@ -328,4 +329,27 @@ test("with Jira linked, the sidebar offers Start a ticket, then Jira and the Wik
   // Without Jira there's no ticket to start, but the wiki is still there.
   rerender(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onOpenWiki={onOpenWiki} onStartTicket={onStartTicket} />);
   expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Wiki", "Search", "All activity"]);
+});
+
+test("words arriving in a reply don't redraw History: only a run starting, ending or asking does", () => {
+  const store = createFeedStore();
+  let draws = 0;
+  let reads = 0; // History reads the camp's history each time it's drawn
+  const watched = new Proxy(S, { get(camp, key) { if (key === "history") reads++; return camp[key as keyof CampState]; } });
+  const props = { S: watched, store, view: { kind: "new" } as View, setView: () => {}, patch: () => {}, onNewProject: () => {}, onEditProject: () => {} };
+  const page = () => <Profiler id="history" onRender={() => { draws++; }}><History {...props} /></Profiler>;
+  const { rerender } = render(page());
+  const send = (...events: CampEvent[]) => act(() => { for (const e of events) store.apply(e); vi.advanceTimersByTime(20); });
+  send(ev({ type: "expedition_start", id: "c2b", task: "And the other test", source: "user", thread: "c2", expeditionId: "c2b" }));
+  expect(screen.getByText("1 running")).toBeTruthy();
+  const before = draws;
+  for (const word of ["Looking ", "into ", "it ", "now"]) send(ev({ type: "text_delta", ...qm, delta: word, expeditionId: "c2b" }));
+  expect(draws).toBe(before);
+  // Nor does the page around it being drawn again, while what History is given stays the same.
+  const read = reads;
+  rerender(page());
+  expect(reads).toBe(read);
+  send(ev({ type: "ask", id: "ask_9", kind: "plan", title: "Plan", body: "1. Fix it", expeditionId: "c2b" }));
+  expect(draws).toBeGreaterThan(before);
+  expect(screen.getByTitle("1 waiting for your decision")).toBeTruthy();
 });

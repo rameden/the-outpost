@@ -46,13 +46,19 @@ export function FileViewer({ root, rel, line, onClose, onMention }: {
   const ref = refOf(root, rel, false);
   const where = treeQuery(root.link, root.path, rel);
 
+  // The file is read once for each place it's opened at. (Escape has its own effect below: what
+  // closes the viewer is often a new function each time the page around it is drawn, and tied
+  // together that read the file again, and coloured it again, many times a second.)
   useEffect(() => {
     let gone = false;
     api<FilePreview>(`/api/tree/file?${where}`).then((f) => { if (!gone) setFile(f); }, (e) => { if (!gone) setError(errorText(e)); });
+    return () => { gone = true; };
+  }, [where]);
+  useEffect(() => {
     const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
     document.addEventListener("keydown", esc);
-    return () => { gone = true; document.removeEventListener("keydown", esc); };
-  }, [where, onClose]);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
 
   const lines = file && "text" in file ? file.text.replace(/\n$/, "").split("\n") : null;
   // The code, coloured by its language (told from the file's name), where it's one we know.

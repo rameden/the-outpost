@@ -20,7 +20,7 @@ const scribe: MemoryPlace = { where: "agent:scribe", name: "Scribe's memory", em
   { text: "Use British spelling", date: "2026-01-02", loaded: false },
   { text: "Use British spelling in docs", date: "2026-01-05", loaded: false },
   { text: "Headings in sentence case", date: "2026-01-09", loaded: true, origin: { how: "remember", run: "r1", thread: "t1", title: "Write the release notes" } },
-  { text: "No emoji in headings", date: "2026-02-03", loaded: true, origin: { how: "feedback" } },
+  { text: "No emoji in headings", date: "2026-02-03", loaded: true, pinned: true, origin: { how: "feedback" } },
 ] };
 const scout: MemoryPlace = { where: "agent:scout", name: "Scout's memory", emoji: "🏹", kind: "agent", size: 0, limit: 5000, unloaded: 0, other: 0, lines: [] };
 const tidy: Proposal = { id: "p1", kind: "tidy", where: "agent:scribe", name: "Scribe's memory", created: "2026-03-02T10:00:00Z", before: "- a\n- b\n- c\n- d", after: "- 2026-01-05 Use British spelling\n- 2026-01-09 Headings in sentence case" };
@@ -33,12 +33,19 @@ test("each memory: how full it is, what no longer fits, where a line came from, 
   expect(screen.queryByRole("region", { name: "Waiting for you" })).toBeNull();
   const place = within(screen.getByRole("region", { name: "Scribe's memory" }));
   expect(place.getByText("5,600 of 5,000 characters")).toBeTruthy();
-  expect(place.getByRole("status").textContent).toMatch(/^The oldest 2 lines no longer fit in a prompt, so the crew doesn't start with them \(recall can still find them\)/);
+  expect(place.getByRole("status").textContent).toMatch(/^This no longer all fits in a prompt\. 2 older lines are loaded only when a request is about them \(recall can still find them\)\. Pin a line to load it every time/);
   // Newest first; a line that isn't loaded says so.
   const rows = place.getAllByRole("listitem").map((li) => li.textContent);
   expect(rows[0]).toContain("No emoji in headings");
   expect(rows[0]).toContain("your feedback");
-  expect(rows[3]).toMatch(/Use British spelling2026-01-02not loaded/);
+  expect(rows[0]).toContain("pinned");
+  expect(place.getByRole("button", { name: "Unpin: No emoji in headings" }).getAttribute("aria-pressed")).toBe("true");
+  expect(rows[3]).toMatch(/Use British spelling2026-01-02only when relevant/);
+  // Pinning a line keeps it in every prompt; a pinned one says so and can be unpinned.
+  fireEvent.click(place.getByRole("button", { name: "Pin: Use British spelling" }));
+  await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+  expect(posts.at(-1)).toEqual({ path: "/api/memory/pin", body: { where: "agent:scribe", line: "Use British spelling", on: true } });
+  await waitFor(() => expect((place.getByRole("button", { name: "Forget: Use British spelling in docs" }) as HTMLButtonElement).disabled).toBe(false));
   // Where it came from is a way back to that conversation.
   fireEvent.click(place.getByRole("button", { name: "Write the release notes" }));
   expect(asked).toEqual([{ do: "open-conversation", id: "t1" }]);

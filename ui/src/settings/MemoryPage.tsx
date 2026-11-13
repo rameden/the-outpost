@@ -80,6 +80,13 @@ function Place({ m, refresh, waiting }: { m: MemoryPlace; refresh: () => void; w
     try { await api("/api/memory/forget", { where: m.where, line: line.text }); refresh(); } catch (e) { setError(errorText(e)); }
     setBusy("");
   };
+  // Pinned: it's in every prompt, however long this gets. (The note about you is loaded as written: nothing to pin.)
+  const pin = async (line: MemoryLine) => {
+    setBusy(line.text); setError("");
+    try { await api("/api/memory/pin", { where: m.where, line: line.text, on: !line.pinned }); refresh(); } catch (e) { setError(errorText(e)); }
+    setBusy("");
+  };
+  const lists = m.kind !== "about";
   const tidy = async () => {
     setBusy("tidy"); setError("");
     try { await api("/api/memory/tidy", { where: m.where }); refresh(); } catch (e) { setError(errorText(e)); }
@@ -89,18 +96,21 @@ function Place({ m, refresh, waiting }: { m: MemoryPlace; refresh: () => void; w
     <section className={cx("mem-place", m.kind === "agent" && cClass(m.name.replace(/'s memory$/, "")))} aria-label={m.name}>
       <div className="mem-place-head">
         <h4>{m.emoji ? `${m.emoji} ` : ""}{m.name}</h4>
-        <span className={cx("mem-meter", m.unloaded > 0 ? "over" : full >= 80 && "near")} title={`A prompt loads the newest ${m.limit.toLocaleString()} characters.`}>
+        <span className={cx("mem-meter", m.unloaded > 0 ? "over" : full >= 80 && "near")} title={lists ? `A prompt loads up to ${m.limit.toLocaleString()} characters: pinned lines, the newest, and older ones that bear on the request.` : `A prompt loads the newest ${m.limit.toLocaleString()} characters.`}>
           <span className="mem-bar"><span style={{ width: `${full}%` }} /></span>
           {m.size.toLocaleString()} of {m.limit.toLocaleString()} characters
         </span>
         {m.lines.length >= 4 && <button type="button" className="btn small" disabled={!!busy || waiting} title={waiting ? "A tidy is already waiting above" : "Have the smallest model draft a merged version, for you to approve"} onClick={tidy}>{busy === "tidy" ? "Drafting…" : "Tidy…"}</button>}
       </div>
-      {m.unloaded > 0 && <div className="mem-warn" role="status">The oldest {m.unloaded} {m.unloaded === 1 ? "line no longer fits" : "lines no longer fit"} in a prompt, so the crew doesn't start with {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). A tidy makes room.</div>}
+      {m.unloaded > 0 && (lists
+        ? <div className="mem-warn" role="status">This no longer all fits in a prompt. {m.unloaded} older {m.unloaded === 1 ? "line is" : "lines are"} loaded only when a request is about {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). Pin a line to load it every time; a tidy makes room.</div>
+        : <div className="mem-warn" role="status">The oldest {m.unloaded} {m.unloaded === 1 ? "line no longer fits" : "lines no longer fit"} in a prompt, so the crew doesn't start with {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). A tidy makes room.</div>)}
       {!m.lines.length && <div className="meta">{m.kind === "about" ? "Nothing yet. Write what's true of you whoever you're working with, or let the crew note it as they learn." : "Nothing remembered yet."}</div>}
       <ul className="mem-lines">
         {shown.map((l, i) => (
           <li key={`${l.date}|${l.text}|${i}`} className={cx(!l.loaded && "unloaded")}>
-            <div><span>{l.text}</span><small>{l.date && <time>{l.date}</time>}<Origin line={l} />{!l.loaded && <span className="mem-out">not loaded</span>}</small></div>
+            <div><span>{l.text}</span><small>{l.date && <time>{l.date}</time>}<Origin line={l} />{l.pinned && <span className="mem-pinned">pinned</span>}{!l.loaded && <span className="mem-out">{lists ? "only when relevant" : "not loaded"}</span>}</small></div>
+            {lists && <button type="button" className={cx("att-x mem-pin", l.pinned && "on")} aria-pressed={!!l.pinned} aria-label={`${l.pinned ? "Unpin" : "Pin"}: ${l.text}`} title={l.pinned ? "Pinned: in every prompt. Click to unpin." : "Pin: keep this line in every prompt"} disabled={!!busy} onClick={() => pin(l)}>📌</button>}
             <button type="button" className="att-x" aria-label={`Forget: ${l.text}`} title="Forget this line" disabled={!!busy} onClick={() => forget(l)}>×</button>
           </li>
         ))}

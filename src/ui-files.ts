@@ -2,9 +2,9 @@
 // ui/dist (`npm run ui:serve` builds it when it's missing or out of date): one index.html plus hashed
 // scripts and styles under assets/. The camp server serves those and nothing else from disk.
 //
-// The page runs under a Content-Security-Policy with no inline scripts or styles, so the launch
-// token goes into a <meta> tag, and each asset link gets ?t=<token> so the browser can fetch it
-// (assets need the token like every other request).
+// The page runs under a Content-Security-Policy with no inline scripts or styles. It holds
+// nothing of the camp (it's the same built files for everyone), so it and its assets are served
+// without the key; the page signs in for itself (ui/src/api.ts) before it asks for anything.
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
@@ -47,14 +47,12 @@ const ASSET_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 
-// The page with this launch's token filled in, or null when ui/dist hasn't been built.
-export function uiPage(token: string, dist = UI_DIST, styleNonce = ""): string | null {
+// The page, or null when ui/dist hasn't been built. The only thing filled in is this launch's
+// style nonce: the camp's key is never written into the page or onto a link.
+export function uiPage(dist = UI_DIST, styleNonce = ""): string | null {
   const file = join(dist, "index.html");
   if (!existsSync(file)) return null;
-  return readFileSync(file, "utf8")
-    .replace("__CAMP_TOKEN__", token)
-    .replace("__CAMP_NONCE__", styleNonce)
-    .replace(/\b(src|href)="(\/assets\/[^"?#]+)"/g, (_m, attr, path) => `${attr}="${path}?t=${token}"`);
+  return readFileSync(file, "utf8").replace("__CAMP_NONCE__", styleNonce);
 }
 
 // One built file from ui/dist/assets, by request path ("/assets/index-abc123.js"). Only files

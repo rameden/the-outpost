@@ -6,11 +6,11 @@
 //  - System and credential folders can't be linked (/, your home folder itself, ~/.ssh, ~/Library…).
 //  - Read-only unless linked with "write" access.
 //  - Inside a link, secret files (.env*, private keys, .netrc…) stay off limits, and symlinks
-//    can't lead outside the linked folder.
+//    can't lead outside the linked folder, or to a secret or git's own data inside it.
 //  - If a link contains this camp, paths into the camp still follow the camp's own rules
 //    (so a link can't be used to read .env or another agent's memory).
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, readdirSync, lstatSync, readlinkSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import { currentWorkspaces, inScope, leftOutHere } from "./context.js";
@@ -153,15 +153,49 @@ export function resolveLinked(path: string, mode: "read" | "write"): string | un
   if (!inside(abs, root)) throw new Error(`That path leaves links/${link.name}.`);
   const within = relative(root, abs).split(sep).filter(Boolean);
   if (within.some((seg) => SECRET_NAME.test(seg))) throw new Error(`${path} looks like a secret (keys, .env, credentials) and is off limits.`);
-  // Symlinks can't lead out of the linked folder.
-  let probe = abs;
-  while (!existsSync(probe) && probe !== root) probe = dirname(probe);
-  if (!inside(realpathSync(probe), realpathSync(root))) throw new Error(`${path} points outside links/${link.name}.`);
+  // Symlinks can't lead out of the linked folder, and where one leads inside it, the place it
+  // really points to has to pass the same rules as the name it was reached by (so a link called
+  // "notes" can't stand in for .env or .git/config).
+  const realRoot = realpathSync.native(root);
+  const real = realTarget(abs);
+  if (!inside(real, realRoot)) throw new Error(`${path} points outside links/${link.name}.`);
+  const realWithin = relative(realRoot, real).split(sep).filter(Boolean);
+  if (realWithin.some((seg) => SECRET_NAME.test(seg))) throw new Error(`${path} is a symlink to a secret (keys, .env, credentials) and is off limits.`);
   if (mode === "write" && link.access !== "write") throw new Error(`links/${link.name} is linked read-only. Re-link it with edit access to change files there.`);
   // A repository's own git data (its config and hooks can run programs) is never written by file
   // tools, even in a folder linked with edit access. This includes a worktree's .git file.
-  if (mode === "write" && within.includes(".git")) throw new Error(`${path} is git's own data, which file tools don't change. Git changes go through your Commit button.`);
+  if (mode === "write" && (within.includes(".git") || realWithin.includes(".git"))) throw new Error(`${path} is git's own data, which file tools don't change. Git changes go through your Commit button.`);
+  if (mode === "write" && isSymlink(abs)) throw new Error(`${path} is a symlink. File tools don't write through symlinks: write to the file it points to, by its own path.`);
   return abs;
+}
+
+export const isSymlink = (abs: string) => { try { return lstatSync(abs).isSymbolicLink(); } catch { return false; } };
+
+// Where a path really leads once every symlink on the way is followed, including a path whose
+// last parts don't exist yet (a file about to be written). It looks with lstat, so a symlink
+// whose target is missing still counts as being there: writing "through" it would create the
+// target, wherever that is, so it's followed by hand rather than taken for a new plain file.
+// (The system's own realpath is used because, on a disk that ignores case, it also gives a name
+// the way it's really spelled: "CAMP/Settings.json" comes back as camp/settings.json.)
+export function realTarget(abs: string, hops = 0): string {
+  if (hops > 40) throw new Error(`${abs} goes through too many symlinks.`);
+  const rest: string[] = [];
+  let probe = abs;
+  for (;;) {
+    try { lstatSync(probe); break; } catch { /* not there: look at its parent */ }
+    const up = dirname(probe);
+    if (up === probe) break;
+    rest.unshift(basename(probe));
+    probe = up;
+  }
+  let real: string;
+  try { real = realpathSync.native(probe); } catch {
+    // A symlink that points at nothing (or at another one that does).
+    let target: string;
+    try { target = readlinkSync(probe); } catch { throw new Error(`${abs} can't be followed to a real place on disk.`); }
+    real = realTarget(resolve(realTarget(dirname(probe), hops + 1), target), hops + 1);
+  }
+  return rest.length ? join(real, ...rest) : real;
 }
 
 // How agents and the dashboard should see a real path: links/<name>/… for linked folders.

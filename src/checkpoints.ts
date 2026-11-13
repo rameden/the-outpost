@@ -20,6 +20,8 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { currentExpeditionId, currentRunKey } from "./context.js";
+import { writeJsonAtomic } from "./atomic.js";
+import { gitSafeEnv } from "./sandbox.js";
 
 export const CHECKPOINTS_DIR = join("camp", "checkpoints");
 const MAX_SNAPSHOT_BYTES = 5_000_000;
@@ -45,7 +47,7 @@ function load(id: string): Manifest | null {
 
 function save(m: Manifest) {
   mkdirSync(dirFor(m.id), { recursive: true });
-  writeFileSync(join(dirFor(m.id), "manifest.json"), JSON.stringify(m, null, 2) + "\n");
+  writeJsonAtomic(join(dirFor(m.id), "manifest.json"), m);
 }
 
 function prune() {
@@ -63,12 +65,15 @@ function prune() {
 const SECRET_GLOBS = [".env*", "*.pem", "*.key", "id_rsa*", "id_ed25519*", "id_ecdsa*", ".netrc", ".npmrc", ".pypirc", ".git-credentials", "credentials", "credentials.json", "*.p12", "*.pfx"];
 const LEAVE_OUT = SECRET_GLOBS.map((g) => `:(exclude,glob)**/${g}`);
 const ID_ENV = { GIT_AUTHOR_NAME: "Satchel", GIT_AUTHOR_EMAIL: "satchel@localhost", GIT_COMMITTER_NAME: "Satchel", GIT_COMMITTER_EMAIL: "satchel@localhost" };
+// These run in the crew's working folders, whose git config a command of theirs may have
+// written: gitSafeEnv switches off what a config can make git run by itself (a file-system
+// monitor, hooks). The repository's own filters stay on, so files are recorded as git stores them.
 const gitIn = (root: string, args: string[], env: Record<string, string> = {}) =>
-  execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50_000_000, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...env } }).trim();
+  execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50_000_000, stdio: ["ignore", "pipe", "pipe"], env: { ...gitSafeEnv(), ...env } }).trim();
 
 const run = promisify(execFile);
 const gitAsync = async (root: string, args: string[], env: Record<string, string> = {}) =>
-  (await run("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50_000_000, env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...env } })).stdout.trim();
+  (await run("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50_000_000, env: { ...gitSafeEnv(), ...env } })).stdout.trim();
 
 // The working tree as it is right now, as a git tree (and a commit holding it), without touching
 // the repository's own index, HEAD, or branches. Starts from a copy of the real index, so only
@@ -170,14 +175,29 @@ export async function sealSnapshots(id: string): Promise<void> {
 type ShellChange = { snap: Snapshot; rel: string; abs: string; change: ChangedFile["change"] };
 // What changed in each repository between the snapshots (up to now, while it's still running),
 // leaving out files the file tools changed (those have their own entry).
-function shellChanges(m: Manifest): ShellChange[] {
+// sealedOnly: leave out a repository whose expedition hasn't ended (or ended without getting to
+// record how it left things). Working that out means reading the whole working tree, with git,
+// while everything else waits: fine for the one run you opened, not for a page that lists many.
+// A finished run's answer never changes (both ends are commits), so it's worked out once and kept.
+const sealedDiffs = new Map<string, string[]>();
+function shellChanges(m: Manifest, sealedOnly = false): ShellChange[] {
   const byTools = new Set(m.files.map((f) => f.abs));
   const out: ShellChange[] = [];
   for (const snap of m.snapshots ?? []) {
+    if (sealedOnly && !snap.after) continue;
     let lines: string[];
     try {
-      const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], ID_ENV);
-      lines = gitIn(snap.root, ["diff", "--name-status", "--no-renames", "-z", snap.before, after]).split("\0").filter(Boolean);
+      const key = snap.after ? `${snap.root}|${snap.before}|${snap.after}` : "";
+      const kept = key ? sealedDiffs.get(key) : undefined;
+      if (kept) lines = kept;
+      else {
+        const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], ID_ENV);
+        lines = gitIn(snap.root, ["diff", "--name-status", "--no-renames", "-z", snap.before, after]).split("\0").filter(Boolean);
+        if (key) {
+          if (sealedDiffs.size >= 300) sealedDiffs.delete(sealedDiffs.keys().next().value!);
+          sealedDiffs.set(key, lines);
+        }
+      }
     } catch { continue; }
     for (let i = 0; i + 1 < lines.length; i += 2) {
       const rel = lines[i + 1], abs = join(snap.root, rel);
@@ -244,7 +264,7 @@ function changeOf(dir: string, f: Entry): ChangedFile["change"] | null {
   return readFileSync(join(dir, f.blob)).equals(readFileSync(f.abs)) ? null : "modified";
 }
 
-export function changedFiles(id: string): ChangedFile[] {
+export function changedFiles(id: string, opts: { sealedOnly?: boolean } = {}): ChangedFile[] {
   const m = load(id);
   if (!m) return [];
   if (m.undone) return []; // put back: what's there now isn't this expedition's any more
@@ -253,7 +273,7 @@ export function changedFiles(id: string): ChangedFile[] {
       const change = changeOf(dirFor(id), f);
       return change ? [{ path: f.path, change }] : [];
     }),
-    ...shellChanges(m).map((c) => ({ path: shownOf(c), change: c.change })),
+    ...shellChanges(m, opts.sealedOnly).map((c) => ({ path: shownOf(c), change: c.change })),
   ];
 }
 

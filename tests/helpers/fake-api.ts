@@ -10,12 +10,19 @@ export type Reply = {
   stop?: "end_turn" | "tool_use" | "max_tokens" | "refusal";
   usage?: { input_tokens: number; output_tokens: number };
   delayMs?: number; // wait before replying (to test parallel runs and Stop)
+  drop?: boolean;   // start the reply, then cut the connection (a stream that breaks part-way)
+  blocks?: any[];   // content blocks sent whole, before the text and tools (a "fallback" block, say)
+  model?: string;   // the model named as having written the reply (a fallback model)
+  iterations?: any[]; // usage.iterations: one entry per attempt
 };
 
 export type Seen = { at: number; who: string; body: any; headers: http.IncomingHttpHeaders };
 
 // Helpers for reading a request.
 export const whoAsks = (body: any): string => body.system?.[0]?.text?.match(/You are the (\w+)/)?.[1] ?? "?";
+// The whole system prompt. It arrives in two blocks: the part that stays the same from run to run
+// (identity, how they work, skills), then the part that moves (memory, sessions, project, feedback).
+export const systemText = (body: any): string => (Array.isArray(body.system) ? body.system.map((b: any) => b.text).join("\n\n") : String(body.system ?? ""));
 export const lastToolResults = (body: any): string => {
   const last = body.messages.at(-1);
   return Array.isArray(last.content) ? last.content.map((c: any) => (typeof c.content === "string" ? c.content : "")).join("\n") : "";
@@ -41,9 +48,16 @@ export async function startFakeApi(respond: (body: any) => Reply | Promise<Reply
       res.writeHead(200, { "content-type": "text/event-stream" });
       const send = (event: string, data: object) => res.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`);
       const usage = r.usage ?? { input_tokens: 100, output_tokens: 20 };
-      send("message_start", { message: { id: `msg_${++n}`, type: "message", role: "assistant", model: "fake", content: [], stop_reason: null, stop_sequence: null,
+      send("message_start", { message: { id: `msg_${++n}`, type: "message", role: "assistant", model: r.model ?? "fake", content: [], stop_reason: null, stop_sequence: null,
         usage: { input_tokens: usage.input_tokens, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } });
+      // (A moment first, so the start of the reply has reached the client: a connection cut before
+      // that is retried by the SDK itself, which isn't what this is for.)
+      if (r.drop) return void setTimeout(() => res.destroy(), 25);
       let i = 0;
+      for (const b of r.blocks ?? []) {
+        send("content_block_start", { index: i, content_block: b });
+        send("content_block_stop", { index: i++ });
+      }
       if (r.text) {
         send("content_block_start", { index: i, content_block: { type: "text", text: "" } });
         send("content_block_delta", { index: i, delta: { type: "text_delta", text: r.text } });
@@ -55,7 +69,7 @@ export async function startFakeApi(respond: (body: any) => Reply | Promise<Reply
         send("content_block_stop", { index: i++ });
       }
       const stop = r.stop ?? (r.tools?.length ? "tool_use" : "end_turn");
-      send("message_delta", { delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: usage.output_tokens } });
+      send("message_delta", { delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: usage.output_tokens, ...(r.iterations ? { iterations: r.iterations } : {}) } });
       send("message_stop", {});
       res.end();
     });

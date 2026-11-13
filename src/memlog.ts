@@ -11,6 +11,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { writeAtomic } from "./atomic.js";
 
 // A place things are kept: "agent:<id>", "project:<id>", or "about".
 export type Where = string;
@@ -18,7 +19,8 @@ export type KeptHow = "remember" | "feedback" | "suggestion" | "you" | "tidy";
 export type KeptLine = { time: string; where: Where; text: string; how: KeptHow; run?: string };
 
 const LOG = join("camp", "memory-log.jsonl");
-export const norm = (text: string) => text.replace(/^-\s*(\d{4}-\d{2}-\d{2}\s+)?/, "").replace(/\s+/g, " ").trim().toLowerCase();
+// A line by its words alone: no dash, date or pin, so it's the same line whether or not it's pinned.
+export const norm = (text: string) => text.replace(/^-\s*(\d{4}-\d{2}-\d{2}\s+)?(📌\s*)?/u, "").replace(/\s+/g, " ").trim().toLowerCase();
 
 export function logKept(where: Where, text: string, how: KeptHow, run?: string) {
   try {
@@ -54,8 +56,7 @@ export function readAbout(): string {
   try { return readFileSync(ABOUT_PATH, "utf8").trim(); } catch { return ""; }
 }
 export function writeAbout(text: string) {
-  mkdirSync("camp", { recursive: true });
-  writeFileSync(ABOUT_PATH, String(text).trim().slice(0, 20_000) + (String(text).trim() ? "\n" : ""));
+  writeAtomic(ABOUT_PATH, String(text).trim().slice(0, 20_000) + (String(text).trim() ? "\n" : ""));
 }
 export function addAbout(text: string, how: KeptHow = "remember", run?: string) {
   mkdirSync("camp", { recursive: true });

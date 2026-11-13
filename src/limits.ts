@@ -3,7 +3,8 @@
 // camp pauses instead of failing: queued expeditions and scheduled jobs wait for the reset.
 // Kept in camp/limits.json so a restart (or a `watch --once` run) still knows about a pause.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { writeJsonAtomic } from "./atomic.js";
 import { emit } from "./events.js";
 
 export const LIMITS_PATH = "camp/limits.json";
@@ -17,18 +18,24 @@ export type PlanLimit = {
 };
 type Saved = { limits: Record<string, PlanLimit>; resumed?: number };
 
+// Kept until the file changes: `npm run watch` and mission control both write it, and each must
+// see what the other noted (a pause one of them hit holds for both).
 let cache: Saved | null = null;
+let cacheKey = "";
+const fileKey = () => { try { const st = statSync(LIMITS_PATH); return `${process.cwd()}|${st.mtimeMs}:${st.size}`; } catch { return `${process.cwd()}|none`; } };
 function load(): Saved {
-  if (cache) return cache;
+  const key = fileKey();
+  if (cache && cacheKey === key) return cache;
   try { cache = existsSync(LIMITS_PATH) ? (JSON.parse(readFileSync(LIMITS_PATH, "utf8")) as Saved) : { limits: {} }; }
   catch { cache = { limits: {} }; }
   cache.limits ??= {};
+  cacheKey = key;
   return cache;
 }
 function save(s: Saved) {
+  writeJsonAtomic(LIMITS_PATH, s);
   cache = s;
-  mkdirSync("camp", { recursive: true });
-  writeFileSync(LIMITS_PATH, JSON.stringify(s, null, 2) + "\n");
+  cacheKey = fileKey();
 }
 
 const LABELS: Record<string, string> = {

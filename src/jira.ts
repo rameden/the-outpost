@@ -22,6 +22,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { dirname } from "node:path";
 import { jiraWrite, setJiraWrite, jiraFilter, setJiraFilter } from "./settings.js";
 import type { Tool } from "./tools.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 export const JIRA_PATH = "camp/jira.json";
 export type JiraCredentials = { siteUrl: string; email: string; apiToken: string };
@@ -170,8 +171,7 @@ export async function connectJira(input: { siteUrl?: unknown; email?: unknown; a
   const me = await jiraClient({ siteUrl, email, apiToken }).myself();
   mkdirSync(dirname(JIRA_PATH), { recursive: true });
   const record: Saved = { siteUrl, email, apiToken, accountId: me.accountId, displayName: me.displayName, connected: new Date().toISOString() };
-  writeFileSync(JIRA_PATH, JSON.stringify(record, null, 2) + "\n", { mode: 0o600 });
-  chmodSync(JIRA_PATH, 0o600); // an existing file keeps its old mode otherwise
+  writeJsonAtomic(JIRA_PATH, record, { mode: 0o600 }); // a new file each time, so the mode always holds
   return jiraStatus();
 }
 export function disconnectJira(): JiraStatus {

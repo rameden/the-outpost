@@ -1,12 +1,14 @@
 // A few things one part of the page asks of another that sits far from it in the tree: an
 // answer's file path asking for the file viewer, a worktree's row putting text in the message
-// box, a typed /command or the command palette asking for a panel. Said here, heard in App.
+// box, a typed /command or the command palette asking for a panel. Said here, heard in App
+// (and, for a line the page says back to you, in the status line by the message box).
 
 export type Ask =
   | { do: "open-file"; path: string; line?: number }        // a path as the crew wrote it (links/…, or inside an attached folder)
   | { do: "compose"; text: string; replyTo?: string; task?: string } // put this in the message box (as a reply to a run, named by its request)
   | { do: "open-conversation"; id: string }                 // go to a conversation (a memory line's origin, say)
-  | { do: "command"; name: string; arg?: string };          // /new, /focus, /good…
+  | { do: "command"; name: string; arg?: string }           // /new, /focus, /good…
+  | { do: "tell"; text: string; error?: boolean };          // a line back to you, shown by the message box (StatusLine)
 
 const NAME = "camp:ask";
 export const say = (ask: Ask) => window.dispatchEvent(new CustomEvent<Ask>(NAME, { detail: ask }));
