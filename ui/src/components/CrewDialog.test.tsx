@@ -31,12 +31,15 @@ test("the crew bar has a + in its corner that opens the dialog; added crew membe
   const onAdd = vi.fn(), onEdit = vi.fn(), onOpenAgent = vi.fn();
   render(<Crew S={S} store={createFeedStore()} pickerFor={null} onOpenAgent={onOpenAgent} onOpenPicker={() => {}} onAdd={onAdd} onEdit={onEdit} />);
   const bar = screen.getByRole("region", { name: "The crew" });
-  // The crew's half of the roster: the crew, then the + and the chevron in the corner. The chevron
-  // opens the bar up, or folds it down; it sits in the strip, so the roster has no row of its own for it.
-  const fold = screen.getByRole("button", { name: "Show more about the crew" });
-  expect([...bar.parentElement!.children]).toEqual([bar, screen.getByRole("button", { name: "Add a crew member" }), fold]);
-  expect(fold.getAttribute("aria-expanded")).toBe("false");
-  expect(document.querySelector(".crew-rail")).toBeNull();
+  // The crew's half of the roster: the crew, then the + in the corner, and the arrow that folds the half away.
+  expect([...bar.parentElement!.children]).toEqual([bar, screen.getByRole("button", { name: "Add a crew member" }), screen.getByRole("button", { name: "Hide the crew" })]);
+  // Under the whole roster area (the crew and who's running), the "Crew" rail: it opens the bar up, or folds it down.
+  const rail = screen.getByRole("button", { name: "Show more about the crew" });
+  expect(rail.textContent).toBe("Crew");
+  expect(rail.className).toContain("zone-rail"); // the same rail History, Files and the terminal have
+  expect(rail.getAttribute("aria-expanded")).toBe("false");
+  expect(rail.previousElementSibling?.className).toBe("crew-area");
+  expect(rail.parentElement!.lastElementChild).toBe(rail);
   expect(bar.querySelector("button.member-add, .crew-toggle")).toBeNull(); // nothing but the crew inside the bar itself
   fireEvent.click(screen.getByRole("button", { name: "Add a crew member" }));
   expect(onAdd).toHaveBeenCalled();

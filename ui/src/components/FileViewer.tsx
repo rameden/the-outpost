@@ -30,17 +30,19 @@ type Mode = "read" | "file" | "changes";
 
 const LINE = 19.5; // one line of code, in pixels: 13px at 1.5 (see .file-text)
 
-export function FileViewer({ root, rel, line, onClose, onMention }: {
-  root: FileRoot; rel: string; line?: number; onClose: () => void; onMention: (path: string) => void;
+// changes: open at what's different since the last commit (from the list of changed files).
+export function FileViewer({ root, rel, line, changes: atChanges = false, onClose, onMention }: {
+  root: FileRoot; rel: string; line?: number; changes?: boolean; onClose: () => void; onMention: (path: string) => void;
 }) {
   const [file, setFile] = useState<FilePreview | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   // A Markdown file opens laid out to read, unless you were sent to a particular line of it.
   const markdown = isMarkdown(rel);
-  const [mode, setMode] = useState<Mode>(markdown && !line ? "read" : "file");
-  const changes = mode === "changes";
   const tracked = root.link !== CAMP_FILES; // the camp's own files aren't in a repository you'd compare against
+  const [mode, setMode] = useState<Mode>(atChanges && tracked ? "changes" : markdown && !line ? "read" : "file");
+  // Only text has changes to lay out: an image, or a file that isn't text, is shown as itself.
+  const changes = mode === "changes" && (!file || "text" in file);
   const [diff, setDiff] = useState<{ diff: string; untracked: boolean } | null>(null);
   const body = useRef<HTMLDivElement>(null);
   const ref = refOf(root, rel, false);
@@ -73,12 +75,15 @@ export function FileViewer({ root, rel, line, onClose, onMention }: {
   }, [marked, changes, file]);
 
   const page = useMemo(() => (markdown && file && "text" in file ? frontMatter(file.text) : null), [file, markdown]);
-  async function show(next: Mode) {
-    setMode(next);
-    if (next !== "changes" || diff) return;
-    try { setDiff(await api<{ diff: string; untracked: boolean }>(`/api/tree/diff?${where}`)); }
-    catch (e) { setError(errorText(e)); }
-  }
+  // What changed is read the first time it's asked for (a tab, or being opened at it).
+  const wantDiff = changes && !!file && !diff;
+  useEffect(() => {
+    if (!wantDiff) return;
+    let gone = false;
+    api<{ diff: string; untracked: boolean }>(`/api/tree/diff?${where}`).then((d) => { if (!gone) setDiff(d); }, (e) => { if (!gone) setError(errorText(e)); });
+    return () => { gone = true; };
+  }, [wantDiff, where]);
+  const show = setMode;
   const rows = useMemo(() => (diff?.diff ? sideBySide(diff.diff) : []), [diff]);
   async function copy() {
     try { await navigator.clipboard.writeText(file?.abs ?? ref); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* no clipboard here */ }

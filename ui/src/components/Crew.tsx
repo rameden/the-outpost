@@ -1,16 +1,22 @@
 // The roster area is two halves, side by side. On the left, the crew. On the right, who's running:
 // every quest that's out right now, one row each (two quests by the same crew member are two
 // rows), with what it's for, what it's doing this moment, how long it's been out, and whether
-// it's waiting on you; a row goes to that quest in its conversation. With nobody out, it shrinks
-// to a short note at the end and the crew has the whole width (styles.css).
+// it's waiting on you; a row goes to that quest in its conversation. With nobody out, the right
+// half says so, so the area keeps its shape.
+//
+// The halves start the same width. Drag the line between them to give one more room, and the
+// arrow at the end of either half folds that half away to a slim rail at its edge (the crew's
+// says how many are busy, the other how many are out), which brings it back. One half is always
+// open: folding the second opens the first. The widths and what's folded are remembered.
 //
 // The crew, as a bar: by default a slim strip with each agent's icon, name, and a dot (plus what
-// they're doing, while they're doing it). The chevron at the end of the strip opens it up into
-// cards that also show each one's level and model, and folds it again; your choice is remembered.
-// The + beside it adds a crew member. Click an agent for its page;
+// they're doing, while they're doing it). The "Crew" rail under the whole roster area (the same
+// rail History, Files and the terminal have) opens it up into cards that also show each one's
+// level and model, and folds it again; your choice is remembered. The + at the end of the crew's
+// half adds a crew member. Click an agent for its page;
 // on a card, click the model line to change model, effort, or turns.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { storeGet, storeSet } from "../api.ts";
 import { glide } from "../motion.tsx";
 import { Icon } from "./bits.tsx";
@@ -22,7 +28,16 @@ import type { QuestOut } from "../feed/reducer.ts";
 // How long something has been going, as you'd say it.
 export const outFor = (ms: number) => took(ms / 1000);
 
-function QuestsOut({ quests, onOpen }: { quests: QuestOut[]; onOpen?: (q: QuestOut) => void }) {
+// How much of the roster the crew's half takes, and which half is folded away (if either).
+const DEFAULT_SHARE = 0.5, MIN_SHARE = 0.2, MAX_SHARE = 0.8;
+type Fold = "crew" | "out" | null;
+function rememberedShare(): number {
+  const n = Number(storeGet("camp-crew-share"));
+  return n >= MIN_SHARE && n <= MAX_SHARE ? n : DEFAULT_SHARE;
+}
+const rememberedFold = (): Fold => { const v = storeGet("camp-crew-fold"); return v === "crew" || v === "out" ? v : null; };
+
+function QuestsOut({ quests, onOpen, onHide }: { quests: QuestOut[]; onOpen?: (q: QuestOut) => void; onHide: () => void }) {
   // The clock ticks only while someone is out.
   const [now, setNow] = useState(() => Date.now());
   const out = quests.length > 0;
@@ -33,7 +48,8 @@ function QuestsOut({ quests, onOpen }: { quests: QuestOut[]; onOpen?: (q: QuestO
     return () => clearInterval(t);
   }, [out]);
   const waiting = quests.filter((q) => q.waiting).length;
-  if (!quests.length) return <div className="crew-out idle" role="group" aria-label="Quests out now"><span className="co-none">No agents running</span></div>;
+  const hide = <button type="button" className="hist-icon half-hide" aria-label="Hide who's running" title="Fold this half away to a rail, and give the crew the room" onClick={onHide}><Icon name="chevronRight" /></button>;
+  if (!quests.length) return <div className="crew-out idle" role="group" aria-label="Quests out now"><span className="co-none">No agents running</span>{hide}</div>;
   return (
     <div className="crew-out" role="group" aria-label="Quests out now">
       <span className="co-head"><b>{quests.length} out</b>{waiting > 0 && <span>· {waiting} {waiting === 1 ? "needs" : "need"} your OK</span>}</span>
@@ -49,6 +65,7 @@ function QuestsOut({ quests, onOpen }: { quests: QuestOut[]; onOpen?: (q: QuestO
           </li>
         ))}
       </ul>
+      {hide}
     </div>
   );
 }
@@ -66,9 +83,34 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
   const quests = useFeed(store, (s) => s.quests); // every quest that's out: a crew member can have several
   const [slim, setSlim] = useState(() => storeGet("camp-crew") !== "cards");
   const bar = useRef<HTMLElement>(null);
+  const area = useRef<HTMLDivElement>(null);
+  const [share, setShare] = useState(rememberedShare);
+  const [fold, setFold] = useState<Fold>(rememberedFold);
+  const folded = (next: Fold) => { storeSet("camp-crew-fold", next ?? ""); setFold(next); };
+  // The line between the halves sits where the pointer is, as a share of the roster's width.
+  const keepShare = (next: number) => { const s = Math.min(MAX_SHARE, Math.max(MIN_SHARE, next)); setShare(s); return s; };
+  function startDrag(ev: ReactPointerEvent<HTMLElement>) {
+    ev.preventDefault();
+    const box = area.current?.getBoundingClientRect();
+    if (!box?.width) return;
+    let last = share;
+    const move = (m: PointerEvent) => { last = keepShare((m.clientX - box.left) / box.width); };
+    const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); storeSet("camp-crew-share", String(+last.toFixed(4))); };
+    addEventListener("pointermove", move);
+    addEventListener("pointerup", up);
+  }
+  function onLineKey(ev: KeyboardEvent<HTMLElement>) {
+    const step = { ArrowLeft: -0.02, ArrowRight: 0.02 }[ev.key];
+    if (!step) return;
+    ev.preventDefault();
+    storeSet("camp-crew-share", String(+keepShare(share + step).toFixed(4)));
+  }
+  const busy = S?.characters.filter((c) => (crew[c.name]?.status ?? "idle") !== "idle").length ?? 0;
+  const waiting = quests.filter((q) => q.waiting).length;
   // Opening the bar up (or folding it down) moves everything after it: those glide to their new
   // places, and the bar's own contents fade up.
   const toggle = () => {
+    if (fold === "crew") return folded(null); // nothing to open up while the crew is folded away: bring it back
     const zone = bar.current?.closest<HTMLElement>(".zone");
     const after: HTMLElement[] = [];
     for (let el = zone?.nextElementSibling; el; el = el.nextElementSibling) after.push(el as HTMLElement);
@@ -76,7 +118,13 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
   };
   return (
     <div className="crew-zone">
-    <div className="crew-area">
+    <div className={cx("crew-area", fold && `fold-${fold}`)} ref={area} style={{ "--crew-share": share } as CSSProperties}>
+    {fold === "crew" ? (
+      <button type="button" className="zone-rail half-rail" aria-expanded="false" aria-label="Show the crew" onClick={() => folded(null)}
+        title={`${busy ? `${busy} of the crew ${busy === 1 ? "is" : "are"} busy.\n\n` : ""}Show the crew.`}>
+        <Icon name="users" />{busy > 0 && <b>{busy}</b>}
+      </button>
+    ) : (
     <div className="crew-half">
     <section className={cx("crew", slim && "slim")} aria-label="The crew" ref={bar}>
       {S?.characters.map((c) => {
@@ -115,15 +163,31 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
       })}
     </section>
     {S && onAdd && <button type="button" className="hist-icon crew-add" aria-label="Add a crew member" title="Add a crew member" onClick={onAdd}>+</button>}
-    {S && (
-      <button type="button" className="hist-icon crew-fold" aria-expanded={!slim} aria-label={slim ? "Show more about the crew" : "Show less about the crew"}
+    {S && <button type="button" className="hist-icon half-hide" aria-label="Hide the crew" title="Fold this half away to a rail, and give who's running the room" onClick={() => folded("crew")}><Icon name="chevronLeft" /></button>}
+    </div>
+    )}
+    {!fold && (
+      <div className="crew-line" role="separator" tabIndex={0} aria-orientation="vertical" aria-label="Resize the crew and who's running" title="Drag to resize"
+        aria-valuenow={Math.round(share * 100)} aria-valuemin={MIN_SHARE * 100} aria-valuemax={MAX_SHARE * 100}
+        onPointerDown={startDrag} onKeyDown={onLineKey} />
+    )}
+    {fold === "out" ? (
+      <button type="button" className={cx("zone-rail half-rail", waiting > 0 && "waiting")} aria-expanded="false" aria-label="Show who's running" onClick={() => folded(null)}
+        title={`${quests.length ? `${quests.length} out${waiting ? `, ${waiting} ${waiting === 1 ? "needs" : "need"} your OK` : ""}` : "No agents running"}.\n\nShow who's running.`}>
+        <Icon name="list" />{quests.length > 0 && <b>{quests.length}</b>}
+      </button>
+    ) : <QuestsOut quests={quests} onOpen={onOpenQuest} onHide={() => folded("out")} />}
+    </div>
+    {S && fold === "crew" ? (
+      <button type="button" className="zone-rail crew-rail" aria-expanded="false" aria-label="Show the crew" title="Show the crew" onClick={toggle}>
+        <Icon name="users" /><span>Crew</span><Icon name="chevronRight" />
+      </button>
+    ) : S && (
+      <button type="button" className="zone-rail crew-rail" aria-expanded={!slim} aria-label={slim ? "Show more about the crew" : "Show less about the crew"}
         title={slim ? "Open the crew up into cards: level, model, and what each is doing" : "Fold the crew down to a slim strip"} onClick={toggle}>
-        <Icon name={slim ? "chevron" : "chevronUp"} />
+        <Icon name="users" /><span>Crew</span><Icon name={slim ? "chevron" : "chevronUp"} />
       </button>
     )}
-    </div>
-    <QuestsOut quests={quests} onOpen={onOpenQuest} />
-    </div>
     </div>
   );
 }
