@@ -61,7 +61,7 @@ test("the busy chip counts running expeditions and what's queued, and the title 
   );
   expect(screen.getByText("2 expeditions running · 1 queued")).toBeTruthy();
   expect(screen.getByRole("button", { name: "2 decisions need you" })).toBeTruthy();
-  expect(document.title).toBe("(2) Mae");
+  expect(document.title).toBe("(2) Mae, My Alter Ego");
 
   events(store, { type: "answered", id: "ask1", answer: "" });
   expect(screen.getByRole("button", { name: "1 decision needs you" })).toBeTruthy();
@@ -147,21 +147,18 @@ test("what needs you is one chip: several things open a list, and each row goes 
   expect(screen.queryByRole("button", { name: /need/ })).toBeNull();
 });
 
-test("the name is the orb and the word Mae, with no subtitle beside it", () => {
-  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+test("the name is the logo kit's logo, with no subtitle and no orb beside it", () => {
+  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   const name = screen.getByRole("heading", { level: 1 });
-  expect(name.textContent).toBe("Mae");
+  // The logo is one drawing, the mark and the name, in the colour of the text around it (the kit's ink for the theme), read as "Mae".
+  const logo = within(name).getByRole("img", { name: "Mae" });
+  expect([...logo.querySelectorAll("path")].every((p) => [p.getAttribute("fill"), p.parentElement!.getAttribute("stroke")].includes("currentColor"))).toBe(true);
+  expect(logo.querySelector("circle.logo-dot")).toBeTruthy(); // the amber centre, coloured by the stylesheet
+  expect(name.textContent).toBe(""); // no words beside the drawing
   expect(screen.queryByText("Mission control")).toBeNull();
-  // The orb is decoration beside the name (the name is read once), and calm while nothing is running.
-  const orb = name.querySelector(".mae-orb")!;
-  expect(orb.getAttribute("aria-hidden")).toBe("true");
-  expect(orb.getAttribute("data-state")).toBe("idle");
-  expect(orb.hasAttribute("style")).toBe(false); // the page allows no inline styles
-  // While any of the crew is at work it's livelier.
-  const store = createFeedStore();
-  rerender(<Header S={camp()} store={store} conn="live" refresh={() => {}} />);
-  events(store, { type: "expedition_start", id: "a", task: "One", source: "user" });
-  expect(screen.getByRole("heading", { level: 1 }).querySelector(".mae-orb")!.getAttribute("data-state")).toBe("thinking");
+  // The header has the static logo only: the orb is the sign-in page's.
+  expect(document.querySelector(".mae-orb")).toBeNull();
+  expect(logo.hasAttribute("style")).toBe(false); // the page allows no inline styles
 });
 
 test("the connection only shows when it's lost or not made yet", () => {

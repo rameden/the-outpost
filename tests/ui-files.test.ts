@@ -67,7 +67,7 @@ test("the terminal's style rules get a per-launch nonce, and nothing else is loo
 test("the tour is the repo's docs page, under a policy that reaches nothing of the camp", () => {
   const page = splashPage()!;
   assert.ok(page, `${SPLASH_FILE} exists`);
-  assert.match(page, /<title>Mae<\/title>/);
+  assert.match(page, /<title>Mae, My Alter Ego<\/title>/);
   // It wears the theme picked in mission control (the same saved choice), set before anything is drawn,
   // and carries both of mission control's palettes.
   assert.ok(page.indexOf("localStorage.getItem('camp-theme')") < page.indexOf("<style>"), "the saved theme is applied in the head, ahead of the styles");
@@ -82,7 +82,7 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
   const shared = ["--bg", "--surface", "--surface-2", "--border", "--border-strong", "--text", "--muted", "--faint", "--accent", "--accent-soft", "--accent-ink"];
   const blocks = (text: string, selector: string) => text.split(selector).slice(1).map((rest) => rest.slice(0, rest.indexOf("}")));
   const value = (block: string, name: string) => block.match(new RegExp(`${name}: (#[0-9a-f]{6});`))?.[1];
-  for (const palette of ["harbor", "moss", "heather"]) {
+  for (const palette of ["harbor", "moss", "heather", "ochre"]) {
     assert.match(page, new RegExp(`<option value="${palette}">`), `the tour offers ${palette}`);
     for (const selector of [`:root[data-palette="${palette}"] {`, `:root[data-palette="${palette}"]:not([data-theme="light"]) {`, `:root[data-palette="${palette}"][data-theme="dark"] {`]) {
       const [inTour] = blocks(page, selector), [inCamp] = blocks(css, selector);

@@ -110,6 +110,31 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
   --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
 }
+/* Ochre is the Mae app's own cream, navy and ochre. Navy leads on its light side (ochre can't be
+   read as text on cream, so it's the tint there); on its dark side the page is navy and ochre leads. */
+:root[data-palette="ochre"] {
+  --bg: #f3efe6; --surface: #fbf9f4; --surface-2: #ebe6da; --border: #dcd8cc; --border-strong: #c4bfb0;
+  --text: #141a2b; --muted: #4f5464; --faint: #626776;
+  --accent: #27408a; --accent-soft: #f1dcb2; --accent-ink: #f8f5ee;
+  --shadow: 0 1px 2px rgba(20, 26, 43, .06), 0 4px 16px rgba(20, 26, 43, .05);
+  --shadow-lg: 0 1px 2px rgba(20, 26, 43, .06), 0 12px 32px rgba(20, 26, 43, .09);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="ochre"]:not([data-theme="light"]) {
+  --bg: #141a2b; --surface: #1c2541; --surface-2: #252f50; --border: #2a3350; --border-strong: #3e4869;
+  --text: #f3efe6; --muted: #a9aebc; --faint: #9197a8;
+  --accent: #e9b44c; --accent-soft: #40371f; --accent-ink: #141a2b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
+  }
+}
+:root[data-palette="ochre"][data-theme="dark"] {
+  --bg: #141a2b; --surface: #1c2541; --surface-2: #252f50; --border: #2a3350; --border-strong: #3e4869;
+  --text: #f3efe6; --muted: #a9aebc; --faint: #9197a8;
+  --accent: #e9b44c; --accent-soft: #40371f; --accent-ink: #141a2b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
+}
 
 /* Type comes in five small sizes and no halves: 11 (capital labels), 12 (dates, counts, hints),
    13 (secondary text), 14 (rows, menus, fields, buttons), 15 (what you read: answers, the message
@@ -188,14 +213,18 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 }
 .top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 9px 16px 9px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.brand h1 { margin: 0; display: flex; align-items: center; gap: 9px; font: 600 22px/1 var(--serif); letter-spacing: .01em; color: var(--wordmark); } /* the orb, then the name */
+.brand h1 { margin: 0; display: flex; align-items: center; color: var(--wordmark); }
+.mae-logo { display: block; height: 26px; width: auto; flex: none; } /* the logo (MaeLogo.tsx): the kit's mark and the name, one drawing */
+.logo-dot { fill: var(--logo-dot); }
+.mae-word { display: block; height: 16px; width: auto; flex: none; } /* the name, drawn (MaeWord.tsx): the logo kit's letters, as tall beside the orb as they are beside the kit's mark */
 .tour-link { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tour-link:hover { color: var(--text); border-bottom-color: var(--accent); }
 .tour-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
-:root { --wordmark: #14161A; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wordmark: #ECE6D8; } }
-:root[data-theme="dark"] { --wordmark: #ECE6D8; }
-/* The Mae orb, the logo (MaeOrb.tsx): a lit core inside two turning dials, with rings rippling
+/* The logo kit's ink and its amber (docs/brand): navy on a light page, cream on a dark one. */
+:root { --wordmark: #14233F; --logo-dot: #B97A12; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wordmark: #F3EDE0; --logo-dot: #D9982B; } }
+:root[data-theme="dark"] { --wordmark: #F3EDE0; --logo-dot: #D9982B; }
+/* The Mae orb (MaeOrb.tsx), shown on the sign-in page: a lit core inside two turning dials, with rings rippling
    outward. Everything scales from --orb, its width. Its navy and ochre are its own in every
    palette; on a dark page the lines are a lighter navy, so they still show. The tour
    (docs/index.html) draws the same orb with the same rules. */
@@ -1240,10 +1269,13 @@ a.att-name { color: var(--accent); }
 .look.p-harbor { --sw-paper: #eef2f7; --sw-accent: #1d62ad; }
 .look.p-moss { --sw-paper: #f0f3ea; --sw-accent: #3d7a2a; }
 .look.p-heather { --sw-paper: #f4f0f5; --sw-accent: #8a3f96; }
+.look.p-ochre { --sw-paper: #1c2541; --sw-accent: #e9b44c; } /* its two namesakes: ochre in a navy ring */
 .signin-link { width: min(420px, 100%); font: 13px var(--mono); padding: 5px 8px; border: 1px solid var(--field); border-radius: 6px; background: var(--bg); color: var(--text); }
 /* Not signed in: one quiet card in the middle of the page */
 .sign-in { max-width: 460px; margin: 18vh auto 0; padding: 0 24px; display: grid; gap: 10px; color: var(--text); font-size: 15px; line-height: 1.5; }
-.sign-in h1 { font: 600 24px/1.2 var(--serif); margin: 0 0 6px; }
+.sign-in h1 { margin: 0 0 10px; color: var(--wordmark); }
+.sign-in .mae-word { height: 26px; }
+.sign-in .tag { margin: -12px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); } /* the tag, close under the name */
 .sign-in .mae-orb { --orb: 72px; margin: 0 0 14px 6px; }
 .sign-in p { margin: 0; }
 .sign-in kbd { font: 600 12px var(--mono); padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; }
@@ -1333,8 +1365,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   /* The header is one row: the name, what the camp is doing (it scrolls sideways, what needs you
      first), and the switches that still mean something when the zones are stacked. */
   .top { padding: 8px 12px; gap: 10px; flex-wrap: nowrap; }
-  .brand h1 { font-size: 19px; gap: 7px; }
-  .brand .mae-orb { --orb: 24px; }
+  .mae-logo { height: 23px; }
   .tour-link, .wide-only { display: none; }
   .top-right { flex: 1; gap: 6px; }
   .top-chips { flex: 1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }

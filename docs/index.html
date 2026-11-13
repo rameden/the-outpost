@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- Mae's promotional page. Standalone: open it in a browser, or serve docs/ with GitHub Pages. -->
-<title>Mae</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3CradialGradient id='g' cx='.35' cy='.3' r='.8'%3E%3Cstop offset='0' stop-color='%23e9b44c'/%3E%3Cstop offset='.45' stop-color='%231c2541'/%3E%3Cstop offset='1' stop-color='%230f1a33'/%3E%3C/radialGradient%3E%3Ccircle cx='32' cy='32' r='28' fill='none' stroke='%23e9b44c' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='18' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='4' r='4' fill='%23e9b44c'/%3E%3C/svg%3E">
+<title>Mae, My Alter Ego</title>
+<meta name="description" content="Mae, My Alter Ego: a small, hackable multi-agent harness on Claude. A Quartermaster plans, you approve, and a crew of specialists does the work.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314233F'/%3E%3Cg transform='translate(9 9) scale(0.23)'%3E%3Cpath fill='%23F3EDE0' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg fill='none' stroke='%23F3EDE0' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle cx='100' cy='100' r='20' fill='%23D9982B'/%3E%3C/g%3E%3C/svg%3E">
 <script>
 // The tour wears the look you picked in mission control. The camp serves this page at its own
 // address, so the two choices kept there are readable here: "camp-theme" (light, dark, or
@@ -16,7 +17,7 @@
 (function () {
   try {
     var t = localStorage.getItem('camp-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-    var p = localStorage.getItem('camp-palette'); if (p === 'harbor' || p === 'moss' || p === 'heather') document.documentElement.dataset.palette = p;
+    var p = localStorage.getItem('camp-palette'); if (p === 'harbor' || p === 'moss' || p === 'heather' || p === 'ochre') document.documentElement.dataset.palette = p;
   } catch (e) { /* no storage: the system's theme, the camp's colours */ }
 })();
 </script>
@@ -27,8 +28,9 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; }
 img { max-width: 100%; }
-/* Layout: a field guide for a camp. The logo and a live expedition up top, then the crew roster,
-   the route an expedition takes, the kit, the camp rules, and how to pitch the tent. */
+/* Layout: a field guide for a camp. The logo and a live expedition up top, then the name (Mae is
+   My Alter Ego, with the orb at size), the crew roster, the route an expedition takes, the kit,
+   the camp rules, and how to pitch the tent. */
 :root {
   --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
@@ -137,6 +139,30 @@ img { max-width: 100%; }
   --ink: #ece4f2; --night: #0e0b12; --night-text: #ece4f2; --night-muted: #a698b3; --night-line: #2e2637;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
 }
+/* Ochre: the Mae app's own cream, navy and ochre. Navy leads on the light side, ochre on the dark. */
+:root[data-palette="ochre"] {
+  --bg: #f3efe6; --surface: #fbf9f4; --surface-2: #ebe6da; --border: #dcd8cc; --border-strong: #c4bfb0;
+  --text: #141a2b; --muted: #4f5464; --faint: #626776;
+  --accent: #27408a; --accent-soft: #f1dcb2; --accent-ink: #f8f5ee;
+  --ink: #141a2b; --night: #141a2b; --night-text: #f3efe6; --night-muted: #a9aebc; --night-line: #2a3350;
+  --shadow: 0 1px 2px rgba(20, 26, 43, .06), 0 12px 32px rgba(20, 26, 43, .09);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="ochre"]:not([data-theme="light"]) {
+  --bg: #141a2b; --surface: #1c2541; --surface-2: #252f50; --border: #2a3350; --border-strong: #3e4869;
+  --text: #f3efe6; --muted: #a9aebc; --faint: #9197a8;
+  --accent: #e9b44c; --accent-soft: #40371f; --accent-ink: #141a2b;
+  --ink: #f3efe6; --night: #0b0f1c; --night-text: #f3efe6; --night-muted: #a9aebc; --night-line: #232b45;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+  }
+}
+:root[data-palette="ochre"][data-theme="dark"] {
+  --bg: #141a2b; --surface: #1c2541; --surface-2: #252f50; --border: #2a3350; --border-strong: #3e4869;
+  --text: #f3efe6; --muted: #a9aebc; --faint: #9197a8;
+  --accent: #e9b44c; --accent-soft: #40371f; --accent-ink: #141a2b;
+  --ink: #f3efe6; --night: #0b0f1c; --night-text: #f3efe6; --night-muted: #a9aebc; --night-line: #232b45;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+}
 
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.6; }
@@ -153,11 +179,21 @@ a { color: var(--accent); }
 section { padding-block: 88px 0; }
 .sec-head { display: grid; gap: 12px; margin-bottom: 40px; max-width: 720px; }
 
+/* Ochre's blocks of navy (the camp rules, the commands) are dark on both its sides, where its light
+   side's navy accent wouldn't show: there, ochre leads. */
+:root[data-palette="ochre"] :is(.rules-band, .cmd, .term) { --accent: #e9b44c; }
+
 /* Top bar */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; }
-/* The logo: the Mae orb and the name. The orb is mission control's (ui/src/styles.css), rule for rule. */
-.brand { display: inline-flex; align-items: center; gap: 11px; font: 400 27px/1 var(--display); color: var(--ink); }
-.top .mae-orb { --orb: 34px; }
+/* The logo: the logo kit's mark and the name, as mission control's header draws it. */
+.brand { display: inline-flex; align-items: center; gap: 11px; color: var(--logo-ink); }
+/* The logo kit's ink and its amber (docs/brand): navy on a light page, cream on a dark one. */
+:root { --logo-ink: #14233F; --logo-dot: #B97A12; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --logo-ink: #F3EDE0; --logo-dot: #D9982B; } }
+:root[data-theme="dark"] { --logo-ink: #F3EDE0; --logo-dot: #D9982B; }
+.mae-word { display: block; height: 21px; width: auto; flex: none; } /* the name, drawn: beside the mark, as tall as the kit's lockup has it */
+.mae-mark { display: block; height: 34px; width: 34px; flex: none; } /* the kit's small mark */
+.logo-dot { fill: var(--logo-dot); }
 .mae-orb { --orb: 28px; --orb-speed: 1; --orb-navy: #1c2541; --orb-ochre: #e9b44c; --orb-line: #1c2541; --orb-glint: #141a2b;
   position: relative; display: inline-block; flex: none; width: var(--orb); height: var(--orb); }
 .mae-orb[data-state="listening"] { --orb-speed: .5; }
@@ -212,7 +248,10 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 /* Expedition feed */
 .feed { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; min-width: 0; }
 .feed-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); gap: 12px; }
-.feed-top b { font-size: 13px; font-weight: 600; }
+.feed-name { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--logo-ink); } /* as mission control's header has it: the logo, small */
+.feed-name small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed-name .mae-mark { height: 20px; width: 20px; }
+.feed-name .mae-word { height: 12px; margin-right: 2px; }
 .feed-top .replay { font: 600 12px var(--body); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
 .feed-body { padding: 16px; display: grid; gap: 12px; font-size: 14px; }
 .msg { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; transition: opacity .35s ease, transform .35s ease; }
@@ -243,6 +282,20 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 @keyframes fill { from { width: 6%; } to { width: 100%; } }
 .doc { margin-top: 8px; display: inline-flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--bg); color: var(--text); }
 .doc::before { content: ""; width: 10px; height: 12px; border: 1.5px solid var(--muted); border-radius: 2px; }
+
+/* The name: the orb at size, and what each word of "My Alter Ego" means here. */
+.alter { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: center; }
+.alter .mae-orb { --orb: 148px; margin: 46px 52px; } /* the margin is room for its rings */
+.alter .sec-head { margin: 0; }
+.orb-switch { display: flex; gap: 22px; align-items: baseline; flex-wrap: wrap; font-size: 14px; color: var(--faint); }
+.orb-switch button { font: 600 14px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 4px 0; cursor: pointer; }
+.orb-switch button:hover { color: var(--text); }
+.orb-switch button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.words { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 40px; }
+.word { border-top: 2px solid var(--border-strong); padding-top: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.word h3 { font-size: 26px; }
+.word h3::first-letter { color: var(--accent); }
+.word p { color: var(--muted); font-size: 15px; }
 
 /* Crew */
 .crew { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
@@ -308,8 +361,9 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .try q { font-family: var(--display); font-size: 18px; display: block; margin-top: 6px; quotes: "“" "”"; }
 
 footer { padding-block: 72px 48px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--faint); font-size: 14px; align-items: center; }
-footer .brand { font-size: 20px; gap: 9px; color: var(--muted); }
-footer .mae-orb { --orb: 24px; }
+footer .brand { gap: 8px; }
+footer .mae-mark { height: 26px; width: 26px; }
+footer .mae-word { height: 16px; }
 
 @media (max-width: 960px) {
   .hero, .pitch { grid-template-columns: minmax(0, 1fr); gap: 36px; }
@@ -318,10 +372,12 @@ footer .mae-orb { --orb: 24px; }
   .rules { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .route { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 32px; }
   .stop:nth-child(2) .pin::after { border-top-color: transparent; }
+  .alter { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .alter .mae-orb { --orb: 112px; margin: 34px; }
 }
 @media (max-width: 600px) {
   section { padding-block: 64px 0; }
-  .crew, .kit, .rules, .route { grid-template-columns: minmax(0, 1fr); }
+  .crew, .kit, .rules, .route, .words { grid-template-columns: minmax(0, 1fr); }
   .item.wide { grid-column: auto; }
   .phone { grid-template-columns: minmax(0, 1fr); }
   .quests { grid-template-columns: minmax(0, 1fr); }
@@ -337,9 +393,15 @@ footer .mae-orb { --orb: 24px; }
 </head>
 <body>
 
+<!-- The logo kit's artwork (docs/brand): the wordmark's letters, and the small mark. Drawn where they're used, in the kit's ink for the theme. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mae-word" viewBox="247 44 295.5 114"><path fill="currentColor" d="M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z"/></symbol>
+  <symbol id="mae-mark" viewBox="0 0 200 200"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z"/><g fill="none" stroke="currentColor" stroke-width="8"><path d="M100 48 A52 52 0 0 1 100 152"/><path d="M100 14 A86 86 0 0 1 100 186"/></g><circle class="logo-dot" cx="100" cy="100" r="20"/></symbol>
+</svg>
+
 <div class="wrap">
   <header class="top">
-    <span class="brand"><span class="mae-orb" aria-hidden="true"><span class="orb-glow"></span><span class="orb-ripple"></span><span class="orb-ripple late"></span><span class="orb-dial"><i></i><i></i><i></i></span><span class="orb-dial inner"></span><span class="orb-core"><i></i></span><span class="orb-light"></span></span>Mae</span>
+    <span class="brand"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><svg class="mae-word" viewBox="0 0 295.5 114" role="img" aria-label="Mae"><use href="#mae-word"/></svg></span>
     <div class="top-end">
       <nav aria-label="Sections">
         <a href="#crew">The crew</a>
@@ -354,6 +416,7 @@ footer .mae-orb { --orb: 24px; }
           <option value="harbor">Harbor</option>
           <option value="moss">Moss</option>
           <option value="heather">Heather</option>
+          <option value="ochre">Ochre</option>
         </select>
         <button class="theme" id="theme" type="button">Dark mode</button>
       </div>
@@ -362,9 +425,9 @@ footer .mae-orb { --orb: 24px; }
 
   <div class="hero">
     <div>
-      <div class="eyebrow">A multi-agent harness on Claude</div>
-      <h1>Pack the request. <em>Send out the crew.</em></h1>
-      <p class="lede">Mae gives you a small guild of agents. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
+      <div class="eyebrow">Mae, My Alter Ego</div>
+      <h1>Your alter ego <em>has a crew.</em></h1>
+      <p class="lede">Mae is a small guild of agents that takes on your work the way you'd want it done. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
       <div class="cta">
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm run ui</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the crew</a>
@@ -373,7 +436,7 @@ footer .mae-orb { --orb: 24px; }
     </div>
 
     <div class="feed" id="feed" aria-label="An example expedition">
-      <div class="feed-top"><b>Mission control · example expedition</b><button class="replay" id="replay" type="button">Replay</button></div>
+      <div class="feed-top"><span class="feed-name"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><svg class="mae-word" viewBox="0 0 295.5 114" role="img" aria-label="Mae"><use href="#mae-word"/></svg><small>mission control · example expedition</small></span><button class="replay" id="replay" type="button">Replay</button></div>
       <div class="feed-body">
         <div class="msg"><div class="av">🙂</div><div><div class="who you">You</div><div class="bubble you">Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.</div></div></div>
         <div class="msg"><div class="av">🧭</div><div><div class="who qm">Quartermaster</div><div class="bubble">Here's the plan. Two quests, the second waits on the first.</div>
@@ -391,6 +454,29 @@ footer .mae-orb { --orb: 24px; }
     </div>
   </div>
 </div>
+
+<section id="name">
+  <div class="wrap">
+    <div class="alter">
+      <span class="mae-orb" id="orb-demo" data-state="idle" role="img" aria-label="The Mae orb"><span class="orb-glow"></span><span class="orb-ripple"></span><span class="orb-ripple late"></span><span class="orb-ripple busy"></span><span class="orb-dial"><i></i><i></i><i></i></span><span class="orb-dial inner"></span><span class="orb-core"><i></i></span><span class="orb-light"></span></span>
+      <div class="sec-head">
+        <div class="eyebrow">The name</div>
+        <h2>Mae is short for My Alter Ego.</h2>
+        <p class="lede">It's the crew you'd be if there were more of you. They plan before they act, show you the plan, and nothing leaves the camp without your click. The orb is Mae's own light. It meets you at the door when you sign in to mission control, and it has two moods: at rest and at work.</p>
+        <div class="orb-switch" role="group" aria-label="The orb">
+          <span>See the orb</span>
+          <button type="button" data-orb="idle" aria-pressed="true">At rest</button>
+          <button type="button" data-orb="thinking" aria-pressed="false">At work</button>
+        </div>
+      </div>
+    </div>
+    <div class="words">
+      <div class="word"><h3>My</h3><p>It runs on your machine, on your Claude subscription or your own API key. The camp is a folder of files you can open and read, and one note about you is shared by the whole crew.</p></div>
+      <div class="word"><h3>Alter</h3><p>Not one assistant but five other pairs of hands: a planner, a researcher, a writer, a coder and a reviewer, with up to four quests out at once.</p></div>
+      <div class="word"><h3>Ego</h3><p>Each one has a fixed identity. It grows its memory, but it can't rewrite who it is, and it can't talk its way past the camp rules.</p></div>
+    </div>
+  </div>
+</section>
 
 <section id="crew">
   <div class="wrap">
@@ -571,8 +657,8 @@ footer .mae-orb { --orb: 24px; }
 
 <div class="wrap">
   <footer>
-    <span class="brand"><span class="mae-orb" aria-hidden="true"><span class="orb-glow"></span><span class="orb-ripple"></span><span class="orb-ripple late"></span><span class="orb-dial"><i></i><i></i><i></i></span><span class="orb-dial inner"></span><span class="orb-core"><i></i></span><span class="orb-light"></span></span>Mae</span>
-    <span>Small, hackable, and built on the Claude API.</span>
+    <span class="brand"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><svg class="mae-word" viewBox="0 0 295.5 114" role="img" aria-label="Mae"><use href="#mae-word"/></svg></span>
+    <span>My Alter Ego. Small, hackable, and built on the Claude API.</span>
   </footer>
 </div>
 
@@ -584,7 +670,7 @@ footer .mae-orb { --orb: 24px; }
   var root = document.documentElement;
   var themeBtn = document.getElementById('theme');
   var paletteSel = document.getElementById('palette');
-  var palettes = ['harbor', 'moss', 'heather'];
+  var palettes = ['harbor', 'moss', 'heather', 'ochre'];
   var showPalette = function (p) {
     if (palettes.indexOf(p) >= 0) root.dataset.palette = p; else delete root.dataset.palette;
     paletteSel.value = root.dataset.palette || 'camp';
@@ -640,7 +726,17 @@ footer .mae-orb { --orb: 24px; }
     });
   });
 
-  // Replay the example expedition
+  // The orb, at rest or at work
+  var demo = document.getElementById('orb-demo');
+  var orbBtns = document.querySelectorAll('[data-orb]');
+  orbBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      demo.dataset.state = btn.dataset.orb;
+      orbBtns.forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+    });
+  });
+
+  // Replay the example expedition.
   var feed = document.getElementById('feed');
   var msgs = feed.querySelectorAll('.msg');
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;

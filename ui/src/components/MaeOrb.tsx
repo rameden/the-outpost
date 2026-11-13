@@ -1,4 +1,4 @@
-// The Mae orb: the logo. A lit core inside two turning dials, with rings rippling outward.
+// The Mae orb, shown on the sign-in page (the logo itself is MaeLogo). A lit core inside two turning dials, with rings rippling outward.
 // It's drawn in CSS (.mae-orb in styles.css), so it needs no inline styles: its size is the
 // stylesheet's (--orb), and `state` only says how lively it is. "idle" is the calm one; the
 // others turn faster and glow brighter, for when the camp is at work.

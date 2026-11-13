@@ -1,4 +1,4 @@
-# Mae
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/mae-lockup-on-dark.svg"><img src="docs/brand/mae-lockup-on-light.svg" alt="Mae" height="64"></picture></h1>
 
 Mae (**M**y **A**lter **E**go) is a small, hackable multi-agent harness built on Claude. A **Quartermaster** plans your request, gets your OK on the plan, and sends specialist adventurers out on quests, several at once when the work allows. Each crew member has a fixed identity, its own memory and workspace, and clear limits on what it does.
 

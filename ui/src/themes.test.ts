@@ -39,6 +39,6 @@ test("as the page opens it wears what was chosen last time, and follows a change
 });
 
 test("every palette is named and described, and the first is the camp's own", () => {
-  expect(PALETTES.map((p) => p.id)).toEqual(["camp", "harbor", "moss", "heather"]);
+  expect(PALETTES.map((p) => p.id)).toEqual(["camp", "harbor", "moss", "heather", "ochre"]);
   for (const p of PALETTES) expect(p.name.length > 0 && p.about.length > 0).toBe(true);
 });
