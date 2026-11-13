@@ -110,6 +110,35 @@ function Uploads({ S, refresh }: { S: CampState; refresh: () => void }) {
   );
 }
 
+// Signing in another browser: a one-time link, made here by a browser that's already in. And,
+// when the camp is in LAN mode, where your other machines reach it.
+function OtherDevices({ S }: { S: CampState }) {
+  const [link, setLink] = useState("");
+  const [note, setNote] = useState("");
+  const lan = S.settings.lan;
+  const make = async () => {
+    setNote("");
+    try {
+      const r = await api<{ link: string; minutes: number }>("/api/login/link", {});
+      setLink(r.link);
+      setNote(`Good once, for ${r.minutes} minutes.`);
+    } catch (e) { setLink(""); setNote(errorText(e)); }
+  };
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setNote("Copied."); }
+    catch { setNote("Select the link and copy it (this browser only copies for you over HTTPS or on the camp's own machine)."); }
+  };
+  return (
+    <Row label="Other devices" wide help={lan
+      ? <>Your other machines on this network reach the camp at {lan.length ? lan.map((a, i) => <span key={a}>{i ? ", " : ""}<code>{a}</code></span>) : "this machine's network address (it has none just now)"}. It's plain HTTP, for a home network you trust. The terminal pane only opens on the camp's own machine.</>
+      : <>Only this machine can reach the camp. To use it from your other machines at home, start it with <code>CAMP_LAN=1</code> (see the README). A sign-in link is also how a second browser on this machine gets in.</>}>
+      <button type="button" className="btn small" onClick={make}>Make a sign-in link</button>
+      {link && <> <input className="signin-link" aria-label="Sign-in link" readOnly value={link} onFocus={(ev) => ev.currentTarget.select()} /> <button type="button" className="btn small" onClick={copy}>Copy</button></>}
+      {note && <span className="meta" role="status"> {note}</span>}
+    </Row>
+  );
+}
+
 function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   const [theme, setTheme] = useState<Mode>(modeNow);
   const [palette, setPaletteShown] = useState<PaletteId>(paletteNow);
@@ -159,6 +188,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
         )}
       </Row>
       <Uploads S={S} refresh={refresh} />
+      <OtherDevices S={S} />
     </>
   );
 }

@@ -1,0 +1,44 @@
+// Who can reach mission control: this machine only, or (LAN mode) your other machines at home.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { accessFrom, addressOf, hostAllowed, isLocal } from "../src/access.ts";
+
+const nics = {
+  lo0: [{ address: "127.0.0.1", family: "IPv4", internal: true }, { address: "::1", family: "IPv6", internal: true }],
+  en0: [{ address: "192.168.1.20", family: "IPv4", internal: false }, { address: "fe80::1", family: "IPv6", internal: false }],
+  eth1: [{ address: "10.0.0.7", family: "IPv4", internal: false }],
+} as any;
+
+test("by default the camp is this machine's alone", () => {
+  for (const env of [{}, { CAMP_LAN: "" }, { CAMP_LAN: "0" }, { CAMP_LAN: "no" }, { CAMP_HOST: "0.0.0.0" }, { CAMP_NAMES: "winbox" }]) {
+    assert.deepEqual(accessFrom(env, "winbox", nics), { lan: false, listen: "127.0.0.1", names: [] }, JSON.stringify(env));
+  }
+  const here = accessFrom({}, "winbox", nics);
+  assert.equal(hostAllowed("127.0.0.1:4747", 4747, here), true);
+  assert.equal(hostAllowed("localhost:4747", 4747, here), true);
+  for (const host of ["winbox:4747", "192.168.1.20:4747", "evil.example:4747", "127.0.0.1:9999", "127.0.0.1", undefined]) assert.equal(hostAllowed(host, 4747, here), false, String(host));
+});
+
+test("LAN mode: every interface, answering to this machine's own name and addresses and no others", () => {
+  const lan = accessFrom({ CAMP_LAN: "1" }, "WinBox", nics);
+  assert.equal(lan.lan, true);
+  assert.equal(lan.listen, "0.0.0.0");
+  assert.deepEqual(lan.names, ["winbox", "winbox.local", "192.168.1.20", "10.0.0.7"]);
+  for (const host of ["winbox:4747", "WINBOX:4747", "winbox.local:4747", "192.168.1.20:4747", "10.0.0.7:4747", "127.0.0.1:4747", "localhost:4747"]) assert.equal(hostAllowed(host, 4747, lan), true, host);
+  // A page elsewhere that points its own name at this machine is still refused, as is any other port or name.
+  for (const host of ["evil.example:4747", "192.168.1.21:4747", "winbox:80", "winbox", "winbox.evil.example:4747", "0.0.0.0:4747", ""]) assert.equal(hostAllowed(host, 4747, lan), false, host);
+  assert.equal(addressOf(lan.names[0], 4747), "http://winbox:4747/");
+});
+
+test("your own names come first, one address can be chosen, and odd input is dropped", () => {
+  const lan = accessFrom({ CAMP_LAN: "true", CAMP_NAMES: " camp.home , http://Den-PC:4747/ , bad name!, ,localhost", CAMP_HOST: "192.168.1.20" }, "winbox.lan", nics);
+  assert.equal(lan.listen, "192.168.1.20");
+  assert.deepEqual(lan.names, ["camp.home", "den-pc", "winbox.lan", "192.168.1.20", "10.0.0.7"]);
+  // No network just now: it still starts, reachable only by the names you gave (or none).
+  assert.deepEqual(accessFrom({ CAMP_LAN: "1" }, "localhost", { lo0: nics.lo0 }).names, []);
+});
+
+test("whether a connection came from the camp's own machine", () => {
+  for (const a of ["127.0.0.1", "127.0.0.53", "::1", "::ffff:127.0.0.1"]) assert.equal(isLocal(a), true, a);
+  for (const a of ["192.168.1.30", "::ffff:192.168.1.30", "10.0.0.2", "fe80::1", "", undefined]) assert.equal(isLocal(a), false, String(a));
+});

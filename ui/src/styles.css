@@ -1155,6 +1155,7 @@ a.att-name { color: var(--accent); }
 .look.p-harbor { --sw-paper: #eef2f7; --sw-accent: #1d62ad; }
 .look.p-moss { --sw-paper: #f0f3ea; --sw-accent: #3d7a2a; }
 .look.p-heather { --sw-paper: #f4f0f5; --sw-accent: #8a3f96; }
+.signin-link { width: min(420px, 100%); font: 12.5px var(--mono); padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: var(--text); }
 /* Not signed in: one quiet card in the middle of the page */
 .sign-in { max-width: 460px; margin: 18vh auto 0; padding: 0 24px; display: grid; gap: 10px; color: var(--text); font-size: 15px; line-height: 1.5; }
 .sign-in h1 { font-size: 22px; margin: 0 0 6px; }

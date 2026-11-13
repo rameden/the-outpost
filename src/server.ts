@@ -43,6 +43,8 @@ import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, save
 import { skillCommands } from "./settings.js";
 import { dueJobs, runJob, inboxEntries, claimScheduler, schedulerOwner } from "./scheduler.js";
 import { feedEventsOf, keepInFeed, loadFeed, saveToFeed, trimFeed } from "./feed.js";
+import { accessFrom, addressOf, hostAllowed, isLocal } from "./access.js";
+import { hostname, networkInterfaces } from "node:os";
 import { writeAtomic } from "./atomic.js";
 import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
@@ -95,12 +97,26 @@ const TOKEN = campToken();
 // ends up in the browser's history, the address bar, or a bookmark, and after the first time
 // http://127.0.0.1:<port>/ opens by itself. (A cookie would have been simpler, but browsers send
 // a cookie to every port on 127.0.0.1: any other local server you opened would be handed it.)
-const signInCodes = new Set<string>();
-function newSignInLink(): string {
+// Who can reach it: this machine only, or (CAMP_LAN=1) your other machines at home too. See access.ts.
+const ACCESS = accessFrom(process.env, hostname(), networkInterfaces());
+const signInCodes = new Map<string, number>(); // code → when it lapses (Infinity: when it's used, or the camp stops)
+// lasts: how long the code is good for, in minutes. The ones the camp's own terminal prints keep
+// until used; one made from the page, for another device, lapses after ten minutes.
+function newSignInCode(lasts = Infinity): string {
   const code = randomBytes(16).toString("hex");
-  signInCodes.add(code);
-  if (signInCodes.size > 20) signInCodes.delete(signInCodes.values().next().value!); // the oldest unused ones lapse
-  return `http://127.0.0.1:${PORT}/#k=${code}`;
+  signInCodes.set(code, lasts === Infinity ? Infinity : Date.now() + lasts * 60_000);
+  if (signInCodes.size > 20) signInCodes.delete(signInCodes.keys().next().value!); // the oldest unused ones lapse
+  return code;
+}
+const takeSignInCode = (code: string) => { const until = signInCodes.get(code); signInCodes.delete(code); return until !== undefined && Date.now() < until; };
+const linkAt = (origin: string, code: string) => `${origin}#k=${code}`;
+const HERE = `http://127.0.0.1:${PORT}/`;
+// The address to use from another machine (LAN mode): the first name this machine goes by.
+const fromElsewhere = () => (ACCESS.names.length ? addressOf(ACCESS.names[0], PORT) : null);
+// One code, good once, as a link for this machine and (in LAN mode) for another.
+function newSignInLink(): string {
+  const code = newSignInCode();
+  return linkAt(HERE, code) + (fromElsewhere() ? `\n   From another machine: ${linkAt(fromElsewhere()!, code)}` : "");
 }
 const STYLE_NONCE = randomBytes(18).toString("base64url"); // for the terminal pane's style rules (see ui-files.ts)
 const BOOT_ID = randomBytes(6).toString("hex");
@@ -446,6 +462,8 @@ async function fullState(full: boolean, historySeen?: string) {
       jiraWrite: writeBackSettings(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
+      // Where it can be reached from: only here, or (LAN mode) your other machines, at these addresses.
+      lan: ACCESS.lan ? ACCESS.names.map((n) => addressOf(n, PORT)) : null,
     },
     installedSkills: none(() => installedSkills()),
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
@@ -507,8 +525,11 @@ async function readJson(req: http.IncomingMessage, limit = MAX_BODY): Promise<an
 }
 
 function hostOk(req: http.IncomingMessage) {
-  return req.headers.host === `127.0.0.1:${PORT}` || req.headers.host === `localhost:${PORT}`;
+  return hostAllowed(req.headers.host, PORT, ACCESS);
 }
+// Did this request come from the camp's own machine? (Asked of the connection, never of a header.)
+const fromHere = (req: http.IncomingMessage) => isLocal(req.socket.remoteAddress);
+const NOT_FROM_HERE = "The terminal is a shell on the camp's own machine, so it only opens in a browser on that machine. Everything else works from here.";
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -533,7 +554,7 @@ const server = http.createServer(async (req, res) => {
     // A sign-in code for the key: once. { code } → { token }.
     if (req.method === "POST" && url.pathname === "/api/login") {
       const code = String((await readJson(req)).code ?? "");
-      if (!signInCodes.delete(code)) return send(res, 401, { error: "That sign-in link has been used or is from an earlier start. Press Enter in the camp's terminal for a new one." });
+      if (!takeSignInCode(code)) return send(res, 401, { error: "That sign-in link has been used, has lapsed, or is from an earlier start. Press Enter in the camp's terminal for a new one, or make one under Settings → General in a browser that's signed in." });
       return send(res, 200, { token: TOKEN });
     }
     // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
@@ -546,6 +567,13 @@ const server = http.createServer(async (req, res) => {
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
     // Uploads: how much is kept, and how much of it nothing uses any more (?days= how old that must be).
     if (req.method === "GET" && url.pathname === "/api/uploads/usage") return send(res, 200, { ...uploadsUsage(Number(url.searchParams.get("days")) || undefined), keepDays: uploadKeepDays() });
+    // { } → { link, lasts }: a one-time sign-in link for another device, from a browser that's
+    // already signed in. For the address that device will use: this machine's name on the
+    // network in LAN mode, else the one this request came to.
+    if (req.method === "POST" && url.pathname === "/api/login/link") {
+      const origin = fromElsewhere() ?? `http://${req.headers.host}/`;
+      return send(res, 200, { link: linkAt(origin, newSignInCode(10)), minutes: 10 });
+    }
     // Is this browser's key still good? (The page asks as it opens.)
     if (req.method === "GET" && url.pathname === "/api/ping") return send(res, 200, { ok: true, bootId: BOOT_ID });
 
@@ -639,6 +667,10 @@ const server = http.createServer(async (req, res) => {
 
     // What an expedition's file tools changed: the files and a unified diff.
     // The terminal pane: your own shell sessions (term.ts). No agent has a tool that reaches these.
+    // And no other machine does: a shell on this one isn't handed out over the network (access.ts).
+    if (url.pathname === "/api/term" || url.pathname.startsWith("/api/term/")) {
+      if (!fromHere(req)) return send(res, 403, { error: NOT_FROM_HERE });
+    }
     if (req.method === "GET" && url.pathname === "/api/term") return send(res, 200, { terminals: listTerminals() });
     if (req.method === "GET" && url.pathname === "/api/term/stream") {
       if (!streamTerminal(String(url.searchParams.get("id") ?? ""), res, (fn) => req.on("close", fn))) return send(res, 404, { error: "No such terminal" });
@@ -1026,6 +1058,8 @@ const server = http.createServer(async (req, res) => {
     }
     // Open the system's folder dialog on this machine and return the chosen path (not linked yet).
     if (url.pathname === "/api/links/pick") {
+      // The dialog opens on the camp's machine: no use to someone sitting at another one.
+      if (!fromHere(req)) return send(res, 200, { unsupported: "The folder dialog opens on the camp's own machine, not this one. Paste the folder's full path (as it is on the camp's machine) instead." });
       try {
         return send(res, 200, await pickFolder());
       } catch (e: any) {
@@ -1498,10 +1532,14 @@ server.on("error", (err: NodeJS.ErrnoException) => {
     : `💥 Mission control couldn't start: ${err.message}`);
   process.exit(1);
 });
-server.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, ACCESS.listen, () => {
   freshenUsage();
   console.log(`🏕️  Mission control is up: ${newSignInLink()}`);
-  console.log(`   That link signs one browser in, once. After that, http://127.0.0.1:${PORT}/ opens by itself there.`);
+  console.log(`   That link signs one browser in, once. After that, the plain address opens by itself there.`);
+  if (ACCESS.lan) {
+    console.log(`   ⚠️  LAN mode: other machines on this network can reach it${fromElsewhere() ? ` (${ACCESS.names.map((n) => addressOf(n, PORT)).join(", ")})` : ", but this machine has no network address just now"}.`);
+    console.log(`      It's plain HTTP: for a home network you trust, never a port forwarded to the internet. The terminal pane only opens on this machine.`);
+  }
   console.log(`   Press Enter here for another sign-in link. Scheduled jobs run while this is open. Ctrl+C to break camp.`);
   void announceRuntime();
 });
