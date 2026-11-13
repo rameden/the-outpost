@@ -1,7 +1,7 @@
 // The Files flyout: it lists the attached folder, opens folders a level at a time, marks what
 // git says changed, opens a file in a viewer, puts references in your message, and leaves
 // secrets shut.
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { FilesPanel, FilesRail } from "./Files.tsx";
 
@@ -32,25 +32,27 @@ const show = (roots = [{ link: "demo" } as { link: string; path?: string; branch
   render(<FilesPanel roots={roots} onHide={onHide} onMention={onMention} />);
   return { onHide, onMention };
 };
-const row = (name: string) => screen.getByText(name).closest("button")!;
+// The tree itself: the list of changed files under it names some of the same files (Changes.test.tsx).
+const tree = () => within(screen.getByRole("tree", { name: "Attached folders" }));
+const row = (name: string) => tree().getByText(name).closest("button")!;
 
 test("it lists the attached folder, and opens a folder when you click it", async () => {
   show();
-  await screen.findByText("README.md");
+  await tree().findByText("README.md");
   expect(row("demo").getAttribute("aria-expanded")).toBe("true");
-  expect(screen.queryByText("app.ts")).toBeNull();
+  expect(tree().queryByText("app.ts")).toBeNull();
   fireEvent.click(row("src"));
-  await screen.findByText("app.ts");
+  await tree().findByText("app.ts");
   expect(gets).toEqual(["/api/tree?link=demo&path=", "/api/tree?link=demo&path=src"]);
   expect(row("src").getAttribute("aria-expanded")).toBe("true");
   fireEvent.click(row("src"));
-  expect(screen.queryByText("app.ts")).toBeNull();
+  expect(tree().queryByText("app.ts")).toBeNull();
 });
 
 test("files git reports as changed carry a letter, and the folders around them a dot", async () => {
   show();
-  fireEvent.click(await screen.findByText("src"));
-  await screen.findByText("app.ts");
+  fireEvent.click(await tree().findByText("src"));
+  await tree().findByText("app.ts");
   expect(row("app.ts").textContent).toContain("M");
   expect(row("src").textContent).toContain("•");
   expect(row("notes").textContent).toContain("U");
@@ -59,8 +61,8 @@ test("files git reports as changed carry a letter, and the folders around them a
 
 test("the @ beside a row puts a reference to it in your message", async () => {
   const { onMention } = show();
-  fireEvent.click(await screen.findByText("src"));
-  await screen.findByText("app.ts");
+  fireEvent.click(await tree().findByText("src"));
+  await tree().findByText("app.ts");
   fireEvent.click(screen.getByRole("button", { name: "Mention app.ts in your message" }));
   fireEvent.click(screen.getByRole("button", { name: "Mention src in your message" }));
   fireEvent.click(screen.getByRole("button", { name: "Mention demo in your message" }));
@@ -69,7 +71,7 @@ test("the @ beside a row puts a reference to it in your message", async () => {
 
 test("a file opens in a viewer with its text, and can be mentioned from there", async () => {
   const { onMention } = show();
-  fireEvent.click(await screen.findByText("README.md"));
+  fireEvent.click(await tree().findByText("README.md"));
   const dialog = await screen.findByRole("dialog", { name: "links/demo/README.md" });
   // A Markdown file opens laid out to read; its source is a tab away.
   await waitFor(() => expect(dialog.querySelector(".file-page h1")?.textContent).toBe("Demo"));
@@ -83,7 +85,7 @@ test("a file opens in a viewer with its text, and can be mentioned from there", 
   fireEvent.click(screen.getByRole("button", { name: "Mention in message" }));
   expect(onMention).toHaveBeenCalledWith("links/demo/README.md");
   expect(screen.queryByRole("dialog")).toBeNull();
-  fireEvent.click(screen.getByText("README.md"));
+  fireEvent.click(tree().getByText("README.md"));
   await screen.findByRole("dialog");
   fireEvent.keyDown(document, { key: "Escape" });
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -91,7 +93,7 @@ test("a file opens in a viewer with its text, and can be mentioned from there", 
 
 test("a secret is listed but never opened", async () => {
   show();
-  fireEvent.click(await screen.findByText(".env"));
+  fireEvent.click(await tree().findByText(".env"));
   expect(gets.some((u) => u.startsWith("/api/tree/file"))).toBe(false);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: "Mention .env in your message" })).toBeNull();
@@ -99,27 +101,27 @@ test("a secret is listed but never opened", async () => {
 
 test("a conversation's worktree is shown with its branch; once it's gone, the folder itself", async () => {
   show([{ link: "demo", path: "/work/demo-camp/fix", branch: "camp/fix" }]);
-  await screen.findByText("README.md");
+  await tree().findByText("README.md");
   expect(gets[0]).toBe("/api/tree?link=demo&root=%2Fwork%2Fdemo-camp%2Ffix&path=");
   expect(row("demo").textContent).toContain("camp/fix");
   cleanup();
 
   gets.length = 0; worktreeGone = true;
   show([{ link: "demo", path: "/work/demo-camp/fix", branch: "camp/fix" }]);
-  await screen.findByText("README.md");
+  await tree().findByText("README.md");
   expect(gets).toEqual(["/api/tree?link=demo&root=%2Fwork%2Fdemo-camp%2Ffix&path=", "/api/tree?link=demo&path="]);
   expect(row("demo").textContent).not.toContain("camp/fix");
 });
 
 test("arrow keys walk the tree, refresh reads it again, and it hides", async () => {
   const { onHide } = show();
-  await screen.findByText("README.md");
+  await tree().findByText("README.md");
   row("demo").focus();
   fireEvent.keyDown(row("demo"), { key: "ArrowDown" });
   expect(document.activeElement).toBe(row("notes"));
   fireEvent.keyDown(row("notes"), { key: "ArrowDown" });
   fireEvent.keyDown(row("src"), { key: "ArrowRight" });
-  await screen.findByText("app.ts");
+  await tree().findByText("app.ts");
   fireEvent.keyDown(row("src"), { key: "ArrowRight" });
   expect(document.activeElement).toBe(row("app.ts"));
   fireEvent.keyDown(row("app.ts"), { key: "ArrowLeft" });
@@ -143,7 +145,7 @@ test("the tab on the right edge brings it back", () => {
 
 test("a file's changes since the last commit are shown old beside new", async () => {
   show();
-  fireEvent.click(await screen.findByText("README.md"));
+  fireEvent.click(await tree().findByText("README.md"));
   const dialog = await screen.findByRole("dialog", { name: "links/demo/README.md" });
   await waitFor(() => expect(dialog.querySelector(".file-page")).not.toBeNull());
   fireEvent.click(screen.getByRole("tab", { name: "Changes" }));

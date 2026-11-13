@@ -6,6 +6,9 @@
 // (M modified, A added, U untracked), so you can see what the crew touched. When a conversation
 // worked in its own worktree, the tree shows that worktree. Hide it with » or Ctrl+Shift+E. Its
 // size is its zone's: drag the line beside it.
+//
+// While anything has changed, the foot of the drawer lists every changed file in one place
+// (Changes.tsx): a section you can size, or fold down to a rail.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api, errorText, storeGet, storeSet, treeQuery } from "../api.ts";
@@ -14,6 +17,7 @@ import type { Listing, TreeEntry } from "../types.ts";
 import { Drawer, Icon } from "./bits.tsx";
 import { Presence } from "../motion.tsx";
 import { FileViewer } from "./FileViewer.tsx";
+import { Changes, type Change } from "./Changes.tsx";
 
 // path and branch: a worktree of that linked folder, shown in its place.
 export type FileRoot = { link: string; path?: string; branch?: string };
@@ -86,7 +90,7 @@ export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 
   const [shut, setShut] = useState<Set<string>>(new Set());                   // top folders you closed (they start open)
   const [gone, setGone] = useState<Set<string>>(new Set());                   // worktrees that aren't there any more
   const [tick, setTick] = useState(0);
-  const [viewing, setViewing] = useState<{ root: FileRoot; rel: string } | null>(null);
+  const [viewing, setViewing] = useState<{ root: FileRoot; rel: string; changes?: boolean } | null>(null);
   const closeViewing = useCallback(() => setViewing(null), []);
   const tree = useRef<HTMLDivElement>(null);
 
@@ -136,6 +140,21 @@ export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 
     setOpen((s) => {
       const n = new Set(s);
       if (!n.delete(row.key)) n.add(row.key);
+      storeSet("camp-files-open", JSON.stringify([...n].slice(-200)));
+      return n;
+    });
+  }, []);
+
+  // Every changed file in the folders on show, for the list at the foot of the drawer.
+  const changes = useMemo(() => roots.flatMap((root): Change[] => Object.entries(changed[rootKey(root)] ?? {}).map(([path, mark]) => ({ root, path, mark }))), [roots, changed]);
+  const openChange = useCallback((c: Change) => setViewing({ root: c.root, rel: c.path, changes: true }), []);
+  // A new folder in that list: open the tree down to it.
+  const reveal = useCallback((c: Change) => {
+    setShut((s) => { if (!s.has(rootKey(c.root))) return s; const n = new Set(s); n.delete(rootKey(c.root)); return n; });
+    setOpen((s) => {
+      const n = new Set(s);
+      const parts = c.path.replace(/\/$/, "").split("/");
+      for (let i = 1; i <= parts.length; i++) n.add(keyOf(c.root, parts.slice(0, i).join("/")));
       storeSet("camp-files-open", JSON.stringify([...n].slice(-200)));
       return n;
     });
@@ -225,7 +244,8 @@ export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 
             );
           })}
         </div>
-        <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={closeViewing} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
+        {changes.length > 0 && <Changes changes={changes} onOpen={openChange} onReveal={reveal} onMention={onMention} />}
+        <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} changes={viewing.changes} onClose={closeViewing} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
       </aside>
     </Drawer>
   );
