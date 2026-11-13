@@ -9,9 +9,12 @@
 //           Every note records where it came from. A note is a claim, not a fact.
 
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { posix } from "node:path";
 import type { Tool } from "./tools.js";
 import { emit } from "./events.js";
+// Paths inside the camp are written with forward slashes on every system (Windows takes them too),
+// so what the crew and the page are shown reads the same everywhere.
+const join = posix.join;
 
 export const WIKI_DIR = join("camp", "wiki");
 export type WikiSection = "facts" | "notes";

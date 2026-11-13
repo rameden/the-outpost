@@ -3,6 +3,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
+import { toggleMode } from "../themes.ts";
 import type { Connection } from "../camp.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
@@ -14,6 +15,7 @@ import { canNotify, notificationsOn, toggleNotifications } from "../notification
 import { showCost } from "../prefs.ts";
 import type { SettingsSection } from "../settings/Settings.tsx";
 import type { CampState, GithubStatus } from "../types.ts";
+import { ask } from "./Confirm.tsx";
 
 const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
 
@@ -29,10 +31,10 @@ function RuntimeChip({ S, refresh }: { S: CampState | null; refresh: () => void 
   async function switchRuntime() {
     if (problem) return alert(problem);
     const next = sub ? "api" : "claude-code";
-    const msg = next === "api"
-      ? "Switch the crew to the API? Usage will be billed to your API key."
-      : "Switch the crew to your Claude subscription (through Claude Code)? Usage will count against your plan's limits.";
-    if (!confirm(msg)) return;
+    const question = next === "api"
+      ? { title: "Switch the crew to the API?", body: "Usage will be billed to your API key.", action: "Switch to the API" }
+      : { title: "Switch the crew to your Claude subscription (through Claude Code)?", body: "Usage will count against your plan's limits.", action: "Switch to my subscription" };
+    if (!await ask(question)) return;
     try { await api("/api/runtime", { runtime: next }); refresh(); } catch (e) { alert(errorText(e)); }
   }
   return (
@@ -93,12 +95,6 @@ function Bell() {
   );
 }
 
-function toggleTheme() {
-  const root = document.documentElement;
-  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  root.dataset.theme = dark ? "light" : "dark";
-  storeSet("camp-theme", root.dataset.theme);
-}
 
 // What needs you, as a list under its chip: each row goes to where the thing is.
 const NEED_ICON: Record<Need["kind"], IconName> = { decision: "check", pr: "branch", held: "clock", failed: "down", finished: "reply" };
@@ -162,6 +158,8 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Satchel (opens in a new tab)">Tour</a>
       </div>
       <div className="top-right">
+        {/* What the camp is doing, then the page's own switches. On a phone the first group scrolls sideways and the second stays put (styles.css). */}
+        <div className="top-chips">
         {needs && onNeed ? <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} /> : asks.length > 0 && (
           <button className="chip needs" type="button" onClick={() => document.getElementById(`ask-${asks[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
             {asks.length === 1 ? "1 decision needs you" : `${asks.length} decisions need you`}
@@ -180,7 +178,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             {money(S?.spend?.today ?? 0)} today{sub ? " (est.)" : ""}
           </button>
         )}
-        <span className={cx("chip", running > 0 && "busy")} title={`Up to ${S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it in Settings.`}>
+        <span className={cx("chip", "chip-status", running > 0 && "busy")} title={`Up to ${S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it in Settings.`}>
           <span className={cx("dot", running > 0 && "live")} />
           <span>{running === 0 ? "Idle" : running === 1 ? "On expedition" : `${running} expeditions running`}{questsOut > 1 ? ` · ${questsOut} quests out` : ""}{queued ? ` · ${queued} queued` : ""}</span>
         </span>
@@ -203,9 +201,11 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             <span>Out of date · retry</span>
           </button>
         )}
+        </div>
+        <div className="top-tools">
         <Bell />
         {onToggleFocus && (
-          <button className={cx("icon-btn", focused && "on")} type="button" aria-pressed={!!focused} aria-label={focused ? "Leave focus mode" : "Focus mode"}
+          <button className={cx("icon-btn", "wide-only", focused && "on")} type="button" aria-pressed={!!focused} aria-label={focused ? "Leave focus mode" : "Focus mode"}
             title={focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files and terminal, leaving the conversation"} onClick={onToggleFocus}><Icon name="focus" /></button>
         )}
         {onToggleFiles && (
@@ -213,9 +213,9 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             title={`${filesOpen ? "Hide" : "Show"} the files of the attached folder (Ctrl+Shift+E)`} onClick={onToggleFiles}><Icon name="panelRight" /></button>
         )}
         {onOpenLayout && (
-          <button className="icon-btn" type="button" aria-label="Arrange the layout" title="Layout: arrange the page's zones and what each shows" onClick={onOpenLayout}><Icon name="layout" /></button>
+          <button className="icon-btn wide-only" type="button" aria-label="Arrange the layout" title="Layout: arrange the page's zones and what each shows" onClick={onOpenLayout}><Icon name="layout" /></button>
         )}
-        <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}><Icon name="theme" /></button>
+        <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleMode}><Icon name="theme" /></button>
         {onOpenSettings && (
           <button className="icon-btn" type="button" title="Settings" aria-label="Settings" onClick={() => onOpenSettings()}>
             <Icon name="gear" />{(() => {
@@ -224,6 +224,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             })()}
           </button>
         )}
+        </div>
       </div>
     </header>
   );

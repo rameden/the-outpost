@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("conversations");
-const repo = realpathSync(mkdtempSync(join(tmpdir(), "satchel-proj-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-proj-")));
 mkdirSync(join(repo, "src"));
 
 const { recordTurn, threadFor } = await import("../src/threads.ts");
@@ -84,7 +84,7 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
 });
 
 test("a project made with a folder doesn't get a second, automatic project for that folder", () => {
-  const other = realpathSync(mkdtempSync(join(tmpdir(), "satchel-proj2-")));
+  const other = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-proj2-")));
   const name = addLink(other, "write").name; // what the dialog's "Link another folder…" does first
   const p = c.addProject({ name: "Garden sensors", description: "ESP32 boards.", links: [name] });
   assert.deepEqual([p.name, p.links, p.description], ["Garden sensors", [name], "ESP32 boards."]);

@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useReducer, useRef, 
 import { api, errorText, outputUrl } from "../api.ts";
 import { liveKey, type CrewStatus } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
-import { cClass, clock, cx, dayLabel, isImagePath, kTok, money, plural, shortModel, spaced, stripFrontmatter, when } from "../format.ts";
+import { cClass, clock, cx, dayLabel, isImagePath, kTok, money, plural, shortModel, spaced, stripFrontmatter, took, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { AgentDetail, CampEvent, CampState, SendResult, Transcript, TranscriptPart } from "../types.ts";
 import type { OpenPicker } from "./Crew.tsx";
@@ -150,7 +150,7 @@ function Run({ a, q }: { a: AgentDetail; q: AgentDetail["runs"][number] }) {
         <time>{when(q.time)}</time>
       </div>
       <div className="meta">
-        <b>{money(q.cost)}{q.runtime === "claude-code" ? " est." : ""}</b> · {q.seconds}s · {q.turns} {plural(q.turns, "turn")} · {kTok(u.input + u.cacheRead + u.cacheWrite)} in · {kTok(u.output)} out · {shortModel(q.model)} · {q.effort ?? "default"}
+        <b>{money(q.cost)}{q.runtime === "claude-code" ? " est." : ""}</b> · {took(q.seconds)} · {q.turns} {plural(q.turns, "turn")} · {kTok(u.input + u.cacheRead + u.cacheWrite)} in · {kTok(u.output)} out · {shortModel(q.model)} · {q.effort ?? "default"}
       </div>
       <Clamp><b>Asked</b> {q.task}</Clamp>
       <Clamp><b>Result</b> {q.result}</Clamp>
@@ -234,7 +234,7 @@ export function About({ a }: { a: AgentDetail }) {
         <div className="stat"><b>{s.runs}</b><span>Runs</span></div>
         <div className="stat"><b>{s.successRate != null ? `${s.successRate}%` : "–"}</b><span>Finished</span></div>
         <div className="stat"><b>{money(s.cost)}</b><span>Spent</span></div>
-        <div className="stat"><b>{s.avgSeconds != null ? `${s.avgSeconds}s` : "–"}</b><span>Average run</span></div>
+        <div className="stat"><b>{s.avgSeconds != null ? took(s.avgSeconds) : "–"}</b><span>Average run</span></div>
       </div>
       <Row label="Personality"><span>{a.personality}</span></Row>
       <Row label="Handles"><span>{a.handles}</span></Row>

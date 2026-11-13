@@ -29,6 +29,7 @@ import { MEMORY_MAX_CHARS, fullMemory } from "./memory.js";
 import { linkedRepos, removeWorkspace, tryGit } from "./repos.js";
 import { allTurns, compactThreads, threadLines } from "./threads.js";
 import { campMode, type Tool } from "./tools.js";
+import { canon } from "./platform.js";
 import { pruneUploads, uploadBatches, MIN_AGE_DAYS } from "./uploads.js";
 
 const run = promisify(execFile);
@@ -61,14 +62,14 @@ async function diskSize(dir: string): Promise<number> {
   try { return Number((await run("du", ["-sk", dir], { timeout: 20_000 })).stdout.split(/\s/)[0]) * 1024 || 0; } catch { return 0; }
 }
 async function spareWorktrees(): Promise<Spare[]> {
-  const busy = new Set(allTurns().filter((t) => t.status === "running").flatMap((t) => Object.values(t.workspaces ?? {}).map((w) => resolve(w.path))));
+  const busy = new Set(allTurns().filter((t) => t.status === "running").flatMap((t) => Object.values(t.workspaces ?? {}).map((w) => canon(w.path))));
   const out: Spare[] = [];
   for (const repo of await linkedRepos()) {
     const link = findLink(repo.link);
     if (!link) continue;
-    const made = resolve(dirname(link.path), `${basename(link.path)}-camp`) + sep;
+    const made = join(canon(dirname(link.path)), `${basename(link.path)}-camp`) + sep;
     for (const w of repo.worktrees) {
-      const path = resolve(w.path);
+      const path = canon(w.path);
       if (!path.startsWith(made) || busy.has(path) || !existsSync(path)) continue;
       if (await tryGit(path, ["status", "--porcelain"])) continue; // something uncommitted: not ours to judge
       const head = await tryGit(path, ["rev-parse", "HEAD"]);

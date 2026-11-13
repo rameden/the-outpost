@@ -70,10 +70,22 @@ export function isQuiet(text: string): boolean {
   return lines.length === 0 || lines[lines.length - 1] === QUIET_TOKEN;
 }
 
+// A notification from the system when a job has something to say. Best effort: if it can't be
+// shown, the report is in the inbox all the same.
 function notify(title: string, message: string) {
-  if (process.platform !== "darwin") return;
-  const clean = (s: string) => JSON.stringify(s.replace(/\s+/g, " ").slice(0, 180));
-  execFile("osascript", ["-e", `display notification ${clean(message)} with title ${clean(title)}`], () => {});
+  const flat = (s: string) => s.replace(/\s+/g, " ").slice(0, 180);
+  if (process.platform === "darwin") {
+    const clean = (s: string) => JSON.stringify(flat(s));
+    execFile("osascript", ["-e", `display notification ${clean(message)} with title ${clean(title)}`], () => {});
+  } else if (process.platform === "win32") {
+    // A toast, through PowerShell. The words travel in the environment, never in the script itself.
+    const script = "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; " +
+      "$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
+      "$t = $x.GetElementsByTagName('text'); $t.Item(0).AppendChild($x.CreateTextNode($env:SATCHEL_TITLE)) > $null; $t.Item(1).AppendChild($x.CreateTextNode($env:SATCHEL_TEXT)) > $null; " +
+      "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Satchel').Show([Windows.UI.Notifications.ToastNotification]::new($x))";
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script],
+      { env: { ...process.env, SATCHEL_TITLE: flat(title), SATCHEL_TEXT: flat(message) }, windowsHide: true, timeout: 15_000 }, () => {});
+  }
 }
 
 function toInbox(heading: string, body: string) {

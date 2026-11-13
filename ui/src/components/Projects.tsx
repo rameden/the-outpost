@@ -127,7 +127,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
           <button type="button" className="btn small primary" onClick={() => setView({ kind: "new", project: general ? undefined : project.id })}>New conversation</button>
           {hasFolders && <button type="button" className="btn small" disabled={surveying} title="The Scout reads through the project's folders and writes a brief for the crew" onClick={() => setAskSurvey(true)}>{page?.brief ? "Survey again" : "Survey this project"}</button>}
           <button type="button" className="btn small" onClick={() => onEdit(project)}>Edit…</button>
-          {!general && <button type="button" className="btn small danger" onClick={() => onDelete(project)}>Delete</button>}
+          {!general && <button type="button" className="btn small danger quiet" onClick={() => onDelete(project)}>Delete</button>}
         </div>
       </header>
 

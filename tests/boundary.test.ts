@@ -10,9 +10,9 @@ import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, re
 import net from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { enterSandbox, REPO } from "./helpers/sandbox.ts";
+import { enterSandbox, REPO, NEEDS_SH, NEEDS_POSIX, WINDOWS } from "./helpers/sandbox.ts";
 
-const camp = realpathSync(enterSandbox("boundary"));
+const camp = realpathSync.native(enterSandbox("boundary"));
 
 // Secrets in the camp's own environment, as scripts/env.mjs would have loaded them from .env.
 const LEAKY = ["BOUNDARY_API_KEY", "BOUNDARY_TOKEN", "BOUNDARY_SECRET", "BOUNDARY_PASSWORD", "Boundary_Credentials", "JIRA_BOUNDARY_SITE", "ANTHROPIC_BOUNDARY", "CLAUDE_CODE_OAUTH_BOUNDARY", "BOUNDARY_GH_TOKEN"];
@@ -33,7 +33,7 @@ writeFileSync("pkgs/tool/cli.js", "// a tool\n");
 symlinkSync("../tool/cli.js", "pkgs/.bin/tool");                       // the node_modules/.bin kind: stays inside
 
 // Somewhere else on disk, with things no agent should reach.
-const outside = realpathSync(mkdtempSync(join(tmpdir(), "satchel-boundary-out-")));
+const outside = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-boundary-out-")));
 writeFileSync(join(outside, "id_ed25519"), "PRIVATE-KEY-456\n");
 writeFileSync(join(outside, "plain.txt"), "outside-text\n");
 
@@ -76,7 +76,7 @@ const { ensureProxy, stopProxy } = await import("../src/netproxy.ts");
 // command write in temp folders, so "this can't be written" needs a project somewhere else.
 // node_modules/.cache is ignored by git and is where tools keep throwaway files.
 let probe = join(REPO, "node_modules", ".cache", `satchel-boundary-${process.pid}`);
-try { mkdirSync(probe, { recursive: true }); probe = realpathSync(probe); } catch { probe = ""; }
+try { mkdirSync(probe, { recursive: true }); probe = realpathSync.native(probe); } catch { probe = ""; }
 const live = sandboxKind() === "seatbelt" && !!probe;
 
 after(async () => {
@@ -119,7 +119,7 @@ test("a symlink in the camp can't stand in for a file that's off limits", async 
   assert.match(why("outdir/id_ed25519", "read"), /off limits|outside the camp/);
 });
 
-test("symlinks that stay inside still read; nothing is written through one", async () => {
+test("symlinks that stay inside still read; nothing is written through one", { skip: NEEDS_POSIX }, async () => {
   assert.equal(await readFileFor("scribe").run!({ path: "alias.txt" }), "hello\n");
   assert.equal(why("pkgs/.bin/tool", "read"), "", "a node_modules/.bin style link");
   assert.equal(why("into-site.txt", "read"), "", "into a linked folder of this conversation");
@@ -161,7 +161,8 @@ test("the access token, the feed, the conversations and the checkpoints are priv
   assert.match(why("camp/checkpoints", "read"), /off limits/);
   assert.equal(why("camp/crew.json", "read"), "");
   // And the sandbox hides the same ones from commands, read-only run or not.
-  for (const plan of [sandboxPlanFor(camp), readOnlyPlanFor(camp)]) {
+  // (Windows has no sandbox to hide them from.)
+  if (!WINDOWS) for (const plan of [sandboxPlanFor(camp), readOnlyPlanFor(camp)]) {
     for (const name of [...files, "checkpoints", "agents"]) assert.ok(plan.unreadable!.includes(join(camp, "camp", name)), `${name} is unreadable in the sandbox`);
   }
 });
@@ -170,7 +171,8 @@ test("the access token, the feed, the conversations and the checkpoints are priv
 test("commands the crew runs don't see the camp's API keys and tokens", async () => {
   const env = childEnv({ EXTRA: "1" });
   for (const name of [...LEAKY, "ANTHROPIC_API_KEY"]) assert.equal(env[name], undefined, name);
-  assert.deepEqual([env.BOUNDARY_PLAIN, env.EXTRA, env.PATH], ["kept", "1", process.env.PATH]);
+  const path = (e: NodeJS.ProcessEnv) => e.PATH ?? e.Path; // (Windows spells it Path)
+  assert.deepEqual([env.BOUNDARY_PLAIN, env.EXTRA, path(env)], ["kept", "1", path(process.env)]);
   // Names only: if this ever fails, the message mustn't print anyone's real environment.
   const namesIn = (out: string) => out.split("\n").map((l) => l.split("=")[0]);
   const seen = namesIn(await runShell("env"));
@@ -215,7 +217,7 @@ test("runs without asking: not with a URL or another registry, and git branch on
 const armed = newRepo(join(outside, "armed"));
 addLink(armed, "write");
 
-test("the git tool and the Files flyout don't run what a repository's config names", async () => {
+test("the git tool and the Files flyout don't run what a repository's config names", { skip: NEEDS_SH }, async () => {
   // Each setting is shown to work with plain git first, so the checks below mean something.
   const filter = tripwire(outside, "filter"), fsmon = tripwire(outside, "fsmonitor"), ext = tripwire(outside, "extdiff"), conv = tripwire(outside, "textconv");
   writeFileSync(join(armed, ".gitattributes"), "*.txt filter=trip diff=trip\n");
@@ -251,7 +253,7 @@ test("the git tool and the Files flyout don't run what a repository's config nam
   for (const t of trips) assert.ok(!t.ran(), `${t.script} was not run`);
 });
 
-test("the sandbox's writable folder is the project the camp was given, whatever a nested repository claims", async () => {
+test("the sandbox's writable folder is the project the camp was given, whatever a nested repository claims", { skip: NEEDS_POSIX }, async () => {
   const proj = newRepo(join(outside, "proj"));
   const victim = newRepo(join(outside, "victim"));
   addLink(proj, "write");

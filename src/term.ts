@@ -10,6 +10,7 @@
 // Like the rest of mission control, this is only reachable from this machine with this launch's key.
 
 import type { ServerResponse } from "node:http";
+import { terminalShell } from "./platform.js";
 import { chmodSync, existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
@@ -123,9 +124,9 @@ const sse = (res: ServerResponse, event: string, data: unknown) => res.write(`ev
 export function openTerminal(o: { project?: string; cols?: unknown; rows?: unknown; folder?: string; sub?: string; title?: string; action?: string; type?: string; locked?: boolean }): TerminalInfo {
   if ([...sessions.values()].filter((s) => s.exited === null).length >= MAX_SESSIONS) throw new Error(`That's ${MAX_SESSIONS} terminals already. Close one first.`);
   const cwd = startFolder(o.project, o.folder, o.sub);
-  const shell = process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/zsh");
+  const shell = terminalShell(); // your login shell; on Windows, PowerShell (platform.ts)
   const cols = clamp(o.cols, 20, 400, 100), rows = clamp(o.rows, 5, 200, 24);
-  const pty = loadPty().spawn(shell, process.platform === "win32" ? [] : ["-l"], {
+  const pty = loadPty().spawn(shell.file, shell.args, {
     name: "xterm-256color", cols, rows, cwd,
     env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", SATCHEL_TERMINAL: "1" },
   });

@@ -1,0 +1,71 @@
+// Who can reach mission control, and from where.
+//
+// By default: this machine only. The server listens on 127.0.0.1 and answers only requests
+// addressed to 127.0.0.1 or localhost.
+//
+// LAN mode (CAMP_LAN=1, in .env or the environment the camp starts with) is for a camp that
+// lives on one machine at home and is used from your others. The server then listens on every
+// network interface and also answers to this machine's own names and addresses on the network.
+// It is meant for a network you trust:
+//
+//   - It's plain HTTP. The key travels with every request, unencrypted: anyone who can watch
+//     the network's traffic could take it. Fine behind a home router; not for an office, a
+//     shared flat's Wi-Fi, or anything reachable from the internet. Never forward the port.
+//   - The terminal pane works only on the camp's own machine. It's a shell on that machine, and
+//     a stolen key shouldn't be one: requests for it from anywhere else are refused.
+//   - The "choose a folder" dialog opens on the camp's machine, where you may not be sitting:
+//     from another machine you paste the folder's path instead.
+//   - Signing in still takes a one-time link. The camp's terminal prints one, and a browser
+//     that's already signed in can make one for another device (it lasts ten minutes).
+//
+// The names it answers to still matter: a request addressed to any other name is refused, which
+// is what stops a web page elsewhere from pointing its own name at this machine (DNS rebinding).
+//
+//   CAMP_LAN=1               turn it on
+//   CAMP_HOST=192.168.1.20   listen on this one address instead of all of them
+//   CAMP_NAMES=camp.home     more names this machine is reached by, comma-separated
+//
+// Everything here takes its inputs as arguments, so it can be tested without a network. No
+// imports from the rest of the camp.
+
+import type { NetworkInterfaceInfo } from "node:os";
+
+type Env = Record<string, string | undefined>;
+export type Access = {
+  lan: boolean;
+  listen: string;     // the address the server binds
+  names: string[];    // what this machine is reached by, besides 127.0.0.1 and localhost (first: the one to show)
+};
+
+const clean = (name: string) => name.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/[:/].*$/, "");
+const NAME = /^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/; // a host name or an IPv4 address
+
+export function accessFrom(env: Env, hostname: string, interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>): Access {
+  const on = /^(1|true|yes|on)$/i.test(env.CAMP_LAN?.trim() ?? "");
+  if (!on) return { lan: false, listen: "127.0.0.1", names: [] };
+  const listen = env.CAMP_HOST?.trim() || "0.0.0.0";
+  const addresses = Object.values(interfaces).flatMap((list) => (list ?? []).filter((i) => i.family === "IPv4" && !i.internal).map((i) => i.address));
+  const host = clean(hostname);
+  const names = [
+    ...(env.CAMP_NAMES ?? "").split(",").map(clean),                 // yours first: they're the ones you chose to use
+    ...(host && host !== "localhost" ? [host, ...(host.includes(".") ? [] : [`${host}.local`])] : []),
+    ...(listen !== "0.0.0.0" ? [clean(listen)] : []),
+    ...addresses,
+  ].filter((n) => NAME.test(n) && n !== "localhost" && n !== "127.0.0.1");
+  return { lan: true, listen, names: [...new Set(names)] };
+}
+
+// Is this request addressed to a name the camp answers to? (The Host header, with the port.)
+export function hostAllowed(host: string | undefined, port: number, access: Access): boolean {
+  const h = (host ?? "").toLowerCase();
+  return h === `127.0.0.1:${port}` || h === `localhost:${port}` || access.names.some((n) => h === `${n}:${port}`);
+}
+
+// Did the connection come from this machine itself?
+export function isLocal(remoteAddress: string | undefined): boolean {
+  const a = (remoteAddress ?? "").toLowerCase();
+  return a === "::1" || a.startsWith("127.") || a.startsWith("::ffff:127.");
+}
+
+// Where to open it, for the terminal and the page: the address to use from another machine.
+export const addressOf = (name: string, port: number) => `http://${name}:${port}/`;

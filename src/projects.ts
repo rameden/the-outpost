@@ -10,7 +10,7 @@
 // This file also builds the project's block of the prompt, and the numbers on a project's page.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { posix } from "node:path";
 import { GENERAL, getProject, history, type Project } from "./conversations.js";
 import { changedFiles } from "./checkpoints.js";
 import { currentProjectId, inScope, leftOutHere, type Workspace } from "./context.js";
@@ -24,6 +24,9 @@ import { allTurns } from "./threads.js";
 import { campPath, type Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
 import { fitMemory } from "./memfit.js";
+// Paths inside the camp are written with forward slashes on every system (Windows takes them too),
+// so what the crew and the page are shown reads the same everywhere.
+const join = posix.join;
 
 export const PROJECTS_DIR = join("camp", "projects");
 export const NOTES_MAX = 6000;       // characters of notes loaded into a prompt

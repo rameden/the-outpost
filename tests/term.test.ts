@@ -9,7 +9,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("term");
 process.env.SHELL = "/bin/sh"; // a plain shell: no profile, no prompt theme
-const folder = realpathSync(mkdtempSync(join(tmpdir(), "satchel-term-")));
+const folder = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-term-")));
 
 const { addLink } = await import("../src/links.ts");
 const { addProject } = await import("../src/conversations.ts");
@@ -20,6 +20,9 @@ after(() => { term.closeAllTerminals(); rl.close(); });
 // node-pty ships ready-built for macOS and Windows; elsewhere it has to be compiled first.
 let works = true;
 try { term.closeTerminal(term.openTerminal({}).id); } catch { works = false; }
+// These type POSIX shell commands (pwd, stty, $((…))). On Windows the pane opens PowerShell, which
+// these tests don't speak: left out there, so the pane itself is not covered on Windows yet.
+if (process.platform === "win32") works = false;
 
 // A stand-in for the page's event stream.
 function listener() {
@@ -65,7 +68,7 @@ test("a session starts in the project's folder, runs what's typed, and reattache
 
 test("without a project it starts in the camp folder; unknown sessions are refused; there's a limit", { skip: !works }, () => {
   const t = term.openTerminal({});
-  assert.equal(realpathSync(t.cwd), realpathSync(process.cwd()));
+  assert.equal(realpathSync.native(t.cwd), realpathSync.native(process.cwd()));
   assert.ok(!term.writeTerminal("nope", "ls\r"));
   assert.ok(!term.resizeTerminal("nope", 80, 24));
   assert.ok(!term.streamTerminal("nope", listener().res, () => {}));
@@ -127,7 +130,7 @@ test("quick actions: at most five, each a name and one or more plain one-line co
 });
 
 test("a quick action's new terminal: it starts in the folder named, carries the action's name, and types its commands once the shell is up", { skip: !works }, async () => {
-  const inside = realpathSync(mkdtempSync(join(tmpdir(), "satchel-term-act-")));
+  const inside = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-term-act-")));
   mkdirSync(join(inside, "apps", "web"), { recursive: true });
   const link = addLink(inside, "read");
   const t = term.openTerminal({ folder: link.name, sub: "apps/web", title: "Dev", action: "Dev", type: "echo one-$((1+1)) && echo two-$((2+2))\r" });

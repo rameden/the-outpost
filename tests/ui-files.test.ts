@@ -1,8 +1,8 @@
-// Serving mission control's built page: the token goes into the page and onto its asset links,
-// only real built files of known types are served, and the page's policy allows no inline code.
+// Serving mission control's built page: the camp's key is never written into it, only real built
+// files of known types are served, and the page's policy allows no inline code. And the tour.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uiPage, uiAsset, uiCsp, UI_CSP, splashPage, SPLASH_CSP, SPLASH_FILE } from "../src/ui-files.ts";
@@ -68,6 +68,31 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
   const page = splashPage()!;
   assert.ok(page, `${SPLASH_FILE} exists`);
   assert.match(page, /<title>Satchel<\/title>/);
+  // It wears the theme picked in mission control (the same saved choice), set before anything is drawn,
+  // and carries both of mission control's palettes.
+  assert.ok(page.indexOf("localStorage.getItem('camp-theme')") < page.indexOf("<style>"), "the saved theme is applied in the head, ahead of the styles");
+  assert.match(page, /:root\[data-theme="dark"\]/);
+  assert.match(page, /:root:not\(\[data-theme="light"\]\)/);
+  const css = readFileSync(new URL("../ui/src/styles.css", import.meta.url), "utf8");
+  for (const token of ["--bg: #f5efe4", "--accent: #9e5c0c", "--bg: #13110f", "--accent: #f0a640"]) {
+    assert.ok(page.includes(token) && css.includes(token), `${token} is the same in the tour and in mission control`);
+  }
+  // The other palettes too, light side and dark: the paper, the ink and the accent are the same in both.
+  assert.ok(page.indexOf("localStorage.getItem('camp-palette')") < page.indexOf("<style>"));
+  const shared = ["--bg", "--surface", "--surface-2", "--border", "--border-strong", "--text", "--muted", "--faint", "--accent", "--accent-soft", "--accent-ink"];
+  const blocks = (text: string, selector: string) => text.split(selector).slice(1).map((rest) => rest.slice(0, rest.indexOf("}")));
+  const value = (block: string, name: string) => block.match(new RegExp(`${name}: (#[0-9a-f]{6});`))?.[1];
+  for (const palette of ["harbor", "moss", "heather"]) {
+    assert.match(page, new RegExp(`<option value="${palette}">`), `the tour offers ${palette}`);
+    for (const selector of [`:root[data-palette="${palette}"] {`, `:root[data-palette="${palette}"]:not([data-theme="light"]) {`, `:root[data-palette="${palette}"][data-theme="dark"] {`]) {
+      const [inTour] = blocks(page, selector), [inCamp] = blocks(css, selector);
+      assert.ok(inTour && inCamp, `${selector} is in both`);
+      for (const name of shared) {
+        assert.ok(value(inCamp, name), `${selector} sets ${name}`);
+        assert.equal(value(inTour, name), value(inCamp, name), `${name} in ${selector}`);
+      }
+    }
+  }
   assert.equal(splashPage(join(dist, "missing.html")), null);
   assert.doesNotMatch(SPLASH_CSP, /connect-src|'self'/, "no requests back to the camp");
   assert.match(SPLASH_CSP, /default-src 'none'/);

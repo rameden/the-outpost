@@ -25,6 +25,24 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   const sendChanges = () => { if (typed && typed.toLowerCase() !== "n" && typed.toLowerCase() !== "y") void answer(typed); };
   const sendAnswer = () => { if (typed) void answer(typed); };
 
+  // A command that's been answered is a record, and a run can have dozens: each folds to one
+  // line (what you said, and the start of the command) that opens to the whole card.
+  if (resolved && !ask.listed && (kind === "shell" || kind === "tool")) {
+    return (
+      <details className="ask resolved folded" id={`ask-${ask.askId}`} data-kind={kind}>
+        <summary><span className="ask-outcome">{ask.outcome}</span><code>{ask.body.split("\n").find((l) => l.trim()) ?? ""}</code></summary>
+        <div className="ask-title">{ask.title.replace(/^\S+\s+/, "")}</div>
+        {ask.plain && (
+          <div className="ask-plain" role="note" aria-label="In plain words">
+            <div className="ask-plain-head">In plain words</div>
+            <dl>{ask.plain.split("\n").map((line, i) => { const at = line.indexOf(":"); return <div key={i}><dt>{line.slice(0, at)}</dt><dd>{line.slice(at + 1).trim()}</dd></div>; })}</dl>
+          </div>
+        )}
+        <div className="ask-body cmd">{ask.body}</div>
+      </details>
+    );
+  }
+
   return (
     <div className={cx("ask", resolved && "resolved")} id={`ask-${ask.askId}`} data-kind={kind}>
       <div className="ask-title">{ask.title.replace(/^\S+\s+/, "")}</div>

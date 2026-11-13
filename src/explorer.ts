@@ -14,6 +14,7 @@ import { join, posix, relative, resolve, sep } from "node:path";
 import { imageType } from "./attachments.js";
 import { findLink, inside, SECRET_NAME } from "./links.js";
 import { listWorktrees } from "./repos.js";
+import { samePath } from "./platform.js";
 import { gitFilterOverrides, gitSafeEnv } from "./sandbox.js";
 
 // secret: listed, but not opened. outside: a symlink that leads out of the folder.
@@ -34,8 +35,8 @@ export async function explorerRoot(linkName: string, worktree?: string): Promise
   const link = findLink(linkName);
   if (!link) throw new Error(`No linked folder named "${linkName}".`);
   if (!existsSync(link.path)) throw new Error(`${link.path} isn't there any more.`);
-  if (!worktree || resolve(worktree) === resolve(link.path)) return link.path;
-  const hit = (await listWorktrees(link.path)).find((w) => resolve(w.path) === resolve(worktree));
+  if (!worktree || samePath(worktree, link.path)) return link.path;
+  const hit = (await listWorktrees(link.path)).find((w) => samePath(w.path, worktree));
   if (!hit) throw new Error(`That isn't a worktree of links/${link.name}.`);
   return hit.path;
 }

@@ -11,8 +11,9 @@
 //    (so a link can't be used to read .env or another agent's memory).
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, readdirSync, lstatSync, readlinkSync } from "node:fs";
+import { canon, isWindows, unlinkable } from "./platform.js";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { currentWorkspaces, inScope, leftOutHere } from "./context.js";
 
 export const LINKS_PATH = "camp/links.json";
@@ -28,14 +29,8 @@ export function linkRoot(link: Link): string {
 }
 
 const HOME = homedir();
-// Never linkable: the whole disk, your whole home folder, system folders, and credential stores.
-const FORBIDDEN_EXACT = ["/", HOME, "/Users", "/home", "/Volumes"];
-const FORBIDDEN_UNDER = [
-  "/etc", "/private/etc", "/var/db", "/private/var/db", "/var/root", "/private/var/root", "/var/log", "/private/var/log",
-  "/System", "/Library", "/usr", "/bin", "/sbin", "/dev", "/proc", "/opt/homebrew/etc",
-  join(HOME, ".ssh"), join(HOME, ".aws"), join(HOME, ".gnupg"), join(HOME, ".config"), join(HOME, ".kube"),
-  join(HOME, ".docker"), join(HOME, "Library"), join(HOME, ".claude"), join(HOME, ".hermes"),
-];
+// (What can never be linked, on each system: a whole disk, your whole home folder, system folders
+// and credential stores. See unlinkable in platform.ts.)
 // File and folder names that stay off limits inside a link.
 export const SECRET_NAME = /^(\.env.*|.*\.pem|.*\.key|id_rsa.*|id_ed25519.*|id_ecdsa.*|\.netrc|\.npmrc|\.pypirc|\.git-credentials|credentials(\.json)?|.*\.p12|.*\.pfx|\.ssh|\.aws|\.gnupg)$/i;
 
@@ -95,15 +90,17 @@ export function countFiles(root: string, cap = 50_000): number {
 
 // Link a folder. Returns the link (an existing one for the same folder is reused and updated).
 export function addLink(rawPath: string, access: LinkAccess = "read", campRoot = process.cwd()): Link {
-  const expanded = rawPath.trim().replace(/^['"]|['"]$/g, "").replace(/^~(?=$|\/)/, HOME);
-  if (!isAbsolute(expanded)) throw new Error("Use the folder's full path, e.g. /Users/you/Projects/site (in Finder: right-click, hold Option, Copy as Pathname).");
+  const expanded = rawPath.trim().replace(/^['"]|['"]$/g, "").replace(/^~(?=$|[\\/])/, HOME);
+  if (!isAbsolute(expanded)) throw new Error(isWindows
+    ? "Use the folder's full path, e.g. C:\\Users\\you\\Projects\\site (in Explorer: Shift + right-click, Copy as path)."
+    : "Use the folder's full path, e.g. /Users/you/Projects/site (in Finder: right-click, hold Option, Copy as Pathname).");
   if (!existsSync(expanded)) throw new Error(`There's no folder at ${expanded}.`);
-  const real = realpathSync(expanded);
+  const real = canon(expanded); // (on Windows: the full name, not a short one like RUNNER~1, so it matches what git says)
   if (!statSync(real).isDirectory()) throw new Error(`${expanded} is a file, not a folder. Attach files with Files… instead.`);
-  if (FORBIDDEN_EXACT.includes(real) || FORBIDDEN_UNDER.some((f) => inside(real, f))) {
+  if (unlinkable(real, canon(HOME), undefined, undefined, canon(tmpdir()))) {
     throw new Error(`For safety, ${real} can't be linked (system, home, or credential folder). Link a specific project folder instead.`);
   }
-  if (inside(real, realpathSync(campRoot))) throw new Error("That folder is already inside the camp; reference it with @path instead.");
+  if (inside(real, canon(campRoot))) throw new Error("That folder is already inside the camp; reference it with @path instead.");
 
   const links = loadLinks();
   const existing = links.find((l) => l.path === real);

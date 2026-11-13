@@ -11,7 +11,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("workspaces");
 // A project of its own, outside the camp, to link.
-const repo = realpathSync(mkdtempSync(join(tmpdir(), "satchel-repo-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-repo-")));
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 git(repo, "init", "-q", "-b", "main");
 git(repo, "config", "user.email", "test@example.com");

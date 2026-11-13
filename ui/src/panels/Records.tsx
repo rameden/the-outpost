@@ -8,6 +8,7 @@ import { Empty, Icon } from "../components/bits.tsx";
 import { cClass, cx, stripFrontmatter, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Link } from "../types.ts";
+import { ask } from "../components/Confirm.tsx";
 
 type Panel = { S: CampState; refresh: () => void };
 
@@ -58,7 +59,7 @@ export function Jobs({ S, refresh }: Panel) {
               <div className="card-actions">
                 <label className="switch"><input type="checkbox" checked={j.enabled} onChange={(ev) => act(j.name, ev.target.checked ? "enable" : "disable")} /> {j.enabled ? "On" : "Off"}</label>
                 <button className="btn small" type="button" onClick={() => act(j.name, "run")}>Run now</button>
-                <button className="btn small danger" type="button" onClick={() => { if (confirm(`Delete the job "${j.name}"?`)) void act(j.name, "delete"); }}>Delete</button>
+                <button className="btn small danger" type="button" onClick={async () => { if (await ask({ title: `Delete the job "${j.name}"?`, action: "Delete", danger: true })) void act(j.name, "delete"); }}>Delete</button>
               </div>
             </li>
           ))}
@@ -90,7 +91,7 @@ function Triggers({ S, refresh }: Panel) {
               <div className="card-actions">
                 <label className="switch"><input type="checkbox" checked={t.enabled} onChange={(ev) => act(t.name, ev.target.checked ? "enable" : "disable")} /> {t.enabled ? "On" : "Off"}</label>
                 <button className="btn small" type="button" onClick={() => act(t.name, "check")}>Check now</button>
-                <button className="btn small danger" type="button" onClick={() => { if (confirm(`Delete the trigger "${t.name}"?`)) void act(t.name, "delete"); }}>Delete</button>
+                <button className="btn small danger" type="button" onClick={async () => { if (await ask({ title: `Delete the trigger "${t.name}"?`, action: "Delete", danger: true })) void act(t.name, "delete"); }}>Delete</button>
               </div>
             </li>
           ))}
@@ -203,7 +204,7 @@ export function LinkCommands({ link, kind, refresh, open }: { link: Link; kind: 
       <summary>{c.title}{list.length ? ` (${list.length})` : ""}</summary>
       <div className="meta">{c.hint} For example <code>{c.example}</code>.</div>
       <textarea spellCheck={false} aria-label={`${c.title} for ${link.name}`} value={text} onChange={(ev) => setText(ev.target.value)} />
-      <div><button type="button" className="btn small" disabled={text.trim() === saved} onClick={save}>Save {c.noun}</button></div>
+      <div><button type="button" className="btn small primary" disabled={text.trim() === saved} onClick={save}>Save {c.noun}</button></div>
     </details>
   );
 }
@@ -211,7 +212,7 @@ export function LinkCommands({ link, kind, refresh, open }: { link: Link; kind: 
 // ---------- Connectors (and linked folders) ----------
 export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink: (link: Link) => void }) {
   async function unlink(l: Link) {
-    if (!confirm(`Unlink ${l.path}? The folder itself isn't touched.`)) return;
+    if (!await ask({ title: `Unlink ${l.path}?`, body: "The folder itself isn't touched.", action: "Unlink", danger: true })) return;
     try { await api("/api/links/remove", { name: l.name }); refresh(); } catch (e) { alert(errorText(e)); }
   }
   const links = S.links ?? [];

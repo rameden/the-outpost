@@ -43,6 +43,7 @@ import { activityOf } from "./feed/conversation.ts";
 import { Settings, isSettingsSection, type SettingsSection } from "./settings/Settings.tsx";
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link } from "./types.ts";
+import { ask, ConfirmHost } from "./components/Confirm.tsx";
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -155,7 +156,11 @@ export function App({ store }: { store: FeedStore }) {
   const onMention = useCallback((path: string) => composer.current?.mention(path), []);
 
   // History closes to a tab too (remembered).
-  const [historyOpen, setHistoryOpen] = useState(() => storeGet("camp-history-open") !== "0");
+  // On a narrow page, where it would sit above the conversation, it starts closed unless you've opened it.
+  const [historyOpen, setHistoryOpen] = useState(() => {
+    const kept = storeGet("camp-history-open");
+    return kept ? kept !== "0" : !(typeof matchMedia === "function" && matchMedia("(max-width: 860px)").matches);
+  });
   const toggleHistory = useCallback(() => setHistoryOpen((on) => { storeSet("camp-history-open", on ? "0" : "1"); return !on; }), []);
 
   // The page's layout: zones you arrange in the layout editor (remembered in this browser).
@@ -346,7 +351,7 @@ export function App({ store }: { store: FeedStore }) {
     } catch (e) { alert(errorText(e)); }
   }, [patch]);
   const deleteProject = useCallback(async (p: Project) => {
-    if (!confirm(`Delete the project "${p.name}"? Its conversations move to General. The folder itself isn't touched.`)) return;
+    if (!await ask({ title: `Delete the project "${p.name}"?`, body: "Its conversations move to General. The folder itself isn't touched.", action: "Delete project", danger: true })) return;
     try {
       const r = await api<{ history: HistoryData }>("/api/history", { action: "project.remove", id: p.id });
       patch((s) => ({ ...s, history: r.history }));
@@ -457,7 +462,11 @@ export function App({ store }: { store: FeedStore }) {
               );
               case "files": return state === "collapsed"
                 ? <FilesRail onShow={toggleFiles} />
-                : <ZoneBoundary name="Files"><FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} /></ZoneBoundary>;
+                : <ZoneBoundary name="Files">
+                    {/* On a narrow page the panel sits over everything: the rest is dimmed, and a press there closes it (styles.css). */}
+                    <button type="button" className="files-scrim" aria-label="Hide the files" tabIndex={-1} onClick={toggleFiles} />
+                    <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />
+                  </ZoneBoundary>;
               case "terminal": return state === "collapsed"
                 ? <TerminalRail onShow={toggleTerminal} />
                 : <ZoneBoundary name="The terminal"><TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={setUpTerminal} /></ZoneBoundary>;
@@ -524,6 +533,8 @@ export function App({ store }: { store: FeedStore }) {
           <ModelPicker c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />
         </OverlayBoundary>
       )}
+      {/* "Are you sure?", asked from anywhere on the page (ask() in Confirm.tsx). */}
+      <ConfirmHost />
     </>
   );
 }

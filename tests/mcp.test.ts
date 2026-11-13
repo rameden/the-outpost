@@ -53,5 +53,5 @@ test("status shows connected servers and errors", async () => {
   assert.equal(status.find((s) => s.name === "notes")?.state, "connected");
   const broken = status.find((s) => s.name === "broken");
   assert.equal(broken?.state, "error");
-  assert.match(broken?.error ?? "", /ENOENT/);
+  assert.match(broken?.error ?? "", /ENOENT|Connection closed/); // (how a missing program is reported differs on Windows)
 });

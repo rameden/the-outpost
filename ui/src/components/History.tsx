@@ -16,6 +16,7 @@ import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, when } from "../format.ts";
 import { Drawer, Icon } from "./bits.tsx";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
+import { ask } from "./Confirm.tsx";
 
 const GENERAL = "general";
 const SHOWN = 5; // conversations listed under a project before "View all"
@@ -146,7 +147,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
             <div className="hist-pop-sep" />
             <button type="button" role="menuitem" className="danger" onClick={async () => {
               close();
-              if (!confirm(`Remove "${c.title}" from your history? The crew's files and its record in the camp folder stay.`)) return;
+              if (!await ask({ title: `Remove "${c.title}" from your history?`, body: "The crew's files and its record in the camp folder stay.", action: "Remove", danger: true })) return;
               if (await change({ action: "conversation.remove", id: c.id }) && selected === c.id) setView({ kind: "new" });
             }}>Remove from history</button>
           </>
@@ -206,7 +207,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
               {p.id !== GENERAL && (
                 <button type="button" role="menuitem" className="danger" onClick={async () => {
                   close();
-                  if (confirm(`Delete the project "${p.name}"? Its conversations move to General. The folder itself isn't touched.`) && await change({ action: "project.remove", id: p.id }) && onPage) setView({ kind: "projects" });
+                  if (await ask({ title: `Delete the project "${p.name}"?`, body: "Its conversations move to General. The folder itself isn't touched.", action: "Delete project", danger: true }) && await change({ action: "project.remove", id: p.id }) && onPage) setView({ kind: "projects" });
                 }}>Delete project</button>
               )}
             </>
@@ -254,12 +255,18 @@ export const History = memo(function History({ S, store, view, setView, patch, o
             <Icon name="book" />Wiki
           </button>
         )}
-        <button type="button" className={cx("hist-nav-item", searching && "selected")} onClick={() => { setSearching((v) => !v); setQuery(""); }}>
-          <Icon name="search" />Search
-        </button>
-        {searching && (
-          <input className="hist-search" autoFocus value={query} placeholder="Search titles and what was said…" aria-label="Search conversations"
-            onChange={(ev) => setQuery(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Escape") { setSearching(false); setQuery(""); } }} />
+        {/* Search turns into its own box, in place: nothing under it moves, and it isn't lit like the page you're on. */}
+        {searching ? (
+          <div className="hist-search-row">
+            <Icon name="search" />
+            <input className="hist-search" autoFocus value={query} placeholder="Search titles and what was said…" aria-label="Search conversations"
+              onChange={(ev) => setQuery(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Escape") { setSearching(false); setQuery(""); } }} />
+            <button type="button" className="hist-icon" aria-label="Close the search" title="Close the search (Esc)" onClick={() => { setSearching(false); setQuery(""); }}><Icon name="x" /></button>
+          </div>
+        ) : (
+          <button type="button" className="hist-nav-item" onClick={() => { setSearching(true); setQuery(""); }}>
+            <Icon name="search" />Search
+          </button>
         )}
         <button type="button" className={cx("hist-nav-item", view.kind === "all" && "selected")} title="Everything at once, scheduled jobs included" onClick={() => setView({ kind: "all" })}>
           <Icon name="list" />All activity

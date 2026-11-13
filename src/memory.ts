@@ -6,7 +6,7 @@
 // Agents can read each other's outputs, but never each other's memory or sessions.
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { posix, resolve, sep } from "node:path";
 import { CREW, type CrewId } from "./crew.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
@@ -15,6 +15,9 @@ import type { Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
 import { PIN, alike, fitMemory, parseEntry } from "./memfit.js";
 import { norm } from "./memlog.js";
+// Paths inside the camp are written with forward slashes on every system (Windows takes them too),
+// so what the crew and the page are shown reads the same everywhere.
+const join = posix.join;
 
 export const AGENTS_DIR = join("camp", "agents");
 export const MEMORY_MAX_CHARS = 5000; // characters of memory loaded into a prompt (which lines, once it's longer than that: memfit.ts)
@@ -168,6 +171,12 @@ const clip = (s: string, n: number) => {
   const flat = s.replace(/\s+/g, " ").trim();
   return flat.length > n ? flat.slice(0, n - 1) + "…" : flat;
 };
+// The same length, with its lines kept: for what's shown back to you as it was written (a reply
+// with a table or a list in it). Runs of blank lines are closed up.
+const clipLines = (s: string, n: number) => {
+  const text = s.replace(/\r\n/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+  return text.length > n ? text.slice(0, n - 1).trimEnd() + "…" : text;
+};
 
 export function recordSession(
   id: CrewId,
@@ -182,7 +191,7 @@ export function recordSession(
   writeFileSync(file, JSON.stringify({ time, agent: id, source: s.source, status: s.status, task: s.task, result: s.result, messages: stripMedia(s.messages) }));
   pruneTranscripts(ws.sessions);
   const project = currentProjectId();
-  const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clip(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
+  const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clipLines(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
   appendFileSync(ws.index, JSON.stringify(line) + "\n");
   return file;
 }

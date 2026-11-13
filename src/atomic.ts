@@ -21,11 +21,25 @@ export function writeAtomic(path: string, text: string | Buffer, opts: { mode?: 
     fsyncSync(fd);
     closeSync(fd);
     fd = undefined;
-    renameSync(tmp, path);
+    replace(tmp, path);
   } catch (err) {
     if (fd !== undefined) try { closeSync(fd); } catch { /* already closed */ }
     rmSync(tmp, { force: true });
     throw err;
+  }
+}
+
+// Put the new file in place of the old. On Windows the rename is refused while anything has the
+// old file open (a virus scanner, the search indexer, another camp process reading it), which
+// lasts a moment: so it's tried again, briefly, before giving up. Elsewhere it simply happens.
+const BUSY = new Set(["EPERM", "EBUSY", "EACCES"]);
+export function replace(from: string, to: string, rename: (a: string, b: string) => void = renameSync, tries = process.platform === "win32" ? 12 : 1) {
+  for (let n = 1; ; n++) {
+    try { return rename(from, to); }
+    catch (err: any) {
+      if (n >= tries || !BUSY.has(err?.code)) throw err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15 * n); // a short pause, a little longer each time
+    }
   }
 }
 

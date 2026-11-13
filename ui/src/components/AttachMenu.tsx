@@ -65,6 +65,18 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
     box.current?.querySelector<HTMLElement>(first)?.focus();
   }, [view]);
 
+  // The menu opens upwards from the message box. It may be no taller than the room above it, or
+  // its top rows would be off the page (a short window, or the terminal open underneath).
+  useEffect(() => {
+    const fit = () => {
+      const bottom = box.current?.getBoundingClientRect().bottom ?? 0;
+      if (bottom > 0) box.current?.style.setProperty("--room", `${Math.max(160, Math.round(bottom) - 28)}px`); // less the menu's own padding, and a gap above it
+    };
+    fit();
+    addEventListener("resize", fit);
+    return () => removeEventListener("resize", fit);
+  }, []);
+
   // Rows open their panel on a click, the right arrow, or a pointer that rests on them: the
   // short wait keeps a pointer crossing other rows on its way to a panel from closing it.
   const intent = useRef(0);

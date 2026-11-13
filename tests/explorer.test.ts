@@ -10,8 +10,8 @@ import { join } from "node:path";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("explorer");
-const repo = realpathSync(mkdtempSync(join(tmpdir(), "satchel-files-")));
-const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), "satchel-elsewhere-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-files-")));
+const elsewhere = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-elsewhere-")));
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 git(repo, "init", "-q", "-b", "main");
 git(repo, "config", "user.email", "test@example.com");
@@ -99,7 +99,7 @@ test("a worktree of the linked repository can be browsed in its place", async ()
   git(repo, "worktree", "add", "-q", "-b", "camp/try", tree);
   writeFileSync(join(tree, "only-here.txt"), "hi\n");
   const root = await ex.explorerRoot(link.name, tree);
-  assert.equal(realpathSync(root), realpathSync(tree));
+  assert.equal(realpathSync.native(root), realpathSync.native(tree));
   assert.ok(ex.listFolder(root).entries.some((e) => e.name === "only-here.txt"));
   assert.equal((ex.previewFile(root, "only-here.txt") as any).text, "hi\n");
 });

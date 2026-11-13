@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import { campPath, CAMP_ROOT, displayPath, type Tool } from "./tools.js";
 import { loadLinks } from "./links.js";
+import { slash } from "./platform.js";
 
 export const UPLOADS_DIR = join("camp", "uploads");
 export type Attachment = { kind: "file" | "folder" | "url"; name: string; path?: string; url?: string };
@@ -49,7 +50,7 @@ export function saveUpload(u: { name: string; data: string; batch?: string; relP
   mkdirSync(dirname(path), { recursive: true });
   const bytes = Buffer.from(u.data, "base64");
   writeFileSync(path, bytes);
-  return { path, name: segments[segments.length - 1], size: bytes.length, batch, image: !!imageType(path) };
+  return { path: slash(path), name: segments[segments.length - 1], size: bytes.length, batch, image: !!imageType(path) };
 }
 
 // ---------- Finding project files (for @ autocomplete) ----------
