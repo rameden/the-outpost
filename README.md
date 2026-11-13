@@ -48,6 +48,18 @@ npm run watch   # run scheduled jobs from the terminal (mission control runs the
 
 Try: *"Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc."*
 
+### On Windows
+
+It runs on Windows 10 and 11 the same way: `npm install`, `claude auth login`, `npm run ui`. What's different there:
+
+- **The crew's commands run in Git Bash** when Git for Windows is installed (the camp needs git anyway), so `ls`, `grep`, `&&` and pipes mean what they do everywhere else. Without it they run in PowerShell, and the crew is told to write PowerShell. To choose another shell, set `CAMP_SHELL` to its path (a `bash.exe`, `pwsh.exe` or `powershell.exe`).
+- **There's no sandbox.** It's built on macOS's and Linux's own, so on Windows the "Sandbox the rest" approval level is unavailable and commands ask first. For a sandbox on a Windows machine, run the camp inside WSL 2, where it behaves as it does on Linux.
+- **The terminal pane opens PowerShell** (PowerShell 7 if it's installed).
+- **Files that hold keys** (`camp/providers.json`, `camp/.token`…) are protected by your Windows account's own folder permissions; the "readable only by you" file mode the camp sets elsewhere has no meaning there.
+- **Jobs in the background:** `npm run watch:install` is for macOS. On Windows it prints the Task Scheduler command to use instead.
+
+Windows support is new and less travelled than macOS and Linux: the pieces above are tested by pretending to be Windows, and the full suite also runs on a real Windows machine in CI, in a job that reports without blocking.
+
 ## Mission control
 
 `npm run ui` serves a local dashboard on `127.0.0.1`. It has:
@@ -108,6 +120,7 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 - **Changes you can review and undo:** when an expedition changes files, its card shows how many, with **View changes** (a diff) and **Undo** (puts every file back). This covers `write_file` and `edit_file` anywhere, and, in a linked git repository, what shell commands changed too: before the expedition's first command there, the camp records the working tree as a snapshot (a commit on a private ref, `refs/satchel/checkpoints/…`, never pushed or checked out; your index, HEAD and branches aren't touched), and again when it ends. Undo puts a shell-changed file back only if nothing has changed it since the expedition ended, and lists the ones it left alone. Files git ignores (`node_modules`, build output) and secret files are left out of snapshots.
 - **Fork, or go back:** **Fork…** on a finished answer starts a new conversation that's a copy of this one up to that answer, so you can try something else from there and keep the original as it was. **Go back to here…** does the same after putting back what every later run in the conversation changed (newest first), so the files are as they were right after that answer. It asks first, and refuses while a later run is still going. Both keep the conversation's project, folders and worktree.
 - **Plan usage:** on your subscription, the Quests tab shows your plan's windows (5-hour, weekly, and a weekly limit for one model if your plan has one) with how full each is and when it resets. The figures are your plan's own, the ones `/usage` shows in Claude Code: the camp reads them when it starts, after each run, and when you press **Refresh**, by opening a Claude Code session and closing it without sending a message, so reading them uses none of your plan. It says when they were last read. If one is used up, the camp pauses: queued work and scheduled jobs wait for the reset instead of failing ("Try anyway" overrides it).
+- **Themes:** light or dark (or matching your system), and a palette: the camp's own warm colours, **Harbor** (blue), **Moss** (green) or **Heather** (plum). Each palette has a light and a dark side, so the header's switch works for all of them. Pick one under Settings → General. The tour wears the same look, and a change in either shows in the other at once.
 - **Notifications:** the 🔔 button turns on browser notifications for approvals and long expeditions finishing while the tab is in the background. For your phone, see [Approvals from your phone](#approvals-from-your-phone).
 - **The feed is kept:** it's saved to `camp/feed.jsonl` and reloaded when mission control restarts.
 - **Signing in:** the link the camp prints carries a one-time sign-in code, not the camp's key. The page trades the code for the key and keeps it in that browser, for that address only, so after the first time `http://127.0.0.1:4747/` opens by itself, and nothing lasting sits in the address bar, your history, or a bookmark. A link works once: press Enter in the camp's terminal for another (a second browser, or after clearing site data). The page and its scripts hold nothing of the camp and are served to anyone on this machine; everything they then ask for needs the key.

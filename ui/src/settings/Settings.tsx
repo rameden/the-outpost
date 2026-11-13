@@ -13,6 +13,7 @@ import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
+import { PALETTES, modeNow, paletteNow, setMode, setPalette, type Mode, type PaletteId } from "../themes.ts";
 import { cClass, cx, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
@@ -64,12 +65,6 @@ function Choices<T extends string>({ name, value, options, onChange }: {
 }
 
 // ---------- General ----------
-type Theme = "system" | "light" | "dark";
-function applyTheme(t: Theme) {
-  const root = document.documentElement;
-  if (t === "system") { delete root.dataset.theme; storeSet("camp-theme", ""); }
-  else { root.dataset.theme = t; storeSet("camp-theme", t); }
-}
 
 // The files you've attached, and clearing out the ones nothing uses any more. Nothing is deleted
 // unless you press the button (which says what will go) or pick a number of days here.
@@ -116,7 +111,8 @@ function Uploads({ S, refresh }: { S: CampState; refresh: () => void }) {
 }
 
 function General({ S, refresh }: { S: CampState; refresh: () => void }) {
-  const [theme, setTheme] = useState<Theme>(() => (storeGet("camp-theme") as Theme) || "system");
+  const [theme, setTheme] = useState<Mode>(modeNow);
+  const [palette, setPaletteShown] = useState<PaletteId>(paletteNow);
   const costShown = showCost.use();
   const [, redraw] = useState(0);
   const locked = S.settings.runtimeLocked;
@@ -136,10 +132,18 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           { id: "api", label: "API key", help: "Billed per token to ANTHROPIC_API_KEY.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
         ]} />
       </Row>
-      <Row label="Theme" help="Remembered in this browser.">
-        <select aria-label="Theme" value={theme} onChange={(ev) => { const t = ev.target.value as Theme; setTheme(t); applyTheme(t); }}>
+      <Row label="Theme" help="Light or dark. Remembered in this browser.">
+        <select aria-label="Theme" value={theme} onChange={(ev) => { const t = ev.target.value as Mode; setTheme(t); setMode(t); }}>
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
+      </Row>
+      <Row label="Colours" help={`${PALETTES.find((p) => p.id === palette)?.about ?? ""} Each has a light and a dark side, and the tour wears it too.`} wide>
+        <div className="looks" role="group" aria-label="Colours">
+          {PALETTES.map((p) => (
+            <button key={p.id} type="button" className={`look p-${p.id}`} aria-pressed={palette === p.id}
+              onClick={() => { setPaletteShown(p.id); setPalette(p.id); }}><i aria-hidden="true" />{p.name}</button>
+          ))}
+        </div>
       </Row>
       <Row label="Today's cost in the top bar" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. Remembered in this browser. Usage & quests, in this menu, always shows it.`}>
         <label className="switch"><input type="checkbox" checked={costShown} onChange={(ev) => showCost.set(ev.target.checked)} /> {costShown ? "Shown" : "Hidden"}</label>

@@ -26,7 +26,7 @@ let found: Rg | null | undefined;
 function bundledClaude(): string | null {
   try {
     const pkg = createRequire(import.meta.url).resolve(`@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/package.json`);
-    return join(dirname(pkg), "claude");
+    return join(dirname(pkg), process.platform === "win32" ? "claude.exe" : "claude");
   } catch { return null; }
 }
 

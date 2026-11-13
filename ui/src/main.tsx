@@ -1,15 +1,16 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { signIn, storeGet } from "./api.ts";
+import { signIn } from "./api.ts";
+import { startThemes } from "./themes.ts";
 import { SignIn } from "./components/SignIn.tsx";
 import { App } from "./App.tsx";
 import { PageBoundary } from "./components/ErrorBoundary.tsx";
 import { createFeedStore } from "./feed/store.ts";
 import "./styles.css";
 
-// Your saved light/dark choice, before anything is drawn.
-const theme = storeGet("camp-theme");
-if (theme) document.documentElement.dataset.theme = theme;
+// Your saved light/dark choice and palette, before anything is drawn; and from then on, whatever
+// another tab changes (Settings in another window, or the tour's own switches).
+startThemes();
 
 // The feed lives outside React, so it carries on across reconnects and hot reloads.
 const store = createFeedStore();

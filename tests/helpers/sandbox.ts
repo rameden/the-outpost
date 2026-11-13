@@ -17,7 +17,7 @@ export function enterSandbox(name: string, opts: { keepRuntime?: boolean } = {})
   for (const file of shipped) cpSync(join(REPO, file), join(dir, file), { recursive: true });
   mkdirSync(join(dir, "skills"), { recursive: true });
   mkdirSync(join(dir, "camp"), { recursive: true });
-  symlinkSync(join(REPO, "node_modules"), join(dir, "node_modules"));
+  symlinkSync(join(REPO, "node_modules"), join(dir, "node_modules"), "junction"); // (a junction on Windows, which needs no special rights; an ordinary symlink elsewhere)
   process.chdir(dir);
   if (!opts.keepRuntime) {
     process.env.CAMP_RUNTIME = "api";

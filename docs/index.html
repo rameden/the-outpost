@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- Satchel's promotional page. Standalone: open it in a browser, or serve docs/ with GitHub Pages. -->
 <title>Satchel</title>
+<script>
+// The tour wears the look you picked in mission control. The camp serves this page at its own
+// address, so the two choices kept there are readable here: "camp-theme" (light, dark, or
+// nothing for "match the system") and "camp-palette" (which colours; nothing for the camp's own).
+// Set before anything is drawn, so the page never flashes another look. Opened on its own (a
+// file, or GitHub Pages) there are no such choices: it follows the system, in the camp's own
+// colours, until you use the switches in the top bar.
+(function () {
+  try {
+    var t = localStorage.getItem('camp-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    var p = localStorage.getItem('camp-palette'); if (p === 'harbor' || p === 'moss' || p === 'heather') document.documentElement.dataset.palette = p;
+  } catch (e) { /* no storage: the system's theme, the camp's colours */ }
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -26,7 +40,9 @@ img { max-width: 100%; }
   --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --radius: 12px;
+  color-scheme: light;
 }
+/* The same two palettes as mission control (ui/src/styles.css): keep them in step. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
@@ -50,6 +66,77 @@ img { max-width: 100%; }
   color-scheme: dark;
 }
 
+/* Other palettes: the same as mission control's (ui/src/styles.css). Light or dark is still data-theme, or the system. */
+:root[data-palette="harbor"] {
+  --bg: #eef2f7; --surface: #fbfcfe; --surface-2: #e2e9f1; --border: #d2dbe6; --border-strong: #b4c1d1;
+  --text: #1b2634; --muted: #56667b; --faint: #8794a6;
+  --accent: #1d62ad; --accent-soft: #d9e6f6; --accent-ink: #f6faff;
+  --ink: #1b2634; --night: #0d131d; --night-text: #e4eaf3; --night-muted: #96a4b8; --night-line: #283548;
+  --shadow: 0 1px 2px rgba(20, 40, 70, .06), 0 12px 32px rgba(20, 40, 70, .09);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="harbor"]:not([data-theme="light"]) {
+  --bg: #0d131d; --surface: #141c29; --surface-2: #1c2635; --border: #283548; --border-strong: #3a4a63;
+  --text: #e4eaf3; --muted: #96a4b8; --faint: #66748a;
+  --accent: #63b0f4; --accent-soft: #15304e; --accent-ink: #06182b;
+  --ink: #e4eaf3; --night: #080c13; --night-text: #e4eaf3; --night-muted: #96a4b8; --night-line: #222d3f;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+  }
+}
+:root[data-palette="harbor"][data-theme="dark"] {
+  --bg: #0d131d; --surface: #141c29; --surface-2: #1c2635; --border: #283548; --border-strong: #3a4a63;
+  --text: #e4eaf3; --muted: #96a4b8; --faint: #66748a;
+  --accent: #63b0f4; --accent-soft: #15304e; --accent-ink: #06182b;
+  --ink: #e4eaf3; --night: #080c13; --night-text: #e4eaf3; --night-muted: #96a4b8; --night-line: #222d3f;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+}
+:root[data-palette="moss"] {
+  --bg: #f0f3ea; --surface: #fbfcf7; --surface-2: #e4e9da; --border: #d3dac6; --border-strong: #b6c0a5;
+  --text: #20271b; --muted: #5a6650; --faint: #8b957f;
+  --accent: #3d7a2a; --accent-soft: #dcebd0; --accent-ink: #f8fcf4;
+  --ink: #20271b; --night: #0f140f; --night-text: #e6ecdf; --night-muted: #9aa890; --night-line: #2a3629;
+  --shadow: 0 1px 2px rgba(35, 50, 25, .06), 0 12px 32px rgba(35, 50, 25, .09);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="moss"]:not([data-theme="light"]) {
+  --bg: #0f140f; --surface: #161d16; --surface-2: #1e271e; --border: #2a3629; --border-strong: #3d4d3b;
+  --text: #e6ecdf; --muted: #9aa890; --faint: #6a7862;
+  --accent: #a5cf5c; --accent-soft: #25341a; --accent-ink: #101a06;
+  --ink: #e6ecdf; --night: #0a0d0a; --night-text: #e6ecdf; --night-muted: #9aa890; --night-line: #242e23;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+  }
+}
+:root[data-palette="moss"][data-theme="dark"] {
+  --bg: #0f140f; --surface: #161d16; --surface-2: #1e271e; --border: #2a3629; --border-strong: #3d4d3b;
+  --text: #e6ecdf; --muted: #9aa890; --faint: #6a7862;
+  --accent: #a5cf5c; --accent-soft: #25341a; --accent-ink: #101a06;
+  --ink: #e6ecdf; --night: #0a0d0a; --night-text: #e6ecdf; --night-muted: #9aa890; --night-line: #242e23;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+}
+:root[data-palette="heather"] {
+  --bg: #f4f0f5; --surface: #fdfbfe; --surface-2: #eae3ed; --border: #dbd1e0; --border-strong: #c0b2c8;
+  --text: #29212e; --muted: #665a6e; --faint: #95889e;
+  --accent: #8a3f96; --accent-soft: #efddf3; --accent-ink: #fdf8ff;
+  --ink: #29212e; --night: #15111a; --night-text: #ece4f2; --night-muted: #a698b3; --night-line: #352c3f;
+  --shadow: 0 1px 2px rgba(50, 30, 60, .06), 0 12px 32px rgba(50, 30, 60, .09);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="heather"]:not([data-theme="light"]) {
+  --bg: #15111a; --surface: #1d1823; --surface-2: #27202f; --border: #352c3f; --border-strong: #4a3e57;
+  --text: #ece4f2; --muted: #a698b3; --faint: #766a83;
+  --accent: #d79ae6; --accent-soft: #3a2145; --accent-ink: #1e0c26;
+  --ink: #ece4f2; --night: #0e0b12; --night-text: #ece4f2; --night-muted: #a698b3; --night-line: #2e2637;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+  }
+}
+:root[data-palette="heather"][data-theme="dark"] {
+  --bg: #15111a; --surface: #1d1823; --surface-2: #27202f; --border: #352c3f; --border-strong: #4a3e57;
+  --text: #ece4f2; --muted: #a698b3; --faint: #766a83;
+  --accent: #d79ae6; --accent-soft: #3a2145; --accent-ink: #1e0c26;
+  --ink: #ece4f2; --night: #0e0b12; --night-text: #ece4f2; --night-muted: #a698b3; --night-line: #2e2637;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
+}
+
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.6; }
 .wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -71,6 +158,11 @@ section { padding-block: 88px 0; }
 .top nav { display: flex; gap: 22px; font-size: 14px; font-weight: 600; flex-wrap: wrap; }
 .top nav a { color: var(--muted); text-decoration: none; padding-bottom: 2px; border-bottom: 2px solid transparent; }
 .top nav a:hover { color: var(--text); border-bottom-color: var(--accent); }
+.top-end { display: flex; align-items: center; gap: 22px; }
+.theme { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.theme:hover { border-color: var(--accent); }
+.looks { display: flex; align-items: center; gap: 8px; }
+select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
 
 /* Hero */
 .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; padding-block: 48px 24px; }
@@ -219,20 +311,31 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
 <div class="wrap">
   <header class="top">
     <svg viewBox="36 -656 2633 805" role="img" aria-label="Satchel"><use href="#wm" x="36" y="-656" width="2633" height="805"/></svg>
-    <nav aria-label="Sections">
-      <a href="#crew">The crew</a>
-      <a href="#route">How it runs</a>
-      <a href="#kit">The kit</a>
-      <a href="#rules">Camp rules</a>
-      <a href="#pitch">Get started</a>
-    </nav>
+    <div class="top-end">
+      <nav aria-label="Sections">
+        <a href="#crew">The crew</a>
+        <a href="#route">How it runs</a>
+        <a href="#kit">The kit</a>
+        <a href="#rules">Camp rules</a>
+        <a href="#pitch">Get started</a>
+      </nav>
+      <div class="looks">
+        <select class="theme" id="palette" aria-label="Colours">
+          <option value="camp">Camp</option>
+          <option value="harbor">Harbor</option>
+          <option value="moss">Moss</option>
+          <option value="heather">Heather</option>
+        </select>
+        <button class="theme" id="theme" type="button">Dark mode</button>
+      </div>
+    </div>
   </header>
 
   <div class="hero">
     <div>
       <div class="eyebrow">A multi-agent harness on Claude</div>
       <h1>Pack the request. <em>Send out the crew.</em></h1>
-      <p class="lede">Satchel gives you a small guild of agents. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once. Each one keeps its own memory, its own workspace and its own limits.</p>
+      <p class="lede">Satchel gives you a small guild of agents. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
       <div class="cta">
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm run ui</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the crew</a>
@@ -322,7 +425,7 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
       <div class="stop"><div class="pin"><b>1</b></div><h3>Ask</h3><p>Type a request in mission control or the terminal camp. If it could mean two things, the Quartermaster asks you one short question first.</p></div>
       <div class="stop"><div class="pin"><b>2</b></div><h3>Approve the plan</h3><p>The plan fills in step by step. Approve it, change it, or set a budget for the whole expedition.</p></div>
       <div class="stop"><div class="pin"><b>3</b></div><h3>Quests set out</h3><p>Up to four run at once. Each adventurer starts clean from a written brief, so nobody drags the whole conversation along.</p></div>
-      <div class="stop"><div class="pin"><b>4</b></div><h3>Reports come home</h3><p>The Quartermaster reviews each report, sends a failed check back to be fixed, and hands you one next step.</p></div>
+      <div class="stop"><div class="pin"><b>4</b></div><h3>Reports come home</h3><p>The Quartermaster reviews each report, sends a failed check back to be fixed, can have the Warden look over the change, and hands you one next step.</p></div>
     </div>
   </div>
 </section>
@@ -338,17 +441,17 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
         <span class="tag">Mission control</span>
         <h3>A local dashboard for the whole camp</h3>
         <p><code>npm run ui</code> opens it on <code>127.0.0.1</code>. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
-        <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li></ul>
+        <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
       </div>
       <div class="item">
         <span class="tag">Memory</span>
         <h3>Three layers that last</h3>
-        <p>Each agent's own memory, a shared wiki with sources, and skills you approve. <code>recall</code> searches what has dropped out of a prompt. Nothing is tidied without your say.</p>
+        <p>Each agent's own memory, a shared wiki with sources, and skills you approve. When a memory outgrows its room, a prompt gets the lines you pinned, the newest, and the ones that bear on the request. <code>recall</code> finds the rest, and nothing is tidied without your say.</p>
       </div>
       <div class="item">
         <span class="tag">Other models</span>
         <h3>Claude leads. Others can join.</h3>
-        <p>Connect another provider's key and its models show up in every picker. A wiki guide ranks them by cost and speed.</p>
+        <p>Connect another provider's key and its models show up in every picker. A wiki guide ranks them by cost and speed. On the API, if a model declines a request, another Claude model carries on and the feed says so.</p>
         <div class="models"><span class="lead">Claude</span><span>Gemini</span><span>Groq</span><span>OpenRouter</span></div>
       </div>
       <div class="item">
@@ -375,6 +478,22 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
           </div>
         </div>
       </div>
+      <div class="item">
+        <span class="tag">Housekeeping</span>
+        <h3>It tidies up when you say</h3>
+        <p>Ask the Quartermaster to clean up the camp. It lists what could go (unused uploads, finished worktrees, leftovers from a crash), then asks before each step and shows exactly what will be removed.</p>
+      </div>
+      <div class="item">
+        <span class="tag">Skills</span>
+        <h3>How-tos the crew picks up</h3>
+        <p>After a good expedition the Quartermaster can propose a skill: the steps, the format, the pitfall that cost a retry. It goes live only when you approve it. Import a skill pack, or set one to apply to everything a crew member does.</p>
+      </div>
+      <div class="item wide">
+        <span class="tag">Built for every day</span>
+        <h3>Leave it running</h3>
+        <p>The camp's own files are written whole or not at all, so a crash can't leave one half-written. A reply cut off by a dropped connection is asked for again. Stop the camp and its running work stops with it, with a Resume button waiting on each run.</p>
+        <ul><li>A settings file with a typo is set aside, not silently replaced</li><li>Checks you list run after every change, and a failure goes back to be fixed</li><li>Budgets hold even on a model too new to have a listed price</li></ul>
+      </div>
     </div>
   </div>
 </section>
@@ -387,12 +506,15 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
       <p class="lede">An agent can't talk its way past these. The camp's own source is read-only to the crew, so nothing it reads can loosen them.</p>
     </div>
     <div class="rules">
-      <div class="rule"><b>Secrets stay put</b><p>File tools never read <code>.env</code>, private keys or credentials, at any depth, even in a linked folder.</p></div>
-      <div class="rule"><b>Shell asks first</b><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A macOS sandbox is there if you want it.</p></div>
+      <div class="rule"><b>Secrets stay put</b><p>File tools never read <code>.env</code>, private keys or credentials, at any depth, in a linked folder or through a symlink.</p></div>
+      <div class="rule"><b>Shell asks first</b><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A sandbox is there if you want it, on macOS or Linux.</p></div>
       <div class="rule"><b>Read-only git</b><p>Everyone can run <code>status</code>, <code>diff</code>, <code>log</code> and <code>blame</code>. Nobody pushes on their own.</p></div>
       <div class="rule"><b>No trampling</b><p>Parallel quests can't overwrite each other. A file changed by another quest has to be read again first.</p></div>
       <div class="rule"><b>Pages are information</b><p>Web pages, files and connector results are never treated as instructions, and suspected prompt injection is flagged.</p></div>
       <div class="rule"><b>Budgets hold</b><p>Spending is tallied after every reply, across all quests, and the run stops when the budget is reached.</p></div>
+      <div class="rule"><b>Commands travel light</b><p>Your API keys and tokens are left out of every command and connector the crew starts, unless you name one to pass on.</p></div>
+      <div class="rule"><b>The key isn't in the link</b><p>The link the camp prints signs one browser in, once. The camp's key never sits in an address, your history or a bookmark.</p></div>
+      <div class="rule"><b>Deleting asks first</b><p>Uploads, worktrees and old records are cleared only when you ask, a step at a time, each showing what will go.</p></div>
     </div>
   </div>
 </div>
@@ -412,7 +534,7 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
         <div class="note">On the API instead: put ANTHROPIC_API_KEY in .env and switch the runtime chip.</div>
         <div class="line"><code id="c3">npm run ui</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
-        <div class="note">Mission control in your browser. Or npm start for the camp in your terminal, and npm run watch for scheduled jobs.</div>
+        <div class="note">Mission control in your browser: open the link it prints, which signs that browser in. Or npm start for the camp in your terminal, and npm run watch for scheduled jobs.</div>
       </div>
     </div>
   </div>
@@ -427,6 +549,44 @@ footer svg { height: 22px; width: auto; color: var(--faint); }
 
 <script>
 (function () {
+  // Light or dark, and which colours. The button names the one you'd switch to. Both choices are
+  // the camp's own ("camp-theme", "camp-palette"), so mission control opens in them too, and a
+  // change made there shows here at once.
+  var root = document.documentElement;
+  var themeBtn = document.getElementById('theme');
+  var paletteSel = document.getElementById('palette');
+  var palettes = ['harbor', 'moss', 'heather'];
+  var showPalette = function (p) {
+    if (palettes.indexOf(p) >= 0) root.dataset.palette = p; else delete root.dataset.palette;
+    paletteSel.value = root.dataset.palette || 'camp';
+  };
+  showPalette(root.dataset.palette);
+  paletteSel.addEventListener('change', function () {
+    showPalette(paletteSel.value);
+    try { localStorage.setItem('camp-palette', root.dataset.palette || ''); } catch (e) { /* it lasts until the page is closed */ }
+  });
+  var dark = matchMedia('(prefers-color-scheme: dark)');
+  var themeNow = function () { return root.dataset.theme || (dark.matches ? 'dark' : 'light'); };
+  var relabel = function () {
+    var to = themeNow() === 'dark' ? 'light' : 'dark';
+    themeBtn.textContent = to === 'dark' ? 'Dark mode' : 'Light mode';
+    themeBtn.setAttribute('aria-label', 'Switch to ' + to + ' mode');
+  };
+  themeBtn.addEventListener('click', function () {
+    var to = themeNow() === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = to;
+    try { localStorage.setItem('camp-theme', to); } catch (e) { /* it lasts until the page is closed */ }
+    relabel();
+  });
+  addEventListener('storage', function (ev) {
+    if (ev.key === 'camp-palette') return showPalette(ev.newValue);
+    if (ev.key !== 'camp-theme') return;
+    if (ev.newValue === 'light' || ev.newValue === 'dark') root.dataset.theme = ev.newValue; else delete root.dataset.theme;
+    relabel();
+  });
+  if (dark.addEventListener) dark.addEventListener('change', relabel);
+  relabel();
+
   // Copy buttons
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
     btn.addEventListener('click', function () {

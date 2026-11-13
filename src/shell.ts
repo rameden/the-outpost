@@ -128,7 +128,7 @@ export function autoApproval(command: string): "builtin" | "yours" | null {
   for (const w of words.slice(1)) {
     const bare = w.replace(/^['"]|['"]$/g, "").replace(/^-[^=]*=/, "");
     // ":" covers git's rev:path form (git show HEAD:.env).
-    if (bare.startsWith("/") || bare.startsWith("~") || /(^|[/:])\.\.(\/|$)/.test(bare) || /(^|[/:])\.env/.test(bare)) return null;
+    if (bare.startsWith("/") || bare.startsWith("~") || /^[a-zA-Z]:/.test(bare) || /(^|[/:])\.\.(\/|$)/.test(bare) || /(^|[/:])\.env/.test(bare)) return null; // (C:/… is a full path too)
     if (/(^|[/:])camp\/agents(\/|$)/.test(bare) || /[*?[]/.test(bare)) return null; // private workspaces; globs
   }
   const matches = (prefix: string) => (prefix.includes("*") ? globToRegex(prefix).test(cmd) : cmd === prefix || cmd.startsWith(prefix + " "));

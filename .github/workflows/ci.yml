@@ -44,3 +44,34 @@ jobs:
 
       - name: Tests
         run: npm test
+
+  # The same on Windows, where the camp is newer: this job shows what works there and what
+  # doesn't yet, without holding up a merge. Take continue-on-error away once it stays green.
+  windows:
+    name: Typecheck and tests (Windows, doesn't block)
+    runs-on: windows-latest
+    continue-on-error: true
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up git for the tests
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+          git config --global core.autocrlf false
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test

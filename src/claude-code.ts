@@ -25,6 +25,7 @@ import type { Steering } from "./context.js";
 import type { RequestContent } from "./attachments.js";
 import { costOf } from "./costs.js";
 import { noteRateLimit, noteUsage, pausedUntil, pauseMessage, type UsageWindow } from "./limits.js";
+import { claudeOnWindows, isWindows } from "./platform.js";
 
 const run = promisify(execFile);
 export const LOGIN_HELP = "Run `claude auth login` in a terminal and sign in with your Claude account (Pro or Max), then try again.";
@@ -35,6 +36,15 @@ const MCP_PREFIX = "mcp__camp__";
 
 export function claudeExecutable(env = process.env) {
   return env.CLAUDE_CODE_EXECUTABLE?.trim() || "claude";
+}
+// How it's started on this system. Everywhere but Windows that's just its name. On Windows
+// "claude" may be a script that only runs through a shell (see claudeOnWindows in platform.ts):
+// run is how to ask it a one-line question, sdk is what the Agent SDK is told (nothing: its own copy).
+function claudeStart(): { run: { file: string; shell: boolean }; sdk: { pathToClaudeCodeExecutable?: string } } {
+  const name = claudeExecutable();
+  if (!isWindows) return { run: { file: name, shell: false }, sdk: { pathToClaudeCodeExecutable: name } };
+  const w = claudeOnWindows(name);
+  return { run: w.run, sdk: w.path ? { pathToClaudeCodeExecutable: w.path } : {} };
 }
 
 // The environment for the CLI: everything but API credentials (so it uses your login).
@@ -57,8 +67,9 @@ export async function claudeLogin(force = false): Promise<LoginStatus> {
   const exe = claudeExecutable();
   let status: LoginStatus;
   try {
-    const version = (await run(exe, ["--version"], { env: cliEnv(), timeout: 30_000 })).stdout.trim().split("\n")[0];
-    const raw = (await run(exe, ["auth", "status", "--json"], { env: cliEnv(), timeout: 30_000 })).stdout;
+    const { file, shell } = claudeStart().run;
+    const version = (await run(file, ["--version"], { env: cliEnv(), timeout: 30_000, shell, windowsHide: true })).stdout.trim().split("\n")[0];
+    const raw = (await run(file, ["auth", "status", "--json"], { env: cliEnv(), timeout: 30_000, shell, windowsHide: true })).stdout;
     const s = JSON.parse(raw.trim() || "{}");
     const keyed = typeof s.apiKeySource === "string" && s.apiKeySource !== "none";
     const thirdParty = typeof s.apiProvider === "string" && s.apiProvider !== "firstParty";
@@ -213,7 +224,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
   const options: Options = {
     abortController: abort,
     cwd: process.cwd(),
-    pathToClaudeCodeExecutable: claudeExecutable(),
+    ...claudeStart().sdk,
     model: r.model,
     ...(r.effort ? { effort: r.effort as Options["effort"] } : {}),
     systemPrompt: r.system,
@@ -372,7 +383,7 @@ export function refreshPlanUsage(force = false): Promise<boolean> {
       async function* idle(): AsyncGenerator<SDKUserMessage> { await held; }
       const q = query({
         prompt: idle(),
-        options: { abortController: abort, cwd: process.cwd(), pathToClaudeCodeExecutable: claudeExecutable(), tools: [], settingSources: [], strictMcpConfig: true, persistSession: false, env: cliEnv() },
+        options: { abortController: abort, cwd: process.cwd(), ...claudeStart().sdk, tools: [], settingSources: [], strictMcpConfig: true, persistSession: false, env: cliEnv() },
       });
       const drain = (async () => { try { for await (const _ of q) { /* nothing is sent, so nothing arrives */ } } catch { /* closed */ } })();
       try {
@@ -417,7 +428,7 @@ export async function claudeCodeModels(): Promise<ClaudeCodeModel[] | null> {
     async function* idle(): AsyncGenerator<SDKUserMessage> { await held; }
     const q = query({
       prompt: idle(),
-      options: { abortController: abort, cwd: process.cwd(), pathToClaudeCodeExecutable: claudeExecutable(), tools: [], settingSources: [], strictMcpConfig: true, persistSession: false, env: cliEnv() },
+      options: { abortController: abort, cwd: process.cwd(), ...claudeStart().sdk, tools: [], settingSources: [], strictMcpConfig: true, persistSession: false, env: cliEnv() },
     });
     const drain = (async () => { try { for await (const _ of q) { /* nothing is sent, so nothing arrives */ } } catch { /* closed */ } })();
     try {

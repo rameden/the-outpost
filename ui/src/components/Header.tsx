@@ -3,6 +3,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
+import { toggleMode } from "../themes.ts";
 import type { Connection } from "../camp.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
@@ -93,12 +94,6 @@ function Bell() {
   );
 }
 
-function toggleTheme() {
-  const root = document.documentElement;
-  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  root.dataset.theme = dark ? "light" : "dark";
-  storeSet("camp-theme", root.dataset.theme);
-}
 
 // What needs you, as a list under its chip: each row goes to where the thing is.
 const NEED_ICON: Record<Need["kind"], IconName> = { decision: "check", pr: "branch", held: "clock", failed: "down", finished: "reply" };
@@ -215,7 +210,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         {onOpenLayout && (
           <button className="icon-btn" type="button" aria-label="Arrange the layout" title="Layout: arrange the page's zones and what each shows" onClick={onOpenLayout}><Icon name="layout" /></button>
         )}
-        <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleTheme}><Icon name="theme" /></button>
+        <button className="icon-btn" type="button" title="Switch light or dark" aria-label="Switch light or dark theme" onClick={toggleMode}><Icon name="theme" /></button>
         {onOpenSettings && (
           <button className="icon-btn" type="button" title="Settings" aria-label="Settings" onClick={() => onOpenSettings()}>
             <Icon name="gear" />{(() => {

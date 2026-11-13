@@ -17,6 +17,7 @@ import { allowShellCommand, selfEditAllowed, shellSettings } from "./settings.js
 import { childEnv, gitSafeEnv, sandboxAvailable, sandboxKind, sandboxed, type SandboxPlan } from "./sandbox.js";
 import { allowedHosts, ensureProxy, proxyEnv, refusedSince } from "./netproxy.js";
 import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell } from "./checkpoints.js";
+import { agentShell, shellNote, stopTree } from "./platform.js";
 
 // How a real path is shown to agents: relative inside the camp, links/<name>/… inside a linked folder.
 export function displayPath(abs: string): string {
@@ -285,9 +286,11 @@ export async function runShell(command: string, signalOrOpts?: AbortSignal | She
   }
   return new Promise((done) => {
     if (signal?.aborted) return done("Not run: the expedition was stopped.");
-    const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"], env };
+    const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"], env, windowsHide: true };
     const box = o.sandbox ? sandboxed(command, o.sandbox) : null;
-    const child = box ? spawn(box.file, box.args, io) : spawn(command, { ...io, shell: true });
+    // On Windows the command goes to Git Bash (or PowerShell, without it): see platform.ts.
+    const shell = agentShell();
+    const child = box ? spawn(box.file, box.args, io) : shell ? spawn(shell.file, shell.args(command), io) : spawn(command, { ...io, shell: true });
     let out = "";
     let ended: string | null = null;
     const take = (chunk: Buffer) => { if (out.length < SHELL_MAX_BYTES) out += chunk.toString("utf8"); };
@@ -295,10 +298,7 @@ export async function runShell(command: string, signalOrOpts?: AbortSignal | She
     child.stderr.on("data", take);
     const kill = (why: string) => {
       ended ??= why;
-      try {
-        if (process.platform !== "win32" && child.pid) process.kill(-child.pid, "SIGTERM"); // the whole process group
-        else child.kill("SIGTERM");
-      } catch { /* already gone */ }
+      stopTree(child); // the command and everything it started
     };
     const timer = setTimeout(() => kill(`Stopped after ${Math.round(timeoutMs / 1000)}s (the time limit for one command).`), timeoutMs);
     const onAbort = () => kill("Stopped by the user.");
@@ -407,7 +407,7 @@ export function bashFor(self: string, name = "Artificer"): Tool {
         "(or a folder inside it) to run in a linked project, e.g. its tests or git commands. Simple read-only commands " +
         "(ls, git status, git diff, git log…) run right away. Other commands either run in a sandbox without asking " +
         "(no network; writes only inside that project) when the user has turned the sandbox on, or wait for the user's " +
-        "approval. Commands stop after 2 minutes.",
+        "approval. Commands stop after 2 minutes." + shellNote(),
       input_schema: {
         type: "object",
         properties: {

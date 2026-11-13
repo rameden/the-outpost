@@ -64,7 +64,9 @@ function uninstall() {
 }
 
 if (process.platform !== "darwin") {
-  console.log("This installer is for macOS. On Linux, run `npm run watch -- --once` from cron or a systemd timer.");
+  console.log(process.platform === "win32"
+    ? `This installer is for macOS. On Windows, have Task Scheduler run the jobs every few minutes:\n  schtasks /Create /SC MINUTE /MO 5 /TN SatchelWatch /TR "cmd /c cd /d \"${process.cwd()}\" && npm run watch -- --once"\n(Remove it with: schtasks /Delete /TN SatchelWatch /F)`
+    : "This installer is for macOS. On Linux, run `npm run watch -- --once` from cron or a systemd timer.");
   process.exit(1);
 }
 if (process.argv.includes("--uninstall")) uninstall();
