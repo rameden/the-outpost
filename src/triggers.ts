@@ -21,6 +21,7 @@ import { promisify } from "node:util";
 import { emit } from "./events.js";
 import { pulledTickets, readIssue } from "./jira.js";
 import { findLink } from "./links.js";
+import { writeJsonAtomic } from "./atomic.js";
 
 export const TRIGGERS_PATH = "camp/triggers.json";
 export const POLL_MS = 5 * 60_000;
@@ -51,8 +52,7 @@ export function loadTriggers(): Trigger[] {
   try { return JSON.parse(readFileSync(TRIGGERS_PATH, "utf8")) as Trigger[]; } catch { return []; }
 }
 export function saveTriggers(list: Trigger[]) {
-  mkdirSync(dirname(TRIGGERS_PATH), { recursive: true });
-  writeFileSync(TRIGGERS_PATH, JSON.stringify(list, null, 2) + "\n", { mode: 0o600 });
+  writeJsonAtomic(TRIGGERS_PATH, list, { mode: 0o600 });
   emit({ type: "changed", what: "triggers" });
 }
 function update(name: string, patch: Partial<Trigger>) {

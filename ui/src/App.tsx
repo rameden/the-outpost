@@ -27,11 +27,13 @@ import { CrewDialog } from "./components/CrewDialog.tsx";
 import { setCrewColors } from "./format.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { api, errorText } from "./api.ts";
-import type { History as HistoryData, Project } from "./types.ts";
+import type { History as HistoryData, Project, SendResult } from "./types.ts";
 import { latestLiveRun, parseView, usePast, type View } from "./feed/conversation.ts";
 import { useFeed } from "./feed/store.ts";
 import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
+import { OverlayBoundary, ZoneBoundary } from "./components/ErrorBoundary.tsx";
+import { StatusLine, tell } from "./components/StatusLine.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
 import { Feed } from "./feed/Feed.tsx";
 import { NextStep } from "./feed/NextStep.tsx";
@@ -49,7 +51,7 @@ export function App({ store }: { store: FeedStore }) {
   // Which conversation (or page) the middle of the screen shows (remembered across reloads).
   const [view, setViewState] = useState<View>(() => parseView(storeGet("camp-view")));
   // The camp's records (memories, the wiki, the quest log…) come along while something that shows them is open.
-  const { S, refresh, patch } = useCampState(!!settings || view.kind === "wiki");
+  const { S, refresh, patch, stale } = useCampState(!!settings || view.kind === "wiki");
   const conn = useCampEvents(store, refresh);
   const composer = useRef<ComposerHandle>(null);
 
@@ -211,7 +213,7 @@ export function App({ store }: { store: FeedStore }) {
   const nextDecision = (inConversation?: string) => {
     const of = (a: (typeof asks)[number]) => S?.history.conversations.find((c) => !!a.expId && c.expeditions.includes(a.expId));
     const ask = (inConversation ? asks.find((a) => of(a)?.id === inConversation) : undefined) ?? asks[0];
-    if (!ask) return store.addSys("Nothing is waiting on you.");
+    if (!ask) return tell(store, "Nothing is waiting on you.");
     const conv = of(ask) ?? (inConversation ? S?.history.conversations.find((c) => c.id === inConversation) : undefined);
     if (conv && view.kind !== "all" && !(view.kind === "conversation" && view.id === conv.id)) setView({ kind: "conversation", id: conv.id });
     let tries = 0;
@@ -257,22 +259,22 @@ export function App({ store }: { store: FeedStore }) {
     for (const t of tries) {
       try { await api(`/api/tree/file?${treeQuery(t.root.link, t.root.path, t.rel)}`); return openFile(t.root, t.rel, line); } catch { /* not there: try the next */ }
     }
-    store.addSys(own ? `Couldn't find ${raw} in the camp folder.` : `Couldn't find ${raw} in the folders attached here.`);
+    tell(store, own ? `Couldn't find ${raw} in the camp folder.` : `Couldn't find ${raw} in the folders attached here.`, true);
   };
 
   // /good and /bad: rate the latest finished answer in this conversation.
   const rate = async (rating: "up" | "down", note?: string) => {
     const id = conversation?.status !== "running" ? conversation?.expeditions.at(-1) : conversation.expeditions.at(-2);
-    if (!id) return store.addSys("There's no finished answer here to rate yet.");
-    try { await api("/api/feedback", { id, rating, note: note || undefined }); store.addSys(`Rated ${rating === "up" ? "👍" : "👎"}${note ? `: ${note}` : ""}`); }
-    catch (e) { store.addSys(errorText(e)); }
+    if (!id) return tell(store, "There's no finished answer here to rate yet.");
+    try { await api("/api/feedback", { id, rating, note: note || undefined }); tell(store, `Rated ${rating === "up" ? "👍" : "👎"}${note ? `: ${note}` : ""}`); }
+    catch (e) { tell(store, errorText(e), true); }
   };
 
   // One place for everything a typed /command, the palette, or a shortcut can ask for.
   const command = (name: string, arg?: string) => {
     if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
     else if (name === "focus") toggleFocus();
-    else if (name === "files") { if (hasFiles) toggleFiles(); else store.addSys("No folder is attached here, so there are no files to show."); }
+    else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
     else if (name === "terminal") toggleTerminal();
     else if (name === "history") toggleHistory();
     else if (name === "find") setPalette({ start: arg ?? "" });
@@ -283,10 +285,11 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
     else if (name === "wiki") setView({ kind: "wiki" });
-    else if (name === "ticket") { if (S?.jira?.connected) setWizard({}); else { store.addSys("Link your Jira account first (Settings → Connectors)."); openSettings("connectors"); } }
+    else if (name === "ticket") { if (S?.jira?.connected) setWizard({}); else { tell(store, "Link your Jira account first (Settings → Connectors)."); openSettings("connectors"); } }
   };
-  const act = useRef({ command, openPath });
-  act.current = { command, openPath };
+  // The newest of each, for the listeners and the handlers below that are set up once.
+  const act = useRef({ command, openPath, toggleFocus, goToNeed });
+  act.current = { command, openPath, toggleFocus, goToNeed };
   useEffect(() => hear((ask) => {
     if (ask.do === "command") act.current.command(ask.name, ask.arg);
     else if (ask.do === "open-file") { setSettings(null); void act.current.openPath(ask.path, ask.line); } // (Settings steps aside: the file opens over the page)
@@ -363,26 +366,50 @@ export function App({ store }: { store: FeedStore }) {
   const onExample = useCallback((text: string) => composer.current?.setText(text), []);
   const onAttachLink = useCallback((link: Link) => composer.current?.attachLink(link), []);
 
+  // What the header, history, the terminal and the message box are handed. Each is the same
+  // function from one draw of the page to the next, so those parts (memo'd) are only drawn again
+  // when something they show has changed, not every time a word arrives in the feed.
+  const onToggleFocus = useCallback(() => act.current.toggleFocus(), []);
+  const onNeed = useCallback((n: Need) => act.current.goToNeed(n), []);
+  const onSeenAll = useCallback(() => setSeen(seenAll()), []);
+  const openLayout = useCallback(() => setLayoutEditor({}), []);
+  const openWiki = useCallback(() => setView({ kind: "wiki" }), [setView]);
+  const startTicket = useCallback(() => setWizard({}), []);
+  const newProject = useCallback(() => setDialog({ project: null }), []);
+  const editProject = useCallback((p: Project) => setDialog({ project: p }), []);
+  const setUpTerminal = useCallback(() => openSettings("terminal"), [openSettings]);
+  const inAll = view.kind === "all"; // All activity stays put when you send; anywhere else goes to the conversation
+  const onSent = useCallback((r: SendResult) => { if (!inAll) setView({ kind: "conversation", id: r.thread }); }, [inAll, setView]);
+
   return (
     <>
       <div className="app">
-        <Header S={S} store={store} conn={conn} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={toggleFocus}
-          filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={() => setLayoutEditor({})}
-          needs={needs} onNeed={goToNeed} onSeenAll={() => setSeen(seenAll())} />
+        <ZoneBoundary name="The top bar">
+          <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
+            filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={openLayout}
+            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} />
+        </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
             switch (zone.part) {
+              // Each zone keeps its own trouble: one that can't be drawn says so in its own space,
+              // and the rest of the page (the message box above all) carries on.
               case "roster": return (
-                <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} onOpenQuest={openQuest}
-                  onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
+                <ZoneBoundary name="The crew bar">
+                  <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} onOpenQuest={openQuest}
+                    onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
+                </ZoneBoundary>
               );
               case "history": return state === "collapsed" ? <HistoryRail onShow={toggleHistory} /> : (
-                <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory} needs={needs}
-                  onOpenWiki={() => setView({ kind: "wiki" })} onStartTicket={() => setWizard({})}
-                  onNewProject={() => setDialog({ project: null })} onEditProject={(p) => setDialog({ project: p })} />
+                <ZoneBoundary name="History">
+                  <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory} needs={needs}
+                    onOpenWiki={openWiki} onStartTicket={startTicket} onNewProject={newProject} onEditProject={editProject} />
+                </ZoneBoundary>
               );
               case "chat": return (
                 <main className="mission">
+                  {/* Going somewhere else gives it another go: the trouble may be one conversation's. */}
+                  <ZoneBoundary name={page ? "This page" : "This conversation"} resetKey={draftKey}>
                   {page === "project" && S && project ? (
                     <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
                   ) : page === "jira" && S ? (
@@ -419,16 +446,21 @@ export function App({ store }: { store: FeedStore }) {
                   )}
                   {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
                   {S && !page && <Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} />}
-                  <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
-                    onSent={(r) => { if (view.kind !== "all") setView({ kind: "conversation", id: r.thread }); }} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
+                  </ZoneBoundary>
+                  {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows these in the feed itself. */}
+                  {!inAll && <StatusLine />}
+                  <ZoneBoundary name="The message box">
+                    <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
+                      onSent={onSent} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
+                  </ZoneBoundary>
                 </main>
               );
               case "files": return state === "collapsed"
                 ? <FilesRail onShow={toggleFiles} />
-                : <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />;
+                : <ZoneBoundary name="Files"><FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} /></ZoneBoundary>;
               case "terminal": return state === "collapsed"
                 ? <TerminalRail onShow={toggleTerminal} />
-                : <TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={() => openSettings("terminal")} />;
+                : <ZoneBoundary name="The terminal"><TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={setUpTerminal} /></ZoneBoundary>;
               default: return (
                 <div className="zone-empty">
                   <b>Empty zone</b>
@@ -439,25 +471,58 @@ export function App({ store }: { store: FeedStore }) {
           }}
         </LayoutFrame>
       </div>
+      {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}
       <Presence>{agentId && (
-        <AgentDrawer key={agentId} agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store} project={project?.id}
-          pickerOpen={!!picker} onOpenPicker={openPicker} onClose={closeAgent} />
+        <OverlayBoundary key={agentId} name="This agent's page" onClose={closeAgent}>
+          <AgentDrawer agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store} project={project?.id}
+            pickerOpen={!!picker} onOpenPicker={openPicker} onClose={closeAgent} />
+        </OverlayBoundary>
       )}</Presence>
       <Presence>{settings && (
-        <Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} />
+        <OverlayBoundary name="Settings" onClose={closeSettings}>
+          <Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} />
+        </OverlayBoundary>
       )}</Presence>
-      <Presence>{layoutEditor && <LayoutEditor layout={layout} onChange={setLayout} onClose={closeLayoutEditor} select={layoutEditor.select} />}</Presence>
-      <Presence>{crewDialog && <CrewDialog key={crewDialog.member?.id ?? "new"} member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />}</Presence>
-      <Presence>{dialog && <ProjectDialog key={dialog.project?.id ?? "new"} S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />}</Presence>
-      <Presence>{ticketOpen && S && <JiraTicket key={ticketOpen} id={ticketOpen} summary="" onClose={closeTicket} onOpen={setTicketOpen} />}</Presence>
+      <Presence>{layoutEditor && (
+        <OverlayBoundary name="The layout editor" onClose={closeLayoutEditor}>
+          <LayoutEditor layout={layout} onChange={setLayout} onClose={closeLayoutEditor} select={layoutEditor.select} />
+        </OverlayBoundary>
+      )}</Presence>
+      <Presence>{crewDialog && (
+        <OverlayBoundary key={crewDialog.member?.id ?? "new"} name="The crew dialog" onClose={closeCrewDialog}>
+          <CrewDialog member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />
+        </OverlayBoundary>
+      )}</Presence>
+      <Presence>{dialog && (
+        <OverlayBoundary key={dialog.project?.id ?? "new"} name="The project dialog" onClose={closeDialog}>
+          <ProjectDialog S={S} project={dialog.project} onClose={closeDialog} onSaved={onProjectSaved} />
+        </OverlayBoundary>
+      )}</Presence>
+      <Presence>{ticketOpen && S && (
+        <OverlayBoundary key={ticketOpen} name="This ticket" onClose={closeTicket}>
+          <JiraTicket id={ticketOpen} summary="" onClose={closeTicket} onOpen={setTicketOpen} />
+        </OverlayBoundary>
+      )}</Presence>
       <Presence>{wizard && S && (
-        <TicketWizard key={wizard.ticket?.key ?? "pick"} S={S} start={wizard.ticket} onClose={closeWizard}
-          onStarted={(thread) => { setWizard(null); refresh(); setView({ kind: "conversation", id: thread }); }} />
+        <OverlayBoundary key={wizard.ticket?.key ?? "pick"} name="The ticket kickoff" onClose={closeWizard}>
+          <TicketWizard S={S} start={wizard.ticket} onClose={closeWizard}
+            onStarted={(thread) => { setWizard(null); refresh(); setView({ kind: "conversation", id: thread }); }} />
+        </OverlayBoundary>
       )}</Presence>
-      <Presence>{palette && <Palette items={paletteItems} roots={fileRoots} start={palette.start} onOpenFile={openFile} onClose={closePalette} />}</Presence>
-      <Presence>{opened && <FileViewer key={`${opened.root.link}|${opened.rel}`} root={opened.root} rel={opened.rel} line={opened.line} onClose={closeOpened} onMention={(p) => { onMention(p); setOpened(null); }} />}</Presence>
+      <Presence>{palette && (
+        <OverlayBoundary name="The command palette" onClose={closePalette}>
+          <Palette items={paletteItems} roots={fileRoots} start={palette.start} onOpenFile={openFile} onClose={closePalette} />
+        </OverlayBoundary>
+      )}</Presence>
+      <Presence>{opened && (
+        <OverlayBoundary key={`${opened.root.link}|${opened.rel}`} name="This file" onClose={closeOpened}>
+          <FileViewer root={opened.root} rel={opened.rel} line={opened.line} onClose={closeOpened} onMention={(p) => { onMention(p); setOpened(null); }} />
+        </OverlayBoundary>
+      )}</Presence>
       {picker && picking && S && (
-        <ModelPicker key={picker.id} c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />
+        <OverlayBoundary key={picker.id} name="The model picker" onClose={closePicker}>
+          <ModelPicker c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />
+        </OverlayBoundary>
       )}
     </>
   );

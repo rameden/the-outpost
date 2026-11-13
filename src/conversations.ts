@@ -24,6 +24,7 @@ import { feedEventsOf } from "./feed.js";
 import { loadLinks, LINKS_PATH } from "./links.js";
 import { allTurns, copyTurns, foldersOf, THREADS_PATH, type Turn } from "./threads.js";
 import { undoCheckpoint } from "./checkpoints.js";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 
 export const CONVERSATIONS_PATH = "camp/conversations.json";
 export const GENERAL = "general";
@@ -72,8 +73,9 @@ export type Conversation = {
 export type History = { projects: Project[]; conversations: Conversation[] };
 
 function load(): Saved {
-  let s: Partial<Saved> = {};
-  try { if (existsSync(CONVERSATIONS_PATH)) s = JSON.parse(readFileSync(CONVERSATIONS_PATH, "utf8")); } catch { /* start over */ }
+  // An unreadable file is kept aside before this starts over (atomic.ts): it holds your projects.
+  const read = readJsonFile(CONVERSATIONS_PATH, {});
+  const s: Partial<Saved> = read && typeof read === "object" ? (read as Partial<Saved>) : {};
   const projects = (Array.isArray(s.projects) ? s.projects.filter((p) => p && typeof p.id === "string" && typeof p.name === "string") : []).map((p) => {
     // Older files had one folder per project, as "link".
     const { link, ...rest } = p as Project & { link?: string };
@@ -84,8 +86,7 @@ function load(): Saved {
 }
 
 function save(s: Saved) {
-  mkdirSync("camp", { recursive: true });
-  writeFileSync(CONVERSATIONS_PATH, JSON.stringify(s, null, 2) + "\n");
+  writeJsonAtomic(CONVERSATIONS_PATH, s);
   emit({ type: "changed", what: "history" });
 }
 

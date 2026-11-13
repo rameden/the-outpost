@@ -5,6 +5,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, errorText } from "../api.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
+import { ItemBoundary } from "../components/ErrorBoundary.tsx";
 import { cClass, clock, cx, plural, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
 import { Markdown } from "../markdown.tsx";
@@ -33,7 +34,9 @@ const PLAIN_EXAMPLES = [
 
 export type OnReply = (expId: string, task: string) => void;
 
-const Nodes = ({ nodes, onReply }: { nodes: FeedNode[]; onReply: OnReply }) => <>{nodes.map((n) => <NodeView key={n.id} node={n} onReply={onReply} />)}</>;
+// Each item is drawn on its own: one that can't be (a reply the page fails to lay out) leaves a
+// line saying so, and everything around it stays.
+const Nodes = ({ nodes, onReply }: { nodes: FeedNode[]; onReply: OnReply }) => <>{nodes.map((n) => <ItemBoundary key={n.id}><NodeView node={n} onReply={onReply} /></ItemBoundary>)}</>;
 
 const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onReply: OnReply }) {
   switch (node.kind) {

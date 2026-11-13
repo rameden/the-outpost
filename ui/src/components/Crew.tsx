@@ -25,11 +25,13 @@ export const outFor = (ms: number) => { const s = Math.max(0, Math.round(ms / 10
 function QuestsOut({ quests, onOpen }: { quests: QuestOut[]; onOpen?: (q: QuestOut) => void }) {
   // The clock ticks only while someone is out.
   const [now, setNow] = useState(() => Date.now());
+  const out = quests.length > 0;
   useEffect(() => {
+    if (!out) return;
     setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [out]);
   const waiting = quests.filter((q) => q.waiting).length;
   if (!quests.length) return <div className="crew-out idle" role="group" aria-label="Quests out now"><span className="co-none">No agents running</span></div>;
   return (

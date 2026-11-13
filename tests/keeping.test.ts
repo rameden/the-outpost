@@ -71,7 +71,7 @@ test("what no longer fits in a prompt is marked, the agent is told before it hap
   assert.equal(m.lines.at(-1)!.loaded, true);
   assert.ok(!readMemory("artificer").includes("Lesson number 1:"), "and the prompt really doesn't carry it");
   // Remembering one more says so, with the way out.
-  assert.match(await remember("artificer", { entry: "One more" }), /Your memory is getting long \(\d+ characters; about 5000 are loaded.*use mode 'rewrite'.*recall can still find what's dropped out/);
+  assert.match(await remember("artificer", { entry: "One more" }), /Your memory is getting long \(\d+ characters; a prompt loads about 5000: the pinned lines, the newest, and older ones only when a request is about them\).*use mode 'rewrite'.*recall can still find what isn't loaded/);
   assert.equal(await remember("scout", { entry: "Short" }), "Remembered.");
 
   assert.equal(k.forgetLine("agent:artificer", "Lesson number 2: " + "x".repeat(80)), true);

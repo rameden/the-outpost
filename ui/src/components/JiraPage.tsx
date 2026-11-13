@@ -172,13 +172,18 @@ export function JiraTicket({ id, summary, onClose, onAttach, onOpen, onStart }: 
 }) {
   const [t, setT] = useState<JiraDetail | null>(null);
   const [error, setError] = useState("");
+  // Jira is asked once per ticket. (Escape has its own effect: what closes the ticket is a new
+  // function each time the page behind it is drawn, and tied together that asked Jira again each time.)
   useEffect(() => {
     let gone = false;
     api<JiraDetail>(`/api/jira/ticket?key=${encodeURIComponent(id)}`).then((d) => { if (!gone) setT(d); }, (e) => { if (!gone) setError(errorText(e)); });
+    return () => { gone = true; };
+  }, [id]);
+  useEffect(() => {
     const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
     document.addEventListener("keydown", esc);
-    return () => { gone = true; document.removeEventListener("keydown", esc); };
-  }, [id, onClose]);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
   const facts: [string, string | null | undefined][] = t ? [["Status", t.status], ["Type", t.type], ["Priority", t.priority], ["Assignee", t.assignee ?? "Unassigned"], ["Reporter", t.reporter],
     ["Project", t.project], ["Changed", t.updated ? when(t.updated) : null]] : [];
   return (

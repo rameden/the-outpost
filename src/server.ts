@@ -6,8 +6,10 @@
 // to buttons on the page, and runs scheduled jobs while it's open (so don't also run `npm run watch`).
 //
 // Safety: it listens on 127.0.0.1 only, checks the Host header (blocks DNS rebinding), and
-// requires a random per-launch token on every request (the page's scripts and styles included),
-// so other websites can't drive the camp. The page runs under a Content-Security-Policy that
+// requires a random token on everything that reads or changes the camp, so other websites can't
+// drive it. The token is kept between starts (camp/.token, see campToken) and never appears in a
+// link: the page (which holds nothing of the camp, and is served to anyone on this machine)
+// trades a one-time sign-in code for it, and keeps it in this browser (see "Signing in" below). The page runs under a Content-Security-Policy that
 // allows no inline code: only the scripts and styles this server serves.
 
 import http from "node:http";
@@ -17,18 +19,19 @@ import { join, normalize, resolve, sep } from "node:path";
 import { onEvent, attachConsole, emit, continueSeqFrom, type CampEvent } from "./events.js";
 import { setAsker, type Question } from "./ask.js";
 import { currentExpeditionId, newSteering, steer, type Steering } from "./context.js";
-import { linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, pullRequestFeedback, pushWorkspace, removeWorkspace, switchBranch } from "./repos.js";
+import { checked, linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, pullRequestFeedback, pushWorkspace, removeWorkspace, switchBranch } from "./repos.js";
 import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, checkPullRequests, markSeen, startPrWatch } from "./prs.js";
 import { sandboxAvailable, sandboxKind, SANDBOX_NEEDS } from "./sandbox.js";
 import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, uploadKeepDays, setUploadKeepDays } from "./settings.js";
+import { pruneUploads, uploadsUsage } from "./uploads.js";
 import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
-import { CAMP_ROOT } from "./tools.js";
+import { CAMP_ROOT, rl } from "./tools.js";
 import { CREW, CREW_IDS, findCrew, addMember, updateMember, removeMember, type CrewId } from "./crew.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
@@ -39,7 +42,8 @@ import { pendingDetails, approveSkill, rejectSkill } from "./forge.js";
 import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, saveSkillFile, alwaysFor, setSkillAlways } from "./skillpacks.js";
 import { skillCommands } from "./settings.js";
 import { dueJobs, runJob, inboxEntries, claimScheduler, schedulerOwner } from "./scheduler.js";
-import { keepInFeed, loadFeed, saveToFeed } from "./feed.js";
+import { feedEventsOf, keepInFeed, loadFeed, saveToFeed, trimFeed } from "./feed.js";
+import { writeAtomic } from "./atomic.js";
 import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { allTurns, latestDirect, threadFor } from "./threads.js";
@@ -54,7 +58,7 @@ import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
-import { afterRun, forgetLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
+import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
 import { logKept, writeAbout } from "./memlog.js";
 import { approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
 import { writeModelGuide } from "./modelguide.js";
@@ -67,13 +71,44 @@ import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP } from "./ui-files.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
-const TOKEN = randomBytes(24).toString("hex");
+// The page's key. It's kept in camp/.token (yours alone to read, and off limits to the crew's
+// tools) and used again on the next start, so a tab you left open carries on after the camp
+// restarts instead of being locked out. Start with CAMP_NEW_TOKEN=1 (or delete the file) for a new one.
+const TOKEN_PATH = "camp/.token";
+function campToken(): string {
+  if (process.env.CAMP_NEW_TOKEN !== "1") {
+    try {
+      const kept = readFileSync(TOKEN_PATH, "utf8").trim();
+      if (/^[0-9a-f]{48}$/.test(kept)) return kept;
+    } catch { /* none yet */ }
+  }
+  const fresh = randomBytes(24).toString("hex");
+  try { writeAtomic(TOKEN_PATH, fresh + "\n", { mode: 0o600 }); } catch { /* it still works for this launch */ }
+  return fresh;
+}
+const TOKEN = campToken();
+
+// ---------- Signing in ----------
+// The link the camp prints carries a sign-in code, not the key: good once, for one browser. The
+// page trades it for the key (POST /api/login) and keeps the key in that browser's own storage
+// for this address and port, which no other site or local server can read. So nothing lasting
+// ends up in the browser's history, the address bar, or a bookmark, and after the first time
+// http://127.0.0.1:<port>/ opens by itself. (A cookie would have been simpler, but browsers send
+// a cookie to every port on 127.0.0.1: any other local server you opened would be handed it.)
+const signInCodes = new Set<string>();
+function newSignInLink(): string {
+  const code = randomBytes(16).toString("hex");
+  signInCodes.add(code);
+  if (signInCodes.size > 20) signInCodes.delete(signInCodes.values().next().value!); // the oldest unused ones lapse
+  return `http://127.0.0.1:${PORT}/#k=${code}`;
+}
 const STYLE_NONCE = randomBytes(18).toString("base64url"); // for the terminal pane's style rules (see ui-files.ts)
 const BOOT_ID = randomBytes(6).toString("hex");
 const MAX_BODY = 1_000_000;
 const MAX_UPLOAD_BODY = 36_000_000; // one file per request: ~25 MB once base64-encoded
 const BUFFER_SIZE = 800;
 const TICK_MS = 30_000;
+const STREAM_BACKLOG_MAX = 8_000_000;
 
 attachConsole(); // the terminal still shows everything
 
@@ -89,7 +124,13 @@ onEvent((e) => {
     if (buffer.length > BUFFER_SIZE) buffer.shift();
   }
   if (keepInFeed(e)) saveToFeed(e);
-  for (const res of streams) res.write(`data: ${JSON.stringify(e)}\n\n`);
+  const line = `data: ${JSON.stringify(e)}\n\n`;
+  for (const res of streams) {
+    // A tab that has stopped reading (asleep, or stalled) would otherwise have every event held
+    // in memory for it. Past a few megabytes it's dropped: the page reconnects and is replayed the feed.
+    if (res.writableLength > STREAM_BACKLOG_MAX) { streams.delete(res); res.destroy(); continue; }
+    res.write(line);
+  }
 });
 
 // ---------- Approvals answered from the browser ----------
@@ -173,9 +214,29 @@ function queuedJob(name: string) {
 }
 
 setInterval(() => {
-  if (!claimScheduler("ui")) return; // `npm run watch` already has the jobs
-  for (const job of dueJobs()) if (!queuedJob(job.name)) enqueue({ label: `job:${job.name}`, run: (signal, id) => runJob(job, signal, id) });
+  try {
+    if (!claimScheduler("ui")) return; // `npm run watch` already has the jobs
+    for (const job of dueJobs()) if (!queuedJob(job.name)) enqueue({ label: `job:${job.name}`, run: (signal, id) => runJob(job, signal, id) });
+  } catch (e: any) {
+    console.error(`💥 scheduled jobs: ${e?.message ?? e}`); // a timer has nobody to catch for it: one bad tick mustn't end the camp
+  }
 }, TICK_MS);
+
+// Uploads nothing uses any more are deleted once they're as old as you said (Settings → General),
+// a little after start-up and then once a day. Never, unless you set a number of days.
+function tidyUploads() {
+  const days = uploadKeepDays();
+  if (!days) return;
+  try {
+    const gone = pruneUploads(days);
+    if (gone.batches) console.log(`🧹 Cleared ${gone.files} upload${gone.files === 1 ? "" : "s"} nothing uses any more (older than ${days} days).`);
+  } catch (e: any) { console.error(`💥 clearing uploads: ${e?.message ?? e}`); }
+}
+setTimeout(tidyUploads, 60_000).unref();
+setInterval(tidyUploads, 24 * 3_600_000).unref();
+
+// The feed file is trimmed at start-up; a camp that stays up for weeks checks now and then too.
+setInterval(() => { trimFeed(); }, 6 * 3_600_000).unref();
 
 // ---------- Triggers: work that starts when an issue or ticket arrives (triggers.ts) ----------
 // Each new item starts an ordinary expedition, filed under the trigger's project, whose plan
@@ -367,12 +428,14 @@ async function fullState(full: boolean, historySeen?: string) {
       allowHosts: shellSettings().allowHosts ?? [],
       askAlways: shellSettings().ask ?? [],
       reviewer: shellSettings().reviewer === true,
+      plainApprovals: shellSettings().explain === true,
       defaultAllow: DEFAULT_ALLOW,
       questsAtOnce: questLimit(),
       questsMax: QUESTS_MAX,
       parallelMax: PARALLEL_MAX,
       selfEdit: selfEditAllowed(),
       autoTitles: autoTitlesOn(),
+      uploadKeepDays: uploadKeepDays(), // null: uploads are never deleted by themselves
       fixAttempts: fixAttempts(),
       fixAttemptsMax: FIX_ATTEMPTS_MAX,
       reviewChanges: reviewChangesOn(),
@@ -428,12 +491,19 @@ function send(res: http.ServerResponse, status: number, body: unknown, type = "a
 async function readJson(req: http.IncomingMessage, limit = MAX_BODY): Promise<any> {
   let size = 0;
   const chunks: Buffer[] = [];
+  const tooLarge = () => Object.assign(new Error(limit === MAX_BODY ? "Request too large" : "File too large (25 MB max)"), { status: 413 });
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > limit) throw new Error(limit === MAX_BODY ? "Request too large" : "File too large (25 MB max)");
+    // Past the limit the rest is read and thrown away, so the sender gets the answer saying why:
+    // stopping here would cut the connection under it. Far past the limit, it's simply cut.
+    if (size > limit * 4) throw tooLarge();
+    if (size > limit) { chunks.length = 0; continue; }
     chunks.push(chunk);
   }
-  return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {};
+  if (size > limit) throw tooLarge();
+  if (!chunks.length) return {};
+  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+  catch { throw Object.assign(new Error("The request wasn't valid JSON."), { status: 400 }); }
 }
 
 function hostOk(req: http.IncomingMessage) {
@@ -446,15 +516,25 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
     const authed = req.headers["x-camp-token"] === TOKEN || url.searchParams.get("t") === TOKEN;
 
-    // The page itself carries the token; without it you get a pointer to the terminal.
+    // The page and its scripts and styles: the same built files for everyone, with nothing of the
+    // camp in them, so they need no key. What the page then asks for does.
     if (req.method === "GET" && url.pathname === "/") {
-      if (url.searchParams.get("t") !== TOKEN) {
-        return send(res, 401, "Open the link printed in the terminal (it includes this launch's key).", "text/plain; charset=utf-8");
-      }
-      const page = uiPage(TOKEN, undefined, STYLE_NONCE);
+      const page = uiPage(undefined, STYLE_NONCE);
       if (!page) return send(res, 503, UI_NOT_BUILT, "text/plain; charset=utf-8");
       res.setHeader("content-security-policy", uiCsp(STYLE_NONCE));
       return send(res, 200, page, "text/html; charset=utf-8");
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/assets/")) {
+      const asset = uiAsset(url.pathname);
+      if (!asset) return send(res, 404, { error: "Not found" });
+      res.writeHead(200, { "content-type": asset.type, "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" });
+      return res.end(asset.body);
+    }
+    // A sign-in code for the key: once. { code } → { token }.
+    if (req.method === "POST" && url.pathname === "/api/login") {
+      const code = String((await readJson(req)).code ?? "");
+      if (!signInCodes.delete(code)) return send(res, 401, { error: "That sign-in link has been used or is from an earlier start. Press Enter in the camp's terminal for a new one." });
+      return send(res, 200, { token: TOKEN });
     }
     // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
     if (req.method === "GET" && url.pathname === "/splash") {
@@ -464,18 +544,25 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, page, "text/html; charset=utf-8");
     }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
-
-    // The page's built scripts and styles (ui/dist/assets). The page links them with the token.
-    if (req.method === "GET" && url.pathname.startsWith("/assets/")) {
-      const asset = uiAsset(url.pathname);
-      if (!asset) return send(res, 404, { error: "Not found" });
-      res.writeHead(200, { "content-type": asset.type, "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" });
-      return res.end(asset.body);
-    }
+    // Uploads: how much is kept, and how much of it nothing uses any more (?days= how old that must be).
+    if (req.method === "GET" && url.pathname === "/api/uploads/usage") return send(res, 200, { ...uploadsUsage(Number(url.searchParams.get("days")) || undefined), keepDays: uploadKeepDays() });
+    // Is this browser's key still good? (The page asks as it opens.)
+    if (req.method === "GET" && url.pathname === "/api/ping") return send(res, 200, { ok: true, bootId: BOOT_ID });
 
     if (req.method === "GET" && url.pathname === "/events") {
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
       res.write(`event: hello\ndata: ${JSON.stringify({ bootId: BOOT_ID })}\n\n`);
+      // The buffer is the newest events only, so a long run's start can have scrolled out of it. A
+      // page that loads then would have nowhere to put that run's events: send the earlier part of
+      // every running expedition first (from the feed on disk), then the buffer. Events arrive in
+      // order, and a page that's only reconnecting skips the ones it has by number.
+      const from = buffer[0]?.seq ?? Infinity;
+      const begun = new Set(buffer.flatMap((e) => (e.type === "expedition_start" ? [e.id] : [])));
+      const cutOff = [...running.keys()].filter((id) => !begun.has(id));
+      if (cutOff.length) {
+        try { for (const e of feedEventsOf(cutOff)) if (e.seq < from) res.write(`data: ${JSON.stringify(e)}\n\n`); }
+        catch { /* the feed file couldn't be read: the page shows what the buffer has */ }
+      }
       for (const e of buffer) res.write(`data: ${JSON.stringify(e)}\n\n`);
       streams.add(res);
       const ping = setInterval(() => res.write(": ping\n\n"), 20_000);
@@ -544,7 +631,10 @@ const server = http.createServer(async (req, res) => {
     // Where one worktree stands now: uncommitted files and commits since the expedition started.
     if (req.method === "GET" && url.pathname === "/api/repo/status") {
       const q = url.searchParams;
-      return send(res, 200, await workspaceStatus({ link: String(q.get("link")), path: String(q.get("path")), branch: "", base: q.get("base") ?? undefined }));
+      const w = { link: String(q.get("link")), path: String(q.get("path")), branch: "", base: /^[0-9a-f]{7,64}$/.test(q.get("base") ?? "") ? q.get("base")! : undefined };
+      // Only a real worktree of a linked repo is looked at (git never runs in a folder the page merely names).
+      try { w.path = await checked(w); } catch { return send(res, 200, { ...w, changed: 0, commits: 0, exists: false, ahead: 0 }); }
+      return send(res, 200, await workspaceStatus(w));
     }
 
     // What an expedition's file tools changed: the files and a unified diff.
@@ -676,6 +766,15 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/skills/always") {
       try { return send(res, 200, { ok: true, alwaysFor: setSkillAlways(String(body.owner ?? ""), String(body.name ?? ""), body.agents) }); }
       catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+    // { days }: delete uploads nothing uses that are at least that old (a day at the least). For good.
+    if (url.pathname === "/api/uploads/clear") return send(res, 200, { ok: true, cleared: pruneUploads(Number(body.days) || undefined) });
+    // { days: 30 | null }: from now on, delete them by themselves at that age; null stops that.
+    if (url.pathname === "/api/uploads/keep") {
+      const days = body.days === null ? null : Number(body.days);
+      if (days !== null && !(Number.isFinite(days) && days >= 1)) return send(res, 400, { error: "Give a number of days (1 or more), or turn it off." });
+      setUploadKeepDays(days);
+      return send(res, 200, { ok: true, keepDays: uploadKeepDays() });
     }
     if (url.pathname === "/api/skills/remove") {
       const ok = removeSkill(String(body.owner ?? ""), String(body.name ?? ""));
@@ -1062,6 +1161,12 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, on: !!body.on });
     }
 
+    // Approvals in plain words ({ on }): the smallest model says what a command does, on its card (explain.ts).
+    if (url.pathname === "/api/plain-approvals") {
+      setPlainApprovals(!!body.on);
+      return send(res, 200, { ok: true, on: !!body.on });
+    }
+
     // How many dispatched quests run at once, camp-wide ({ n: 1–16 }).
     if (url.pathname === "/api/quests-at-once") {
       const n = Number(body.n);
@@ -1212,6 +1317,8 @@ const server = http.createServer(async (req, res) => {
           return send(res, 200, { ok: true });
         }
         if (url.pathname === "/api/memory/forget") return send(res, 200, { ok: forgetLine(String(body.where ?? ""), String(body.line ?? "")) });
+        // { where, line, on }: keep this line in every prompt (or stop keeping it there).
+        if (url.pathname === "/api/memory/pin") return send(res, 200, { ok: pinLine(String(body.where ?? ""), String(body.line ?? ""), body.on !== false) });
         if (url.pathname === "/api/memory/tidy") return send(res, 200, { ok: true, proposal: await proposeTidy(String(body.where ?? "")) });
         if (url.pathname === "/api/memory/proposal") return send(res, 200, settleProposal(String(body.id ?? ""), body.action === "approve" ? "approve" : "dismiss", typeof body.text === "string" ? body.text : undefined));
         if (url.pathname === "/api/memory/care") { setMemoryCare({ tidy: body.tidy, suggest: body.suggest }); return send(res, 200, { ok: true, memoryCare: memoryCare() }); }
@@ -1337,11 +1444,38 @@ const server = http.createServer(async (req, res) => {
 
     return send(res, 404, { error: "Not found" });
   } catch (err: any) {
-    return send(res, 500, { error: err.message });
+    if (res.headersSent) return void res.end(); // it failed part-way through an answer: nothing more to say
+    return send(res, Number.isInteger(err?.status) ? err.status : 500, { error: err.message });
   }
 });
 
-process.on("exit", () => { void closeConnectors(); });
+// ---------- Staying up, and going down cleanly ----------
+// The camp runs for days with work in flight, so one stray error (a socket that reset, a bug in
+// a timer) is logged and the camp carries on, instead of every running expedition dying with it.
+process.on("uncaughtException", (err) => console.error("💥 Unexpected error (the camp keeps running):", err));
+process.on("unhandledRejection", (err) => console.error("💥 Unhandled rejection (the camp keeps running):", err));
+
+// However the camp ends (Ctrl+C, a closed terminal window, `kill`), the work it started ends with
+// it: stopping each run also ends the commands it spawned, which run in their own process groups
+// and would otherwise be left behind. This part has to be immediate: nothing is waited for on exit.
+process.on("exit", () => {
+  for (const w of running.values()) { try { w.controller?.abort(); } catch { /* already stopped */ } }
+  void closeConnectors();
+});
+let closing = false;
+function shutDown(signal: string) {
+  if (closing) process.exit(1); // asked twice: go now
+  closing = true;
+  const stopped = stopWork();
+  if (stopped.length || queue.length) console.log(`\n🏕️  Breaking camp (${signal}): stopped ${stopped.length} running, ${queue.length} waiting. Reply "resume" in a conversation to pick its work back up.`);
+  queue.length = 0;
+  for (const res of streams) res.end();
+  server.close();
+  // A moment for stopped commands to end and the connectors to close, then out (the exit hooks do the rest).
+  void closeConnectors().catch(() => {}).finally(() => setTimeout(() => process.exit(0), 300));
+  setTimeout(() => process.exit(0), 3000).unref();
+}
+for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.on(sig, () => shutDown(sig));
 
 // Approvals from your phone (off unless camp/settings.json has a "phone" topic; see phone.ts).
 startPhoneBridge((askId, answer) => {
@@ -1358,12 +1492,22 @@ startPrWatch();
 // for its state and the figures are more than five minutes old (it costs nothing; see refreshPlanUsage).
 const USAGE_STALE = 5 * 60_000;
 const freshenUsage = () => { if (campRuntime() === "claude-code" && Date.now() - usageMeasuredAt() > USAGE_STALE) void refreshPlanUsage(); };
+server.on("error", (err: NodeJS.ErrnoException) => {
+  console.error(err.code === "EADDRINUSE"
+    ? `💥 Port ${PORT} is taken: another camp may be running. Stop it, or set CAMP_PORT to a free port.`
+    : `💥 Mission control couldn't start: ${err.message}`);
+  process.exit(1);
+});
 server.listen(PORT, "127.0.0.1", () => {
   freshenUsage();
-  console.log(`🏕️  Mission control is up: http://127.0.0.1:${PORT}/?t=${TOKEN}`);
-  console.log(`   Scheduled jobs run while this is open. Ctrl+C to break camp.`);
+  console.log(`🏕️  Mission control is up: ${newSignInLink()}`);
+  console.log(`   That link signs one browser in, once. After that, http://127.0.0.1:${PORT}/ opens by itself there.`);
+  console.log(`   Press Enter here for another sign-in link. Scheduled jobs run while this is open. Ctrl+C to break camp.`);
   void announceRuntime();
 });
+
+// Enter in the camp's terminal: a sign-in link for another browser (or after clearing this one's storage).
+rl.on("line", () => console.log(`   Sign in with: ${newSignInLink()}`));
 
 // Say up front what the crew runs on, and warn if the subscription login isn't usable.
 async function announceRuntime() {

@@ -12,6 +12,7 @@ import { Connectors, Inbox, Jobs, Skills } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
+import { showCost } from "../prefs.ts";
 import { cClass, cx, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
@@ -70,8 +71,53 @@ function applyTheme(t: Theme) {
   else { root.dataset.theme = t; storeSet("camp-theme", t); }
 }
 
+// The files you've attached, and clearing out the ones nothing uses any more. Nothing is deleted
+// unless you press the button (which says what will go) or pick a number of days here.
+type UploadsUsage = { files: number; bytes: number; clearable: { batches: number; files: number; bytes: number } };
+const mb = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(bytes ? 1 : 0, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+function Uploads({ S, refresh }: { S: CampState; refresh: () => void }) {
+  const [u, setU] = useState<UploadsUsage | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState("");
+  const load = useCallback(() => { api<UploadsUsage>("/api/uploads/usage").then((r) => setU(r?.clearable ? r : null)).catch(() => setU(null)); }, []);
+  useEffect(load, [load]);
+  const keep = S.settings.uploadKeepDays;
+  const clear = async () => {
+    setBusy(true);
+    try {
+      const r = await api<{ cleared: { files: number; bytes: number } }>("/api/uploads/clear", {});
+      setSaid(r.cleared.files ? `Deleted ${r.cleared.files} ${r.cleared.files === 1 ? "file" : "files"} (${mb(r.cleared.bytes)}).` : "There was nothing to delete.");
+    } catch (e) { setSaid(errorText(e)); }
+    setBusy(false); setAsking(false); load();
+  };
+  const n = u?.clearable.files ?? 0;
+  return (
+    <>
+      <Row label="Uploads" wide help={<>Files you attach are kept in <code>camp/uploads</code>{u ? <>: {u.files} {u.files === 1 ? "file" : "files"}, {mb(u.bytes)}</> : null}. One is only ever deleted when it's at least a day old and nothing uses it any more: no conversation in your history, no project's pinned reference, no wiki page. Deleting is for good.</>}>
+        <select aria-label="Delete unused uploads automatically" value={keep ?? ""} onChange={(ev) => tryIt(() => api("/api/uploads/keep", { days: ev.target.value ? Number(ev.target.value) : null }), refresh)}>
+          <option value="">Keep them all</option>
+          <option value="30">Delete unused ones after 30 days</option>
+          <option value="90">Delete unused ones after 90 days</option>
+          <option value="365">Delete unused ones after a year</option>
+          {keep && ![30, 90, 365].includes(keep) && <option value={keep}>Delete unused ones after {keep} days</option>}
+        </select>{" "}
+        <button type="button" className="btn small" disabled={!n || busy} onClick={() => { setSaid(""); setAsking(true); }}>{n ? `Delete ${n} unused now…` : "Nothing unused to delete"}</button>
+        {said && <span className="meta" role="status"> {said}</span>}
+      </Row>
+      {asking && u && (
+        <Confirm title="Delete unused uploads?" action={`Delete ${n} ${n === 1 ? "file" : "files"}`} danger busy={busy} onConfirm={clear} onCancel={() => setAsking(false)}>
+          <p>{n} {n === 1 ? "file" : "files"} ({mb(u.clearable.bytes)}) that no conversation in your history, pinned reference or wiki page uses any more, each at least a day old.</p>
+          <p>They're deleted from <code>camp/uploads</code> for good: there's no bin to get them back from.</p>
+        </Confirm>
+      )}
+    </>
+  );
+}
+
 function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   const [theme, setTheme] = useState<Theme>(() => (storeGet("camp-theme") as Theme) || "system");
+  const costShown = showCost.use();
   const [, redraw] = useState(0);
   const locked = S.settings.runtimeLocked;
   const plan = S.login?.plan ? S.login.plan[0].toUpperCase() + S.login.plan.slice(1) : "";
@@ -95,6 +141,9 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
       </Row>
+      <Row label="Today's cost in the top bar" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. Remembered in this browser. Usage & quests, in this menu, always shows it.`}>
+        <label className="switch"><input type="checkbox" checked={costShown} onChange={(ev) => showCost.set(ev.target.checked)} /> {costShown ? "Shown" : "Hidden"}</label>
+      </Row>
       <Row label="Name conversations automatically" help="After a new conversation's first answer, the smallest model writes it a short title. Each one uses a little of your plan (or a fraction of a cent on the API). Off, a conversation is named after its first request.">
         <label className="switch"><input type="checkbox" checked={S.settings.autoTitles}
           onChange={(ev) => tryIt(() => api("/api/auto-titles", { on: ev.target.checked }), refresh)} /> {S.settings.autoTitles ? "On" : "Off"}</label>
@@ -105,6 +154,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
             onChange={async () => { await toggleNotifications(); redraw((n) => n + 1); }} /> {notificationsOn() ? "On" : "Off"}</label>
         )}
       </Row>
+      <Uploads S={S} refresh={refresh} />
     </>
   );
 }
@@ -231,6 +281,9 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
       </Row>
       <Row label="Approval reviewer" help="Before a command waits for you, the smallest model looks at it. It can run a routine one (tests, builds, formatters, read-only commands) and says so in the feed, or leave it for you with its reason. It never declines for you, and it can't clear anything with sudo, deleting, pushing, installs or the network, or anything in a scheduled job. Each look is a small call.">
         <label className="switch"><input type="checkbox" checked={st.reviewer} onChange={(ev) => tryIt(() => api("/api/shell-reviewer", { on: ev.target.checked }), refresh)} /> {st.reviewer ? "On" : "Off"}</label>
+      </Row>
+      <Row label="Approvals in plain words" help="When a shell command or a connector call waits for you, the smallest model adds a short summary to its card: what it does, what it changes, what it contacts outside this machine, and anything worth a second look. It's a reading aid: it never approves anything, it can be wrong, and what runs is the command on the card. Each summary is one small call (free if your small jobs run on a free model, under Models); the same command isn't summarized twice.">
+        <label className="switch"><input type="checkbox" checked={st.plainApprovals} onChange={(ev) => tryIt(() => api("/api/plain-approvals", { on: ev.target.checked }), refresh)} /> {st.plainApprovals ? "On" : "Off"}</label>
       </Row>
       <Row label="Your allow-list" help={<>Command prefixes that run without asking, one per line. <code>npm run build</code> also allows <code>npm run build --watch</code>, and <code>*</code> matches anything (<code>npm run test:*</code>). Only simple commands match (no pipes, chaining or paths outside the camp). Test runners run project code the Artificer can edit, so add them only if that's fine with you.</>} wide>
         <ListEditor label="Allowed command prefixes" value={st.allow} placeholder={"npm run build\npytest"} onSave={(allow) => tryIt(() => api("/api/shell", { allow }), refresh)} />

@@ -107,9 +107,10 @@ test("a project's defaults: web off, its own models, budget, and approval level"
   const tools = seen.tools.map((t: any) => t.name);
   assert.ok(!tools.includes("web_search") && !tools.includes("web_fetch"), "no web tools in this project");
   assert.ok(tools.includes("project_remember"));
-  assert.match(seen.system[0].text, /## Project: [^\n]+\n[\s\S]*Web search and fetch are turned off for this project/);
-  assert.match(seen.system[0].text, /HOME RULES/);
-  assert.doesNotMatch(seen.system[0].text, /WORK RULES/);
+  const prompt = seen.system.map((x: any) => x.text).join("\n\n");
+  assert.match(prompt, /## Project: [^\n]+\n[\s\S]*Web search and fetch are turned off for this project/);
+  assert.match(prompt, /HOME RULES/);
+  assert.doesNotMatch(prompt, /WORK RULES/);
   // The same Scout, outside the project, is back on its usual model with the web.
   const out = await runDirect("scout", "And in general?", "direct", undefined, undefined, "run-general", undefined, { links: [] });
   assert.notEqual(out?.model, "claude-haiku-5-5");

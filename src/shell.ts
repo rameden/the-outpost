@@ -2,6 +2,7 @@
 // auto-approved only if it's on the list below AND it's a single, simple command:
 //   - no chaining, pipes, redirects, or substitutions (; & | < > ` $ ( ) { } and newlines)
 //   - no paths outside the camp (absolute paths, ~, ..) and nothing touching .env
+//   - no URLs and no flags that point it at another server or config (--registry, --prefix…)
 // Anything else still asks you. Add your own in camp/settings.json:
 //   "shell": { "allow": ["npm run build", "npm run test:*"] }      or  "shell": { "autoApprove": false }
 // "Always allow" on an approval adds that exact command to "shell": { "exact": [...] }.
@@ -27,6 +28,7 @@ export function approvalNow(): ApprovalLevel {
 }
 
 // Each entry: a command prefix. "git status" allows "git status -s", not "git push".
+// ("git branch" is narrower: only its listing forms. See gitBranchOnlyLists.)
 // Deliberately NOT here by default:
 //  - test runners and build scripts (npm test, pytest, cargo test…): they run project code, and
 //    the Artificer can edit that code, so "npm test" could run anything. Add them to "allow" if
@@ -81,22 +83,56 @@ export function shellRule(command: string): { verdict: "deny" | "ask"; rule: str
   return null;
 }
 
-export function isAutoApproved(command: string): boolean {
+// Flags that send a command somewhere else: another registry (npm view x --registry=https://…
+// makes a request to whoever is named), another config file, another folder. npm takes any
+// unambiguous start of a flag's name (--reg for --registry) and any number of dashes.
+// (--global is a flag of its own, "npm ls --global", not the start of --globalconfig.)
+const REDIRECTS = ["registry", "userconfig", "globalconfig", "prefix"];
+function redirects(cmd: string): boolean {
+  if (cmd.includes("://")) return true;
+  return cmd.split(" ").some((w) => {
+    const flag = w.match(/^-+([^=]+)/)?.[1].toLowerCase();
+    if (!flag || flag === "global") return false;
+    return /registry|proxy/.test(flag) || (flag.length >= 3 && REDIRECTS.some((r) => r.startsWith(flag)));
+  });
+}
+
+// "git branch" lists branches, and with other arguments deletes, renames, moves or makes them
+// (-D, -m, -f, a bare name…). Only the listing forms run without asking.
+function gitBranchOnlyLists(args: string[]): boolean {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (/^(--list|-l|-a|--all|-r|--remotes|-v|-vv|--verbose|--show-current)$/.test(a)) continue;
+    if (/^--(sort|format|contains|no-contains|merged|no-merged)=./.test(a)) continue;
+    if (/^--(contains|no-contains|merged|no-merged)$/.test(a)) { if (args[i + 1] && !args[i + 1].startsWith("-")) i++; continue; } // takes a commit
+    return false;
+  }
+  return true;
+}
+
+// Whether a command runs without asking, and on whose say-so:
+//   "builtin"  it's one of the simple read-only commands above. Where the sandbox is available
+//              these run inside it with nothing writable (see bashFor in tools.ts).
+//   "yours"    you allowed it: "Always allow" on that exact command, your "allow" list, or a
+//              command you approved for an imported skill. These run as you approved them.
+export function autoApproval(command: string): "builtin" | "yours" | null {
   const s = shellSettings();
-  if (approvalNow() === "ask") return false;
-  if (shellRule(command)) return false; // your deny and ask rules win over every allow
+  if (approvalNow() === "ask") return null;
+  if (shellRule(command)) return null; // your deny and ask rules win over every allow
   // Commands you chose "Always allow" for run as-is, but only that exact command.
-  if (s.exact?.includes(command.trim())) return true;
+  if (s.exact?.includes(command.trim())) return "yours";
   const cmd = command.trim().replace(/\s+/g, " ");
-  if (!cmd || UNSAFE_CHARS.test(cmd) || UNSAFE_ARGS.test(` ${cmd} `)) return false;
+  if (!cmd || UNSAFE_CHARS.test(cmd) || UNSAFE_ARGS.test(` ${cmd} `) || redirects(cmd)) return null;
   const words = cmd.split(" ");
   // Arguments must stay inside the camp and away from secrets.
   for (const w of words.slice(1)) {
     const bare = w.replace(/^['"]|['"]$/g, "").replace(/^-[^=]*=/, "");
     // ":" covers git's rev:path form (git show HEAD:.env).
-    if (bare.startsWith("/") || bare.startsWith("~") || /(^|[/:])\.\.(\/|$)/.test(bare) || /(^|[/:])\.env/.test(bare)) return false;
-    if (/(^|[/:])camp\/agents(\/|$)/.test(bare) || /[*?[]/.test(bare)) return false; // private workspaces; globs
+    if (bare.startsWith("/") || bare.startsWith("~") || /(^|[/:])\.\.(\/|$)/.test(bare) || /(^|[/:])\.env/.test(bare)) return null;
+    if (/(^|[/:])camp\/agents(\/|$)/.test(bare) || /[*?[]/.test(bare)) return null; // private workspaces; globs
   }
-  const allow = [...DEFAULT_ALLOW, ...(s.allow ?? []), ...approvedSkillPrefixes()];
-  return allow.some((prefix) => (prefix.includes("*") ? globToRegex(prefix).test(cmd) : cmd === prefix || cmd.startsWith(prefix + " ")));
+  const matches = (prefix: string) => (prefix.includes("*") ? globToRegex(prefix).test(cmd) : cmd === prefix || cmd.startsWith(prefix + " "));
+  if (DEFAULT_ALLOW.some(matches) && (!matches("git branch") || gitBranchOnlyLists(words.slice(2)))) return "builtin";
+  return [...(s.allow ?? []), ...approvedSkillPrefixes()].some(matches) ? "yours" : null;
 }
+export const isAutoApproved = (command: string): boolean => autoApproval(command) !== null;

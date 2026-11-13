@@ -3,9 +3,17 @@
 //
 // The rules, from the "connect your tools the safe way" playbook:
 //  - Each server is given to specific agents only ("agents": ["scout"]).
-//  - Read-only by default: only tools that are marked read-only (or are named like get/list/
-//    search/read…) are offered. Set "allowWrite": true to offer the rest, and every write call
-//    then asks you first (the shell-style approval, in the terminal or in mission control).
+//  - Read-only by default: only read-only tools are offered. Set "allowWrite": true to offer the
+//    rest, and every write call then asks you first (the shell-style approval, in the terminal or
+//    in mission control). Which tools count as read-only:
+//      1. Ones you list in "readTools": ["query", …] for that server. Your word is final.
+//      2. Otherwise what the server says about the tool wins: marked read-only, it is; marked as
+//         not read-only, or as destructive, it's a write, whatever it's called.
+//      3. With nothing said, the name decides: get/list/search/read/find/describe/lookup/view/
+//         show/count. (Not query, check or fetch: a SQL "query" tool can drop a table, and a
+//         "fetch" can send your data anywhere. List those in "readTools" if yours only read.)
+//  - A connector starts with the camp's environment minus its secrets (API keys, tokens: see
+//    childEnv in sandbox.ts). Hand it the token it needs in its own "env": that's the explicit way.
 //  - Results are information, never instructions (the agents' quest rules already say so).
 
 import { existsSync, readFileSync } from "node:fs";
@@ -15,9 +23,10 @@ import type { Tool, ToolOutput } from "./tools.js";
 import { campMode } from "./tools.js";
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
+import { childEnv } from "./sandbox.js";
 
 export const MCP_PATH = "camp/mcp.json";
-const READ_NAME = /^(get|list|search|read|fetch|find|query|describe|lookup|view|show|count|check)[_-]?/i;
+const READ_NAME = /^(get|list|search|read|find|describe|lookup|view|show|count)[_-]?/i;
 
 type ServerConfig = {
   command: string;
@@ -27,10 +36,11 @@ type ServerConfig = {
   agents: string[];           // crew ids allowed to use it
   allowWrite?: boolean;       // offer non-read tools (each call needs your approval)
   tools?: string[];           // optional: only these tool names
+  readTools?: string[];       // optional: tool names you vouch for as read-only (offered and run without asking)
   description?: string;
 };
 
-type McpTool = { name: string; description?: string; inputSchema: Record<string, unknown>; annotations?: { readOnlyHint?: boolean } };
+type McpTool = { name: string; description?: string; inputSchema: Record<string, unknown>; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } };
 type Connection = { client: Client; tools: McpTool[] };
 export type ConnectorStatus = {
   name: string; agents: string[]; allowWrite: boolean; description?: string;
@@ -50,13 +60,21 @@ function loadConfig(): Record<string, ServerConfig> {
   }
 }
 
-const isReadOnly = (t: McpTool) => t.annotations?.readOnlyHint === true || READ_NAME.test(t.name);
+// See the rules at the top: your "readTools", then the server's own annotations, then the name.
+export function isReadOnly(t: Pick<McpTool, "name" | "annotations">, cfg: Pick<ServerConfig, "readTools"> = {}): boolean {
+  if (Array.isArray(cfg.readTools) && cfg.readTools.includes(t.name)) return true;
+  const a = t.annotations;
+  if (a?.readOnlyHint === false || a?.destructiveHint === true) return false;
+  if (a?.readOnlyHint === true) return true;
+  return READ_NAME.test(t.name);
+}
 
 async function connect(name: string, cfg: ServerConfig): Promise<Connection> {
   const transport = new StdioClientTransport({
     command: cfg.command,
     args: cfg.args ?? [],
-    env: { ...(process.env as Record<string, string>), ...(cfg.env ?? {}) },
+    // The camp's environment without its secrets; what the connector needs is in its own "env".
+    env: { ...(childEnv() as Record<string, string>), ...(cfg.env ?? {}) },
     cwd: cfg.cwd,
     stderr: "ignore",
   });
@@ -85,13 +103,13 @@ function getConnection(name: string, cfg: ServerConfig): Promise<Connection> {
 function offered(cfg: ServerConfig, tools: McpTool[]) {
   return tools
     .filter((t) => !cfg.tools || cfg.tools.includes(t.name))
-    .filter((t) => cfg.allowWrite || isReadOnly(t));
+    .filter((t) => cfg.allowWrite || isReadOnly(t, cfg));
 }
 
 function describe(name: string, cfg: ServerConfig, state: ConnectorStatus["state"], tools: McpTool[], error?: string): ConnectorStatus {
   return {
     name, agents: cfg.agents ?? [], allowWrite: !!cfg.allowWrite, description: cfg.description, state, error,
-    tools: offered(cfg, tools).map((t) => ({ name: t.name, write: !isReadOnly(t) })),
+    tools: offered(cfg, tools).map((t) => ({ name: t.name, write: !isReadOnly(t, cfg) })),
   };
 }
 
@@ -125,7 +143,7 @@ export async function mcpToolsFor(agentId: string): Promise<Tool[]> {
       continue; // shown as an error in mission control's Connectors tab
     }
     for (const t of offered(cfg, conn.tools)) {
-      const write = !isReadOnly(t);
+      const write = !isReadOnly(t, cfg);
       out.push({
         def: {
           name: toolName(server, t.name),

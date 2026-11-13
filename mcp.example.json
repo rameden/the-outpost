@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy to camp/mcp.json (local, gitignored) and edit. Each server is an MCP server the camp starts and talks to over stdio. 'agents' lists who may use it. Tools are read-only unless allowWrite is true, and then every write call asks you first.",
+  "_comment": "Copy to camp/mcp.json (local, gitignored) and edit. Each server is an MCP server the camp starts and talks to over stdio. 'agents' lists who may use it. Tools are read-only unless allowWrite is true, and then every write call asks you first. A tool counts as read-only when the server marks it so, or its name starts with get/list/search/read/find/describe/lookup/view/show/count; for one that only reads but isn't named or marked that way (a database's 'query', say), list it under 'readTools'. A server gets none of the camp's own secrets from your environment: give it the token it needs under 'env'.",
   "servers": {
     "github": {
       "description": "Read issues, PRs, and code on GitHub",

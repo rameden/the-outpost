@@ -86,3 +86,18 @@ test("what counts as Markdown, and how front matter is told from the page", () =
   expect(frontMatter("# No front matter\n---\nnot: meta\n")).toEqual({ meta: [], body: "# No front matter\n---\nnot: meta\n" });
   expect(frontMatter('---\ntitle: "Quoted"\nempty:\n  nested: skipped\n---\nBody')).toEqual({ meta: [["title", "Quoted"]], body: "Body" });
 });
+
+test("the page around it redrawing (a new onClose each time) doesn't read the file again; Escape uses the latest one", async () => {
+  text = "export const a = 1;\n";
+  const viewer = (onClose = () => {}) => <FileViewer root={{ link: "demo" }} rel="src/a.ts" onClose={onClose} onMention={() => {}} />;
+  const { rerender } = render(viewer());
+  await waitFor(() => expect(screen.getByRole("dialog").querySelector(".file-code")).not.toBeNull());
+  expect(gets.length).toBe(1);
+  for (let i = 0; i < 5; i++) rerender(viewer());
+  expect(gets.length).toBe(1);
+  const onClose = vi.fn();
+  rerender(viewer(onClose));
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(gets.length).toBe(1);
+});

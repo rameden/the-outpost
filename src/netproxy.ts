@@ -48,11 +48,16 @@ export function ensureProxy(): Promise<number> {
   if (started) return started;
   started = new Promise((ok, fail) => {
     const s = http.createServer((req, res) => {
+      // A sandboxed command can drop its connection at any moment. A socket error nobody listens
+      // for is thrown, and would take the whole camp down, so every socket here has a listener.
+      req.on("error", () => {});
+      res.on("error", () => {});
       // Plain HTTP through a proxy: the request line carries the whole URL.
       let url: URL;
       try { url = new URL(req.url ?? ""); } catch { res.writeHead(400).end("Bad request\n"); return; }
       if (!hostAllowed(url.hostname, allowedHosts())) { refuse(url.hostname); res.writeHead(403).end(`${url.hostname} isn't on the sandbox's list of allowed hosts.\n`); return; }
       const up = http.request({ host: url.hostname, port: url.port || 80, path: url.pathname + url.search, method: req.method, headers: req.headers }, (r) => {
+        r.on("error", () => { res.destroy(); }); // the far end went away mid-answer
         res.writeHead(r.statusCode ?? 502, r.headers);
         r.pipe(res);
       });
@@ -61,6 +66,9 @@ export function ensureProxy(): Promise<number> {
     });
     // HTTPS (and anything else) through a proxy: CONNECT host:port, then a raw tunnel.
     s.on("connect", (req, client: net.Socket, head) => {
+      // Before anything is written to it: the command may already have reset the connection, and
+      // without a listener that error is thrown (see above). The tunnel adds its own tidy-up below.
+      client.on("error", () => {});
       const { host, port } = splitHost(req.url ?? "", 443);
       if (!hostAllowed(host, allowedHosts())) {
         refuse(host);

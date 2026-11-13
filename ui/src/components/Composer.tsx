@@ -1,7 +1,7 @@
 // Where you write to the camp: the message box, attachments (files, folders, images, links,
 // linked folders), @ mentions of crew and project files, and follow-ups to an earlier expedition.
 
-import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type Ref } from "react";
+import { memo, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type Ref } from "react";
 import { MessageInput, type MessageInputHandle } from "./MessageInput.tsx";
 import { api, errorText, storeGet, storeRemove, storeSet } from "../api.ts";
 import { COMMANDS, parseCommand, say } from "../bus.ts";
@@ -12,6 +12,7 @@ import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { LEFT_OUT, USED, WorkIn, chosenWorkspaces, leftOut, outsideChoice, outsidePick, replyPick, useRepos, usedIn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
 import { ChatModel } from "./ChatModel.tsx";
+import { tell } from "./StatusLine.tsx";
 import { uploadFile as sendFile } from "../upload.ts";
 
 const MAX_FOLDER_FILES = 200;
@@ -51,7 +52,8 @@ export type SendContext = { replyTo?: string; project?: string; placeholder?: st
 // sent is kept under it in this browser, so it's still there after a reload, or when you come back.
 // hidden: on a page that isn't a conversation (Projects, Jira, the wiki) there's no message box.
 // It stays in the page, out of sight, so what's attached or half-written is still there when you're back.
-export function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders, draftKey, hidden }: {
+// (memo: it's drawn again when what it's given changes, not each time the feed gets a word.)
+export const Composer = memo(function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders, draftKey, hidden }: {
   hidden?: boolean;
   S: CampState | null; store: FeedStore; refresh: () => void; patch: (fn: (s: CampState) => CampState) => void; ref: Ref<ComposerHandle>;
   context?: SendContext; onSent?: (r: SendResult) => void; onFolders?: (names: string[]) => void; draftKey?: string;
@@ -62,6 +64,13 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   const [menu, setMenu] = useState<MenuView | null>(null);
   const [mention, setMention] = useState<Mention | null>(null);
   const [reply, setReply] = useState<{ id: string; task: string } | null>(null);
+  // "Reply" names a run in the conversation you pressed it in. Going anywhere else lets go of
+  // it, so a message written in another conversation can't be sent to that one.
+  const [repliedAt, setRepliedAt] = useState(draftKey);
+  if (repliedAt !== draftKey) { setRepliedAt(draftKey); setReply(null); }
+  // One send at a time: a second Enter while the first is still on its way would start two runs.
+  const sendingNow = useRef(false);
+  const [sending, setSending] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [workChoice, setWorkChoice] = useState<WorkChoice>({});
   // Outside a project: the model picked for this conversation (undefined: not touched; null: back to their own).
@@ -360,6 +369,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
   // ---------- Sending ----------
   async function submit(ev: FormEvent) {
     ev.preventDefault();
+    if (sendingNow.current) return; // the last one hasn't landed yet (what you've typed since stays in the box)
     if (pending.some((a) => a.status === "uploading")) return setError("Still uploading. It'll be ready in a moment.");
     const message = text.trim();
     const attachments = pending.filter((a) => a.status === "ready").map(({ kind, name, path, url }) => ({ kind, name, path, url }));
@@ -372,6 +382,8 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       setText("");
       return setMention(null);
     }
+    sendingNow.current = true;
+    setSending(true);
     try {
       const r = await api<SendResult>("/api/send", { text: message, attachments, ...(afterLive ? { after: afterLive.id } : {}),
         ...(optIn && !followedProject && chatModelNow !== undefined ? { model: chatModelNow } : {}),
@@ -387,14 +399,15 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       setPending([]);
       batch.current = undefined;
       setMention(null);
-      if (r.after) store.addSys(`Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
+      if (r.after) tell(store, `Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
       else if (r.position > 0) {
-        store.addSys(S?.pausedUntil
+        tell(store, S?.pausedUntil
           ? `Queued (#${r.position}): it starts when your plan's limit resets`
           : `Queued (#${r.position}): ${S?.parallel ?? 3} expeditions are already running, so it starts when one finishes`);
       }
       refresh();
     } catch (e) { setError(errorText(e)); }
+    finally { sendingNow.current = false; setSending(false); }
   }
 
   useEffect(() => {
@@ -510,7 +523,7 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
           {S && (inCode
             ? <span className="composer-tip" title="You're in a code block: Enter adds a line of code. Move below the block, or press ⌘/Ctrl+Enter, to send.">⌘Enter to send</span>
             : <span className="composer-tip" title="Shift+Enter for a new line. ⌘/Ctrl+Enter sends from anywhere.">Enter to send</span>)}
-          <button className="btn primary" type="submit">Send</button>
+          <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>
         </div>
       </form>
       {error && <div className="form-error">{error}</div>}
@@ -519,4 +532,4 @@ export function Composer({ S, store, refresh, patch, ref, context, onSent, onFol
       <input type="file" accept="image/*" multiple hidden ref={pickImages} onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
     </div>
   );
-}
+});

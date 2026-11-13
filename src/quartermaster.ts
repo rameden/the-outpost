@@ -27,6 +27,7 @@ import { proposeSkill, skillCatalog } from "./forge.js";
 import { wikiWrite } from "./wiki.js";
 import { scheduleJob, listJobs, cancelJob } from "./jobs.js";
 import { logQuest } from "./questlog.js";
+import { housekeeping } from "./housekeeping.js";
 
 // Set CAMP_APPROVE_PLANS=0 to let the Quartermaster dispatch without asking first.
 const APPROVE_PLANS = process.env.CAMP_APPROVE_PLANS !== "0";
@@ -99,7 +100,15 @@ async function questSlot(signal?: AbortSignal): Promise<boolean> {
   while (questsRunning >= questLimit()) {
     if (signal?.aborted) return false;
     await new Promise<void>((ok) => {
-      const wake = () => { signal?.removeEventListener("abort", wake); ok(); };
+      // Woken by a freed slot or by Stop. Either way it leaves the line: a stopped quest that stayed
+      // in it would be handed the next free slot and waste it, leaving a quest behind it waiting
+      // on a slot that's already free.
+      const wake = () => {
+        signal?.removeEventListener("abort", wake);
+        const at = questWaiters.indexOf(wake);
+        if (at >= 0) questWaiters.splice(at, 1);
+        ok();
+      };
       questWaiters.push(wake);
       signal?.addEventListener("abort", wake, { once: true });
     });
@@ -110,8 +119,10 @@ async function questSlot(signal?: AbortSignal): Promise<boolean> {
 }
 function releaseQuestSlot() {
   questsRunning--;
-  questWaiters.shift()?.();
+  questWaiters[0]?.(); // it takes itself out of the line
 }
+// For the tests: taking and freeing a slot directly, and how many quests hold one or wait for one.
+export const questSlotsForTests = { take: questSlot, release: releaseQuestSlot, now: () => ({ running: questsRunning, waiting: questWaiters.length }) };
 
 // The Quartermaster's key tool: send an adventurer on a quest.
 // The adventurer runs its own full agent loop and returns only its report,
@@ -364,6 +375,7 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
       scheduleJob,
       listJobs,
       cancelJob,
+      housekeeping,
     ],
     skillDirs: ["skills/shared", "skills/quartermaster"],
     ...QM_DEFAULTS,

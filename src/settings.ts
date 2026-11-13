@@ -3,8 +3,7 @@
 // that agent's next quest without restarting anything. Anything not set falls back to the
 // defaults in code (roster.ts / quartermaster.ts).
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { emit } from "./events.js";
 import type { CrewId } from "./crew.js";
 
@@ -21,7 +20,7 @@ export const TURNS_MAX = 200;
 // a denied one never runs, whatever else would allow it; an "ask" one always waits for you, even
 // in the sandbox. reviewer: the smallest model clears routine commands before you're asked (reviewer.ts).
 // allowHosts: hosts a sandboxed command may reach, through the camp's proxy (netproxy.ts; macOS).
-export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[]; sandbox?: boolean; deny?: string[]; ask?: string[]; reviewer?: boolean; allowHosts?: string[] };
+export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[]; sandbox?: boolean; deny?: string[]; ask?: string[]; reviewer?: boolean; explain?: boolean; allowHosts?: string[] };
 // Phone notifications through an ntfy server (see phone.ts). Off unless a topic is set.
 export type PhoneSettings = { server?: string; topic?: string; approve?: string[] };
 type Settings = {
@@ -29,6 +28,8 @@ type Settings = {
   budgetUsd?: number;     // stop an expedition once it has spent this much (all agents together)
   shell?: ShellSettings;  // which shell commands run without asking (see shell.ts)
   runtime?: "claude-code" | "api";
+  uploads?: { keepDays?: number }; // delete uploads nothing uses once they're this many days old (uploads.ts); never, unless set
+  refusalFallback?: boolean; // on the API: a request a model declines is carried on by another Claude model (on unless false)
   parallel?: number;      // how many expeditions mission control runs at once (the rest wait)
   questsAtOnce?: number;  // how many dispatched quests run at once, across every expedition
   selfEdit?: boolean;     // let agents edit the camp's own source (src/, tests/, evals/, package.json)
@@ -55,18 +56,16 @@ export type JiraWrite = { on?: boolean; startStatus?: string; prStatus?: string 
 export type SkillCommand = { prefix: string; file?: string; sha256?: string };
 
 function load(): Settings {
-  if (!existsSync(SETTINGS_PATH)) return { agents: {} };
-  try {
-    const s = JSON.parse(readFileSync(SETTINGS_PATH, "utf8"));
-    return { ...s, agents: s.agents ?? {} };
-  } catch {
-    return { agents: {} };
-  }
+  // A settings file that can't be parsed is kept aside before the defaults take over (atomic.ts),
+  // so a hand-edit typo never costs you your rules. The defaults ask before any command that isn't
+  // plainly read-only, so losing the file never loosens what runs without you.
+  const s = readJsonFile(SETTINGS_PATH, null) as Settings | null;
+  if (!s || typeof s !== "object" || Array.isArray(s)) return { agents: {} };
+  return { ...s, agents: s.agents ?? {} };
 }
 
 function save(s: Settings) {
-  mkdirSync(dirname(SETTINGS_PATH), { recursive: true });
-  writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2) + "\n");
+  writeJsonAtomic(SETTINGS_PATH, s, { mode: 0o600 }); // it can hold your phone topic: yours to read, nobody else's
   emit({ type: "changed", what: "settings" });
 }
 
@@ -90,6 +89,20 @@ export function setParallelLimit(n: number) {
 }
 
 export const shellSettings = (): ShellSettings => load().shell ?? {};
+
+// How long an upload nothing uses any more is kept, in days. Null: for good (the default).
+export const UPLOAD_DAYS_MAX = 3650;
+export const uploadKeepDays = (): number | null => { const d = load().uploads?.keepDays; return typeof d === "number" && d >= 1 ? Math.min(UPLOAD_DAYS_MAX, Math.round(d)) : null; };
+export function setUploadKeepDays(days: number | null) {
+  const s = load();
+  if (days && days >= 1) s.uploads = { keepDays: Math.min(UPLOAD_DAYS_MAX, Math.round(days)) };
+  else delete s.uploads;
+  save(s);
+}
+
+// When a model declines a request (its safety checks, not an error), let another Claude model
+// carry on instead of ending the run (agent.ts). On unless you set "refusalFallback": false.
+export const refusalFallbackOn = () => load().refusalFallback !== false;
 
 // "Always allow" on a shell approval: that exact command runs without asking from now on.
 export function allowShellCommand(command: string) {
@@ -307,6 +320,13 @@ export function setShellReviewer(on: boolean) {
   const s = load();
   s.shell = { ...(s.shell ?? {}), reviewer: on };
   if (!on) delete s.shell.reviewer;
+  save(s);
+}
+// Approvals in plain words: the smallest model says what a command does, on its card (explain.ts).
+export function setPlainApprovals(on: boolean) {
+  const s = load();
+  s.shell = { ...(s.shell ?? {}), explain: on };
+  if (!on) delete s.shell.explain;
   save(s);
 }
 export function setShellLists(patch: { allow?: string[]; exact?: string[]; deny?: string[]; ask?: string[]; allowHosts?: string[] }) {

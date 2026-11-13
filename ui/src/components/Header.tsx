@@ -1,7 +1,7 @@
-// The top bar: what needs you, what runs the crew, today's spend, how busy the camp is, the
-// connection (only when it drops), notifications, the theme, and Settings.
+// The top bar: what needs you, what runs the crew, today's spend (unless you've hidden it), how
+// busy the camp is, the connection (only when it drops), notifications, the theme, and Settings.
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
 import type { Connection } from "../camp.ts";
 import { runningCount } from "../feed/reducer.ts";
@@ -11,6 +11,7 @@ import { Icon, type IconName } from "./bits.tsx";
 import { Wordmark } from "./Wordmark.tsx";
 import { needsDoing, needsLabel, type Need } from "../needs.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
+import { showCost } from "../prefs.ts";
 import type { SettingsSection } from "../settings/Settings.tsx";
 import type { CampState, GithubStatus } from "../types.ts";
 
@@ -134,9 +135,10 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 }
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
-export function Header({ S, store, conn, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout, needs, onNeed, onSeenAll }: {
+// stale: the panels' last reload failed (camp.ts), so what they show may be behind.
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout, needs, onNeed, onSeenAll }: {
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
-  S: CampState | null; store: FeedStore; conn: Connection; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
+  S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
   // conversation; again brings back the ones it closed.
   focused?: boolean; onToggleFocus?: () => void;
@@ -148,6 +150,7 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
   const questsOut = useFeed(store, (s) => s.quests.length);
   const queued = S?.queued?.length ?? 0;
   const sub = S?.runtime === "claude-code";
+  const costShown = showCost.use(); // Settings → General can take it out of the bar
 
   useEffect(() => { document.title = asks.length ? `(${asks.length}) Satchel` : "Satchel"; }, [asks.length]);
 
@@ -171,20 +174,34 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
         )}
         <RuntimeChip S={S} refresh={refresh} />
         <GithubChip />
-        <button className="chip" type="button" onClick={() => onOpenSettings?.("usage")}
-          title={`${sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}. Click for usage and the quest log.`}>
-          {money(S?.spend?.today ?? 0)} today{sub ? " (est.)" : ""}
-        </button>
+        {costShown && (
+          <button className="chip" type="button" onClick={() => onOpenSettings?.("usage")}
+            title={`${sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}. Click for usage and the quest log.`}>
+            {money(S?.spend?.today ?? 0)} today{sub ? " (est.)" : ""}
+          </button>
+        )}
         <span className={cx("chip", running > 0 && "busy")} title={`Up to ${S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it in Settings.`}>
           <span className={cx("dot", running > 0 && "live")} />
           <span>{running === 0 ? "Idle" : running === 1 ? "On expedition" : `${running} expeditions running`}{questsOut > 1 ? ` · ${questsOut} quests out` : ""}{queued ? ` · ${queued} queued` : ""}</span>
         </span>
         {/* Connected is the normal state and says nothing; only a lost or not-yet-made connection shows. */}
-        {conn !== "live" && (
+        {conn === "offline" ? (
+          // Down for a while: most likely the camp was stopped. The page keeps trying by itself.
+          <span className="chip offline" role="status" title="The page keeps trying, and picks up by itself once the camp is running again. If it doesn't, open the link the camp prints in the terminal when it starts.">
+            <span className="dot warn" />
+            <span>The camp isn't running. Start it again, or reopen the link it prints in the terminal.</span>
+          </span>
+        ) : conn !== "live" ? (
           <span className="chip" title="Connection to the camp: the page isn't getting updates until it's back" role="status">
             <span className={cx("dot", conn === "reconnecting" && "warn")} />
             <span>{conn === "reconnecting" ? "Reconnecting…" : "Connecting…"}</span>
           </span>
+        ) : stale && (
+          // Connected, but the last reload of the panels failed: say so, and offer another go.
+          <button className="chip" type="button" title="The last reload of the page's panels (crew, history, spend) failed, so they may be behind. Click to try again." onClick={refresh}>
+            <span className="dot warn" />
+            <span>Out of date · retry</span>
+          </button>
         )}
         <Bell />
         {onToggleFocus && (
@@ -210,4 +227,4 @@ export function Header({ S, store, conn, refresh, onOpenSettings, focused, onTog
       </div>
     </header>
   );
-}
+});

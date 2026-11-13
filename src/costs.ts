@@ -5,7 +5,11 @@
 export type Rate = { input: number; output: number; cacheRead?: number };
 
 const RATES: Record<string, Rate> = {
+  "claude-fable-5-2": { input: 8, output: 40, cacheRead: 0.2 },
+  "claude-mythos-5-2": { input: 8, output: 40, cacheRead: 0.2 },
   "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25 },
+  "claude-mythos-5-1": { input: 10, output: 50, cacheRead: 0.25 },
+  "claude-mythos-5": { input: 10, output: 50 },
   "claude-fable-5": { input: 10, output: 50 },
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2 },
   "claude-opus-5": { input: 5, output: 25 },
@@ -13,7 +17,7 @@ const RATES: Record<string, Rate> = {
   "claude-opus-4-7": { input: 5, output: 25 },
   "claude-opus-4-6": { input: 5, output: 25 },
   "claude-opus-4-5": { input: 5, output: 25 },
-  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1 },
   "claude-sonnet-5": { input: 2, output: 10 },
   "claude-sonnet-4-6": { input: 3, output: 15 },
   "claude-sonnet-4-5": { input: 3, output: 15 },
@@ -33,10 +37,21 @@ export function priceLabel(model: string): string | undefined {
   return `${f(r.input)} / ${f(r.output)}`;
 }
 
+// A Claude model that isn't in the table yet (a new release) is costed at its family's dearest
+// listed rate, so budgets still stop a run on it: counting it as free would switch the budget off
+// for exactly the models most likely to be expensive. Only for cost and budgets: the price shown
+// beside a model (priceLabel) stays blank until its real price is listed here.
+const FAMILIES = ["fable", "mythos", "opus", "sonnet", "haiku"];
+function estimateRate(model: string): Rate | undefined {
+  const family = FAMILIES.find((f) => model.startsWith(`claude-${f}-`));
+  if (!family) return undefined; // another provider's model: no price is known for those
+  return Object.entries(RATES).filter(([id]) => id.startsWith(`claude-${family}-`)).map(([, r]) => r).sort((a, b) => b.input - a.input)[0];
+}
+
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 export function costOf(model: string, u: Usage): number {
-  const r = rateOf(model);
+  const r = rateOf(model) ?? estimateRate(model);
   if (!r) return 0;
   const read = r.cacheRead ?? r.input * 0.1;
   return (u.input * r.input + u.cacheWrite * r.input * 1.25 + u.cacheRead * read + u.output * r.output) / 1_000_000;

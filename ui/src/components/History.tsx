@@ -7,7 +7,7 @@
 // included. Clicking a project's name opens that project's page.
 // A dot marks a conversation with something running; a number, decisions waiting on you.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { activityOf, type View } from "../feed/conversation.ts";
 import type { Need } from "../needs.ts";
@@ -52,7 +52,7 @@ export function HistoryRail({ onShow }: { onShow: () => void }) {
 
 // needs: what's waiting on you (needs.ts), for the marks beside a conversation's title.
 // onOpenWiki: go to the wiki's page. onStartTicket: open the ticket kickoff stepper.
-export function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide, needs, onOpenWiki, onStartTicket }: {
+export const History = memo(function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide, needs, onOpenWiki, onStartTicket }: {
   needs?: Need[]; onOpenWiki?: () => void; onStartTicket?: () => void;
   S: CampState | null; store: FeedStore; view: View; setView: (v: View) => void; patch: (fn: (s: CampState) => CampState) => void;
   onNewProject: () => void; onEditProject: (p: Project) => void;
@@ -292,4 +292,4 @@ export function History({ S, store, view, setView, patch, onNewProject, onEditPr
   return onHide
     ? <Drawer icon="list" label="History" onHide={onHide} hideLabel="Hide the history" hideTitle="Hide the history. Its tab brings it back.">{panel}</Drawer>
     : panel;
-}
+});

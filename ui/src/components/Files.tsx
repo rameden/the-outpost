@@ -7,7 +7,7 @@
 // worked in its own worktree, the tree shows that worktree. Hide it with » or Ctrl+Shift+E. Its
 // size is its zone's: drag the line beside it.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api, errorText, storeGet, storeSet, treeQuery } from "../api.ts";
 import { cx } from "../format.ts";
 import type { Listing, TreeEntry } from "../types.ts";
@@ -77,7 +77,7 @@ export function FilesRail({ onShow }: { onShow: () => void }) {
 }
 
 // refreshKey: changes when the crew starts or finishes a run, so the tree is read again.
-export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: {
+export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: {
   roots: FileRoot[]; refreshKey?: number; onHide: () => void; onMention: (path: string) => void;
 }) {
   const [dirs, setDirs] = useState<Record<string, Folder>>({});
@@ -87,6 +87,7 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
   const [gone, setGone] = useState<Set<string>>(new Set());                   // worktrees that aren't there any more
   const [tick, setTick] = useState(0);
   const [viewing, setViewing] = useState<{ root: FileRoot; rel: string } | null>(null);
+  const closeViewing = useCallback(() => setViewing(null), []);
   const tree = useRef<HTMLDivElement>(null);
 
   // A worktree that has been removed since: show the linked folder itself instead.
@@ -224,8 +225,8 @@ export function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: 
             );
           })}
         </div>
-        <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={() => setViewing(null)} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
+        <Presence>{viewing && <FileViewer root={viewing.root} rel={viewing.rel} onClose={closeViewing} onMention={(p) => { onMention(p); setViewing(null); }} />}</Presence>
       </aside>
     </Drawer>
   );
-}
+});

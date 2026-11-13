@@ -22,6 +22,8 @@ import { currentExpeditionId } from "./context.js";
 import { questCost, recentQuests } from "./questlog.js";
 import { allTurns } from "./threads.js";
 import { campPath, type Tool } from "./tools.js";
+import { writeAtomic } from "./atomic.js";
+import { fitMemory } from "./memfit.js";
 
 export const PROJECTS_DIR = join("camp", "projects");
 export const NOTES_MAX = 6000;       // characters of notes loaded into a prompt
@@ -41,7 +43,7 @@ export const projectBrief = (id: string) => (SAFE_ID.test(id) ? read(join(dir(id
 function write(id: string, file: "notes.md" | "brief.md", text: string) {
   if (!SAFE_ID.test(id)) throw new Error("No such project.");
   mkdirSync(dir(id), { recursive: true });
-  writeFileSync(join(dir(id), file), text.trim() ? text.trim() + "\n" : "");
+  writeAtomic(join(dir(id), file), text.trim() ? text.trim() + "\n" : "");
   emit({ type: "changed", what: "history" });
 }
 // You can edit either by hand, from the project's page.
@@ -87,7 +89,7 @@ export const projectRemember: Tool = {
     if (mode === "rewrite") { setProjectNotes(id, text); return `Rewrote the notes for ${project.name}.`; }
     addProjectNote(id, text);
     const size = projectNotes(id).length;
-    return `Noted for ${project.name}.` + (size > NOTES_NUDGE ? ` The notes are getting long (${size} characters; about ${NOTES_MAX} are loaded). When you have a moment, use mode 'rewrite' to merge them into fewer, still-true lines.` : "");
+    return `Noted for ${project.name}.` + (size > NOTES_NUDGE ? ` The notes are getting long (${size} characters; a prompt loads about ${NOTES_MAX}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge them into fewer, still-true lines.` : "");
   },
 };
 
@@ -117,7 +119,8 @@ function pinsBlock(project: Project, self: string): string {
 }
 
 // Everything about the project the current run belongs to. Empty when there's none.
-export function projectBlock(self: string, id = currentProjectId()): string {
+// task: the request this run is for, so an older note that bears on it is loaded when the notes have outgrown their room.
+export function projectBlock(self: string, id = currentProjectId(), task = ""): string {
   const p = getProject(id);
   if (!p) return "";
   const general = p.id === GENERAL;
@@ -136,7 +139,7 @@ export function projectBlock(self: string, id = currentProjectId()): string {
     (p.settings?.web === "off" ? "\nWeb search and fetch are turned off for this project. Work from the files, and say so if something needs looking up." : "") +
     (p.description ? `\n\n### What the user wrote about this project (their own words; keep it in mind for everything here)\n${p.description}` : "") +
     (brief ? `\n\n### Survey of the project (from the crew's own look through its folders; check the files if it matters)\n${cap(brief, BRIEF_MAX)}` : "") +
-    (notes ? `\n\n### What the crew has learned about this project (add to it with project_remember)\n${cap(notes, NOTES_MAX)}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
+    (notes ? `\n\n### What the crew has learned about this project (add to it with project_remember)\n${fitMemory(notes, NOTES_MAX, task).text}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
     pinsBlock(p, self);
 }
 
@@ -195,7 +198,7 @@ export function projectPage(id: string): ProjectPageData | null {
   }
   const changed: ProjectPageData["changed"] = [];
   const files = new Set<string>();
-  for (const t of turns.slice(0, 25)) for (const f of changedFiles(t.expedition)) {
+  for (const t of turns.slice(0, 25)) for (const f of changedFiles(t.expedition, { sealedOnly: true })) {
     if (files.has(f.path) || changed.length >= 30) continue;
     files.add(f.path);
     changed.push({ ...f, conversation: t.thread, title: titles.get(t.thread) ?? "" });

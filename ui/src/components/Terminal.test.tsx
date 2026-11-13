@@ -4,15 +4,16 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-const made: { opened: boolean; written: string[]; onData?: (d: string) => void }[] = [];
+const made: { opened: boolean; written: string[]; resets: number; onData?: (d: string) => void }[] = [];
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     cols = 80; rows = 24; options: Record<string, unknown> = {};
-    me = { opened: false, written: [] as string[], onData: undefined as ((d: string) => void) | undefined };
+    me = { opened: false, written: [] as string[], resets: 0, onData: undefined as ((d: string) => void) | undefined };
     constructor() { made.push(this.me); }
     loadAddon() {} focus() {} dispose() {}
     open() { this.me.opened = true; }
     write(d: string) { this.me.written.push(d); }
+    reset() { this.me.resets++; this.me.written.length = 0; }
     onData(fn: (d: string) => void) { this.me.onData = fn; return { dispose() {} }; }
   },
 }));
@@ -249,4 +250,21 @@ test("a terminal a chip opened for itself starts locked: other chips are stopped
   fireEvent.click(screen.getByRole("button", { name: "Dev" }));
   await vi.waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/term/input", body: { id: "t2", data: "pnpm install && pnpm dev:production\r" } }));
   expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+test("when the stream reconnects, the screen is cleared before the camp sends the session's output again", async () => {
+  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
+  render(<TerminalPanel onHide={() => {}} />);
+  await vi.waitFor(() => expect(streams[0]?.url).toContain("/api/term/stream?id=a"));
+  const stream = streams[0].listeners;
+  // The first connection: what the session has printed so far fills the screen.
+  stream.open({ data: "" });
+  stream.data({ data: JSON.stringify("$ npm test\r\n") });
+  expect(made[0].resets).toBe(0);
+  expect(made[0].written).toEqual(["$ npm test\r\n"]);
+  // The connection drops and comes back: the camp sends all of it again, plus what's new.
+  stream.open({ data: "" });
+  expect(made[0].resets).toBe(1);
+  stream.data({ data: JSON.stringify("$ npm test\r\nok\r\n") });
+  expect(made[0].written).toEqual(["$ npm test\r\nok\r\n"]); // once, not under a copy of itself
 });

@@ -32,6 +32,7 @@ export type CampEventBody =
   | { type: "plan"; steps: { n: number; text: string }[] }
   | { type: "return"; who: string; emoji: string; status: string; questId?: string }
   | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string }
+  | { type: "explained"; id: string; text: string } // an approval, in plain words (explain.ts)
   | { type: "answered"; id: string; answer: string; lapsed?: boolean } // lapsed: the camp restarted before you answered
   | { type: "job"; name: string; outcome: "running" | "quiet" | "reported" | "failed"; text?: string }
   | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" | "triggers" };

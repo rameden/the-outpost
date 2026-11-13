@@ -20,6 +20,7 @@ import { projectNotes } from "./projects.js";
 import { allTurns } from "./threads.js";
 import type { Tool } from "./tools.js";
 import { wikiPages } from "./wiki.js";
+import { stem } from "./memfit.js";
 
 export type Recalled = { from: string; when: string; text: string; score: number };
 type Source = "sessions" | "conversations" | "wiki" | "memory";
@@ -38,7 +39,8 @@ export function searchTerms(query: string): string[] {
 export function scoreText(text: string, terms: string[]): number {
   if (!terms.length) return 0;
   const lower = text.toLowerCase();
-  const found = terms.filter((t) => lower.includes(t)).length;
+  // A term also counts by its root (memfit.ts), so "deploys" finds "deployed" and "tests" finds "test".
+  const found = terms.filter((t) => { const root = stem(t); return lower.includes(root.length >= 4 ? root : t); }).length;
   const needed = terms.length <= 2 ? terms.length : Math.ceil(terms.length / 2);
   return found >= needed ? found / terms.length : 0;
 }

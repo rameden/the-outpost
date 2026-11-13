@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { JIRA_PRESETS } from "./Jira.tsx";
-import { JiraPage, startBrief, ticketBranch } from "./JiraPage.tsx";
+import { JiraPage, JiraTicket, startBrief, ticketBranch } from "./JiraPage.tsx";
 
 const MINE = JIRA_PRESETS[0].jql;
 const card = (key: string, summary: string, group: string, status: string, more: object = {}) =>
@@ -176,4 +176,19 @@ test("the brief lists the ticket's acceptance criteria as a checklist, or asks w
   // What you add for the crew goes in under your own name, after the criteria.
   expect(startBrief({ key: "MP-1", summary: "x", criteria: ["One"] }, "  Leave the old nav alone.\n")).toContain("- [ ] One\n\nAlso, from me:\nLeave the old nav alone.\n\nWhen you're done");
   expect(ticketBranch("MP-9", "Fix: the nav / on small screens!!")).toBe("MP-9-fix-the-nav-on-small-screens");
+});
+
+test("an open ticket asks Jira once, however often the page behind it is redrawn (a new onClose each time)", async () => {
+  const ticket = (onClose = () => {}) => <JiraTicket id="MP-544" summary="Open button on file citations" onClose={onClose} onOpen={() => {}} />;
+  const { rerender } = render(ticket());
+  const dialog = await screen.findByRole("dialog", { name: "MP-544: Open button on file citations" });
+  await waitFor(() => expect(within(dialog).getByText("Reporter")).toBeTruthy());
+  const asked = () => calls.filter((c) => c.url.startsWith("/api/jira/ticket")).length;
+  expect(asked()).toBe(1);
+  for (let i = 0; i < 5; i++) rerender(ticket());
+  expect(asked()).toBe(1);
+  const onClose = vi.fn();
+  rerender(ticket(onClose));
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(onClose).toHaveBeenCalledTimes(1);
 });

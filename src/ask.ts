@@ -4,6 +4,7 @@
 import { emit, type AskKind } from "./events.js";
 import { rl } from "./terminal.js";
 import { currentQuestId } from "./context.js";
+import { explainAsk } from "./explain.js";
 
 export type Question = { kind: AskKind; title: string; body: string };
 type Asker = (q: Question & { id: string }) => Promise<string>;
@@ -39,6 +40,7 @@ let nextId = Date.now();
 export async function ask(q: Question): Promise<string> {
   const id = `ask_${++nextId}`;
   emit({ type: "ask", id, ...q, questId: currentQuestId() });
+  explainAsk(id, q); // in plain words, if you turned that on: it joins the card when it's ready
   const answer = (await asker({ ...q, id })).trim();
   emit({ type: "answered", id, answer });
   return answer;
