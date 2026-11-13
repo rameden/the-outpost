@@ -12,7 +12,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 enterSandbox("git");
 
 // A small repository to link, with secrets committed by mistake (it happens).
-const repo = join(realpathSync(mkdtempSync(join(tmpdir(), "satchel-gitrepo-"))), "site");
+const repo = join(realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-gitrepo-"))), "site");
 mkdirSync(join(repo, "src"), { recursive: true });
 mkdirSync(join(repo, "keys"));
 const git = (...args: string[]) => execFileSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", ...args], { encoding: "utf8" });

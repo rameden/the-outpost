@@ -9,7 +9,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("housekeeping");
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
-const repo = join(realpathSync(mkdtempSync(join(tmpdir(), "satchel-hk-"))), "webapp");
+const repo = join(realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-hk-"))), "webapp");
 mkdirSync(repo);
 git(repo, "init", "-q", "-b", "main");
 git(repo, "config", "user.email", "test@example.com");

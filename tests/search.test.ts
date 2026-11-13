@@ -18,7 +18,7 @@ writeFileSync(".env", "NEEDLE=secret\n");
 writeFileSync(".gitignore", "camp/*\n"); // the camp's own state is ignored by git, but must stay searchable
 
 // A project with more files than the old search could see, build output git ignores, and a secret.
-const repo = realpathSync(mkdtempSync(join(tmpdir(), "satchel-big-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-big-")));
 for (let d = 0; d < 30; d++) {
   mkdirSync(join(repo, "src", `mod${d}`), { recursive: true });
   for (let f = 0; f < 10; f++) writeFileSync(join(repo, "src", `mod${d}`, `file${f}.ts`), `export const id = "${d}-${f}";\n${d === 7 && f === 3 ? "function useNEEDLE() {}\n// after\n" : ""}`);

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { REPO, NEEDS_SH } from "./helpers/sandbox.ts";
 
 // Layout: <parent>/camp-root is the camp; <outside>/site is a 600-file folder to link.
-const parent = realpathSync(mkdtempSync(join(tmpdir(), "satchel-linkparent-")));
+const parent = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-linkparent-")));
 const campRoot = join(parent, "camp-root");
 mkdirSync(join(campRoot, "camp/agents/scout"), { recursive: true });
 cpSync(join(REPO, "skills"), join(campRoot, "skills"), { recursive: true });
@@ -18,7 +18,7 @@ process.chdir(campRoot);
 process.env.CAMP_RUNTIME = "api";
 process.env.ANTHROPIC_API_KEY ??= "test-key-not-real";
 
-const outside = realpathSync(mkdtempSync(join(tmpdir(), "satchel-outside-")));
+const outside = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-outside-")));
 const site = join(outside, "site");
 for (let d = 0; d < 6; d++) {
   mkdirSync(join(site, `section-${d}`), { recursive: true });

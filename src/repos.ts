@@ -33,7 +33,7 @@ export async function listWorktrees(repo: string): Promise<Worktree[]> {
     const path = block.match(/^worktree (.+)$/m)?.[1];
     if (!path || /^(bare|prunable)/m.test(block)) continue;
     const branch = block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? "(detached)";
-    list.push({ path, branch, head: (block.match(/^HEAD (\w+)$/m)?.[1] ?? "").slice(0, 10), main: list.length === 0 });
+    list.push({ path: resolve(path), branch, head: (block.match(/^HEAD (\w+)$/m)?.[1] ?? "").slice(0, 10), main: list.length === 0 });
   }
   return list;
 }

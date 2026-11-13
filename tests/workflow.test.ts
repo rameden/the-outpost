@@ -15,7 +15,7 @@ import { enterSandbox, NEEDS_SH } from "./helpers/sandbox.ts";
 enterSandbox("workflow");
 
 // ---------- A repository to work in, with a remote, and a stand-in for gh ----------
-const scratch = realpathSync(mkdtempSync(join(tmpdir(), "satchel-flow-")));
+const scratch = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-flow-")));
 const repo = join(scratch, "web");
 mkdirSync(repo);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -336,7 +336,8 @@ test("the week's record is gathered from the camp's own files, and the Scribe is
   assert.equal(week, chron.weekOf());
   assert.equal(conversations, 1);
   assert.match(facts, /^Project: Web app\nWeek: /);
-  assert.match(facts, /1\. ".+" — with the Quartermaster; 1 run this week; the last one ended: done; ticket MP-544; branch MP-544-open-button in links\/web; pull request #7 \(merged\)/);
+  assert.match(facts, /1\. ".+" — with the Quartermaster; 1 run this week; the last one ended: done; ticket MP-544; branch MP-544-open-button in links\/web/);
+  if (!NEEDS_SH) assert.match(facts, /in links\/web; pull request #7 \(merged\)/); // (the watch that records it is left out on Windows)
   assert.match(facts, /Asked: Work on MP-544: Open button on file citations/);
   assert.match(facts, /Reported: Added the Open button and wired it to the viewer\./);
   assert.match(facts, /Looked over by: Scout/);
@@ -444,8 +445,10 @@ test("is it paying off: what the checking found and used, counted from the recor
   assert.deepEqual(p.usage.fixup, { runs: 1, cost: 1.5 });
   assert.equal(p.total, 10);
   assert.equal(p.checkingShare, 40, "reviews, second opinions and fix-ups, as a share of everything");
-  assert.deepEqual({ ...p.prs, medianHoursToPr: null }, { seen: 1, merged: 1, open: 0, feedbackRounds: 1, medianHoursToPr: null });
-  assert.ok(p.prs.medianHoursToPr !== null && p.prs.medianHoursToPr >= 0 && p.prs.medianHoursToPr < 1);
+  if (!NEEDS_SH) { // (the pull request is on record only where the watch ran)
+    assert.deepEqual({ ...p.prs, medianHoursToPr: null }, { seen: 1, merged: 1, open: 0, feedbackRounds: 1, medianHoursToPr: null });
+    assert.ok(p.prs.medianHoursToPr !== null && p.prs.medianHoursToPr >= 0 && p.prs.medianHoursToPr < 1);
+  }
   assert.deepEqual(p.ratings, { up: 1, down: 0 });
   assert.equal(payoff.projectPayoff("nope"), null);
   assert.deepEqual(payoff.projectPayoff(conv.addProject({ name: "Empty" }).id)!.reviews, { asked: 0, findings: 0, blockers: 0, sentBack: 0, clean: 0 });

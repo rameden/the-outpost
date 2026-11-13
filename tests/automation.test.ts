@@ -61,7 +61,7 @@ test("headless: without --approve-plan the plan is declined, and the run ends wi
 });
 
 // ---------- Triggers ----------
-const repo = realpathSync(mkdtempSync(join(tmpdir(), "satchel-trig-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-trig-")));
 const link = addLink(repo, "read");
 let issues: { id: string; title: string; url: string; body: string }[] = [];
 let failing = false;
@@ -241,7 +241,7 @@ test("the proxy tunnels to allowed hosts only, and remembers the ones it refused
 });
 
 test("a sandboxed command is pointed at the proxy only when you've allowed hosts", { skip: sandboxKind() !== "seatbelt" }, async () => {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "satchel-px-")));
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-px-")));
   setShellLists({ allowHosts: [] });
   assert.equal(await runShell("echo \"[$HTTPS_PROXY]\"", { cwd: dir, sandbox: sandboxPlanFor(dir) }), "[]");
   setShellLists({ allowHosts: ["registry.npmjs.org"] });
@@ -252,7 +252,7 @@ test("a sandboxed command is pointed at the proxy only when you've allowed hosts
 });
 
 test("bubblewrap (Linux): read-only everywhere, the project and temp writable, git's hooks and your secrets covered", { skip: NEEDS_POSIX }, () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "satchel-bw-")));
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-bw-")));
   mkdirSync(join(root, ".git", "hooks"), { recursive: true });
   mkdirSync(join(root, "app", "node_modules", "x"), { recursive: true });
   writeFileSync(join(root, "app", ".env.local"), "S=1");

@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { enterSandbox, REPO, NEEDS_SH, NEEDS_POSIX, WINDOWS } from "./helpers/sandbox.ts";
 
-const camp = realpathSync(enterSandbox("boundary"));
+const camp = realpathSync.native(enterSandbox("boundary"));
 
 // Secrets in the camp's own environment, as scripts/env.mjs would have loaded them from .env.
 const LEAKY = ["BOUNDARY_API_KEY", "BOUNDARY_TOKEN", "BOUNDARY_SECRET", "BOUNDARY_PASSWORD", "Boundary_Credentials", "JIRA_BOUNDARY_SITE", "ANTHROPIC_BOUNDARY", "CLAUDE_CODE_OAUTH_BOUNDARY", "BOUNDARY_GH_TOKEN"];
@@ -33,7 +33,7 @@ writeFileSync("pkgs/tool/cli.js", "// a tool\n");
 symlinkSync("../tool/cli.js", "pkgs/.bin/tool");                       // the node_modules/.bin kind: stays inside
 
 // Somewhere else on disk, with things no agent should reach.
-const outside = realpathSync(mkdtempSync(join(tmpdir(), "satchel-boundary-out-")));
+const outside = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-boundary-out-")));
 writeFileSync(join(outside, "id_ed25519"), "PRIVATE-KEY-456\n");
 writeFileSync(join(outside, "plain.txt"), "outside-text\n");
 
@@ -76,7 +76,7 @@ const { ensureProxy, stopProxy } = await import("../src/netproxy.ts");
 // command write in temp folders, so "this can't be written" needs a project somewhere else.
 // node_modules/.cache is ignored by git and is where tools keep throwaway files.
 let probe = join(REPO, "node_modules", ".cache", `satchel-boundary-${process.pid}`);
-try { mkdirSync(probe, { recursive: true }); probe = realpathSync(probe); } catch { probe = ""; }
+try { mkdirSync(probe, { recursive: true }); probe = realpathSync.native(probe); } catch { probe = ""; }
 const live = sandboxKind() === "seatbelt" && !!probe;
 
 after(async () => {

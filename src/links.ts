@@ -100,7 +100,7 @@ export function addLink(rawPath: string, access: LinkAccess = "read", campRoot =
   if (unlinkable(real, canon(HOME), undefined, undefined, canon(tmpdir()))) {
     throw new Error(`For safety, ${real} can't be linked (system, home, or credential folder). Link a specific project folder instead.`);
   }
-  if (inside(real, realpathSync(campRoot))) throw new Error("That folder is already inside the camp; reference it with @path instead.");
+  if (inside(real, canon(campRoot))) throw new Error("That folder is already inside the camp; reference it with @path instead.");
 
   const links = loadLinks();
   const existing = links.find((l) => l.path === real);
