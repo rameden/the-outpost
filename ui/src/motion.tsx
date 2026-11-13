@@ -22,8 +22,11 @@ export function Presence({ children, ms = LEAVE_MS }: { children: ReactNode; ms?
   if (shown) last.current = children;
   const [wasShown, setWasShown] = useState(shown);
   const [leaving, setLeaving] = useState(false);
+  const cameFrom = useRef<HTMLElement | null>(null);
   let going = leaving;
   if (shown !== wasShown) { // it just appeared, or just went
+    // Where the keyboard was when it appeared (the button that opened it, usually): it goes back there.
+    if (shown && typeof document !== "undefined") cameFrom.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     going = !shown && motionOK();
     setWasShown(shown);
     setLeaving(going);
@@ -33,6 +36,18 @@ export function Presence({ children, ms = LEAVE_MS }: { children: ReactNode; ms?
     const t = setTimeout(() => { last.current = null; setLeaving(false); }, ms);
     return () => clearTimeout(t);
   }, [leaving, ms]);
+  // Once it's off the page, the keyboard returns to where it came from, unless you've already
+  // put it somewhere else: closing a dialog shouldn't leave the next Tab starting from the top.
+  const present = shown || going;
+  useEffect(() => {
+    if (!present) return;
+    return () => {
+      const back = cameFrom.current;
+      cameFrom.current = null;
+      const now = document.activeElement;
+      if (back?.isConnected && (!now || now === document.body)) back.focus({ preventScroll: true });
+    };
+  }, [present]);
   if (!shown && !going) return null;
   // While it's on its way out it can't be clicked or focused.
   return <div className={going ? "presence leaving" : "presence"} inert={going || undefined}>{shown ? children : last.current}</div>;

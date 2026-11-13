@@ -171,6 +171,12 @@ const clip = (s: string, n: number) => {
   const flat = s.replace(/\s+/g, " ").trim();
   return flat.length > n ? flat.slice(0, n - 1) + "…" : flat;
 };
+// The same length, with its lines kept: for what's shown back to you as it was written (a reply
+// with a table or a list in it). Runs of blank lines are closed up.
+const clipLines = (s: string, n: number) => {
+  const text = s.replace(/\r\n/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+  return text.length > n ? text.slice(0, n - 1).trimEnd() + "…" : text;
+};
 
 export function recordSession(
   id: CrewId,
@@ -185,7 +191,7 @@ export function recordSession(
   writeFileSync(file, JSON.stringify({ time, agent: id, source: s.source, status: s.status, task: s.task, result: s.result, messages: stripMedia(s.messages) }));
   pruneTranscripts(ws.sessions);
   const project = currentProjectId();
-  const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clip(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
+  const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clipLines(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
   appendFileSync(ws.index, JSON.stringify(line) + "\n");
   return file;
 }

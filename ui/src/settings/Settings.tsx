@@ -3,7 +3,7 @@
 // how much the crew may do without asking, limits, phone approvals, the camp's activity (usage,
 // jobs, inbox), and its knowledge (memory, skills, connectors). (The wiki has a page of its own: components/Wiki.tsx.)
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { About } from "../components/AgentDrawer.tsx";
 import { useModelList } from "../components/ModelPicker.tsx";
@@ -17,7 +17,7 @@ import { PALETTES, modeNow, paletteNow, setMode, setPalette, type Mode, type Pal
 import { cClass, cx, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
-import { Confirm } from "../components/Confirm.tsx";
+import { ask, Confirm } from "../components/Confirm.tsx";
 import { Presence } from "../motion.tsx";
 import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
@@ -39,10 +39,28 @@ const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
 };
 
 // A labelled setting: name and explanation on the left, the control on the right.
+// A setting's explanation: two lines of it, and "More" for the rest when there is a rest, so a
+// page of settings reads as a list of settings.
+function Help({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [long, setLong] = useState(false);
+  const text = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = text.current;
+    if (el && !open) setLong(el.scrollHeight > el.clientHeight + 1);
+  }, [children, open]);
+  return (
+    <>
+      <p ref={text} className={open ? undefined : "help-short"}>{children}</p>
+      {(long || open) && <button type="button" className="linkish help-more" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? "Less" : "More"}</button>}
+    </>
+  );
+}
+
 function Row({ label, help, children, wide }: { label: string; help?: ReactNode; children?: ReactNode; wide?: boolean }) {
   return (
     <div className={cx("set-row", wide && "wide")}>
-      <div className="set-label"><b>{label}</b>{help && <p>{help}</p>}</div>
+      <div className="set-label"><b>{label}</b>{help && <Help>{help}</Help>}</div>
       {children && <div className="set-control">{children}</div>}
     </div>
   );
@@ -148,10 +166,10 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   const plan = S.login?.plan ? S.login.plan[0].toUpperCase() + S.login.plan.slice(1) : "";
   async function setRuntime(next: string) {
     if (next === S.runtime) return;
-    const msg = next === "api"
-      ? "Switch the crew to the API? Usage will be billed to your API key."
-      : "Switch the crew to your Claude subscription (through Claude Code)? Usage will count against your plan's limits.";
-    if (confirm(msg)) await tryIt(() => api("/api/runtime", { runtime: next }), refresh);
+    const question = next === "api"
+      ? { title: "Switch the crew to the API?", body: "Usage will be billed to your API key.", action: "Switch to the API" }
+      : { title: "Switch the crew to your Claude subscription (through Claude Code)?", body: "Usage will count against your plan's limits.", action: "Switch to my subscription" };
+    if (await ask(question)) await tryIt(() => api("/api/runtime", { runtime: next }), refresh);
   }
   return (
     <>
@@ -285,7 +303,7 @@ function ListEditor({ label, value, placeholder, onSave }: { label: string; valu
   return (
     <div className="list-edit">
       <textarea aria-label={label} spellCheck={false} placeholder={placeholder} value={text} onChange={(ev) => setText(ev.target.value)} />
-      <div><button type="button" className="btn small" aria-label={`Save ${label.toLowerCase()}`} disabled={text === saved} onClick={() => onSave(text.split("\n"))}>Save</button></div>
+      <div><button type="button" className="btn small primary" aria-label={`Save ${label.toLowerCase()}`} disabled={text === saved} onClick={() => onSave(text.split("\n"))}>Save</button></div>
     </div>
   );
 }
@@ -338,7 +356,7 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
       </Row>
       <Row label="Let agents edit the camp's own code" help="src/, tests/, evals/ and package.json are read-only to the crew unless this is on. Leave it off unless you're asking them to improve the camp itself.">
         <label className="switch"><input type="checkbox" checked={st.selfEdit}
-          onChange={(ev) => { if (!ev.target.checked || confirm("Let the crew change the camp's own source code?")) void tryIt(() => api("/api/self-edit", { on: ev.target.checked }), refresh); }} /> {st.selfEdit ? "On" : "Off"}</label>
+          onChange={async (ev) => { const on = ev.target.checked; if (!on || await ask({ title: "Let the crew change the camp's own source code?", action: "Let them", danger: true })) void tryIt(() => api("/api/self-edit", { on }), refresh); }} /> {st.selfEdit ? "On" : "Off"}</label>
       </Row>
     </>
   );
@@ -358,7 +376,7 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
       <Row label="Budget per expedition" help={S.budgetUsd ? `Stops an expedition at ${money(S.budgetUsd)}, all agents together.` : `No limit.${sub ? " On your subscription, costs are estimates at API prices." : ""}`}>
         <form className="inline-form" onSubmit={saveBudget}>
           <span>$</span><input key={S.budgetUsd ?? "none"} name="budget" aria-label="Budget per expedition" type="number" min="0" step="0.25" placeholder="none" defaultValue={S.budgetUsd ?? ""} />
-          <button className="btn small" type="submit">Save</button>
+          <button className="btn small primary" type="submit">Save</button>
         </form>
       </Row>
       <Row label="Expeditions at once" help={`The rest wait their turn. More at once uses your ${sub ? "plan's limits" : "API budget"} faster.`}>
@@ -537,7 +555,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
               <button key={id} type="button" className="set-nav-item" aria-current={section === id ? "page" : undefined}
                 onClick={() => setSection(id)}>
                 <Icon name={icon} />{label}
-                {!!counts[id] && <span className="count">{counts[id]}</span>}
+                {!!counts[id] && <span className="count needs">{counts[id]}</span>}
               </button>
             ))}
           </div>

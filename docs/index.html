@@ -30,10 +30,10 @@ img { max-width: 100%; }
    the route an expedition takes, the kit, the camp rules, and how to pitch the tent. */
 :root {
   --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
-  --text: #2a231c; --muted: #6e6255; --faint: #9a8d7e;
-  --accent: #b4690e; --accent-soft: #f6e3c6; --accent-ink: #fffaf2;
-  --good: #3f7d3a; --good-soft: #e1eedb;
-  --c-qm: #b4690e; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
+  --text: #2a231c; --muted: #5d5247; --faint: #72675b;
+  --accent: #9e5c0c; --accent-soft: #f6e3c6; --accent-ink: #fffaf2;
+  --good: #397034; --good-soft: #e1eedb;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
   --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a;
   --shadow: 0 1px 2px rgba(60,40,20,.06), 0 12px 32px rgba(60,40,20,.09);
   --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
@@ -46,7 +46,7 @@ img { max-width: 100%; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
-    --text: #efe7da; --muted: #a3968a; --faint: #74695e;
+    --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
     --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
     --good: #93c47d; --good-soft: #1f2a1b;
     --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
@@ -57,7 +57,7 @@ img { max-width: 100%; }
 }
 :root[data-theme="dark"] {
   --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
-  --text: #efe7da; --muted: #a3968a; --faint: #74695e;
+  --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
   --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
   --good: #93c47d; --good-soft: #1f2a1b;
   --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
@@ -69,7 +69,7 @@ img { max-width: 100%; }
 /* Other palettes: the same as mission control's (ui/src/styles.css). Light or dark is still data-theme, or the system. */
 :root[data-palette="harbor"] {
   --bg: #eef2f7; --surface: #fbfcfe; --surface-2: #e2e9f1; --border: #d2dbe6; --border-strong: #b4c1d1;
-  --text: #1b2634; --muted: #56667b; --faint: #8794a6;
+  --text: #1b2634; --muted: #465568; --faint: #5d697a;
   --accent: #1d62ad; --accent-soft: #d9e6f6; --accent-ink: #f6faff;
   --ink: #1b2634; --night: #0d131d; --night-text: #e4eaf3; --night-muted: #96a4b8; --night-line: #283548;
   --shadow: 0 1px 2px rgba(20, 40, 70, .06), 0 12px 32px rgba(20, 40, 70, .09);
@@ -77,7 +77,7 @@ img { max-width: 100%; }
 @media (prefers-color-scheme: dark) {
   :root[data-palette="harbor"]:not([data-theme="light"]) {
   --bg: #0d131d; --surface: #141c29; --surface-2: #1c2635; --border: #283548; --border-strong: #3a4a63;
-  --text: #e4eaf3; --muted: #96a4b8; --faint: #66748a;
+  --text: #e4eaf3; --muted: #99a7ba; --faint: #808da0;
   --accent: #63b0f4; --accent-soft: #15304e; --accent-ink: #06182b;
   --ink: #e4eaf3; --night: #080c13; --night-text: #e4eaf3; --night-muted: #96a4b8; --night-line: #222d3f;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
@@ -85,14 +85,14 @@ img { max-width: 100%; }
 }
 :root[data-palette="harbor"][data-theme="dark"] {
   --bg: #0d131d; --surface: #141c29; --surface-2: #1c2635; --border: #283548; --border-strong: #3a4a63;
-  --text: #e4eaf3; --muted: #96a4b8; --faint: #66748a;
+  --text: #e4eaf3; --muted: #99a7ba; --faint: #808da0;
   --accent: #63b0f4; --accent-soft: #15304e; --accent-ink: #06182b;
   --ink: #e4eaf3; --night: #080c13; --night-text: #e4eaf3; --night-muted: #96a4b8; --night-line: #222d3f;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
 }
 :root[data-palette="moss"] {
   --bg: #f0f3ea; --surface: #fbfcf7; --surface-2: #e4e9da; --border: #d3dac6; --border-strong: #b6c0a5;
-  --text: #20271b; --muted: #5a6650; --faint: #8b957f;
+  --text: #20271b; --muted: #4c5643; --faint: #626b59;
   --accent: #3d7a2a; --accent-soft: #dcebd0; --accent-ink: #f8fcf4;
   --ink: #20271b; --night: #0f140f; --night-text: #e6ecdf; --night-muted: #9aa890; --night-line: #2a3629;
   --shadow: 0 1px 2px rgba(35, 50, 25, .06), 0 12px 32px rgba(35, 50, 25, .09);
@@ -100,7 +100,7 @@ img { max-width: 100%; }
 @media (prefers-color-scheme: dark) {
   :root[data-palette="moss"]:not([data-theme="light"]) {
   --bg: #0f140f; --surface: #161d16; --surface-2: #1e271e; --border: #2a3629; --border-strong: #3d4d3b;
-  --text: #e6ecdf; --muted: #9aa890; --faint: #6a7862;
+  --text: #e6ecdf; --muted: #9ba991; --faint: #838f7b;
   --accent: #a5cf5c; --accent-soft: #25341a; --accent-ink: #101a06;
   --ink: #e6ecdf; --night: #0a0d0a; --night-text: #e6ecdf; --night-muted: #9aa890; --night-line: #242e23;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
@@ -108,14 +108,14 @@ img { max-width: 100%; }
 }
 :root[data-palette="moss"][data-theme="dark"] {
   --bg: #0f140f; --surface: #161d16; --surface-2: #1e271e; --border: #2a3629; --border-strong: #3d4d3b;
-  --text: #e6ecdf; --muted: #9aa890; --faint: #6a7862;
+  --text: #e6ecdf; --muted: #9ba991; --faint: #838f7b;
   --accent: #a5cf5c; --accent-soft: #25341a; --accent-ink: #101a06;
   --ink: #e6ecdf; --night: #0a0d0a; --night-text: #e6ecdf; --night-muted: #9aa890; --night-line: #242e23;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
 }
 :root[data-palette="heather"] {
   --bg: #f4f0f5; --surface: #fdfbfe; --surface-2: #eae3ed; --border: #dbd1e0; --border-strong: #c0b2c8;
-  --text: #29212e; --muted: #665a6e; --faint: #95889e;
+  --text: #29212e; --muted: #594e61; --faint: #6e6376;
   --accent: #8a3f96; --accent-soft: #efddf3; --accent-ink: #fdf8ff;
   --ink: #29212e; --night: #15111a; --night-text: #ece4f2; --night-muted: #a698b3; --night-line: #352c3f;
   --shadow: 0 1px 2px rgba(50, 30, 60, .06), 0 12px 32px rgba(50, 30, 60, .09);
@@ -123,7 +123,7 @@ img { max-width: 100%; }
 @media (prefers-color-scheme: dark) {
   :root[data-palette="heather"]:not([data-theme="light"]) {
   --bg: #15111a; --surface: #1d1823; --surface-2: #27202f; --border: #352c3f; --border-strong: #4a3e57;
-  --text: #ece4f2; --muted: #a698b3; --faint: #766a83;
+  --text: #ece4f2; --muted: #ac9eb8; --faint: #90859b;
   --accent: #d79ae6; --accent-soft: #3a2145; --accent-ink: #1e0c26;
   --ink: #ece4f2; --night: #0e0b12; --night-text: #ece4f2; --night-muted: #a698b3; --night-line: #2e2637;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
@@ -131,7 +131,7 @@ img { max-width: 100%; }
 }
 :root[data-palette="heather"][data-theme="dark"] {
   --bg: #15111a; --surface: #1d1823; --surface-2: #27202f; --border: #352c3f; --border-strong: #4a3e57;
-  --text: #ece4f2; --muted: #a698b3; --faint: #766a83;
+  --text: #ece4f2; --muted: #ac9eb8; --faint: #90859b;
   --accent: #d79ae6; --accent-soft: #3a2145; --accent-ink: #1e0c26;
   --ink: #ece4f2; --night: #0e0b12; --night-text: #ece4f2; --night-muted: #a698b3; --night-line: #2e2637;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);

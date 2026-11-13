@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { plural } from "../format.ts";
 import type { CheckpointDiff, UndoResult } from "../types.ts";
+import { ask } from "../components/Confirm.tsx";
 
 const WORDS = { created: "created", modified: "changed", deleted: "deleted" };
 
@@ -34,7 +35,7 @@ export function Changes({ expId }: { expId: string }) {
   async function undo() {
     if (!diff) return;
     const n = diff.files.length;
-    if (!confirm(`Put ${n} ${plural(n, "file")} back the way ${n === 1 ? "it was" : "they were"} before this expedition?`)) return;
+    if (!await ask({ title: `Put ${n} ${plural(n, "file")} back the way ${n === 1 ? "it was" : "they were"} before this expedition?`, action: "Put back", danger: true })) return;
     setUndoing(true);
     try {
       const r = await api<UndoResult>("/api/checkpoint/undo", { id: expId });

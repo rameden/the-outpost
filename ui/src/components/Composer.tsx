@@ -520,10 +520,13 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
               )}
             </span>
           )}
-          {S && (inCode
-            ? <span className="composer-tip" title="You're in a code block: Enter adds a line of code. Move below the block, or press ⌘/Ctrl+Enter, to send.">⌘Enter to send</span>
-            : <span className="composer-tip" title="Shift+Enter for a new line. ⌘/Ctrl+Enter sends from anywhere.">Enter to send</span>)}
-          <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>
+          {/* Send, with its hint to the left of it. Where the row runs out of room the hint goes (it wraps out of sight) and Send stays. */}
+          <span className="composer-end">
+            <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>
+            {S && (inCode
+              ? <span className="composer-tip" title="You're in a code block: Enter adds a line of code. Move below the block, or press ⌘/Ctrl+Enter, to send.">⌘Enter to send</span>
+              : <span className="composer-tip" title="Shift+Enter for a new line. ⌘/Ctrl+Enter sends from anywhere.">Enter to send</span>)}
+          </span>
         </div>
       </form>
       {error && <div className="form-error">{error}</div>}

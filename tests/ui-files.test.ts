@@ -74,7 +74,7 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
   assert.match(page, /:root\[data-theme="dark"\]/);
   assert.match(page, /:root:not\(\[data-theme="light"\]\)/);
   const css = readFileSync(new URL("../ui/src/styles.css", import.meta.url), "utf8");
-  for (const token of ["--bg: #f5efe4", "--accent: #b4690e", "--bg: #13110f", "--accent: #f0a640"]) {
+  for (const token of ["--bg: #f5efe4", "--accent: #9e5c0c", "--bg: #13110f", "--accent: #f0a640"]) {
     assert.ok(page.includes(token) && css.includes(token), `${token} is the same in the tour and in mission control`);
   }
   // The other palettes too, light side and dark: the paper, the ink and the accent are the same in both.

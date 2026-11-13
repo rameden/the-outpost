@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import { cx } from "../format.ts";
 import type { Character } from "../types.ts";
+import { ask } from "./Confirm.tsx";
 
 export const CREW_COLORS = ["teal", "rose", "blue", "gold", "green", "violet", "slate"];
 const handleFrom = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
@@ -61,9 +62,9 @@ export function CrewDialog({ member, onClose, onSaved }: {
     };
     void send(member ? { action: "update", id: member.id, member: details } : { action: "add", member: details });
   }
-  function remove() {
+  async function remove() {
     if (!member) return;
-    if (confirm(`Remove ${member.name} from the crew? Their memory and files stay in camp/agents/${member.id}/, and adding a crew member with the same handle later picks those up.`)) void send({ action: "remove", id: member.id });
+    if (await ask({ title: `Remove ${member.name} from the crew?`, body: `Their memory and files stay in camp/agents/${member.id}/, and adding a crew member with the same handle later picks those up.`, action: "Remove", danger: true })) void send({ action: "remove", id: member.id });
   }
 
   // Reading the web and being able to change things is the combination to think twice about.

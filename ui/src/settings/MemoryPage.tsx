@@ -159,7 +159,7 @@ export function MemoryPage({ S, refresh }: { S: CampState; refresh: () => void }
       <p className="set-note">What the crew starts each run knowing. Only the newest part of each memory fits in a prompt; the rest is still on disk, and the crew can search it with <code>recall</code> (along with past sessions, this project's earlier conversations and the wiki).</p>
       {waiting.length > 0 && (
         <section aria-label="Waiting for you">
-          <h4 className="set-sub">Waiting for you <span className="count">{waiting.length}</span></h4>
+          <h4 className="set-sub">Waiting for you <span className="count needs">{waiting.length}</span></h4>
           <ul className="mem-waiting">{waiting.map((p) => <Waiting key={p.id} p={p} refresh={refresh} />)}</ul>
         </section>
       )}

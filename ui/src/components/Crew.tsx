@@ -1,13 +1,13 @@
 // The roster area is two halves, side by side. On the left, the crew. On the right, who's running:
 // every quest that's out right now, one row each (two quests by the same crew member are two
 // rows), with what it's for, what it's doing this moment, how long it's been out, and whether
-// it's waiting on you; a row goes to that quest in its conversation. With nobody out, the right
-// half says so, so the area keeps its shape.
+// it's waiting on you; a row goes to that quest in its conversation. With nobody out, it shrinks
+// to a short note at the end and the crew has the whole width (styles.css).
 //
 // The crew, as a bar: by default a slim strip with each agent's icon, name, and a dot (plus what
-// they're doing, while they're doing it). The "Crew" rail under the whole roster area (the same
-// rail History, Files and the terminal have) opens it up into cards that also show each one's
-// level and model, and folds it again; your choice is remembered. The + in its corner adds a crew member. Click an agent for its page;
+// they're doing, while they're doing it). The chevron at the end of the strip opens it up into
+// cards that also show each one's level and model, and folds it again; your choice is remembered.
+// The + beside it adds a crew member. Click an agent for its page;
 // on a card, click the model line to change model, effort, or turns.
 
 import { useEffect, useRef, useState } from "react";
@@ -15,12 +15,12 @@ import { storeGet, storeSet } from "../api.ts";
 import { glide } from "../motion.tsx";
 import { Icon } from "./bits.tsx";
 import { useFeed, type FeedStore } from "../feed/store.ts";
-import { cClass, cx, shortModel } from "../format.ts";
+import { cClass, cx, shortModel, took } from "../format.ts";
 import type { CampState, Character } from "../types.ts";
 import type { QuestOut } from "../feed/reducer.ts";
 
 // How long something has been going, as you'd say it.
-export const outFor = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s` : `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`; };
+export const outFor = (ms: number) => took(ms / 1000);
 
 function QuestsOut({ quests, onOpen }: { quests: QuestOut[]; onOpen?: (q: QuestOut) => void }) {
   // The clock ticks only while someone is out.
@@ -115,15 +115,15 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
       })}
     </section>
     {S && onAdd && <button type="button" className="hist-icon crew-add" aria-label="Add a crew member" title="Add a crew member" onClick={onAdd}>+</button>}
+    {S && (
+      <button type="button" className="hist-icon crew-fold" aria-expanded={!slim} aria-label={slim ? "Show more about the crew" : "Show less about the crew"}
+        title={slim ? "Open the crew up into cards: level, model, and what each is doing" : "Fold the crew down to a slim strip"} onClick={toggle}>
+        <Icon name={slim ? "chevron" : "chevronUp"} />
+      </button>
+    )}
     </div>
     <QuestsOut quests={quests} onOpen={onOpenQuest} />
     </div>
-    {S && (
-      <button type="button" className="zone-rail crew-rail" aria-expanded={!slim} aria-label={slim ? "Show more about the crew" : "Show less about the crew"}
-        title={slim ? "Open the crew up into cards: level, model, and what each is doing" : "Fold the crew down to a slim strip"} onClick={toggle}>
-        <Icon name="users" /><span>Crew</span><Icon name={slim ? "chevron" : "chevronUp"} />
-      </button>
-    )}
     </div>
   );
 }

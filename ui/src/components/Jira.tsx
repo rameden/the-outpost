@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import type { CampState, JiraPull, JiraRef, JiraStatus } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { ask } from "./Confirm.tsx";
 
 // The usual filters. The first is where the camp starts.
 export const JIRA_PRESETS: { name: string; jql: string }[] = [
@@ -117,7 +118,7 @@ export function JiraConnection({ S, refresh }: { S: CampState; refresh: () => vo
     setBusy(false);
   }
   async function disconnect() {
-    if (!confirm("Unlink Jira? The camp forgets the API token. Tickets already attached to conversations stay as they are.")) return;
+    if (!await ask({ title: "Unlink Jira?", body: "The camp forgets the API token. Tickets already attached to conversations stay as they are.", action: "Unlink", danger: true })) return;
     try { await api("/api/jira", { disconnect: true }); refresh(); } catch (e) { setError(errorText(e)); }
   }
 

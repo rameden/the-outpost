@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
-import { cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, when } from "../format.ts";
+import { cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
 import type { CampState } from "../types.ts";
 
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
@@ -96,7 +96,7 @@ export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: 
                     <time>{when(q.time)}</time>
                   </div>
                   <div className="meta">
-                    <b>{money(q.cost)}{q.runtime === "claude-code" ? " est." : ""}</b> · {q.seconds}s · {q.turns} {plural(q.turns, "turn")} · {kTok(total)} in ({cached}% cached) · {kTok(u.output)} out · {shortModel(q.model)} · {q.effort ?? "default"}
+                    <b>{money(q.cost)}{q.runtime === "claude-code" ? " est." : ""}</b> · {took(q.seconds)} · {q.turns} {plural(q.turns, "turn")} · {kTok(total)} in ({cached}% cached) · {kTok(u.output)} out · {shortModel(q.model)} · {q.effort ?? "default"}
                   </div>
                   <Clamp><b>Asked</b> {q.task}</Clamp>
                   <Clamp><b>Result</b> {q.result}</Clamp>

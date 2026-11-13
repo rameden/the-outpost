@@ -28,7 +28,7 @@ export function frontMatter(text: string): { meta: [string, string][]; body: str
 }
 type Mode = "read" | "file" | "changes";
 
-const LINE = 18.75; // one line of code, in pixels: 12.5px at 1.5 (see .file-text)
+const LINE = 19.5; // one line of code, in pixels: 13px at 1.5 (see .file-text)
 
 export function FileViewer({ root, rel, line, onClose, onMention }: {
   root: FileRoot; rel: string; line?: number; onClose: () => void; onMention: (path: string) => void;

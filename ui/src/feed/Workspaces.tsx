@@ -10,6 +10,7 @@ import type { Workspaces, WorkspaceStatus } from "../types.ts";
 import { Icon } from "../components/bits.tsx";
 import { PrDialog } from "./PrDialog.tsx";
 import { CommitDialog } from "./CommitDialog.tsx";
+import { ask } from "../components/Confirm.tsx";
 
 type Workspace = Workspaces[number];
 
@@ -54,7 +55,7 @@ function WorkspaceRow({ w, task, expId }: { w: Workspace; task: string; expId?: 
   // What reviewers and the checks have said on this branch's pull request, put in the message
   // box for you to read and send: it isn't sent for you, since anyone who can comment wrote it.
   const remove = act(async () => {
-    if (!confirm(`Remove the worktree at ${w.path}? Its branch ${st.branch} is kept.`)) return;
+    if (!await ask({ title: `Remove the worktree at ${w.path}?`, body: `Its branch ${st.branch} is kept.`, action: "Remove worktree", danger: true })) return;
     await api("/api/repo/remove", { link: w.link, path: w.path });
     setRemoved(true);
   });
