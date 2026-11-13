@@ -45,6 +45,7 @@ import { Settings, isSettingsSection, type SettingsSection } from "./settings/Se
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
+import { Barnstorm, useKonami } from "./egg/Barnstorm.tsx";
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -368,6 +369,12 @@ export function App({ store }: { store: FeedStore }) {
     setView(talking.current.kind === "all" ? { kind: "new" } : talking.current);
   };
 
+  // The easter egg: a plane to fly over the page, from its button in the top bar or the Konami code.
+  const [barnstorm, setBarnstorm] = useState(false);
+  const toggleBarnstorm = useCallback(() => setBarnstorm((on) => !on), []);
+  const endBarnstorm = useCallback(() => setBarnstorm(false), []);
+  useKonami(useCallback(() => setBarnstorm(true), []));
+
   const onReply = useCallback((expId: string, task: string) => composer.current?.setReply(expId, task), []);
   const onExample = useCallback((text: string) => composer.current?.setText(text), []);
   const onAttachLink = useCallback((link: Link) => composer.current?.attachLink(link), []);
@@ -393,7 +400,7 @@ export function App({ store }: { store: FeedStore }) {
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
             filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={openLayout}
-            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} />
+            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorming={barnstorm} onBarnstorm={toggleBarnstorm} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -539,6 +546,7 @@ export function App({ store }: { store: FeedStore }) {
       )}
       {/* "Are you sure?", asked from anywhere on the page (ask() in Confirm.tsx). */}
       <ConfirmHost />
+      {barnstorm && <OverlayBoundary name="Barnstorm" onClose={endBarnstorm}><Barnstorm onClose={endBarnstorm} /></OverlayBoundary>}
     </>
   );
 }

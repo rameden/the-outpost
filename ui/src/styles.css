@@ -1829,3 +1829,34 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .trigger-form input:not([type="checkbox"]), .trigger-form select, .trigger-form textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--field); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 .trigger-form textarea { min-height: 64px; resize: vertical; }
 .trigger-form input:focus-visible, .trigger-form select:focus-visible, .trigger-form textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* ---------- Barnstorm, the easter egg (ui/src/egg) ---------- */
+/* What the plane has shot is hidden, not removed: an attribute on a part of the page, another
+   naming the sides of a border, and a highlight in no colour over a word. Taking them off puts
+   it all back (egg/targets.ts). */
+[data-barnstormed] { visibility: hidden !important; }
+[data-barnstorm-edge~="top"] { border-top-color: transparent !important; }
+[data-barnstorm-edge~="right"] { border-right-color: transparent !important; }
+[data-barnstorm-edge~="bottom"] { border-bottom-color: transparent !important; }
+[data-barnstorm-edge~="left"] { border-left-color: transparent !important; }
+::highlight(barnstorm) { color: transparent; -webkit-text-fill-color: transparent; text-shadow: none; text-decoration-color: transparent; }
+/* The sky over the page: clicks go through it to the page below, except on the score card. */
+.barnstorm { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.barnstorm-sky { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The score card: square and hard-shadowed, like the plane. */
+.barnstorm-card { position: absolute; left: 16px; bottom: 16px; width: 232px; padding: 10px 12px 12px; pointer-events: auto; background: var(--surface); color: var(--text); border: 2px solid var(--text); box-shadow: 4px 4px 0 var(--text); font: 12px/1.5 var(--mono); }
+.barnstorm-card h2 { margin: 0 0 6px; font: 700 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-card dl { margin: 0; display: grid; gap: 1px; }
+.barnstorm-card dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.barnstorm-card dt { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-card dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.barnstorm-won { margin: 8px 0 0; padding: 4px 6px; background: var(--text); color: var(--surface); font-weight: 700; }
+.barnstorm-powers { margin: 8px 0 0; padding: 3px 6px; border: 2px solid var(--text); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.barnstorm-keys { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--muted); font-size: 11px; }
+.barnstorm-keys span { white-space: nowrap; }
+.barnstorm-keys kbd { border-radius: 0; font-size: 11px; padding: 0 3px; }
+.barnstorm-note { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.barnstorm-actions { display: flex; gap: 8px; margin-top: 10px; }
+.barnstorm-actions button { flex: 1; padding: 3px 0; background: var(--surface); border: 2px solid var(--text); border-radius: 0; font: 700 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-actions button:hover { background: var(--text); color: var(--surface); }
+.barnstorm-actions button:focus-visible { border-radius: 0; }
