@@ -77,6 +77,14 @@ test("what can't be linked, on each system: a whole disk, home, system folders, 
   for (const p of ["C:\\", "D:\\", "C:\\Users", "C:\\Users\\you", "c:\\users\\YOU", "C:\\Windows", "C:\\Windows\\System32", "C:\\Program Files\\Git", "C:\\Program Files (x86)\\Steam",
     "C:\\ProgramData\\ssh", "C:\\Users\\you\\AppData", "C:\\Users\\you\\AppData\\Roaming\\npm", "C:\\Users\\you\\.ssh", "C:\\Users\\you\\.aws\\cli"]) assert.equal(win(p), true, p);
   for (const p of ["C:\\Users\\you\\Projects\\site", "C:\\Users\\you\\Documents\\GitHub\\app", "D:\\work\\site", "C:\\dev"]) assert.equal(win(p), false, p);
+  // Windows keeps its temp folder inside AppData: a folder in temp can be linked, temp itself and the rest of AppData can't.
+  const temp = "C:\\Users\\you\\AppData\\Local\\Temp";
+  const withTemp = (p: string) => unlinkable(p, "C:\\Users\\you", "win32", WIN, temp);
+  assert.equal(withTemp("C:\\Users\\you\\AppData\\Local\\Temp\\scratch-site"), false);
+  assert.equal(withTemp("c:\\users\\you\\appdata\\local\\temp\\scratch\\deep"), false);
+  assert.equal(withTemp(temp), true);
+  assert.equal(withTemp("C:\\Users\\you\\AppData\\Local\\Google\\Chrome"), true);
+  assert.equal(withTemp("C:\\Windows\\Temp\\x"), true, "only your own temp folder");
 });
 
 test("replacing a file something else has open (Windows): tried again briefly, then given up on; other errors at once", () => {

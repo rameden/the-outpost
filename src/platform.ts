@@ -129,7 +129,9 @@ export function claudeOnWindows(name: string, env: Env = process.env, exists: Ex
 // ---------- Folders that can't be linked ----------
 // Never linkable: a whole disk, the folder all the home folders are in, your whole home folder,
 // the system's own folders, and where credentials are kept.
-export function unlinkable(real: string, home: string, platform: NodeJS.Platform = process.platform, env: Env = process.env): boolean {
+// temp: the system's temp folder. On Windows it sits inside AppData, which is otherwise off
+// limits (it's where programs keep their sign-ins): a folder inside temp can still be linked.
+export function unlinkable(real: string, home: string, platform: NodeJS.Platform = process.platform, env: Env = process.env, temp?: string): boolean {
   const p = platform === "win32" ? path.win32 : path.posix;
   const same = (a: string, b: string) => p.relative(a, b) === "";
   const within = (child: string, parent: string) => { const rel = p.relative(parent, child); return rel === "" || (!rel.startsWith(".." + p.sep) && rel !== ".." && !p.isAbsolute(rel)); };
@@ -137,6 +139,7 @@ export function unlinkable(real: string, home: string, platform: NodeJS.Platform
   const everywhere = [j(".ssh"), j(".aws"), j(".gnupg"), j(".config"), j(".kube"), j(".docker"), j(".claude"), j(".hermes")];
   if (p.parse(real).root === real || same(real, home) || same(real, p.dirname(home))) return true;
   if (platform === "win32") {
+    if (temp && within(real, temp) && !same(real, temp)) return false;
     const system = ["SystemRoot", "ProgramFiles", "ProgramFiles(x86)", "ProgramData", "APPDATA", "LOCALAPPDATA"].map((n) => envOf(env, n)).filter((v): v is string => !!v);
     return [...system, j("AppData"), ...everywhere].some((f) => within(real, f));
   }
