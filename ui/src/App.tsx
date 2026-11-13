@@ -7,6 +7,7 @@ import { storeGet, storeSet } from "./api.ts";
 import { useCampEvents, useCampState } from "./camp.ts";
 import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
 import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
+import { Dock } from "./components/Dock.tsx";
 import { History, HistoryRail } from "./components/History.tsx";
 import { TerminalPanel, TerminalRail } from "./components/Terminal.tsx";
 import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
@@ -44,6 +45,7 @@ import { Settings, isSettingsSection, type SettingsSection } from "./settings/Se
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
+import { Barnstorm, useKonami } from "./egg/Barnstorm.tsx";
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -367,6 +369,12 @@ export function App({ store }: { store: FeedStore }) {
     setView(talking.current.kind === "all" ? { kind: "new" } : talking.current);
   };
 
+  // The easter egg: a plane to fly over the page, from its button in the top bar or the Konami code.
+  const [barnstorm, setBarnstorm] = useState(false);
+  const toggleBarnstorm = useCallback(() => setBarnstorm((on) => !on), []);
+  const endBarnstorm = useCallback(() => setBarnstorm(false), []);
+  useKonami(useCallback(() => setBarnstorm(true), []));
+
   const onReply = useCallback((expId: string, task: string) => composer.current?.setReply(expId, task), []);
   const onExample = useCallback((text: string) => composer.current?.setText(text), []);
   const onAttachLink = useCallback((link: Link) => composer.current?.attachLink(link), []);
@@ -392,7 +400,7 @@ export function App({ store }: { store: FeedStore }) {
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
             filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={openLayout}
-            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} />
+            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorming={barnstorm} onBarnstorm={toggleBarnstorm} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -449,15 +457,18 @@ export function App({ store }: { store: FeedStore }) {
                       <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} />
                     </>
                   )}
-                  {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
-                  {S && !page && <Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} />}
                   </ZoneBoundary>
-                  {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows these in the feed itself. */}
-                  {!inAll && <StatusLine />}
-                  <ZoneBoundary name="The message box">
-                    <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
-                      onSent={onSent} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
-                  </ZoneBoundary>
+                  {/* The foot of the pane floats over the thread, which scrolls underneath it (Dock.tsx). */}
+                  <Dock>
+                    {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
+                    {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} /></ZoneBoundary>}
+                    {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows these in the feed itself. */}
+                    {!inAll && <StatusLine />}
+                    <ZoneBoundary name="The message box">
+                      <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
+                        onSent={onSent} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
+                    </ZoneBoundary>
+                  </Dock>
                 </main>
               );
               case "files": return state === "collapsed"
@@ -535,6 +546,7 @@ export function App({ store }: { store: FeedStore }) {
       )}
       {/* "Are you sure?", asked from anywhere on the page (ask() in Confirm.tsx). */}
       <ConfirmHost />
+      {barnstorm && <OverlayBoundary name="Barnstorm" onClose={endBarnstorm}><Barnstorm onClose={endBarnstorm} /></OverlayBoundary>}
     </>
   );
 }

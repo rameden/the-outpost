@@ -317,7 +317,17 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
   useLayoutEffect(() => { stick.current = true; }, [viewKey]);
   useLayoutEffect(() => {
     const el = box.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
+    if (!el || !stick.current) return;
+    el.scrollTop = el.scrollHeight;
+    // A card that's off-screen is only measured once it comes into view, so a long thread gets
+    // taller just after this. Stay at the end for the few frames that takes.
+    if (typeof requestAnimationFrame === "undefined") return;
+    let frames = 12;
+    let next = requestAnimationFrame(function again() {
+      if (stick.current) el.scrollTop = el.scrollHeight;
+      if (--frames > 0) next = requestAnimationFrame(again);
+    });
+    return () => cancelAnimationFrame(next);
   }, [items]);
 
   return (

@@ -132,7 +132,7 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout, needs, onNeed, onSeenAll }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout, needs, onNeed, onSeenAll, barnstorming, onBarnstorm }: {
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
@@ -140,6 +140,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   focused?: boolean; onToggleFocus?: () => void;
   filesOpen?: boolean; onToggleFiles?: () => void; // only passed while a folder is attached here
   onOpenLayout?: () => void;
+  barnstorming?: boolean; onBarnstorm?: () => void; // the easter egg (egg/Barnstorm.tsx): fly a plane over the page
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
@@ -206,6 +207,10 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         </div>
         <div className="top-tools">
         <Bell />
+        {onBarnstorm && (
+          <button className={cx("icon-btn", "wide-only", barnstorming && "on")} type="button" aria-pressed={!!barnstorming} aria-label={barnstorming ? "Land the plane" : "Barnstorm"}
+            title={barnstorming ? "Land: put the page back together" : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)"} onClick={onBarnstorm}><Icon name="plane" /></button>
+        )}
         {onToggleFocus && (
           <button className={cx("icon-btn", "wide-only", focused && "on")} type="button" aria-pressed={!!focused} aria-label={focused ? "Leave focus mode" : "Focus mode"}
             title={focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files and terminal, leaving the conversation"} onClick={onToggleFocus}><Icon name="focus" /></button>

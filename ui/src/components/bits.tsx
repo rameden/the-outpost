@@ -44,6 +44,7 @@ const ICONS = {
   layout: "M4 5h16v14H4zM4 10h16M10 10v9",
   focus: "M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4M9.500 9.500h5v5h-5z",
   refresh: "M19.500 12a7.500 7.500 0 11-2.200-5.300M19.500 4v3.500H16",
+  plane: "M12 3.500v16M3.500 14l8.500-4.500 8.500 4.500M8.500 20.500l3.500-2 3.500 2", // seen from above, nose up
   at: "M15.500 12a3.500 3.500 0 11-7 0 3.500 3.500 0 017 0zM15.500 8.500V13c0 1.400 1 2.500 2.300 2.500S20 14.400 20 12.500V12a8 8 0 10-3.200 6.400",
 } as const;
 export type IconName = keyof typeof ICONS;

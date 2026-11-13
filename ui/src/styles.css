@@ -858,8 +858,18 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .pick-note.warn { color: var(--bad); }
 
 /* ---------- Mission feed ---------- */
-.mission { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-.feed { flex: 1; min-height: 0; overflow: auto; padding: 20px clamp(16px, 3vw, 32px) 28px; display: flex; flex-direction: column; gap: 26px; }
+.mission { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+/* The thread runs to the bottom of the pane and scrolls under the message box, which floats over
+   it (.dock). Its bottom padding is the dock's height (--dock-h, kept by Dock.tsx) plus a gap, so
+   the last lines can always be scrolled clear of the box.
+   scrollbar-gutter: the scrollbar's width is kept free on both sides, so the cards sit exactly
+   in the middle, in line with the box, whether or not there's anything to scroll. */
+.feed { flex: 1; min-height: 0; overflow: auto; padding: 20px clamp(16px, 3vw, 32px) calc(var(--dock-h, 0px) + 12px); display: flex; flex-direction: column; gap: 26px; scrollbar-gutter: stable both-edges; }
+/* The foot of the pane: work that's waiting, a line of status, the message box. It floats over the
+   thread. Only its own pieces take clicks: the thread shows, and can be clicked, around them. */
+.dock { position: absolute; inset: auto 0 0 0; z-index: 5; display: flex; flex-direction: column; pointer-events: none; }
+.dock > * { flex: none; }
+.dock .waiting-row, .dock .status-line > *, .dock .composer > *, .dock .zone-broken { pointer-events: auto; }
 /* A card that's scrolled out of view isn't laid out until it comes near: a long conversation
    costs what's on screen, not everything in it, when the page changes width. (The browser keeps
    each card's last real height, so the scrollbar holds its place.) */
@@ -1069,10 +1079,12 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .btn:disabled { opacity: .5; cursor: default; }
 
 /* ---------- Composer ---------- */
-.composer { background: var(--bg); padding: 4px clamp(16px, 3vw, 32px) 16px; }
+/* It floats over the thread, which shows above the box and runs in behind it. The page's own
+   colour comes back behind the lower half of the box, so no stray line of text shows beneath it. */
+.composer { padding: 4px clamp(16px, 3vw, 32px) 16px; background: linear-gradient(to top, var(--bg) 28px, transparent 64px); }
 .composer form { display: flex; gap: 10px; align-items: flex-end; }
 /* The main input: one box with a solid 2px border. The text on top, one row of controls under it. */
-.composer > .composer-box { flex-direction: column; align-items: stretch; gap: 0; border: 2px solid var(--field); border-radius: 12px; background: var(--surface); transition: border-color .12s; }
+.composer > .composer-box { flex-direction: column; align-items: stretch; gap: 0; border: 2px solid var(--field); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-lg); transition: border-color .12s; }
 .composer > .composer-box:focus-within { border-color: var(--accent); }
 /* The message box: an editable block that styles markdown as you type (MessageInput.tsx). It
    grows with the message up to a point, then scrolls. */
@@ -1118,7 +1130,7 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 /* ---------- Attachments ---------- */
 .composer { position: relative; }
 .composer > :not(.popover) { max-width: 980px; margin-inline: auto; }
-.composer.dragging { outline: 2px dashed var(--accent); outline-offset: -6px; background: var(--accent-soft); }
+.composer.dragging > .composer-box { outline: 2px dashed var(--accent); outline-offset: 3px; background: var(--accent-soft); }
 .attach-btn { flex: none; width: 32px; height: 32px; border-radius: 8px; border: 0; background: none; color: var(--muted); display: grid; place-items: center; }
 .attach-btn svg { width: 18px; height: 18px; transition: transform .15s; }
 .attach-btn:hover, .attach-btn[aria-expanded="true"] { color: var(--text); background: var(--surface-2); }
@@ -1356,7 +1368,9 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .history { display: block; max-height: 230px; overflow-y: auto; }
   .hist-projects { overflow: visible; }
   .feed { overflow: visible; min-height: 40vh; }
-  .composer { position: sticky; bottom: 0; z-index: 5; }
+  /* The page itself scrolls here, so the foot sticks to the bottom of the window instead. */
+  .dock { position: sticky; bottom: 0; }
+  .feed { scrollbar-gutter: auto; }
   .app .zone[data-part="terminal"] { position: sticky; bottom: 0; z-index: 6; height: 280px; display: flex; }
   .app .zone[data-part="files"] { display: flex; }
   .zone-empty { display: none; }
@@ -1380,7 +1394,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .proj-actions { margin-left: 0; justify-content: flex-start; flex: 1 1 100%; }
   .member { flex: 0 0 220px; }
   .history { max-height: 240px; }
-  .feed { padding: 16px; }
+  .feed { padding: 16px 16px 12px; }
   .exp-ask { max-width: 92%; }
   .composer { padding: 10px 16px 12px; }
   .tool, .notice { padding-left: 0; }
@@ -1411,7 +1425,7 @@ pre.diff .hunk { color: var(--info); display: block; }
 pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .reply-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 8px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-2); font-size: 13px; color: var(--muted); }
 /* What the page says back to you, above the message box (StatusLine.tsx). */
-.status-line { display: grid; gap: 4px; padding: 0 clamp(16px, 3vw, 32px) 4px; background: var(--bg); }
+.status-line { display: grid; gap: 4px; padding: 0 clamp(16px, 3vw, 32px) 4px; }
 .status-line:empty { display: none; }
 .status-msg { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 980px; margin-inline: auto; padding: 3px 4px 3px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 13px; color: var(--muted); }
 .status-msg > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -1815,3 +1829,34 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .trigger-form input:not([type="checkbox"]), .trigger-form select, .trigger-form textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--field); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 .trigger-form textarea { min-height: 64px; resize: vertical; }
 .trigger-form input:focus-visible, .trigger-form select:focus-visible, .trigger-form textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* ---------- Barnstorm, the easter egg (ui/src/egg) ---------- */
+/* What the plane has shot is hidden, not removed: an attribute on a part of the page, another
+   naming the sides of a border, and a highlight in no colour over a word. Taking them off puts
+   it all back (egg/targets.ts). */
+[data-barnstormed] { visibility: hidden !important; }
+[data-barnstorm-edge~="top"] { border-top-color: transparent !important; }
+[data-barnstorm-edge~="right"] { border-right-color: transparent !important; }
+[data-barnstorm-edge~="bottom"] { border-bottom-color: transparent !important; }
+[data-barnstorm-edge~="left"] { border-left-color: transparent !important; }
+::highlight(barnstorm) { color: transparent; -webkit-text-fill-color: transparent; text-shadow: none; text-decoration-color: transparent; }
+/* The sky over the page: clicks go through it to the page below, except on the score card. */
+.barnstorm { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.barnstorm-sky { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The score card: square and hard-shadowed, like the plane. */
+.barnstorm-card { position: absolute; left: 16px; bottom: 16px; width: 232px; padding: 10px 12px 12px; pointer-events: auto; background: var(--surface); color: var(--text); border: 2px solid var(--text); box-shadow: 4px 4px 0 var(--text); font: 12px/1.5 var(--mono); }
+.barnstorm-card h2 { margin: 0 0 6px; font: 700 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-card dl { margin: 0; display: grid; gap: 1px; }
+.barnstorm-card dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.barnstorm-card dt { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-card dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.barnstorm-won { margin: 8px 0 0; padding: 4px 6px; background: var(--text); color: var(--surface); font-weight: 700; }
+.barnstorm-powers { margin: 8px 0 0; padding: 3px 6px; border: 2px solid var(--text); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.barnstorm-keys { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--muted); font-size: 11px; }
+.barnstorm-keys span { white-space: nowrap; }
+.barnstorm-keys kbd { border-radius: 0; font-size: 11px; padding: 0 3px; }
+.barnstorm-note { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.barnstorm-actions { display: flex; gap: 8px; margin-top: 10px; }
+.barnstorm-actions button { flex: 1; padding: 3px 0; background: var(--surface); border: 2px solid var(--text); border-radius: 0; font: 700 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-actions button:hover { background: var(--text); color: var(--surface); }
+.barnstorm-actions button:focus-visible { border-radius: 0; }
