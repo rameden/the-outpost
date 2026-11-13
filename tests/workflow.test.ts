@@ -15,7 +15,7 @@ import { enterSandbox, NEEDS_SH } from "./helpers/sandbox.ts";
 enterSandbox("workflow");
 
 // ---------- A repository to work in, with a remote, and a stand-in for gh ----------
-const scratch = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-flow-")));
+const scratch = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-flow-")));
 const repo = join(scratch, "web");
 mkdirSync(repo);
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -270,7 +270,7 @@ test("nothing is written to Jira unless you turn it on; then it comments, and mo
   j.saveWriteBack({ on: true });
   assert.equal(await j.writeBack("start", "MP-544", { branch: "MP-544-open-button" }), "Commented on MP-544.");
   assert.deepEqual(seen.map((s) => `${s.method} ${s.url}`), ["POST /rest/api/3/issue/MP-544/comment"]);
-  assert.deepEqual(seen[0].body, { body: { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text: "Work started in Satchel on branch MP-544-open-button." }] }] } });
+  assert.deepEqual(seen[0].body, { body: { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text: "Work started in Mae on branch MP-544-open-button." }] }] } });
   assert.equal(await j.writeBack("start", undefined), null, "no ticket: nothing to write");
   assert.equal(await j.writeBack("start", "not a key"), null);
 

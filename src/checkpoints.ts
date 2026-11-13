@@ -5,7 +5,7 @@
 //
 // Shell commands are covered in linked git repositories: before the first command an expedition
 // runs in one, the camp records the whole working tree as a git snapshot (a commit on a private
-// ref, refs/satchel/checkpoints/…, that's never pushed or checked out), and again when the
+// ref, refs/mae/checkpoints/…, that's never pushed or checked out), and again when the
 // expedition ends. What changed between the two is the shell's share of the diff, and Undo puts
 // those files back too, but only the ones nobody has changed since the expedition ended. Files git
 // ignores (node_modules, build output) and secret files are left out of snapshots.
@@ -64,7 +64,7 @@ function prune() {
 // ---------- Snapshots of a git working tree (for what shell commands change) ----------
 const SECRET_GLOBS = [".env*", "*.pem", "*.key", "id_rsa*", "id_ed25519*", "id_ecdsa*", ".netrc", ".npmrc", ".pypirc", ".git-credentials", "credentials", "credentials.json", "*.p12", "*.pfx"];
 const LEAVE_OUT = SECRET_GLOBS.map((g) => `:(exclude,glob)**/${g}`);
-const ID_ENV = { GIT_AUTHOR_NAME: "Satchel", GIT_AUTHOR_EMAIL: "satchel@localhost", GIT_COMMITTER_NAME: "Satchel", GIT_COMMITTER_EMAIL: "satchel@localhost" };
+const ID_ENV = { GIT_AUTHOR_NAME: "Mae", GIT_AUTHOR_EMAIL: "mae@localhost", GIT_COMMITTER_NAME: "Mae", GIT_COMMITTER_EMAIL: "mae@localhost" };
 // These run in the crew's working folders, whose git config a command of theirs may have
 // written: gitSafeEnv switches off what a config can make git run by itself (a file-system
 // monitor, hooks). The repository's own filters stay on, so files are recorded as git stores them.
@@ -82,7 +82,7 @@ const gitAsync = async (root: string, args: string[], env: Record<string, string
 // the plain one is for View changes and Undo, which you're waiting on anyway.
 async function treeNowAsync(root: string): Promise<string> {
   const git = gitAsync;
-  const tmp = join(tmpdir(), `satchel-index-${randomUUID()}`);
+  const tmp = join(tmpdir(), `mae-index-${randomUUID()}`);
   try {
     const index = resolve(root, await git(root, ["rev-parse", "--git-path", "index"]));
     if (existsSync(index)) { copyFileSync(index, tmp); const st = statSync(index); utimesSync(tmp, st.atime, st.mtime); }
@@ -96,12 +96,12 @@ async function treeNowAsync(root: string): Promise<string> {
   }
 }
 async function commitOfAsync(root: string, tree: string, ref: string): Promise<string> {
-  const commit = await gitAsync(root, ["commit-tree", tree, "-m", "Satchel checkpoint (not a branch; safe to delete)"], ID_ENV);
+  const commit = await gitAsync(root, ["commit-tree", tree, "-m", "Mae checkpoint (not a branch; safe to delete)"], ID_ENV);
   await gitAsync(root, ["update-ref", ref, commit]);
   return commit;
 }
 function treeNow(root: string): string {
-  const tmp = join(tmpdir(), `satchel-index-${randomUUID()}`);
+  const tmp = join(tmpdir(), `mae-index-${randomUUID()}`);
   try {
     const index = resolve(root, gitIn(root, ["rev-parse", "--git-path", "index"]));
     // The copy keeps the index's own times: git trusts a file's cached details only when the file
@@ -117,10 +117,11 @@ function treeNow(root: string): string {
     rmSync(tmp, { force: true });
   }
 }
-const refFor = (id: string, n: number, when: "before" | "after") => `refs/satchel/checkpoints/${id}/${n}-${when}`;
+const refFor = (id: string, n: number, when: "before" | "after") => `refs/mae/checkpoints/${id}/${n}-${when}`;
+// (refs/satchel/…: where snapshots were kept under the app's old name. Those are dropped here too.)
 function dropRefs(snap: Snapshot, id: string) {
   try {
-    for (const ref of gitIn(snap.root, ["for-each-ref", "--format=%(refname)", `refs/satchel/checkpoints/${id}/`]).split("\n").filter(Boolean)) gitIn(snap.root, ["update-ref", "-d", ref]);
+    for (const ref of gitIn(snap.root, ["for-each-ref", "--format=%(refname)", `refs/mae/checkpoints/${id}/`, `refs/satchel/checkpoints/${id}/`]).split("\n").filter(Boolean)) gitIn(snap.root, ["update-ref", "-d", ref]);
   } catch { /* the repository is gone */ }
 }
 

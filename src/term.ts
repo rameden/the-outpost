@@ -128,7 +128,7 @@ export function openTerminal(o: { project?: string; cols?: unknown; rows?: unkno
   const cols = clamp(o.cols, 20, 400, 100), rows = clamp(o.rows, 5, 200, 24);
   const pty = loadPty().spawn(shell.file, shell.args, {
     name: "xterm-256color", cols, rows, cwd,
-    env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", SATCHEL_TERMINAL: "1" },
+    env: { ...process.env, TERM: "xterm-256color", COLORTERM: "truecolor", MAE_TERMINAL: "1" },
   });
   const s: Session = { id: randomBytes(6).toString("hex"), title: o.title?.trim().slice(0, 40) || (cwd === homedir() ? "~" : basename(cwd)), ...(o.action ? { action: o.action.slice(0, 40) } : {}), ...(o.locked ? { locked: true } : {}), cwd, pty, screen: makeScreen(cols, rows), buffer: "", clients: new Map(), exited: null, opened: Date.now() };
   sessions.set(s.id, s);

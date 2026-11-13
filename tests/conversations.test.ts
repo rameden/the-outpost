@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("conversations");
-const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-proj-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-proj-")));
 mkdirSync(join(repo, "src"));
 
 const { recordTurn, threadFor } = await import("../src/threads.ts");
@@ -84,7 +84,7 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
 });
 
 test("a project made with a folder doesn't get a second, automatic project for that folder", () => {
-  const other = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-proj2-")));
+  const other = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-proj2-")));
   const name = addLink(other, "write").name; // what the dialog's "Link another folder…" does first
   const p = c.addProject({ name: "Garden sensors", description: "ESP32 boards.", links: [name] });
   assert.deepEqual([p.name, p.links, p.description], ["Garden sensors", [name], "ESP32 boards."]);
@@ -174,6 +174,6 @@ test("the history stamp changes with a new run, a rename, or a new linked folder
   c.renameConversation("hv", "Stamped conversation");
   const v2 = c.historyVersion();
   assert.notEqual(v2, v1, "a title changes");
-  addLink(real(mk(join(tmpdir(), "satchel-hv-"))), "read");
+  addLink(real(mk(join(tmpdir(), "mae-hv-"))), "read");
   assert.notEqual(c.historyVersion(), v2, "a folder is linked");
 });

@@ -9,7 +9,7 @@ import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cx, money, resetIn } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
-import { Wordmark } from "./Wordmark.tsx";
+import { MaeOrb } from "./MaeOrb.tsx";
 import { needsDoing, needsLabel, type Need } from "../needs.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
@@ -148,14 +148,15 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   const sub = S?.runtime === "claude-code";
   const costShown = showCost.use(); // Settings → General can take it out of the bar
 
-  useEffect(() => { document.title = asks.length ? `(${asks.length}) Satchel` : "Satchel"; }, [asks.length]);
+  useEffect(() => { document.title = asks.length ? `(${asks.length}) Mae` : "Mae"; }, [asks.length]);
 
   return (
     <header className="top">
       <div className="brand">
-        <h1><Wordmark className="wordmark" /></h1>
+        {/* The logo: the orb, livelier while any of the crew is at work, and the name. */}
+        <h1><MaeOrb state={running > 0 ? "thinking" : "idle"} />Mae</h1>
         {/* The tour (docs/index.html, served at /splash), in its own tab so nothing here is interrupted. */}
-        <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Satchel (opens in a new tab)">Tour</a>
+        <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Mae (opens in a new tab)">Tour</a>
       </div>
       <div className="top-right">
         {/* What the camp is doing, then the page's own switches. On a phone the first group scrolls sideways and the second stays put (styles.css). */}

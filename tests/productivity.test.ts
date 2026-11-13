@@ -12,7 +12,7 @@ enterSandbox("productivity");
 let script: (body: any) => Reply | Promise<Reply> = () => ({ text: "ok" });
 const api = await startFakeApi((body) => script(body));
 process.env.ANTHROPIC_BASE_URL = api.url; // must be set before src/agent.ts loads
-const folder = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-fix-")));
+const folder = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-fix-")));
 
 const { runDirect, runExpedition, checksFailed, fixBrief, REVIEW_RULE } = await import("../src/quartermaster.ts");
 const { setAsker } = await import("../src/ask.ts");

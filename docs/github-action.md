@@ -1,34 +1,34 @@
-# Running Satchel from GitHub Actions
+# Running Mae from GitHub Actions
 
 `npm run headless` runs one request start to finish with nobody at the keyboard, so a workflow can
 run the crew on a pull request, an issue, or a schedule. This is an example to copy into the
-repository you want the crew to work on. It isn't used by Satchel's own CI.
+repository you want the crew to work on. It isn't used by Mae's own CI.
 
 On GitHub's runners there's no Claude subscription to sign in to, so it uses the API runtime with
 a key from the repository's secrets (`ANTHROPIC_API_KEY`).
 
 ```yaml
-# .github/workflows/satchel.yml
-name: Satchel
+# .github/workflows/mae.yml
+name: Mae
 on:
   issues:
     types: [labeled]
 jobs:
   plan:
-    if: github.event.label.name == 'satchel'
+    if: github.event.label.name == 'mae'
     runs-on: ubuntu-latest
     permissions: { contents: read, issues: write }
     steps:
       - uses: actions/checkout@v4
         with: { path: app }
       - uses: actions/checkout@v4
-        with: { repository: rameden/Guild-Harness, path: satchel }
+        with: { repository: rameden/Guild-Harness, path: mae }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci
-        working-directory: satchel
+        working-directory: mae
       - name: Ask the crew for a plan
-        working-directory: satchel
+        working-directory: mae
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CAMP_RUNTIME: api

@@ -10,8 +10,8 @@ import { join } from "node:path";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("explorer");
-const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-files-")));
-const elsewhere = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-elsewhere-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-files-")));
+const elsewhere = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-elsewhere-")));
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 git(repo, "init", "-q", "-b", "main");
 git(repo, "config", "user.email", "test@example.com");

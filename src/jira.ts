@@ -442,7 +442,7 @@ export async function writeBack(event: "start" | "pr", key: string | undefined, 
   try {
     const c = client();
     await c.addComment(key, event === "start"
-      ? para(plain(`Work started in Satchel${detail.branch ? ` on branch ${detail.branch}` : ""}.`))
+      ? para(plain(`Work started in Mae${detail.branch ? ` on branch ${detail.branch}` : ""}.`))
       : para(plain("Pull request opened: "), ...(detail.url && /^https:\/\//.test(detail.url) ? [linked(detail.url)] : [plain(detail.url ?? "")])));
     done.push(`Commented on ${key}`);
     const want = (event === "start" ? w.startStatus : w.prStatus).toLowerCase();

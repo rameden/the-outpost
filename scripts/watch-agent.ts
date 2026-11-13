@@ -2,7 +2,7 @@
 //   npm run watch:install     install and start it (checks for due jobs every minute)
 //   npm run watch:uninstall   stop and remove it
 //
-// It adds a launchd agent for your user (~/Library/LaunchAgents/app.satchel.watch.plist) that runs
+// It adds a launchd agent for your user (~/Library/LaunchAgents/app.mae.watch.plist) that runs
 // `npm run watch -- --once` in this folder. Output goes to camp/watch.log. If mission control or
 // `npm run watch` is open, the background run stands by (they share camp/scheduler.lock).
 // Jobs use your Claude login, so Claude Code needs to be signed in for your user.
@@ -13,9 +13,9 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const LABEL = "app.satchel.watch";
-// What earlier versions installed, under the app's old name: replaced on install, removed on uninstall.
-const OLD_PLISTS = ["camp.guild.watch"].map((l) => join(homedir(), "Library", "LaunchAgents", `${l}.plist`));
+const LABEL = "app.mae.watch";
+// What earlier versions installed, under the app's old names: replaced on install, removed on uninstall.
+const OLD_PLISTS = ["camp.guild.watch", "app.satchel.watch"].map((l) => join(homedir(), "Library", "LaunchAgents", `${l}.plist`));
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PLIST = join(homedir(), "Library", "LaunchAgents", `${LABEL}.plist`);
 const domain = `gui/${process.getuid?.() ?? 501}`;
@@ -65,7 +65,7 @@ function uninstall() {
 
 if (process.platform !== "darwin") {
   console.log(process.platform === "win32"
-    ? `This installer is for macOS. On Windows, have Task Scheduler run the jobs every few minutes:\n  schtasks /Create /SC MINUTE /MO 5 /TN SatchelWatch /TR "cmd /c cd /d \"${process.cwd()}\" && npm run watch -- --once"\n(Remove it with: schtasks /Delete /TN SatchelWatch /F)`
+    ? `This installer is for macOS. On Windows, have Task Scheduler run the jobs every few minutes:\n  schtasks /Create /SC MINUTE /MO 5 /TN MaeWatch /TR "cmd /c cd /d \"${process.cwd()}\" && npm run watch -- --once"\n(Remove it with: schtasks /Delete /TN MaeWatch /F)`
     : "This installer is for macOS. On Linux, run `npm run watch -- --once` from cron or a systemd timer.");
   process.exit(1);
 }

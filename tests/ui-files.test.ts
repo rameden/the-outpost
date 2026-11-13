@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uiPage, uiAsset, uiCsp, UI_CSP, splashPage, SPLASH_CSP, SPLASH_FILE } from "../src/ui-files.ts";
 
-const dist = mkdtempSync(join(tmpdir(), "satchel-ui-"));
+const dist = mkdtempSync(join(tmpdir(), "mae-ui-"));
 mkdirSync(join(dist, "assets"));
 writeFileSync(join(dist, "index.html"), [
   '<meta name="camp-token" content="__CAMP_TOKEN__">',
@@ -67,7 +67,7 @@ test("the terminal's style rules get a per-launch nonce, and nothing else is loo
 test("the tour is the repo's docs page, under a policy that reaches nothing of the camp", () => {
   const page = splashPage()!;
   assert.ok(page, `${SPLASH_FILE} exists`);
-  assert.match(page, /<title>Satchel<\/title>/);
+  assert.match(page, /<title>Mae<\/title>/);
   // It wears the theme picked in mission control (the same saved choice), set before anything is drawn,
   // and carries both of mission control's palettes.
   assert.ok(page.indexOf("localStorage.getItem('camp-theme')") < page.indexOf("<style>"), "the saved theme is applied in the head, ahead of the styles");

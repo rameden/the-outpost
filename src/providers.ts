@@ -71,7 +71,7 @@ async function call(p: Preset, key: string, path: string, init: RequestInit = {}
   let res: Response;
   try {
     res = await fetch(`${baseUrl(p)}${path}`, { ...init, signal: init.signal ?? AbortSignal.timeout(CALL_TIMEOUT_MS),
-      headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...(p.id === "openrouter" ? { "x-title": "Satchel" } : {}), ...(init.headers ?? {}) } });
+      headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...(p.id === "openrouter" ? { "x-title": "Mae" } : {}), ...(init.headers ?? {}) } });
   } catch (e: any) {
     if (e?.name === "AbortError") throw e;
     throw new ProviderError(e?.name === "TimeoutError" ? `${p.name} didn't answer within ${CALL_TIMEOUT_MS / 1000} seconds.` : `Couldn't reach ${p.name}: ${e?.message ?? e}`);

@@ -10,7 +10,7 @@ import { REPO, NEEDS_SH } from "./helpers/sandbox.ts";
 // Every test here runs against a shell-script stand-in (see NEEDS_SH): on Windows they're left out, and say so.
 const test = (name: string, fn: () => void | Promise<void>) => nodeTest(name, { skip: NEEDS_SH }, fn);
 
-const state = join(mkdtempSync(join(tmpdir(), "satchel-gh-")), "active");
+const state = join(mkdtempSync(join(tmpdir(), "mae-gh-")), "active");
 process.env.CAMP_GH = join(REPO, "tests/fixtures/fake-gh.sh");
 process.env.FAKE_GH_STATE = state;
 process.env.FAKE_GH_ACCOUNTS = "rameden rameden-melt";

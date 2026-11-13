@@ -9,7 +9,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("term");
 process.env.SHELL = "/bin/sh"; // a plain shell: no profile, no prompt theme
-const folder = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-term-")));
+const folder = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-term-")));
 
 const { addLink } = await import("../src/links.ts");
 const { addProject } = await import("../src/conversations.ts");
@@ -130,7 +130,7 @@ test("quick actions: at most five, each a name and one or more plain one-line co
 });
 
 test("a quick action's new terminal: it starts in the folder named, carries the action's name, and types its commands once the shell is up", { skip: !works }, async () => {
-  const inside = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-term-act-")));
+  const inside = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-term-act-")));
   mkdirSync(join(inside, "apps", "web"), { recursive: true });
   const link = addLink(inside, "read");
   const t = term.openTerminal({ folder: link.name, sub: "apps/web", title: "Dev", action: "Dev", type: "echo one-$((1+1)) && echo two-$((2+2))\r" });

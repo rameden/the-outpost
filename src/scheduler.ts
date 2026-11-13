@@ -81,10 +81,10 @@ function notify(title: string, message: string) {
     // A toast, through PowerShell. The words travel in the environment, never in the script itself.
     const script = "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null; " +
       "$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
-      "$t = $x.GetElementsByTagName('text'); $t.Item(0).AppendChild($x.CreateTextNode($env:SATCHEL_TITLE)) > $null; $t.Item(1).AppendChild($x.CreateTextNode($env:SATCHEL_TEXT)) > $null; " +
-      "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Satchel').Show([Windows.UI.Notifications.ToastNotification]::new($x))";
+      "$t = $x.GetElementsByTagName('text'); $t.Item(0).AppendChild($x.CreateTextNode($env:MAE_TITLE)) > $null; $t.Item(1).AppendChild($x.CreateTextNode($env:MAE_TEXT)) > $null; " +
+      "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Mae').Show([Windows.UI.Notifications.ToastNotification]::new($x))";
     execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script],
-      { env: { ...process.env, SATCHEL_TITLE: flat(title), SATCHEL_TEXT: flat(message) }, windowsHide: true, timeout: 15_000 }, () => {});
+      { env: { ...process.env, MAE_TITLE: flat(title), MAE_TEXT: flat(message) }, windowsHide: true, timeout: 15_000 }, () => {});
   }
 }
 
@@ -114,7 +114,7 @@ export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
     const report = result.text.trim();
     toInbox(`${started.toLocaleString()} · ${job.name}`, report);
     updateJob(job.name, { lastReport: report.slice(0, 3000) });
-    notify(`Satchel: ${job.name}`, report);
+    notify(`Mae: ${job.name}`, report);
     emit({ type: "job", name: job.name, outcome: "reported", text: report });
   } catch (err: any) {
     // Out of plan usage: not a failure worth a report. Put the job back so it runs after the reset.

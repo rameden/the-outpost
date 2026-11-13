@@ -1,6 +1,6 @@
-# Satchel
+# Mae
 
-A small, hackable multi-agent harness built on Claude. A **Quartermaster** plans your request, gets your OK on the plan, and sends specialist adventurers out on quests, several at once when the work allows. Each crew member has a fixed identity, its own memory and workspace, and clear limits on what it does.
+Mae (**M**y **A**lter **E**go) is a small, hackable multi-agent harness built on Claude. A **Quartermaster** plans your request, gets your OK on the plan, and sends specialist adventurers out on quests, several at once when the work allows. Each crew member has a fixed identity, its own memory and workspace, and clear limits on what it does.
 
 | | Crew member | Does | Doesn't |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Ask a crew member for work outside its role and it declines in one line, naming 
 
 ## Quick start
 
-Requires Node 22.9 or later, and either a Claude subscription (Pro or Max) or an Anthropic API key. Satchel uses **npm**; pnpm and yarn stop with a message.
+Requires Node 22.9 or later, and either a Claude subscription (Pro or Max) or an Anthropic API key. Mae uses **npm**; pnpm and yarn stop with a message.
 
 ```bash
 npm install
@@ -90,7 +90,7 @@ echo "Tidy the README" | npm run headless -- --agent scribe -
 ## Safety
 
 - **Files:** file tools only work inside the camp folder and linked folders. They never read secrets (`.env*`, keys, credentials) at any depth, never touch another agent's memory, and can't write to `skills/`, `plugins/`, or `camp/` except an agent's own outputs folder. Symlinks are checked where they really lead.
-- **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`). Set `"selfEdit": true` in `camp/settings.json` to let the crew work on Satchel itself.
+- **The camp's own code is read-only** to agents (`src/`, `tests/`, `evals/`, `package.json`). Set `"selfEdit": true` in `camp/settings.json` to let the crew work on Mae itself.
 - **Shell commands ask first.** Only narrow read-only commands (`ls`, `git status`, `git diff`…) and your own allow-list run without asking. **Never run** and **Always ask** patterns under Settings → Approvals come before everything else. The camp's keys and anything named like a secret are kept out of every command's environment.
 - **Sandbox** (macOS, or Linux with bubblewrap; off by default): commands run without asking, with no network except hosts you list, and writes only inside the project and temp folders. It doesn't protect the project folder itself, so use a worktree for work you want kept apart.
 - **Nothing leaves without your click:** agents never commit, push, or merge. Opening a pull request is your button. The Warden's review comment and the Scribe's PR description go out only after you approve the exact text. The crew can read Jira but not write to it.

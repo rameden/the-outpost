@@ -59,15 +59,15 @@ function onCampEvent(e: CampEvent, kinds: Map<string, string>, started: Map<stri
     const remote = cfg.approve.includes(e.kind) && e.kind !== "question" && !AT_YOUR_DESK.includes(e.kind); // questions need typing: answer at your desk
     const reply = `${cfg.server}/${cfg.topic}-reply`;
     const button = (label: string, a: string) => ({ action: "http", label, url: reply, method: "POST", body: `${NONCE}:${e.id} ${a}`, clear: true });
-    void publish(cfg, `Satchel: ${ASK_TITLES[e.kind] ?? "Decision needed"}`, e.body + (remote ? "" : "\n\n(Answer this one in mission control.)"),
+    void publish(cfg, `Mae: ${ASK_TITLES[e.kind] ?? "Decision needed"}`, e.body + (remote ? "" : "\n\n(Answer this one in mission control.)"),
       { priority: 4, tags: ["compass"], ...(remote ? { actions: [button("Approve", "y"), button("Decline", "n")] } : {}) });
   } else if (e.type === "answered") kinds.delete(e.id);
-  else if (e.type === "job" && e.outcome === "reported") void publish(cfg, `Satchel: ${e.name}`, e.text ?? "", { tags: ["incoming_envelope"] });
+  else if (e.type === "job" && e.outcome === "reported") void publish(cfg, `Mae: ${e.name}`, e.text ?? "", { tags: ["incoming_envelope"] });
   else if (e.type === "expedition_start" && e.source !== "job") started.set(e.id, Date.now());
   else if (e.type === "expedition_end") {
     const t = started.get(e.id);
     started.delete(e.id);
-    if (t && Date.now() - t > 60_000) void publish(cfg, `Satchel: expedition ${e.status === "done" ? "finished" : e.status.replace(/_/g, " ")}`, e.text, { tags: ["tent"] });
+    if (t && Date.now() - t > 60_000) void publish(cfg, `Mae: expedition ${e.status === "done" ? "finished" : e.status.replace(/_/g, " ")}`, e.text, { tags: ["tent"] });
   }
 }
 

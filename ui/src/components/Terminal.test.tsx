@@ -39,7 +39,7 @@ beforeEach(() => {
     if (init?.method === "POST") posts.push({ path, body });
     if (path === "/api/term") return new Response(JSON.stringify({ terminals: sessions }));
     if (path === "/api/term/open") {
-      const t = { id: `t${sessions.length + 1}`, title: body.title ?? (body.project ? "mi-web-app" : "satchel"), cwd: "/x", exited: null, ...(body.action ? { action: body.action } : {}), ...(body.locked ? { locked: true } : {}) };
+      const t = { id: `t${sessions.length + 1}`, title: body.title ?? (body.project ? "mi-web-app" : "mae"), cwd: "/x", exited: null, ...(body.action ? { action: body.action } : {}), ...(body.locked ? { locked: true } : {}) };
       sessions.push(t);
       return new Response(JSON.stringify(t));
     }
@@ -62,25 +62,25 @@ test("with nothing open it starts a session in your project's folder, and what y
 });
 
 test("it picks up sessions the camp already has, opens more, and closing a tab ends that shell", async () => {
-  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }, { id: "b", title: "mi-web-app", cwd: "/b", exited: null }];
+  sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null }, { id: "b", title: "mi-web-app", cwd: "/b", exited: null }];
   render(<TerminalPanel onHide={() => {}} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: mi-web-app *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae", "2: mi-web-app *"]));
   expect(posts).toEqual([]); // nothing new was started
-  fireEvent.click(screen.getByRole("tab", { name: /1: satchel/ }));
-  expect(tabs()).toEqual(["1: satchel *", "2: mi-web-app"]);
+  fireEvent.click(screen.getByRole("tab", { name: /1: mae/ }));
+  expect(tabs()).toEqual(["1: mae *", "2: mi-web-app"]);
   fireEvent.click(screen.getByRole("button", { name: "New terminal" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: mi-web-app", "3: satchel *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae", "2: mi-web-app", "3: mae *"]));
   fireEvent.click(screen.getByRole("button", { name: "Close terminal 3" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: mi-web-app *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae", "2: mi-web-app *"]));
   expect(posts.at(-1)).toEqual({ path: "/api/term/close", body: { id: "t3" } });
 });
 
 test("hiding the pane closes nothing; a shell that ends says so", async () => {
-  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
+  sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null }];
   const onHide = vi.fn();
   render(<TerminalPanel onHide={onHide} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel *"]));
-  fireEvent.click(screen.getByRole("tab", { name: /1: satchel/ }));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae *"]));
+  fireEvent.click(screen.getByRole("tab", { name: /1: mae/ }));
   expect(onHide).not.toHaveBeenCalled(); // a tab is a tab, not the header
   fireEvent.click(document.querySelector(".term-tabs")!); // the empty header beside the tabs
   expect(onHide).toHaveBeenCalledTimes(1);
@@ -89,7 +89,7 @@ test("hiding the pane closes nothing; a shell that ends says so", async () => {
   expect(posts.filter((p) => p.path === "/api/term/close")).toEqual([]);
   await vi.waitFor(() => expect(streams[0]?.listeners.exit).toBeTruthy());
   streams[0].listeners.exit({ data: JSON.stringify({ code: 0 }) });
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel (ended) *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae (ended) *"]));
   expect(made[0].written.at(-1)).toMatch(/The shell ended/);
 });
 
@@ -103,7 +103,7 @@ test("while it's hidden, its tab brings it back", () => {
 test("the hidden tab shows the last line of the terminal you last had open, and keeps it current", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   try {
-    sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null, last: "nothing to commit, working tree clean" },
+    sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null, last: "nothing to commit, working tree clean" },
       { id: "b", title: "web", cwd: "/b", exited: null, last: "VITE ready in 180 ms" }];
     localStorage.setItem("camp-term-tab", "a");
     const { container } = render(<TerminalRail onShow={() => {}} />);
@@ -140,10 +140,10 @@ test("a quick action is typed as one chain, with Enter unless it's left to you",
 });
 
 test("quick action chips: one runs in the terminal you're looking at, one opens its own (and leads back to it while it's going)", async () => {
-  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
+  sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null }];
   const onSetUp = vi.fn();
   render(<TerminalPanel project="p1" onHide={() => {}} actions={[PUSH, DEV, CHECK]} onSetUp={onSetUp} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae *"]));
   const chips = () => within(screen.getByRole("group", { name: "Quick actions" })).getAllByRole("button").map((b) => b.textContent || b.getAttribute("aria-label"));
   expect(chips()).toEqual(["Push", "Dev", "Check", "Set up quick actions"]);
 
@@ -152,28 +152,28 @@ test("quick action chips: one runs in the terminal you're looking at, one opens 
   await vi.waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/term/input", body: { id: "a", data: "git push origin HEAD\r" } }));
   fireEvent.click(screen.getByRole("button", { name: "Check" }));
   await vi.waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/term/input", body: { id: "a", data: "pnpm lint && pnpm test" } }));
-  expect(tabs()).toEqual(["1: satchel *"]);
+  expect(tabs()).toEqual(["1: mae *"]);
 
   // A new terminal: its own tab, named for the chip, in its folder, with the chain typed in.
   fireEvent.click(screen.getByRole("button", { name: "Dev" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: Dev *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae", "2: Dev *"]));
   expect(posts.at(-1)).toEqual({ path: "/api/term/open", body: { project: "p1", cols: 100, rows: 24, folder: "mi-web-app", sub: "apps/root", title: "Dev", action: "Dev", locked: true, type: "pnpm install && pnpm dev:production\r" } });
   // Clicked again while it's going: back to its tab, not a second dev server.
-  fireEvent.click(screen.getByRole("tab", { name: /1: satchel/ }));
+  fireEvent.click(screen.getByRole("tab", { name: /1: mae/ }));
   const before = posts.length;
   expect(screen.getByRole("button", { name: "Dev" }).className).toContain("live");
   fireEvent.click(screen.getByRole("button", { name: "Dev" }));
-  expect(tabs()).toEqual(["1: satchel", "2: Dev *"]);
+  expect(tabs()).toEqual(["1: mae", "2: Dev *"]);
   expect(posts.length).toBe(before);
   // And again, now that you're looking at its tab: it runs again right there.
   fireEvent.click(screen.getByRole("button", { name: "Dev" }));
   await vi.waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/term/input", body: { id: "t2", data: "pnpm install && pnpm dev:production\r" } }));
-  expect(tabs()).toEqual(["1: satchel", "2: Dev *"]);
+  expect(tabs()).toEqual(["1: mae", "2: Dev *"]);
   // Once that shell has ended, the chip starts a fresh one.
   streams.at(-1)!.listeners.exit({ data: JSON.stringify({ code: 0 }) });
   await vi.waitFor(() => expect(screen.getByRole("button", { name: "Dev" }).className).not.toContain("live"));
   fireEvent.click(screen.getByRole("button", { name: "Dev" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: Dev (ended)", "3: Dev *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae", "2: Dev (ended)", "3: Dev *"]));
   // "In this terminal" with a shell that has ended gets a fresh terminal instead of typing into nothing.
   fireEvent.click(screen.getByRole("tab", { name: /2: Dev/ }));
   fireEvent.click(screen.getByRole("button", { name: "Push" }));
@@ -185,9 +185,9 @@ test("quick action chips: one runs in the terminal you're looking at, one opens 
 
 test("with no quick actions there's a way to set them up, and clicking a chip doesn't hide the pane", async () => {
   const onHide = vi.fn();
-  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
+  sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null }];
   const { rerender } = render(<TerminalPanel onHide={onHide} onSetUp={() => {}} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae *"]));
   expect(screen.getByRole("button", { name: "Set up quick actions" }).textContent).toBe("Quick actions");
   rerender(<TerminalPanel onHide={onHide} actions={[PUSH]} onSetUp={() => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "Push" }));
@@ -195,9 +195,9 @@ test("with no quick actions there's a way to set them up, and clicking a chip do
 });
 
 test("a locked terminal: a quick action doesn't type into it, and a warning asks where it should go instead", async () => {
-  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
+  sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null }];
   render(<TerminalPanel project="p1" onHide={() => {}} actions={[PUSH, DEV]} onSetUp={() => {}} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae *"]));
   // Lock it from its tab; the camp keeps that with the session.
   const lockBtn = screen.getByRole("button", { name: "Lock terminal 1" });
   expect(lockBtn.getAttribute("aria-pressed")).toBe("false");
@@ -208,7 +208,7 @@ test("a locked terminal: a quick action doesn't type into it, and a warning asks
   // Push would have typed into it: it doesn't, and says so.
   const before = posts.length;
   fireEvent.click(screen.getByRole("button", { name: "Push" }));
-  const warning = screen.getByRole("alertdialog", { name: "Terminal 1 (satchel) is locked" });
+  const warning = screen.getByRole("alertdialog", { name: "Terminal 1 (mae) is locked" });
   expect(warning.textContent).toContain("Push wasn't run. You locked this terminal so quick actions don't type into it.");
   expect(within(warning).getByText("git push origin HEAD")).toBeTruthy();
   expect(posts.length).toBe(before);
@@ -220,12 +220,12 @@ test("a locked terminal: a quick action doesn't type into it, and a warning asks
   // Somewhere else: a fresh terminal gets it, and the locked one is untouched.
   fireEvent.click(screen.getByRole("button", { name: "Push" }));
   fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Run in a new terminal" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: mi-web-app *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae", "2: mi-web-app *"]));
   expect(posts.at(-1)).toEqual({ path: "/api/term/open", body: { project: "p1", cols: 100, rows: 24, type: "git push origin HEAD\r" } });
   expect(posts.some((p) => p.path === "/api/term/input")).toBe(false);
 
   // Here after all: it's unlocked first, then run.
-  fireEvent.click(screen.getByRole("tab", { name: /1: satchel/ }));
+  fireEvent.click(screen.getByRole("tab", { name: /1: mae/ }));
   fireEvent.click(screen.getByRole("button", { name: "Push" }));
   fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Unlock and run here" }));
   await vi.waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/term/input", body: { id: "a", data: "git push origin HEAD\r" } }));
@@ -234,11 +234,11 @@ test("a locked terminal: a quick action doesn't type into it, and a warning asks
 });
 
 test("a terminal a chip opened for itself starts locked: other chips are stopped there, its own chip isn't", async () => {
-  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
+  sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null }];
   render(<TerminalPanel onHide={() => {}} actions={[PUSH, DEV]} onSetUp={() => {}} />);
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae *"]));
   fireEvent.click(screen.getByRole("button", { name: "Dev" }));
-  await vi.waitFor(() => expect(tabs()).toEqual(["1: satchel", "2: Dev *"]));
+  await vi.waitFor(() => expect(tabs()).toEqual(["1: mae", "2: Dev *"]));
   expect(screen.getByRole("button", { name: "Unlock terminal 2" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Lock terminal 1" })).toBeTruthy(); // a terminal of your own isn't
   // Push, while you're looking at the dev server's tab: stopped.
@@ -253,7 +253,7 @@ test("a terminal a chip opened for itself starts locked: other chips are stopped
 });
 
 test("when the stream reconnects, the screen is cleared before the camp sends the session's output again", async () => {
-  sessions = [{ id: "a", title: "satchel", cwd: "/a", exited: null }];
+  sessions = [{ id: "a", title: "mae", cwd: "/a", exited: null }];
   render(<TerminalPanel onHide={() => {}} />);
   await vi.waitFor(() => expect(streams[0]?.url).toContain("/api/term/stream?id=a"));
   const stream = streams[0].listeners;

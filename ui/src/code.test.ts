@@ -27,9 +27,9 @@ test("code is coloured by what each piece is, and every character is kept", () =
   expect(found).toContain("comment:// a path");
   expect(found).toContain("built_in:string");
 
-  const json = '{ "name": "satchel", "private": true, "port": 4747 }';
+  const json = '{ "name": "mae", "private": true, "port": 4747 }';
   expect(textOf(colourCode(json, "package.json")!)).toBe(json);
-  expect(kinds(colourCode(json, "package.json")!)).toEqual(expect.arrayContaining(['attr:"name"', 'string:"satchel"', "number:4747"]));
+  expect(kinds(colourCode(json, "package.json")!)).toEqual(expect.arrayContaining(['attr:"name"', 'string:"mae"', "number:4747"]));
   expect(kinds(colourCode(".card { color: red; }", "a.css")!)).toEqual(expect.arrayContaining(["selector-class:.card", "attribute:color"]));
 });
 

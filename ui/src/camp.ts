@@ -61,10 +61,10 @@ export function useCampState(records = false) {
 export function handleEvent(store: FeedStore, e: CampEvent, opts: { replaying: boolean; refresh: () => void }) {
   const before = store.getState();
   if (!store.apply(e)) return;
-  if (e.type === "ask" && !opts.replaying) notify(`Satchel: ${ASK_NOTIFY_TITLES[e.kind] ?? "Decision needed"}`, e.body);
+  if (e.type === "ask" && !opts.replaying) notify(`Mae: ${ASK_NOTIFY_TITLES[e.kind] ?? "Decision needed"}`, e.body);
   if (e.type === "expedition_end") {
     const started = before.open[e.id]?.started;
-    if (started && Date.now() - started > 60_000 && !opts.replaying) notify(`Satchel: expedition ${e.status === "done" ? "finished" : spaced(e.status)}`, e.text);
+    if (started && Date.now() - started > 60_000 && !opts.replaying) notify(`Mae: expedition ${e.status === "done" ? "finished" : spaced(e.status)}`, e.text);
   }
   // "changed" includes the queue: something started, finished, or was stopped.
   if (e.type === "expedition_end" || e.type === "job" || e.type === "changed") opts.refresh();

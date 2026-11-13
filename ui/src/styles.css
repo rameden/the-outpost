@@ -188,14 +188,46 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 }
 .top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 9px 16px 9px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.brand h1 { margin: 0; display: flex; align-items: center; color: var(--wordmark); }
-.wordmark { display: block; height: 26px; width: auto; flex: none; } /* the name, drawn (Wordmark.tsx), in the artwork's own ink for each theme */
+.brand h1 { margin: 0; display: flex; align-items: center; gap: 9px; font: 600 22px/1 var(--serif); letter-spacing: .01em; color: var(--wordmark); } /* the orb, then the name */
 .tour-link { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tour-link:hover { color: var(--text); border-bottom-color: var(--accent); }
 .tour-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 :root { --wordmark: #14161A; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wordmark: #ECE6D8; } }
 :root[data-theme="dark"] { --wordmark: #ECE6D8; }
+/* The Mae orb, the logo (MaeOrb.tsx): a lit core inside two turning dials, with rings rippling
+   outward. Everything scales from --orb, its width. Its navy and ochre are its own in every
+   palette; on a dark page the lines are a lighter navy, so they still show. The tour
+   (docs/index.html) draws the same orb with the same rules. */
+.mae-orb { --orb: 26px; --orb-speed: 1; --orb-navy: #1c2541; --orb-ochre: #e9b44c; --orb-line: #1c2541; --orb-glint: #141a2b;
+  position: relative; display: inline-block; flex: none; width: var(--orb); height: var(--orb); }
+.mae-orb[data-state="listening"] { --orb-speed: .5; }
+.mae-orb[data-state="thinking"] { --orb-speed: .7; }
+.mae-orb[data-state="speaking"] { --orb-speed: .4; }
+.mae-orb > span { position: absolute; border-radius: 50%; box-sizing: border-box; }
+.orb-glow { inset: 0; background: radial-gradient(circle at center, var(--orb-line) 0%, transparent 65%); filter: blur(calc(var(--orb) * .16)); opacity: .6; transition: opacity .5s; }
+.mae-orb:not([data-state="idle"]) .orb-glow { opacity: .9; }
+.orb-ripple { inset: 0; border: 1px solid var(--orb-line); opacity: 0; animation: orb-ripple calc(3s * var(--orb-speed)) ease-out infinite; }
+.orb-ripple.late { border-color: var(--orb-ochre); animation-delay: 1.5s; }
+.orb-ripple.busy { border-width: 2px; animation-delay: .75s; display: none; } /* a third ring, only while it's at work */
+.mae-orb:not([data-state="idle"]) .orb-ripple.busy { display: block; }
+.orb-dial { inset: 8%; border: 1px solid var(--orb-line); animation: orb-turn calc(14s * var(--orb-speed)) linear infinite; }
+.orb-dial i { position: absolute; border-radius: 50%; width: max(2px, calc(var(--orb) * .02)); height: max(2px, calc(var(--orb) * .02)); background: var(--orb-line); transform: translate(-50%, -50%); }
+.orb-dial i:nth-child(1) { top: 0; left: 50%; width: max(3px, calc(var(--orb) * .03)); height: max(3px, calc(var(--orb) * .03)); box-shadow: 0 0 calc(var(--orb) * .05) var(--orb-line); }
+.orb-dial i:nth-child(2) { top: 50%; left: 100%; background: var(--orb-ochre); }
+.orb-dial i:nth-child(3) { top: 100%; left: 50%; }
+.orb-dial.inner { inset: 20%; border: 1px dashed var(--orb-ochre); animation: orb-turn-back calc(9s * var(--orb-speed)) linear infinite; }
+.orb-core { inset: 32%; animation: orb-breathe calc(3.4s * var(--orb-speed)) ease-in-out infinite; }
+.orb-core i { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--orb-ochre) 0%, var(--orb-navy) 45%, oklch(0.3 0.08 240) 100%); box-shadow: 0 0 calc(var(--orb) * .2) var(--orb-line), inset 0 0 calc(var(--orb) * .12) oklch(1 0 0 / .35); animation: orb-flicker calc(4s * var(--orb-speed)) ease-in-out infinite; }
+.orb-light { inset: 42%; background: var(--orb-glint); opacity: .7; filter: blur(calc(var(--orb) * .01)); }
+@keyframes orb-turn { to { transform: rotate(360deg); } }
+@keyframes orb-turn-back { to { transform: rotate(-360deg); } }
+@keyframes orb-breathe { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.12); opacity: 1; } }
+@keyframes orb-ripple { 0% { transform: scale(.85); opacity: .7; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes orb-flicker { 0%, 100% { opacity: .85; } 45% { opacity: 1; } 55% { opacity: .6; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; } }
+:root[data-theme="dark"] .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; }
+@media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .top-chips { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 .top-tools { display: flex; align-items: center; gap: 2px; flex: none; }
@@ -1211,7 +1243,8 @@ a.att-name { color: var(--accent); }
 .signin-link { width: min(420px, 100%); font: 13px var(--mono); padding: 5px 8px; border: 1px solid var(--field); border-radius: 6px; background: var(--bg); color: var(--text); }
 /* Not signed in: one quiet card in the middle of the page */
 .sign-in { max-width: 460px; margin: 18vh auto 0; padding: 0 24px; display: grid; gap: 10px; color: var(--text); font-size: 15px; line-height: 1.5; }
-.sign-in h1 { font-size: 22px; margin: 0 0 6px; }
+.sign-in h1 { font: 600 24px/1.2 var(--serif); margin: 0 0 6px; }
+.sign-in .mae-orb { --orb: 72px; margin: 0 0 14px 6px; }
 .sign-in p { margin: 0; }
 .sign-in kbd { font: 600 12px var(--mono); padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; }
 .mem-out { color: var(--bad); }
@@ -1300,7 +1333,8 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   /* The header is one row: the name, what the camp is doing (it scrolls sideways, what needs you
      first), and the switches that still mean something when the zones are stacked. */
   .top { padding: 8px 12px; gap: 10px; flex-wrap: nowrap; }
-  .wordmark { height: 22px; }
+  .brand h1 { font-size: 19px; gap: 7px; }
+  .brand .mae-orb { --orb: 24px; }
   .tour-link, .wide-only { display: none; }
   .top-right { flex: 1; gap: 6px; }
   .top-chips { flex: 1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }

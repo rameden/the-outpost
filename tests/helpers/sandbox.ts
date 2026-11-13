@@ -19,7 +19,7 @@ export const NEEDS_POSIX: string | false = WINDOWS ? "checks something only macO
 // Tests run on the API runtime against a fake API; evals keep whatever runtime you've configured.
 export function enterSandbox(name: string, opts: { keepRuntime?: boolean } = {}): string {
   // (By its full name: on Windows mkdtemp can hand back the short one, C:\\Users\\RUNNER~1\\…, which git never uses.)
-  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), `satchel-${name}-`)));
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), `mae-${name}-`)));
   // The skills that come with the camp (the ones git tracks), not ones you've imported or been
   // proposed since: a test shouldn't pass or fail on what happens to be installed here.
   const shipped = execFileSync("git", ["ls-files", "-z", "skills"], { cwd: REPO, encoding: "utf8" }).split("\0").filter(Boolean);

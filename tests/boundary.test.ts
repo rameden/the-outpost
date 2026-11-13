@@ -33,7 +33,7 @@ writeFileSync("pkgs/tool/cli.js", "// a tool\n");
 symlinkSync("../tool/cli.js", "pkgs/.bin/tool");                       // the node_modules/.bin kind: stays inside
 
 // Somewhere else on disk, with things no agent should reach.
-const outside = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-boundary-out-")));
+const outside = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-boundary-out-")));
 writeFileSync(join(outside, "id_ed25519"), "PRIVATE-KEY-456\n");
 writeFileSync(join(outside, "plain.txt"), "outside-text\n");
 
@@ -75,7 +75,7 @@ const { ensureProxy, stopProxy } = await import("../src/netproxy.ts");
 // A folder that isn't under a temp folder, for what only shows there: the sandbox lets every
 // command write in temp folders, so "this can't be written" needs a project somewhere else.
 // node_modules/.cache is ignored by git and is where tools keep throwaway files.
-let probe = join(REPO, "node_modules", ".cache", `satchel-boundary-${process.pid}`);
+let probe = join(REPO, "node_modules", ".cache", `mae-boundary-${process.pid}`);
 try { mkdirSync(probe, { recursive: true }); probe = realpathSync.native(probe); } catch { probe = ""; }
 const live = sandboxKind() === "seatbelt" && !!probe;
 

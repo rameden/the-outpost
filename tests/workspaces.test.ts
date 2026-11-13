@@ -11,7 +11,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("workspaces");
 // A project of its own, outside the camp, to link.
-const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-repo-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-repo-")));
 const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 git(repo, "init", "-q", "-b", "main");
 git(repo, "config", "user.email", "test@example.com");
@@ -146,7 +146,7 @@ test("what shell commands change in a linked repo is in View changes, and Undo p
   const { diff } = checkpointDiff("exp-shell");
   assert.match(diff, /Changed by shell commands in links\/[\w-]+[\s\S]*\+v9/);
   assert.doesNotMatch(diff, /TOKEN/);
-  const refs = git(repo, "for-each-ref", "--format=%(refname)", "refs/satchel/checkpoints/exp-shell/").split("\n");
+  const refs = git(repo, "for-each-ref", "--format=%(refname)", "refs/mae/checkpoints/exp-shell/").split("\n");
   assert.equal(refs.length, 2, "a before and an after snapshot");
   assert.doesNotMatch(git(repo, "ls-tree", "-r", "--name-only", refs[0]), /\.env/, "secret files aren't kept in a snapshot");
   assert.equal(git(repo, "rev-parse", "HEAD"), headBefore, "HEAD doesn't move");
@@ -172,7 +172,7 @@ test("two quests starting commands in one repo at once share one snapshot, and a
     await writeFileFor("artificer").run!({ path: `${L}/during.txt`, content: "saved while git worked\n" });
     await Promise.all([first, snapshotBeforeShell(repo, show), snapshotBeforeShell(join(repo, "."), show)]);
   });
-  const refs = git(repo, "for-each-ref", "--format=%(refname)", "refs/satchel/checkpoints/exp-two/").split("\n").filter(Boolean);
+  const refs = git(repo, "for-each-ref", "--format=%(refname)", "refs/mae/checkpoints/exp-two/").split("\n").filter(Boolean);
   assert.equal(refs.length, 1, "one snapshot");
   const r = undoCheckpoint("exp-two");
   assert.ok(r.restored.includes(`${L}/during.txt`), "the file tool's change is still on record");
@@ -198,7 +198,7 @@ function kept(out: string, secret: RegExp) {
 
 test("sandbox: no network, no writes outside the project, no reading secrets; commits still work", { skip: !sandboxAvailable() }, async () => {
   const sandbox = sandboxPlanFor(repo);
-  const outside = join(homedir(), `.satchel-sandbox-probe-${process.pid}`);
+  const outside = join(homedir(), `.mae-sandbox-probe-${process.pid}`);
   assert.match(await runShell(`echo x > ${outside}`, { cwd: repo, sandbox }), REFUSED);
   assert.ok(!existsSync(outside));
   assert.equal(await runShell("echo ok > inside.txt && cat inside.txt", { cwd: repo, sandbox }), "ok");

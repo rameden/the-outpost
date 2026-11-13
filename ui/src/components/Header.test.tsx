@@ -61,7 +61,7 @@ test("the busy chip counts running expeditions and what's queued, and the title 
   );
   expect(screen.getByText("2 expeditions running · 1 queued")).toBeTruthy();
   expect(screen.getByRole("button", { name: "2 decisions need you" })).toBeTruthy();
-  expect(document.title).toBe("(2) Satchel");
+  expect(document.title).toBe("(2) Mae");
 
   events(store, { type: "answered", id: "ask1", answer: "" });
   expect(screen.getByRole("button", { name: "1 decision needs you" })).toBeTruthy();
@@ -147,15 +147,21 @@ test("what needs you is one chip: several things open a list, and each row goes 
   expect(screen.queryByRole("button", { name: /need/ })).toBeNull();
 });
 
-test("the name is the wordmark, drawn in the theme's text colour, with no subtitle beside it", () => {
-  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+test("the name is the orb and the word Mae, with no subtitle beside it", () => {
+  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   const name = screen.getByRole("heading", { level: 1 });
-  const mark = within(name).getByRole("img", { name: "Satchel" });
-  expect(mark.querySelector("path")!.getAttribute("fill")).toBe("currentColor");
-  expect(mark.getAttribute("viewBox")).toBe("36 -656 2633 805");
-  expect(mark.querySelector("metadata")).toBeNull(); // the outline only
+  expect(name.textContent).toBe("Mae");
   expect(screen.queryByText("Mission control")).toBeNull();
-  expect(name.textContent).toBe(""); // no emoji, no words: the drawing is the name
+  // The orb is decoration beside the name (the name is read once), and calm while nothing is running.
+  const orb = name.querySelector(".mae-orb")!;
+  expect(orb.getAttribute("aria-hidden")).toBe("true");
+  expect(orb.getAttribute("data-state")).toBe("idle");
+  expect(orb.hasAttribute("style")).toBe(false); // the page allows no inline styles
+  // While any of the crew is at work it's livelier.
+  const store = createFeedStore();
+  rerender(<Header S={camp()} store={store} conn="live" refresh={() => {}} />);
+  events(store, { type: "expedition_start", id: "a", task: "One", source: "user" });
+  expect(screen.getByRole("heading", { level: 1 }).querySelector(".mae-orb")!.getAttribute("data-state")).toBe("thinking");
 });
 
 test("the connection only shows when it's lost or not made yet", () => {
@@ -167,7 +173,7 @@ test("the connection only shows when it's lost or not made yet", () => {
   expect(screen.getByText("Connecting…")).toBeTruthy();
 });
 
-test("a Tour link beside the wordmark opens the splash page in a new tab", () => {
+test("a Tour link beside the name opens the splash page in a new tab", () => {
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   const link = screen.getByRole("link", { name: "Tour" });
   expect(link.getAttribute("href")).toBe("/splash");

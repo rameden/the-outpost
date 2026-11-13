@@ -61,14 +61,14 @@ test("headless: without --approve-plan the plan is declined, and the run ends wi
 });
 
 // ---------- Triggers ----------
-const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-trig-")));
+const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-trig-")));
 const link = addLink(repo, "read");
 let issues: { id: string; title: string; url: string; body: string }[] = [];
 let failing = false;
 const sources = {
   githubIssues: async (dir: string, label: string) => {
     if (failing) throw Object.assign(new Error("x"), { stderr: "gh: not logged in to any hosts" });
-    assert.equal(dir, repo); assert.equal(label, "satchel");
+    assert.equal(dir, repo); assert.equal(label, "mae");
     return issues;
   },
   jiraTickets: async () => [{ id: "APP-9", title: "Login breaks", url: "https://x.atlassian.net/browse/APP-9", body: "", jira: "APP-9" }],
@@ -82,12 +82,12 @@ test("a trigger is checked before it's kept: a name, what to watch, and what to 
   assert.match((t.cleanTrigger({ name: "a", kind: "github-issue", task: "x", link: "nope", label: "l" }) as any).error, /linked repository/);
   assert.match((t.cleanTrigger({ name: "a", kind: "github-issue", task: "x", link: link.name }) as any).error, /label/);
   assert.match((t.cleanTrigger({ name: "a", kind: "github-issue", task: "x", link: link.name, label: "l", worktree: true }) as any).error, /read-only/);
-  const ok = t.cleanTrigger({ name: "fix-issues", kind: "github-issue", task: "Fix it.", link: link.name, label: "satchel", project: "web" });
+  const ok = t.cleanTrigger({ name: "fix-issues", kind: "github-issue", task: "Fix it.", link: link.name, label: "mae", project: "web" });
   assert.ok(!("error" in ok) && ok.link === link.name && ok.enabled && ok.project === "web");
 });
 
 test("a trigger's first look only notes what's there; after that each new item is started once, a few at a time", async () => {
-  const made = t.cleanTrigger({ name: "fix-issues", kind: "github-issue", task: "Fix it.", link: link.name, label: "satchel" });
+  const made = t.cleanTrigger({ name: "fix-issues", kind: "github-issue", task: "Fix it.", link: link.name, label: "mae" });
   assert.ok(!("error" in made));
   if ("error" in made) return;
   t.saveTriggers([made]);
@@ -241,7 +241,7 @@ test("the proxy tunnels to allowed hosts only, and remembers the ones it refused
 });
 
 test("a sandboxed command is pointed at the proxy only when you've allowed hosts", { skip: sandboxKind() !== "seatbelt" }, async () => {
-  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-px-")));
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-px-")));
   setShellLists({ allowHosts: [] });
   assert.equal(await runShell("echo \"[$HTTPS_PROXY]\"", { cwd: dir, sandbox: sandboxPlanFor(dir) }), "[]");
   setShellLists({ allowHosts: ["registry.npmjs.org"] });
@@ -252,7 +252,7 @@ test("a sandboxed command is pointed at the proxy only when you've allowed hosts
 });
 
 test("bubblewrap (Linux): read-only everywhere, the project and temp writable, git's hooks and your secrets covered", { skip: NEEDS_POSIX }, () => {
-  const root = realpathSync.native(mkdtempSync(join(tmpdir(), "satchel-bw-")));
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-bw-")));
   mkdirSync(join(root, ".git", "hooks"), { recursive: true });
   mkdirSync(join(root, "app", "node_modules", "x"), { recursive: true });
   writeFileSync(join(root, "app", ".env.local"), "S=1");

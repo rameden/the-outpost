@@ -78,7 +78,7 @@ async function connect(name: string, cfg: ServerConfig): Promise<Connection> {
     cwd: cfg.cwd,
     stderr: "ignore",
   });
-  const client = new Client({ name: "satchel", version: "1.0.0" });
+  const client = new Client({ name: "mae", version: "1.0.0" });
   await client.connect(transport);
   const { tools } = await client.listTools();
   return { client, tools: tools as McpTool[] };
