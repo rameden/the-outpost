@@ -1,0 +1,4 @@
+#!/bin/sh
+# The demo's stand-in for the GitHub CLI (see ../gh.mjs). The demo puts this folder first on the
+# camp's PATH, so Mae's `gh` calls land here instead of going to GitHub.
+exec node "$(dirname "$0")/../gh.mjs" "$@"

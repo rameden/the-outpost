@@ -38,6 +38,8 @@ npm run watch       # scheduled jobs from the terminal (mission control runs the
 
 Try: *"Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc."*
 
+**To watch it take a ticket to a reviewed pull request:** `npm run demo` starts a separate camp pointed at a small sample project with seven bugs (three of them from a SOC 2 and ISO 27001 readiness review), with stand-ins for Jira and GitHub on your own machine. See [demo/README.md](demo/README.md).
+
 **On Windows** it works the same way. The crew's commands run in Git Bash (or PowerShell without it; set `CAMP_SHELL` to choose), there's no sandbox (run inside WSL 2 for one), and `npm run watch:install` prints a Task Scheduler command instead of installing a macOS agent.
 
 **From your other machines at home (LAN mode):** by default only the machine the camp runs on can reach it. Put `CAMP_LAN=1` in `.env` and start it with `npm run ui:serve`: it prints the address your other machines use (for example `http://winbox:4747/`) and a sign-in link for it. It's plain HTTP, so it's for a home network you trust: never an office or shared network, and never a port forwarded to the internet. The terminal pane only opens on the camp's own machine (it's a shell there), and from another machine you paste a folder's path instead of using the folder dialog. Each browser signs in once with a one-time link: the camp's terminal prints one, or make one under Settings → General → Other devices. On Windows, allow Node through the firewall for private networks when it asks.

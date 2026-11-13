@@ -1,0 +1,3 @@
+# What `npm run demo` makes: the sample project as its own repository, the stand-ins' state,
+# and the demo's camp folder. `npm run demo:reset` replaces it.
+.instance/

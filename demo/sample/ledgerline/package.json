@@ -1,0 +1,14 @@
+{
+  "name": "ledgerline",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Invoices for a small studio: totals, discount codes, billing dates, and a CSV export for the accountant.",
+  "type": "module",
+  "exports": "./src/index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

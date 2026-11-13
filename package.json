@@ -16,7 +16,10 @@
     "ui:dev": "npm run ui",
     "test": "tsx --test --test-reporter=spec tests/*.test.ts && vitest run --config ui/vite.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui",
-    "eval": "tsx --import ./scripts/env.mjs evals/run.ts"
+    "eval": "tsx --import ./scripts/env.mjs evals/run.ts",
+    "demo": "node demo/demo.mjs start",
+    "demo:reset": "node demo/demo.mjs reset",
+    "demo:check": "node demo/demo.mjs check"
   },
   "keywords": [],
   "author": "",
