@@ -9,21 +9,31 @@ import { api } from "../api.ts";
 import type { CampEvent } from "../types.ts";
 import { applyEvent, emptyFeed, type ExpNode, type FeedNode, type FeedState } from "./reducer.ts";
 
-// What the middle of the page shows: everything, a blank page for a new conversation (optionally
-// filed under a project), one conversation, one project's page, or all your projects.
-export type View = { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string }
+// What the middle of the page shows: Today (your brief, and where things stand), everything, a
+// blank page for a new conversation (optionally filed under a project), one conversation, one
+// project's page, or all your projects.
+export type View = { kind: "home" } | { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string }
   | { kind: "project"; id: string } | { kind: "projects" } | { kind: "jira" } | { kind: "wiki"; page?: string }; // wiki: every page, or one being read
+
+// Where a message sent from Today starts: the project you last worked in (the latest
+// conversation's), or outside any project if that was General or there's nothing yet.
+export function homeProject(history: { conversations: { project: string }[] } | undefined): string | undefined {
+  const last = history?.conversations[0]?.project; // they're newest first
+  return last && last !== "general" ? last : undefined;
+}
 
 export function parseView(saved: string | null): View {
   try {
     const v = JSON.parse(saved ?? "") as View;
     if (v?.kind === "all") return { kind: "all" };
+    if (v?.kind === "new") return { kind: "new" };
+    if (v?.kind === "home") return { kind: "home" };
     if (v?.kind === "projects") return { kind: "projects" };
     if (v?.kind === "jira") return { kind: "jira" };
     if (v?.kind === "wiki") return { kind: "wiki", ...(typeof v.page === "string" ? { page: v.page } : {}) };
     if ((v?.kind === "conversation" || v?.kind === "project") && typeof v.id === "string") return { kind: v.kind, id: v.id };
   } catch { /* nothing saved */ }
-  return { kind: "new" };
+  return { kind: "home" }; // the page the camp opens on
 }
 
 // Saved events → feed cards. They're renumbered far above the live feed's numbers, so a card

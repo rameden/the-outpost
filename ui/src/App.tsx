@@ -12,7 +12,7 @@ import { History, HistoryRail } from "./components/History.tsx";
 import { TerminalPanel, TerminalRail } from "./components/Terminal.tsx";
 import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
 import { NotesPanel, NotesRail, PickToNote } from "./components/Notes.tsx";
-import { appendToNote, newNote, noteFile, notesNow, titleOf } from "./notes.ts";
+import { appendToNote, newNote, noteFile, notesNow, openNote, titleOf } from "./notes.ts";
 import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
 import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
@@ -29,9 +29,10 @@ import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
 import { setCrewColors } from "./format.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
+import { Home } from "./components/Home.tsx";
 import { api, errorText } from "./api.ts";
 import type { History as HistoryData, Project, SendResult } from "./types.ts";
-import { latestLiveRun, parseView, usePast, type View } from "./feed/conversation.ts";
+import { homeProject, latestLiveRun, parseView, usePast, type View } from "./feed/conversation.ts";
 import { useFeed } from "./feed/store.ts";
 import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
@@ -93,7 +94,8 @@ export function App({ store }: { store: FeedStore }) {
   const past = usePast(thread);
   const liveRun = useFeed(store, (s) => (thread ? latestLiveRun(s.items, thread) : undefined));
   const conversation = thread ? S?.history.conversations.find((c) => c.id === thread) : undefined;
-  const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : view.kind === "project" ? view.id : conversation?.project));
+  // (From Today, what you send starts in the project you last worked in.)
+  const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : view.kind === "home" ? homeProject(S?.history) : view.kind === "project" ? view.id : conversation?.project));
   // A project's page, or the list of them (also where a deleted project's page lands).
   const page = view.kind === "wiki" ? "wiki" : view.kind === "jira" ? (S?.jira?.connected ? "jira" : "projects") // unlinked since: there's nothing to show
     : view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
@@ -110,7 +112,7 @@ export function App({ store }: { store: FeedStore }) {
       ...(conversation?.without?.length ? { without: conversation.without } : {}) };
     if (view.kind === "all") return undefined;
     // A new page: what you send starts a conversation (in that project, if it's a project's).
-    const inProject = project && project.id !== "general" && view.kind === "new" && !!view.project;
+    const inProject = project && project.id !== "general" && (view.kind === "home" || (view.kind === "new" && !!view.project));
     return {
       project: inProject ? project.id : undefined,
       placeholder: inProject ? `Start a conversation in ${project.name}…` : "Ask a model anything, or start with @ to bring in the crew…",
@@ -300,9 +302,17 @@ export function App({ store }: { store: FeedStore }) {
     catch (e) { tell(store, errorText(e), true); }
   };
 
+  // Today (the logo, and /today).
+  const goHome = useCallback(() => { setSettings(null); setView({ kind: "home" }); }, [setView]);
+  // One of your notes, picked on Today: the Notes panel opens on it.
+  const showNote = (id: string) => {
+    openNote(id);
+    if (hasNotes) showNotes(true); else { tell(store, "Notes has no zone in your layout yet: pick one for it here."); setLayoutEditor({}); }
+  };
   // One place for everything a typed /command, the palette, or a shortcut can ask for.
   const command = (name: string, arg?: string) => {
-    if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
+    if (name === "today") goHome();
+    else if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
     else if (name === "focus") toggleFocus();
     else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
     else if (name === "terminal") toggleTerminal();
@@ -353,7 +363,7 @@ export function App({ store }: { store: FeedStore }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [palette, S?.history]);
   // Where you are, for the draft kept in the message box.
-  const draftKey = view.kind === "conversation" ? `c:${view.id}` : view.kind === "new" ? `new:${view.project ?? ""}` : view.kind === "project" ? `p:${view.id}` : view.kind;
+  const draftKey = view.kind === "conversation" ? `c:${view.id}` : view.kind === "new" ? `new:${view.project ?? ""}` : view.kind === "home" ? "home" : view.kind === "project" ? `p:${view.id}` : view.kind;
 
   // The crew dialog: a new crew member (the + at the end of the crew bar), or one you added being edited.
   const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
@@ -410,6 +420,8 @@ export function App({ store }: { store: FeedStore }) {
   const onAttachLink = useCallback((link: Link) => composer.current?.attachLink(link), []);
   const onInsertNote = useCallback((text: string) => composer.current?.insert(text), []);
   const onAttachNote = useCallback((note: Note) => composer.current?.attachFiles([noteFile(note)]), []);
+  // The project the Notes panel works for (a ticket is written from its code; ideas are suggested for it): none, outside one.
+  const notesProject = useMemo(() => (project && project.id !== "general" ? { id: project.id, name: project.name } : undefined), [project?.id, project?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const onPickToNote = useCallback((text: string, fresh: boolean) => act.current.noteIt(text, fresh), []);
   const openConversation = useCallback((id: string) => setView({ kind: "conversation", id }), [setView]);
 
@@ -435,7 +447,7 @@ export function App({ store }: { store: FeedStore }) {
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
             filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined}
             notesOpen={notesOpen} onToggleNotes={hasNotes ? toggleNotes : undefined} onOpenLayout={openLayout}
-            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} />
+            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -466,6 +478,11 @@ export function App({ store }: { store: FeedStore }) {
                     <WikiHome S={S} open={view.kind === "wiki" ? view.page : undefined} onOpen={(path) => setView(path ? { kind: "wiki", page: path } : { kind: "wiki" })} refresh={refresh} />
                   ) : page === "projects" && S ? (
                     <ProjectsOverview S={S} setView={setView} onNew={() => setDialog({ project: null })} />
+                  ) : view.kind === "home" && !S ? (
+                    // Today's page, before the camp has answered: its heading, and nothing to mislead under it.
+                    <><div className="conv-head"><h2>Today</h2></div><div className="feed" /></>
+                  ) : view.kind === "home" && S ? (
+                    <Home S={S} setView={setView} onStartTicket={(t) => setWizard({ ticket: t })} onOpenNote={showNote} onOpenMemory={() => openSettings("memory")} />
                   ) : (
                     <>
                       <div className="conv-head">
@@ -519,7 +536,7 @@ export function App({ store }: { store: FeedStore }) {
                     {/* On a narrow page the panel sits over everything, like Files: a press on the rest closes it. */}
                     <button type="button" className="notes-scrim" aria-label="Hide the notes" tabIndex={-1} onClick={toggleNotes} />
                     {/* A page with no message box (Projects, Jira, the wiki) has nowhere to send a note to. */}
-                    <NotesPanel onHide={toggleNotes} onInsert={page ? undefined : onInsertNote} onAttach={page ? undefined : onAttachNote} onOpenConversation={openConversation} />
+                    <NotesPanel onHide={toggleNotes} onInsert={page ? undefined : onInsertNote} onAttach={page ? undefined : onAttachNote} onOpenConversation={openConversation} project={notesProject} />
                   </ZoneBoundary>;
               case "terminal": return state === "collapsed"
                 ? <TerminalRail onShow={toggleTerminal} />

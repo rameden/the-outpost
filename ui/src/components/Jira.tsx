@@ -68,32 +68,44 @@ function JiraFilter({ kept, refresh }: { kept: string; refresh: () => void }) {
 }
 
 // What the camp may write to Jira: nothing, unless you turn this on. With it on, a ticket gets a
-// short comment when work starts from it and when its pull request opens (in the camp's own
-// fixed words: nothing an agent wrote goes to Jira), and moves to a status if you name one.
+// short comment at four moments (work starts from it, a run finishes with changes to look over,
+// its pull request opens, that pull request is merged), in the camp's own fixed words: nothing an
+// agent wrote goes to Jira. It moves to a status at any of them if you name one.
+const MOMENTS = [
+  { key: "startStatus", label: "Move it when work starts", aria: "Status when work starts" },
+  { key: "reviewStatus", label: "Move it when the work is ready to look over", aria: "Status when the work is ready to look over" },
+  { key: "prStatus", label: "Move it when the pull request opens", aria: "Status when the pull request opens" },
+  { key: "doneStatus", label: "Move it when the pull request is merged", aria: "Status when the pull request is merged" },
+] as const;
+type Statuses = Record<(typeof MOMENTS)[number]["key"], string>;
+const statusesOf = (w: Partial<Statuses>): Statuses => ({ startStatus: w.startStatus ?? "", reviewStatus: w.reviewStatus ?? "", prStatus: w.prStatus ?? "", doneStatus: w.doneStatus ?? "" });
+
 export function JiraWriteBack({ S, refresh }: { S: CampState; refresh: () => void }) {
   const w = S.settings.jiraWrite;
-  const [start, setStart] = useState(w.startStatus);
-  const [pr, setPr] = useState(w.prStatus);
+  const [names, setNames] = useState(() => statusesOf(w));
   const [error, setError] = useState("");
   const [kept, setKept] = useState(false);
-  const save = async (next: { on: boolean; startStatus: string; prStatus: string }) => {
+  const save = async (on: boolean) => {
     setError(""); setKept(false);
-    try { await api("/api/jira/write", next); setKept(true); refresh(); } catch (e) { setError(errorText(e)); }
+    try { await api("/api/jira/write", { on, ...names }); setKept(true); refresh(); } catch (e) { setError(errorText(e)); }
   };
-  const changed = start.trim() !== w.startStatus || pr.trim() !== w.prStatus;
+  const now = statusesOf(w);
+  const changed = MOMENTS.some((m) => names[m.key].trim() !== now[m.key]);
   return (
-    <form className="jira-write" aria-label="Writing back to Jira" onSubmit={(ev) => { ev.preventDefault(); void save({ on: w.on, startStatus: start, prStatus: pr }); }}>
+    <form className="jira-write" aria-label="Writing back to Jira" onSubmit={(ev) => { ev.preventDefault(); void save(w.on); }}>
       <label className="switch"><input type="checkbox" checked={w.on} aria-label="Let the camp write to Jira"
-        onChange={(ev) => save({ on: ev.target.checked, startStatus: start, prStatus: pr })} /> Write back to tickets: {w.on ? "On" : "Off"}</label>
-      <div className="field-hint">Off, nothing is ever written to Jira. On, a ticket you start work from gets a comment saying work has started (and on which branch), and another with the link when you open its pull request.
-        The comments are posted as you. The crew still can't write to Jira: this is the camp, at those two moments only.</div>
+        onChange={(ev) => save(ev.target.checked)} /> Write back to tickets: {w.on ? "On" : "Off"}</label>
+      <div className="field-hint">Off, nothing is ever written to Jira. On, a ticket you start work from gets a comment at four moments: when work starts (and on which branch), when a run finishes with changes for you to look over,
+        when you open its pull request (with the link), and when that pull request is merged. The comments are posted as you, in the camp's own words. The crew still can't write to Jira: this is the camp, at those moments only.</div>
       {w.on && (
         <>
           <div className="jira-write-row">
-            <label className="field">Move it when work starts<input aria-label="Status when work starts" placeholder="Leave it where it is" value={start} onChange={(ev) => { setStart(ev.target.value); setKept(false); }} /></label>
-            <label className="field">Move it when the pull request opens<input aria-label="Status when the pull request opens" placeholder="Leave it where it is" value={pr} onChange={(ev) => { setPr(ev.target.value); setKept(false); }} /></label>
+            {MOMENTS.map((m) => (
+              <label key={m.key} className="field">{m.label}<input aria-label={m.aria} placeholder="Leave it where it is" value={names[m.key]}
+                onChange={(ev) => { setNames((n) => ({ ...n, [m.key]: ev.target.value })); setKept(false); }} /></label>
+            ))}
           </div>
-          <div className="field-hint">The name of a status in your workflow, such as In Progress or In Review. If the ticket can't go there from where it is, it's left alone and you're told.</div>
+          <div className="field-hint">The name of a status in your workflow, such as In Progress, In Review or Done. If the ticket can't go there from where it is, it's left alone and you're told.</div>
           <div className="card-actions"><button type="submit" className="btn small" disabled={!changed}>Keep these</button>{kept && !changed && <span className="meta" role="status">Kept.</span>}</div>
         </>
       )}

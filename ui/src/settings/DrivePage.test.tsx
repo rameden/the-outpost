@@ -1,0 +1,106 @@
+// Two pages of Settings: the week in numbers, and the switches for what the camp does unasked.
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
+import type { CampState, HomePage, WeekScore } from "../types.ts";
+import { StatsPage, UnaskedPage, shownWeek } from "./DrivePage.tsx";
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+const week = (over: Partial<WeekScore> = {}): WeekScore => ({
+  week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", requests: 12, byMae: 1, conversations: 3,
+  kinds: { work: 5, feedback: 3, writeup: 3, goahead: 1, question: 0, review: 0 }, operating: 58, perTicket: 10,
+  crew: [{ who: "Quartermaster", runs: 9, seconds: 4000 }, { who: "Artificer", runs: 6, seconds: 3000 }], seconds: 5400, cost: 12.5, finished: 96,
+  prs: { opened: 2, merged: 1, rounds: 2, hoursToMerge: 72 }, ratings: { up: 1, down: 0 }, ...over,
+});
+const page = (over: Partial<HomePage> = {}): HomePage => ({
+  name: "Ryley", today: "2026-11-13", brief: null, days: [],
+  board: { weeks: [week({ week: "2026-11-02", label: "Nov 2 to Nov 8, 2026", requests: 20, operating: 70, byMae: 0 }), week()] },
+  offers: [{ key: "github-pr:web", what: "Watch your pull requests in links/web", why: "In the last two weeks: 3 times you brought a pull request's review comments to the crew yourself.",
+    trigger: { name: "my-pull-requests-web", kind: "github-pr", link: "web", describe: false, project: "p1" } }],
+  retros: [{ project: "p1", name: "web", week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", written: "2026-11-13T20:00:00.000Z", requests: 12, heard: 4, proposed: ["Sign every commit."] }],
+  drive: { brief: true, briefAt: "08:00", retro: false }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
+});
+const S = (over: Record<string, unknown> = {}) => ({
+  history: { projects: [{ id: "general", name: "General" }, { id: "p1", name: "web" }], conversations: [] },
+  settings: { prWatch: true }, triggers: [], ...over,
+}) as unknown as CampState;
+
+function camp(answers: Record<string, unknown>) {
+  const asked: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    asked.push(`${init?.method ?? "GET"} ${url}${init?.body ? ` ${init.body}` : ""}`);
+    const hit = Object.keys(answers).find((k) => String(url).startsWith(k));
+    return new Response(JSON.stringify(hit ? answers[hit] : { error: "Not found" }), { status: hit ? 200 : 404 });
+  }));
+  return asked;
+}
+
+test("the week whose numbers are shown is this one once it has anything in it, otherwise the last that had", () => {
+  const quiet = week({ week: "2026-11-16", requests: 0, byMae: 0 });
+  expect(shownWeek([week(), quiet])?.week.week).toBe("2026-11-09"); // Monday morning: last week's
+  expect(shownWeek([quiet])).toBeNull();
+});
+
+test("Stats: the week in headline numbers, ranked bars, and every week as a table; one project's on request", async () => {
+  const asked = camp({ "/api/home": page() });
+  render(<StatsPage S={S()} />);
+  expect(await screen.findByText("The week of Nov 9 to Nov 15, 2026")).toBeTruthy();
+  const tile = (label: string) => screen.getAllByText(label)[0].parentElement!.textContent; // (the table below names some of the same things)
+  expect(tile("Requests you typed")).toBe("Requests you typed12down from 20 the week before");
+  expect(tile("Spent operating")).toBe("Spent operating58%down from 70% the week before");
+  expect(tile("Pull requests merged")).toBe("Pull requests merged12 rounds of review, 72 h open");
+  expect(tile("Crew time")).toBe("Crew time1.5 h$12.50 at API prices");
+  const asks = within(screen.getByText("What you asked for").parentElement!).getAllByRole("listitem").map((r) => r.textContent);
+  expect(asks).toEqual(["Building and changing5", "Bringing in review feedback3", "Asking for a write-up3", "Saying “go ahead”1"]); // largest first; a kind with none isn't listed
+  expect(within(screen.getByText("Who did the work").parentElement!).getAllByRole("listitem")[0].getAttribute("title")).toBe("Quartermaster: 9 runs (60%)");
+  const rows = within(screen.getByRole("table")).getAllByRole("row").map((r) => r.textContent);
+  expect(rows).toEqual(["Week ofYou typedOperatingStarted by MaeMergedCrew timeUsed", "Nov 9 to Nov 151258%111.5 h$12.50", "Nov 2 to Nov 82070%011.5 h$12.50"]); // newest first
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "p1" } });
+  await waitFor(() => expect(asked).toContain("GET /api/home?project=p1"));
+  cleanup();
+
+  camp({ "/api/home": page({ board: { weeks: [week({ requests: 0, byMae: 0 })] } }) });
+  render(<StatsPage S={S()} />);
+  expect(await screen.findByText(/there's nothing to count yet/)).toBeTruthy();
+});
+
+test("What Mae does unasked: the brief and its time, the retro, the watch on your pull requests, and the trigger that turns feedback into work", async () => {
+  const asked = camp({ "/api/home": page(), "/api/drive": { ok: true }, "/api/brief": {}, "/api/retro": {}, "/api/pr-watch": { ok: true }, "/api/triggers": { ok: true } });
+  const refresh = vi.fn(), onOpenSection = vi.fn();
+  const trigger = { name: "my-prs", kind: "github-pr", link: "web", describe: true, enabled: true, task: "x", created: "", seen: 2 };
+  render(<UnaskedPage S={S({ triggers: [trigger, { ...trigger, name: "issues", kind: "github-issue" }] })} refresh={refresh} onOpenSection={onOpenSection} />);
+  const row = async (name: string) => (await screen.findByText(name)).closest(".set-row") as HTMLElement;
+
+  const brief = await row("Morning brief");
+  expect(within(brief).getByLabelText("When the morning brief is written").getAttribute("value")).toBe("08:00");
+  fireEvent.change(within(brief).getByLabelText("When the morning brief is written"), { target: { value: "07:30" } });
+  await waitFor(() => expect(asked).toContain('POST /api/drive {"briefAt":"07:30"}'));
+  fireEvent.click(within(brief).getByRole("checkbox"));
+  await waitFor(() => expect(asked).toContain('POST /api/drive {"brief":false}'));
+  fireEvent.click(within(brief).getByRole("button", { name: "Write one now" }));
+  await waitFor(() => expect(asked).toContain("POST /api/brief {}"));
+
+  const retro = await row("Weekly retro");
+  expect(retro.textContent).toMatch(/read 12 requests and 4 reviewer comments, and proposed 1 thing to keep/);
+  fireEvent.click(within(retro).getByRole("button", { name: "Look them over" }));
+  expect(onOpenSection).toHaveBeenLastCalledWith("memory");
+  fireEvent.click(within(retro).getByRole("checkbox"));
+  await waitFor(() => expect(asked).toContain('POST /api/drive {"retro":true}'));
+  fireEvent.click(within(retro).getByRole("button", { name: "Hold web's now" }));
+  await waitFor(() => expect(asked).toContain('POST /api/retro {"id":"p1"}'));
+
+  const watch = await row("Your pull requests");
+  expect(watch.textContent).toMatch(/2 open\./);
+  fireEvent.click(within(watch).getByRole("checkbox"));
+  await waitFor(() => expect(asked).toContain('POST /api/pr-watch {"on":false}'));
+
+  const work = await row("Feedback on a pull request starts work");
+  expect(within(work).getAllByRole("listitem").map((l) => l.textContent)).toEqual([expect.stringContaining("my-prslinks/web · descriptions kept current")]); // only the pull-request ones
+  fireEvent.click(within(within(work).getByRole("listitem")).getByRole("checkbox"));
+  await waitFor(() => expect(asked).toContain('POST /api/triggers {"name":"my-prs","action":"disable"}'));
+  fireEvent.click(within(work).getByRole("button", { name: "Turn it on" }));
+  await waitFor(() => expect(asked).toContain('POST /api/triggers {"action":"add","trigger":{"name":"my-pull-requests-web","kind":"github-pr","link":"web","describe":false,"project":"p1"}}'));
+  fireEvent.click(within(work).getByRole("button", { name: "Scheduled jobs" }));
+  expect(onOpenSection).toHaveBeenLastCalledWith("jobs");
+  expect(refresh).toHaveBeenCalled();
+});

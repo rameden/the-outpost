@@ -15,6 +15,7 @@ import { canon, isWindows, unlinkable } from "./platform.js";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { currentWorkspaces, inScope, leftOutHere } from "./context.js";
+import { guidanceBlock, repoGuidance } from "./guidance.js";
 
 export const LINKS_PATH = "camp/links.json";
 export type LinkAccess = "read" | "write";
@@ -223,9 +224,11 @@ export function linksBlock(): string {
 }
 
 // ---------- Project instructions ----------
-// A repo's own guidance for agents (AGENTS.md, CLAUDE.md at its top level) is loaded into every
-// prompt, for the camp folder and each linked folder, so conventions don't have to be re-briefed.
-const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md", ".claude/CLAUDE.md"];
+// A repo's own guidance for agents (AGENTS.md, CLAUDE.md, .github/copilot-instructions.md at its
+// top level) is loaded into every prompt, for the camp folder and each linked folder, so
+// conventions don't have to be re-briefed. A linked folder's guides for parts of it, and its own
+// skills, are listed after that (guidance.ts): named, not loaded, for the crew to read when they apply.
+const INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md", ".claude/CLAUDE.md", ".github/copilot-instructions.md"];
 const MAX_INSTRUCTION_CHARS = 12_000;
 const MAX_ALL_INSTRUCTIONS = 30_000;
 
@@ -251,6 +254,8 @@ export function projectInstructions(campRoot = process.cwd()): string {
       used += body.length;
       blocks.push(`### ${label === "the camp folder" ? name : label + name}\n${body}`);
     }
+    // What else a linked folder has for agents: listed, to be read when it applies.
+    if (label !== "the camp folder") { const more = guidanceBlock(label, repoGuidance(root)); if (more) blocks.push(more); }
   }
   if (!blocks.length) return "";
   return (

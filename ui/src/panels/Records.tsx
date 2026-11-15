@@ -78,13 +78,13 @@ function Triggers({ S, refresh }: Panel) {
   return (
     <div className="wiki-group">
       <h4>Triggers</h4>
-      <p className="panel-note">Start a conversation when a GitHub issue gets a label, or a Jira ticket matches a filter. Each one is ordinary work: its plan waits for your OK. Mission control checks every five minutes while it's open; what's already there when you add a trigger isn't started.</p>
+      <p className="panel-note">Start a conversation when a GitHub issue gets a label, a Jira ticket matches a filter, or one of your own pull requests gets new feedback. Each one is ordinary work: its plan waits for your OK. Mission control checks every five minutes while it's open; what's already there when you add a trigger isn't started.</p>
       {list.length > 0 && (
         <ul className="list">
           {list.map((t) => (
             <li className="card" key={t.name}>
               <div className="card-top"><span className="who"><Icon name="spark" /> {t.name}</span>
-                <span className="pill">{t.kind === "jira" ? `Jira${t.jql ? `: ${t.jql}` : ": your filter"}` : `links/${t.link} · label “${t.label}”`}</span></div>
+                <span className="pill">{t.kind === "jira" ? `Jira${t.jql ? `: ${t.jql}` : ": your filter"}` : t.kind === "github-pr" ? `links/${t.link} · your pull requests${t.describe ? " · descriptions kept current" : ""}` : `links/${t.link} · label “${t.label}”`}</span></div>
               <div className="meta">{t.lastPoll ? `Checked ${when(t.lastPoll)}` : "Not checked yet"} · {t.seen} seen{t.worktree ? " · new worktree each time" : ""}{t.project ? ` · project ${t.project}` : ""}</div>
               {t.lastError && <div className="meta bad">Last check failed: {t.lastError}</div>}
               <div className="clamp open">{t.task}</div>
@@ -104,12 +104,17 @@ function Triggers({ S, refresh }: Panel) {
 
 function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
   const repos = S.links;
-  const [kind, setKind] = useState<"github-issue" | "jira">(repos.length ? "github-issue" : "jira");
+  const [kind, setKind] = useState<"github-issue" | "github-pr" | "jira">(repos.length ? "github-issue" : "jira");
+  const [describe, setDescribe] = useState(true);
   const [name, setName] = useState("");
   const [link, setLink] = useState(repos[0]?.name ?? "");
   const [label, setLabel] = useState("mae");
   const [jql, setJql] = useState("");
-  const [task, setTask] = useState("Fix what this describes. Plan first; keep the change small and add a test.");
+  const ISSUE_TASK = "Fix what this describes. Plan first; keep the change small and add a test.";
+  const PR_TASK = "Address this feedback on my pull request. Plan first: say what you'd change for each comment, and which comments you'd answer without changing anything. Run the project's checks after the changes. Don't commit, push, or reply on GitHub unless the plan says so and I approve it.";
+  const [task, setTask] = useState(ISSUE_TASK);
+  // Changing what's watched swaps the suggested wording, unless you've written your own.
+  const pick = (k: typeof kind) => { setKind(k); setTask((was) => (was === ISSUE_TASK || was === PR_TASK ? (k === "github-pr" ? PR_TASK : ISSUE_TASK) : was)); };
   const [project, setProject] = useState("");
   const [worktree, setWorktree] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -121,12 +126,12 @@ function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
       </div>
     );
   }
-  const writable = kind === "github-issue" ? S.links.find((l) => l.name === link)?.access === "write" : true;
+  const writable = kind === "github-pr" ? false : kind === "github-issue" ? S.links.find((l) => l.name === link)?.access === "write" : true; // a pull request is worked on where its branch is
   async function save(ev: React.FormEvent) {
     ev.preventDefault();
     setBusy(true);
     try {
-      await api("/api/triggers", { action: "add", trigger: { name, kind, link, label, jql, task, project, worktree: worktree && writable } });
+      await api("/api/triggers", { action: "add", trigger: { name, kind, link, label, jql, task, project, worktree: worktree && writable, describe: kind === "github-pr" && describe } });
       done();
     } catch (e) { alert(errorText(e)); }
     setBusy(false);
@@ -135,17 +140,20 @@ function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
   return (
     <form className="card trigger-form" onSubmit={save}>
       <label>Name <input id="trigger-name" value={name} placeholder="fix-labelled-issues" onChange={(ev) => setName(ev.target.value)} /></label>
-      <label>Watch <select id="trigger-kind" value={kind} onChange={(ev) => setKind(ev.target.value as typeof kind)}>
-        <option value="github-issue">GitHub issues with a label</option>
+      <label>Watch <select id="trigger-kind" value={kind} onChange={(ev) => pick(ev.target.value as typeof kind)}>
+        <option value="github-issue" disabled={!repos.length}>GitHub issues with a label</option>
+        <option value="github-pr" disabled={!repos.length}>Your pull requests: new review comments and failing checks</option>
         <option value="jira" disabled={!S.jira?.connected}>Jira tickets matching a filter{S.jira?.connected ? "" : " (link Jira first)"}</option>
       </select></label>
-      {kind === "github-issue" ? <>
+      {kind !== "jira" ? <>
         <label>Repository <select id="trigger-link" value={link} onChange={(ev) => setLink(ev.target.value)}>
           {repos.map((l) => <option key={l.name} value={l.name}>links/{l.name}</option>)}
         </select></label>
-        <label>Label <input id="trigger-label" value={label} onChange={(ev) => setLabel(ev.target.value)} /></label>
+        {kind === "github-issue"
+          ? <label>Label <input id="trigger-label" value={label} onChange={(ev) => setLabel(ev.target.value)} /></label>
+          : <label className="switch"><input id="trigger-describe" type="checkbox" checked={describe} onChange={(ev) => setDescribe(ev.target.checked)} /> After new commits are pushed, have the Scribe draft an updated description for you to approve</label>}
       </> : <label>JQL filter <input id="trigger-jql" value={jql} placeholder="Empty: the camp's own filter" onChange={(ev) => setJql(ev.target.value)} /></label>}
-      <label>What to do with each one <textarea id="trigger-task" value={task} onChange={(ev) => setTask(ev.target.value)} /></label>
+      <label>{kind === "github-pr" ? "What to do with new feedback" : "What to do with each one"} <textarea id="trigger-task" value={task} onChange={(ev) => setTask(ev.target.value)} /></label>
       <label>Project <select id="trigger-project" value={project} onChange={(ev) => setProject(ev.target.value)}>
         <option value="">General</option>
         {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}

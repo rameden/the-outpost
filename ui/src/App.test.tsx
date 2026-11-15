@@ -29,7 +29,7 @@ test("a zone that throws is the only thing lost: the top bar, the conversation a
   expect(broken.textContent).toContain("the crew bar blew up");
   expect(screen.getByRole("textbox", { name: "Request for the camp" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "New conversation" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Today" })).toBeTruthy(); // the camp opens on today's page
   expect(screen.getByText("Connecting…")).toBeTruthy();
   // What the page says back to you has its place by the message box from the start.
   expect(document.querySelector(".status-line")?.getAttribute("aria-live")).toBe("polite");

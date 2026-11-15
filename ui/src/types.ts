@@ -55,3 +55,6 @@ import type { chroniclePage } from "../../src/chronicle.ts";
 export type ChroniclePage = NonNullable<ReturnType<typeof chroniclePage>>;
 export type { PackPreview, SkillDetail, SkillFile } from "../../src/skillpacks.ts";
 export type { Payoff } from "../../src/payoff.ts";
+export type { Brief, BriefLine } from "../../src/brief.ts";
+export type { Kind, WeekScore, Offer } from "../../src/scoreboard.ts";
+export type { HomePage } from "../../src/server.ts";

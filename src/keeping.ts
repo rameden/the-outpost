@@ -210,15 +210,21 @@ export async function suggestKeeps(o: { run: string; who: CrewId; project?: stri
   const places = { me: `agent:${o.who}`, user: "about", project: inProject ? `project:${o.project}` : `agent:${o.who}` };
   const known = [...new Set(Object.values(places))].map((w) => `${nameOf(w)}:\n${textOf(w).slice(-3000) || "(nothing yet)"}`).join("\n\n");
   const raw = await ask(KEEP_SYSTEM, `The user asked:\n${o.task.slice(0, 3000)}\n\nThe assistant (${CREW[o.who].name}) answered:\n${o.reply.slice(0, 5000)}\n\nAlready in the notes:\n${known}`);
+  return proposeKeeps(parseKeeps(raw).map((k) => ({ where: places[k.where], text: k.text })), o.run);
+}
+
+// Put suggestions in front of you, leaving out any that's already kept or already waiting.
+// run: the run they came from, when there's one (the retro's come from a whole week).
+export function proposeKeeps(list: { where: Where; text: string }[], run?: string): Proposal[] {
   const waiting = load();
-  const thread = allTurns().find((t) => t.expedition === o.run)?.thread;
+  const thread = run ? allTurns().find((t) => t.expedition === run)?.thread : undefined;
   const title = thread ? history().conversations.find((c) => c.id === thread)?.title : undefined;
   const added: Proposal[] = [];
-  for (const k of parseKeeps(raw)) {
-    const where = places[k.where];
+  for (const k of list) {
+    try { place(k.where); } catch { continue; }
     const have = norm(k.text);
-    if (textOf(where).toLowerCase().includes(have) || [...waiting, ...added].some((p) => p.kind === "keep" && p.where === where && norm(p.text) === have)) continue;
-    added.push({ id: newId(), kind: "keep", where, name: nameOf(where), created: new Date().toISOString(), text: k.text, run: o.run, ...(thread ? { thread } : {}), ...(title ? { title } : {}) });
+    if (textOf(k.where).toLowerCase().includes(have) || [...waiting, ...added].some((p) => p.kind === "keep" && p.where === k.where && norm(p.text) === have)) continue;
+    added.push({ id: newId(), kind: "keep", where: k.where, name: nameOf(k.where), created: new Date().toISOString(), text: k.text, ...(run ? { run } : {}), ...(thread ? { thread } : {}), ...(title ? { title } : {}) });
   }
   if (added.length) {
     const keeps = [...waiting.filter((p) => p.kind === "keep"), ...added].slice(-KEEPS_MAX);

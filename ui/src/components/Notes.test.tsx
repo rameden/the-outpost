@@ -128,3 +128,89 @@ test("text selected in the thread can be kept in a note: the open one, or a new 
   expect(onAdd).toHaveBeenLastCalledWith("Rebase before the PR.", false);
   vi.useRealTimers();
 });
+
+// ---------- What the camp does with a note ----------
+const TICKET = { title: "Add a Copy link button to report cards", criteria: ["Each card has a Copy link button", "A toast confirms the copy"],
+  description: "## Summary\nReport cards get a button that copies their link.\n\n## Technical notes\nIn `src/ReportCard.tsx`.", written: "2026-11-12T10:00:00.000Z", conversation: "run-9" };
+const WEB = { id: "p1", name: "Web app" };
+// The camp, answering each address with what a test gives it (and remembering what it was sent).
+function camp(notes: object[], answers: Record<string, (body: any) => object> = {}) {
+  const posts: { url: string; body: any }[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method !== "POST") return new Response(JSON.stringify({ notes }));
+    const body = JSON.parse(String(init.body));
+    posts.push({ url: String(url), body });
+    return new Response(JSON.stringify(answers[String(url)]?.(body) ?? { ok: true }));
+  }));
+  return posts;
+}
+
+test("a note is written up as a ticket when you ask, from the code of the project you're in", async () => {
+  const writing = { ...NOTES[0], writing: { run: "run-9", started: new Date().toISOString() } };
+  const posts = camp(NOTES, { "/api/notes/ticket": () => ({ ok: true, thread: "run-9", notes: [writing, NOTES[1]] }) });
+  const onOpenConversation = vi.fn();
+  render(<NotesPanel onHide={() => {}} onInsert={() => {}} onAttach={() => {}} onOpenConversation={onOpenConversation} project={WEB} />);
+  fireEvent.click(await screen.findByRole("button", { name: /Release steps/ }));
+  expect(screen.queryByRole("tablist")).toBeNull(); // no ticket yet: nothing to switch to
+  const ask = screen.getByRole("button", { name: "Write up as a ticket" });
+  expect(ask.getAttribute("title")).toMatch(/read Web app's code/);
+  fireEvent.click(ask);
+  await waitFor(() => expect(posts).toEqual([{ url: "/api/notes/ticket", body: { id: "aaaaaa111111", project: "p1" } }]));
+  expect(await screen.findByText(/Writing the ticket: the Scout is reading Web app's code first/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: "Write up as a ticket" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Watch" }));
+  expect(onOpenConversation).toHaveBeenCalledWith("run-9");
+});
+
+test("a note's ticket sits beside it: read it, start work from it, or have it written again", async () => {
+  const posts = camp([{ ...NOTES[0], ticket: { ...TICKET, stale: true } }, NOTES[1]], { "/api/notes/ticket": () => ({ ok: true, thread: "run-10", notes: [] }) });
+  const onInsert = vi.fn(), onAttach = vi.fn(), onOpenConversation = vi.fn();
+  render(<NotesPanel onHide={() => {}} onInsert={onInsert} onAttach={onAttach} onOpenConversation={onOpenConversation} />);
+  expect(await screen.findByText(/has a ticket/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Release steps/ }));
+  expect(screen.getByRole("tab", { name: "Note" }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.queryByRole("button", { name: "Write up as a ticket" })).toBeNull(); // it has one: writing it again is on the ticket's side
+  fireEvent.click(screen.getByRole("tab", { name: "Ticket" }));
+  const panel = screen.getByRole("tabpanel", { name: "Ticket" });
+  expect(panel.textContent).toMatch(/Add a Copy link button to report cards/);
+  expect(panel.textContent).toMatch(/Each card has a Copy link button/);
+  expect(panel.textContent).toMatch(/The note has changed since this was written/);
+  fireEvent.click(screen.getByRole("button", { name: "Start work" }));
+  expect(onAttach.mock.calls[0][0]).toMatchObject({ title: TICKET.title, text: expect.stringMatching(/^# Add a Copy link button to report cards\n\n## Acceptance criteria\n- \[ \] Each card has a Copy link button/) });
+  expect(onInsert.mock.calls[0][0]).toMatch(/^Work on this: Add a Copy link button to report cards\n\nThe ticket is attached: read it first\.\n\nAcceptance criteria \(from the ticket\):\n- \[ \] Each card has a Copy link button/);
+  fireEvent.click(screen.getByRole("button", { name: "How it was written" }));
+  expect(onOpenConversation).toHaveBeenCalledWith("run-9");
+  fireEvent.click(screen.getAllByRole("button", { name: "Write it again" })[0]);
+  await waitFor(() => expect(posts).toEqual([{ url: "/api/notes/ticket", body: { id: "aaaaaa111111" } }]));
+});
+
+test("ideas are suggested for the project you're in; one is kept, or the unkept are replaced", async () => {
+  const IDEA = { id: "cccccc333333", title: "Retry the export on timeout", text: "The last run left it for later.", created: "2026-11-13T09:00:00.000Z", updated: "2026-11-13T09:00:00.000Z",
+    idea: { project: "p1", criteria: ["A timed-out export is retried once"], suggested: "2026-11-13T09:00:00.000Z" } };
+  const posts = camp(NOTES, {
+    "/api/ideas": (body) => (body.replace ? { ok: true, added: 0, cleared: 1, notes: NOTES } : { ok: true, added: 1, cleared: 0, notes: [IDEA, ...NOTES] }),
+    "/api/notes": (body) => (body.action === "keep" ? { ok: true, note: { ...IDEA, idea: { ...IDEA.idea, kept: true } } } : { ok: true }),
+  });
+  const { unmount } = render(<NotesPanel onHide={() => {}} />);
+  const off = await screen.findByRole("button", { name: "Suggest ideas" }) as HTMLButtonElement;
+  expect(off.disabled).toBe(true); // outside a project there's no record to suggest from
+  expect(off.title).toMatch(/Open a project/);
+  unmount();
+
+  render(<NotesPanel onHide={() => {}} project={WEB} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Suggest ideas" }));
+  expect(await screen.findByText("1 idea added.")).toBeTruthy();
+  expect(posts[0]).toEqual({ url: "/api/ideas", body: { project: "p1" } });
+  expect(screen.getByRole("button", { name: /Retry the export on timeout/ }).textContent).toMatch(/Suggested · /);
+  expect(screen.getByRole("button", { name: "Replace the 1 you haven't kept" })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: /Retry the export on timeout/ }));
+  expect(screen.getByText(/The camp suggested this/)).toBeTruthy();
+  expect(screen.getByText("A timed-out export is retried once")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+  await waitFor(() => expect(screen.queryByText(/The camp suggested this/)).toBeNull());
+  expect(posts[1]).toEqual({ url: "/api/notes", body: { action: "keep", id: "cccccc333333" } });
+  expect(screen.getByText("A timed-out export is retried once")).toBeTruthy(); // what done would mean stays with it
+  fireEvent.click(screen.getByRole("button", { name: "All notes" }));
+  expect(screen.queryByRole("button", { name: /Replace the/ })).toBeNull(); // nothing unkept is left to replace
+});

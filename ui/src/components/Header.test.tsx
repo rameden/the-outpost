@@ -196,3 +196,10 @@ test("the connection chip: quiet while live, and after a long outage it says the
   rerender(<Header S={camp()} store={store} conn="reconnecting" stale refresh={refresh} />);
   expect(screen.queryByRole("button", { name: "Out of date · retry" })).toBeNull();
 });
+
+test("the logo is the way home: it opens Today", () => {
+  const onHome = vi.fn();
+  render(<Header S={null} store={createFeedStore()} conn="live" refresh={() => {}} onHome={onHome} />);
+  fireEvent.click(screen.getByRole("button", { name: "Mae" }));
+  expect(onHome).toHaveBeenCalled();
+});

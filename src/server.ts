@@ -19,7 +19,7 @@ import { join, normalize, resolve, sep } from "node:path";
 import { onEvent, attachConsole, emit, continueSeqFrom, type CampEvent } from "./events.js";
 import { setAsker, type Question } from "./ask.js";
 import { currentExpeditionId, newSteering, steer, type Steering } from "./context.js";
-import { checked, linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, pullRequestFeedback, pushWorkspace, removeWorkspace, switchBranch } from "./repos.js";
+import { checked, linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspace, openPullRequest, pullRequestFeedback, pushWorkspace, removeWorkspace, switchBranch, tryGit } from "./repos.js";
 import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, checkPullRequests, markSeen, startPrWatch } from "./prs.js";
 import { sandboxAvailable, sandboxKind, SANDBOX_NEEDS } from "./sandbox.js";
 import { DEFAULT_ALLOW } from "./shell.js";
@@ -35,7 +35,12 @@ import { CAMP_ROOT, rl } from "./tools.js";
 import { CREW, CREW_IDS, findCrew, addMember, updateMember, removeMember, type CrewId } from "./crew.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
-import { briefFor, cleanTrigger, loadTriggers, pollTrigger, saveTriggers, setTriggerEnabled, POLL_MS, type Trigger, type TriggerItem } from "./triggers.js";
+import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
+import { checkPulls, freshPulls, pulls as knownPulls } from "./pulls.js";
+import { briefDays, briefDue, dayOf, readBrief, writeBrief } from "./brief.js";
+import { readRetro, retrosDue, runRetro, type Retro } from "./retro.js";
+import { offers, scoreboard } from "./scoreboard.js";
+import { drive, setDrive } from "./settings.js";
 import { recentQuests, questCost } from "./questlog.js";
 import { wikiPages, WIKI_DIR, saveWikiPage, removeWikiPage } from "./wiki.js";
 import { pendingDetails, approveSkill, rejectSkill } from "./forge.js";
@@ -55,7 +60,9 @@ import { projectPayoff } from "./payoff.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
-import { loadNotes, saveNote, removeNote } from "./notes.js";
+import { loadNotes, saveNote, removeNote, patchNote } from "./notes.js";
+import { noteName, parseTicket, ticketRequest } from "./ticket.js";
+import { passIdea, suggestIdeas } from "./ideas.js";
 import { loadLinks, addLink, removeLink, setLinkVerify, setLinkSetup } from "./links.js";
 import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
@@ -69,6 +76,7 @@ import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, w
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
+import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP } from "./ui-files.js";
@@ -260,6 +268,7 @@ setInterval(() => { trimFeed(); }, 6 * 3_600_000).unref();
 // waits for your OK like any other.
 async function startFromTrigger(t: Trigger, item: TriggerItem) {
   const brief = await briefFor(t, item);
+  if (t.kind === "github-pr" && item.pr) return startFromPull(t, item, brief);
   const project = projectOf(undefined, t.project);
   let workspaces: Awaited<ReturnType<typeof prepareWorkspaces>> | undefined;
   if (t.worktree) {
@@ -272,13 +281,89 @@ async function startFromTrigger(t: Trigger, item: TriggerItem) {
   const links = [...new Set([...(t.link ? [t.link] : []), ...Object.keys(workspaces ?? {})])];
   const shown = `${t.kind === "jira" ? item.id : `Issue ${item.id}`}: ${item.title}`;
   const stillRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
-  enqueue({ label: `trigger:${t.name}`, task: shown.slice(0, 90), run: async (signal, id, steering) => {
-    const r = await runExpedition(brief, { signal, id, steering, stillRunning, displayTask: shown, workspaces, project: project.id, links,
+  const w = enqueue({ label: `trigger:${t.name}`, task: shown.slice(0, 90), run: async (signal, id, steering) => {
+    const r = await runExpedition(brief, { signal, id, steering, stillRunning, displayTask: shown, workspaces, project: project.id, links, by: `trigger:${t.name}`,
       ...(item.jira ? { jira: item.jira } : {}) });
     void titleConversation(id, shown, r.text);
     return r;
   } });
+  fileConversation(w.id, project.id);
 }
+
+// Something new on one of your pull requests (pulls.ts). Feedback carries on the conversation
+// that did the work, so the crew has what was done and why in front of it; with no such
+// conversation it starts one. New commits to describe go to the Scribe, who steps into that
+// conversation for the one turn. Either way what happens next waits for you: a plan to approve,
+// or the exact new description on a card.
+function startFromPull(t: Trigger, item: TriggerItem, brief: string, by = `trigger:${t.name}`) {
+  const pr = item.pr!;
+  const stillRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
+  const found = threadFor(pr.continues, stillRunning);
+  // The Quartermaster's conversations are carried on; someone else's (a chat with one crew member) is left as it is.
+  const thread = found && (pr.describe || !found.direct) && found.agent !== CHAT ? found : null;
+  const replyTo = thread ? pr.continues : undefined;
+  const project = projectOf(thread?.thread, t.project);
+  const links = [...new Set([...(thread?.links ?? []), ...(t.link ? [t.link] : [])])];
+  const shown = `Pull request #${pr.number}: ${pr.describe ? "new commits to describe" : "new feedback"} (${item.title})`;
+  const w = pr.describe
+    ? enqueue({ label: by, task: shown.slice(0, 90), run: async (signal, id, steering) => {
+        const r = await runDirect("scribe", brief, "direct", undefined, signal, id, replyTo, { steering, stillRunning, project: project.id, links, by, aside: !!thread && thread.agent !== "scribe" });
+        if (!replyTo && r) void titleConversation(id, shown, r.text);
+        return r;
+      } })
+    : enqueue({ label: by, task: shown.slice(0, 90), run: async (signal, id, steering) => {
+        const r = await runExpedition(brief, { signal, id, steering, stillRunning, displayTask: shown, replyTo, project: project.id, links, by, ...(thread?.model ? { model: thread.model } : {}) });
+        if (!replyTo) void titleConversation(id, shown, r.text);
+        return r;
+      } });
+  if (!replyTo) fileConversation(w.id, project.id);
+  return { id: w.id, thread: thread?.thread ?? w.id };
+}
+
+// ---------- What the camp does unasked: the morning brief and the weekly retro ----------
+// Both are worked out from the record (brief.ts, retro.ts). The brief calls no model; the retro
+// makes one small call per project per week, and only proposes: you approve what's kept.
+const isRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
+const waitingOnYou = () => { try { return { memory: proposals().length, skills: pendingDetails().length }; } catch { return { memory: 0, skills: 0 }; } };
+let retroing = false;
+setInterval(() => {
+  try {
+    if (briefDue()) void writeBrief({ running: isRunning, waiting: waitingOnYou(), announce: true }).catch((e) => console.error(`💥 morning brief: ${e?.message ?? e}`));
+    if (!retroing && !pausedUntil()) {
+      const due = retrosDue();
+      if (due.length) {
+        retroing = true;
+        void (async () => { for (const r of due) await runRetro(r.id, r.week).catch((e) => console.error(`💥 retro: ${e?.message ?? e}`)); })().finally(() => { retroing = false; });
+      }
+    }
+  } catch (e: any) {
+    console.error(`💥 brief and retro: ${e?.message ?? e}`);
+  }
+}, 60_000).unref();
+// Your pull requests are read again every ten minutes while the watch is on (the same switch as prs.ts).
+setInterval(() => { if (prWatchOn()) void freshPulls(9 * 60_000).catch(() => { /* next time */ }); }, 10 * 60_000).unref();
+setTimeout(() => { if (prWatchOn()) void freshPulls(9 * 60_000).catch(() => {}); }, 25_000).unref();
+
+// What to call you on the entry page: the first name git commits under here, if it has one.
+let yourName = "";
+void tryGit(process.cwd(), ["config", "user.name"]).then((n) => { yourName = n.trim().split(/\s+/)[0] ?? ""; });
+
+// The entry page: today's brief (or the latest there is), the scoreboard, what the camp could
+// take over, and each project's latest retro. project: one project's numbers only.
+function homePage(project?: string) {
+  const days = briefDays();
+  const board = scoreboard({ project });
+  const retros: (Retro & { project: string; name: string })[] = [];
+  for (const p of history().projects) {
+    if (p.id === GENERAL) continue;
+    const latest = [board.weeks.at(-1)?.week, board.weeks.at(-2)?.week].flatMap((w) => (w ? [readRetro(p.id, w)] : [])).find(Boolean);
+    if (latest) retros.push({ ...latest, project: p.id, name: p.name });
+  }
+  const known = knownPulls();
+  return { name: yourName, today: dayOf(new Date()), brief: days.length ? readBrief(days[0]) : null, days, board, offers: offers(board), retros, drive: drive(),
+    pulls: { fetched: known.fetched, count: known.pulls.filter((p) => p.state === "OPEN").length, ...(known.error ? { error: known.error } : {}) } };
+}
+export type HomePage = ReturnType<typeof homePage>;
 let polling = false;
 async function pollTriggers() {
   if (polling || pausedUntil()) return;
@@ -694,6 +779,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     // What a project's reviews, second opinions, fix-ups and pull requests came to lately, and what they used.
+    // The entry page (?project= for one project's numbers), and one day's brief (?day=).
+    if (req.method === "GET" && url.pathname === "/api/home") return send(res, 200, homePage(url.searchParams.get("project") ?? undefined));
+    if (req.method === "GET" && url.pathname === "/api/brief") {
+      const b = readBrief(String(url.searchParams.get("day") ?? ""));
+      return b ? send(res, 200, b) : send(res, 404, { error: "There's no brief for that day." });
+    }
     if (req.method === "GET" && url.pathname === "/api/project/payoff") {
       const p = projectPayoff(String(url.searchParams.get("id") ?? ""));
       return p ? send(res, 200, p) : send(res, 404, { error: "No such project" });
@@ -926,6 +1017,7 @@ const server = http.createServer(async (req, res) => {
             const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem, aside });
             if (isNew && r) void titleConversation(id, text, r.text);
             if (r && !aside) void afterRun({ run: id, who: target.id, project: where.project, task: text, reply: r.text });
+            if (r && !aside) void runFinished(id, r.status).catch(() => { /* the ticket goes without */ });
             return r;
           } })
         : enqueue({ label: "expedition", task, after, run: async (signal, id, steering) => {
@@ -935,6 +1027,7 @@ const server = http.createServer(async (req, res) => {
               ...(typeof body.review === "boolean" ? { review: body.review } : {}) });
             if (isNew) void titleConversation(id, text, r.text);
             void afterRun({ run: id, who: "quartermaster", project: where.project, task: text, reply: r.text });
+            void runFinished(id, r.status).catch(() => { /* the ticket goes without */ });
             return r;
           } });
       const position = queue.indexOf(w) + 1; // 0: it started right away
@@ -1129,7 +1222,7 @@ const server = http.createServer(async (req, res) => {
       setPrWatch(!!body.on);
       return send(res, 200, { ok: true, prWatch: prWatchOn() });
     }
-    // What the camp may write to Jira ({ on, startStatus, prStatus }): nothing unless on.
+    // What the camp may write to Jira ({ on, startStatus, reviewStatus, prStatus, doneStatus }): nothing unless on.
     if (url.pathname === "/api/jira/write") return send(res, 200, saveWriteBack(body));
 
     if (url.pathname === "/api/repo/commit" || url.pathname === "/api/repo/pr" || url.pathname === "/api/repo/pr/draft" || url.pathname === "/api/repo/remove" || url.pathname === "/api/repo/feedback" || url.pathname === "/api/repo/push") {
@@ -1301,13 +1394,64 @@ const server = http.createServer(async (req, res) => {
       return send(res, ok ? 200 : 404, { ok });
     }
 
-    // Keep a note ({ action: "save", id, title, text, from? }: new, or a change to one that's there), or delete one ({ action: "remove", id }).
+    // Keep a note ({ action: "save", id, title, text, from? }: new, or a change to one that's there), delete one ({ action: "remove", id }),
+    // or say a suggestion of the camp's is yours to keep ({ action: "keep", id }).
     if (url.pathname === "/api/notes") {
       try {
         if (body.action === "save") return send(res, 200, { ok: true, note: saveNote(body) });
-        if (body.action === "remove") return send(res, 200, { ok: removeNote(String(body.id ?? "")) });
+        if (body.action === "remove") {
+          // A suggestion you never kept: its title is remembered, so it isn't suggested again (ideas.ts).
+          const going = loadNotes().find((n) => n.id === String(body.id ?? ""));
+          if (going) passIdea(going);
+          return send(res, 200, { ok: removeNote(String(body.id ?? "")) });
+        }
+        if (body.action === "keep") {
+          const note = patchNote(String(body.id ?? ""), (n) => (n.idea ? { ...n, idea: { ...n.idea, kept: true } } : n));
+          return send(res, note ? 200 : 404, note ? { ok: true, note } : { error: "That note isn't there any more." });
+        }
         return send(res, 400, { error: "Unknown action" });
       } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+
+    // Write a note up as a ticket ({ id, project? }): the Scout reads the project's code and writes
+    // it, as a conversation you can open, and the ticket is kept on the note (ticket.ts).
+    if (url.pathname === "/api/notes/ticket") {
+      const note = loadNotes().find((n) => n.id === String(body.id ?? ""));
+      if (!note) return send(res, 404, { error: "That note isn't there any more." });
+      if (!note.title.trim() && !note.text.trim()) return send(res, 400, { error: "Write something in the note first: there's nothing to write up." });
+      const found = getProject(String(body.project ?? note.idea?.project ?? ""));
+      const p = found && found.id !== "general" ? found : undefined;
+      const name = noteName(note);
+      const w = enqueue({ label: "@scout", task: `Ticket: ${name}`, run: async (signal, id, steering) => {
+        let ticket: ReturnType<typeof parseTicket> = null;
+        try {
+          const r = await runDirect("scout", ticketRequest(note, p), "direct", undefined, signal, id, undefined, { steering, ...(p ? { project: p.id } : {}), links: [] });
+          if (r?.status === "done") ticket = parseTicket(r.text);
+          return r;
+        } finally {
+          // Kept on the note; if its words changed while this was being written, the ticket is already older than it.
+          patchNote(note.id, (n) => {
+            const { writing: _done, ...rest } = n;
+            return ticket ? { ...rest, ticket: { ...ticket, written: new Date().toISOString(), conversation: id, ...(n.title !== note.title || n.text !== note.text ? { stale: true } : {}) } } : rest;
+          });
+          emit({ type: "changed", what: "notes" });
+        }
+      } });
+      patchNote(note.id, (n) => ({ ...n, writing: { run: w.id, started: new Date().toISOString() } }));
+      if (p) fileConversation(w.id, p.id);
+      renameConversation(w.id, `Ticket: ${name}`);
+      return send(res, 200, { ok: true, id: w.id, thread: w.id, position: queue.indexOf(w) + 1, notes: loadNotes() });
+    }
+
+    // Ideas for a project ({ project, replace? }): the camp asks the smallest model what the project's
+    // record points at, and what comes back goes into your notes as suggestions (ideas.ts).
+    if (url.pathname === "/api/ideas") {
+      const p = getProject(String(body.project ?? ""));
+      if (!p || p.id === "general") return send(res, 400, { error: "Ideas are suggested for a project: open one first." });
+      try {
+        const r = await suggestIdeas(p, { replace: body.replace === true });
+        return send(res, 200, { ok: true, added: r.added.length, cleared: r.cleared, notes: loadNotes() });
+      } catch (e: any) { return send(res, 502, { error: `Ideas couldn't be suggested: ${e.message}` }); }
     }
 
     if (url.pathname === "/api/snippets") {
@@ -1449,6 +1593,31 @@ const server = http.createServer(async (req, res) => {
       const { owner, name, action } = body;
       const ok = action === "approve" ? approveSkill(owner, name) : action === "reject" ? rejectSkill(owner, name) : false;
       return send(res, ok ? 200 : 404, { ok });
+    }
+
+    // Write today's brief now (it replaces this morning's; nothing is announced).
+    if (url.pathname === "/api/brief") return send(res, 200, await writeBrief({ running: isRunning, waiting: waitingOnYou() }));
+    // What the camp does unasked ({ brief, briefAt, retro }).
+    if (url.pathname === "/api/drive") { setDrive(body); return send(res, 200, { ok: true, drive: drive() }); }
+    // Hold a project's retro for a week now ({ id, week? }).
+    if (url.pathname === "/api/retro") {
+      try { return send(res, 200, await runRetro(String(body.id ?? ""), typeof body.week === "string" ? body.week : undefined)); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+    // Bring one of your pull requests' feedback to the crew ({ url }): what the pull-request
+    // trigger does by itself, as one click from the brief. Triggers watching that repository are
+    // told it's been dealt with, so the same comments don't start work twice.
+    if (url.pathname === "/api/pulls/address") {
+      const read = await checkPulls();
+      const p = read.pulls.find((x) => x.url === body.url);
+      if (!p) return send(res, 404, { error: read.error ?? "That pull request isn't one the camp knows of any more." });
+      const item = pullItems([p], false)[0];
+      if (!item) return send(res, 400, { error: "Nothing is waiting on that pull request right now." });
+      const watching = loadTriggers().find((t) => t.kind === "github-pr" && t.link === p.link);
+      const t: Trigger = watching ?? { name: "brief", kind: "github-pr", task: PR_TASK, enabled: true, created: new Date().toISOString(), link: p.link };
+      const unseen = (x: Trigger) => x.kind === "github-pr" && x.link === p.link && !x.seen?.includes(item.id);
+      if (loadTriggers().some(unseen)) saveTriggers(loadTriggers().map((x) => (unseen(x) ? { ...x, seen: [...(x.seen ?? []), item.id] } : x)));
+      return send(res, 200, { ok: true, ...startFromPull(t, item, await briefFor(t, item), "brief") });
     }
 
     // Triggers ({ action: "add", trigger } | { action: "enable" | "disable" | "delete" | "check", name }).

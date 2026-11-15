@@ -21,6 +21,7 @@ export function hear(fn: (ask: Ask) => void): () => void {
 
 // The commands you can type at the start of a message (and find in the command palette).
 export const COMMANDS: { name: string; arg?: string; does: string }[] = [
+  { name: "today", does: "Open Today: your brief, and where things stand (the logo goes there too)" },
   { name: "new", does: "Start a new conversation" },
   { name: "focus", does: "Close the history, files, notes and terminal (again brings them back)" },
   { name: "files", does: "Show or hide the files" },

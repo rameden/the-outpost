@@ -173,6 +173,13 @@ export async function sealSnapshots(id: string): Promise<void> {
   save({ ...m, snapshots: (m.snapshots ?? []).map((x) => (after.has(x.root) ? { ...x, after: after.get(x.root) } : x)) });
 }
 
+// How an expedition left a repository it ran commands in: the commit recorded when it ended
+// (nothing, if it ran none there or its checkpoint has since been cleared out). root: the
+// repository's top, as git names it.
+export function leftAt(id: string, root: string): string | undefined {
+  return load(id)?.snapshots?.find((x) => x.root === root)?.after;
+}
+
 type ShellChange = { snap: Snapshot; rel: string; abs: string; change: ChangedFile["change"] };
 // What changed in each repository between the snapshots (up to now, while it's still running),
 // leaving out files the file tools changed (those have their own entry).

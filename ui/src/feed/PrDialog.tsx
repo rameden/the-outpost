@@ -1,6 +1,7 @@
 // A pull request before it's opened: its title and description, drafted by the camp from the
 // record (the ticket and its acceptance criteria, what changed, how your checks came out, what
-// the crew reported) for you to read and change. Nothing is pushed until you press the button.
+// the crew reported, and what you changed by hand since) for you to read and change. Nothing is
+// pushed until you press the button.
 // If the branch has a pull request already, the button updates that one instead.
 
 import { useEffect, useState } from "react";
@@ -54,6 +55,9 @@ export function PrDialog({ w, expId, onClose, onDone }: {
             <div className="meta">{existing
               ? <>The branch <code>{draft.branch}</code> already has a pull request. This changes its title and description; nothing is pushed.</>
               : <>This pushes <code>{draft.branch}</code> to origin and opens a pull request with the GitHub CLI.</>} The description was drafted from the record: change anything that's off.</div>
+            {draft.handEdits && <div className="meta" role="note">You changed {draft.handEdits.files} {draft.handEdits.files === 1 ? "file" : "files"} by hand after the run. {draft.handEdits.files === 1 ? "It's" : "They're"} listed in the description, and the run's notes {draft.handEdits.rewritten
+              ? "were rewritten to match: read them over."
+              : "couldn't be rewritten to match, so they're marked as older than your edits."}</div>}
             <label className="field">Title<input value={title} maxLength={200} autoFocus onChange={(ev) => setTitle(ev.target.value)} /></label>
             <label className="field">Description<textarea className="pr-body" value={body} rows={16} spellCheck={false} onChange={(ev) => setBody(ev.target.value)} /></label>
           </>

@@ -262,7 +262,7 @@ test("a conversation is named by how its first request opens, not by the whole o
 
 // ---------- Writing back to Jira ----------
 test("nothing is written to Jira unless you turn it on; then it comments, and moves the ticket if you named a status", async () => {
-  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", prStatus: "" });
+  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "" });
   assert.equal(await j.writeBack("start", "MP-544", { branch: "MP-544-open-button" }), null);
   assert.equal(await j.writeBack("pr", "MP-544", { url: "https://github.com/o/r/pull/7" }), null);
   assert.equal(seen.length, 0, "off: Jira isn't called at all");
@@ -275,7 +275,7 @@ test("nothing is written to Jira unless you turn it on; then it comments, and mo
   assert.equal(await j.writeBack("start", "not a key"), null);
 
   seen.length = 0;
-  assert.deepEqual(j.saveWriteBack({ on: true, startStatus: " in progress ", prStatus: "In Review" }), { on: true, startStatus: "in progress", prStatus: "In Review" });
+  assert.deepEqual(j.saveWriteBack({ on: true, startStatus: " in progress ", prStatus: "In Review" }), { on: true, startStatus: "in progress", reviewStatus: "", prStatus: "In Review", doneStatus: "" });
   assert.equal(await j.writeBack("pr", "MP-544", { url: "https://github.com/o/r/pull/7" }), "Commented on MP-544 and moved it to In Review.");
   assert.deepEqual(seen.map((s) => `${s.method} ${s.url}`), ["POST /rest/api/3/issue/MP-544/comment", "GET /rest/api/3/issue/MP-544/transitions", "POST /rest/api/3/issue/MP-544/transitions"]);
   assert.deepEqual(seen[0].body.body.content[0].content, [{ type: "text", text: "Pull request opened: " }, { type: "text", text: "https://github.com/o/r/pull/7", marks: [{ type: "link", attrs: { href: "https://github.com/o/r/pull/7" } }] }]);
@@ -286,10 +286,42 @@ test("nothing is written to Jira unless you turn it on; then it comments, and mo
   assert.match((await j.writeBack("pr", "MP-544", { url: "https://github.com/o/r/pull/7" }))!, /Commented on MP-544 and couldn't move it to "In Review"/);
   // A ticket that can't be written to doesn't throw: the line says what went wrong.
   assert.match((await j.writeBack("start", "MP-999"))!, /write-back for MP-999 didn't go through: Jira couldn't find that/);
+  // The two moments nobody clicks for: a run that finished with changes, and a merged pull request.
+  transitions = [{ id: "41", name: "Finish", to: { name: "Done" } }];
+  j.saveWriteBack({ on: true, doneStatus: "done" });
+  seen.length = 0;
+  assert.equal(await j.writeBack("review", "MP-544", { branch: "MP-544-open-button" }), "Commented on MP-544.");
+  assert.deepEqual(seen[0].body.body.content[0].content, [{ type: "text", text: "The work in Mae has finished on branch MP-544-open-button and is ready to be looked over." }]);
+  assert.equal(await j.writeBack("merged", "MP-544", { url: "https://github.com/o/r/pull/7" }), "Commented on MP-544 and moved it to Done.");
+  assert.equal(seen[1].body.body.content[0].content[0].text, "Pull request merged: ");
   // The crew's own Jira tool still can't write.
   assert.deepEqual((j.jiraTool().def as any).input_schema.properties.action.enum, ["get", "search"]);
   j.saveWriteBack({ on: false });
-  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", prStatus: "" });
+  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "" });
+});
+
+test("a ticket hears once that its work is ready to look over, and once that its pull request merged", async () => {
+  const m = await import("../src/jiramoments.ts");
+  recordTurn({ thread: "jm-1", expedition: "jm-1", agent: "quartermaster", direct: false, task: "Work on MP-777", reply: "Done.", status: "done", jira: "MP-777", workspaces: { web: { link: "web", path: "/tmp/x", branch: "MP-777-fix", base: "abc", created: true } as any } });
+  recordTurn({ thread: "jm-1", expedition: "jm-2", agent: "quartermaster", direct: false, task: "And the edge case", reply: "Done.", status: "done" });
+  recordTurn({ thread: "jm-1", expedition: "jm-3", agent: "warden", direct: true, aside: true, task: "Review", reply: "Fine.", status: "done" });
+  recordTurn({ thread: "jm-9", expedition: "jm-9", agent: "scout", direct: true, task: "No ticket here", reply: "Done.", status: "done" });
+  const wrote: string[] = [];
+  const write = async (event: string, key: string | undefined, detail: { branch?: string; url?: string } = {}) => { wrote.push(`${event} ${key} ${detail.branch ?? detail.url ?? ""}`); return `Commented on ${key}.`; };
+  assert.equal(await m.runFinished("jm-1", "done", { changed: true, write }), null, "write-back is off: nothing is said");
+  j.saveWriteBack({ on: true });
+  assert.equal(await m.runFinished("jm-1", "stopped", { changed: true, write }), null, "a run that didn't finish isn't ready");
+  assert.equal(await m.runFinished("jm-1", "done", { changed: false, write }), null, "a run that changed nothing leaves nothing to look over");
+  assert.equal(await m.runFinished("jm-9", "done", { changed: true, write }), null, "no ticket");
+  assert.equal(await m.runFinished("jm-3", "done", { changed: true, write }), null, "someone stepping in for a turn isn't the work");
+  assert.equal(await m.runFinished("jm-1", "done", { changed: true, write }), "Commented on MP-777.");
+  assert.equal(await m.runFinished("jm-2", "done", { changed: true, write }), null, "said once per conversation: the fix-ups after it are quiet");
+  assert.equal(await m.pullMerged("jm-1", undefined, "https://github.com/o/r/pull/9", write), null);
+  assert.equal(await m.pullMerged("jm-1", "MP-777", "https://github.com/o/r/pull/9", write), "Commented on MP-777.");
+  assert.equal(await m.pullMerged("jm-1", "MP-777", "https://github.com/o/r/pull/9", write), null, "a merge seen twice is said once");
+  assert.deepEqual(wrote, ["review MP-777 MP-777-fix", "merged MP-777 https://github.com/o/r/pull/9"]);
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync(m.MOMENTS_PATH, "utf8"))), ["jm-1|review", "jm-1|merged"]);
+  j.saveWriteBack({ on: false });
 });
 
 // ---------- Chains ----------

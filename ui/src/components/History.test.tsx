@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Profiler } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { cardsFor, cardsFrom, latestLiveRun, parseView, type View } from "../feed/conversation.ts";
+import { cardsFor, cardsFrom, latestLiveRun, homeProject, parseView, type View } from "../feed/conversation.ts";
 import { createFeedStore } from "../feed/store.ts";
 import type { CampEvent, CampState, History as HistoryData } from "../types.ts";
 import { History, HistoryRail } from "./History.tsx";
@@ -262,8 +262,15 @@ test("the page remembers which conversation you were in", () => {
   expect(parseView(JSON.stringify({ kind: "all" }))).toEqual({ kind: "all" });
   expect(parseView(JSON.stringify({ kind: "project", id: "p1" }))).toEqual({ kind: "project", id: "p1" });
   expect(parseView(JSON.stringify({ kind: "projects" }))).toEqual({ kind: "projects" });
-  expect(parseView(null)).toEqual({ kind: "new" });
-  expect(parseView("not json")).toEqual({ kind: "new" });
+  expect(parseView(JSON.stringify({ kind: "new" }))).toEqual({ kind: "new" });
+  expect(parseView(JSON.stringify({ kind: "home" }))).toEqual({ kind: "home" });
+  // A message sent from Today starts in the project you last worked in.
+  expect(homeProject({ conversations: [{ project: "p1" }, { project: "general" }] })).toBe("p1");
+  expect(homeProject({ conversations: [{ project: "general" }, { project: "p1" }] })).toBeUndefined();
+  expect(homeProject({ conversations: [] })).toBeUndefined();
+  expect(homeProject(undefined)).toBeUndefined();
+  expect(parseView(null)).toEqual({ kind: "home" }); // the camp opens on today's page
+  expect(parseView("not json")).toEqual({ kind: "home" });
 });
 
 test("open, history keeps its rail, and clicking the rail closes it, as the rail opened it", () => {

@@ -88,7 +88,7 @@ export function JiraPage({ S, onAttach, onFilter, onStart, onKickoff }: { S: Cam
       <header className="proj-head">
         <div>
           <h2>Jira</h2>
-          <div className="meta">{S.jira?.siteUrl?.replace(/^https?:\/\//, "")}{S.jira?.displayName ? ` · ${S.jira.displayName}` : ""} · {S.settings?.jiraWrite?.on ? "the camp comments on a ticket when work starts and when its pull request opens." : "read-only: nothing here changes a ticket."}</div>
+          <div className="meta">{S.jira?.siteUrl?.replace(/^https?:\/\//, "")}{S.jira?.displayName ? ` · ${S.jira.displayName}` : ""} · {S.settings?.jiraWrite?.on ? "the camp comments on a ticket as its work moves along (started, ready to look over, pull request opened, merged)." : "read-only: nothing here changes a ticket."}</div>
         </div>
         <div className="proj-actions">
           {onKickoff && <button type="button" className="btn small primary" title="Pick up a ticket: choose it, check its details, say where and who, and start" onClick={onKickoff}>Start a ticket…</button>}

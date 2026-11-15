@@ -5,6 +5,7 @@ import { api, eventsUrl } from "./api.ts";
 import { ASK_NOTIFY_TITLES } from "./feed/asks.ts";
 import type { FeedStore } from "./feed/store.ts";
 import { spaced } from "./format.ts";
+import { loadNotes } from "./notes.ts";
 import { notify } from "./notifications.ts";
 import type { CampEvent, CampState } from "./types.ts";
 
@@ -68,6 +69,8 @@ export function handleEvent(store: FeedStore, e: CampEvent, opts: { replaying: b
   }
   // "changed" includes the queue: something started, finished, or was stopped.
   if (e.type === "expedition_end" || e.type === "job" || e.type === "changed") opts.refresh();
+  // The camp changed a note itself (a ticket it was writing is done): the Notes panel reads them again.
+  if (e.type === "changed" && e.what === "notes") void loadNotes();
 }
 
 // How long to wait before opening the stream again once the browser has given up on it: a
