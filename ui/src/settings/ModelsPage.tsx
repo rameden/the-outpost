@@ -1,4 +1,4 @@
-// Settings → Models: other companies' models beside Claude (Gemini, Groq, OpenRouter).
+// Settings → Models: other companies' models beside Claude (DeepSeek, Gemini, Groq, OpenRouter).
 //
 // Connect one by pasting its API key: the camp checks it with the provider, keeps it on your
 // machine (camp/providers.json, readable only by you, off limits to the crew), and never shows it
@@ -77,7 +77,7 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
   };
   const small = S.settings.smallModel ?? "";
   const setSmall = (model: string) => api("/api/providers/small", { model: model || null }).then(refresh, (e) => setError(errorText(e)));
-  const other = /^(gemini|groq|openrouter):/.test(small);
+  const other = /^(deepseek|gemini|groq|openrouter):/.test(small);
   return (
     <>
       <p className="set-note">Claude runs the crew. Here you can connect other companies' models as well, for a crew member you'd rather run cheaply or the camp's own small jobs. Once one is connected, its models appear in every model picker under its name. Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no crew member can open, and are never shown again.</p>
@@ -107,7 +107,8 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
         <li><b>Confidential projects stay with Claude unless you approve a provider.</b> In a project whose web setting is "careful" or "off", a crew member set to another provider's model won't run, and that project's small jobs go to Claude whatever you chose{other ? " above" : ""}. Ticking "approved for confidential projects" on a provider's card lifts that for that provider only.</li>
         <li><b>These models don't have Claude's web search or fetch.</b> A crew member running on one works from files and the tools the camp gives it.</li>
         <li><b>Long, many-step work is where they struggle.</b> Planning and editing code depend on calling tools reliably over many turns. Summaries, lookups and reviews are a better fit.</li>
-        <li><b>No cost is shown for them.</b> The camp doesn't know their prices, so their usage counts as $0 in its estimates; free tiers also limit how many requests you can make a minute.</li>
+        <li><b>Only DeepSeek's cost is estimated.</b> It's counted at DeepSeek's listed peak-hour prices; off-peak is half that, so the estimate runs high. The camp doesn't know the others' prices, so their usage counts as $0 in its estimates; free tiers also limit how many requests you can make a minute.</li>
+        <li><b>DeepSeek thinks before it answers.</b> That thinking is billed as output and isn't shown in the feed, so a reply can take a while to start. The camp's small jobs ask it not to.</li>
         <li><b>OpenRouter lists hundreds of models.</b> Only its free ones are offered in the pickers.</li>
       </ul>
     </>

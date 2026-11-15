@@ -4,9 +4,10 @@
 // connect and disconnect providers; the page says when it was written.
 //
 // What's known and what's a rule of thumb are kept apart. Claude's prices are the camp's own
-// (the ones its cost estimates use). For other providers the camp is told a model's name and
-// nothing else, so cost, speed and fit are judged from the model's family ("flash", "pro",
-// "8b", "70b"…): useful for choosing where to start, not a measurement. The page says so, and
+// (the ones its cost estimates use), and so are DeepSeek's, which sells its own models at listed
+// prices. For other providers the camp is told a model's name and nothing else, so cost, speed
+// and fit are judged from the model's family ("flash", "pro", "8b", "70b"…): useful for choosing
+// where to start, not a measurement. The page says so, and
 // it lives under notes/, where the crew treats what it reads as a claim to weigh.
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -36,6 +37,14 @@ export function rateModel(m: Pick<ModelInfo, "id" | "name" | "provider" | "free"
     return { cost, speed: "Not rated", fit: "Not rated: try it on a small task first.", rated: false };
   }
   const free = m.free ? "free" : null;
+  // DeepSeek's own two: the price is its listed one; speed and fit are still a rule of thumb.
+  if (m.provider === "DeepSeek") {
+    const r = rateOf(m.id);
+    const cost = r ? `${dollars(r.input)} ($${r.input} in / $${r.output} out per million tokens at peak hours, half that off-peak)` : "not listed";
+    if (/flash/.test(id)) return { cost, speed: "Fast", fit: "Everyday work at low cost: summaries, lookups, reviews, small changes. Thinks before it answers. Can be shown images.", rated: true };
+    if (/pro/.test(id)) return { cost, speed: "Steady", fit: "Harder reasoning and long documents. A reasonable second opinion on Claude's work. Text only: it can't be shown images.", rated: true };
+    return { cost, speed: "Not rated", fit: "Not rated: try it on a small task first.", rated: false };
+  }
   // Gemini's families.
   if (/gemini/.test(id) && /flash-lite|flash-8b|nano/.test(id)) return { cost: free ?? "$", speed: "Fastest", fit: "Simple jobs in bulk: titles, tagging, short summaries.", rated: true };
   if (/gemini/.test(id) && /flash/.test(id)) return { cost: free ?? "$", speed: "Fast", fit: "Everyday work at low cost: summaries, lookups, reviews, small changes. Long many-step tool work is hit and miss.", rated: true };
@@ -67,7 +76,9 @@ export async function modelGuide(now = new Date()): Promise<string> {
     const p = providers.find((x) => x.name === name);
     if (!p) return "Runs the crew by default. Prices are the camp's own, the ones its cost estimates use.";
     return `${p.approved ? "You've approved it for confidential projects." : "Not approved for confidential projects: a project marked confidential is never sent to it."} ${p.privacy} ` +
-      "Its cost, speed and fit below are judged from each model's family name, as a rule of thumb: the provider tells the camp a model's name and nothing more.";
+      (p.id === "deepseek"
+        ? "Its prices below are DeepSeek's listed ones, the ones the camp's cost estimates use. Speed and fit are a rule of thumb."
+        : "Its cost, speed and fit below are judged from each model's family name, as a rule of thumb: the provider tells the camp a model's name and nothing more.");
   };
   const notConnected = providers.filter((p) => !p.connected).map((p) => p.name);
   return `---
@@ -79,7 +90,7 @@ updated: ${day}
 
 Written by the camp on ${day} from the models it can reach${live ? "" : " (Claude's list couldn't be read just now, so its usual models are shown)"}. It's rewritten when you connect or disconnect a provider, or press **Update the guide** under Settings → Models.
 
-Source: the camp's own model list and prices for Claude; for other providers, the model's family name only. Treat the ratings for other providers as a starting point, not a measurement: their prices, limits and line-ups change, and the provider's own pricing page is the authority.
+Source: the camp's own model list and prices for Claude and DeepSeek; for other providers, the model's family name only. Treat the ratings for other providers as a starting point, not a measurement: their prices, limits and line-ups change, and the provider's own pricing page is the authority.
 
 ## How to choose
 

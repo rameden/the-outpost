@@ -1,4 +1,4 @@
-// Other models (Gemini, Groq, OpenRouter): connecting with a key, what's kept and what's shown,
+// Other models (DeepSeek, Gemini, Groq, OpenRouter): connecting with a key, what's kept and what's shown,
 // the request and reply translated both ways, a crew member running on one, the camp's small
 // jobs sent to one, and confidential projects kept with Claude. A stand-in plays the provider.
 import { test, after, beforeEach } from "node:test";
@@ -14,7 +14,8 @@ const claude = await startFakeApi(() => ({ text: "claude answered" }));
 process.env.ANTHROPIC_BASE_URL = claude.url;
 
 // The stand-in provider: lists models, and answers chat requests from a script, as a stream.
-type Said = { text?: string; calls?: { name: string; args: string; id?: string }[]; finish?: string; status?: number; error?: string };
+// think: reasoning sent ahead of the words, as DeepSeek does. usage: sent on the last chunk, as DeepSeek does.
+type Said = { text?: string; think?: string; calls?: { name: string; args: string; id?: string }[]; finish?: string; status?: number; error?: string; usage?: object };
 let say: (body: any) => Said = () => ({ text: "ok" });
 const seen: { path: string; auth: string; body: any }[] = [];
 let models: any = { data: [{ id: "llama-fast", name: "Llama Fast" }, { id: "text-embedding-1" }, { id: "whisper-large" }] };
@@ -31,23 +32,26 @@ const provider = http.createServer((req, res) => {
     res.writeHead(200, { "content-type": "text/event-stream" });
     const send = (j: object) => res.write(`data: ${JSON.stringify(j)}\n\n`);
     // Words and tool-call arguments arrive in pieces, as they do for real.
+    if (r.think) res.write(": keep-alive\n\n"); // what DeepSeek sends while a request waits its turn
+    for (const piece of (r.think ?? "").match(/.{1,11}/gs) ?? []) send({ choices: [{ delta: { content: null, reasoning_content: piece } }], usage: null });
     for (const piece of (r.text ?? "").match(/.{1,7}/gs) ?? []) send({ choices: [{ delta: { content: piece } }] });
     (r.calls ?? []).forEach((c, index) => {
       send({ choices: [{ delta: { tool_calls: [{ index, id: c.id ?? `call_${index}`, type: "function", function: { name: c.name, arguments: "" } }] } }] });
       for (const piece of c.args.match(/.{1,9}/gs) ?? []) send({ choices: [{ delta: { tool_calls: [{ index, function: { arguments: piece } }] } }] });
     });
-    send({ choices: [{ delta: {}, finish_reason: r.finish ?? (r.calls?.length ? "tool_calls" : "stop") }] });
-    send({ choices: [], usage: { prompt_tokens: 321, completion_tokens: 45 } });
+    send({ choices: [{ delta: {}, finish_reason: r.finish ?? (r.calls?.length ? "tool_calls" : "stop") }], ...(r.usage ? { usage: r.usage } : {}) });
+    if (!r.usage) send({ choices: [], usage: { prompt_tokens: 321, completion_tokens: 45 } });
     res.write("data: [DONE]\n\n");
     res.end();
   });
 });
 await new Promise<void>((ok) => provider.listen(0, "127.0.0.1", ok));
 const base = `http://127.0.0.1:${(provider.address() as AddressInfo).port}`;
-for (const id of ["GEMINI", "GROQ", "OPENROUTER"]) process.env[`PROVIDER_BASE_URL_${id}`] = base;
-for (const k of ["GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY"]) delete process.env[k];
+for (const id of ["DEEPSEEK", "GEMINI", "GROQ", "OPENROUTER"]) process.env[`PROVIDER_BASE_URL_${id}`] = base;
+for (const k of ["DEEPSEEK_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY"]) delete process.env[k];
 
 const p = await import("../src/providers.ts");
+const stateOf = (id: string) => p.providersState().find((s) => s.id === id)!;
 const { runDirect, runExpedition } = await import("../src/quartermaster.ts");
 const { threadFor } = await import("../src/threads.ts");
 const { listModels } = await import("../src/agent.ts");
@@ -64,7 +68,7 @@ onEvent((e) => events.push(e));
 beforeEach(() => { seen.length = 0; events.length = 0; claude.seen.length = 0; say = () => ({ text: "ok" }); });
 
 test("connecting: the provider checks the key, it's kept on disk for you alone, and the page is never shown it", async () => {
-  assert.deepEqual(p.providersState().map((s) => [s.id, s.connected]), [["gemini", false], ["groq", false], ["openrouter", false]]);
+  assert.deepEqual(p.providersState().map((s) => [s.id, s.connected]), [["deepseek", false], ["gemini", false], ["groq", false], ["openrouter", false]]);
   await assert.rejects(p.connectProvider("groq", "bad-key-000000"), /Groq didn't accept that key: Invalid API Key/);
   await assert.rejects(p.connectProvider("groq", "short"), /doesn't look like an API key/);
   await assert.rejects(p.connectProvider("groq", "has a space in it"), /doesn't look like an API key/);
@@ -77,7 +81,7 @@ test("connecting: the provider checks the key, it's kept on disk for you alone, 
   assert.equal(seen.at(-1)!.path, "/models");
   if (!WINDOWS) assert.equal(statSync(p.PROVIDERS_PATH).mode & 0o777, 0o600); // (Windows has no owner-only mode)
   assert.ok(!JSON.stringify(p.providersState()).includes("good-key"), "the key isn't in what the page gets");
-  assert.match(p.providersState()[1].privacy, /free tier/);
+  assert.match(stateOf("groq").privacy, /free tier/);
   // No crew member can read it.
   await assert.rejects(() => readFileFor("scout").run!({ path: "camp/providers.json" }) as Promise<unknown>);
 
@@ -104,7 +108,7 @@ test("connecting: the provider checks the key, it's kept on disk for you alone, 
   assert.deepEqual(await p.providerModels("gemini"), []);
   // A key set where the camp starts is used, and can't be forgotten from the page.
   process.env.GEMINI_API_KEY = "good-key-123456";
-  assert.deepEqual([p.providersState()[0].connected, p.providersState()[0].from], [true, "env"]);
+  assert.deepEqual([stateOf("gemini").connected, stateOf("gemini").from], [true, "env"]);
   assert.equal(p.disconnectProvider("gemini"), false);
   delete process.env.GEMINI_API_KEY;
 });
@@ -195,7 +199,7 @@ test("a crew member set to another provider's model runs there: same tools, same
   assert.equal(p.maySend("groq", undefined), true, "a project that isn't confidential never needed it");
   assert.equal(p.approveProvider("groq", true), true);
   assert.equal(p.approveProvider("chatgpt", true), false);
-  assert.deepEqual(p.providersState().map((s) => [s.id, s.approved]), [["gemini", false], ["groq", true], ["openrouter", false]]);
+  assert.deepEqual(p.providersState().map((s) => [s.id, s.approved]), [["deepseek", false], ["gemini", false], ["groq", true], ["openrouter", false]]);
   assert.deepEqual([p.maySend("groq", "careful"), p.maySend("groq", "off"), p.maySend("openrouter", "careful")], [true, true, false], "the approval is that provider's alone");
   say = () => ({ text: "A summary of the work app." });
   const ok = await runDirect("scout", "Summarise the repo", "direct", [], undefined, "conf2", undefined, { project: secret.id, links: [] });
@@ -229,7 +233,7 @@ test("the camp's small jobs go to the model you chose, except for a confidential
   say = () => ({ text: "Work app title" });
   assert.equal(await askSmall("You name conversations.", "The user asked about the work app", 40, { project: secret.id }), "Work app title");
   assert.equal(p.disconnectProvider("openrouter"), true);
-  assert.equal(p.providersState()[2].approved, false);
+  assert.equal(stateOf("openrouter").approved, false);
   setSmallModel(null);
 });
 
@@ -296,7 +300,7 @@ test("the models guide: every model the camp can reach, by cost, speed and what 
   assert.match(page, /## Groq\n\nYou've approved it for confidential projects\. [^\n]*judged from each model's family name, as a rule of thumb/);
   assert.match(page, /\| Llama 3\.3 70B \| `groq:llama-3\.3-70b-versatile` \| \$ \| Very fast/);
   assert.match(page, /Treat the ratings for other providers as a starting point, not a measurement/);
-  assert.match(page, /## Not connected\n\nGemini, OpenRouter: add a key under Settings → Models/);
+  assert.match(page, /## Not connected\n\nDeepSeek, Gemini, OpenRouter: add a key under Settings → Models/);
   assert.ok(page.indexOf("claude-haiku") < page.indexOf("claude-opus"), "cheapest first within a group");
   assert.ok(!page.includes("good-key"), "no key is ever in it");
   // Written into the wiki's notes (claims to weigh), where the crew's index lists it.
@@ -305,4 +309,111 @@ test("the models guide: every model the camp can reach, by cost, speed and what 
   const { wikiIndex } = await import("../src/wiki.ts");
   assert.match(wikiIndex(), /camp\/wiki\/notes\/models-guide\.md: Every model the camp can use/);
   p.approveProvider("groq", false);
+});
+
+test("DeepSeek: its thinking goes back with every later request, small jobs skip it, pictures go only to the model that takes them, and its cost is counted", async () => {
+  const { costOf } = await import("../src/costs.ts");
+  const { rateModel, modelGuide } = await import("../src/modelguide.ts");
+  // Its model list says what each model can be shown. The key is checked by listing it.
+  models = { object: "list", data: [
+    { id: "deepseek-v4-pro", name: "DeepSeek-V4-Pro", input_modalities: ["text"] },
+    { id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", input_modalities: ["text", "image"] }] };
+  await assert.rejects(p.connectProvider("deepseek", "bad-key-000000"), /DeepSeek didn't accept that key: Invalid API Key/);
+  const state = await p.connectProvider("deepseek", "good-key-123456");
+  assert.deepEqual([state.connected, state.from, state.models, state.keysAt], [true, "camp", 2, "https://platform.deepseek.com/api_keys"]);
+  assert.match(state.privacy, /kept in China/);
+  assert.deepEqual(await p.providerModels("deepseek"), [{ id: "deepseek-flash", name: "DeepSeek-V4.1-Flash" }, { id: "deepseek-v4-pro", name: "DeepSeek-V4-Pro", noImages: true }]);
+  // In the pickers under its own name, each with its listed price.
+  assert.deepEqual((await listModels()).models.filter((m) => m.provider === "DeepSeek").map((m) => [m.id, m.price, m.efforts.length]),
+    [["deepseek:deepseek-flash", "$0.30 / $1.20", 0], ["deepseek:deepseek-v4-pro", "$1.32 / $3.96", 0]]);
+  assert.deepEqual(p.otherModel("deepseek:deepseek-flash"), { provider: "deepseek", name: "DeepSeek", model: "deepseek-flash" });
+
+  // A reply: the thinking is kept with it but isn't streamed as words, and the usage (on the last
+  // chunk, with what was cached counted apart) is read.
+  const thinking = "The user wants the notes. I should read the file first.";
+  say = () => ({ think: thinking, text: "Reading.", calls: [{ name: "read_file", args: '{"path":"notes.md"}', id: "c1" }],
+    usage: { prompt_tokens: 1000, completion_tokens: 200, prompt_cache_hit_tokens: 600, prompt_cache_miss_tokens: 400, completion_tokens_details: { reasoning_tokens: 150 } } });
+  let streamed = "";
+  const r = await p.providerChat({ provider: "deepseek", model: "deepseek-flash", system: "S", messages: [{ role: "user", content: "go" }], tools: [{ name: "read_file", input_schema: {} }], maxTokens: 32_000, onDelta: (d) => (streamed += d) });
+  assert.equal(streamed, "Reading.");
+  assert.deepEqual(r, { stop_reason: "tool_use", usage: { input_tokens: 400, output_tokens: 200, cache_read_input_tokens: 600 }, content: [
+    { type: "thinking", thinking }, { type: "text", text: "Reading." }, { type: "tool_use", id: "c1", name: "read_file", input: { path: "notes.md" } }] });
+  assert.deepEqual([seen.at(-1)!.path, seen.at(-1)!.body.model, seen.at(-1)!.body.max_tokens, seen.at(-1)!.body.thinking], ["/chat/completions", "deepseek-flash", 32_000, undefined], "a crew member's run leaves thinking on");
+  // Sent back as reasoning_content on every reply of the run, empty where there was none. Other providers are never sent it.
+  const history = [{ role: "user" as const, content: "go" }, { role: "assistant" as const, content: r.content }, { role: "assistant" as const, content: [{ type: "text", text: "Done." }] }];
+  assert.deepEqual(p.toChatMessages("", history, { reasoning: true }).slice(1), [
+    { role: "assistant", content: "Reading.", reasoning_content: thinking, tool_calls: [{ id: "c1", type: "function", function: { name: "read_file", arguments: '{"path":"notes.md"}' } }] },
+    { role: "assistant", content: "Done.", reasoning_content: "" }]);
+  assert.ok(!JSON.stringify(p.toChatMessages("", history)).includes("reasoning_content"));
+
+  // A crew member on it: the second request of the run carries the first reply's thinking back.
+  mkdirSync("docs", { recursive: true });
+  writeFileSync("docs/policy.md", "Deploy freezes start on the 15th.\n");
+  setAgentSettings("scout", { model: "deepseek:deepseek-flash" });
+  seen.length = 0;
+  say = (body) => (body.messages.some((m: any) => m.role === "tool")
+    ? { think: "The file says the 15th.", text: "Freezes start on the **15th**.", usage: { prompt_tokens: 900, completion_tokens: 50, prompt_cache_hit_tokens: 500, prompt_cache_miss_tokens: 400 } }
+    : { think: thinking, calls: [{ name: "read_file", args: '{"path":"docs/policy.md"}' }], usage: { prompt_tokens: 500, completion_tokens: 100, prompt_cache_hit_tokens: 0, prompt_cache_miss_tokens: 500 } });
+  const run = await runDirect("scout", "When do deploy freezes start?");
+  assert.equal(run?.status, "done");
+  assert.match(run!.text, /15th/);
+  assert.equal(claude.seen.length, 0, "Claude wasn't asked");
+  const chats = seen.filter((x) => x.path === "/chat/completions");
+  assert.equal(chats.length, 2);
+  const back = chats[1].body.messages.find((m: any) => m.role === "assistant");
+  assert.deepEqual([back.reasoning_content, back.content, back.tool_calls.length], [thinking, null, 1]);
+  assert.ok(!events.some((e) => e.type === "text" && /should read the file/.test(e.text)), "its thinking isn't shown as the reply");
+  // The run's cost, at DeepSeek's peak prices: input $0.30, cached input $0.006, output $1.20 a million.
+  assert.deepEqual(run!.usage, { input: 900, output: 150, cacheRead: 500, cacheWrite: 0 });
+  assert.equal(costOf(run!.model, run!.usage).toFixed(6), ((900 * 0.3 + 500 * 0.006 + 150 * 1.2) / 1_000_000).toFixed(6));
+  // One that isn't listed yet is costed at the dearest listed, so a budget still stops it. Other providers stay $0.
+  assert.equal(costOf("deepseek:deepseek-v5", { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0 }), 1.32);
+  assert.equal(costOf("openrouter:deepseek/deepseek-flash", { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0 }), 0);
+  setAgentSettings("scout", { model: null });
+
+  // A small job wants a few words: it's told not to think first.
+  setSmallModel("deepseek:deepseek-flash");
+  say = () => ({ text: "Deploy freeze dates" });
+  assert.equal(await askSmall("You name conversations.", "The user asked when deploy freezes start", 40), "Deploy freeze dates");
+  assert.deepEqual([seen.at(-1)!.body.model, seen.at(-1)!.body.max_tokens, seen.at(-1)!.body.thinking], ["deepseek-flash", 40, { type: "disabled" }]);
+  setSmallModel(null);
+  say = () => ({ text: "ok" });
+  await p.providerAsk({ provider: "groq", model: "llama-fast" }, "S", "x");
+  assert.equal(seen.at(-1)!.body.thinking, undefined, "a provider that doesn't think isn't told anything");
+
+  // A picture: shown to the model that takes images, named in words to the one that's text only.
+  const picture = [{ role: "user" as const, content: [{ type: "text", text: "What's this?" }, { type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } }] }];
+  await p.providerChat({ provider: "deepseek", model: "deepseek-flash", system: "", messages: picture });
+  assert.deepEqual(seen.at(-1)!.body.messages[0].content[1], { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } });
+  await p.providerChat({ provider: "deepseek", model: "deepseek-v4-pro", system: "", messages: picture });
+  assert.match(seen.at(-1)!.body.messages[0].content, /^What's this\?\n\[An image was attached\. This model can't be shown images/);
+
+  // What goes wrong is said plainly: no balance left, too many requests at once, and a reply it gave up on part-way.
+  const ask = () => p.providerChat({ provider: "deepseek", model: "deepseek-flash", system: "", messages: [{ role: "user", content: "x" }] });
+  say = () => ({ status: 402, error: "Insufficient Balance" });
+  await assert.rejects(ask(), /DeepSeek says your balance has run out: Insufficient Balance Top up with DeepSeek, then try again\./);
+  say = () => ({ status: 429, error: "Rate Limit Reached" });
+  await assert.rejects(ask(), /DeepSeek says you've hit its rate limit: Rate Limit Reached It allows only so many requests at once\./);
+  say = () => ({ text: "Half an ans", finish: "insufficient_system_resource" });
+  await assert.rejects(ask(), /DeepSeek ran out of capacity part-way through the reply\. Try again in a moment\./);
+  say = () => ({ text: "Half", finish: "aborted" });
+  await assert.rejects(ask(), /DeepSeek stopped the reply part-way/);
+
+  // The guide: its real prices, and a note that only speed and fit are a rule of thumb.
+  const flash = rateModel({ id: "deepseek:deepseek-flash", name: "DeepSeek-V4.1-Flash", provider: "DeepSeek" });
+  assert.deepEqual([flash.cost, flash.speed, flash.rated], ["$ ($0.3 in / $1.2 out per million tokens at peak hours, half that off-peak)", "Fast", true]);
+  assert.match(rateModel({ id: "deepseek:deepseek-v4-pro", name: "DeepSeek-V4-Pro", provider: "DeepSeek" }).cost, /^\$\$ \(\$1\.32 in \/ \$3\.96 out/);
+  assert.match(rateModel({ id: "deepseek:deepseek-v4-pro", name: "DeepSeek-V4-Pro", provider: "DeepSeek" }).fit, /Text only/);
+  const page = await modelGuide(new Date("2026-11-15T10:00:00Z"));
+  assert.match(page, /## DeepSeek\n\nNot approved for confidential projects[^\n]*Its prices below are DeepSeek's listed ones[^\n]*\n\n[^\n]*\n[^\n]*\n\| DeepSeek-V4\.1-Flash \| `deepseek:deepseek-flash` \| \$ \(\$0\.3 in/);
+
+  // Forgetting the key: nothing of it is left, and its models leave the pickers.
+  assert.equal(p.disconnectProvider("deepseek"), true);
+  assert.ok(!readFileSync(p.PROVIDERS_PATH, "utf8").includes("deepseek"));
+  assert.ok(!(await listModels()).models.some((m) => m.provider === "DeepSeek"));
+  await assert.rejects(ask(), /DeepSeek isn't connected\. Add its key under Settings → Models/);
+  // A key set where the camp starts is used instead.
+  process.env.DEEPSEEK_API_KEY = "good-key-123456";
+  assert.deepEqual([stateOf("deepseek").connected, stateOf("deepseek").from], [true, "env"]);
+  delete process.env.DEEPSEEK_API_KEY;
 });

@@ -80,7 +80,7 @@ echo "Tidy the README" | npm run headless -- --agent scribe -
 
 ## How it works
 
-- **Two runtimes, one loop** (`src/agent.ts`). On your subscription each character runs as a Claude Code session (`src/claude-code.ts`), with the camp's tools served from an in-process MCP server so every boundary and approval still applies. On the API the camp runs the loop itself. Other providers (Gemini, Groq, OpenRouter) can be connected under Settings → Models.
+- **Two runtimes, one loop** (`src/agent.ts`). On your subscription each character runs as a Claude Code session (`src/claude-code.ts`), with the camp's tools served from an in-process MCP server so every boundary and approval still applies. On the API the camp runs the loop itself. Other providers (DeepSeek, Gemini, Groq, OpenRouter) can be connected under Settings → Models.
 - **Dispatch keeps context clean.** An adventurer starts with no memory of the Quartermaster's conversation, works from a self-contained brief, and returns only a report.
 - **Identity** lives in `src/crew.ts` and tools in `src/roster.ts`. Agents can grow their memory, but they can't rewrite who they are.
 - **Memory** has three layers: each agent's own `camp/agents/<id>/memory.md` and sessions; the shared wiki in `camp/wiki/` (`facts/` from you, `notes/` the crew found, with sources); and skills in `skills/<agent>/`, proposed by the Quartermaster and approved by you. `recall` searches what no longer fits in a prompt.
