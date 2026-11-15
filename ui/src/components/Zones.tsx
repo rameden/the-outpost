@@ -27,8 +27,11 @@ type FrameProps = {
 
 // A zone on its way in or out: which, and what it was before.
 type Move = { kind: "in" | "out"; was: ZoneState };
-// Where a zone sits among the ones on show in its split: which way it slides in from.
-const edgeOf = (i: number, n: number) => (n === 1 ? "only" : i === 0 ? "start" : i === n - 1 ? "end" : "mid");
+// Where a zone sits among the ones on show in its split: which way it slides in from. A panel
+// beside the space the others share (the conversation, most often) comes from its own side of
+// it, however many panels are on that side: Files slides in from the right with Notes beyond it.
+const edgeOf = (i: number, n: number, firstShared = -1, lastShared = -1) =>
+  n === 1 ? "only" : i === 0 || (firstShared >= 0 && i < firstShared) ? "start" : i === n - 1 || (lastShared >= 0 && i > lastShared) ? "end" : "mid";
 
 const shownState = (): ZoneState => "shown";
 
@@ -108,6 +111,7 @@ export function LayoutFrame({ layout, onChange, stateOf: asked = shownState, chi
     // Something has to take up the leftover space: the last one on show, when nothing else does.
     const fits = (i: Item) => fitsContent(i, split.dir);
     const filler = shown.some((i) => isGrow(i.size) && !collapsed(i) && !fits(i)) ? null : [...shown].reverse().find((i) => !collapsed(i) && !fits(i)) ?? null;
+    const shared = shown.flatMap((item, i) => (isGrow(item.size) && !collapsed(item) && !fits(item) ? [i] : []));
     return (
       <div className={cx("split", split.dir, outer && className)} style={style}>
         {shown.map((item, i) => {
@@ -123,7 +127,7 @@ export function LayoutFrame({ layout, onChange, stateOf: asked = shownState, chi
                     onPointerDown={(ev) => startDrag(ev, split, before, item)} onKeyDown={(ev) => onKey(ev, split, before, item)} />)}
               {item.kind === "split" ? draw(item, flex, false) : (
                 <div className={cx("zone", collapsed(item) && "collapsed", moving[item.id]?.kind === "in" && "entering", moving[item.id]?.kind === "out" && "leaving")}
-                  data-edge={edgeOf(i, shown.length)} data-zone={item.id} data-part={item.part ?? "empty"} data-in={split.dir} style={flex}>
+                  data-edge={edgeOf(i, shown.length, shared[0], shared.at(-1))} data-zone={item.id} data-part={item.part ?? "empty"} data-in={split.dir} style={flex}>
                   {children(item, stateOf(item), split)}
                 </div>
               )}

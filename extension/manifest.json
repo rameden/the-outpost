@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Barnstorm",
+  "version": "0.1.2",
+  "description": "Fly a pixel plane over any web page and shoot it to bits, or fight waves of enemy aircraft over it. It all comes back when you land.",
+  "icons": { "16": "icon-16.png", "32": "icon-32.png", "48": "icon-48.png", "128": "icon-128.png" },
+  "action": {
+    "default_title": "Barnstorm: start the game on this page; click again to pause or resume (Alt+Shift+B)",
+    "default_icon": { "16": "icon-16.png", "32": "icon-32.png", "48": "icon-48.png" }
+  },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "commands": {
+    "_execute_action": { "suggested_key": { "default": "Alt+Shift+B" }, "description": "Start Barnstorm on this page, or pause and resume it" }
+  }
+}

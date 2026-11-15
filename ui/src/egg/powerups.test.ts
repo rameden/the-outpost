@@ -14,7 +14,7 @@ test("every kind of crate turns up, the commoner ones more often", () => {
   expect(pickKind(() => 0.999999)).toBe("bomb");
 });
 
-test("a crate lands over the page, clear of the edges and of the score card", () => {
+test("a crate lands over the page, clear of the edges and of the bar along the bottom", () => {
   for (let i = 0; i < 200; i++) {
     const rolls = [0.1, (i % 20) / 20, Math.floor(i / 20) / 10];
     const c = newCrate(sky, () => rolls.shift() ?? 0.5);
@@ -22,7 +22,6 @@ test("a crate lands over the page, clear of the edges and of the score card", ()
     expect(c.x).toBeLessThanOrEqual(sky.width - 60);
     expect(c.y).toBeGreaterThanOrEqual(80);
     expect(c.y).toBeLessThanOrEqual(sky.height - 60);
-    expect(c.x < 300 && c.y > sky.height - 280).toBe(false); // not under the card
     expect([c.kind, c.age]).toEqual(["spread", 0]);
   }
 });
@@ -46,7 +45,7 @@ test("the spread fires a fan of three; otherwise it's one shot dead ahead", () =
   expect(shotAngles(1, true)).toEqual([1 - SPREAD, 1, 1 + SPREAD]);
 });
 
-test("the timed power-ups count down and run out, and the score card says what's running", () => {
+test("the timed power-ups count down and run out, and the bar says what's running", () => {
   let active = { spread: POWERS.spread.lasts, tea: 0.5 };
   expect(activeText(active)).toBe("Spread 8s · Tea break 1s");
   active = tick(active, 0.4) as typeof active;

@@ -5,7 +5,7 @@
 // flatten the camp, the builders to put it up again. When there's nothing left to mend they
 // pack up and walk off the page, whistling (and turn back if something else goes down).
 //
-// One in three is ladder crew: it carries a ladder everywhere over its head, and for every job
+// One in three is ladder crew: it carries a ladder everywhere under its arm, and for every job
 // stands it up, climbs it a rung at a time, does the work from the top and climbs down again
 // (which takes longer, and it doesn't care). A whole panel wants a ladder whoever's on it. And
 // they have opinions about the plane, which they shout (QUOTES, at the bottom).

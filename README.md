@@ -62,7 +62,7 @@ In `npm start`, type a request for the Quartermaster, or:
 | `/runtime [claude-code \| api]` · `/budget [dollars \| off]` | What runs the crew; a spending cap per expedition |
 | Ctrl+C | Stop the running expedition; press again to quit |
 
-In mission control, ⌘P (Ctrl+P) opens the command palette, and a message starting with `/` is a command for the page (`/new`, `/find`, `/next`, `/settings`…).
+In mission control, ⌘P (Ctrl+P) opens the command palette, and a message starting with `/` is a command for the page (`/new`, `/find`, `/next`, `/settings`…). The Notes panel (`/notes`, or the tab on the right) is a place of your own to write things down: select text in a thread, or press Note under an answer, to keep it; a note goes into a message as text or as an attached file. The crew doesn't read your notes otherwise.
 
 ## Headless runs
 
@@ -80,7 +80,7 @@ echo "Tidy the README" | npm run headless -- --agent scribe -
 
 ## How it works
 
-- **Two runtimes, one loop** (`src/agent.ts`). On your subscription each character runs as a Claude Code session (`src/claude-code.ts`), with the camp's tools served from an in-process MCP server so every boundary and approval still applies. On the API the camp runs the loop itself. Other providers (Gemini, Groq, OpenRouter) can be connected under Settings → Models.
+- **Two runtimes, one loop** (`src/agent.ts`). On your subscription each character runs as a Claude Code session (`src/claude-code.ts`), with the camp's tools served from an in-process MCP server so every boundary and approval still applies. On the API the camp runs the loop itself. Other providers (DeepSeek, Gemini, Groq, OpenRouter) can be connected under Settings → Models.
 - **Dispatch keeps context clean.** An adventurer starts with no memory of the Quartermaster's conversation, works from a self-contained brief, and returns only a report.
 - **Identity** lives in `src/crew.ts` and tools in `src/roster.ts`. Agents can grow their memory, but they can't rewrite who they are.
 - **Memory** has three layers: each agent's own `camp/agents/<id>/memory.md` and sessions; the shared wiki in `camp/wiki/` (`facts/` from you, `notes/` the crew found, with sources); and skills in `skills/<agent>/`, proposed by the Quartermaster and approved by you. `recall` searches what no longer fits in a prompt.
@@ -122,6 +122,7 @@ Everything in `camp/` is local to you and gitignored. The main files:
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
 | `camp/feed.jsonl` | The saved feed, reloaded on restart |
+| `camp/notes.json` | Your own notes (the Notes panel): off limits to the crew unless you put one in a message |
 | `camp/jira.json` · `camp/providers.json` · `camp/.token` | Credentials and the camp's key: readable only by you, off limits to the crew |
 
 Environment: `CAMP_PORT` for another port, `CAMP_NEW_TOKEN=1` for a new key, `CAMP_APPROVE_PLANS=0` to skip plan approval, `CAMP_RUNTIME` to pin the runtime, `CAMP_SHELL_ENV_ALLOW=GH_TOKEN,…` to pass a secret to commands on purpose, `CAMP_LAN=1` to reach the camp from your other machines at home (with `CAMP_NAMES` for extra names it answers to and `CAMP_HOST` to listen on one address).

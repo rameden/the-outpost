@@ -48,6 +48,10 @@ const ICONS = {
   diff: "M12 4v8M8 8h8M8 18h8", // a plus over a minus: what changed
   filter: "M4 7h16M7 12h10M10 17h4",
   plane: "M12 3.500v16M3.500 14l8.500-4.500 8.500 4.500M8.500 20.500l3.500-2 3.500 2", // seen from above, nose up
+  note: "M5 3.500h14v11l-5.500 6H5zM13.500 20.500v-6H19M8.500 8h7M8.500 12h4", // a sheet with its corner folded
+  eye: "M2.500 12s3.500-6.500 9.500-6.500 9.500 6.500 9.500 6.500-3.500 6.500-9.500 6.500S2.500 12 2.500 12zM12 14.500a2.500 2.500 0 100-5 2.500 2.500 0 000 5z",
+  copy: "M9 9h10.500v11.500H9zM5 15V4h10",
+  trash: "M5 7h14M10 7V4h4v3M7 7l1 13.500h8L17 7M10.500 11v6M13.500 11v6",
   at: "M15.500 12a3.500 3.500 0 11-7 0 3.500 3.500 0 017 0zM15.500 8.500V13c0 1.400 1 2.500 2.300 2.500S20 14.400 20 12.500V12a8 8 0 10-3.200 6.400",
 } as const;
 export type IconName = keyof typeof ICONS;

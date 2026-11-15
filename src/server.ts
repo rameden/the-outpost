@@ -55,6 +55,7 @@ import { projectPayoff } from "./payoff.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
+import { loadNotes, saveNote, removeNote } from "./notes.js";
 import { loadLinks, addLink, removeLink, setLinkVerify, setLinkSetup } from "./links.js";
 import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
@@ -424,7 +425,7 @@ async function fullState(full: boolean, historySeen?: string) {
         overridden: !!(override.model || override.effort || override.maxTurns),
       };
     }),
-    // Other models you've connected (Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
+    // Other models you've connected (DeepSeek, Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
     providers: none(() => providersState()),
     // What's remembered, line by line, and what's waiting for your say (keeping.ts).
     memory: none(() => memoryOverview()),
@@ -754,6 +755,9 @@ const server = http.createServer(async (req, res) => {
       try { return send(res, 200, url.pathname === "/api/jira/ticket" ? await ticketDetail(url.searchParams.get("key") ?? "") : await pulledTickets(url.searchParams.get("jql") ?? undefined)); }
       catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
     }
+
+    // Your notes (notes.ts): all of them. The Notes panel asks when it opens, and when you come back to the window.
+    if (req.method === "GET" && url.pathname === "/api/notes") return send(res, 200, { notes: loadNotes() });
 
     // Project files for @ autocomplete.
     if (req.method === "GET" && url.pathname === "/api/files") {
@@ -1295,6 +1299,15 @@ const server = http.createServer(async (req, res) => {
       const ok = removeLink(String(body.name));
       if (ok) emit({ type: "changed", what: "links" });
       return send(res, ok ? 200 : 404, { ok });
+    }
+
+    // Keep a note ({ action: "save", id, title, text, from? }: new, or a change to one that's there), or delete one ({ action: "remove", id }).
+    if (url.pathname === "/api/notes") {
+      try {
+        if (body.action === "save") return send(res, 200, { ok: true, note: saveNote(body) });
+        if (body.action === "remove") return send(res, 200, { ok: removeNote(String(body.id ?? "")) });
+        return send(res, 400, { error: "Unknown action" });
+      } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
     }
 
     if (url.pathname === "/api/snippets") {

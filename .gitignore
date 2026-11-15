@@ -13,3 +13,10 @@ evals/results/
 
 # Mission control's built page (`npm run ui` builds it from ui/src).
 ui/dist/
+
+# The Barnstorm browser extension, built (`npm run extension:build` builds it from extension/ and ui/src/egg).
+extension/dist/
+extension/*.zip
+
+# A demo run's own state (its camp, token, sessions and forge), made when the demo is run.
+demo/.instance/

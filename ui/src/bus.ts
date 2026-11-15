@@ -8,6 +8,7 @@ export type Ask =
   | { do: "compose"; text: string; replyTo?: string; task?: string } // put this in the message box (as a reply to a run, named by its request)
   | { do: "open-conversation"; id: string }                 // go to a conversation (a memory line's origin, say)
   | { do: "command"; name: string; arg?: string }           // /new, /focus, /good…
+  | { do: "note"; text: string; fresh?: boolean }           // keep this in a note: the one that's open, or (fresh) a new one
   | { do: "tell"; text: string; error?: boolean };          // a line back to you, shown by the message box (StatusLine)
 
 const NAME = "camp:ask";
@@ -21,10 +22,12 @@ export function hear(fn: (ask: Ask) => void): () => void {
 // The commands you can type at the start of a message (and find in the command palette).
 export const COMMANDS: { name: string; arg?: string; does: string }[] = [
   { name: "new", does: "Start a new conversation" },
-  { name: "focus", does: "Close the history, files and terminal (again brings them back)" },
+  { name: "focus", does: "Close the history, files, notes and terminal (again brings them back)" },
   { name: "files", does: "Show or hide the files" },
   { name: "terminal", does: "Show or hide the terminal" },
   { name: "history", does: "Show or hide the history" },
+  { name: "notes", does: "Show or hide your notes" },
+  { name: "note", arg: "text", does: "Jot down a new note" },
   { name: "find", arg: "name", does: "Find a file, a conversation or a command" },
   { name: "next", does: "Go to the next decision waiting on you" },
   { name: "good", arg: "note", does: "Rate the last answer 👍, with an optional note" },

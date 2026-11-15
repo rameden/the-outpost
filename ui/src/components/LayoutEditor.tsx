@@ -9,7 +9,7 @@ import { Icon, type IconName } from "./bits.tsx";
 import { LayoutFrame } from "./Zones.tsx";
 
 const MAP_WIDTH = 596;
-const PART_ICON: Record<Part, IconName> = { chat: "reply", history: "list", roster: "users", files: "folder", terminal: "terminal" };
+const PART_ICON: Record<Part, IconName> = { chat: "reply", history: "list", roster: "users", files: "folder", notes: "note", terminal: "terminal" };
 const SIDES: { side: Side; label: string }[] = [{ side: "left", label: "← Left" }, { side: "right", label: "Right →" }, { side: "above", label: "↑ Above" }, { side: "below", label: "↓ Below" }];
 type Mode = "grow" | "px" | "auto";
 const modeOf = (s: Size): Mode => (isGrow(s) ? "grow" : "px" in s ? "px" : "auto");

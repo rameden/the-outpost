@@ -119,7 +119,7 @@ export function replyCost(model: string, turn: Usage, iterations: unknown): numb
 }
 
 // ---------- Models you can pick from ----------
-// provider: a model from another company (Gemini, Groq, OpenRouter), named "<provider>:<model>". free: it costs nothing there.
+// provider: a model from another company (DeepSeek, Gemini, Groq, OpenRouter), named "<provider>:<model>". free: it costs nothing there.
 export type ModelInfo = { id: string; name: string; efforts: Effort[]; price?: string; provider?: string; free?: boolean };
 
 // Used when the Models API can't be reached.
@@ -142,7 +142,10 @@ export async function listModels(): Promise<{ models: ModelInfo[]; live: boolean
   for (const p of PROVIDERS) {
     try {
       // OpenRouter lists hundreds: only its free ones are offered here.
-      for (const m of (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free)) others.push({ id: `${p.id}:${m.id}`, name: m.name, efforts: [], provider: p.name, ...(m.free ? { free: true, price: "free" } : {}) });
+      for (const m of (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free)) {
+        const id = `${p.id}:${m.id}`, price = priceLabel(id); // a price is known for DeepSeek's own models only
+        others.push({ id, name: m.name, efforts: [], provider: p.name, ...(m.free ? { free: true, price: "free" } : price ? { price } : {}) });
+      }
     } catch { /* it can't be reached just now: its models are left off the list */ }
   }
   return { models: [...claude.models, ...others], live: claude.live };

@@ -6,6 +6,7 @@ export type { CampState, AgentDetail } from "../../src/server.ts";
 export type { ModelInfo } from "../../src/agent.ts";
 export type { Link } from "../../src/links.ts";
 export type { Snippet } from "../../src/snippets.ts";
+export type { Note } from "../../src/notes.ts";
 export type { PickResult } from "../../src/picker.ts";
 export type { GithubStatus } from "../../src/github.ts";
 export type { SessionLine } from "../../src/memory.ts";
