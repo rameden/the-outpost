@@ -424,7 +424,7 @@ async function fullState(full: boolean, historySeen?: string) {
         overridden: !!(override.model || override.effort || override.maxTurns),
       };
     }),
-    // Other models you've connected (Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
+    // Other models you've connected (DeepSeek, Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
     providers: none(() => providersState()),
     // What's remembered, line by line, and what's waiting for your say (keeping.ts).
     memory: none(() => memoryOverview()),
