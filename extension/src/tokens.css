@@ -1,0 +1,15 @@
+/* Barnstorm, the browser extension: what Mae's stylesheet gives the game that an arbitrary page
+   won't. The game's own rules (the bar, the pill) are Mae's, added after these by the build. */
+:host { all: initial; }
+.barnstorm {
+  --surface: #fffdf8; --text: #1d1a16; --muted: #6f685e; --accent: #9e5c0c;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--text); font: 12px/1.4 var(--mono); text-align: left; -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) {
+  .barnstorm { --surface: #1b1917; --text: #f1ede4; --muted: #a59f93; --accent: #f0a640; }
+}
+.barnstorm *, .barnstorm *::before, .barnstorm *::after { box-sizing: border-box; }
+.barnstorm button { cursor: pointer; font: inherit; color: inherit; }
+.barnstorm kbd { font-family: var(--mono); border: 1px solid var(--muted); color: var(--muted); }
+.barnstorm :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

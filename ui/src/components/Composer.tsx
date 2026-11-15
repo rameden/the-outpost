@@ -14,6 +14,7 @@ import { Icon } from "./bits.tsx";
 import { ChatModel } from "./ChatModel.tsx";
 import { tell } from "./StatusLine.tsx";
 import { uploadFile as sendFile } from "../upload.ts";
+import { noteFile } from "../notes.ts";
 
 const MAX_FOLDER_FILES = 200;
 
@@ -24,6 +25,8 @@ export type ComposerHandle = {
   mention: (path: string) => void;               // a file or folder picked in the Files flyout
   attachJira: (issue: Pick<JiraRef, "key" | "summary">) => void; // "Attach to message" on a ticket
   setReply: (expId: string, task: string) => void; // "Reply" on a finished expedition
+  insert: (text: string) => void;                // a note's text, added after what's already written
+  attachFiles: (files: File[]) => void;          // a note, attached as a file
   focus: () => void;
 };
 
@@ -297,6 +300,15 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     focus();
   }
 
+  // Text from somewhere else on the page (a note), after what's already written, a blank line between.
+  function insertText(more: string) {
+    const now = input.current?.value ?? text;
+    const next = now.trim() ? `${now.trimEnd()}\n\n${more}` : more;
+    select.current = [next.length, next.length];
+    setText(next);
+    focus();
+  }
+
   // ---------- @ autocomplete ----------
   function updateMention() {
     const el = input.current;
@@ -422,6 +434,8 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     mention: insertRef,
     attachJira: (issue) => { void attachJira(issue); focus(); },
     setReply: (id, task) => { setReply({ id, task }); focus(); },
+    insert: insertText,
+    attachFiles: (files) => { void addFiles(files); focus(); },
     focus,
   }));
 
@@ -481,6 +495,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
           onAttachLink={(link) => { attachLink(link); closeMenu(); focus(); }}
           onLinked={(link) => { attachLink(link); closeMenu(); focus(); refresh(); }}
           onInsertSnippet={insertSnippet}
+          onNote={(note) => { void addFiles([noteFile(note)]); closeMenu(); focus(); }}
           onSnippets={(fn: (list: Snippet[]) => Snippet[]) => patch((s) => ({ ...s, snippets: fn(s.snippets ?? []) }))} />
       )}
       <form className="composer-box" onSubmit={submit}>

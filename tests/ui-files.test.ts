@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { uiPage, uiAsset, uiCsp, UI_CSP, splashPage, SPLASH_CSP, SPLASH_FILE } from "../src/ui-files.ts";
+import { withFilms } from "../scripts/tour-films.ts";
 
 const dist = mkdtempSync(join(tmpdir(), "mae-ui-"));
 mkdirSync(join(dist, "assets"));
@@ -98,4 +99,25 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
   assert.match(SPLASH_CSP, /default-src 'none'/);
   assert.match(SPLASH_CSP, /form-action 'none'/);
   assert.match(SPLASH_CSP, /frame-ancestors 'none'/);
+});
+
+test("the tour's films are drawn by the page itself, so its policy needs nothing new", () => {
+  const page = splashPage()!;
+  assert.match(page, /<section id="films">/);
+  assert.match(page, /<a href="#films">/, "the top bar links to them");
+  for (const key of ["ticket", "audit"]) {
+    assert.match(page, new RegExp(`<template id="film-${key}-stage">`), `the ${key} film's stage is in the page`);
+    assert.match(page, new RegExp(`id="film-tab-${key}" aria-controls="film-${key}"`), `the ${key} film has its tab`);
+  }
+  // They are the pages in docs/films/, written in by `npm run tour:films`: a film changed there and not written in again fails here.
+  assert.ok(withFilms(page) === page, "docs/index.html has the films as they are in docs/films/ (run `npm run tour:films`)");
+  // Writing them in twice is the same as once, and a tour without them gets them.
+  const bare = page.slice(0, page.indexOf("<!-- films-code:start -->")) + page.slice(page.indexOf("<!-- films-code:end -->") + "<!-- films-code:end -->\n".length);
+  assert.ok(withFilms(bare) === page, "the films' code is put back where it was");
+  // Nothing to fetch: no media files, no frames, no requests from the films' code.
+  assert.doesNotMatch(page, /<(video|audio|iframe|source|img)\b/i);
+  assert.doesNotMatch(page, /\bfetch\(|XMLHttpRequest|WebSocket|EventSource/);
+  // The films take the page's colours; the few they need beyond those are set for light and for dark.
+  const extra = [...page.matchAll(/--bad: (#[0-9a-f]{6});/g)].map((m) => m[1]);
+  assert.deepEqual(extra, ["#a94630", "#e88468", "#e88468"], "light, then dark by the system, then dark by choice");
 });

@@ -53,12 +53,11 @@ export function pickKind(rand: () => number = Math.random): PowerKind {
   return KINDS[KINDS.length - 1];
 }
 
-// A crate somewhere over the page: clear of the window's edges, and of the score card in the bottom-left corner.
+// A crate somewhere over the page: clear of the window's edges, and of the bar along the bottom.
 export function newCrate(sky: Sky, rand: () => number = Math.random): Crate {
   const kind = pickKind(rand);
-  let x = 60 + rand() * Math.max(0, sky.width - 120);
+  const x = 60 + rand() * Math.max(0, sky.width - 120);
   const y = 80 + rand() * Math.max(0, sky.height - 140);
-  if (x < 300 && y > sky.height - 280) x = Math.min(sky.width - 60, x + 300);
   return { kind, x, y, age: 0 };
 }
 
@@ -76,7 +75,7 @@ export function tick(active: Active, dt: number): Active {
   return next;
 }
 
-// What's running, for the score card: "SPREAD 7s · RAPID 3s".
+// What's running, for the bar: "SPREAD 7s · RAPID 3s".
 export const activeText = (active: Active) =>
   (Object.keys(POWERS) as PowerKind[]).filter((k): k is Timed => k !== "bomb" && !!active[k]).map((k) => `${POWERS[k].name} ${Math.ceil(active[k]!)}s`).join(" · ");
 

@@ -1,5 +1,6 @@
-// Barnstorm, the easter egg: a little pixel plane you fly over the page with the arrow keys,
-// shooting it to bits with the space bar, a word and a button at a time. Started from the plane
+// Barnstorm, the easter egg: a little pixel plane you fly over the page with the arrow keys
+// (↑ throttle, ← → turn, ↓ brake: flight.ts), shooting it to bits with the space bar, a word and
+// a button at a time. Started from the plane
 // in the top bar, or by typing the Konami code (↑ ↑ ↓ ↓ ← → ← → B A) anywhere.
 //
 // It's a race: gremlins (little dwarf builders, by the look of them) turn out to mend what
@@ -10,7 +11,7 @@
 //
 // The page underneath is never changed for real (targets.ts): Reset puts it all back, and so
 // does leaving. The plane, its bullets, the gremlins and the debris are drawn on one canvas over
-// the page that lets every click through; only the score card takes the mouse.
+// the page that lets every click through; only the bar along the bottom (Bar.tsx) takes the mouse.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { storeGet, storeSet } from "../api.ts";
@@ -28,6 +29,9 @@ import {
   shotAngles, showing, tick as tickPowers, touching, type Active, type Crate,
 } from "./powerups.ts";
 import { Wreckage, type Hit, type Wreck } from "./targets.ts";
+import { cx } from "../format.ts";
+import { EggBar, PausedPill, usePause, type GameProps, type Mode } from "./Bar.tsx";
+import { Sortie } from "./Sortie.tsx";
 
 const BEST = "camp-barnstorm-best";
 const FLY: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -53,7 +57,10 @@ export function useKonami(start: () => void) {
   }, []);
 }
 
-type Bullet = { x: number; y: number; vx: number; vy: number; big: boolean; boom: boolean; hops: number };
+// over: what on the page it was last seen over (so it's noticed when that changes).
+type Bullet = { x: number; y: number; vx: number; vy: number; big: boolean; boom: boolean; hops: number; over?: Element | null };
+const LOOK_EVERY = 3; // px of a bullet's flight between looks at what's under it
+const CLEARED_EVERY = 0.4; // seconds between checks that there's still something left to shoot
 type Bit = { x: number; y: number; vx: number; vy: number; size: number; color: string; age: number; life: number; falls: boolean; hat?: boolean };
 const WET_PAINT = "#e85d9a"; // what the builders repaint the letters with, whatever colour they were
 const SAWDUST = "#c9a36b";
@@ -62,7 +69,23 @@ type Ring = { x: number; y: number; age: number; reach: number }; // a bomb (or 
 const RING_LASTS = 0.35;
 type Bubble = { who: Gremlin<Wreck>; text: string; age: number }; // a builder, shouting
 
-export function Barnstorm({ onClose }: { onClose: () => void }) {
+// The easter egg, whichever of its two games is on: wrecking the page (below), or the Sortie
+// (Sortie.tsx). It always starts on the first; the bar along the bottom switches between them.
+//
+// It can be paused, to get on with something and come back: the game stops where it is and
+// gets out of the way (no plane, no bar, the keyboard back to the page, and the page put back
+// whole if it was being wrecked), leaving a pill in the corner to resume from. Nothing about
+// the game is lost: it's all still here, just not running. (paused / onPause / onResume: whoever
+// shows this can keep the pause themselves, as the app does for the plane in its top bar;
+// left out, it's kept here.)
+export function Barnstorm({ onClose, paused, onPause, onResume }: { onClose: () => void; paused?: boolean; onPause?: () => void; onResume?: () => void }) {
+  const [mode, setMode] = useState<Mode>("wreck");
+  const [own, setOwn] = useState(false);
+  const game: GameProps = { paused: paused ?? own, onPause: onPause ?? (() => setOwn(true)), onResume: onResume ?? (() => setOwn(false)), onClose, onMode: setMode };
+  return mode === "sortie" ? <Sortie {...game} /> : <WreckThePage {...game} />;
+}
+
+function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps) {
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
@@ -76,11 +99,19 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
   const reset = useCallback(() => again.current(), []);
   const close = useRef(onClose);
   close.current = onClose;
+  const pause = useRef(onPause);
+  pause.current = onPause;
+  const ctl = usePause(paused);
 
   useEffect(() => {
     const cv = canvas.current!;
     const ctx = cv.getContext?.("2d") ?? null;
-    const wreckage = new Wreckage(() => root.current);
+    // The game's own corner of the page, which nothing hits: its root here; or, where it's shown
+    // inside a shadow root (the browser extension does, to keep the page's styles off it), the
+    // element that root hangs from, since that's all the page can see of it.
+    const own = () => { const top = root.current?.getRootNode(); return top instanceof ShadowRoot ? top.host : root.current; };
+    const wreckage = new Wreckage(own);
+    let stopped = false; // paused: nothing moves, and the keys are the page's
     let sky = { width: innerWidth, height: innerHeight };
     let plane: Plane = newPlane(sky);
     let bullets: Bullet[] = [], bits: Bit[] = [], tallies: Tally[] = [];
@@ -118,14 +149,15 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
 
     const mine = (ev: KeyboardEvent) => { ev.preventDefault(); ev.stopImmediatePropagation(); };
     const onDown = (ev: KeyboardEvent) => {
-      if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+      if (stopped || ev.metaKey || ev.ctrlKey || ev.altKey) return;
       if (ev.key === "Escape") { mine(ev); close.current(); return; }
+      if (ev.key === "p" || ev.key === "P") { mine(ev); pause.current(); return; }
       if (!(ev.key in FLY) && ev.key !== FIRE) return;
       mine(ev);
       held.add(ev.key);
     };
     const onUp = (ev: KeyboardEvent) => {
-      if (!(ev.key in FLY) && ev.key !== FIRE) return;
+      if (stopped || (!(ev.key in FLY) && ev.key !== FIRE)) return;
       mine(ev); // (a space let go over a focused button would press it)
       held.delete(ev.key);
     };
@@ -170,7 +202,7 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
       award(hit.points, hit.box.left + hit.box.width / 2, hit.box.top);
       yell(nearest(hit.box.left + hit.box.width / 2, hit.box.top + hit.box.height / 2), "wrecked");
       if (since < 0) since = 0;
-      if (wreckage.cleared()) setCleared(true);
+      hitSince = true;
     };
     // A gremlin, shot: what it was mending stays down for the next one.
     const swat = (g: Gremlin<Wreck>) => {
@@ -209,7 +241,7 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
       if (!total) return;
       award(total, x, y - 30);
       if (since < 0) since = 0;
-      if (wreckage.cleared()) setCleared(true);
+      hitSince = true;
     };
     // A crate, flown through.
     const take = (crate: Crate) => {
@@ -221,15 +253,21 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
       if (crate.kind === "tea") yell(nearest(crate.x, crate.y), "tea", true);
     };
 
+    // Whether there's anything left to shoot is worth knowing, but not after every single hit:
+    // on a long page it means looking over a good deal of it.
+    let hitSince = false, clearedIn = 0;
+
     const step = (dt: number) => {
       clock += dt;
+      wreckage.tick();
+      if ((clearedIn -= dt) <= 0 && hitSince) { clearedIn = CLEARED_EVERY; hitSince = false; if (wreckage.cleared()) setCleared(true); }
       const stick = { x: 0, y: 0 };
       for (const k of held) { const d = FLY[k]; if (d) { stick.x += d[0]; stick.y += d[1]; } }
       plane = stepPlane(plane, stick, dt, sky);
 
-      // A puff of exhaust behind the tail while the engine's pushing.
+      // A puff of exhaust behind the tail while the throttle's open.
       puffing -= dt;
-      if ((stick.x || stick.y) && puffing <= 0) {
+      if (stick.y < 0 && puffing <= 0) {
         puffing = 0.045;
         const back = 7 * PIXEL;
         bits.push({
@@ -265,21 +303,30 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
       if (now !== running) { running = now; setPowers(now); }
       rings = rings.filter((r) => (r.age += dt) < RING_LASTS);
 
-      // Bullets move a pixel at a time, so a hairline between two panels isn't jumped clean over.
+      // A bullet looks at what's under it every few pixels, not every one: asking the page is
+      // the slow part of all this, and with a lot of shots in the air it adds up to a frame's
+      // worth. Whenever what it's over has changed since its last look, it goes back over the
+      // pixels in between, so the border it crossed on the way in (or a hairline it clipped)
+      // is still hit exactly where it is.
       bullets = bullets.filter((b) => {
-        const far = Math.hypot(b.vx, b.vy) * dt;
-        const hops = Math.max(1, Math.ceil(far));
-        for (let i = 0; i < hops; i++) {
-          b.x += (b.vx * dt) / hops; b.y += (b.vy * dt) / hops;
+        const far = Math.hypot(b.vx, b.vy) * dt, ux = b.vx / BULLET_SPEED, uy = b.vy / BULLET_SPEED;
+        for (let left = far; left > 0; ) {
+          const go = Math.min(LOOK_EVERY, left), fromX = b.x, fromY = b.y;
+          left -= go;
+          b.x += ux * go; b.y += uy * go;
           if (b.x < 0 || b.y < 0 || b.x > sky.width || b.y > sky.height) return false;
           const g = gremlins.find((it) => Math.hypot(it.x - b.x, it.y - b.y) < GREMLIN_RADIUS + (b.big ? 12 : 0));
           if (g) { swat(g); if (b.boom) blast(b.x, b.y, BOOM); return false; }
-          const hit = wreckage.strike(b.x, b.y);
+          const over = wreckage.under(b.x, b.y);
+          let hit: Hit | null = null;
+          if (over !== b.over) for (let d = 1; d < go && !hit; d++) hit = wreckage.strike(fromX + ux * d, fromY + uy * d);
+          hit ??= wreckage.strike(b.x, b.y, over);
+          b.over = over;
           if (hit) burst(hit);
           let struck = !!hit;
           // A big shot takes what's either side of its middle too. (Looked for every few
           // pixels, which is close enough to catch a word, and whenever its middle hits.)
-          if (b.big && (struck || b.hops++ % 4 === 0)) {
+          if (b.big && (struck || b.hops++ % 2 === 0)) {
             const ax = -b.vy / BULLET_SPEED, ay = b.vx / BULLET_SPEED; // across its path
             for (const off of BIG_ACROSS) { const side = wreckage.strike(b.x + ax * off, b.y + ay * off); if (side) { burst(side); struck = true; } }
           }
@@ -408,11 +455,15 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
         g.fillRect((c - rows[r].length / 2) * px, top + r * px, px, px);
       }
       if (ladder && !atJob) {
-        // Not at a job: the ladder's carried flat over its head, bouncing as it goes.
+        // Not at a job: the ladder's carried under one arm, level, sticking out in front and
+        // behind and bouncing as it goes. It's drawn across the body, and then the arm over its
+        // top rail, with a hand round it underneath: that's what tucks it in.
         const bounce = walking && Math.floor(it.clock * 10) % 2 ? -1 / 3 : 0;
-        const over = top / px - 3 + bounce;
-        for (let c = -6; c <= 6; c += 3) box(c, over, 1, 3, RUNG);
-        box(-8, over, 16, 1, WOOD); box(-8, over + 2, 16, 1, WOOD);
+        const at = FEET - (ducking ? 3 : 4) + bounce; // the row its top rail is at: just under the shoulder
+        for (let c = -5; c <= 7; c += 3) box(c, at, 1, 3, RUNG);
+        box(-7, at, 16, 1, WOOD); box(-7, at + 2, 16, 1, WOOD);
+        box(2, at - 1, 2, 2, GREMLIN_PAINT.T); // the arm over it
+        box(2, at + 1, 2, 1, GREMLIN_PAINT.S); // and the hand
       }
       if (working && tool === "hammer") {
         // Its hammer: up, then down on the job.
@@ -430,7 +481,7 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
       }
       // Over its head: tea on its break, "!" when a shot has just missed, a tune on the way home.
       g.scale(it.facing, 1); // (not mirrored)
-      const overhead = top - (ladder && !atJob ? 8 : 4) * px;
+      const overhead = top - 4 * px;
       if (onBreak) { g.translate(0, overhead); drawGlyph(g, POWERS.tea.glyph, 2, POWERS.tea.color); }
       else if (ducking) { g.translate(0, overhead); drawGlyph(g, BANG, px, "#d8402f"); }
       else if (it.state === "leave" && Math.floor(it.clock * 2) % 3 !== 2) {
@@ -447,7 +498,7 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
       g.textAlign = "left";
       const up = b.who.state === "fix" && onLadder(b.who) ? ladderPhase(b.who).rung * PIXEL : 0;
       const w = Math.ceil(g.measureText(b.text).width) + 12, h = 18;
-      const tipX = Math.round(b.who.x), tipY = Math.round(b.who.y) - (onLadder(b.who) && b.who.state !== "fix" ? 13 : 8) * PIXEL - up;
+      const tipX = Math.round(b.who.x), tipY = Math.round(b.who.y) - 8 * PIXEL - up;
       const left = Math.max(4, Math.min(sky.width - w - 4, tipX - Math.round(w / 2))), bottom = Math.max(h + 4, tipY - 5);
       g.fillStyle = PAINT.D; g.fillRect(left - 2, bottom - h - 2, w + 4, h + 4);
       g.fillRect(Math.max(left + 2, Math.min(left + w - 8, tipX - 3)), bottom, 6, 5); // its tail
@@ -528,6 +579,27 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
     };
     frame = requestAnimationFrame(tick);
 
+    // Pausing stops the clock, lets go of the keys, clears the sky and puts the page back whole;
+    // resuming takes the page apart again as it was and carries on from the same moment.
+    ctl.current = {
+      pause() {
+        if (stopped) return;
+        stopped = true;
+        cancelAnimationFrame(frame);
+        held.clear();
+        ctx?.clearRect(0, 0, sky.width, sky.height);
+        wreckage.suspend();
+      },
+      resume() {
+        if (!stopped) return;
+        stopped = false;
+        wreckage.resume();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        last = performance.now(); // (the time away doesn't count)
+        frame = requestAnimationFrame(tick);
+      },
+    };
+
     return () => {
       cancelAnimationFrame(frame);
       removeEventListener("keydown", onDown, true);
@@ -539,25 +611,18 @@ export function Barnstorm({ onClose }: { onClose: () => void }) {
   }, []);
 
   return (
-    <div className="barnstorm" ref={root}>
+    <div className={cx("barnstorm", paused && "paused")} ref={root}>
       <canvas className="barnstorm-sky" ref={canvas} aria-hidden="true" />
-      <section className="barnstorm-card" aria-label="Barnstorm">
-        <h2>Barnstorm</h2>
-        <dl>
-          <div><dt>Score</dt><dd>{scoreText(score)}</dd></div>
-          <div><dt>Best</dt><dd>{scoreText(best)}</dd></div>
-          <div title="How much of the page is down right now"><dt>Wrecked</dt><dd>{wrecked}</dd></div>
-          <div title="How much the dwarf builders have put back"><dt>Rebuilt</dt><dd>{rebuilt}</dd></div>
-        </dl>
-        {cleared && <p className="barnstorm-won" role="status">Camp flattened. Nothing left to shoot.</p>}
-        {powers && <p className="barnstorm-powers" role="status">{powers}</p>}
-        <p className="barnstorm-keys"><span><kbd>←↑↓→</kbd> fly</span><span><kbd>Space</kbd> fire</span><span><kbd>Esc</kbd> land</span></p>
-        <p className="barnstorm-note">Dwarf builders mend what you wreck. Shoot them too, and fly through crates for power-ups.</p>
-        <div className="barnstorm-actions">
-          <button type="button" title="Put the page back together and start again" onClick={reset}>Reset</button>
-          <button type="button" title="Stop, and put the page back together (Esc)" onClick={onClose}>Land</button>
-        </div>
-      </section>
+      {paused ? <PausedPill says={`Wreck · ${scoreText(score)}`} onResume={onResume} onClose={onClose} /> : <EggBar mode="wreck" onMode={onMode}
+        stats={[
+          { label: "Score", value: scoreText(score) },
+          { label: "Best", value: scoreText(best) },
+          { label: "Wrecked", value: wrecked, title: "How much of the page is down right now" },
+          { label: "Rebuilt", value: rebuilt, title: "How much the dwarf builders have put back. They mend what you wreck: shoot them too, and fly through crates for power-ups." },
+        ]}
+        status={cleared ? { text: "Camp flattened. Nothing left to shoot.", loud: true } : powers ? { text: powers } : null}
+        keys={[["↑", "throttle"], ["←→", "turn"], ["↓", "brake"], ["Space", "fire"], ["P", "pause"], ["Esc", "land"]]}
+        resetTitle="Put the page back together and start again" onReset={reset} onPause={onPause} onClose={onClose} />}
     </div>
   );
 }

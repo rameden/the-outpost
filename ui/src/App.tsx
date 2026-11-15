@@ -11,6 +11,8 @@ import { Dock } from "./components/Dock.tsx";
 import { History, HistoryRail } from "./components/History.tsx";
 import { TerminalPanel, TerminalRail } from "./components/Terminal.tsx";
 import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
+import { NotesPanel, NotesRail, PickToNote } from "./components/Notes.tsx";
+import { appendToNote, newNote, noteFile, notesNow, titleOf } from "./notes.ts";
 import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
 import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
@@ -43,7 +45,7 @@ import { loadSeen, markSeen, needsOf, seenAll, type Need } from "./needs.ts";
 import { activityOf } from "./feed/conversation.ts";
 import { Settings, isSettingsSection, type SettingsSection } from "./settings/Settings.tsx";
 import type { FeedStore } from "./feed/store.ts";
-import type { Character, Link } from "./types.ts";
+import type { Character, Link, Note } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
 import { Barnstorm, useKonami } from "./egg/Barnstorm.tsx";
 
@@ -157,6 +159,11 @@ export function App({ store }: { store: FeedStore }) {
   const running = useFeed(store, runningCount);
   const onMention = useCallback((path: string) => composer.current?.mention(path), []);
 
+  // Your notes, in a panel of their own (components/Notes.tsx): shown or closed to a tab (remembered).
+  const [notesOpen, setNotesOpen] = useState(() => storeGet("camp-notes-open") === "1");
+  const showNotes = useCallback((on: boolean) => { setNotesOpen(on); storeSet("camp-notes-open", on ? "1" : "0"); }, []);
+  const toggleNotes = useCallback(() => setNotesOpen((on) => { storeSet("camp-notes-open", on ? "0" : "1"); return !on; }), []);
+
   // History closes to a tab too (remembered).
   // On a narrow page, where it would sit above the conversation, it starts closed unless you've opened it.
   const [historyOpen, setHistoryOpen] = useState(() => {
@@ -170,10 +177,25 @@ export function App({ store }: { store: FeedStore }) {
   const setLayout = useCallback((next: Layout) => { setLayoutState(next); saveLayout(next); }, []);
   const [layoutEditor, setLayoutEditor] = useState<{ select?: string } | null>(null);
   const closeLayoutEditor = useCallback(() => setLayoutEditor(null), []);
-  // History, Files and the terminal each close to a slim tab; Files has nothing to show without a folder.
+  // History, Files, Notes and the terminal each close to a slim tab; Files has nothing to show without a folder.
   const stateOf = (part: Part | null): ZoneState =>
     part === "terminal" ? (terminal ? "shown" : "collapsed") : part === "history" ? (historyOpen ? "shown" : "collapsed")
+    : part === "notes" ? (notesOpen ? "shown" : "collapsed")
     : part === "files" ? (!hasFiles ? "hidden" : files ? "shown" : "collapsed") : "shown";
+  const hasNotes = placed(layout, "notes");
+
+  // Keep something in a note: the note open in the panel, or (fresh, or with none open) a new
+  // one, which remembers the conversation it came from. The panel opens to show it.
+  const noteIt = (said: string, fresh?: boolean) => {
+    const text = said.trim();
+    if (!text) return;
+    const N = notesNow();
+    const target = !fresh && hasNotes && notesOpen ? N.notes.find((n) => n.id === N.open) : undefined;
+    if (target) appendToNote(target.id, text);
+    else newNote({ text, from: conversation ? { conversation: conversation.id, title: conversation.title } : undefined });
+    if (hasNotes) showNotes(true);
+    tell(store, `${target ? `Added to the note “${titleOf(target)}”` : "Kept in a new note"}${hasNotes ? "" : ". Notes has no zone in your layout: give it one with /layout to see it."}`);
+  };
 
   // Focus mode: close whichever of those panels are open, leaving the conversation. Leaving
   // focus brings back the ones it closed (remembered, so it survives a reload).
@@ -183,6 +205,7 @@ export function App({ store }: { store: FeedStore }) {
     const set = (part: Panel, on: boolean) => {
       if (part === "history") { setHistoryOpen(on); storeSet("camp-history-open", on ? "1" : "0"); }
       if (part === "files") { setFiles(on); storeSet("camp-files-open-pane", on ? "1" : "0"); }
+      if (part === "notes") showNotes(on);
       if (part === "terminal") { setTerminal(on); storeSet("camp-term-open", on ? "1" : "0"); }
     };
     const plan = focusPlan(openNow, storeGet("camp-focus-closed"));
@@ -284,6 +307,8 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
     else if (name === "terminal") toggleTerminal();
     else if (name === "history") toggleHistory();
+    else if (name === "notes") { if (hasNotes) toggleNotes(); else { tell(store, "Notes has no zone in your layout yet: pick one for it here."); setLayoutEditor({}); } }
+    else if (name === "note") { if (arg?.trim()) noteIt(arg, true); else { newNote(); if (hasNotes) showNotes(true); } }
     else if (name === "find") setPalette({ start: arg ?? "" });
     else if (name === "next") { if (asks.length || !needs.length) nextDecision(); else goToNeed(needs[0]); }
     else if (name === "good") void rate("up", arg);
@@ -295,12 +320,13 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "ticket") { if (S?.jira?.connected) setWizard({}); else { tell(store, "Link your Jira account first (Settings → Connectors)."); openSettings("connectors"); } }
   };
   // The newest of each, for the listeners and the handlers below that are set up once.
-  const act = useRef({ command, openPath, toggleFocus, goToNeed });
-  act.current = { command, openPath, toggleFocus, goToNeed };
+  const act = useRef({ command, openPath, toggleFocus, goToNeed, noteIt });
+  act.current = { command, openPath, toggleFocus, goToNeed, noteIt };
   useEffect(() => hear((ask) => {
     if (ask.do === "command") act.current.command(ask.name, ask.arg);
     else if (ask.do === "open-file") { setSettings(null); void act.current.openPath(ask.path, ask.line); } // (Settings steps aside: the file opens over the page)
     else if (ask.do === "open-conversation") { setSettings(null); setView({ kind: "conversation", id: ask.id }); }
+    else if (ask.do === "note") act.current.noteIt(ask.text, ask.fresh);
     else if (ask.do === "compose") { if (ask.replyTo) composer.current?.setReply(ask.replyTo, ask.task ?? ""); composer.current?.setText(ask.text); }
   }), []);
   useEffect(() => {
@@ -315,7 +341,7 @@ export function App({ store }: { store: FeedStore }) {
   }, []);
   const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
     ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
-      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : "focus",
+      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
       label: c.does, hint: `/${c.name}`, run: () => act.current.command(c.name),
     })),
     ...S.history.conversations.map((c): PaletteItem => ({
@@ -370,14 +396,22 @@ export function App({ store }: { store: FeedStore }) {
   };
 
   // The easter egg: a plane to fly over the page, from its button in the top bar or the Konami code.
-  const [barnstorm, setBarnstorm] = useState(false);
-  const toggleBarnstorm = useCallback(() => setBarnstorm((on) => !on), []);
-  const endBarnstorm = useCallback(() => setBarnstorm(false), []);
-  useKonami(useCallback(() => setBarnstorm(true), []));
+  // It can be paused and picked up again later: the plane in the top bar is play and pause, and a
+  // paused game keeps everything about itself until it's resumed (or landed, from its pill).
+  const [barnstorm, setBarnstorm] = useState<"off" | "on" | "paused">("off");
+  const toggleBarnstorm = useCallback(() => setBarnstorm((was) => (was === "on" ? "paused" : "on")), []);
+  const pauseBarnstorm = useCallback(() => setBarnstorm("paused"), []);
+  const resumeBarnstorm = useCallback(() => setBarnstorm("on"), []);
+  const endBarnstorm = useCallback(() => setBarnstorm("off"), []);
+  useKonami(resumeBarnstorm); // (the code starts it, and resumes it if it's paused)
 
   const onReply = useCallback((expId: string, task: string) => composer.current?.setReply(expId, task), []);
   const onExample = useCallback((text: string) => composer.current?.setText(text), []);
   const onAttachLink = useCallback((link: Link) => composer.current?.attachLink(link), []);
+  const onInsertNote = useCallback((text: string) => composer.current?.insert(text), []);
+  const onAttachNote = useCallback((note: Note) => composer.current?.attachFiles([noteFile(note)]), []);
+  const onPickToNote = useCallback((text: string, fresh: boolean) => act.current.noteIt(text, fresh), []);
+  const openConversation = useCallback((id: string) => setView({ kind: "conversation", id }), [setView]);
 
   // What the header, history, the terminal and the message box are handed. Each is the same
   // function from one draw of the page to the next, so those parts (memo'd) are only drawn again
@@ -399,8 +433,9 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
-            filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined} onOpenLayout={openLayout}
-            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorming={barnstorm} onBarnstorm={toggleBarnstorm} />
+            filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined}
+            notesOpen={notesOpen} onToggleNotes={hasNotes ? toggleNotes : undefined} onOpenLayout={openLayout}
+            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -478,6 +513,14 @@ export function App({ store }: { store: FeedStore }) {
                     <button type="button" className="files-scrim" aria-label="Hide the files" tabIndex={-1} onClick={toggleFiles} />
                     <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />
                   </ZoneBoundary>;
+              case "notes": return state === "collapsed"
+                ? <NotesRail onShow={toggleNotes} />
+                : <ZoneBoundary name="Notes">
+                    {/* On a narrow page the panel sits over everything, like Files: a press on the rest closes it. */}
+                    <button type="button" className="notes-scrim" aria-label="Hide the notes" tabIndex={-1} onClick={toggleNotes} />
+                    {/* A page with no message box (Projects, Jira, the wiki) has nowhere to send a note to. */}
+                    <NotesPanel onHide={toggleNotes} onInsert={page ? undefined : onInsertNote} onAttach={page ? undefined : onAttachNote} onOpenConversation={openConversation} />
+                  </ZoneBoundary>;
               case "terminal": return state === "collapsed"
                 ? <TerminalRail onShow={toggleTerminal} />
                 : <ZoneBoundary name="The terminal"><TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={setUpTerminal} /></ZoneBoundary>;
@@ -544,9 +587,15 @@ export function App({ store }: { store: FeedStore }) {
           <ModelPicker c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />
         </OverlayBoundary>
       )}
+      {/* Text selected in the thread: a small button beside it, to keep it in a note. */}
+      {!page && <PickToNote active={hasNotes && notesOpen} onAdd={onPickToNote} />}
       {/* "Are you sure?", asked from anywhere on the page (ask() in Confirm.tsx). */}
       <ConfirmHost />
-      {barnstorm && <OverlayBoundary name="Barnstorm" onClose={endBarnstorm}><Barnstorm onClose={endBarnstorm} /></OverlayBoundary>}
+      {barnstorm !== "off" && (
+        <OverlayBoundary name="Barnstorm" onClose={endBarnstorm}>
+          <Barnstorm paused={barnstorm === "paused"} onPause={pauseBarnstorm} onResume={resumeBarnstorm} onClose={endBarnstorm} />
+        </OverlayBoundary>
+      )}
     </>
   );
 }

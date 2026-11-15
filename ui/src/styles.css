@@ -390,15 +390,6 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .hist-agent-head .hist-needs { margin-left: 0; }
 .hist-agent-list { margin-left: 12px; padding-left: 6px; border-left: 1px solid var(--border); }
 /* Switching your checkout's branch, in the "where to work" panel: a box right under "Linked checkout" */
-.fly-list:has(.work-branch) { max-height: min(460px, 62dvh); } /* room for the branches and what git says */
-.work-branch { margin: 0 6px 4px 12px; }
-.work-branch .menu-form { padding: 2px 0 4px; }
-.work-branch .menu-form input { font: 13px var(--mono); padding: 6px 8px; }
-.work-branch-list { max-height: 190px; overflow-y: auto; display: grid; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 8px; }
-.work-branch-list .work-opt { border-radius: 0; }
-.work-new .mono { font: 500 13px var(--mono); }
-.work-done { padding: 2px 4px 6px; color: var(--good); }
-.work-branch .form-error { margin: 0 0 6px; font-size: 13px; overflow-wrap: anywhere; }
 /* Jira: the link form in Settings, and the ticket picker in the + menu */
 .jira-form { display: grid; gap: 2px; }
 .jira-form .field { margin-bottom: 8px; }
@@ -579,6 +570,43 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 /* ---------- Files flyout (right) ---------- */
 .files { position: relative; display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
 .files-scrim { display: none; } /* only where the panel sits over the page (narrow, below) */
+/* ---------- Notes (right) ---------- */
+/* Your own notes (Notes.tsx): the list, or the one being written, filling its zone. */
+.notes { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); }
+.notes-scrim { display: none; } /* only where the panel sits over the page (narrow, below) */
+.notes-error { margin: 8px 10px 0; font-size: 13px; }
+.notes-top { display: flex; align-items: center; gap: 6px; padding: 8px 8px 6px; }
+.notes-top > .hist-search { flex: 1; margin: 0; }
+.notes-top > .btn { flex: none; white-space: nowrap; }
+.notes-empty { padding: 8px 14px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.notes-empty > b { color: var(--text); }
+.notes-empty > p { margin: 6px 0 0; }
+.notes-list { flex: 1; min-height: 0; overflow: auto; padding: 0 6px 12px; display: grid; align-content: start; gap: 1px; }
+.note-row { display: grid; gap: 2px; width: 100%; min-width: 0; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: none; }
+.note-row:hover { background: var(--surface-2); }
+.note-row > b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-row > span { font-size: 13px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.note-row > small { font-size: 12px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-edit { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.note-bar { display: flex; align-items: center; gap: 2px; padding: 5px 6px 5px 4px; border-bottom: 1px solid var(--border); }
+.note-bar .icon { width: 15px; height: 15px; }
+.note-bar .hist-icon.on { color: var(--accent); background: var(--accent-soft); }
+.note-bar .hist-icon:disabled { opacity: .45; cursor: default; background: none; color: var(--muted); }
+.note-title { flex: 1; min-width: 0; padding: 4px 6px; border: 0; border-radius: 6px; background: none; font-size: 15px; font-weight: 600; }
+.note-title::placeholder { color: var(--faint); font-weight: 500; }
+.note-text { flex: 1; min-height: 0; width: 100%; resize: none; border: 0; padding: 12px 14px; background: var(--bg); font-size: 14px; line-height: 1.55; }
+.note-text:focus-visible { outline: none; } /* the whole pane is the page being written on: the caret says where you are */
+.note-read { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; background: var(--bg); font-size: 14px; overflow-wrap: anywhere; }
+.note-foot { display: flex; align-items: center; gap: 10px; min-height: 24px; padding: 3px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--faint); }
+.note-saved.bad { color: var(--bad); font-weight: 600; }
+.note-from { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 10px 10px; }
+/* Text selected in the thread: the small bar that keeps it in a note. It sits above the selection, centred on it. */
+.note-pick { position: fixed; z-index: 45; transform: translate(-50%, -100%); display: flex; gap: 2px; max-width: calc(100vw - 16px); padding: 3px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface); box-shadow: var(--shadow-menu); }
+.note-pick > button { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 260px; padding: 5px 9px; border: 0; border-radius: 6px; background: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.note-pick > button > span { overflow: hidden; text-overflow: ellipsis; }
+.note-pick > button:hover { background: var(--surface-2); }
+.note-pick .icon { width: 14px; height: 14px; flex: none; color: var(--muted); }
 /* The slim tab a closed panel leaves behind (Files, the terminal): click it to bring the panel back. */
 .zone-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 30px; padding: 12px 0; border: 0; background: var(--surface); color: var(--muted); }
 .zone[data-in="col"] > .zone-rail { flex-direction: row; width: auto; padding: 5px 14px; }
@@ -786,10 +814,10 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .file-image { display: block; max-width: calc(100% - 32px); margin: 16px auto; border: 1px solid var(--border); border-radius: 8px; }
 .file-view .dialog-actions { margin: 0; padding: 10px 14px; border-top: 1px solid var(--border); }
 @media (max-width: 860px) {
-  /* Narrow: the files sit over the page. A panel that's closed is a bar in the stack, wherever its zone is. */
-  .app .zone[data-part="files"] { position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; width: min(340px, 92vw); box-shadow: var(--shadow-side); }
+  /* Narrow: the files, and your notes, sit over the page. A panel that's closed is a bar in the stack, wherever its zone is. */
+  .app .zone:is([data-part="files"], [data-part="notes"]) { position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; width: min(340px, 92vw); box-shadow: var(--shadow-side); }
   .app .zone.collapsed[data-part] { position: static; width: auto; height: auto; box-shadow: none; }
-  .app .zone[data-part="files"] > .files-scrim { display: block; position: fixed; inset: 0 min(340px, 92vw) 0 0; flex: none; border: 0; padding: 0; background: var(--scrim); cursor: default; }
+  .app .zone[data-part="files"] > .files-scrim, .app .zone[data-part="notes"] > .notes-scrim { display: block; position: fixed; inset: 0 min(340px, 92vw) 0 0; flex: none; border: 0; padding: 0; background: var(--scrim); cursor: default; }
   .app .zone.collapsed > .zone-rail { flex-direction: row; width: 100%; padding: 6px 16px; }
   .app .zone.collapsed > .zone-rail > span { writing-mode: horizontal-tb; }
   .app .zone.collapsed > .zone-rail > .rail-peek { display: block; }
@@ -1531,14 +1559,6 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .work-btn b { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font: 500 12px/28px var(--mono); color: var(--text); }
 .work-btn.changed b { text-decoration: underline solid var(--accent) 2px; text-underline-offset: 4px; } /* not the linked checkout: underlined */
 .work-btn:hover, .work-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
-.work-opt { display: grid; grid-template-columns: minmax(0, 1fr) 16px; gap: 0 10px; align-items: center; width: 100%; padding: 7px 8px 7px 10px; border: 0; border-left: 2px solid transparent; border-radius: 0 8px 8px 0; background: none; color: var(--text); text-align: left; }
-.work-opt:hover:not(:disabled), .work-opt:focus-visible { background: var(--surface-2); outline: none; }
-.work-opt:disabled { cursor: default; opacity: .6; }
-.work-opt[aria-checked="true"] { border-left-color: var(--accent); }
-.work-opt-name { grid-column: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.work-opt-name.mono { font: 500 13px var(--mono); }
-.work-opt small { grid-column: 1; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.work-opt > .icon { grid-column: 2; grid-row: 1 / span 2; color: var(--accent); }
 .exp-steer { display: flex; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border); }
 .exp-steer input { flex: 1; min-width: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--surface); color: var(--text); font-size: 13px; }
 .steer-msg { align-self: flex-end; max-width: 80%; margin: 4px 0 4px auto; padding: 7px 12px; border-radius: 14px 14px 6px 14px; background: var(--accent-soft); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; width: fit-content; }
@@ -1893,7 +1913,72 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .work-btn.left-out b { color: var(--faint); font-weight: 400; }
 .work-btn.left-out span { color: var(--faint); text-decoration: line-through; text-decoration-thickness: 1px; }
 
-.work-opt.work-none { border-bottom: 1px solid var(--border); border-radius: 0; margin-bottom: 4px; }
+/* Where to work (the + menu's panel, WorkIn.tsx): a card for each folder. Its head says whether the
+   folder is used (a switch); under it, where in it the crew works, as radio rows. A choice made is
+   a filled dot, never a coloured strip; focus is a solid 2px outline. A folder that's off is a
+   dashed outline with one line saying so. */
+.fly.work-fly { width: 340px; }
+.work-head { padding-bottom: 6px; }
+.work-all { margin-left: auto; border: 0; background: none; padding: 2px 4px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.work-all:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.work-tip { padding: 0 12px 8px; font-size: 12.5px; line-height: 1.45; }
+.fly-list.work-list { max-height: min(460px, 60dvh); display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; }
+.work-card { flex: none; padding: 4px 4px 6px; border: 1px solid var(--border); border-radius: 10px; }
+.work-card.off { border-style: dashed; }
+.work-card-head { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 4px 6px 4px 8px; }
+.work-card-head > .icon { flex: none; width: 15px; height: 15px; color: var(--muted); }
+.work-card-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.work-card.off .work-card-name, .work-card.off .work-card-head > .icon { color: var(--faint); }
+.work-tag { padding: 0 5px; border: 1px solid var(--border); border-radius: 4px; font-size: 11px; color: var(--faint); }
+.work-use { flex: none; margin: 0; }
+.work-card-note { padding: 0 8px 2px 31px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.work-choices { display: grid; }
+.work-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 32px; }
+.work-pick, .work-more { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: var(--text); text-align: left; font-size: 13.5px; }
+.work-pick:hover, .work-more:hover { background: var(--surface-2); }
+.work-pick:focus-visible, .work-more:focus-visible, .work-branch-btn:focus-visible, .work-all:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.work-pick-name { min-width: 0; }
+.work-pick[aria-checked="true"] .work-pick-name { font-weight: 600; }
+.work-dot { flex: none; width: 14px; height: 14px; border: 1.5px solid var(--border-strong); border-radius: 50%; background: var(--surface); }
+.work-pick[aria-checked="true"] .work-dot, .work-dot.on { border: 4px solid var(--accent); }
+.work-val { justify-self: end; max-width: 150px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--muted); }
+.work-val.mono, .work-branch-btn { font: 500 12px var(--mono); }
+.work-branch-btn { display: inline-flex; align-items: center; gap: 4px; height: 24px; margin-right: 4px; padding: 0 4px 0 8px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); }
+.work-branch-btn > span { overflow: hidden; text-overflow: ellipsis; }
+.work-branch-btn > .icon { flex: none; width: 13px; height: 13px; color: var(--muted); }
+.work-branch-btn:hover, .work-branch-btn[aria-expanded="true"] { border-color: var(--border-strong); background: var(--surface-2); }
+/* "Existing worktree": a row that unfolds the list, the chosen one's name under it while it's folded. */
+.work-more { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto 14px; gap: 0 9px; width: 100%; }
+.work-more > .work-val { padding: 0; }
+.work-more > .icon { width: 14px; height: 14px; color: var(--muted); }
+.work-more-sub { grid-column: 2 / -1; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.work-wts { display: grid; gap: 4px; margin: 0 4px 4px 30px; }
+.work-wt-find { width: 100%; padding: 5px 8px; border: 1px solid var(--field); border-radius: 6px; background: var(--bg); font-size: 12.5px; }
+.work-wt-list { display: grid; max-height: 200px; overflow-y: auto; }
+.work-wt { align-items: flex-start; padding: 5px 6px; }
+.work-wt .work-dot { width: 12px; height: 12px; margin-top: 2px; }
+.work-wt[aria-checked="true"] .work-dot { border-width: 3.5px; }
+.work-wt .work-pick-name { font: 500 12px/1.45 var(--mono); overflow-wrap: anywhere; } /* whole names: two that start alike can be told apart */
+/* Switching your checkout's branch, unfolded from the branch name. */
+.work-branch { margin: 2px 4px 6px 30px; }
+.work-branch .menu-form { padding: 0 0 4px; }
+.work-branch .menu-form input { padding: 6px 8px; font: 12.5px var(--mono); }
+.work-branch-list { display: grid; max-height: 180px; overflow-y: auto; padding: 2px; border: 1px solid var(--border); border-radius: 8px; }
+.work-branch-opt { display: grid; gap: 1px; padding: 5px 8px; border: 0; border-radius: 6px; background: none; color: var(--text); text-align: left; font-size: 13px; }
+.work-branch-opt .mono { font: 500 12px var(--mono); overflow-wrap: anywhere; }
+.work-branch-opt small { font-size: 12px; color: var(--muted); }
+.work-branch-opt:hover:not(:disabled) { background: var(--surface-2); }
+.work-branch-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.work-branch-list .menu-tip { padding: 5px 8px; font-size: 12px; }
+.work-branch-foot { padding: 4px 2px 0; font-size: 11.5px; color: var(--faint); }
+.work-done { padding: 4px 2px 0; font-size: 12.5px; color: var(--good); }
+.work-branch .form-error { margin: 4px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
+/* A follow-up: where it works, said once, not a list of choices it can't make. */
+.work-fixed { padding-left: 31px; font-size: 13px; color: var(--muted); }
+.work-fixed { grid-template-columns: auto minmax(0, 1fr); }
+.work-fixed-name { white-space: nowrap; }
+.work-fixed > .work-val.mono { max-width: none; white-space: normal; overflow-wrap: anywhere; text-align: right; }
+
 
 /* Adding a trigger (Jobs tab): label above each field, full width. */
 .trigger-form { display: grid; gap: 10px; margin-top: 8px; }
@@ -1915,20 +2000,36 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 /* The sky over the page: clicks go through it to the page below, except on the score card. */
 .barnstorm { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
 .barnstorm-sky { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* The score card: square and hard-shadowed, like the plane. */
-.barnstorm-card { position: absolute; left: 16px; bottom: 16px; width: 232px; padding: 10px 12px 12px; pointer-events: auto; background: var(--surface); color: var(--text); border: 2px solid var(--text); box-shadow: 4px 4px 0 var(--text); font: 12px/1.5 var(--mono); }
-.barnstorm-card h2 { margin: 0 0 6px; font: 700 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
-.barnstorm-card dl { margin: 0; display: grid; gap: 1px; }
-.barnstorm-card dl > div { display: flex; justify-content: space-between; gap: 12px; }
-.barnstorm-card dt { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.barnstorm-card dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
-.barnstorm-won { margin: 8px 0 0; padding: 4px 6px; background: var(--text); color: var(--surface); font-weight: 700; }
-.barnstorm-powers { margin: 8px 0 0; padding: 3px 6px; border: 2px solid var(--text); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
-.barnstorm-keys { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--muted); font-size: 11px; }
-.barnstorm-keys span { white-space: nowrap; }
+/* The bar (egg/Bar.tsx): one slim strip along the bottom with the numbers, the keys, and the
+   buttons. Square and plain, like the plane. Whatever doesn't fit is let go from the right:
+   the keys first, on a window too narrow for them. */
+.barnstorm-bar { position: absolute; inset: auto 0 0 0; height: 34px; display: flex; align-items: center; gap: 14px; padding: 0 10px 0 14px; pointer-events: auto; overflow: hidden; white-space: nowrap; background: var(--surface); color: var(--text); border-top: 2px solid var(--text); font: 12px/1 var(--mono); }
+.barnstorm-bar h2 { margin: 0; flex: none; font: 700 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-bar dl { margin: 0; flex: none; display: flex; gap: 14px; }
+.barnstorm-bar dl > div { display: flex; align-items: baseline; gap: 6px; }
+.barnstorm-bar dt { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.barnstorm-bar dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.barnstorm-status { margin: 0; flex: none; padding: 3px 6px; border: 2px solid var(--text); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.barnstorm-status.loud { background: var(--text); color: var(--surface); }
+.barnstorm-keys { margin: 0 0 0 auto; flex: 0 1 auto; min-width: 0; overflow: hidden; display: flex; gap: 10px; color: var(--muted); font-size: 11px; }
+.barnstorm-keys span { flex: none; }
 .barnstorm-keys kbd { border-radius: 0; font-size: 11px; padding: 0 3px; }
-.barnstorm-note { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.35; }
-.barnstorm-actions { display: flex; gap: 8px; margin-top: 10px; }
-.barnstorm-actions button { flex: 1; padding: 3px 0; background: var(--surface); border: 2px solid var(--text); border-radius: 0; font: 700 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
-.barnstorm-actions button:hover { background: var(--text); color: var(--surface); }
-.barnstorm-actions button:focus-visible { border-radius: 0; }
+/* Which game, and Reset / Land: small square buttons. The game you're in is filled. */
+.barnstorm-modes, .barnstorm-actions { flex: none; display: flex; }
+.barnstorm-actions { gap: 6px; }
+.barnstorm-keys + .barnstorm-actions { margin-left: 0; }
+.barnstorm-bar button { padding: 3px 8px; background: var(--surface); color: var(--text); border: 2px solid var(--text); border-radius: 0; font: 700 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-modes button + button { margin-left: -2px; }
+.barnstorm-bar button:hover, .barnstorm-modes button.on { background: var(--text); color: var(--surface); }
+.barnstorm-bar button:focus-visible { border-radius: 0; }
+@media (max-width: 1080px) { .barnstorm-keys { display: none; } .barnstorm-actions { margin-left: auto; } }
+/* Paused: no sky and no bar, so the page is all yours; just a pill in the corner to come back by. */
+.barnstorm.paused .barnstorm-sky { display: none; }
+.barnstorm-paused { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 10px; pointer-events: auto; white-space: nowrap; background: var(--surface); color: var(--text); border: 2px solid var(--text); box-shadow: 3px 3px 0 var(--text); font: 12px/1 var(--mono); }
+.barnstorm-paused h2 { margin: 0; font: 700 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-paused p { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.barnstorm-paused button { padding: 3px 8px; background: var(--surface); color: var(--text); border: 2px solid var(--text); border-radius: 0; font: 700 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-paused button:hover { background: var(--text); color: var(--surface); }
+.barnstorm-paused button:focus-visible { border-radius: 0; }
+/* The plane in the top bar, while its game is paused: lit, but not pressed. */
+.icon-btn.egg-paused { color: var(--accent); }

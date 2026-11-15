@@ -9,12 +9,13 @@
 
 import { storeGet, storeSet } from "./api.ts";
 
-export type Part = "roster" | "history" | "chat" | "files" | "terminal";
+export type Part = "roster" | "history" | "chat" | "files" | "notes" | "terminal";
 export const PARTS: { id: Part; name: string; about: string }[] = [
   { id: "chat", name: "Chat", about: "The conversation and the message box" },
   { id: "history", name: "History", about: "Your conversations and projects" },
   { id: "roster", name: "Agent roster", about: "The crew, and what each is doing" },
   { id: "files", name: "Files", about: "The attached folder, as a tree" },
+  { id: "notes", name: "Notes", about: "Your own notes, beside the conversation" },
   { id: "terminal", name: "Terminal", about: "Your own shell" },
 ];
 export const partName = (p: Part | null) => PARTS.find((x) => x.id === p)?.name ?? "Empty";
@@ -37,9 +38,10 @@ export const isGrow = (s: Size): s is { grow: number } => "grow" in s;
 // a list with a width like any other.)
 export const fitsContent = (item: Item, within: "row" | "col") => item.kind === "zone" && item.part === "roster" && within === "col";
 const fill = (): Size => ({ grow: 1 });
+const NOTES_WIDTH = 320;
 
 // The layout the page starts with: the roster across the top, history on the left, chat in the
-// middle, files on the right, and the terminal along the bottom.
+// middle, files and then your notes on the right, and the terminal along the bottom.
 export function defaultLayout(sizes: { files?: number; terminal?: number } = {}): Layout {
   return {
     kind: "split", id: "s1", dir: "col", size: fill(), items: [
@@ -49,6 +51,7 @@ export function defaultLayout(sizes: { files?: number; terminal?: number } = {})
           { kind: "zone", id: "z2", part: "history", size: { px: 272 } },
           { kind: "zone", id: "z3", part: "chat", size: fill() },
           { kind: "zone", id: "z4", part: "files", size: { px: sizes.files ?? 300 } },
+          { kind: "zone", id: "z6", part: "notes", size: { px: NOTES_WIDTH } },
         ],
       },
       { kind: "zone", id: "z5", part: "terminal", size: { px: sizes.terminal ?? 280 } },
@@ -187,7 +190,7 @@ export function drag(layout: Layout, aId: string, bId: string, a: number, b: num
 // ---------- Focus mode ----------
 // The panels that close to a tab. Focus mode closes whichever are open, leaving the conversation;
 // used again with none open, it brings back the ones it closed (history, if it closed nothing).
-export const PANELS = ["history", "files", "terminal"] as const;
+export const PANELS = ["history", "files", "notes", "terminal"] as const;
 export type Panel = (typeof PANELS)[number];
 export function focusPlan(open: Panel[], closedBefore: string | null): { close: Panel[]; reopen: Panel[] } {
   if (open.length) return { close: open, reopen: [] };
@@ -223,9 +226,29 @@ export function parseLayout(text: string | null): Layout | null {
   return v;
 }
 
+// Notes came after layouts could be arranged, so a layout kept from before then has no zone for
+// them. It's given one, at the right of Files (or of Chat, without Files).
+export function withNotes(layout: Layout): Layout {
+  if (placed(layout, "notes")) return layout;
+  const beside = zoneOf(layout, "files") ?? zoneOf(layout, "chat")!;
+  const added = addZone(layout, beside.id, "right");
+  if (!added.id) return layout; // no room for another zone: Notes can be given one in the layout editor
+  return setSize(assign(added.layout, added.id, "notes"), added.id, { px: NOTES_WIDTH });
+}
+
+const KNOWS_NOTES = "camp-layout-notes"; // set once a layout has been kept by a page that has Notes
 export function loadLayout(): Layout {
   // Before there were zones, the terminal's height and the files flyout's width were kept on their own.
   const px = (key: string) => { const n = Number(storeGet(key)); return n >= 120 && n <= 2000 ? n : undefined; };
-  return parseLayout(storeGet("camp-layout")) ?? defaultLayout({ files: px("camp-files-width"), terminal: px("camp-term-height") });
+  const kept = parseLayout(storeGet("camp-layout"));
+  if (!kept) return defaultLayout({ files: px("camp-files-width"), terminal: px("camp-term-height") });
+  // Only the once: a layout you've since taken Notes out of stays without them.
+  if (storeGet(KNOWS_NOTES)) return kept;
+  const next = withNotes(kept);
+  saveLayout(next);
+  return next;
 }
-export const saveLayout = (layout: Layout) => storeSet("camp-layout", JSON.stringify(layout));
+export function saveLayout(layout: Layout) {
+  storeSet("camp-layout", JSON.stringify(layout));
+  storeSet(KNOWS_NOTES, "1");
+}

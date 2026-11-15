@@ -90,9 +90,11 @@ test("the branch row shows where the next request works, and its panel changes i
   const row = screen.getByRole("menuitem", { name: /Branch/ });
   expect(row.textContent).toContain("main");
   fireEvent.click(row);
-  expect(screen.getAllByRole("menuitemradio").map((o) => o.querySelector(".work-opt-name")?.textContent)).toEqual(["Linked checkout", "New worktree", "fix-nav"]);
-  expect(screen.getByRole("menuitemradio", { name: /Linked checkout/ }).getAttribute("aria-checked")).toBe("true");
-  fireEvent.click(screen.getByRole("menuitemradio", { name: /fix-nav/ }));
+  expect(screen.getAllByRole("radio").map((o) => o.textContent)).toEqual(["Your checkout", "New worktree"]);
+  expect(screen.getByRole("radio", { name: "Your checkout" }).getAttribute("aria-checked")).toBe("true");
+  expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Your checkout" })); // the panel opens on the choice that's made
+  fireEvent.click(screen.getByRole("button", { name: /^Existing worktree/ }));
+  fireEvent.click(screen.getByRole("radio", { name: "fix-nav" }));
   expect(onWork).toHaveBeenCalledWith("web", "/w/web/fix-nav");
 });
 

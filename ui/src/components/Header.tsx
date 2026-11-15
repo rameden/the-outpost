@@ -132,15 +132,17 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, onOpenLayout, needs, onNeed, onSeenAll, barnstorming, onBarnstorm }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, notesOpen, onToggleNotes, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm }: {
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
   // conversation; again brings back the ones it closed.
   focused?: boolean; onToggleFocus?: () => void;
   filesOpen?: boolean; onToggleFiles?: () => void; // only passed while a folder is attached here
+  notesOpen?: boolean; onToggleNotes?: () => void; // your notes (components/Notes.tsx)
   onOpenLayout?: () => void;
-  barnstorming?: boolean; onBarnstorm?: () => void; // the easter egg (egg/Barnstorm.tsx): fly a plane over the page
+  // The easter egg (egg/Barnstorm.tsx): fly a plane over the page. Its button starts it, then is play and pause.
+  barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
@@ -208,16 +210,23 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <div className="top-tools">
         <Bell />
         {onBarnstorm && (
-          <button className={cx("icon-btn", "wide-only", barnstorming && "on")} type="button" aria-pressed={!!barnstorming} aria-label={barnstorming ? "Land the plane" : "Barnstorm"}
-            title={barnstorming ? "Land: put the page back together" : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)"} onClick={onBarnstorm}><Icon name="plane" /></button>
+          <button className={cx("icon-btn", "wide-only", barnstorm === "on" && "on", barnstorm === "paused" && "egg-paused")} type="button" aria-pressed={barnstorm === "on"}
+            aria-label={barnstorm === "on" ? "Pause Barnstorm" : barnstorm === "paused" ? "Resume Barnstorm" : "Barnstorm"}
+            title={barnstorm === "on" ? "Pause: stop the game where it is and get the page back, to carry on later"
+              : barnstorm === "paused" ? "Resume: carry on with the game from where you paused it"
+              : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)"} onClick={onBarnstorm}><Icon name="plane" /></button>
         )}
         {onToggleFocus && (
           <button className={cx("icon-btn", "wide-only", focused && "on")} type="button" aria-pressed={!!focused} aria-label={focused ? "Leave focus mode" : "Focus mode"}
-            title={focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files and terminal, leaving the conversation"} onClick={onToggleFocus}><Icon name="focus" /></button>
+            title={focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files, notes and terminal, leaving the conversation"} onClick={onToggleFocus}><Icon name="focus" /></button>
         )}
         {onToggleFiles && (
           <button className={cx("icon-btn", filesOpen && "on")} type="button" aria-pressed={!!filesOpen} aria-label={filesOpen ? "Hide the files" : "Show the files"}
             title={`${filesOpen ? "Hide" : "Show"} the files of the attached folder (Ctrl+Shift+E)`} onClick={onToggleFiles}><Icon name="panelRight" /></button>
+        )}
+        {onToggleNotes && (
+          <button className={cx("icon-btn", notesOpen && "on")} type="button" aria-pressed={!!notesOpen} aria-label={notesOpen ? "Hide the notes" : "Show the notes"}
+            title={`${notesOpen ? "Hide" : "Show"} your notes`} onClick={onToggleNotes}><Icon name="note" /></button>
         )}
         {onOpenLayout && (
           <button className="icon-btn wide-only" type="button" aria-label="Arrange the layout" title="Layout: arrange the page's zones and what each shows" onClick={onOpenLayout}><Icon name="layout" /></button>

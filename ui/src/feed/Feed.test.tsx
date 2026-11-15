@@ -293,3 +293,22 @@ test("a blank page outside a project offers a plain chat, and says how to bring 
   expect(screen.getByRole("heading", { name: "A new conversation" })).toBeTruthy();
   expect(screen.getAllByRole("button")[0].textContent).toMatch(/^Scout how other agent harnesses/);
 });
+
+test("Note under a finished answer asks for the answer itself to be kept in a note", () => {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  send(store,
+    { type: "expedition_start", id: "n1", task: "How do I rebase?", source: "user" },
+    { type: "tool", ...qm, tool: "read_file", input: "docs/git.md", expeditionId: "n1" },
+    { type: "text", ...qm, text: "Looking it up.", expeditionId: "n1" },
+    { type: "text", ...qm, text: "Run `git rebase main`, then force-push.", expeditionId: "n1" },
+  );
+  expect(within(card("How do I rebase?")).queryByRole("button", { name: "Note" })).toBeNull(); // not while it's still being written
+  send(store, { type: "expedition_end", id: "n1", status: "done", text: "done" });
+  const heard: unknown[] = [];
+  const on = (ev: Event) => heard.push((ev as CustomEvent).detail);
+  window.addEventListener("camp:ask", on);
+  fireEvent.click(within(card("How do I rebase?")).getByRole("button", { name: "Note" }));
+  window.removeEventListener("camp:ask", on);
+  expect(heard).toEqual([{ do: "note", text: "Run `git rebase main`, then force-push." }]);
+});

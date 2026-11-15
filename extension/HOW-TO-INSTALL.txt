@@ -1,0 +1,66 @@
+BARNSTORM
+A little pixel plane you can fly over any web page.
+
+Two games in one: WRECK, where you shoot the page to bits while dwarf
+builders try to put it back, and SORTIE, a top-down shooter against waves
+of enemy aircraft. Nothing on the page is really changed: land, and it's
+all as it was.
+
+
+INSTALL IT (about a minute)
+
+It works in Chrome, and in other browsers built on it (Edge, Brave, Arc).
+
+1. Keep this folder somewhere it can stay, like Documents. The browser
+   runs the game from here, so if you delete or move the folder later,
+   the game goes with it.
+
+2. In Chrome, open a new tab and go to:   chrome://extensions
+   (In Edge it's edge://extensions, in Brave brave://extensions.)
+
+3. Turn on "Developer mode". It's a switch at the top right.
+
+4. Click "Load unpacked" and choose THIS folder (the one this file is in).
+
+5. Click the puzzle-piece icon in the toolbar and pin Barnstorm, so its
+   little plane is always there.
+
+Chrome may ask now and then whether you want to keep extensions that
+didn't come from its store. That's about how this was installed, not
+about anything it's doing. Keeping it is fine.
+
+
+PLAY
+
+Go to any web page and click the plane (or press Alt+Shift+B).
+
+  Click the plane again    pause, and get the page back; once more to resume
+  P                        pause
+  Esc, or the Land button  stop, and put the page back
+
+The bar along the bottom of the window has the scores, a switch between
+the two games, and the keys for the one you're in.
+
+  WRECK    Up is the throttle, Left and Right turn, Down brakes, Space fires.
+           Fly through crates for power-ups. Shoot the builders too.
+
+  SORTIE   Arrows fly, Space fires straight ahead, X does a loop (you only
+           get a few). One hit costs a plane, unless you have wingmen.
+           Shoot the slow yellow one for a crate.
+
+
+GOOD TO KNOW
+
+- It only does anything on a page when you click its button, and only on
+  that page. It doesn't watch what you browse, and it sends nothing
+  anywhere. Your best scores are kept in the browser.
+- It can't run on the browser's own pages (settings, the extension store,
+  a PDF). The button says "no" for a moment if you try.
+- Leave or reload the page and the game is gone. Pause is for when you
+  want to come back to it.
+
+
+REMOVE IT
+
+Go back to chrome://extensions and click Remove on Barnstorm. Then you can
+delete this folder.

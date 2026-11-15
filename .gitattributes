@@ -1,0 +1,3 @@
+# The tour (docs/index.html) is written by scripts/tour-films.ts from the films in docs/films/, and
+# its tests compare the two byte for byte: keep them LF on every machine, Windows included.
+docs/**/*.html text eol=lf

@@ -13,9 +13,12 @@
     "ui:serve": "tsx scripts/ui-build.ts --if-stale && tsx --import ./scripts/env.mjs src/server.ts",
     "dev": "npm run ui",
     "ui:build": "tsx scripts/ui-build.ts",
+    "extension:build": "tsx scripts/extension-build.ts",
+    "extension:pack": "tsx scripts/extension-build.ts --zip",
     "ui:dev": "npm run ui",
+    "tour:films": "tsx scripts/tour-films.ts",
     "test": "tsx --test --test-reporter=spec tests/*.test.ts && vitest run --config ui/vite.config.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p ui",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p ui && tsc --noEmit -p extension",
     "eval": "tsx --import ./scripts/env.mjs evals/run.ts"
   },
   "keywords": [],

@@ -1,16 +1,17 @@
 // The + menu in the composer: pick who to talk to, attach files, a folder, images, a link; link
-// a folder on your disk without uploading it; and reuse saved prompt snippets. A row with a
+// a folder on your disk without uploading it; attach one of your notes; and reuse saved prompt snippets. A row with a
 // chevron opens a panel that flies out beside the menu (the crew, where to work, a link, a
 // linked folder, snippets): `view` is "main" with nothing out, or the name of the panel that is.
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { api, errorText } from "../api.ts";
-import type { CampState, Link, PickResult, RepoInfo, Snippet, JiraRef } from "../types.ts";
+import type { CampState, Link, Note, PickResult, RepoInfo, Snippet, JiraRef } from "../types.ts";
+import { loadNotes, titleOf, useNotes } from "../notes.ts";
 import { JiraPicker } from "./Jira.tsx";
 import { WorkOptions, outOnReply, workingOn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon as LineIcon } from "./bits.tsx";
 
-export type MenuView = "main" | "crew" | "work" | "url" | "link" | "jira" | "snippets";
+export type MenuView = "main" | "crew" | "work" | "url" | "link" | "jira" | "notes" | "snippets";
 type Fly = Exclude<MenuView, "main">;
 
 const Icon = ({ d, children }: { d?: string; children?: ReactNode }) => (
@@ -18,7 +19,7 @@ const Icon = ({ d, children }: { d?: string; children?: ReactNode }) => (
 );
 const FOLDER = "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z";
 
-export function AttachMenu({ S, view, setView, text, repos, work, workLocked, workOptional, workWithout, workPlain = [], workOptIn, workWorking, onWorkAll, onWork, onBranch, onJira, onConnectJira, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets }: {
+export function AttachMenu({ S, view, setView, text, repos, work, workLocked, workOptional, workWithout, workPlain = [], workOptIn, workWorking, onWorkAll, onWork, onBranch, onJira, onConnectJira, onClose, onTalkTo, onPick, onPaste, onUrl, onAttachLink, onLinked, onInsertSnippet, onSnippets, onNote }: {
   S: CampState | null;
   view: MenuView;
   setView: (v: MenuView) => void;
@@ -45,11 +46,13 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
   onLinked: (link: Link) => void;                 // a folder was just linked: attach it and reload the list
   onInsertSnippet: (text: string) => void;
   onSnippets: (fn: (list: Snippet[]) => Snippet[]) => void;
+  onNote?: (note: Note) => void;                  // one of your notes, picked to attach as a file
 }) {
   // The folders left out right now: chosen for the next request, or (a follow-up) by the conversation.
   const leftOutNow = [...repos.map((r) => r.link), ...workPlain].filter((l) => (workLocked ? outOnReply(work, workWithout, l) : work[l] === "none"));
   const usedNow = [...repos.map((r) => r.link), ...workPlain].filter((l) => !leftOutNow.includes(l));
   const usedRepo = repos.find((r) => r.link === usedNow[0]);
+  const oneRepo = repos.length === 1 && !workPlain.length && !workOptIn; // then the row is about its branch
   const box = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState("");
   const [access, setAccess] = useState<"read" | "write">("read");
@@ -61,8 +64,9 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
 
   // The menu opens with the keyboard on its first row; a panel, on its first control.
   useEffect(() => {
-    const first = view === "main" ? '[data-view="main"] .menu-item' : view === "link" ? ".fly .pick-folder" : view === "snippets" ? ".fly button" : view === "work" ? '.fly .work-opt[role="menuitemradio"]'  : ".fly input";
-    box.current?.querySelector<HTMLElement>(first)?.focus();
+    const first = view === "main" ? '[data-view="main"] .menu-item' : view === "link" ? ".fly .pick-folder" : view === "snippets" || view === "notes" ? ".fly button" : view === "work" ? ".fly .work-list button, .fly .work-list input" : ".fly input";
+    // Where to work: on the choice that's made, if there is one in view.
+    ((view === "work" && box.current?.querySelector<HTMLElement>('.fly .work-pick[aria-checked="true"]')) || box.current?.querySelector<HTMLElement>(first))?.focus();
   }, [view]);
 
   // The menu opens upwards from the message box. It may be no taller than the room above it, or
@@ -154,6 +158,11 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
     onSnippets((list) => list.filter((z) => z.id !== id));
   }
 
+  // Your notes (notes.ts), read when their panel is first opened.
+  const noted = useNotes();
+  useEffect(() => { if (view === "notes" && !noted.loaded) void loadNotes(); }, [view, noted.loaded]);
+  const notes = noted.notes.filter((n) => n.text.trim());
+
   const links = S?.links ?? [];
   const snippets = S?.snippets ?? [];
   return (
@@ -168,11 +177,11 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
         {(repos.length > 0 || (workOptional && workPlain.length > 0)) && <>
           <div className="menu-label">Work in</div>
           <button type="button" {...flyRow("work")}>
-            <LineIcon name={repos.length && !workOptIn ? "branch" : "folder"} />{repos.length && !workOptIn ? "Branch" : "Folders"}
-            <small className="menu-now">{leftOutNow.length && leftOutNow.length === repos.length + workPlain.length ? "none used"
-              : workOptIn ? (usedNow.length === 1 ? (usedRepo ? `${usedRepo.link} · ${workingOn(usedRepo, work[usedRepo.link] ?? "")}` : usedNow[0]) : `${usedNow.length} used`)
-              : repos.length === 1 && !workPlain.length ? (leftOutNow.includes(repos[0].link) ? "not used" : workingOn(repos[0], work[repos[0].link] ?? ""))
-              : leftOutNow.length ? `${leftOutNow.length} left out` : repos.length + workPlain.length === 1 ? "used" : `${repos.length + workPlain.length} folders`}</small>
+            <LineIcon name={oneRepo ? "branch" : "folder"} />{oneRepo ? "Branch" : "Folders"}
+            <small className="menu-now">{!usedNow.length ? "none used"
+              : oneRepo ? workingOn(repos[0], work[repos[0].link] ?? "")
+              : usedNow.length === 1 ? (usedRepo ? `${usedRepo.link} · ${workingOn(usedRepo, work[usedRepo.link] ?? "")}` : usedNow[0])
+              : leftOutNow.length ? `${usedNow.length} of ${usedNow.length + leftOutNow.length} used` : `${usedNow.length} used`}</small>
             <LineIcon name="chevronRight" />
           </button>
           <div className="menu-sep" />
@@ -188,6 +197,7 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
         </button>
         <button type="button" {...flyRow("url")}><Icon d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" /></Icon>URL<LineIcon name="chevronRight" /></button>
         {onJira && <button type="button" {...flyRow("jira")}><LineIcon name="check" />Jira ticket<LineIcon name="chevronRight" /></button>}
+        {onNote && <button type="button" {...flyRow("notes")}><LineIcon name="note" />Note<LineIcon name="chevronRight" /></button>}
         <div className="menu-sep" />
         <button type="button" {...flyRow("snippets")}><Icon d="M4 5h16v11H8l-4 4z"><path d="M8 9h8M8 12h5" /></Icon>Prompt snippets<LineIcon name="chevronRight" /></button>
         <div className="menu-sep" />
@@ -219,11 +229,8 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
       )}
 
       {view === "work" && (
-        <div className="fly" role="dialog" aria-label="Where to work" onKeyDown={onFlyKeys}>
-          <div className="fly-head">Where to work <small>for the next request</small></div>
-          <div className="fly-list" role="menu">
-            <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} onBranch={onBranch} canLeaveOut={workOptional} without={workWithout} plain={workPlain} onPickAll={onWorkAll} optIn={workOptIn} working={workWorking} />
-          </div>
+        <div className="fly fly-wide work-fly" role="dialog" aria-label="Where to work" onKeyDown={onFlyKeys}>
+          <WorkOptions repos={repos} choice={work} locked={workLocked} onPick={onWork} onBranch={onBranch} canLeaveOut={workOptional} without={workWithout} plain={workPlain} onPickAll={onWorkAll} optIn={workOptIn} working={workWorking} />
         </div>
       )}
 
@@ -274,6 +281,21 @@ export function AttachMenu({ S, view, setView, text, repos, work, workLocked, wo
         <div className="fly fly-wide" role="dialog" aria-label="Attach a Jira ticket" onKeyDown={onFlyKeys}>
           <div className="fly-head">Attach a Jira ticket <small>read when attached</small></div>
           <JiraPicker connected={!!S?.jira?.connected} onPick={(i) => { onJira(i); onClose(); }} onConnect={() => { onConnectJira?.(); onClose(); }} />
+        </div>
+      )}
+
+      {view === "notes" && onNote && (
+        <div className="fly" role="dialog" aria-label="Attach a note" onKeyDown={onFlyKeys}>
+          <div className="fly-head">Attach a note <small>as a file, as it stands now</small></div>
+          <div className="snippet-list">
+            {!noted.loaded ? <div className="menu-tip">Opening…</div>
+              : !notes.length && <div className="menu-tip">No notes yet. Write one in the Notes panel (<kbd>/notes</kbd>), then attach it here.</div>}
+            {notes.map((n) => (
+              <div className="snippet" key={n.id}>
+                <button type="button" className="use" onClick={() => onNote(n)}><strong>{titleOf(n)}</strong><span>{n.text.trim().slice(0, 200)}</span></button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

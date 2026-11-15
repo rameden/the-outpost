@@ -4,6 +4,7 @@
 
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, errorText } from "../api.ts";
+import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
 import { cClass, clock, cx, plural, spaced } from "../format.ts";
@@ -228,6 +229,8 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
   const end = exp.end;
   const ok = end?.status === "done";
   const answeredBy = exp.source === "direct" ? exp.task.match(/^@(\w+)/)?.[1] : undefined; // a direct chat's own crew member
+  // The answer itself: the last thing said at the top of the run (after the quests and the tool calls).
+  const answer = exp.nodes.findLast((n) => n.kind === "msg");
 
   // Stop just this expedition (its id goes along), leaving the others running.
   async function stopIt() {
@@ -269,6 +272,9 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
               )}
               {ok && exp.source !== "job" && (end.changed > 0 || end.workspaces.length > 0) && <AsideButton expId={exp.expId} kind="review" answeredBy={answeredBy} />}
               {ok && exp.source !== "job" && <AsideButton expId={exp.expId} kind="opinion" answeredBy={answeredBy} />}
+              {answer?.kind === "msg" && answer.text.trim() && (
+                <button type="button" className="btn small" title="Keep this answer in a note: the one you have open, or a new one" onClick={() => say({ do: "note", text: answer.text })}>Note</button>
+              )}
               {exp.source !== "job" && <ForkButton expId={exp.expId} />}
               {exp.source !== "job" && (
                 <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>

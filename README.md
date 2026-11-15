@@ -62,7 +62,7 @@ In `npm start`, type a request for the Quartermaster, or:
 | `/runtime [claude-code \| api]` · `/budget [dollars \| off]` | What runs the crew; a spending cap per expedition |
 | Ctrl+C | Stop the running expedition; press again to quit |
 
-In mission control, ⌘P (Ctrl+P) opens the command palette, and a message starting with `/` is a command for the page (`/new`, `/find`, `/next`, `/settings`…).
+In mission control, ⌘P (Ctrl+P) opens the command palette, and a message starting with `/` is a command for the page (`/new`, `/find`, `/next`, `/settings`…). The Notes panel (`/notes`, or the tab on the right) is a place of your own to write things down: select text in a thread, or press Note under an answer, to keep it; a note goes into a message as text or as an attached file. The crew doesn't read your notes otherwise.
 
 ## Headless runs
 
@@ -122,6 +122,7 @@ Everything in `camp/` is local to you and gitignored. The main files:
 | `camp/agents/<id>/` | Each agent's memory, sessions, and outputs |
 | `camp/wiki/` · `camp/inbox.md` · `camp/quest-log.jsonl` | Shared knowledge, job reports, run history |
 | `camp/feed.jsonl` | The saved feed, reloaded on restart |
+| `camp/notes.json` | Your own notes (the Notes panel): off limits to the crew unless you put one in a message |
 | `camp/jira.json` · `camp/providers.json` · `camp/.token` | Credentials and the camp's key: readable only by you, off limits to the crew |
 
 Environment: `CAMP_PORT` for another port, `CAMP_NEW_TOKEN=1` for a new key, `CAMP_APPROVE_PLANS=0` to skip plan approval, `CAMP_RUNTIME` to pin the runtime, `CAMP_SHELL_ENV_ALLOW=GH_TOKEN,…` to pass a secret to commands on purpose, `CAMP_LAN=1` to reach the camp from your other machines at home (with `CAMP_NAMES` for extra names it answers to and `CAMP_HOST` to listen on one address).

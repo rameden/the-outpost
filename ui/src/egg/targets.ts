@@ -43,7 +43,8 @@ const sideBox = (r: Box, side: Side, w: number): Box =>
   : { left: r.left + r.width - w, top: r.top, width: w, height: r.height };
 
 type HighlightSet = { add(r: Range): unknown; delete(r: Range): unknown; clear(): void };
-type Look = { draws: boolean; reach: boolean; borders: Partial<Record<Side, number>> };
+// text: it has words of its own (not in an element inside it), so where on it a bullet lands matters.
+type Look = { draws: boolean; reach: boolean; text: boolean; borders: Partial<Record<Side, number>> };
 
 export class Wreckage {
   private list: Wreck[] = [];
@@ -52,6 +53,15 @@ export class Wreckage {
   private paint = new Map<Element, Look>();
   private paintAt = 0;
   private alive = new WeakMap<Element, Node>(); // the last thing found still standing inside a shell
+  // Asking the page what's under a point, and whether a box still has anything in it, is the
+  // slow part, and a bullet asks at every few pixels of its flight. Nearly all of those are over
+  // the same few boxes, with nothing having changed since the last one. So what's been learned
+  // is kept for as long as it holds: until something is shot or mended (`version`), and for the
+  // things that could move, only within the frame (tick()).
+  private version = 0;
+  private passed = new Set<Element>(); // boxes with no words of their own that are known to let a bullet through
+  private rects = new Map<Element, DOMRect>(); // where things are, this frame
+  private stood = new WeakMap<Element, { version: number; at: number; yes: boolean }>(); // standing(), remembered a moment
 
   // own: the game's own corner of the page (the plane's canvas, the score card), which nothing hits.
   constructor(private own: () => Element | null) {
@@ -64,12 +74,28 @@ export class Wreckage {
   // How much is down right now.
   get count() { return this.list.length; }
 
+  // Once a frame, before any bullets are moved: what was learned last frame about where things
+  // are is let go (the page may have scrolled, or redrawn something).
+  tick() { this.passed.clear(); this.rects.clear(); }
+
+  // Something has been shot or mended: what was known about which boxes are empty no longer holds.
+  private changed() { this.version++; this.passed.clear(); }
+  private rectOf(el: Element): DOMRect { let r = this.rects.get(el); if (!r) this.rects.set(el, r = el.getBoundingClientRect()); return r; }
+
+  // The topmost thing on the page at a point, not counting the game itself. (Whatever is under
+  // the game's bar can still be hit: the bullet goes beneath it.)
+  under(x: number, y: number): Element | null {
+    const el = document.elementFromPoint?.(x, y) ?? null;
+    return el && this.mine(el) ? document.elementsFromPoint?.(x, y).find((e) => !this.mine(e)) ?? null : el;
+  }
+
   // A bullet is at (x, y): what it destroys there, if anything.
-  strike(x: number, y: number): Hit | null {
-    // (Whatever is under the score card can still be hit: the bullet goes beneath it.)
-    const el = document.elementsFromPoint?.(x, y).find((e) => !this.mine(e));
+  strike(x: number, y: number, el: Element | null = this.under(x, y)): Hit | null {
     if (!el) return null;
-    const first = (this.highlight && !isSvg(el) ? this.strikeWord(el, x, y) : null) ?? this.strikeEdge(el, x, y);
+    // A box already known to let bullets through: only its border could still stop one.
+    if (this.passed.has(el)) return this.strikeEdge(el, x, y);
+    const look = this.look(el);
+    const first = (this.highlight && look.text && !isSvg(el) ? this.strikeWord(el, x, y) : null) ?? this.strikeEdge(el, x, y);
     if (first) return first;
     // The first thing from here outwards that draws anything: it goes if it's empty, and
     // otherwise the bullet carries on over it.
@@ -77,9 +103,12 @@ export class Wreckage {
     if (isSvg(el)) { at = el.closest("svg"); while (at?.parentElement?.closest("svg")) at = at.parentElement.closest("svg"); }
     for (; at && !NEVER(at); at = at.parentElement) {
       if (!this.look(at).draws) continue;
-      if (this.standing(at)) return null;
-      return this.wreck(at);
+      if (!this.standing(at)) return this.wreck(at);
+      break;
     }
+    // Nothing here to hit. Where the answer didn't depend on a word under the bullet, it'll be
+    // the same anywhere else on this box, until something changes.
+    if (!look.text) this.passed.add(el);
     return null;
   }
 
@@ -145,7 +174,32 @@ export class Wreckage {
     w.mended = true;
     const at = this.list.indexOf(w);
     if (at >= 0) this.list.splice(at, 1);
+    this.changed();
     return box;
+  }
+
+  // Pausing: put the page back as it was for now, without forgetting what's down.
+  suspend() {
+    for (const w of this.list) {
+      if (w.kind === "word") this.highlight?.delete(w.range!);
+      else w.el.removeAttribute(w.kind === "edge" ? EDGE : GONE);
+    }
+    this.paint.clear();
+    this.alive = new WeakMap();
+    this.changed();
+  }
+
+  // …and carrying on: take it apart again the same way. Anything the page has redrawn in the
+  // meantime (a word React has rewritten, a part that's gone from the page) is let go: it's back.
+  resume() {
+    for (const w of [...this.list]) {
+      if (!this.where(w)) { this.mend(w); continue; }
+      if (w.kind === "word") this.highlight?.add(w.range!);
+      else if (w.kind === "edge") { if (!shotSides(w.el).includes(w.side!)) w.el.setAttribute(EDGE, [...shotSides(w.el), w.side!].join(" ")); }
+      else w.el.setAttribute(GONE, "");
+    }
+    this.paint.clear();
+    this.changed();
   }
 
   // Put everything back.
@@ -155,6 +209,7 @@ export class Wreckage {
     this.words = new WeakMap();
     this.alive = new WeakMap();
     this.paint.clear();
+    this.changed();
   }
 
   // Restore, and give the highlight back to the browser: the game is over.
@@ -166,7 +221,7 @@ export class Wreckage {
 
   private mine(el: Element) { return !!this.own()?.contains(el); }
 
-  private down(w: Omit<Wreck, "claimed" | "mended">) { this.list.push({ ...w, claimed: false, mended: false }); }
+  private down(w: Omit<Wreck, "claimed" | "mended">) { this.list.push({ ...w, claimed: false, mended: false }); this.changed(); }
 
   private strikeWord(el: Element, x: number, y: number): Hit | null {
     const caret = caretAt(x, y);
@@ -196,7 +251,7 @@ export class Wreckage {
     if (NEVER(el) || isSvg(el) || DRAWN.has(el.tagName)) return null; // (a text box goes in one piece)
     const { borders } = this.look(el);
     if (!SIDES.some((s) => borders[s])) return null;
-    const r = el.getBoundingClientRect();
+    const r = this.rectOf(el);
     const side = SIDES.find((s) => {
       const w = borders[s];
       if (!w) return false;
@@ -243,7 +298,8 @@ export class Wreckage {
         || (!!cs.boxShadow && !/\bnone\b/.test(cs.boxShadow)) || pseudo("::before") || pseudo("::after")
         // Without word-by-word highlights, text counts as part of what holds it.
         || (!this.highlight && [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && /\S/.test((n as Text).data))));
-      known = { draws, reach, borders };
+      const text = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && /\S/.test((n as Text).data));
+      known = { draws, reach, text, borders };
       this.paint.set(el, known);
     }
     return known;
@@ -251,6 +307,15 @@ export class Wreckage {
 
   // Is there anything inside this element that's still there to be shot?
   private standing(el: Element): boolean {
+    // (Asked for the same box at every step of every bullet over it: the answer is kept until
+    // something is shot or mended, and no longer than a moment in case the page itself changes.)
+    const now = performance.now(), known = this.stood.get(el);
+    if (known && known.version === this.version && now - known.at < 300) return known.yes;
+    const yes = this.stands(el);
+    this.stood.set(el, { version: this.version, at: now, yes });
+    return yes;
+  }
+  private stands(el: Element): boolean {
     const last = this.alive.get(el);
     if (last && last.isConnected && el.contains(last) && this.there(last, null)) return true;
     const r = el === document.body ? { left: 0, top: 0, width: innerWidth, height: innerHeight } : el.getBoundingClientRect();
@@ -275,10 +340,12 @@ export class Wreckage {
 
   // One node: still to be shot? (clip: only if it's within this box; null skips the check.)
   private there(n: Node, clip: Box | null): boolean {
+    // Where it is comes first: on a long page nearly everything is off the screen, and one look
+    // at a box is much cheaper than working out what it draws or measuring each of its words.
+    const e = n.nodeType === Node.TEXT_NODE ? n.parentElement : (n as Element);
+    if (!e || (clip && !overlaps(e.getBoundingClientRect(), clip))) return false;
     if (n.nodeType === Node.TEXT_NODE) return !!this.highlight && this.wordLeft(n as Text);
-    const e = n as Element;
-    if (e.closest(`[${GONE}]`) || !this.look(e).draws) return false;
-    return !clip || overlaps(e.getBoundingClientRect(), clip);
+    return !e.closest(`[${GONE}]`) && this.look(e).draws;
   }
 
   // Does this text still have a word a bullet could reach? A word cut off by its box (a long
