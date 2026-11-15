@@ -57,7 +57,9 @@ function swap(text: string, from: string, to: string): string {
 }
 
 /** The tour with the films in it. `film` reads a film's page by its file name (docs/films/ unless told otherwise). */
-export function withFilms(tour: string, film: (file: string) => string = (file) => readFileSync(join(FILMS_DIR, file), "utf8")): string {
+export function withFilms(tour: string, read: (file: string) => string = (file) => readFileSync(join(FILMS_DIR, file), "utf8")): string {
+  // A film saved with Windows line endings is cut up the same as any other.
+  const film = (file: string) => read(file).replace(/\r\n/g, "\n");
   // The films' styles, without the page around the stage and without their own copy of the colours.
   let css = cut(film(STYLES_FROM), "<style>", "</style>");
   css = css.slice(css.indexOf("* { box-sizing: border-box; }"));
