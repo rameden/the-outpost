@@ -2,7 +2,8 @@
 //
 // Two things. A description worth reading, drafted from the record (the ticket and its
 // acceptance criteria, what changed, the commits, how your checks came out, what the crew
-// reported) for you to edit before anything is pushed. And a watch: now and then the camp looks
+// reported, and what you changed by hand after the crew finished: handedits.ts) for you to edit
+// before anything is pushed. And a watch: now and then the camp looks
 // at the pull requests of recent worktrees (with the GitHub CLI, as you) and keeps where each
 // stands: failing checks, review comments, conflicts with its base. The page shows that on the
 // conversation, and brings the feedback into a reply when you ask. Nothing here answers a
@@ -15,6 +16,9 @@ import type { Workspace } from "./context.js";
 import { history, titleOf } from "./conversations.js";
 import { emit } from "./events.js";
 import { jiraConnected, ticketDetail } from "./jira.js";
+import { pullMerged } from "./jiramoments.js";
+import { handEdits, handEditsSection, notesAfterEdits } from "./handedits.js";
+import type { askSmall } from "./small.js";
 import { checked, fail, tryGit } from "./repos.js";
 import { prWatchOn } from "./settings.js";
 import { allTurns, shortened } from "./threads.js";
@@ -32,7 +36,9 @@ async function gh(dir: string, args: string[]): Promise<string> {
 }
 
 // ---------- A description from the record ----------
-export type PrDraft = { title: string; body: string; branch: string; existing: { number: number; url: string } | null };
+// handEdits: the files you changed yourself after the crew's last run there (handedits.ts), and
+// whether the run's notes were rewritten to match them.
+export type PrDraft = { title: string; body: string; branch: string; existing: { number: number; url: string } | null; handEdits?: { files: number; rewritten: boolean } };
 const MAX_FILES = 40;
 const clip = (s: string, n: number) => { const t = s.replace(/\r\n/g, "\n").trim(); return t.length > n ? `${t.slice(0, n).trimEnd()}…` : t; };
 
@@ -49,7 +55,7 @@ export function checksIn(reply: string, link: string): string[] {
 
 // expedition: the run whose card you clicked (it says which conversation this is). base: the
 // commit the work started from; without it, everything the branch has that its upstream's default doesn't.
-export async function draftPullRequest(w: Where, opts: { expedition?: string; base?: string } = {}): Promise<PrDraft> {
+export async function draftPullRequest(w: Where, opts: { expedition?: string; base?: string; ask?: typeof askSmall } = {}): Promise<PrDraft> {
   const dir = await checked(w);
   const branch = await tryGit(dir, ["rev-parse", "--abbrev-ref", "HEAD"]);
   const turns = allTurns();
@@ -86,14 +92,23 @@ export async function draftPullRequest(w: Where, opts: { expedition?: string; ba
   const checks = last ? checksIn(last.reply, w.link) : [];
   parts.push("## Checks\n" + (checks.length ? checks.map((c) => `- ${c[0] === "✓" ? "Passed" : "FAILED"}: \`${c.slice(2)}\``).join("\n") + "\n\n(Run by the camp after the last change.)"
     : "No automatic checks ran for this change."));
-  if (last) parts.push("## Notes from the run\n" + shortened(last.reply.replace(/\n*Automatic checks in links\/[\s\S]*$/, ""), 1500));
+  // What you changed by hand since the crew finished: listed, and the notes brought up to date with it.
+  const byHand = await handEdits(dir, w.link, mine.filter((t) => !t.aside && t.workspaces?.[w.link]?.path === w.path).map((t) => t.expedition)).catch(() => ({ files: [], since: null }));
+  if (byHand.files.length) parts.push(handEditsSection(byHand.files));
+  let rewritten = false;
+  if (last) {
+    const notes = shortened(last.reply.replace(/\n*Automatic checks in links\/[\s\S]*$/, ""), 1500);
+    const after = byHand.files.length ? await notesAfterEdits(dir, notes, byHand, { project: history().conversations.find((c) => c.id === hit?.thread)?.project, ask: opts.ask }) : { notes, rewritten: false };
+    rewritten = after.rewritten;
+    parts.push("## Notes from the run\n" + after.notes);
+  }
 
   let existing: PrDraft["existing"] = null;
   try {
     const pr = JSON.parse(await gh(dir, ["pr", "view", "--json", "number,url,state"]));
     if (pr?.state === "OPEN") existing = { number: pr.number, url: pr.url };
   } catch { /* no pull request yet, or no gh: it's a new one */ }
-  return { title, body: parts.join("\n\n") + "\n", branch, existing };
+  return { title, body: parts.join("\n\n") + "\n", branch, existing, ...(byHand.files.length ? { handEdits: { files: byHand.files.length, rewritten } } : {}) };
 }
 
 // Change the title and description of the pull request this branch already has.
@@ -175,6 +190,8 @@ export async function checkPullRequests(now = Date.now()): Promise<PrState[]> {
         if (!recent && !was) continue;
         const found = await look({ conversation: c.id, link, path: ws.path }, was);
         if (found) next[ws.path] = found;
+        // Merged since the last look: say so on its ticket, if you've turned write-back on (jiramoments.ts).
+        if (was?.state === "OPEN" && found?.state === "MERGED") void pullMerged(c.id, ticketOf({ link, path: ws.path }), found.url).catch(() => { /* the ticket goes without */ });
       }
     }
     const same = (p: PrState) => JSON.stringify({ ...p, checked: "", firstSeen: "" });

@@ -418,38 +418,50 @@ export function adfToText(doc: unknown): string {
 }
 
 // ---------- Writing back (off unless you turn it on) ----------
-// Two moments, both your own doing: work starts from a ticket, and a pull request opens for it.
-// At each the camp can leave a short comment (in fixed words of its own: nothing an agent wrote
-// goes to Jira) and, if you named a status for that moment, move the ticket there. It writes as
-// you, with your token. No agent has a tool for any of this.
-export type WriteBack = { on: boolean; startStatus: string; prStatus: string };
-export const writeBackSettings = (): WriteBack => { const w = jiraWrite(); return { on: w.on === true, startStatus: w.startStatus ?? "", prStatus: w.prStatus ?? "" }; };
-export function saveWriteBack(input: { on?: unknown; startStatus?: unknown; prStatus?: unknown }): WriteBack {
+// Four moments in a ticket's work: it starts from the ticket, a run finishes with changes for you
+// to look at, a pull request opens for it, and that pull request is merged. At each the camp can
+// leave a short comment (in fixed words of its own: nothing an agent wrote goes to Jira) and, if
+// you named a status for that moment, move the ticket there. It writes as you, with your token.
+// No agent has a tool for any of this. (When each moment is noticed: server.ts for the start and
+// the pull request, jiramoments.ts for the other two.)
+export type WriteEvent = "start" | "review" | "pr" | "merged";
+export type WriteBack = { on: boolean; startStatus: string; reviewStatus: string; prStatus: string; doneStatus: string };
+const STATUS_OF = { start: "startStatus", review: "reviewStatus", pr: "prStatus", merged: "doneStatus" } as const;
+export const writeBackSettings = (): WriteBack => { const w = jiraWrite(); return { on: w.on === true, startStatus: w.startStatus ?? "", reviewStatus: w.reviewStatus ?? "", prStatus: w.prStatus ?? "", doneStatus: w.doneStatus ?? "" }; };
+export function saveWriteBack(input: { on?: unknown; startStatus?: unknown; reviewStatus?: unknown; prStatus?: unknown; doneStatus?: unknown }): WriteBack {
   setJiraWrite(input);
   return writeBackSettings();
 }
 const para = (...content: object[]) => ({ type: "doc", version: 1, content: [{ type: "paragraph", content }] });
 const plain = (text: string) => ({ type: "text", text });
 const linked = (href: string) => ({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] });
+const link = (url: string | undefined) => (url && /^https:\/\//.test(url) ? linked(url) : plain(url ?? ""));
+
+// What the camp says on the ticket at each moment.
+function commentFor(event: WriteEvent, detail: { branch?: string; url?: string }) {
+  if (event === "start") return para(plain(`Work started in Mae${detail.branch ? ` on branch ${detail.branch}` : ""}.`));
+  if (event === "review") return para(plain(`The work in Mae has finished${detail.branch ? ` on branch ${detail.branch}` : ""} and is ready to be looked over.`));
+  if (event === "pr") return para(plain("Pull request opened: "), link(detail.url));
+  return para(plain("Pull request merged: "), link(detail.url));
+}
 
 // What was done, in a line for you ("Commented on MP-544 and moved it to In Review"), or null
 // when write-back is off, Jira isn't linked, or there's no ticket. It never throws: a ticket
 // that can't be written to shouldn't stop your work, so the line says what went wrong instead.
-export async function writeBack(event: "start" | "pr", key: string | undefined, detail: { branch?: string; url?: string } = {}): Promise<string | null> {
+export async function writeBack(event: WriteEvent, key: string | undefined, detail: { branch?: string; url?: string } = {}): Promise<string | null> {
   const w = writeBackSettings();
   if (!w.on || !key || !JIRA_KEY.test(key) || !jiraConnected()) return null;
   const done: string[] = [];
   try {
     const c = client();
-    await c.addComment(key, event === "start"
-      ? para(plain(`Work started in Mae${detail.branch ? ` on branch ${detail.branch}` : ""}.`))
-      : para(plain("Pull request opened: "), ...(detail.url && /^https:\/\//.test(detail.url) ? [linked(detail.url)] : [plain(detail.url ?? "")])));
+    await c.addComment(key, commentFor(event, detail));
     done.push(`Commented on ${key}`);
-    const want = (event === "start" ? w.startStatus : w.prStatus).toLowerCase();
+    const named = w[STATUS_OF[event]];
+    const want = named.toLowerCase();
     if (want) {
       const t = (await c.transitions(key)).find((x) => x.name.toLowerCase() === want || x.to?.name?.toLowerCase() === want);
       if (t) { await c.transition(key, t.id); done.push(`moved it to ${t.to?.name ?? t.name}`); }
-      else done.push(`couldn't move it to "${event === "start" ? w.startStatus : w.prStatus}" (Jira offers no such step from where it is)`);
+      else done.push(`couldn't move it to "${named}" (Jira offers no such step from where it is)`);
     }
     return done.join(" and ") + ".";
   } catch (e: any) {

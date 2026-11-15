@@ -9,11 +9,17 @@
 //
 // Notes are yours: the crew doesn't read them unless one is in a message you send (notes.ts on
 // the camp's side). Its size is its zone's: drag the line beside it.
+//
+// Two things the camp does with them, both only when you ask. "Write up as a ticket" has the
+// Scout read the project's code and turn a note into a ticket the crew can work from (a title,
+// acceptance criteria, a description in fixed sections); it's kept beside the note, and "Start
+// work" puts it in your message. "Suggest ideas" asks what the project's record points at next:
+// what comes back sits in the list marked as suggested, until you keep it or delete it.
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cx, plural, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
-import { editNote, loadNotes, newNote, openNote, removeNote, titleOf, useNotes } from "../notes.ts";
+import { editNote, isWriting, keepIdea, loadNotes, newNote, openNote, removeNote, suggestIdeas, ticketBrief, ticketText, titleOf, useNotes, writeTicket } from "../notes.ts";
 import type { Note } from "../types.ts";
 import { Drawer, Icon } from "./bits.tsx";
 import { ask } from "./Confirm.tsx";
@@ -29,11 +35,23 @@ export function NotesRail({ onShow }: { onShow: () => void }) {
 
 // onInsert: put this text in the message box. onAttach: attach the note to the message as a file.
 // (Neither is passed on a page with no message box.) onOpenConversation: go to where a note came from.
-export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach, onOpenConversation }: {
-  onHide: () => void; onInsert?: (text: string) => void; onAttach?: (note: Note) => void; onOpenConversation?: (id: string) => void;
+// project: the project you're in (none, outside one): whose code a ticket is written from, and what ideas are suggested for.
+export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach, onOpenConversation, project }: {
+  onHide: () => void; onInsert?: (text: string) => void; onAttach?: (note: Note) => void; onOpenConversation?: (id: string) => void; project?: { id: string; name: string };
 }) {
   const { notes, loaded, open, unsaved, error } = useNotes();
   const [words, setWords] = useState("");
+  // Asking for ideas: while the camp thinks, and what came of it.
+  const [thinking, setThinking] = useState(false);
+  const [came, setCame] = useState("");
+  const unkept = project ? notes.filter((n) => n.idea?.project === project.id && !n.idea.kept).length : 0;
+  async function ideas(replace: boolean) {
+    if (!project || thinking) return;
+    setThinking(true); setCame("");
+    const r = await suggestIdeas(project.id, replace);
+    setThinking(false);
+    if (r) setCame(r.added ? `${r.added} ${plural(r.added, "idea")} added.` : "Nothing new came to mind: the record doesn't point at anything yet.");
+  }
   // Read them on opening, and again when you come back to the window (you may have written in another tab).
   useEffect(() => {
     void loadNotes();
@@ -54,12 +72,19 @@ export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach,
       <aside className="notes" aria-label="Notes">
         {error && <div className="form-error notes-error" role="alert">{error}</div>}
         {note ? (
-          <NoteEditor key={note.id} note={note} unsaved={unsaved} failed={!!error} onInsert={onInsert} onAttach={onAttach} onOpenConversation={onOpenConversation} />
+          <NoteEditor key={note.id} note={note} unsaved={unsaved} failed={!!error} onInsert={onInsert} onAttach={onAttach} onOpenConversation={onOpenConversation} project={project} />
         ) : (
           <>
             <div className="notes-top">
               <input aria-label="Narrow your notes" className="hist-search" placeholder="Narrow by words…" value={words} onChange={(ev) => setWords(ev.target.value)} />
               <button type="button" className="btn small primary" onClick={() => newNote()}><span aria-hidden="true">＋ </span>New note</button>
+            </div>
+            <div className="notes-ideas">
+              <button type="button" className="btn small" disabled={!project || thinking}
+                title={project ? `Ask the camp what ${project.name}'s record points at next. What it suggests lands here, marked as suggested.` : "Open a project, or a conversation in one, first: ideas are suggested for a project."}
+                onClick={() => ideas(false)}>{thinking ? "Thinking…" : "Suggest ideas"}</button>
+              {unkept > 0 && !thinking && <button type="button" className="linkish" title="Clear out the suggestions you haven't kept (they won't be suggested again) and ask for others" onClick={() => ideas(true)}>Replace the {unkept} you haven't kept</button>}
+              {came && <span className="meta" role="status">{came}</span>}
             </div>
             {!loaded ? <div className="notes-empty">Opening…</div>
               : !notes.length ? (
@@ -76,7 +101,7 @@ export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach,
                       <button type="button" className="note-row" onClick={() => openNote(n.id)}>
                         <b>{titleOf(n)}</b>
                         {excerpt(n) && <span>{excerpt(n)}</span>}
-                        <small>{when(n.updated)}{n.from ? ` · from ${n.from.title || "a conversation"}` : ""}</small>
+                        <small>{n.idea && !n.idea.kept ? "Suggested · " : ""}{when(n.updated)}{n.from ? ` · from ${n.from.title || "a conversation"}` : ""}{isWriting(n) ? " · ticket being written" : n.ticket ? " · has a ticket" : ""}</small>
                       </button>
                     </div>
                   ))}
@@ -95,10 +120,22 @@ function excerpt(n: Note) {
   return (n.title.trim() ? lines : lines.slice(1)).join(" ").slice(0, 160);
 }
 
-function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversation }: {
-  note: Note; unsaved: boolean; failed: boolean; onInsert?: (text: string) => void; onAttach?: (note: Note) => void; onOpenConversation?: (id: string) => void;
+function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversation, project }: {
+  note: Note; unsaved: boolean; failed: boolean; onInsert?: (text: string) => void; onAttach?: (note: Note) => void; onOpenConversation?: (id: string) => void; project?: { id: string; name: string };
 }) {
   const [preview, setPreview] = useState(false);
+  // Which side of the note is showing, once it has a ticket: your words, or the ticket written from them.
+  const [side, setSide] = useState<"note" | "ticket">("note");
+  const ticket = note.ticket;
+  const writing = isWriting(note);
+  const suggested = !!note.idea && !note.idea.kept;
+  // The ticket shows as soon as it's written, if you were here waiting for it.
+  const waited = useRef(writing);
+  useEffect(() => { if (waited.current && !writing && ticket) setSide("ticket"); waited.current = writing; }, [writing, ticket]);
+  const showTicket = side === "ticket" && !!ticket;
+  const write = () => void writeTicket(note.id, project?.id);
+  // Start work from the ticket: the brief goes in the message box, the ticket rides along as a file.
+  const start = () => { if (!ticket) return; onAttach?.({ ...note, title: ticket.title, text: ticketText(ticket) }); onInsert?.(ticketBrief(ticket)); };
   const [copied, setCopied] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
   // A note just started opens ready to type in.
@@ -114,7 +151,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
     return (part.trim() ? part : note.text).trim();
   };
   async function copy() {
-    try { await navigator.clipboard.writeText(picked()); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* no clipboard here: select and copy by hand */ }
+    try { await navigator.clipboard.writeText(showTicket ? ticketText(ticket!) : picked()); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* no clipboard here: select and copy by hand */ }
   }
   async function remove() {
     if (!blank && !await ask({ title: `Delete “${titleOf(note)}”?`, body: "The note is deleted for good.", action: "Delete note", danger: true })) return;
@@ -128,26 +165,66 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
         <input className="note-title" aria-label="Title" placeholder={empty ? "Untitled note" : titleOf({ title: "", text: note.text })} maxLength={120} value={note.title}
           onChange={(ev) => editNote(note.id, { title: ev.target.value })} />
         <button type="button" className={cx("hist-icon", preview && "on")} aria-pressed={preview} aria-label="Preview" title={preview ? "Back to writing" : "Preview: show the note formatted"}
-          disabled={empty && !preview} onClick={() => setPreview((v) => !v)}><Icon name="eye" /></button>
-        <button type="button" className="hist-icon" aria-label={copied ? "Copied" : "Copy the note"} title="Copy the note (or the part you've selected)" disabled={empty} onClick={copy}><Icon name={copied ? "check" : "copy"} /></button>
-        <button type="button" className="hist-icon" aria-label="Delete this note" title="Delete this note" onClick={remove}><Icon name="trash" /></button>
+          disabled={showTicket || (empty && !preview)} onClick={() => setPreview((v) => !v)}><Icon name="eye" /></button>
+        <button type="button" className="hist-icon" aria-label={copied ? "Copied" : showTicket ? "Copy the ticket" : "Copy the note"} title={showTicket ? "Copy the ticket, as Markdown" : "Copy the note (or the part you've selected)"} disabled={empty && !showTicket} onClick={copy}><Icon name={copied ? "check" : "copy"} /></button>
+        <button type="button" className="hist-icon" aria-label="Delete this note" title={suggested ? "Delete this suggestion: it won't be suggested again" : "Delete this note"} onClick={remove}><Icon name="trash" /></button>
       </div>
-      {preview
+      {ticket && (
+        <div className="tabs note-sides" role="tablist" aria-label="The note, or its ticket">
+          <button type="button" role="tab" className="tab" aria-selected={!showTicket} onClick={() => setSide("note")}>Note</button>
+          <button type="button" role="tab" className="tab" aria-selected={showTicket} onClick={() => setSide("ticket")}>Ticket</button>
+        </div>
+      )}
+      {suggested && !showTicket && (
+        <div className="note-idea" role="note">
+          <span>The camp suggested this. Keep it and it's yours; delete it and it won't be suggested again.</span>
+          <button type="button" className="btn small" onClick={() => void keepIdea(note.id)}>Keep</button>
+        </div>
+      )}
+      {showTicket ? (
+        <div className="note-read note-ticket" role="tabpanel" aria-label="Ticket">
+          {ticket!.stale && <div className="note-stale" role="note">The note has changed since this was written. <button type="button" className="linkish" disabled={writing} onClick={write}>Write it again</button></div>}
+          <Markdown text={ticketText(ticket!)} />
+        </div>
+      ) : preview
         ? <div className="note-read"><Markdown text={note.text} /></div>
         : <textarea ref={box} className="note-text" aria-label="The note" spellCheck placeholder="Write here. Markdown works: # headings, - lists, `code`." value={note.text}
             onChange={(ev) => editNote(note.id, { text: ev.target.value })} />}
+      {!showTicket && !!note.idea?.criteria.length && (
+        <div className="note-criteria">
+          <b>Done would mean</b>
+          <ul>{note.idea.criteria.map((c, i) => <li key={i}>{c}</li>)}</ul>
+        </div>
+      )}
       <div className="note-foot">
         <span className={cx("note-saved", failed && "bad")} role="status">{failed ? "Not saved" : unsaved ? "Saving…" : blank ? "" : "Saved"}</span>
         {note.from && (onOpenConversation
           ? <button type="button" className="linkish note-from" title="Go to the conversation this note was started from" onClick={() => onOpenConversation(note.from!.conversation)}>From {note.from.title || "a conversation"}</button>
           : <span className="note-from">From {note.from.title || "a conversation"}</span>)}
       </div>
-      <div className="note-actions">
-        <button type="button" className="btn small primary" disabled={empty || !onInsert} title={onInsert ? "Put this note's text (or the part you've selected) in your message" : noBox}
-          onClick={() => onInsert?.(picked())}>Add to message</button>
-        <button type="button" className="btn small" disabled={empty || !onAttach} title={onAttach ? "Attach this note to your message as a file, as it stands now" : noBox}
-          onClick={() => onAttach?.(note)}>Attach as a file</button>
-      </div>
+      {writing && (
+        <div className="note-writing" role="status">
+          <span>Writing the ticket{project ? `: the Scout is reading ${project.name}'s code first` : ""}. It takes a minute or two.</span>
+          {onOpenConversation && <button type="button" className="linkish" onClick={() => onOpenConversation(note.writing!.run)}>Watch</button>}
+        </div>
+      )}
+      {showTicket ? (
+        <div className="note-actions">
+          <button type="button" className="btn small primary" disabled={!onInsert || !onAttach} title={onInsert ? "Put the brief in your message, with the ticket attached. Nothing is sent until you send it." : noBox} onClick={start}>Start work</button>
+          <button type="button" className="btn small" disabled={writing || blank} title="Have it written again from the note as it stands now" onClick={write}>Write it again</button>
+          {ticket!.conversation && onOpenConversation && <button type="button" className="linkish" title="The conversation in which the Scout read the code and wrote this" onClick={() => onOpenConversation(ticket!.conversation!)}>How it was written</button>}
+        </div>
+      ) : (
+        <div className="note-actions">
+          <button type="button" className="btn small primary" disabled={empty || !onInsert} title={onInsert ? "Put this note's text (or the part you've selected) in your message" : noBox}
+            onClick={() => onInsert?.(picked())}>Add to message</button>
+          <button type="button" className="btn small" disabled={empty || !onAttach} title={onAttach ? "Attach this note to your message as a file, as it stands now" : noBox}
+            onClick={() => onAttach?.(note)}>Attach as a file</button>
+          {!ticket && <button type="button" className="btn small" disabled={blank || writing || unsaved && failed}
+            title={project ? `Have the Scout read ${project.name}'s code and write this up as a ticket the crew can work from: a title, acceptance criteria, and where it goes` : "Have the Scout write this up as a ticket the crew can work from. Outside a project it can't read any code, so its technical notes will be guesses: open a project first for a grounded one."}
+            onClick={write}>Write up as a ticket</button>}
+        </div>
+      )}
     </div>
   );
 }

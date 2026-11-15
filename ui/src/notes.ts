@@ -45,6 +45,18 @@ function newId() {
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// What the camp adds to a note and the page never writes: its ticket, that one is being written,
+// that it's a suggestion. They're taken from the camp's copy even while you're typing in the note.
+const camps = (n: Note | undefined) => ({ ticket: n?.ticket, writing: n?.writing, idea: n?.idea });
+// The camp's notes, with what's being written here kept as it is here: it's the newer.
+function take(fromCamp: Note[]) {
+  const mine = state.notes.filter((n) => dirty.has(n.id) || fresh.has(n.id)).map((n) => ({ ...n, ...camps(fromCamp.find((c) => c.id === n.id) ?? (fresh.has(n.id) ? n : undefined)) }));
+  const notes = [...mine, ...fromCamp.filter((n) => !mine.some((m) => m.id === n.id))].sort(newestFirst);
+  const open = state.open && notes.some((n) => n.id === state.open) ? state.open : null; // deleted since, in another tab
+  if (!open) storeRemove(OPEN_KEY);
+  set({ notes, loaded: true, open, error: "" });
+}
+
 // What a note is called: its title, or (without one) its first line.
 export function titleOf(n: Pick<Note, "title" | "text">) {
   const first = n.text.split("\n").map((l) => l.replace(/^[#>\-*\s]+/, "").trim()).find(Boolean) ?? "";
@@ -61,12 +73,7 @@ export function noteFile(n: Pick<Note, "title" | "text">): File {
 // Read them from the camp. What's being written here stays as it is here: it's the newer.
 export async function loadNotes() {
   try {
-    const r = await api<{ notes: Note[] }>("/api/notes");
-    const mine = state.notes.filter((n) => dirty.has(n.id) || fresh.has(n.id));
-    const notes = [...mine, ...r.notes.filter((n) => !mine.some((m) => m.id === n.id))].sort(newestFirst);
-    const open = state.open && notes.some((n) => n.id === state.open) ? state.open : null; // deleted since, in another tab
-    if (!open) storeRemove(OPEN_KEY);
-    set({ notes, loaded: true, open, error: "" });
+    take((await api<{ notes: Note[] }>("/api/notes")).notes);
   } catch (e) { set({ loaded: true, error: errorText(e) }); }
 }
 
@@ -85,9 +92,10 @@ export function flushNotes(): Promise<void> {
       dirty.delete(id);
       if (!n || isEmpty(n)) continue;
       try {
-        await api("/api/notes", { action: "save", id, title: n.title, text: n.text, from: n.from });
+        const r = await api<{ note?: Note }>("/api/notes", { action: "save", id, title: n.title, text: n.text, from: n.from });
         fresh.delete(id);
-        set({ error: "" });
+        // (The camp says what became of its own additions: a ticket older than the note now, a suggestion that's yours.)
+        set({ error: "", ...(r.note ? { notes: state.notes.map((x) => (x.id === id ? { ...x, ...camps(r.note) } : x)) } : {}) });
       } catch (e) {
         dirty.add(id); // still owed: the next change (or the next flush) tries again
         set({ error: errorText(e) });
@@ -145,6 +153,49 @@ export async function removeNote(id: string) {
   if (!onCamp) return;
   try { await saving; await api("/api/notes", { action: "remove", id }); }
   catch (e) { set({ error: errorText(e) }); void loadNotes(); } // still there: show it again
+}
+
+// ---------- What the camp does with a note ----------
+// A ticket as one Markdown document: what's attached to a message, or copied out.
+export function ticketText(t: NonNullable<Note["ticket"]>) {
+  return `# ${t.title}\n\n` + (t.criteria.length ? `## Acceptance criteria\n${t.criteria.map((c) => `- [ ] ${c}`).join("\n")}\n\n` : "") + `${t.description.trim()}\n`;
+}
+// What goes in the message box to start work from a ticket (the ticket itself is attached beside it).
+export function ticketBrief(t: NonNullable<Note["ticket"]>) {
+  const list = t.criteria.length
+    ? `Acceptance criteria (from the ticket):\n${t.criteria.map((c) => `- [ ] ${c}`).join("\n")}\n\n`
+    : "The ticket lists no acceptance criteria: before changing anything, tell me what you take \"done\" to mean here.\n\n";
+  return `Work on this: ${t.title}\n\nThe ticket is attached: read it first.\n\n${list}` +
+    "When you're done, go through the criteria one by one and say which are met (with the file or test that shows it) and which aren't.";
+}
+// A ticket is being written for this note right now. (One started long ago and never finished was cut off: it can be asked for again.)
+const WRITING_MS = 20 * 60_000;
+export const isWriting = (n: Note, now = Date.now()) => !!n.writing && now - new Date(n.writing.started).getTime() < WRITING_MS;
+
+// Have the camp write a note up as a ticket (project: whose code to read first). What you've typed is saved first: that's what gets written up.
+export async function writeTicket(id: string, project?: string): Promise<string | null> {
+  try {
+    await flushNotes();
+    const r = await api<{ thread: string; notes: Note[] }>("/api/notes/ticket", { id, ...(project ? { project } : {}) });
+    take(r.notes);
+    return r.thread;
+  } catch (e) { set({ error: errorText(e) }); return null; }
+}
+// A suggestion of the camp's becomes yours: it stays when the others are replaced.
+export async function keepIdea(id: string) {
+  try {
+    const r = await api<{ note: Note }>("/api/notes", { action: "keep", id });
+    set({ error: "", notes: state.notes.map((n) => (n.id === id ? { ...n, ...camps(r.note) } : n)) });
+  } catch (e) { set({ error: errorText(e) }); }
+}
+// Ask the camp what to work on next in a project. replace: the suggestions you never kept go first.
+export async function suggestIdeas(project: string, replace = false): Promise<{ added: number; cleared: number } | null> {
+  try {
+    await flushNotes();
+    const r = await api<{ added: number; cleared: number; notes: Note[] }>("/api/ideas", { project, ...(replace ? { replace: true } : {}) });
+    take(r.notes);
+    return { added: r.added, cleared: r.cleared };
+  } catch (e) { set({ error: errorText(e) }); return null; }
 }
 
 // Leaving the page (or putting it in the background): what's typed goes to the camp first.

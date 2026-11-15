@@ -34,6 +34,7 @@ export type Turn = { thread: string; expedition: string; agent: string; direct: 
   without?: string[];
   jira?: string;      // the Jira ticket this conversation is working on (its key), set when it's started from one
   model?: string;     // the model you picked for this conversation, if you did (a reply keeps it unless you change it)
+  by?: string;        // what started it, when it wasn't you typing: "trigger:<name>" (the scoreboard counts these apart)
   // aside: someone else stepping in for one turn (a second opinion, a review). It reads the
   // conversation and is part of it, but the conversation stays with whoever it was with.
   aside?: boolean };

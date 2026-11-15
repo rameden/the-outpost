@@ -46,10 +46,11 @@ type Settings = {
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
+  drive?: { brief?: boolean; briefAt?: string; retro?: boolean }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts)
 };
 // Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
 // work starts from it and when its pull request opens, and (if you name a status) moves it.
-export type JiraWrite = { on?: boolean; startStatus?: string; prStatus?: string };
+export type JiraWrite = { on?: boolean; startStatus?: string; reviewStatus?: string; prStatus?: string; doneStatus?: string };
 // A command an imported skill may run without asking. For one of the skill's own scripts: the
 // command as it's typed, the script it runs, and that file's fingerprint when you approved it (a
 // script that has changed since asks again). Otherwise just a command prefix, like "pnpm add".
@@ -158,6 +159,27 @@ export function setReviewChanges(on: boolean) {
   save(s);
 }
 
+// What the camp does without being asked. brief: each weekday at briefAt (your local time) it
+// writes down where things stand, from its own record and one look at GitHub and Jira: no model
+// is called, so it's on unless you turn it off. retro: once a week the smallest model reads the
+// week's requests and what reviewers said, and proposes things worth keeping, for you to approve.
+// That one is a model call, so it follows "suggestions" (memoryCare) unless you set it yourself.
+export type Drive = { brief: boolean; briefAt: string; retro: boolean };
+const CLOCK = /^([01]?\d|2[0-3]):[0-5]\d$/;
+export function drive(): Drive {
+  const d = load().drive ?? {};
+  return { brief: d.brief !== false, briefAt: typeof d.briefAt === "string" && CLOCK.test(d.briefAt) ? d.briefAt.padStart(5, "0") : "08:00", retro: typeof d.retro === "boolean" ? d.retro : memoryCare().suggest };
+}
+export function setDrive(c: { brief?: unknown; briefAt?: unknown; retro?: unknown }) {
+  const s = load();
+  const next = { ...(s.drive ?? {}) };
+  if (typeof c.brief === "boolean") { if (c.brief) delete next.brief; else next.brief = false; }
+  if (typeof c.briefAt === "string" && CLOCK.test(c.briefAt)) next.briefAt = c.briefAt.padStart(5, "0");
+  if (typeof c.retro === "boolean") next.retro = c.retro;
+  if (Object.keys(next).length) s.drive = next; else delete s.drive;
+  save(s);
+}
+
 export const prWatchOn = () => load().prWatch !== false;
 export function setPrWatch(on: boolean) {
   const s = load();
@@ -166,10 +188,11 @@ export function setPrWatch(on: boolean) {
 }
 
 export const jiraWrite = (): JiraWrite => load().jiraWrite ?? {};
-export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; prStatus?: unknown }) {
+export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; reviewStatus?: unknown; prStatus?: unknown; doneStatus?: unknown }) {
   const s = load();
   const name = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
-  const next: JiraWrite = { ...(w.on ? { on: true } : {}), ...(name(w.startStatus) ? { startStatus: name(w.startStatus) } : {}), ...(name(w.prStatus) ? { prStatus: name(w.prStatus) } : {}) };
+  const next: JiraWrite = { ...(w.on ? { on: true } : {}) };
+  for (const k of ["startStatus", "reviewStatus", "prStatus", "doneStatus"] as const) if (name(w[k])) next[k] = name(w[k]);
   if (Object.keys(next).length) s.jiraWrite = next; else delete s.jiraWrite;
   save(s);
 }

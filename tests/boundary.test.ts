@@ -159,11 +159,12 @@ test("the access token, the feed, the conversations and the checkpoints are priv
   for (const name of files) assert.match(why(`camp/${name}`, "read"), /off limits/, name);
   assert.match(why("camp/checkpoints/exp-1/files/a.txt", "read"), /off limits/);
   assert.match(why("camp/checkpoints", "read"), /off limits/);
+  assert.match(why("camp/briefs/2026-11-13.json", "read"), /off limits/, "a brief quotes your own notes");
   assert.equal(why("camp/crew.json", "read"), "");
   // And the sandbox hides the same ones from commands, read-only run or not.
   // (Windows has no sandbox to hide them from.)
   if (!WINDOWS) for (const plan of [sandboxPlanFor(camp), readOnlyPlanFor(camp)]) {
-    for (const name of [...files, "checkpoints", "agents"]) assert.ok(plan.unreadable!.includes(join(camp, "camp", name)), `${name} is unreadable in the sandbox`);
+    for (const name of [...files, "checkpoints", "briefs", "agents"]) assert.ok(plan.unreadable!.includes(join(camp, "camp", name)), `${name} is unreadable in the sandbox`);
   }
 });
 

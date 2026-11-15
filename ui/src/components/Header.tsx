@@ -132,7 +132,8 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, notesOpen, onToggleNotes, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, notesOpen, onToggleNotes, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome }: {
+  onHome?: () => void; // the logo takes you to Today
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
@@ -158,7 +159,10 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
     <header className="top">
       <div className="brand">
         {/* The logo, as the logo kit draws it: the mark and the name. */}
-        <h1><MaeLogo /></h1>
+        {/* It's also the way home: to Today, the page the camp opens on. */}
+        <h1>{onHome
+          ? <button type="button" className="brand-home" title="Today: your brief, and where things stand" onClick={onHome}><MaeLogo /></button>
+          : <MaeLogo />}</h1>
         {/* The tour (docs/index.html, served at /splash), in its own tab so nothing here is interrupted. */}
         <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Mae (opens in a new tab)">Tour</a>
       </div>

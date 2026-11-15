@@ -35,7 +35,7 @@ export type CampEventBody =
   | { type: "explained"; id: string; text: string } // an approval, in plain words (explain.ts)
   | { type: "answered"; id: string; answer: string; lapsed?: boolean } // lapsed: the camp restarted before you answered
   | { type: "job"; name: string; outcome: "running" | "quiet" | "reported" | "failed"; text?: string }
-  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" | "triggers" };
+  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" | "triggers" | "notes" };
 
 export type AskKind = "plan" | "shell" | "job" | "tool" | "question" | "post" | "describe"; // post, describe: a review comment, or a new description, put on GitHub as you
 // expeditionId: which expedition an event belongs to (several can run at once). Added by emit().

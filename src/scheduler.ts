@@ -72,7 +72,7 @@ export function isQuiet(text: string): boolean {
 
 // A notification from the system when a job has something to say. Best effort: if it can't be
 // shown, the report is in the inbox all the same.
-function notify(title: string, message: string) {
+export function notify(title: string, message: string) {
   const flat = (s: string) => s.replace(/\s+/g, " ").slice(0, 180);
   if (process.platform === "darwin") {
     const clean = (s: string) => JSON.stringify(flat(s));
@@ -88,7 +88,7 @@ function notify(title: string, message: string) {
   }
 }
 
-function toInbox(heading: string, body: string) {
+export function toInbox(heading: string, body: string) {
   mkdirSync("camp", { recursive: true });
   appendFileSync(INBOX_PATH, `\n## ${heading}\n\n${body}\n`);
   emit({ type: "changed", what: "inbox" });

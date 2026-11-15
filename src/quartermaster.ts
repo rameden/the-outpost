@@ -394,6 +394,7 @@ export async function runExpedition(
     without?: string[];  // folders of the project this conversation leaves out
     jira?: string;       // the Jira ticket a new conversation is working on (its key)
     model?: string;      // the model picked for this conversation: the Quartermaster answers on it (quests keep their own)
+    by?: string;         // what started it, when it wasn't you typing ("trigger:<name>")
     review?: boolean } = {} // have the changes reviewed before the report (or not) for this run, whatever the project and camp are set to
 ): Promise<AgentResult> {
   const exp: Expedition = { planApproved: !APPROVE_PLANS || !!opts.unattended, job: opts.job };
@@ -404,7 +405,7 @@ export async function runExpedition(
   // A follow-up keeps working where the conversation was working (the same worktree), unless told otherwise.
   const where = placeOf(opts);
   const workspaces = stillHere(opts.workspaces ?? thread?.workspaces, where.scope);
-  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.without?.length ? { without: opts.without } : {}), ...(opts.jira ? { jira: opts.jira } : {}), ...(opts.model ? { model: opts.model } : {}) };
+  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.without?.length ? { without: opts.without } : {}), ...(opts.jira ? { jira: opts.jira } : {}), ...(opts.model ? { model: opts.model } : {}), ...(opts.by ? { by: opts.by } : {}) };
   emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
     ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
@@ -500,7 +501,7 @@ export async function runDirect(
   id: string = randomUUID(),
   replyTo?: string,
   more: { workspaces?: Record<string, Workspace>; steering?: Steering; extraSystem?: string; stillRunning?: (expedition: string) => boolean;
-    project?: string; links?: string[]; without?: string[]; jira?: string; model?: string;
+    project?: string; links?: string[]; without?: string[]; jira?: string; model?: string; by?: string;
     aside?: boolean } = {} // aside: stepping into someone else's conversation for one turn
 ): Promise<AgentResult | null> {
   const who = findCrew(adventurer);
@@ -512,7 +513,7 @@ export async function runDirect(
   const thread = threadFor(replyTo, more.stillRunning, more.aside ? spec.id : undefined);
   const where = placeOf(more);
   const workspaces = stillHere(more.workspaces ?? thread?.workspaces, where.scope);
-  const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(more.links?.length ? { links: more.links } : {}), ...(more.without?.length ? { without: more.without } : {}), ...(more.jira ? { jira: more.jira } : {}), ...(more.model ? { model: more.model } : {}), ...(more.aside ? { aside: true } : {}) };
+  const turn = { thread: thread?.thread ?? id, expedition: id, agent: spec.id, direct: true, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(more.links?.length ? { links: more.links } : {}), ...(more.without?.length ? { without: more.without } : {}), ...(more.jira ? { jira: more.jira } : {}), ...(more.model ? { model: more.model } : {}), ...(more.aside ? { aside: true } : {}), ...(more.by ? { by: more.by } : {}) };
   emit({ type: "expedition_start", id, task: `@${spec.id} ${shown}`, source: "direct", attachments: attached, ...(thread ? { replyTo } : {}), thread: turn.thread });
   recordTurn({ ...turn, reply: "", status: "running" });
   const questId = randomUUID();

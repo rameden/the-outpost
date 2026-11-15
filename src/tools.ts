@@ -67,7 +67,8 @@ const PRIVATE_CAMP_FILES = new Set([
 ]);
 // And whole folders: checkpoints/ keeps copies of files as they were before each change, from every
 // conversation and project, whatever this one may see.
-const PRIVATE_CAMP_DIRS = new Set(["checkpoints"]);
+// briefs/ holds each morning's brief, which quotes your own notes (brief.ts).
+const PRIVATE_CAMP_DIRS = new Set(["checkpoints", "briefs"]);
 // A private file's other forms are as private as it is: the copy set aside when it couldn't be
 // read (settings.json.damaged-<time>), and the temp file a write goes through (….tmp-<pid>-<x>).
 const privateName = (name: string) => PRIVATE_CAMP_FILES.has(name.replace(/\.(damaged-[\w-]+|tmp-\d+-[a-z0-9]+)$/, ""));
