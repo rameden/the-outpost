@@ -1,6 +1,6 @@
 // The "where to work" panel: a card for each folder, with a switch for whether it's used and, for a
 // git repository, where in it the crew works. Your checkout's branch is switched from behind its
-// name; a long list of worktrees folds away; and what git says when it refuses is shown, not swallowed.
+// name, and worktrees are found or made from behind theirs; and what git says when it refuses is shown, not swallowed.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { RepoInfo } from "../types.ts";
@@ -14,10 +14,10 @@ const repo = { link: "web", branch: "main", access: "write", worktrees: [wt("cam
 function panel() {
   return [...document.querySelectorAll(".work-card")].map((c) => {
     const sw = c.querySelector<HTMLInputElement>('[role="switch"]');
-    const rows = [...c.querySelectorAll(".work-choices > .work-row > .work-pick, .work-more, .work-fixed, .work-card-note")].map((r) =>
+    const rows = [...c.querySelectorAll(".work-choices > .work-row > .work-pick, .work-fixed, .work-card-note")].map((r) =>
       r.matches(".work-fixed") ? [...r.children].map((e) => e.textContent).join(" ")
         : r.matches(".work-card-note") ? r.textContent
-        : r.querySelector(".work-pick-name")!.textContent + (r.getAttribute("aria-checked") === "true" || r.querySelector(".work-dot.on") ? " ✓" : ""));
+        : r.querySelector(".work-pick-name")!.textContent + (r.getAttribute("aria-checked") === "true" ? " ✓" : ""));
     return [`${c.getAttribute("aria-label")}${sw ? (sw.checked ? " (on)" : " (off)") : ""}`, ...rows].join(" | ");
   });
 }
@@ -34,7 +34,7 @@ const branches = () => within(screen.getByRole("group", { name: "Branches of web
 
 test("your checkout's branch is switched from behind its name, out of the way until you open it", () => {
   render(<WorkOptions repos={[repo]} choice={{}} locked={false} onPick={() => {}} onBranch={async () => {}} />);
-  expect(panel()).toEqual(["web | Your checkout ✓ | New worktree | Existing worktree"]);
+  expect(panel()).toEqual(["web | Branch ✓ | Worktree"]);
   expect(screen.queryByLabelText("Switch or create a branch in web")).toBeNull();
   const name = screen.getByRole("button", { name: "Switch the branch of your checkout of web (now main)" });
   fireEvent.click(name);
@@ -95,28 +95,63 @@ test("when git refuses, it says why, and what you typed stays", async () => {
   expect(box.value).toBe("rel");
 });
 
-test("worktrees fold away under one row that names the one chosen; unfolded, they're listed whole and can be found by name", () => {
-  const many = { ...repo, worktrees: ["a", "b", "c", "d", "e", "f"].map((n) => wt(`guild/q10${n}`)) } as unknown as RepoInfo;
+const picks = () => within(screen.getByRole("radiogroup", { name: "Worktrees of web" })).getAllByRole("radio").map((b) => b.textContent + (b.getAttribute("aria-checked") === "true" ? " ✓" : ""));
+
+test("worktrees are picked from behind the name beside \"Worktree\", like branches: found by typing, the chosen one first", () => {
+  const many = { ...repo, worktrees: ["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((n) => wt(`guild/q10${n}`)) } as unknown as RepoInfo;
   const onPick = vi.fn();
   render(<WorkOptions repos={[many]} choice={{ web: "/w/web-quests/guild-q10e" }} locked={false} onPick={onPick} onBranch={async () => {}} />);
-  expect(panel()).toEqual(["web | Your checkout | New worktree | Existing worktree ✓"]);
-  const more = screen.getByRole("button", { name: "Existing worktree: guild/q10e (6)" });
-  expect(more.textContent).toContain("guild/q10e");
+  expect(panel()).toEqual(["web | Branch | Worktree ✓"]);
   expect(screen.queryByRole("radiogroup", { name: "Worktrees of web" })).toBeNull();
-  fireEvent.click(more);
-  const names = () => within(screen.getByRole("radiogroup", { name: "Worktrees of web" })).getAllByRole("radio").map((b) => b.textContent + (b.getAttribute("aria-checked") === "true" ? " ✓" : ""));
-  expect(names()).toEqual(["guild/q10a", "guild/q10b", "guild/q10c", "guild/q10d", "guild/q10e ✓", "guild/q10f"]);
-  fireEvent.change(screen.getByLabelText("Find a worktree of web"), { target: { value: "q10b" } });
-  expect(names()).toEqual(["guild/q10b"]);
+  fireEvent.click(screen.getByRole("button", { name: "Pick or make a worktree of web (now guild/q10e)" }));
+  expect(picks()).toEqual(["New worktreeA new branch from main, named for the request", "guild/q10e ✓", "guild/q10a", "guild/q10b", "guild/q10c", "guild/q10d", "guild/q10f", "guild/q10g", "guild/q10h"]);
+  expect(screen.getByText("1 more: type to narrow them down.")).toBeTruthy();
+  const box = screen.getByLabelText("Find a worktree of web, or name a new one");
+  expect(document.activeElement).toBe(box);
+  fireEvent.change(box, { target: { value: "q10b" } });
+  expect(picks()).toEqual(["Create q10bA new worktree and branch from main", "guild/q10b"]);
   fireEvent.click(screen.getByRole("radio", { name: "guild/q10b" }));
   expect(onPick).toHaveBeenLastCalledWith("web", "/w/web-quests/guild-q10b");
+  expect(screen.queryByRole("radiogroup", { name: "Worktrees of web" })).toBeNull(); // picked: the box closes
+});
+
+test("typing a name that isn't a worktree makes a new one by that name; Enter picks a worktree by its branch", () => {
+  const onPick = vi.fn();
+  render(<WorkOptions repos={[repo]} choice={{}} locked={false} onPick={onPick} onBranch={async () => {}} />);
+  const open = () => fireEvent.click(screen.getByRole("button", { name: /^Pick or make a worktree of web/ }));
+  open();
+  const box = () => screen.getByLabelText("Find a worktree of web, or name a new one");
+  fireEvent.change(box(), { target: { value: "mp-777-login" } });
+  expect(picks()).toEqual(["Create mp-777-loginA new worktree and branch from main"]);
+  fireEvent.submit(box());
+  expect(onPick).toHaveBeenLastCalledWith("web", "new:mp-777-login");
+  open();
+  fireEvent.change(box(), { target: { value: "release" } }); // a branch already: the new one gets the next free name
+  expect(screen.getByText("release is a branch already, so the new one is release-2")).toBeTruthy();
+  fireEvent.change(box(), { target: { value: "camp/fix-nav" } }); // that's a worktree's branch: Enter picks it
+  expect(picks()).toEqual(["camp/fix-nav"]);
+  fireEvent.submit(box());
+  expect(onPick).toHaveBeenLastCalledWith("web", "/w/web-quests/camp-fix-nav");
+  // Clicking "Worktree" itself is a new one, named for the request.
+  fireEvent.click(screen.getByRole("radio", { name: "Worktree" }));
+  expect(onPick).toHaveBeenLastCalledWith("web", "new");
+});
+
+test("a read-only folder can't have a new worktree, but one it has can be picked", () => {
+  const ro = { ...repo, access: "read" } as unknown as RepoInfo;
+  const onPick = vi.fn();
+  render(<WorkOptions repos={[ro]} choice={{}} locked={false} onPick={onPick} onBranch={async () => {}} />);
+  fireEvent.click(screen.getByRole("radio", { name: "Worktree" })); // nothing to make: it opens the box
+  expect(onPick).not.toHaveBeenCalled();
+  expect(picks()).toEqual(["camp/fix-nav"]);
+  fireEvent.change(screen.getByLabelText("Find a worktree of web"), { target: { value: "nope" } });
+  expect(screen.getByText("No worktree matches that.")).toBeTruthy();
 });
 
 test("on a follow-up there are no choices it can't make: where it works is said once, and your checkout's branch can still be switched", () => {
   const { onBranch } = show(undefined, repo, true);
-  expect(screen.getByText(/A follow-up stays where its conversation was working/)).toBeTruthy();
   expect(screen.queryByRole("radio")).toBeNull();
-  expect(panel()).toEqual(["web (on) | Your checkout main"]);
+  expect(panel()).toEqual(["web (on) | Branch main"]);
   fireEvent.click(screen.getByRole("button", { name: "release" }));
   expect(onBranch).toHaveBeenLastCalledWith("web", "release", false);
 });
@@ -136,9 +171,9 @@ test("a new worktree can be given its branch's name (starting work from a ticket
   expect(workingOn(r, "new:MP-544-open-button")).toBe("MP-544-open-button");
   expect(workingOn(r, "new")).toBe("new branch");
   expect(workingOn(r, "")).toBe("main");
-  // In the panel it's still "New worktree", chosen, saying which branch.
+  // In the panel it's "Worktree", chosen, saying which branch.
   render(<WorkOptions repos={[r]} choice={{ web: "new:MP-544-open-button" }} locked={false} onPick={() => {}} />);
-  expect(panel()).toEqual(["web | Your checkout | New worktree ✓"]);
+  expect(panel()).toEqual(["web | Branch | Worktree ✓"]);
   expect(screen.getByText("MP-544-open-button")).toBeTruthy();
 });
 
@@ -152,7 +187,7 @@ test("a project's folder can be switched off for a conversation, and back on whe
 
   const onPick = vi.fn();
   const { rerender } = render(<WorkOptions repos={[r]} choice={{ web: "new" }} locked={false} onPick={onPick} canLeaveOut />);
-  expect(panel()).toEqual(["web (on) | Your checkout | New worktree ✓"]);
+  expect(panel()).toEqual(["web (on) | Branch | Worktree ✓"]);
   fireEvent.click(switchOf("web"));
   expect(onPick).toHaveBeenLastCalledWith("web", "none");
   rerender(<WorkOptions repos={[r]} choice={{ web: "none" }} locked={false} onPick={onPick} canLeaveOut />);
@@ -189,8 +224,8 @@ test("many worktrees stay folded; one button leaves every folder out; a folder t
   const onPick = vi.fn(), onPickAll = vi.fn();
   const { rerender } = render(<WorkOptions repos={[web, api]} plain={["notes"]} choice={{}} locked={false} onPick={onPick} onPickAll={onPickAll} canLeaveOut />);
   expect(panel()).toEqual([
-    "web (on) | Your checkout ✓ | New worktree | Existing worktree", // all 20 behind one row
-    "api (on) | Your checkout ✓",                                    // read-only: no new worktree
+    "web (on) | Branch ✓ | Worktree", // all 20 behind one name
+    "api (on) | Branch ✓",           // read-only, and no worktrees: no row
     "notes (on) | Used as it is (not a git repository, so no branch to pick).",
   ]);
   expect(within(screen.getByRole("group", { name: "api" })).getByText("read-only")).toBeTruthy();
@@ -278,7 +313,7 @@ test("outside a project every folder starts switched off; switching one on uses 
     <WorkOptions repos={[web, api]} plain={["notes"]} choice={locked ? {} : outsideChoice(picks, every, [])} locked={locked} without={without} onPick={onPick} onPickAll={onPickAll} onBranch={async () => {}} canLeaveOut optIn />;
   const { rerender } = render(at({}));
   expect(panel()).toEqual(["web (off)", "api (off)", "notes (off)"]); // off says it all: no line repeated under each
-  expect(screen.getByText("Outside a project, the crew is given only the folders you turn on here or attach to the message.")).toBeTruthy();
+  expect(screen.queryByText(/Where to work|Outside a project/)).toBeNull(); // no heading or explanation: the switches say it
   expect(screen.queryByRole("button", { name: "Use none" })).toBeNull(); // nothing in use: nothing to take out
   fireEvent.click(switchOf("web"));
   expect(onPick).toHaveBeenLastCalledWith("web", "");
@@ -288,7 +323,7 @@ test("outside a project every folder starts switched off; switching one on uses 
   // Two in use: each can be switched off again, and one button takes out both.
   rerender(at({ web: "use", notes: "use" }));
   expect(panel()).toEqual([
-    "web (on) | Your checkout ✓ | New worktree | Existing worktree",
+    "web (on) | Branch ✓ | Worktree",
     "api (off)",
     "notes (on) | Used as it is (not a git repository, so no branch to pick)."]);
   const all = screen.getByRole("button", { name: "Use none" });
@@ -300,8 +335,7 @@ test("outside a project every folder starts switched off; switching one on uses 
 
   // A reply: what the conversation has is shown as it is. Where it works can't change; what it's given can.
   rerender(at({}, true, ["api", "notes"]));
-  expect(panel()).toEqual(["web (on) | Your checkout main", "api (off)", "notes (off)"]);
-  expect(screen.getByText(/You can still take a folder out, or bring one back\./)).toBeTruthy();
+  expect(panel()).toEqual(["web (on) | Branch main", "api (off)", "notes (off)"]);
 });
 
 test("on a reply a folder can be taken out of the conversation, or brought in, and the pick can be taken back", () => {
@@ -329,7 +363,7 @@ test("on a reply a folder can be taken out of the conversation, or brought in, a
   const { rerender } = render(at({}));
   expect(panel()).toEqual([
     "web (on) | Its own worktree camp/w2", // where it's working, said once: only out is on offer
-    "api (on) | Your checkout dev",
+    "api (on) | Branch dev",
     "notes (off) | Not part of this conversation. Turn it on to bring it in."]);
   fireEvent.click(switchOf("web"));
   expect(onPick).toHaveBeenLastCalledWith("web", "none");
@@ -342,7 +376,7 @@ test("on a reply a folder can be taken out of the conversation, or brought in, a
   rerender(at({ web: "none", notes: "use" }));
   expect(panel()).toEqual([
     "web (off) | Taken out from this message on: the crew is given nothing from it.",
-    "api (on) | Your checkout dev",
+    "api (on) | Branch dev",
     "notes (on) | Used as it is (not a git repository, so no branch to pick)."]);
   fireEvent.click(switchOf("web"));
   expect(onPick).toHaveBeenLastCalledWith("web", "/code/web-camp/w2");

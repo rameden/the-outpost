@@ -145,6 +145,9 @@ test("every prompt: identity, crew, memory, recent sessions; streamed with conte
   assert.ok(second.body.system.every((b: any) => b.cache_control?.type === "ephemeral"));
   assert.match(system, /You are the Scribe/);
   assert.match(system, /## Your crew/);
+  // It's told which model it's running on and which ones the camp can run, so a model you name is never news to it.
+  assert.match(second.body.system[1].text, new RegExp(`^## The models here\\nYou are running on Claude [\\w. ]+ \\(${second.body.model}\\)\\. The Claude models this camp can run: Claude Fable 5\\.2 \\(claude-fable-5-2\\), `));
+  assert.match(system, /whether or not you've heard of them/);
   assert.match(system, /## Your memory/);
   assert.match(system, /Who are you\?/, "the previous session is in the prompt");
   assert.equal(second.body.stream, true);

@@ -13,7 +13,7 @@ import { aboutBlock } from "./memlog.js";
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
-import { PROVIDERS, maySend, otherModel, providerChat, providerModels } from "./providers.js";
+import { PROVIDERS, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
 import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering, conversationModel } from "./context.js";
 import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
@@ -178,6 +178,21 @@ async function claudeModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
 
 function knownModel(id: string): ModelInfo | undefined {
   return modelCache?.models.find((m) => m.id === id) ?? FALLBACK_MODELS.find((m) => m.id === id);
+}
+
+// What a prompt is told about models: the one it's running on, and the ones this camp can run.
+// A model knows a model's name only from its training or from what it's told here. Without
+// this, a newer model you mention ("we have a large Fable 5.2 budget") can be news to whoever
+// you're talking to, in a camp whose own model picker lists it.
+export function modelsBlock(model: string, models: ModelInfo[] = modelCache?.models ?? FALLBACK_MODELS): string {
+  const label = (m: ModelInfo) => `${m.name} (${m.id})`;
+  const mine = models.find((m) => m.id === model);
+  let others: string[] = [];
+  try { others = providersState().filter((p) => p.connected).map((p) => p.name); } catch { /* the Claude models are the ones that matter here */ }
+  return "## The models here\n" +
+    `You are running on ${mine ? label(mine) : model}. The Claude models this camp can run: ${models.filter((m) => !m.provider).map(label).join(", ")}.` +
+    (others.length ? ` Models from ${others.join(", ")} are connected as well.` : "") +
+    " These are real models the user can pick for a conversation or a crew member, whether or not you've heard of them. When the user names one, take it as that model. Don't describe what a model you don't know can do: say you don't know it beyond its name.";
 }
 
 // What this agent actually runs on: your override from mission control, else the code default.
@@ -367,6 +382,7 @@ export async function runAgent(
         `## Your skills\nWhen a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, always.map((s) => s.dir))}` + alwaysBlock(spec.id, spec.skillDirs),
       ]);
   const moving = parts([
+    modelsBlock(model),
     !opts.plain && continuityBlock(spec.id, requestText(task)),
     aboutBlock(),
     !opts.plain && wikiIndex(),

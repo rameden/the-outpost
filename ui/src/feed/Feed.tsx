@@ -2,13 +2,14 @@
 // crew's answer under it (on the left: its quests, the crew's messages and tool calls, and any
 // approvals waiting inside it). Several can be running at once.
 
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
-import { cClass, clock, cx, plural, spaced } from "../format.ts";
+import { cClass, clock, crewNow, cx, plural, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
+import { MaeSystem } from "../components/MaeSystem.tsx";
 import { Markdown } from "../markdown.tsx";
 import { AskCard } from "./AskCard.tsx";
 import { Changes } from "./Changes.tsx";
@@ -34,6 +35,9 @@ const PLAIN_EXAMPLES = [
 ];
 
 export type OnReply = (expId: string, task: string) => void;
+
+// The run whose Stop is in the message box (the conversation's working run): its card doesn't show one too.
+const StopInBox = createContext<string | undefined>(undefined);
 
 // Each item is drawn on its own: one that can't be (a reply the page fails to lay out) leaves a
 // line saying so, and everything around it stays.
@@ -140,32 +144,11 @@ function Ask({ exp }: { exp: ExpNode }) {
   );
 }
 
-// While an expedition runs you can say something to it; the agents working in it see it on their
-// next step. Stop sits beside it: at the foot of the answer, where the newest lines are.
-// canSteer: a scheduled job has nobody to talk to, so it gets only Stop.
-function SteerBar({ expId, stop, canSteer }: { expId: string; stop: ReactNode; canSteer: boolean }) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const box = useRef<HTMLInputElement>(null);
-  async function send(ev: FormEvent) {
-    ev.preventDefault();
-    const said = text.trim();
-    if (!said) return;
-    setBusy(true);
-    try { await api("/api/steer", { id: expId, text: said }); setText(""); }
-    catch (e) { alert(errorText(e)); }
-    setBusy(false);
-    box.current?.focus();
-  }
-  if (!canSteer) return <div className="exp-steer"><span className="steer-note">A scheduled job is running.</span>{stop}</div>;
-  return (
-    <form className="exp-steer" onSubmit={send}>
-      <input ref={box} value={text} disabled={busy} onChange={(ev) => setText(ev.target.value)}
-        placeholder="Say something to this expedition while it works…" aria-label="Message to the running expedition" />
-      <button className="btn small" type="submit" disabled={busy}>Send</button>
-      {stop}
-    </form>
-  );
+// While an expedition runs, its Stop is the message box's button. A run whose Stop isn't there (one
+// in All activity, or an earlier run still going beside the newest) gets a small one under its corner.
+// A scheduled job has nobody to talk to, and says so.
+function RunFoot({ stop, job }: { stop: ReactNode; job: boolean }) {
+  return <div className="run-stop">{job && <span className="steer-note">A scheduled job is running.</span>}{stop}</div>;
 }
 
 // Your say on a finished run: a thumb, and optionally a note. The thumb is saved the moment you
@@ -224,6 +207,7 @@ function FeedbackBar({ expId, given }: { expId: string; given?: Given }) {
 
 export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnReply }) {
   const [stop, setStop] = useState<"idle" | "stopping" | "gone">("idle");
+  const stopInBox = useContext(StopInBox) === exp.expId;
   const [showChanges, setShowChanges] = useState(false);
   const [resuming, setResuming] = useState(false);
   const end = exp.end;
@@ -252,11 +236,6 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
           {/* Nothing back yet: say so, so the answer's place isn't an empty box. */}
           {!end && exp.nodes.length === 0 ? <div className="exp-wait" role="status">{exp.source === "job" ? "Starting…" : "Reading your message…"}</div> : <Nodes nodes={exp.nodes} onReply={onReply} />}
         </div>
-        {!end && <SteerBar expId={exp.expId} canSteer={exp.source !== "job"} stop={stop !== "gone" && (
-          <button type="button" className="btn small danger stop-btn" title="Stop this expedition and every quest in it" disabled={stop === "stopping"} onClick={stopIt}>
-            {stop === "stopping" ? "Stopping…" : "Stop"}
-          </button>
-        )} />}
         {end && showChanges && <Changes expId={exp.expId} />}
         {end && end.workspaces.length > 0 && <WorkspaceBox workspaces={end.workspaces} task={exp.task} expId={exp.expId} />}
         {end && exp.source !== "job" && <FeedbackBar expId={exp.expId} given={exp.feedback} />}
@@ -283,8 +262,21 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
           </footer>
         )}
       </div>
+      {!end && !stopInBox && <RunFoot job={exp.source === "job"} stop={stop !== "gone" && (
+        <button type="button" className="stop-btn" aria-label={stop === "stopping" ? "Stopping…" : "Stop"}
+          title={stop === "stopping" ? "Stopping…" : "Stop this expedition and every quest in it"} disabled={stop === "stopping"} onClick={stopIt}>
+          <Icon name="stop" />
+        </button>
+      )} />}
     </article>
   );
+}
+
+// Who circles the sun on a blank page: everyone in the camp's crew but the Quartermaster, who is the
+// sun. Before the crew has loaded there is nobody to list, and the drawing falls back to the camp's own four.
+function inRotation() {
+  const crew = crewNow().filter((c) => c.id !== "quartermaster");
+  return crew.length ? crew : undefined;
 }
 
 const EVERYTHING: View = { kind: "all" };
@@ -293,8 +285,9 @@ const NO_PAST: FeedNode[] = [];
 // view: everything (the default), a blank page for a new conversation, or one conversation.
 // past: that conversation's earlier runs, read back from history. waiting: a line for a blank page.
 // plain: a blank page outside any project, where a message is a plain chat with a model.
-export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting, plain }: {
-  store: FeedStore; onReply: OnReply; onExample: (text: string) => void; view?: View; past?: FeedNode[]; waiting?: string; plain?: boolean;
+// stopInBox: the run whose Stop is the message box's button.
+export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting, plain, stopInBox }: {
+  store: FeedStore; onReply: OnReply; onExample: (text: string) => void; view?: View; past?: FeedNode[]; waiting?: string; plain?: boolean; stopInBox?: string;
 }) {
   const live = useFeed(store, (s) => s.items);
   const items = useMemo(() => cardsFor(view, live, past), [view, live, past]);
@@ -342,14 +335,15 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
         <div className="empty-feed"><div>{waiting ?? "Loading this conversation…"}</div></div>
       ) : items.length === 0 ? (
         <div className="empty-feed">
-          <div className="fire">{plain ? "💬" : "🔥"}</div>
+          {/* The camp at rest: the camp's crew circling the Quartermaster, taking turns with a quest. Outside a project, the orbits are empty. */}
+          <MaeSystem crew={plain ? [] : inRotation()} />
           <h2>{plain ? "Ask anything" : view.kind === "new" ? "A new conversation" : "The camp is quiet"}</h2>
           <div>{waiting ?? "Send the Quartermaster on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here."}</div>
           <div className="examples">
             {(plain ? PLAIN_EXAMPLES : EXAMPLES).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>
         </div>
-      ) : <Nodes nodes={items} onReply={onReply} />}
+      ) : <StopInBox.Provider value={stopInBox}><Nodes nodes={items} onReply={onReply} /></StopInBox.Provider>}
     </div>
   );
 }

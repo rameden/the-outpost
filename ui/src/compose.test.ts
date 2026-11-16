@@ -1,7 +1,7 @@
 // How a message is styled as it's typed, and the edits behind the formatting shortcuts. The
 // styling never changes the text: strip the tags and you have what was typed.
 import { expect, test } from "vitest";
-import { backspace, belowBlock, charAfter, charBefore, codeLine, forwardDelete, highlight, insideFence, link, newline, wrap } from "./compose.ts";
+import { backspace, belowBlock, charAfter, charBefore, codeLine, forwardDelete, highlight, insideFence, link, newline, tidyPaste, wrap } from "./compose.ts";
 
 const textOf = (html: string) => { const d = document.createElement("div"); d.innerHTML = html; return d.textContent; };
 const lines = (html: string) => { const d = document.createElement("div"); d.innerHTML = html; return [...d.children].map((c) => c.className.replace(/^mi-line ?/, "")); };
@@ -161,4 +161,18 @@ test("the down arrow on a block's last line makes a line below, when the block e
   expect(belowBlock("```\nx\ny\n```", 5)).toBeNull();     // not the last line of code
   expect(belowBlock("```\nx\n```\nafter", 5)).toBeNull(); // there's a line to go to already
   expect(belowBlock("plain", 3)).toBeNull();
+});
+
+test("a block pasted from a chat, with its ``` run on to the text, is put on lines of its own", () => {
+  // Slack's way: the first line would be read as the language (and lost), and the block never closed.
+  expect(tidyPaste("```automatic project creation, I think\n[11:49 AM] What if we asked them```"))
+    .toBe("```\nautomatic project creation, I think\n[11:49 AM] What if we asked them\n```");
+  expect(tidyPaste("see:\n```one line only```\nthanks")).toBe("see:\n```one line only```\nthanks"); // inline code: left alone
+  expect(tidyPaste("```ts\nconst a = 1;\n```")).toBe("```ts\nconst a = 1;\n```");       // a real language stays
+  expect(tidyPaste("```ts\nconst a = 1;```")).toBe("```ts\nconst a = 1;\n```");           // only the end run on
+  expect(tidyPaste("```first words\nmore\n```")).toBe("```\nfirst words\nmore\n```");
+  expect(tidyPaste("no blocks here")).toBe("no blocks here");
+  // And in the box, a sentence after ``` is never drawn as the block's language label.
+  expect(highlight("```automatic project creation\ncode")).not.toContain("data-lang");
+  expect(highlight("```automatic project creation\ncode")).not.toContain("mi-fence"); // and that line isn't hidden
 });

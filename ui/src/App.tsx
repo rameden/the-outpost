@@ -106,7 +106,7 @@ export function App({ store }: { store: FeedStore }) {
   const closeTicket = useCallback(() => setTicketOpen(null), []);
   // What you send follows the conversation you're in; on a new page it starts one (in that project).
   const context = useMemo<SendContext | undefined>(() => {
-    if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), placeholder: "Reply in this conversation…", // In a project: its folders, and any others this conversation was given along the way.
+    if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), live: liveRun, placeholder: "Reply in this conversation…", // In a project: its folders, and any others this conversation was given along the way.
       ...(project && project.id !== "general" ? { folders: [...new Set([...(project.links ?? []), ...(conversation?.links ?? []), ...Object.keys(conversation?.workspaces ?? {}).filter((l) => !conversation?.without?.includes(l))])] } : {}),
       ...(conversation?.workspaces ? { working: Object.fromEntries(Object.entries(conversation.workspaces).map(([l, w]) => [l, w.branch])) } : {}),
       ...(conversation?.without?.length ? { without: conversation.without } : {}) };
@@ -506,7 +506,7 @@ export function App({ store }: { store: FeedStore }) {
                               title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)} />
                           ))
                         : <NextStep running={!!activity[conversation.id]?.running} status={conversation.status} title={conversation.title} lastRun={conversation.expeditions.at(-1)} />)}
-                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} />
+                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} />
                     </>
                   )}
                   </ZoneBoundary>

@@ -121,7 +121,7 @@ function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
   if (!repos.length && !S.jira?.connected) {
     return (
       <div className="card trigger-form">
-        <div className="meta">A trigger needs something to watch: link a GitHub repository (Link a folder… in the + menu) or your Jira account (Connectors) first.</div>
+        <div className="meta">A trigger needs something to watch: link a GitHub repository (add its folder to a project) or your Jira account (Connectors) first.</div>
         <div className="card-actions"><button type="button" className="btn small" onClick={done}>Close</button></div>
       </div>
     );
@@ -229,7 +229,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
       <JiraConnection S={S} refresh={refresh} />
       <div className="wiki-group">
         <h4>Linked folders</h4>
-        <p>Folders on your disk the crew can read as links/&lt;name&gt;/, without uploading. Add one from the + menu.</p>
+        <p>Folders on your disk the crew can read as links/&lt;name&gt;/, without uploading. Add one by adding its folder to a project.</p>
         {!links.length && <div className="meta">None yet.</div>}
         <ul className="list">
           {links.map((l) => (

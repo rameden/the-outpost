@@ -81,10 +81,10 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
           <div className="ask-row">
             {kind === "plan" ? (
               <>
+                {/* No Stop here: the message box's Stop ends the run, plan and all. */}
                 <button type="button" className="btn primary" disabled={sending} onClick={() => answer("")}>Approve and start</button>
                 <button type="button" className="btn" disabled={sending} onClick={() => answer(START_LATER)}
                   title="Approve it now, and start it yourself from this card whenever you're ready">Approve, start later</button>
-                <button type="button" className="btn danger" disabled={sending} onClick={() => answer("n")}>Stop</button>
                 <input placeholder="Or describe changes…" aria-label="Changes to the plan" value={draft} disabled={sending}
                   onChange={(ev) => setDraft(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") sendChanges(); }} />
                 <button type="button" className="btn" disabled={sending} onClick={sendChanges}>Request changes</button>

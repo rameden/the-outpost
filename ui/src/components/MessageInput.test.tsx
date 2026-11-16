@@ -89,6 +89,12 @@ test("pasted text goes in as plain text, with its line ends tidied", () => {
   expect(h().selectionStart).toBe(4);
 });
 
+test("a chat's ```text``` block is made whole as it's pasted", () => {
+  const { h, input } = setup("");
+  input("insertFromPaste", "```first line\r\nlast line```");
+  expect(h().value).toBe("```\nfirst line\nlast line\n```");
+});
+
 test("shortcuts wrap the selection: bold, italic, code, strike, link; again takes it off", () => {
   const { h, at, key } = setup("make this stand out");
   at(5, 9);

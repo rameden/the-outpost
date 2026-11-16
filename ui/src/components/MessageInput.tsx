@@ -13,7 +13,7 @@
 // (Enter itself belongs to whoever owns the box: see enterInCode.)
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, type ClipboardEvent, type KeyboardEvent, type Ref } from "react";
-import { backspace, belowBlock, codeLine, forwardDelete, highlight, insideFence, link, newline, wrap, type Edit } from "../compose.ts";
+import { backspace, belowBlock, codeLine, forwardDelete, highlight, insideFence, link, newline, tidyPaste, wrap, type Edit } from "../compose.ts";
 
 export type MessageInputHandle = {
   readonly value: string;
@@ -201,6 +201,7 @@ export function MessageInput({ value, onChange, onKeyDown, onPaste, onClick, pla
       let data = "";
       if (t.startsWith("insert")) data = (ev.data ?? ev.dataTransfer?.getData("text/plain") ?? "").replace(/\r\n?/g, "\n");
       else if (!t.startsWith("delete")) return; // formatting and the like: nothing a plain message takes
+      if (t === "insertFromPaste" || t === "insertFromDrop") data = tidyPaste(data); // a chat's ```text``` blocks, made whole
       if (a === b && !data) return;
       apply({ text: was.slice(0, a) + data + was.slice(b), start: a + data.length, end: a + data.length }, t === "insertText" && data.length === 1 && data !== " ");
     };

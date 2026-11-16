@@ -26,9 +26,9 @@ function send(store: ReturnType<typeof createFeedStore>, ...bodies: object[]) {
 const qm = { who: "Quartermaster", emoji: "🧭", depth: 0 };
 const card = (task: string) => screen.getByRole("heading", { name: task }).closest("article")!;
 
-function twoExpeditions() {
+function twoExpeditions(stopInBox?: string) {
   const store = createFeedStore();
-  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} stopInBox={stopInBox} />);
   send(store,
     { type: "expedition_start", id: "exp-a", task: "Research memory", source: "user" },
     { type: "expedition_start", id: "exp-b", task: "Write the changelog", source: "user" },
@@ -58,11 +58,26 @@ test("Stop posts that expedition's id, and only that card stops", async () => {
   expect(within(card("Research memory")).getByRole("button", { name: "Stop" })).toBeTruthy(); // A is still running
 });
 
-test("a plan approved to start later waits on its card until you start it, once", async () => {
-  const store = twoExpeditions();
-  send(store, { type: "ask", id: "ask-p", kind: "plan", title: "📜 Plan", body: "1. Scout reads the code\n2. Scribe writes it up", expeditionId: "exp-a" });
+test("the run whose Stop is the message box's button doesn't show its own; the one beside it still does", () => {
+  twoExpeditions("exp-b");
+  expect(within(card("Write the changelog")).queryByRole("button", { name: "Stop" })).toBeNull();
+  expect(within(card("Research memory")).getByRole("button", { name: "Stop" })).toBeTruthy();
+});
+
+test("a plan card offers Approve (now or later) and changes, but no Stop of its own", () => {
+  const store = twoExpeditions("exp-a");
+  send(store, { type: "ask", id: "ask-p", kind: "plan", title: "📜 Plan", body: "1. Scout reads the code", expeditionId: "exp-a" });
   const a = within(card("Research memory"));
   expect(a.getByRole("button", { name: "Approve and start" })).toBeTruthy();
+  expect(a.getByRole("button", { name: "Approve, start later" })).toBeTruthy();
+  expect(a.getByRole("button", { name: "Request changes" })).toBeTruthy();
+  expect(a.queryByRole("button", { name: "Stop" })).toBeNull();
+});
+
+test("a plan approved to start later waits on its card until you start it, once", async () => {
+  const store = twoExpeditions("exp-a");
+  send(store, { type: "ask", id: "ask-p", kind: "plan", title: "📜 Plan", body: "1. Scout reads the code\n2. Scribe writes it up", expeditionId: "exp-a" });
+  const a = within(card("Research memory"));
   await act(async () => { fireEvent.click(a.getByRole("button", { name: "Approve, start later" })); });
   expect(posts).toEqual([{ path: "/api/answer", body: { id: "ask-p", answer: "later" } }]);
 
@@ -94,18 +109,16 @@ test("an approval card answers with its id and closes when the camp confirms", a
   expect(a.queryByRole("button", { name: "Run command" })).toBeNull();
 });
 
-test("steering, Resume, and a worktree's Commit each post to the right place", async () => {
+test("what you said to a run shows in it, and Resume and a worktree's Commit each post to the right place", async () => {
   const store = twoExpeditions();
   const a = within(card("Research memory"));
-  fireEvent.change(a.getByLabelText("Message to the running expedition"), { target: { value: "Focus on 2026 papers" } });
-  await act(async () => { fireEvent.click(a.getByRole("button", { name: "Send" })); });
-  expect(posts).toEqual([{ path: "/api/steer", body: { id: "exp-a", text: "Focus on 2026 papers" } }]);
+  // You talk to a working run from the message box, not from a box of its own.
+  expect(a.queryByRole("textbox")).toBeNull();
   send(store, { type: "steer", id: "exp-a", text: "Focus on 2026 papers", expeditionId: "exp-a" });
   expect(a.getByText("Focus on 2026 papers")).toBeTruthy();
 
   const ws = { link: "site", path: "/repos/site-wt", branch: "camp/memory", created: true, changed: 2, commits: 0 };
   send(store, { type: "expedition_end", id: "exp-a", status: "out_of_turns", text: "partial", workspaces: [ws] });
-  expect(a.queryByLabelText("Message to the running expedition")).toBeNull(); // steering ends with the run
   expect(a.getByText("camp/memory")).toBeTruthy();
   expect(a.getByText("2 uncommitted files")).toBeTruthy();
 
@@ -188,11 +201,14 @@ test("a run reads as an exchange: your message, formatted, then the answer; no c
   expect(within(run).queryByText("Expedition")).toBeNull();
   expect(within(run).queryByText(/Follow-up/)).toBeNull();
   expect(run.querySelector(".exp-ask time")).toBeTruthy();
-  // Your message first, the answer after it. Until something comes back, the answer says it's on its way.
-  expect([...run.children].map((c) => c.className)).toEqual(["exp-ask", "exp-reply"]);
+  // Your message first, the answer after it, and while it runs, Stop under the answer. Until something comes back, the answer says it's on its way.
+  expect([...run.children].map((c) => c.className)).toEqual(["exp-ask", "exp-reply", "run-stop"]);
   expect(within(run).getByRole("status").textContent).toBe("Reading your message…");
-  // Stop is at the foot of the answer, beside the box for saying something to the run.
-  expect(within(run).getByRole("button", { name: "Stop" }).closest(".exp-steer")).toBeTruthy();
+  // Stop floats under the answer: an icon, not a row inside it.
+  const stop = within(run).getByRole("button", { name: "Stop" });
+  expect(stop.closest(".run-stop")).toBeTruthy();
+  expect(stop.closest(".exp-reply")).toBeNull();
+  expect(stop.textContent).toBe("");
   send(store, { type: "text", ...qm, text: "On it.", expeditionId: "exp-m" });
   expect(within(run).queryByRole("status")).toBeNull();
   expect(within(run.querySelector(".exp-reply") as HTMLElement).getByText("On it.")).toBeTruthy();
@@ -212,7 +228,6 @@ test("under the message: a reply says it follows on, and a scheduled job says it
   const job = card("Summarise the wiki");
   expect(within(job).getByText("Scheduled job · wiki-digest")).toBeTruthy();
   // A job has nobody to talk to: it can be stopped, and that's all.
-  expect(within(job).queryByLabelText("Message to the running expedition")).toBeNull();
   expect(within(job).getByText("A scheduled job is running.")).toBeTruthy();
   expect(within(job).getByRole("button", { name: "Stop" })).toBeTruthy();
   expect(within(job).getByRole("status").textContent).toBe("Starting…");

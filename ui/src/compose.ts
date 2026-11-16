@@ -30,6 +30,39 @@ function blocks(lines: string[]): { parts: InBlock[]; open: boolean } {
   });
   return { parts, open };
 }
+// What can follow an opening ``` and be its language: one short word (ts, c++, shell-session).
+const LANG = /^[\w+#.-]{1,24}$/;
+
+// Text pasted in from a chat (Slack, Teams…) often writes a block with its ``` run on to the text:
+// ```first line … last line```. Read as markdown, the first line would be taken for the block's
+// language (and lost), and the block would never close. Put each ``` on a line of its own.
+// A line that opens and closes on itself (```npm test```) is inline code, and stays as it is.
+export function tidyPaste(text: string): string {
+  if (!/`{3}|~{3}/.test(text)) return text;
+  const out: string[] = [];
+  let fence = "";
+  for (const line of text.split("\n")) {
+    if (!fence) {
+      const m = line.match(/^(\s*)(`{3,}|~{3,})(.*)$/);
+      const rest = m?.[3] ?? "";
+      if (!m || (m[2][0] === "`" && rest.includes("`"))) { out.push(line); continue; }
+      fence = m[2];
+      if (!rest.trim() || LANG.test(rest.trim())) { out.push(line); continue; }
+      out.push(m[1] + fence);
+      const end = rest.trimEnd();
+      if (end.endsWith(fence) && end.length > fence.length) { out.push(m[1] + end.slice(0, -fence.length), m[1] + fence); fence = ""; }
+      else out.push(m[1] + rest);
+      continue;
+    }
+    const end = line.trimEnd();
+    if (CLOSES.test(line)) { out.push(line); fence = ""; }
+    else if (end.endsWith(fence) && end.trim().length > fence.length && !end.endsWith(fence + fence[0])) {
+      out.push(end.slice(0, -fence.length), line.match(/^\s*/)![0] + fence);
+      fence = "";
+    } else out.push(line);
+  }
+  return out.join("\n");
+}
 const LIST = /^(\s*)([-*+]|\d{1,4}[.)])(\s+)/;
 // One pass over a line, left to right; the first thing that matches at a spot wins.
 const INLINE = new RegExp([
@@ -69,12 +102,16 @@ export function highlight(text: string): string {
     const part = parts[i];
     if (part === "in") {
       // The block's first line of code carries the language named on the opening line.
-      const lang = parts[i - 1] === "open" ? lines[i - 1].replace(/^\s*(`+|~+)\s*/, "").trim() : "";
+      // (Only a word that could be one: anything longer isn't a language, and wouldn't fit as a label.)
+      const named = parts[i - 1] === "open" ? lines[i - 1].replace(/^\s*(`+|~+)\s*/, "").trim() : "";
+      const lang = LANG.test(named) ? named : "";
       return { cls: "mi-pre", body: esc(line), ...(lang ? { lang } : {}) };
     }
     if (part) {
       // The ``` lines are kept out of sight (mi-fence) when there's code between them to show.
-      const holds = part === "open" ? parts[i + 1] === "in" : parts[i - 1] === "in";
+      // An opening line with more than a language after its ``` stays in sight, so none of it is hidden.
+      const named = part === "open" ? line.replace(/^\s*(`+|~+)\s*/, "").trim() : "";
+      const holds = part === "open" ? parts[i + 1] === "in" && (!named || LANG.test(named)) : parts[i - 1] === "in";
       return { cls: `mi-pre${holds ? " mi-fence" : ""}${part === "open" ? " mi-pre-top" : " mi-pre-end"}`, body: dim(line) };
     }
     const h = line.match(/^(#{1,6}\s+)(.*)$/);

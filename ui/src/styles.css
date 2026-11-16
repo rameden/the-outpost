@@ -257,6 +257,77 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; } }
 :root[data-theme="dark"] .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; }
 @media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
+/* The camp at rest (MaeSystem.tsx): the films' solar system, on a page with nothing on it yet. The
+   sun is the logo's amber dot, and each planet takes its crew member's colour (--c, from its c-…
+   class). It is drawn about its own centre, so everything turns and grows about that, and in its own
+   units, so it scales with its width: a system with more than four of the crew is wider by as much
+   as its extra orbits need, so the planets stay the same size.
+   Orbit by orbit, outwards (.sys-o1 …): how long a lap takes, and --r, how far out it is. A planet's
+   orbit and its mark turn opposite ways in the same time, which keeps the mark upright. */
+.mae-system { display: block; width: 208px; height: 208px; margin: 0 auto 10px; overflow: visible; }
+.mae-system.sys-n5 { width: 244px; height: 244px; } .mae-system.sys-n6 { width: 281px; height: 281px; } .mae-system.sys-n7 { width: 317px; height: 317px; }
+/* The orbits are contour lines, as on the films' map. A planet's own line turns with it (they are one
+   drawing, so the planet is always on its line and its tail is a stretch of it). A line with nobody on
+   it drifts round slowly, by turns one way and the other. */
+.sys-drift { animation: sys-turn 150s linear infinite; }
+.sys-c2, .sys-c4, .sys-c6, .sys-c8 { animation-direction: reverse; }
+.sys-c2 { animation-duration: 190s; } .sys-c3 { animation-duration: 230s; } .sys-c4 { animation-duration: 270s; }
+.sys-c5 { animation-duration: 310s; } .sys-c6 { animation-duration: 350s; } .sys-c7 { animation-duration: 390s; } .sys-c8 { animation-duration: 430s; }
+.sys-ring { fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: .75; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.sys-ring.sys-far { opacity: .4; }
+.sys-tone { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.6; opacity: 0; vector-effect: non-scaling-stroke; stroke-linejoin: round; transition: opacity .6s; }
+.sys-on .sys-tone { opacity: .85; }
+.sys-sun { fill: var(--logo-dot); animation: sys-breathe 5s ease-in-out infinite; }
+.sys-glow { fill: var(--logo-dot); opacity: .16; filter: blur(7px); animation: sys-glow 5s ease-in-out infinite; }
+.sys-ping { fill: none; stroke: var(--logo-dot); stroke-width: 1.5; vector-effect: non-scaling-stroke; opacity: 0; }
+.sys-ping.sys-alone { animation: sys-out 9s linear infinite; }
+/* A line as the sun's ring passes through it: lit for a moment in the sun's colour. The ring grows at a
+   steady pace, so each line waits a little longer than the one inside it (22 units further out). */
+.sys-lit { fill: none; stroke: var(--logo-dot); stroke-width: 1.7; opacity: 0; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.sys-lit.sys-on { animation: sys-lit 8s linear both; }
+.sys-lit.sys-alone { animation: sys-lit-alone 9s linear infinite; }
+.sys-lit.sys-l1 { animation-delay: .34s; } .sys-lit.sys-l2 { animation-delay: .6s; } .sys-lit.sys-l3 { animation-delay: .87s; } .sys-lit.sys-l4 { animation-delay: 1.13s; }
+.sys-lit.sys-l5 { animation-delay: 1.39s; } .sys-lit.sys-l6 { animation-delay: 1.65s; } .sys-lit.sys-l7 { animation-delay: 1.91s; } .sys-lit.sys-l8 { animation-delay: 2.17s; }
+.sys-orbit { animation: sys-turn linear infinite; }
+.sys-upright { animation: sys-turn-back linear infinite; }
+.sys-o1 { animation-duration: 24s; --r: 42px; } .sys-o2 { animation-duration: 37s; --r: 64px; } .sys-o3 { animation-duration: 56s; --r: 86px; } .sys-o4 { animation-duration: 86s; --r: 108px; }
+.sys-o5 { animation-duration: 124s; --r: 130px; } .sys-o6 { animation-duration: 170s; --r: 152px; } .sys-o7 { animation-duration: 228s; --r: 174px; }
+.sys-tail { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .3; }
+.sys-disc { fill: var(--surface-2); stroke: var(--c, var(--c-other)); stroke-width: 1.5; }
+.sys-mark * { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sys-emoji { font-size: 10.5px; }
+/* A turn (.sys-on, for as long as TURN_MS in MaeSystem.tsx): the quest flies out along the line from
+   the sun to the planet, the planet rings as it lands, a moon circles it while it works, the report
+   flies home, and the sun sends a ring out (from 73% of the turn, growing 84 units a second, which is
+   what the lit lines above are timed to). Each dot of the comet follows the one ahead by a moment. */
+.sys-comet { fill: var(--c, var(--c-other)); opacity: 0; }
+.sys-pulse { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.5; opacity: 0; }
+.sys-moon { opacity: 0; } .sys-moon circle { fill: var(--c, var(--c-other)); }
+.sys-on .sys-comet { animation: sys-quest 8s ease-in-out both; }
+.sys-on .sys-lag1 { animation-delay: .07s; --o: .6; } .sys-on .sys-lag2 { animation-delay: .14s; --o: .4; } .sys-on .sys-lag3 { animation-delay: .21s; --o: .25; }
+.sys-on .sys-pulse { animation: sys-land 8s ease-out both; }
+.sys-on .sys-moon { animation: sys-turn 1.7s linear infinite, sys-work 8s linear both; }
+.sys-ping.sys-on { animation: sys-home 8s linear both; }
+@keyframes sys-turn { to { transform: rotate(360deg); } }
+@keyframes sys-turn-back { to { transform: rotate(-360deg); } }
+@keyframes sys-breathe { 50% { transform: scale(1.07); } }
+@keyframes sys-glow { 50% { opacity: .26; } }
+@keyframes sys-out { 0% { transform: scale(1); opacity: .65; } 13.6% { opacity: 0; } 24%, 100% { transform: scale(15); opacity: 0; } }
+@keyframes sys-lit { 0%, 73% { opacity: 0; } 74.5% { opacity: .85; } 80%, 100% { opacity: 0; } }
+@keyframes sys-lit-alone { 0% { opacity: 0; } 1.4% { opacity: .85; } 6.2%, 100% { opacity: 0; } }
+@keyframes sys-quest {
+  0% { transform: translateX(13px); opacity: 0; }
+  2% { transform: translateX(13px); opacity: var(--o, 1); }
+  16% { transform: translateX(calc(var(--r) - 11px)); opacity: var(--o, 1); }
+  17.5%, 57% { transform: translateX(calc(var(--r) - 11px)); opacity: 0; }
+  58.5% { transform: translateX(calc(var(--r) - 11px)); opacity: var(--o, 1); }
+  72.5% { transform: translateX(13px); opacity: var(--o, 1); }
+  74%, 100% { transform: translateX(13px); opacity: 0; }
+}
+@keyframes sys-land { 0%, 16% { transform: scale(1); opacity: 0; } 16.5% { transform: scale(1); opacity: .9; } 27%, 100% { transform: scale(2.2); opacity: 0; } }
+@keyframes sys-work { 0%, 17% { opacity: 0; } 20%, 54% { opacity: 1; } 57%, 100% { opacity: 0; } }
+@keyframes sys-home { 0%, 72.9% { transform: scale(1); opacity: 0; } 73% { transform: scale(1); opacity: .65; } 88% { opacity: 0; } 100% { transform: scale(15); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .mae-system * { animation: none; } }
 .top-right { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .top-chips { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 .top-tools { display: flex; align-items: center; gap: 2px; flex: none; }
@@ -290,9 +361,13 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .member-edit { border: 0; background: none; padding: 0 4px; border-radius: 6px; color: var(--faint); font-size: 12px; visibility: hidden; }
 .member:hover .member-edit, .member:focus-within .member-edit { visibility: visible; }
 .member-edit:hover { color: var(--text); background: var(--surface-2); }
-.member-main { min-width: 0; display: grid; gap: 1px; }
-.member-name { font-weight: 600; display: flex; align-items: baseline; gap: 8px; min-width: 0; line-height: 1.25; }
-.member-level { margin-left: auto; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; font-weight: 600; line-height: 16px; color: var(--muted); white-space: nowrap; }
+/* One column held to the card's width: an auto column would grow to the model button's full text and push the row out. */
+.member-main { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; }
+.member-name { font-weight: 600; display: flex; align-items: baseline; gap: 6px; min-width: 0; line-height: 1.25; }
+/* The name gives way (with an ellipsis) so the edit button and level always stay inside the card. */
+.member-name > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-name > :not(:first-child) { flex: none; }
+.member-level { margin-left: auto;padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; font-weight: 600; line-height: 16px; color: var(--muted); white-space: nowrap; }
 .member-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); min-width: 0; }
 .member-status .dot { background: var(--faint); width: 7px; height: 7px; }
 .member.active .member-status .dot { background: var(--c); }
@@ -962,7 +1037,6 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .feed > .exp { content-visibility: auto; contain-intrinsic-size: auto 320px; }
 .feed > * { flex-shrink: 0; width: 100%; max-width: 980px; margin-inline: auto; } /* cards grow and the feed scrolls, instead of cards being squeezed */
 .empty-feed { margin: auto; text-align: center; max-width: 440px; color: var(--muted); padding: 40px 0; }
-.empty-feed .fire { font-size: 40px; }
 .empty-feed h2 { font: 600 22px/1.3 var(--serif); color: var(--text); margin: 8px 0 6px; }
 .examples { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
 .example { text-align: left; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--muted); font-size: 14px; transition: border-color .12s, color .12s, box-shadow .12s; }
@@ -1016,7 +1090,8 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
    it's a third of the width, down to 156px (under that a long name wouldn't fit), then two to a
    line, then one. Chips don't stretch: what's left over stays empty, before the +. */
 .crew-half > .crew.slim { display: grid; grid-template-columns: repeat(auto-fill, clamp(156px, (100% - 14px) / 3, 200px)); row-gap: 6px; }
-.crew-half > .crew:not(.slim) { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); }
+/* 224px fits the longest built-in name ("Quartermaster") beside its level; longer names you add end in an ellipsis. */
+.crew-half > .crew:not(.slim) { display: grid; grid-template-columns: repeat(auto-fill, minmax(224px, 1fr)); }
 .crew-half > .crew .member { min-width: 0; }
 /* The Crew rail: the same rail History, Files and the terminal have, lying flat under the whole
    roster area. Click it to open the crew's cards, or fold them. */
@@ -1068,8 +1143,13 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .exp-wait { color: var(--faint); font-size: 14px; }
 .exp-wait::after { content: "▍"; margin-left: 2px; animation: caret 1s steps(1) infinite; }
 @media (prefers-reduced-motion: reduce) { .exp-wait::after { animation: none; } }
-.exp-steer .stop-btn { flex: none; }
-.exp-steer .steer-note { flex: 1; align-self: center; font-size: 13px; color: var(--muted); }
+/* Stop, while a run works: a small round button under the answer's corner, not a row of its own. */
+.run-stop { align-self: flex-end; display: flex; align-items: center; gap: 8px; margin: -4px 10px 0 0; }
+.run-stop .steer-note { font-size: 12px; color: var(--muted); }
+.stop-btn { flex: none; width: 28px; height: 28px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); color: var(--bad); box-shadow: var(--shadow); transition: background .12s, border-color .12s; }
+.stop-btn:hover:not(:disabled) { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, var(--surface)); }
+.stop-btn:disabled { opacity: .55; }
+.stop-btn svg { width: 14px; height: 14px; fill: currentColor; }
 .exp-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
 .exp-foot { padding: 9px 18px; background: var(--surface-2); border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
 
@@ -1227,7 +1307,7 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .mi b { font-weight: 700; }
 .mi s { color: var(--muted); }
 /* One row, and it stays one: where there isn't the width, a long folder or branch name is cut
-   short, the folders wrap among themselves, and "Enter to send" goes before Send does. */
+   short and the folders wrap among themselves, while Send keeps its room. */
 .composer-bar { display: flex; align-items: center; gap: 4px 6px; padding: 4px 8px 8px; }
 .composer-bar > * { min-width: 0; }
 .composer-bar > .work-in { margin: 0 0 0 6px; flex: 0 1 auto; }
@@ -1235,9 +1315,22 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .composer-bar .work-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Send and its hint, from the right. The group is one line tall and clips what doesn't fit, so a
    hint with no room wraps under Send and out of sight. (The padding is room for Send's focus ring.) */
-.composer-end { flex: 1 1 0; min-width: 84px; height: 40px; margin: -4px -4px -4px auto; padding: 4px; overflow: hidden; display: flex; flex-flow: row-reverse wrap; align-items: center; align-content: flex-start; gap: 12px 8px; }
+.composer-end { flex: none; margin-left: auto; display: flex; align-items: center; }
 .composer-end > .btn.primary { flex: none; height: 32px; padding: 0 16px; border-radius: 8px; box-shadow: none; }
-.composer-tip { flex: none; line-height: 32px; font-size: 12px; color: var(--faint); white-space: nowrap; }
+/* While a run works: Send (to the run) and a menu beside it for Queue. */
+.composer-bar { position: relative; }
+.send-split { flex: none; display: inline-flex; }
+.send-split > .btn.primary { height: 32px; box-shadow: none; }
+.send-split > .btn.primary:first-child { padding: 0 14px 0 16px; border-radius: 8px 0 0 8px; }
+.send-split > .btn.primary.send-more { width: 26px; padding: 0; display: inline-grid; place-items: center; border-radius: 0 8px 8px 0; border-left-color: color-mix(in srgb, var(--accent-ink) 35%, var(--accent)); }
+.send-split > .btn.primary.send-more svg { width: 14px; height: 14px; }
+/* While a run works, the same button is Stop: red, with its menu beside it. */
+.send-split.stop > .btn.primary { background: var(--bad); border-color: var(--bad); color: #fff; }
+.send-split.stop > .btn.primary.send-more { border-left-color: color-mix(in srgb, #fff 35%, var(--bad)); }
+.send-split.stop > .btn.primary:disabled { opacity: .7; }
+.send-menu .mention-item:disabled { opacity: .5; cursor: default; }
+.send-menu .mention-item:focus-visible { outline: none; } /* the highlight shows where you are */
+.popover.send-menu { position: absolute; bottom: calc(100% + 2px); right: 8px; left: auto; width: min(280px, 80vw); padding: 6px; z-index: 30; display: grid; }
 .hints { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--faint); }
 .hint { border: 0; background: none; border-radius: 6px; padding: 4px 7px; color: var(--muted); font-size: 13px; }
 .hint:hover { color: var(--text); background: var(--surface-2); }
@@ -1287,7 +1380,7 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .fly.fly-wide { width: 360px; }
 .fly-head { display: flex; align-items: baseline; gap: 8px; padding: 11px 12px 8px; font-size: 14px; font-weight: 600; }
 .fly-head small { font-size: 12px; font-weight: 400; color: var(--faint); }
-.composer .fly > .menu-form, .composer .fly > .link-form { padding: 0 12px 12px; }
+.composer .fly > .menu-form { padding: 0 12px 12px; }
 .fly > .snippet-list { padding: 0 6px 6px; }
 .fly > .menu-footer { margin: 0; padding: 8px 10px; }
 @media (max-width: 760px) { .fly { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: var(--room, none); overflow-y: auto; } }
@@ -1298,12 +1391,6 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--border-
 .menu-form { display: flex; gap: 6px; padding: 2px 4px 6px; }
 .menu-form input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); }
 .snippet-list { max-height: 260px; overflow: auto; }
-.composer .link-form { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 2px 6px 8px; }
-.composer .link-form .btn { align-self: flex-start; }
-.link-manual summary { cursor: pointer; font-size: 13px; color: var(--muted); }
-.link-manual-row { display: flex; gap: 6px; margin-top: 6px; }
-.link-manual-row #linkPath { flex: 1; min-width: 0; }
-.link-form input[type="text"], .link-form #linkPath { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); font: 13px var(--mono); }
 .link-access { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
 .link-access input { accent-color: var(--accent); }
 .snippet { display: flex; align-items: flex-start; gap: 2px; border-radius: 8px; }
@@ -1382,6 +1469,8 @@ a.att-name { color: var(--accent); }
 .mem-meter.over { color: var(--bad); }
 .mem-meter.over .mem-bar > span { background: var(--bad); }
 .mem-warn { margin: 4px 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--bad-soft); color: var(--text); font-size: 13px; }
+.mem-wait .mem-warn { margin: 0; }
+.mem-left { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 4px; }
 .mem-lines { list-style: none; margin: 0; padding: 0; }
 .mem-lines li { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .mem-lines li > div { flex: 1; min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; }
@@ -1575,8 +1664,6 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .work-btn b { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font: 500 12px/28px var(--mono); color: var(--text); }
 .work-btn.changed b { text-decoration: underline solid var(--accent) 2px; text-underline-offset: 4px; } /* not the linked checkout: underlined */
 .work-btn:hover, .work-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
-.exp-steer { display: flex; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border); }
-.exp-steer input { flex: 1; min-width: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--surface); color: var(--text); font-size: 13px; }
 .steer-msg { align-self: flex-end; max-width: 80%; margin: 4px 0 4px auto; padding: 7px 12px; border-radius: 14px 14px 6px 14px; background: var(--accent-soft); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; width: fit-content; }
 .steer-msg small { display: block; color: var(--muted); font-size: 12px; margin-bottom: 2px; }
 .exp-work { border-top: 1px solid var(--border); padding: 9px 16px; font-size: 13px; color: var(--muted); display: grid; gap: 8px; }
@@ -1934,11 +2021,11 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
    a filled dot, never a coloured strip; focus is a solid 2px outline. A folder that's off is a
    dashed outline with one line saying so. */
 .fly.work-fly { width: 340px; }
-.work-head { padding-bottom: 6px; }
-.work-all { margin-left: auto; border: 0; background: none; padding: 2px 4px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.work-bar { display: flex; justify-content: flex-end; padding: 6px 10px 0; }
+.work-all { border: 0; background: none; padding: 2px 4px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
 .work-all:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-.work-tip { padding: 0 12px 8px; font-size: 12.5px; line-height: 1.45; }
-.fly-list.work-list { max-height: min(460px, 60dvh); display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; }
+.fly-list.work-list { max-height: min(460px, 60dvh); display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+.work-bar + .work-list { padding-top: 4px; }
 .work-card { flex: none; padding: 4px 4px 6px; border: 1px solid var(--border); border-radius: 10px; }
 .work-card.off { border-style: dashed; }
 .work-card-head { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 4px 6px 4px 8px; }
@@ -1950,13 +2037,13 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .work-card-note { padding: 0 8px 2px 31px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
 .work-choices { display: grid; }
 .work-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 32px; }
-.work-pick, .work-more { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: var(--text); text-align: left; font-size: 13.5px; }
-.work-pick:hover, .work-more:hover { background: var(--surface-2); }
-.work-pick:focus-visible, .work-more:focus-visible, .work-branch-btn:focus-visible, .work-all:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.work-pick { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: var(--text); text-align: left; font-size: 13.5px; }
+.work-pick:hover { background: var(--surface-2); }
+.work-pick:focus-visible, .work-branch-btn:focus-visible, .work-all:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .work-pick-name { min-width: 0; }
 .work-pick[aria-checked="true"] .work-pick-name { font-weight: 600; }
 .work-dot { flex: none; width: 14px; height: 14px; border: 1.5px solid var(--border-strong); border-radius: 50%; background: var(--surface); }
-.work-pick[aria-checked="true"] .work-dot, .work-dot.on { border: 4px solid var(--accent); }
+.work-pick[aria-checked="true"] .work-dot { border: 4px solid var(--accent); }
 .work-val { justify-self: end; max-width: 150px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--muted); }
 .work-val.mono, .work-branch-btn { font: 500 12px var(--mono); }
 .work-branch-btn { display: inline-flex; align-items: center; gap: 4px; height: 24px; margin-right: 4px; padding: 0 4px 0 8px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text); }
@@ -1964,18 +2051,6 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .work-branch-btn > .icon { flex: none; width: 13px; height: 13px; color: var(--muted); }
 .work-branch-btn:hover, .work-branch-btn[aria-expanded="true"] { border-color: var(--border-strong); background: var(--surface-2); }
 /* "Existing worktree": a row that unfolds the list, the chosen one's name under it while it's folded. */
-.work-more { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto 14px; gap: 0 9px; width: 100%; }
-.work-more > .work-val { padding: 0; }
-.work-more > .icon { width: 14px; height: 14px; color: var(--muted); }
-.work-more-sub { grid-column: 2 / -1; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.work-wts { display: grid; gap: 4px; margin: 0 4px 4px 30px; }
-.work-wt-find { width: 100%; padding: 5px 8px; border: 1px solid var(--field); border-radius: 6px; background: var(--bg); font-size: 12.5px; }
-.work-wt-list { display: grid; max-height: 200px; overflow-y: auto; }
-.work-wt { align-items: flex-start; padding: 5px 6px; }
-.work-wt .work-dot { width: 12px; height: 12px; margin-top: 2px; }
-.work-wt[aria-checked="true"] .work-dot { border-width: 3.5px; }
-.work-wt .work-pick-name { font: 500 12px/1.45 var(--mono); overflow-wrap: anywhere; } /* whole names: two that start alike can be told apart */
-/* Switching your checkout's branch, unfolded from the branch name. */
 .work-branch { margin: 2px 4px 6px 30px; }
 .work-branch .menu-form { padding: 0 0 4px; }
 .work-branch .menu-form input { padding: 6px 8px; font: 12.5px var(--mono); }
@@ -1985,6 +2060,15 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .work-branch-opt small { font-size: 12px; color: var(--muted); }
 .work-branch-opt:hover:not(:disabled) { background: var(--surface-2); }
 .work-branch-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.work-branch-btn > .work-hint { color: var(--muted); font: 400 12.5px var(--sans); } /* nothing picked yet: what's behind it */
+/* The worktree box's choices: the one picked is ticked and bold (no coloured strip). */
+.work-branch-opt[role="radio"] { grid-template-columns: minmax(0, 1fr) 14px; column-gap: 8px; align-items: center; }
+.work-branch-opt[role="radio"] > small { grid-column: 1; }
+.work-branch-opt[role="radio"] > .icon { grid-column: 2; grid-row: 1; width: 14px; height: 14px; color: var(--accent); }
+.work-branch-opt[aria-checked="true"] > span, .work-branch-opt[aria-checked="true"] .mono { font-weight: 600; }
+.work-new > span { display: inline-flex; align-items: center; gap: 6px; }
+.work-new > span > .icon { width: 13px; height: 13px; color: var(--muted); }
+.work-new > small { padding-left: 19px; }
 .work-branch-list .menu-tip { padding: 5px 8px; font-size: 12px; }
 .work-branch-foot { padding: 4px 2px 0; font-size: 11.5px; color: var(--faint); }
 .work-done { padding: 4px 2px 0; font-size: 12.5px; color: var(--good); }
