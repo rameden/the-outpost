@@ -177,7 +177,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
       <Row label="What runs the crew" help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
         <Choices name="Runtime" value={S.runtime} onChange={setRuntime} options={[
           { id: "claude-code", label: `Claude subscription${plan ? ` (${plan})` : ""}`, help: S.login && !S.login.ok ? S.login.problem ?? "Not signed in" : "Through Claude Code. Counts against your plan's usage limits.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
-          { id: "api", label: "API key", help: "Billed per token to ANTHROPIC_API_KEY.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
+          { id: "api", label: "API key", help: "Billed per token to your Anthropic API account.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
         ]} />
       </Row>
       <Row label="Theme" help="Light or dark. Remembered in this browser.">
@@ -193,7 +193,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           ))}
         </div>
       </Row>
-      <Row label="Today's cost in the top bar" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. Remembered in this browser. Usage & quests, in this menu, always shows it.`}>
+      <Row label="Today's cost in the status menu" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. It's in the menu under the top bar's status chip (Idle, or what's running). Remembered in this browser. Usage & quests, in this menu, always shows it.`}>
         <label className="switch"><input type="checkbox" checked={costShown} onChange={(ev) => showCost.set(ev.target.checked)} /> {costShown ? "Shown" : "Hidden"}</label>
       </Row>
       <Row label="Name conversations automatically" help="After a new conversation's first answer, the smallest model writes it a short title. Each one uses a little of your plan (or a fraction of a cent on the API). Off, a conversation is named after its first request.">
@@ -540,7 +540,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
   const title = ALL.find(([id]) => id === section)?.[1] ?? "";
-  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, inbox: S?.inboxCount ?? S?.inbox?.length, memory: S?.memoryProposals?.length };
+  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, inbox: S?.inboxCount ?? S?.inbox?.filter((m) => !m.seen).length, memory: S?.memoryProposals?.length };
   return (
     // A press that starts and ends on the dimmed backdrop closes it; a drag that began inside
     // (selecting text in a field, say) doesn't.

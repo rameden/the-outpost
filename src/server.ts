@@ -46,14 +46,14 @@ import { wikiPages, WIKI_DIR, saveWikiPage, removeWikiPage } from "./wiki.js";
 import { pendingDetails, approveSkill, rejectSkill } from "./forge.js";
 import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, saveSkillFile, alwaysFor, setSkillAlways } from "./skillpacks.js";
 import { skillCommands } from "./settings.js";
-import { dueJobs, runJob, inboxEntries, claimScheduler, schedulerOwner } from "./scheduler.js";
-import { feedEventsOf, keepInFeed, loadFeed, saveToFeed, trimFeed } from "./feed.js";
+import { dueJobs, runJob, inboxEntries, inboxUnread, markInboxSeen, claimScheduler, schedulerOwner } from "./scheduler.js";
+import { feedEventsOf, feedSince, keepInFeed, loadFeed, saveToFeed, trimFeed } from "./feed.js";
 import { accessFrom, addressOf, hostAllowed, isLocal } from "./access.js";
 import { hostname, networkInterfaces } from "node:os";
 import { writeAtomic } from "./atomic.js";
 import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
-import { allTurns, latestDirect, threadFor } from "./threads.js";
+import { allTurns, latestDirect, setPlanAside, threadFor } from "./threads.js";
 import { chainNote, chainReady } from "./chains.js";
 import { ASIDE_BRIEFS, isAsideBrief } from "./review.js";
 import { projectPayoff } from "./payoff.js";
@@ -70,7 +70,7 @@ import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./
 import { titleConversation } from "./titles.js";
 import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
 import { logKept, writeAbout } from "./memlog.js";
-import { approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
+import { anthropicKeyState, setAnthropicKey, approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
 import { writeModelGuide } from "./modelguide.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./chronicle.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
@@ -390,14 +390,15 @@ function spending(all: ReturnType<typeof recentQuests>) {
   const now = Date.now();
   const day = new Date(); day.setHours(0, 0, 0, 0);
   let today = 0, week = 0, total = 0;
+  const byAgent: Record<string, number> = {}; // today's, by whose calls they were (Orbit's gauge on each planet)
   for (const q of all) {
     const c = questCost(q);
     total += c;
     const t = new Date(q.time).getTime();
-    if (t >= day.getTime()) today += c;
+    if (t >= day.getTime()) { today += c; if (q.character) byAgent[q.character] = (byAgent[q.character] ?? 0) + c; }
     if (now - t < 7 * 86_400_000) week += c;
   }
-  return { today, week, total };
+  return { today, week, total, byAgent };
 }
 
 // Skills a crew member can use: its own plus the shared ones.
@@ -518,6 +519,7 @@ async function fullState(full: boolean, historySeen?: string) {
     }),
     // Other models you've connected (DeepSeek, Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
     providers: none(() => providersState()),
+    anthropic: anthropicKeyState(),
     // What's remembered, line by line, and what's waiting for your say (keeping.ts).
     memory: none(() => memoryOverview()),
     memoryProposals: none(() => proposals()),
@@ -573,7 +575,7 @@ async function fullState(full: boolean, historySeen?: string) {
     connectors: full ? await connectorStatus() : (undefined as unknown as Awaited<ReturnType<typeof connectorStatus>>),
     wiki: none(() => wikiPages()),
     skills: pendingDetails(),
-    inboxCount: inboxEntries().length, // for the badge in Settings' own menu
+    inboxCount: inboxUnread(), // for the badge in Settings' own menu: what you haven't marked as read
     inbox: none(() => inboxEntries()),
     snippets: loadSnippets(),
     links: loadLinks(),
@@ -692,6 +694,9 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+
+    // The last day of the feed, for Orbit to play back.
+    if (req.method === "GET" && url.pathname === "/api/feed/day") return send(res, 200, { events: feedSince(Date.now() - 86_400_000) });
 
     if (req.method === "GET" && url.pathname === "/api/state") { freshenUsage(); return send(res, 200, await state(url.searchParams.get("full") !== "0", url.searchParams.get("history") ?? undefined)); }
 
@@ -909,6 +914,11 @@ const server = http.createServer(async (req, res) => {
       setUploadKeepDays(days);
       return send(res, 200, { ok: true, keepDays: uploadKeepDays() });
     }
+    // { heading } or { all: true }: mark inbox entries as read, so they stop counting on the badge.
+    if (url.pathname === "/api/inbox/seen") {
+      const ok = markInboxSeen({ heading: typeof body.heading === "string" ? body.heading : undefined, all: body.all === true });
+      return send(res, ok ? 200 : 404, ok ? { ok, unread: inboxUnread() } : { error: "No such entry in the inbox." });
+    }
     if (url.pathname === "/api/skills/remove") {
       const ok = removeSkill(String(body.owner ?? ""), String(body.name ?? ""));
       return send(res, ok ? 200 : 404, ok ? { ok } : { error: "No such skill." });
@@ -926,6 +936,7 @@ const server = http.createServer(async (req, res) => {
       if (typeof body.start === "string") {
         const planned = allTurns().find((t) => t.parked?.ask === body.start);
         if (!planned?.parked) return send(res, 404, { error: "That plan can't be found any more. Ask for it again." });
+        if (planned.parked.aside) return send(res, 410, { error: "That plan was set aside, so it won't start. Start the plan that took its place, or ask for it again." });
         if (startedPlans.has(body.start) || allTurns().some((t) => t.started === body.start)) return send(res, 409, { error: "That plan has already been started." });
         held = planned.parked;
         body.replyTo = planned.expedition;
@@ -1086,6 +1097,15 @@ const server = http.createServer(async (req, res) => {
 
     // Per-expedition budget in dollars ({ usd: 2.5 }); 0 or empty removes it.
     // Switch what runs the crew: { runtime: "claude-code" | "api" }.
+    if (url.pathname === "/api/anthropic/key") {
+      try {
+        const key = body.import === true ? process.env.ANTHROPIC_API_KEY : body.key;
+        return send(res, 200, { ok: true, anthropic: await setAnthropicKey(key) });
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : "Couldn't update the Anthropic key." });
+      }
+    }
+
     if (url.pathname === "/api/runtime") {
       if (body.runtime !== "claude-code" && body.runtime !== "api") return send(res, 400, { error: "runtime must be claude-code or api" });
       if (process.env.CAMP_RUNTIME) return send(res, 409, { error: `CAMP_RUNTIME=${process.env.CAMP_RUNTIME} is set for this server; change it there.` });
@@ -1604,6 +1624,15 @@ const server = http.createServer(async (req, res) => {
       if (!pending) return send(res, 404, { error: "That question was already answered" });
       pendingAsks.delete(String(body.id));
       pending.resolve(String(body.answer ?? ""));
+      return send(res, 200, { ok: true });
+    }
+
+    // { ask: <plan card id> }: take a plan you approved to start later off Ready to start, unstarted.
+    if (url.pathname === "/api/plans/aside") {
+      const ask = String(body.ask ?? "");
+      if (startedPlans.has(ask)) return send(res, 409, { error: "That plan has already been started." });
+      if (!setPlanAside(ask)) return send(res, 404, { error: "That plan isn't waiting to start any more." });
+      emit({ type: "plan_aside", ask });
       return send(res, 200, { ok: true });
     }
 

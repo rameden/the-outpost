@@ -13,8 +13,45 @@
 
 import type { FeedStore } from "../feed/store.ts";
 import type { CampEvent } from "../types.ts";
+import type { KitItem } from "./kit.ts";
+import type { Ship } from "./meaning.ts";
 
 export type Actor = { name: string; emoji?: string };
+
+// What a pretend camp reports besides its work, so the demo shows everything the view can draw: how far
+// along each of the crew is, what they carry, what today has cost, a plan's limit, and what's waiting at
+// the edge. Made for whoever is in the sky (the real crew stands in, if the camp has one).
+const PRETEND_XP = [460, 330, 270, 150, 90, 40], PRETEND_COST = [0.84, 0.47, 1.26, 0.18, 0.31, 0.09];
+const PRETEND_KIT: KitItem[][] = [
+  [],
+  [{ id: "skill:own/read-the-logs", kind: "skill", name: "read-the-logs", about: "How this camp's logs are laid out, and where to look first when something is slow." },
+    { id: "connector:search", kind: "connector", name: "search", about: "Searches the web.", state: "connected", tools: ["search", "fetch"] }],
+  [{ id: "skill:own/house-patterns", kind: "skill", name: "house-patterns", about: "How this codebase likes its code: names, tests beside the file, small commits." },
+    { id: "skill:own/migrations", kind: "skill", name: "migrations", about: "Writing a database migration that can be rolled back." },
+    { id: "connector:github", kind: "connector", name: "github", about: "Reads and opens pull requests.", state: "connected", tools: ["list_prs", "open_pr", "comment"], write: true }],
+  [{ id: "skill:own/house-style", kind: "skill", name: "house-style", about: "The camp's writing style: short sentences, no jargon, say it once." },
+    { id: "connector:wiki", kind: "connector", name: "wiki", about: "The camp's wiki.", state: "idle", tools: ["read_page", "write_page"], write: true }],
+  [{ id: "skill:own/review-checklist", kind: "skill", name: "review-checklist", about: "What to check before anything is called done." },
+    { id: "connector:ci", kind: "connector", name: "ci", about: "Reads the checks on a branch.", state: "error", error: "It couldn't sign in: its token has run out.", tools: ["runs", "logs"] }],
+  [{ id: "skill:own/quick-fix", kind: "skill", name: "quick-fix", about: "Small, safe changes, made fast." }],
+];
+const SHARED: KitItem = { id: "skill:shared/camp-rules", kind: "skill", name: "camp-rules", about: "What everyone in this camp agrees to: ask before anything that can't be undone.", shared: true };
+export function demoCamp(crew: { id: string; name: string }[]): { xp: Record<string, number>; kit: Record<string, KitItem[]>; spend: { today: number; byAgent: Record<string, number> }; limit: { label: string; used: number }; ships: Ship[] } {
+  const byAgent = Object.fromEntries(crew.map((c, i) => [c.name, PRETEND_COST[i % PRETEND_COST.length]]));
+  return {
+    xp: Object.fromEntries(crew.map((c, i) => [c.name, PRETEND_XP[i % PRETEND_XP.length]])),
+    kit: Object.fromEntries(crew.map((c, i) => [c.id, i ? [...PRETEND_KIT[1 + ((i - 1) % (PRETEND_KIT.length - 1))], SHARED] : []])),
+    spend: { today: Object.values(byAgent).reduce((a, b) => a + b, 0), byAgent },
+    limit: { label: "This week", used: 0.62 },
+    ships: [
+      { id: "ship:q:demo-1", kind: "queued", name: "Tidy the changelog once the export fix is in", detail: "Waiting for the run before it" },
+      { id: "ship:pr:demo-212", kind: "pr", name: "#212 Read orders once in the nightly export", detail: "Checks running" },
+      { id: "ship:pr:demo-208", kind: "pr", name: "#208 Retry webhooks that time out", detail: "2 checks failing", bad: true },
+      { id: "ship:job:demo-brief", kind: "job", name: "Morning brief", detail: "Weekdays at 08:00" },
+      { id: "ship:job:demo-deps", kind: "job", name: "Dependency check", detail: "Mondays at 09:00" },
+    ],
+  };
+}
 
 // The camp's own, for a page that doesn't know its crew (or has nobody but the Quartermaster).
 export const DEMO_CREW = [

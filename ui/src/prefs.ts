@@ -23,5 +23,5 @@ function flag(key: string) {
   };
 }
 
-// Today's cost (or, on the subscription, its estimate at API prices) in the top bar.
+// Today's cost (or, on the subscription, its estimate at API prices) in the top bar's status menu.
 export const showCost = flag("camp-show-cost");

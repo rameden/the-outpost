@@ -22,6 +22,7 @@ import type { View } from "../feed/conversation.ts";
 import { OfferCard } from "../settings/DrivePage.tsx";
 import type { Brief, BriefLine, CampState, HomePage } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { Confirm } from "./Confirm.tsx";
 
 const ACT: Record<NonNullable<BriefLine["act"]>["do"], string> = { address: "Address it", resume: "Resume", start: "Start…" };
 const said = (status: string) => { const s = status.replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); }; // "Stopped", "Over budget"
@@ -95,6 +96,13 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
   const startPlan = (h: HomePage["held"][number]) => doing(h.ask, async () => {
     const r = await api<{ thread: string }>("/api/send", { start: h.ask });
     setView({ kind: "conversation", id: r.thread });
+  });
+  // A plan held for later, taken off Ready to start without starting it (its conversation stays).
+  const [removing, setRemoving] = useState<HomePage["held"][number] | null>(null);
+  const removePlan = (h: HomePage["held"][number]) => doing(`aside:${h.ask}`, async () => {
+    setRemoving(null);
+    await api("/api/plans/aside", { ask: h.ask });
+    await load();
   });
   const held = home?.held ?? [];
   const rewrite = () => doing("brief", async () => { await api("/api/brief", {}); setDay(null); await load(); });
@@ -174,11 +182,20 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
                   <span className="meta">{[h.steps ? `${h.steps} ${plural(h.steps, "step")}` : "", nameOf(h.project), `approved ${when(h.held)}`].filter(Boolean).join(" · ")}</span>
                   <details className="home-held-plan"><summary>The plan</summary><div className="ask-body">{h.plan}</div></details>
                 </span>
-                <button type="button" className="btn small primary" disabled={busy === h.ask} onClick={() => void startPlan(h)}>{busy === h.ask ? "Starting…" : "Start plan"}</button>
+                <span className="home-held-actions">
+                  <button type="button" className="btn small" disabled={busy === `aside:${h.ask}`} onClick={() => setRemoving(h)}>Remove</button>
+                  <button type="button" className="btn small primary" disabled={busy === h.ask} onClick={() => void startPlan(h)}>{busy === h.ask ? "Starting…" : "Start plan"}</button>
+                </span>
               </div>
             ))}
           </div>
         </section>
+      )}
+
+      {removing && (
+        <Confirm title="Remove this plan?" action="Remove the plan" danger onConfirm={() => void removePlan(removing)} onCancel={() => setRemoving(null)}>
+          <p>“{removing.title}”, approved {when(removing.held)}, comes off Ready to start and won't be started. Its conversation stays as it is.</p>
+        </Confirm>
       )}
 
       {!day && home?.offers.map((o) => <OfferCard key={o.key} offer={o} onDone={() => void load()} />)}

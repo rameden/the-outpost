@@ -37,7 +37,7 @@ const underWay = [
 ];
 
 function show(store = createFeedStore(), camp: CampState | null = S) {
-  const on = { onClose: vi.fn(), onOpenAgent: vi.fn(), onOpenQuest: vi.fn(), onOpenConversation: vi.fn(), onDecision: vi.fn() };
+  const on = { onClose: vi.fn(), onOpenAgent: vi.fn(), onOpenQuest: vi.fn(), onOpenConversation: vi.fn() };
   const r = render(<Orbit S={camp} store={store} {...on} />);
   const planet = (id: string) => r.container.querySelector<SVGGElement>(`.orb-planet[data-who="${id}"]`)!;
   const cell = (name: string) => within(screen.getByRole("navigation", { name: "The crew" })).getByRole("button", { name: new RegExp(`^${name}:`) });
@@ -242,12 +242,14 @@ test("zooming: the buttons and the keys go in and out, within limits, and the wh
   expect(zoom()).toBe("×1.0");
 });
 
-test("a decision waiting on you is said along the top, and goes to it", () => {
-  const { store, onDecision } = show();
+test("a decision waiting on you is said along the top, and is answered where you are", () => {
+  const { store } = show();
   expect(screen.queryByRole("button", { name: /needs you/ })).toBe(null);
   send(store, { type: "expedition_start", id: "A", task: "Audit", source: "user" }, { type: "ask", id: "k1", kind: "plan", title: "Approve the plan", body: "1. Look", expeditionId: "A" });
   fireEvent.click(screen.getByRole("button", { name: "1 decision needs you" }));
-  expect(onDecision).toHaveBeenCalledTimes(1);
+  // It looks at whoever asked (the Quartermaster, for a plan), and the decision is there in its panel.
+  const panel = within(screen.getByRole("complementary", { name: "What Quartermaster is doing" }));
+  expect(panel.getByText(/Approve the plan/)).toBeTruthy();
 });
 
 test("before the camp has answered there is just the sun and its empty lines, and the way out", () => {

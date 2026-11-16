@@ -23,6 +23,66 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const prov = (id: string, name: string, more: Partial<ProviderState> = {}): ProviderState => ({ id: id as ProviderState["id"], name, connected: false, keysAt: `https://example.com/${id}`, privacy: `${name}'s note on what it does with your data.`, models: 0, free: 0, approved: false, ...more });
 const state = (providers: ProviderState[], smallModel: string | null = null) => ({ runtime: "claude-code", providers, settings: { smallModel } }) as unknown as CampState;
 
+test("Anthropic uses the same masked connect flow as the other providers", async () => {
+  const refresh = vi.fn();
+  render(<ModelsPage S={state([prov("groq", "Groq")])} refresh={refresh} />);
+  const anthropic = within(screen.getByRole("region", { name: "Anthropic" }));
+  expect(anthropic.getByText("Not connected")).toBeTruthy();
+  const input = anthropic.getByLabelText("Anthropic API key") as HTMLInputElement;
+  expect(input.type).toBe("password");
+  expect(input.value).toBe("");
+  expect((anthropic.getByRole("button", { name: "Connect" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(input, { target: { value: "sk-ant-test-key" } });
+  fireEvent.click(anthropic.getByRole("button", { name: "Connect" }));
+  await waitFor(() => expect(refresh).toHaveBeenCalled());
+  expect(posts).toContainEqual({ path: "/api/anthropic/key", body: { key: "sk-ant-test-key" } });
+  expect(input.value).toBe("");
+  expect(posts.some((p) => p.path === "/api/runtime")).toBe(false);
+});
+
+test("a failed Anthropic connection preserves the input and shows the error", async () => {
+  const refresh = vi.fn();
+  render(<ModelsPage S={state([])} refresh={refresh} />);
+  const anthropic = within(screen.getByRole("region", { name: "Anthropic" }));
+  const input = anthropic.getByLabelText("Anthropic API key") as HTMLInputElement;
+  answer = () => new Response(JSON.stringify({ error: "Anthropic didn't accept that key." }), { status: 400 });
+  fireEvent.change(input, { target: { value: "sk-ant-rejected" } });
+  fireEvent.click(anthropic.getByRole("button", { name: "Connect" }));
+  expect((await anthropic.findByRole("alert")).textContent).toBe("Anthropic didn't accept that key.");
+  expect(input.value).toBe("sk-ant-rejected");
+  expect(refresh).not.toHaveBeenCalled();
+});
+
+test("Anthropic's environment key can be imported without displaying or sending it to the page", async () => {
+  const refresh = vi.fn();
+  const S = { ...state([]), anthropic: { connected: true, saved: false, environment: true, from: "env" as const } };
+  render(<ModelsPage S={S} refresh={refresh} />);
+  const anthropic = within(screen.getByRole("region", { name: "Anthropic" }));
+  expect(anthropic.getByText("Connected")).toBeTruthy();
+  expect(anthropic.queryByLabelText("Anthropic API key")).toBeNull();
+  fireEvent.click(anthropic.getByRole("button", { name: "Import environment key" }));
+  await waitFor(() => expect(refresh).toHaveBeenCalled());
+  expect(posts).toContainEqual({ path: "/api/anthropic/key", body: { import: true } });
+});
+
+test("a saved Anthropic connection can be forgotten after confirmation, without an extra approval checkbox", async () => {
+  const refresh = vi.fn();
+  const S = { ...state([]), anthropic: { connected: true, saved: true, environment: false, from: "camp" as const } };
+  render(<ModelsPage S={S} refresh={refresh} />);
+  const anthropic = within(screen.getByRole("region", { name: "Anthropic" }));
+  expect(anthropic.getByText("Connected")).toBeTruthy();
+  expect(anthropic.queryByLabelText("Anthropic API key")).toBeNull();
+  expect(anthropic.queryByRole("checkbox")).toBeNull();
+  vi.stubGlobal("confirm", vi.fn(() => false));
+  fireEvent.click(anthropic.getByRole("button", { name: "Disconnect and forget the key" }));
+  await waitFor(() => expect(confirm).toHaveBeenCalled());
+  expect(posts.some((p) => p.path === "/api/anthropic/key")).toBe(false);
+  vi.stubGlobal("confirm", vi.fn(() => true));
+  fireEvent.click(anthropic.getByRole("button", { name: "Disconnect and forget the key" }));
+  await waitFor(() => expect(refresh).toHaveBeenCalled());
+  expect(posts).toContainEqual({ path: "/api/anthropic/key", body: { key: null } });
+});
+
 test("paste a key to connect; what the provider says when it refuses is shown; the key is never shown back", async () => {
   const refresh = vi.fn();
   render(<ModelsPage S={state([prov("gemini", "Gemini"), prov("groq", "Groq"), prov("openrouter", "OpenRouter")])} refresh={refresh} />);

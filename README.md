@@ -26,7 +26,7 @@ npm run ui          # mission control in your browser: open the link it prints
 
 On your subscription, usage counts against your plan's limits, and costs in the camp are estimates at API prices. Your own Claude Code settings, hooks, `CLAUDE.md` and MCP servers aren't loaded for the crew.
 
-**On the API instead:** put `ANTHROPIC_API_KEY=sk-ant-...` in `.env` and switch the runtime in Settings → General (or `/runtime api` in the terminal camp).
+**On the API instead:** connect Anthropic in Settings → Models, then select the API runtime in Settings → General (or `/runtime api` in the terminal camp). Keys are verified before saving, kept in the owner-only `camp/providers.json`, and never returned to the page. A saved key takes precedence over `ANTHROPIC_API_KEY` in `.env`; disconnecting it falls back to the environment key. An existing environment key can be imported directly in Settings → Models without displaying it. API billing and limits are separate from your Claude subscription.
 
 Other ways in:
 

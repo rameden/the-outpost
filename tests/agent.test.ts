@@ -317,3 +317,36 @@ test("a plan approved to start later sends nobody, is kept with the conversation
   assert.equal(started?.thread, "held-1", "it carries on the conversation it was planned in");
   assert.deepEqual(heldPlans(), [], "once started, it's no longer waiting");
 });
+
+test("a plan approved later in a conversation that has one waiting asks if it replaces it, and can", async () => {
+  const { heldPlans } = await import("../src/quartermaster.ts");
+  const { setPlanAside } = await import("../src/threads.ts");
+  let seenWaiting: unknown;
+  setAsker(async (q) => { asks.push({ kind: q.kind, body: q.body }); seenWaiting = q.waiting; return answer; });
+  const planning = (plan: string) => (b: any) => (isFirstTurn(b) ? { tools: [{ name: "submit_plan", input: { plan } }] } : { text: "The plan is ready." });
+  try {
+    answer = "later";
+    script = planning("1. Scout looks\n2. I write");
+    await runExpedition("Research it", { id: "swap-1" });
+    assert.equal(seenWaiting, undefined, "nothing was waiting the first time");
+    const first = heldPlans().find((h) => h.conversation === "swap-1")!;
+
+    // Revised in the same conversation: the card is told about the waiting plan, and replaces it.
+    events.length = 0;
+    answer = "later+replace";
+    script = planning("1. Scout looks harder\n2. I write");
+    await runExpedition("Change step 1", { id: "swap-2", replyTo: "swap-1" });
+    assert.deepEqual(seenWaiting, [{ ask: first.ask, held: first.held }]);
+    assert.deepEqual(events.filter((e) => e.type === "plan_aside").map((e) => [e.ask, typeof e.by]), [[first.ask, "string"]]);
+    const now = heldPlans().filter((h) => h.conversation === "swap-1");
+    assert.deepEqual(now.map((h) => h.plan), ["1. Scout looks harder\n2. I write"], "only the revised plan waits");
+    assert.equal(api.seen.filter((s) => s.who === "Scout").length, 0, "still nobody left camp");
+
+    // Removed from Home: it stops waiting, and can't be set aside twice.
+    assert.ok(setPlanAside(now[0].ask));
+    assert.equal(setPlanAside(now[0].ask), undefined);
+    assert.deepEqual(heldPlans().filter((h) => h.conversation === "swap-1"), []);
+  } finally {
+    setAsker(async (q) => { asks.push({ kind: q.kind, body: q.body }); return answer; });
+  }
+});

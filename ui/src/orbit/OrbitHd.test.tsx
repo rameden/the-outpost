@@ -213,3 +213,39 @@ test("one world can be made your own from its panel, and stays yours through a r
   expect(look(scouts())).toBe(asMade);
   expect(localStorage.getItem("camp-orbit-custom")).toBe("{}");
 });
+
+test("anyone's can be made a station or a cluster of asteroids from their panel, and stays that through a roll of its own", () => {
+  const { view } = show();
+  fireEvent.click(screen.getByRole("button", { name: "HD" }));
+  fireEvent.keyDown(view, { key: "2" });
+  pass(200);
+  const scouts = () => drawn.at(-1)!.planets[0];
+  expect(scouts().kind).toBe(0);
+  expect(scouts().rocks).toBeUndefined();
+  const kinds = () => within(within(screen.getByRole("complementary", { name: "What Scout is doing" })).getByRole("group", { name: "What it is" }));
+  fireEvent.click(kinds().getByRole("button", { name: "Asteroids" }));
+  pass(60);
+  expect(scouts().kind).toBe(5);
+  expect(scouts().rocks!.length).toBeGreaterThanOrEqual(5);
+  expect(scouts().rocks![0].rig).toBe(true);
+  expect(screen.getByText("Set up Scout's mining cluster")).toBeTruthy();
+  // One more rock.
+  const had = scouts().rocks!.length;
+  fireEvent.click(screen.getByRole("button", { name: "One more: rocks" }));
+  pass(60);
+  expect(scouts().rocks!.length).toBe(had + 1);
+  // Rolled again by itself, it's another cluster, not a planet again.
+  fireEvent.click(screen.getByRole("button", { name: "Roll this one again" }));
+  pass(60);
+  expect(scouts().kind).toBe(5);
+  // A station, then; and back to a planet, which is a world you could live on.
+  fireEvent.click(kinds().getByRole("button", { name: "Station" }));
+  pass(60);
+  expect(scouts().kind).toBe(4);
+  expect(scouts().rocks).toBeUndefined();
+  expect(screen.getByText("Build Scout's station")).toBeTruthy();
+  fireEvent.click(kinds().getByRole("button", { name: "Planet" }));
+  pass(60);
+  expect(scouts().kind).toBe(0);
+  expect(drawn.at(-1)!.planets[1].kind).toBe(0); // (nobody else's changed)
+});

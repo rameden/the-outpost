@@ -46,22 +46,28 @@
 // for less motion the planets rest where they start, the camera cuts rather than flies, and
 // nothing is sent across the sky; what each is doing is still all there.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
-import { storeGet, storeSet } from "../api.ts";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { contour, contourPoints, LAP, MARKS, stretch, TAIL } from "../components/MaeSystem.tsx";
 import { Icon } from "../components/bits.tsx";
-import { runningCount, statusLine, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
+import { runningCount, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
-import { cClass, cx, shortModel, took } from "../format.ts";
+import { cClass, cx, money } from "../format.ts";
 import { motionOK } from "../motion.tsx";
-import type { CampState } from "../types.ts";
-import { DEMO_CREW, runDemo } from "./demo.ts";
-import { questsOf, runsOf, type Line } from "./doing.ts";
+import type { CampEvent, CampState } from "../types.ts";
+import { direct, type Cut } from "./ambient.ts";
+import { DEMO_CREW, demoCamp, runDemo } from "./demo.ts";
+import { waysKey, waysOf } from "./doing.ts";
 import { hdFrame, type HdBody } from "./hd/frame.ts";
 import { rgbOf, turnTo, type Vec3 } from "./hd/math.ts";
 import { createHd, type HdRenderer } from "./hd/renderer.ts";
 import { WorldMaker } from "./hd/Maker.tsx";
 import { customised, newSeed, worldsFor, type Custom, type World } from "./hd/worlds.ts";
+import { grownOf, kitOf, lightsOf, SATS_MAX } from "./kit.ts";
+import { arc, moonOf, sayOf, shipAt, shipsOf, spendOf, stalled, tightest, wayAt, MOON_R, NEAR_FULL, SHIP_OUT, SHIPS, WAY_APART, WAY_R, WAY_SIZE, WAYS, type Ship } from "./meaning.ts";
+import { Panel, useNow, type Body } from "./Panel.tsx";
+import { reelOf, type Reel } from "./replay.ts";
+import { Timeline, type Time } from "./Timeline.tsx";
 import {
   PLANET_R, SUN_R, angleAt, clampZoom, closeZoom, ease, fitZoom, hit, lapOf, linesFor, orbitOf, placeAt, reachOf, toScreen, withinReach, zoomAbout,
   type Camera, type Point, type Spot,
@@ -69,7 +75,6 @@ import {
 
 const LEAD = "quartermaster";
 const IDLE: CrewStatus = { status: "idle", line: "" };
-type Body = { id: string; name: string; emoji?: string; role?: string; model?: string; effort?: string };
 
 export const FLIGHT_MS = 1600; // a quest's flight out to its planet, or a report's flight home
 export const RING_MS = 900;    // the ring a planet gives as a quest lands, or (smaller) for a tool call
@@ -100,101 +105,73 @@ const WIDE = 900, PANEL = 380; // from this width the panel sits beside the syst
 const STARS: [number, number][] = [[640, 0.03], [820, 0.065], [1040, 0.11]];
 const wrap = (n: number, tile: number) => ((n % tile) + tile) % tile;
 const SPOKES = Array.from({ length: 12 }, (_, i) => (i * Math.PI) / 6);
+const BEAT_MS = 15_000;        // how often the picture looks again at how long things have been out, or quiet
+// On the flat view the satellites of the one you're with go round it this far out (in the drawing's units), a lap in this many seconds.
+const SAT_OUT = 36, SAT_LAP = 48;
+// The lights of a settled world: where each sits, just inside the disc's edge and clear of the mark in its middle.
+const TOWN = Array.from({ length: 24 }, (_, k) => { const a = k * 2.39996, r = 7.1 + (k % 3) * 0.7; return [r * Math.cos(a) - 0.35, r * Math.sin(a) - 0.35]; });
+// What's holding at the edge, by what it is: a request in the queue (a square), a job on a schedule (a diamond), a pull request (a craft).
+const SHIP_SHAPE: Record<Ship["kind"], string> = { queued: "M-4 -4h8v8h-8z", job: "M0 -5.5L5.5 0L0 5.5L-5.5 0z", pr: "M-5 4.5L0 -5.5L5 4.5L0 2z" };
+const SHIP_KIND: Record<Ship["kind"], string> = { queued: "queued", job: "scheduled", pr: "pull request" };
+const short = (text: string, most: number) => (text.length > most ? `${text.slice(0, most - 1)}…` : text);
 
-// The time, ticking, for as long as there's something to time.
-function useNow(on: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!on) return;
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [on]);
-  return now;
-}
-function Clock() {
-  const now = useNow(true);
+// The time (a replay's, while one is playing).
+function Clock({ clock }: { clock: () => number }) {
+  const now = useNow(true, clock);
   return <>{new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</>;
 }
 
-// (Its classes, here and for who's working or waiting below, are orb-… and st-…: the page has styles of its own for plain "ask", "tool" and "waiting".)
-const TAGS: Record<Line["tag"], string> = { said: "says", tool: "tool", file: "file", ask: "asks", note: "note", you: "you" };
-function Log({ lines }: { lines: Line[] }) {
-  if (!lines.length) return null;
+// What's waiting at the edge of the system, as a list: the same things as the ships out there, each of which opens.
+function Holding({ ships, open, live, onOpen }: { ships: Ship[]; open: string | null; live: boolean; onOpen: (id: string | null) => void }) {
+  const [busy, setBusy] = useState("");
+  const [failed, setFailed] = useState("");
+  async function release(s: Ship) {
+    setBusy(s.id);
+    setFailed("");
+    try { await api("/api/queue/release", { id: s.ref }); } catch (e) { setFailed(errorText(e)); }
+    setBusy("");
+  }
   return (
-    <ol className="orb-log">
-      {lines.map((l) => <li key={l.id} className={`orb-l-${l.tag}`}><i>{TAGS[l.tag]}</i><span>{l.text}{l.live && <b className="orb-caret" aria-hidden="true" />}</span></li>)}
-    </ol>
-  );
-}
-
-// What the one you're looking at is doing. bearing: where its planet is round the sun, kept up to date by the drawing.
-// make: the HD view's world maker for this one, when HD is on.
-function Panel({ body, nth, S, store, st, bearing, make, onBack, onOpenAgent, onOpenQuest, onOpenConversation }: {
-  body: Body; nth: number; S: CampState | null; store: FeedStore; st: CrewStatus; bearing: RefObject<HTMLElement | null>; make?: ReactNode;
-  onBack: () => void; onOpenAgent?: (id: string) => void; onOpenQuest?: (q: QuestOut) => void; onOpenConversation?: (id: string) => void;
-}) {
-  const items = useFeed(store, (s) => s.items);
-  const open = useFeed(store, (s) => s.open);
-  const quests = useFeed(store, (s) => s.quests);
-  const out = useMemo(() => questsOf({ items, open, quests }, body.name), [items, open, quests, body.name]);
-  const runs = useMemo(() => runsOf({ items, open }, body.name), [items, open, body.name]);
-  const lead = body.id === LEAD;
-  const now = useNow(out.length + runs.length > 0);
-  const xp = S?.xp?.[body.name] ?? 0;
-  return (
-    <aside className={cx("orb-panel", cClass(body.name), `st-${st.status}`)} aria-label={`What ${body.name} is doing`}>
-      <header>
-        <span className="orb-p-face" aria-hidden="true">{body.emoji ?? body.name.slice(0, 1)}</span>
-        <div><h3>{body.name}</h3>{body.role && <p>{body.role}</p>}</div>
-        <button type="button" className="orb-tool" aria-label="Back to the whole system" title="Back to the whole system (Esc)" onClick={onBack}><Icon name="x" /></button>
-      </header>
-      <dl className="orb-facts">
-        <div><dt>Now</dt><dd className="orb-state">{statusLine(st, out)}</dd></div>
-        {body.model && <div><dt>Model</dt><dd>{shortModel(body.model)}{body.effort ? ` · ${body.effort}` : ""}</dd></div>}
-        <div><dt>Level</dt><dd>{Math.floor(xp / 50) + 1}</dd></div>
-        {lead ? <div><dt>Place</dt><dd>The sun</dd></div>
-          : <div><dt>Orbit</dt><dd>{nth + 1} out · a lap every {Math.round(lapOf(nth))}s · <span ref={bearing} title="Where it is round the sun, clockwise from due right">000°</span></dd></div>}
-      </dl>
-      <div className="orb-p-body">
-        {make}
-        {out.length > 0 && <h4>{out.length === 1 ? "Out on a quest" : `${out.length} quests out`}</h4>}
-        {out.map((q) => (
-          <article key={`${q.expId}|${q.id}`} className={cx("orb-work-card", q.waiting && "st-waiting")}>
-            <div className="orb-w-head">{q.step ? <b className="orb-step" title={`Step ${q.step} of the plan`}>{q.step}</b> : null}<span>{q.brief || "A quest"}</span><time>{took((now - q.started) / 1000)}</time></div>
-            <p className="orb-w-doing">{q.waiting ? "Waiting for your OK" : q.line}</p>
-            <Log lines={q.log} />
-            {onOpenQuest && <button type="button" className="orb-btn" onClick={() => onOpenQuest(q)}>{q.waiting ? "Go to it and answer" : "Go to it in the conversation"}</button>}
-          </article>
-        ))}
-        {runs.length > 0 && <h4>{lead ? (runs.length === 1 ? "An expedition under way" : `${runs.length} expeditions under way`) : "In a conversation with you"}</h4>}
-        {runs.map((r) => (
-          <article key={r.expId} className="orb-work-card">
-            <div className="orb-w-head"><span>{r.task}</span><time>{took((now - r.started) / 1000)}</time></div>
-            {r.steps && <p className="orb-w-doing">{r.steps.done} of {r.steps.total} {r.steps.total === 1 ? "step" : "steps"} done{r.steps.out ? ` · ${r.steps.out} out now` : ""}</p>}
-            <Log lines={r.log} />
-            {onOpenConversation && r.thread && <button type="button" className="orb-btn" onClick={() => onOpenConversation(r.thread!)}>Open the conversation</button>}
-          </article>
-        ))}
-        {!out.length && !runs.length && (
-          <p className="orb-quiet">{lead
-            ? "No expedition is under way. When you send the Quartermaster on one, its plan and its progress show here as they happen."
-            : `At camp, with nothing out. When the Quartermaster sends ${body.name} on a quest, it shows here as it happens.`}</p>
-        )}
-      </div>
-      {onOpenAgent && <footer><button type="button" className="orb-btn" onClick={() => onOpenAgent(body.id)}>Open {body.name}'s page</button></footer>}
+    <aside className="orb-holding" aria-label="Waiting at the edge of the system">
+      <h4>Holding at the edge</h4>
+      <ul>
+        {ships.map((s) => {
+          const on = open === s.id;
+          return (
+            <li key={s.id} className={cx(`ship-${s.kind}`, s.bad && "bad", s.held && "held", on && "on")}>
+              <button type="button" aria-expanded={on} onClick={() => onOpen(on ? null : s.id)}><i aria-hidden="true" /><span>{s.name}</span><em>{SHIP_KIND[s.kind]}</em></button>
+              {on && (
+                <div className="orb-holding-about">
+                  <p>{s.detail}</p>
+                  {live && s.kind === "queued" && s.ref && <button type="button" className="orb-btn" disabled={busy === s.id} onClick={() => release(s)}>{busy === s.id ? "Starting…" : "Start it without waiting"}</button>}
+                  {s.url && <a className="orb-btn" href={s.url} target="_blank" rel="noreferrer">Open the pull request</a>}
+                  {failed && <p className="orb-say-note bad" role="alert">{failed}</p>}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </aside>
   );
 }
 
-// onOpenAgent: an agent's page, which opens over this. onOpenQuest / onOpenConversation / onDecision:
-// go to where the work is, on the page underneath (whoever shows this closes it as they go).
-// demo: open it on the demo.
-export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConversation, onDecision, demo: startInDemo = false }: {
+// onOpenAgent: an agent's page, which opens over this. onOpenQuest / onOpenConversation: go to where the
+// work is, on the page underneath (whoever shows this closes it as they go). A decision that's waiting
+// is answered here, in the panel of whoever asked. demo: open it on the demo.
+export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConversation, demo: startInDemo = false }: {
   S: CampState | null; store: FeedStore; onClose: () => void; demo?: boolean;
-  onOpenAgent?: (id: string) => void; onOpenQuest?: (q: QuestOut) => void; onOpenConversation?: (id: string) => void; onDecision?: () => void;
+  onOpenAgent?: (id: string) => void; onOpenQuest?: (q: QuestOut) => void; onOpenConversation?: (id: string) => void;
 }) {
   const [demo, setDemo] = useState(startInDemo);
+  // A replay: the last day's events, played into a feed of its own (Timeline.tsx plays them, and keeps the time it's showing).
+  const [replay, setReplay] = useState<{ reel: Reel; store: FeedStore } | null>(null);
+  const [told, setTold] = useState(""); // something to say along the top (there was nothing to replay)
+  // Ambient: nobody is driving, and the camera goes to whoever just did something (ambient.ts decides who).
+  const [ambient, setAmbient] = useState(false);
+  const time = useRef<Time>({ now: null, quiet: false }).current;
+  const clock = useCallback(() => time.now ?? Date.now(), [time]);
+  const live = !demo && !replay; // the real camp as it is now: the only one that can be acted on
   // Who's in the sky: the Quartermaster in the middle, then everyone else from the nearest orbit out.
   // The demo is played by your own crew, or by the camp's own five if there's nobody yet to play it.
   const bodies = useMemo<Body[]>(() => {
@@ -209,26 +186,52 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const actors = useRef(bodies);
   actors.current = bodies;
   useEffect(() => (pretend ? runDemo(pretend, actors.current[0], actors.current.slice(1)) : undefined), [pretend]);
-  const feed = pretend ?? store;
-  if (demo) onOpenQuest = onOpenConversation = onDecision = onOpenAgent = undefined; // (there's no such work to go to)
+  const feed = replay?.store ?? pretend ?? store;
+  if (!live) onOpenQuest = onOpenConversation = onOpenAgent = undefined; // (there's no such work to go to)
 
   const crew = useFeed(feed, (s) => s.crew);
   const quests = useFeed(feed, (s) => s.quests);
-  const asks = useFeed(feed, (s) => s.asks.length);
+  const asks = useFeed(feed, (s) => s.asks);
   const running = useFeed(feed, runningCount);
+  // The plans of what's running, as waypoints round the sun (looked at again only when a step changes).
+  const wayKey = useFeed(feed, waysKey);
+  const ways = useMemo(() => waysOf(feed.getState()).slice(-WAYS), [feed, wayKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // How long something has been out, or quiet, changes with nothing happening: the picture looks again every so often.
+  const [, setBeat] = useState(0);
+  useEffect(() => { const t = setInterval(() => setBeat((n) => n + 1), replay ? 1000 : BEAT_MS); return () => clearInterval(t); }, [replay]);
+  const now = clock();
+  const statusOf = (b: Body) => crew[b.name] ?? IDLE;
+  const outOf = (b: Body) => quests.filter((q) => q.who === b.name);
+  const says = new Map(bodies.map((b) => [b.id, sayOf(statusOf(b), outOf(b), now)]));
+  // What the camp reports besides the work: what each carries, how far along they are, what today has cost, and
+  // what's waiting. The demo has a pretend camp's; a replay shows none of what is only true now.
+  const pretence = useMemo(() => (demo ? demoCamp(bodies) : null), [demo, cast]); // eslint-disable-line react-hooks/exhaustive-deps
+  const known = !!pretence || !!(S?.installedSkills || S?.connectors); // (a camp that hasn't said what they carry keeps the world's own satellites)
+  const xpOf = (b: Body): number | null => (pretence ? pretence.xp[b.name] ?? 0 : S ? S.xp?.[b.name] ?? 0 : null);
+  const kits = useMemo(() => new Map(bodies.map((b) => [b.id, pretence ? pretence.kit[b.id] ?? [] : kitOf(S, b.id)])), [pretence, S?.installedSkills, S?.connectors, cast]); // eslint-disable-line react-hooks/exhaustive-deps
+  const spend = pretence ? pretence.spend : live ? S?.spend ?? null : null;
+  const limit = pretence ? pretence.limit : live ? tightest(S?.limits) : null;
+  const ships = useMemo(() => (pretence ? pretence.ships : replay ? [] : shipsOf(S)).slice(0, SHIPS), [pretence, replay, S?.queued, S?.jobs, S?.prs]); // eslint-disable-line react-hooks/exhaustive-deps
   const planets = bodies.slice(1);
   const lines = linesFor(planets.length);
   const reach = reachOf(lines);
   const contours = useMemo(() => Array.from({ length: lines + 1 }, (_, i) => contour(i < lines ? orbitOf(i) : orbitOf(lines - 1) + 30, i)), [lines]);
   const grid = useMemo(() => SPOKES.map((a) => `M${((SUN_R + 26) * Math.cos(a)).toFixed(1)} ${((SUN_R + 26) * Math.sin(a)).toFixed(1)}L${(reach * Math.cos(a)).toFixed(1)} ${(reach * Math.sin(a)).toFixed(1)}`).join(""), [reach]);
   // What the drawing needs to know, wherever it's called from.
-  const scene = useRef({ ids: [] as string[], names: new Map<string, string>(), lines, reach, running, busy: new Set<string>(), waiting: new Set<string>(), out: new Map<string, boolean[]>(), leading: false });
-  scene.current = {
+  const sceneNow = {
     ids: planets.map((p) => p.id), names: new Map(bodies.map((b) => [b.name, b.id])), lines, reach, running,
     busy: new Set(planets.filter((p) => crew[p.name]?.status === "active").map((p) => p.id)), leading: crew[bodies[0].name]?.status === "active",
     waiting: new Set(bodies.filter((b) => crew[b.name]?.status === "waiting").map((b) => b.id)),            // (HD draws from these two as well)
-    out: new Map(planets.map((p) => [p.id, quests.filter((q) => q.who === p.name).map((q) => q.waiting)])),
+    quiet: new Set(planets.filter((p) => says.get(p.id)?.quiet).map((p) => p.id)),                          // at work, but all they have out has gone quiet
+    out: new Map(planets.map((p) => [p.id, outOf(p).map((q) => q.waiting)])),
+    // Each moon: how big it has grown (against a new one), and whether its quest has gone quiet.
+    moons: new Map(planets.map((p) => [p.id, outOf(p).map((q) => ({ size: moonOf(now - q.started).r / MOON_R, stalled: stalled(q, now) }))])),
+    grown: new Map(planets.map((p) => { const xp = xpOf(p); return [p.id, xp === null ? null : grownOf(xp)]; })),
+    sats: new Map(planets.map((p) => [p.id, known ? Math.min(SATS_MAX, kits.get(p.id)?.length ?? 0) : null])),
+    ships: ships.map((s) => s.id), ways: ways.length,
   };
+  const scene = useRef(sceneNow);
+  scene.current = sceneNow;
 
   // ---------- The camera ----------
   // What it's looking at: one of the crew (it stays with them), or a place you dragged it to. It
@@ -236,6 +239,8 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   // away a frame at a time, so it arrives exactly, however the planet moves meanwhile.
   const [focus, setFocus] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const [ship, setShip] = useState<string | null>(null);     // which of what's holding at the edge is open
+  const [picked, setPicked] = useState<string | null>(null); // which satellite of the one you're with is open
   const v = useRef({
     focus: null as string | null, over: null as string | null, pan: { x: 0, y: 0 }, zoom: 1,
     off: { x: 0, y: 0, lk: Math.log(0.4), cx: 0, cy: 0, yaw: 0, pitch: 0 }, // (it opens from further out, and comes in)
@@ -244,14 +249,16 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     // HD: where the camera stands round what it's looking at. Free of anyone, a yaw of its own (a quarter turn is the flat
     // view's way up) and a height; with a planet, a yaw measured from the line out from the sun, so it goes round with it.
     yawFree: Math.PI / 2, pitchFree: HD_OVER, yawRel: HD_SIDE, pitchRel: HD_NEAR, yaw: Math.PI / 2, pitch: Math.PI / 2, turning: false,
+    bare: false, // nothing is open beside the system (ambient), so it has the whole screen
   }).current;
+  v.bare = ambient;
   const canvas = useRef<HTMLCanvasElement>(null);
   const hdView = useRef<HdRenderer | null>(null);
   const colours = useRef(new Map<string, Vec3>()), worlds = useRef(new Map<string, World>()), glows = useRef<Record<string, number>>({}).current;
   const turned = useRef<Record<string, number>>({}).current; // how far each world has turned on its axis (kept, so changing how fast it spins doesn't fling it round)
   const root = useRef<HTMLDivElement>(null);
   const world = useRef<SVGGElement>(null);
-  type Part = { orbit?: SVGGElement | null; upright?: SVGGElement | null; label?: HTMLElement | null; busy?: SVGGElement | null; comet?: SVGGElement | null; land?: SVGCircleElement | null; blip?: SVGCircleElement | null; moons: (SVGGElement | null)[] };
+  type Part = { orbit?: SVGGElement | null; upright?: SVGGElement | null; label?: HTMLElement | null; busy?: SVGGElement | null; comet?: SVGGElement | null; land?: SVGCircleElement | null; blip?: SVGCircleElement | null; gauge?: SVGGElement | null; moons: (SVGGElement | null)[] };
   const parts = useRef<Record<string, Part>>({}).current;
   const part = (id: string) => (parts[id] ??= { moons: [] });
   const sheets = useRef<(HTMLElement | null)[]>([]).current;
@@ -264,6 +271,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const sky = useRef({ flights: {} as Record<string, { kind: "out" | "home"; at: number }>, lands: {} as Record<string, number>, blips: {} as Record<string, number>, ping: 0, pinged: 0, dial: [0, 0] }).current;
   const reticle = useRef<SVGPathElement>(null), hoverMark = useRef<SVGPathElement>(null), leader = useRef<SVGPathElement>(null);
   const zoomRead = useRef<HTMLElement>(null), bearing = useRef<HTMLElement>(null);
+  const wayEl = useRef<SVGGElement>(null), shipEls = useRef<(SVGGElement | null)[]>([]).current, satEls = useRef<(SVGGElement | null)[]>([]).current;
 
   // Where the camera is headed, this moment.
   const target = useCallback(() => {
@@ -271,7 +279,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     const i = v.focus ? ids.indexOf(v.focus) : -1;
     const at: Point = v.focus === LEAD ? { x: 0, y: 0 } : i >= 0 ? placeAt(i, v.seconds) : v.pan;
     // With the panel open the system is looked at from the room that's left: beside it, or above it on a narrow screen.
-    const beside = v.focus && v.w >= WIDE, above = v.focus && v.w < WIDE;
+    const beside = v.focus && !v.bare && v.w >= WIDE, above = v.focus && !v.bare && v.w < WIDE;
     return {
       x: at.x, y: at.y, k: fitZoom(v.w, v.h, lines) * v.zoom, cx: beside ? (v.w - PANEL) / 2 : v.w / 2, cy: above ? 56 + (v.h * 0.5 - 56) / 2 : v.h / 2 - 8,
       yaw: i >= 0 ? (angleAt(i, v.seconds) * Math.PI) / 180 + v.yawRel : v.yawFree, pitch: i >= 0 ? v.pitchRel : v.focus === LEAD ? HD_SUNWARD : v.pitchFree,
@@ -327,8 +335,13 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       const a = angleAt(i, v.seconds), p = parts[id], r = orbitOf(i);
       turn(p?.orbit, a);
       turn(p?.upright, -a);
-      if (scene.current.busy.has(id)) turn(p?.busy, (v.seconds * 360) / 7); // the dashed ring turns while they work
-      p?.moons.forEach((m, j) => turn(m, MOON[j][1] + (v.seconds * 360) / MOON[j][0]));
+      const quiet = scene.current.quiet.has(id), moons = scene.current.moons.get(id);
+      if (scene.current.busy.has(id) && !quiet) turn(p?.busy, (v.seconds * 360) / 7); // the dashed ring turns while they work (and stops when all of it has gone quiet)
+      p?.moons.forEach((m, j) => {
+        turn(m, MOON[j][1] + (v.seconds * 360) / MOON[j][0]);
+        // A quest that's gone quiet: its moon flickers, like a light that's failing.
+        m?.setAttribute("opacity", !moons?.[j]?.stalled ? "1" : !moving ? "0.45" : Math.sin(v.seconds * 5.3 + j * 2) > 0.15 ? "0.7" : "0.28");
+      });
       // A comet along the line from the sun to the planet (the line turns with the planet, so the flight bends): out, or home.
       const flight = sky.flights[id], since = flight ? now - flight.at : COMET_MS;
       if (flight && since >= COMET_MS) {
@@ -349,7 +362,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       if (!ring(p?.blip, blipped, 0.9)) delete sky.blips[id];
       spots.push({ id, ...toScreen(cam, centre, placeAt(i, v.seconds)), r: PLANET_R * cam.k });
       if (hd) {
-        const glow = glows[id] = (glows[id] ?? 0) + ((scene.current.busy.has(id) ? 1 : 0) - (glows[id] ?? 0)) * rise;
+        const glow = glows[id] = (glows[id] ?? 0) + ((scene.current.busy.has(id) ? (quiet ? 0.25 : 1) : 0) - (glows[id] ?? 0)) * rise;
         const world = worlds.current.get(id) ?? worldsFor(0, [{ id, color: NO_COLOUR }])[0];
         turned[id] = (turned[id] ?? i * 1.7) + (moving ? dt * world.spin : 0);
         hdBodies.push({
@@ -357,9 +370,26 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           glow, waiting: scene.current.waiting.has(id), focused: v.focus === id,
           blip: sky.blips[id] ? (now - blipped) / RING_MS : -1, land: sky.lands[id] ? (now - landed) / RING_MS : -1,
           quests: scene.current.out.get(id) ?? [], flight: sky.flights[id] ? { kind: flight.kind, since } : null,
+          moonSize: moons?.map((m) => m.size) ?? [], grown: scene.current.grown.get(id) ?? undefined, sats: scene.current.sats.get(id) ?? undefined,
         });
       }
     });
+    // What's holding at the edge of the system, each a little way along the rim from the last, and riding at anchor.
+    const shipIds = scene.current.ships;
+    const marks = shipIds.map((sid, j) => {
+      const a = (shipAt(j, shipIds.length) * Math.PI) / 180, r = scene.current.reach + SHIP_OUT + (moving ? 1.5 * Math.sin(v.seconds * 0.7 + j * 1.9) : 0);
+      return { id: sid, x: r * Math.cos(a), y: r * Math.sin(a), r: 5 };
+    });
+    if (!hd) {
+      for (const m of marks) spots.push({ id: m.id, ...toScreen(cam, centre, m), r: m.r * cam.k });
+      // The satellites of the one you're with: one for each thing they carry, going round them (HD has its own, and says where they are).
+      const fi = v.focus ? ids.indexOf(v.focus) : -1, n = fi >= 0 ? scene.current.sats.get(ids[fi]) ?? 0 : 0;
+      const home = n ? placeAt(fi, v.seconds) : null;
+      for (let j = 0; home && j < n; j++) {
+        const a = (2 * Math.PI * j) / n + (v.seconds * 2 * Math.PI) / SAT_LAP;
+        spots.push({ id: `sat:${j}`, ...toScreen(cam, centre, { x: home.x + SAT_OUT * Math.cos(a), y: home.y + SAT_OUT * Math.sin(a) }), r: 2.5 * cam.k });
+      }
+    }
     // The sun: its dials turn (faster while the Quartermaster is at work) and it breathes. With nothing running it sends
     // a ring out now and then, as it does on the blank page; a ring lights each line as it passes through it.
     sky.dial[0] += dt * (scene.current.leading ? 40 : 8);
@@ -388,13 +418,27 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
         seconds: v.seconds, w: v.w, h: v.h, cx: centre.x, cy: centre.y, at: cam, k: cam.k * HD_CLOSER, yaw: v.yaw, pitch: v.pitch,
         lead: LEAD, sun: { glow: sun, waiting: scene.current.waiting.has(LEAD) }, bodies: hdBodies,
         lines: Array.from({ length: lines + 1 }, (_, i) => ({ rot: ((i < ids.length ? hdBodies[i].angle : (v.seconds * 360) / DRIFT[i % DRIFT.length]) * Math.PI) / 180, lit: litAt(i), body: i < ids.length ? i : -1 })),
-        ping: { r: going ? SUN_R + PING_SPEED * out : 0, a: going ? (1 - out / (PING_MS / 1000)) ** 1.6 : 0 }, reach: scene.current.reach, flightMs: FLIGHT_MS,
+        ping: { r: going ? SUN_R + PING_SPEED * out : 0, a: going ? (1 - out / (PING_MS / 1000)) ** 1.6 : 0 }, reach: scene.current.reach, flightMs: FLIGHT_MS, marks,
       });
       spots.splice(0, spots.length, ...made.spots);
       hd.resize(v.w, v.h, window.devicePixelRatio || 1);
       hd.draw(made.frame);
     }
     v.spots = spots;
+    // What's drawn over the system in the screen's own units, each put where its thing is now (and at its size, for
+    // what's drawn round a body): the gauges, the plan's waypoints round the sun, the ships and the satellites.
+    const spotOf = new Map(spots.map((s) => [s.id, s]));
+    const put = (el: SVGElement | null | undefined, s: Spot | undefined, unit = 0) => {
+      if (!el) return;
+      if (!s) return el.setAttribute("display", "none");
+      el.removeAttribute("display");
+      el.setAttribute("transform", `translate(${s.x.toFixed(1)} ${s.y.toFixed(1)})${unit ? ` scale(${(s.r / unit).toFixed(4)})` : ""}`);
+    };
+    put(parts[LEAD]?.gauge, spotOf.get(LEAD), SUN_R);
+    put(wayEl.current, spotOf.get(LEAD), SUN_R);
+    for (const id of ids) put(parts[id]?.gauge, spotOf.get(id), PLANET_R);
+    shipEls.forEach((ship, j) => put(ship, spotOf.get(shipIds[j])));
+    satEls.forEach((sat, j) => put(sat, spotOf.get(`sat:${j}`)));
     // A planet's name is on its far side from the sun (so it never lies across the sun), and goes round with it: its
     // box is pushed out along the line from the sun by as much as it is deep that way. The sun's own name keeps to the
     // side of it away from the nearest planet, which is the one that would otherwise pass through it.
@@ -404,7 +448,8 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       if (!label) continue;
       const w = label.offsetWidth, h = label.offsetHeight;
       const [ux, uy] = s.id !== LEAD ? from(s, spots[0]) : spots[1] ? from(spots[0], spots[1]) : [0, 1];
-      const clear = s.id === LEAD ? s.r * (1 + 12 / SUN_R) + 8 : s.r * (1 + 9 / PLANET_R) + 6; // past the sun's dials, or the planet's nearest moon
+      const past = scene.current.ways ? WAY_R + WAY_APART * (scene.current.ways - 1) + WAY_SIZE : SUN_R + 12; // the sun's dials, or the waypoints round it
+      const clear = s.id === LEAD ? (s.r * past) / SUN_R + 8 : s.r * (1 + 9 / PLANET_R) + 6; // past those, or the planet's nearest moon
       const out = clear + (Math.abs(ux) * w + Math.abs(uy) * h) / 2;
       label.style.transform = `translate(${(s.x + ux * out - w / 2).toFixed(1)}px, ${(s.y + uy * out - h / 2).toFixed(1)}px)`;
     }
@@ -422,7 +467,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     const framed = frame(reticle.current, v.focus);
     frame(hoverMark.current, v.over && v.over !== v.focus ? v.over : null);
     const edge = v.w - PANEL - 20;
-    leader.current?.setAttribute("d", framed && v.w >= WIDE && framed.right + 14 < edge ? `M${(framed.right + 6).toFixed(1)} ${framed.y.toFixed(1)}H${edge}M${(framed.right + 3).toFixed(1)} ${(framed.y - 3).toFixed(1)}h6v6h-6z` : "");
+    leader.current?.setAttribute("d", framed && !v.bare && v.w >= WIDE && framed.right + 14 < edge ? `M${(framed.right + 6).toFixed(1)} ${framed.y.toFixed(1)}H${edge}M${(framed.right + 3).toFixed(1)} ${(framed.y - 3).toFixed(1)}h6v6h-6z` : "");
 
     // From far off there's no room under a planet for what it's doing: just its name (the cells along the bottom still say).
     el.toggleAttribute("data-far", cam.k < FAR);
@@ -433,7 +478,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       const deg = `${String(Math.round(angleAt(i, v.seconds)) % 360).padStart(3, "0")}°`;
       if (bearing.current.textContent !== deg) bearing.current.textContent = deg;
     }
-  }, [v, parts, sheets, drifts, lits, dials, sky, glows, target]);
+  }, [v, parts, sheets, drifts, lits, dials, sky, glows, target, shipEls, satEls]);
 
   // Drawn at once whenever the page draws this (so nothing new sits in the corner for a frame), then a frame at a
   // time. Only a frame moves the clock on: drawn in between, it is as it was at the last one.
@@ -453,6 +498,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       v.focus = id;
     });
     setFocus(id);
+    setPicked(null);
   }, [v, retarget]);
   const zoomBy = useCallback((times: number) => retarget(() => { v.zoom = clampZoom(v.zoom * times); }), [v, retarget]);
   // Someone you were looking at has left the crew.
@@ -463,7 +509,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     const el = root.current;
     if (!el) return;
     const onWheel = (ev: WheelEvent) => {
-      if (ev.target instanceof Element && ev.target.closest(".orb-panel, .orb-strip, .orb-top")) return; // (the panel scrolls)
+      if (ev.target instanceof Element && ev.target.closest(".orb-panel, .orb-strip, .orb-top, .orb-holding, .orb-reel")) return; // (the panel scrolls)
       ev.preventDefault();
       const zoom = clampZoom(v.zoom * Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.012 : ev.deltaMode === 1 ? 0.05 : 0.0016)));
       if (!v.focus && !hdView.current) {
@@ -482,6 +528,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const where = (ev: ReactPointerEvent): Point => { const box = root.current!.getBoundingClientRect(); return { x: ev.clientX - box.left, y: ev.clientY - box.top }; };
   const onDown = (ev: ReactPointerEvent<SVGSVGElement>) => {
     if (ev.button !== 0) return;
+    if (ambient) return setAmbient(false); // a press takes the controls back
     press.current = { x: ev.clientX, y: ev.clientY, moved: false };
     ev.currentTarget.setPointerCapture?.(ev.pointerId);
   };
@@ -508,6 +555,12 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     v.turning = false;
     if (!p || p.moved) return;
     const id = hit(v.spots, where(ev));
+    // A ship opens in the list of what's holding; a satellite, in the panel of the one it goes round.
+    if (id?.startsWith("ship:")) return setShip((was) => (was === id ? null : id));
+    if (id?.startsWith("sat:")) {
+      const item = kits.get(v.focus ?? "")?.[Number(id.slice(4))];
+      return item && setPicked((was) => (was === item.id ? null : item.id));
+    }
     if (id) lookAt(id); else if (v.focus) lookAt(null);
   };
 
@@ -564,9 +617,51 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   }, [hd, cast, seed, custom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
+  // Replay: fetch the last day and play it back. (The demo ends: it's the real camp's day.)
+  const startReplay = useCallback(async () => {
+    setTold("");
+    try {
+      const reel = reelOf((await api<{ events: CampEvent[] }>("/api/feed/day")).events);
+      if (!reel.events.length) return setTold("Nothing has happened in the last day to replay.");
+      setDemo(false);
+      setReplay({ reel, store: createFeedStore() });
+    } catch (e) { setTold(`The replay couldn't be fetched: ${errorText(e)}`); }
+  }, []);
+  const toggleReplay = () => { if (replay) setReplay(null); else void startReplay(); };
+  const toggleDemo = () => { setReplay(null); setTold(""); setDemo((on) => !on); };
+  // Ambient: every second, and whenever one of the crew does something, ask who the camera should be on.
+  useEffect(() => {
+    if (!ambient) return;
+    let cut: Cut = { on: v.focus, since: Date.now(), heard: Date.now() };
+    const go = (next: Cut) => { if (next.on !== cut.on) lookAt(next.on); cut = next; };
+    const stop = feed.onEvent((e) => {
+      if (time.quiet) return;
+      const lead = e.type === "expedition_start" || e.type === "plan" || e.type === "ask";
+      const who = ("who" in e && typeof e.who === "string" ? scene.current.names.get(e.who) : undefined) ?? (lead ? LEAD : undefined);
+      if (who) go(direct(cut, Date.now(), { who, urgent: e.type === "ask" }));
+    });
+    const t = setInterval(() => go(direct(cut, Date.now())), 1000);
+    return () => { stop(); clearInterval(t); };
+  }, [ambient, feed, lookAt, v, time]);
+  // Whoever is waiting on you (first, one you aren't already looking at).
+  const asker = asks.length ? scene.current.names.get((asks.find((a) => (scene.current.names.get(a.who) ?? LEAD) !== focus) ?? asks[0]).who) ?? LEAD : null;
+  const owns = useCallback((who: string) => (scene.current.names.get(who) ?? LEAD) === focus, [focus]);
+  // Something was sent from the panel: a comet leaves for whoever it was sent to (the sun answers with a ring, for its own).
+  const sent = useCallback((id: string) => {
+    if (!motionOK()) return;
+    if (id === LEAD) { sky.ping = v.last; return; }
+    sky.flights[id] = { kind: "out", at: v.last };
+    parts[id]?.comet?.setAttribute("data-flying", "out");
+  }, [sky, v, parts]);
+
   const onKey = (ev: KeyboardEvent<HTMLDivElement>) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-    if (ev.key === "Escape") { if (focus) lookAt(null); else onClose(); }
+    // Typing in a box is typing, not a command to the view (Esc steps out of the box).
+    if (ev.target instanceof HTMLElement && ev.target.closest("input, textarea, select")) {
+      if (ev.key === "Escape") { root.current?.focus({ preventScroll: true }); ev.preventDefault(); ev.stopPropagation(); }
+      return;
+    }
+    if (ev.key === "Escape") { if (ambient) setAmbient(false); else if (focus) lookAt(null); else if (replay) setReplay(null); else onClose(); }
     else if (ev.key === "+" || ev.key === "=") zoomBy(1.4);
     else if (ev.key === "-" || ev.key === "_") zoomBy(1 / 1.4);
     else if (ev.key === "0") lookAt(null);
@@ -576,7 +671,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       lookAt(bodies[(at < 0 ? (step > 0 ? 0 : bodies.length - 1) : at + step + bodies.length) % bodies.length].id);
     }
     else if ((ev.key === "f" || ev.key === "F") && canFill) toggleFull();
-    else if (ev.key === "d" || ev.key === "D") setDemo((on) => !on);
+    else if (ev.key === "d" || ev.key === "D") toggleDemo();
+    else if (ev.key === "p" || ev.key === "P") toggleReplay();
+    else if (ev.key === "a" || ev.key === "A") setAmbient((on) => !on);
     else if ((ev.key === "h" || ev.key === "H") && !noHd) toggleHd();
     else if ((ev.key === "r" || ev.key === "R") && hd) roll(ev.shiftKey ? 0 : newSeed());
     else return;
@@ -590,7 +687,8 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   useEffect(() => {
     if (!motionOK()) return;
     const stop = feed.onEvent((e) => {
-      if (Date.now() - new Date(e.time).getTime() > FRESH_MS) return;
+      // (A replay's events are all of them the past: what it's catching up on is what it says it is.)
+      if (time.quiet || (time.now === null && Date.now() - new Date(e.time).getTime() > FRESH_MS)) return;
       if (e.type === "expedition_end") sky.ping = v.last;
       const who = "who" in e ? scene.current.names.get(e.who) : undefined;
       if (!who || who === LEAD) return;
@@ -605,20 +703,22 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       sky.flights = {}; sky.lands = {}; sky.blips = {}; sky.ping = 0;
       for (const p of Object.values(parts)) p.comet?.removeAttribute("data-flying");
     };
-  }, [feed, sky, v, parts]);
+  }, [feed, sky, v, parts, time]);
 
   // A line as the sun's ring lights it in passing (each line has the one, lit from draw above).
   const lit = (d: string, i: number) => <path className="orb-lit" d={d} opacity="0" ref={(el) => { lits[i] = el; }} />;
 
-  const statusOf = (b: Body) => crew[b.name] ?? IDLE;
-  const outOf = (b: Body) => quests.filter((q) => q.who === b.name);
   const sun = statusOf(bodies[0]);
   const waiting = quests.filter((q) => q.waiting).length;
   const looking = bodies.find((b) => b.id === focus);
+  const need = live && asker ? asks.length : 0; // decisions that can be answered here, now
+  const kit = looking ? kits.get(looking.id) ?? [] : [];
+  const sats = looking && looking.id !== LEAD && known ? kit.slice(0, SATS_MAX) : [];
+  const dayCost = spend?.today ?? 0;
   const ticks = (every: number, long: number) => { const gap = (2 * Math.PI * (reach + 6)) / (360 / every); return `${long} ${(gap - long).toFixed(3)}`; };
 
   return (
-    <div className={cx("orbit", focus && "looking", hd && "hd")} ref={root} role="dialog" aria-modal="true" aria-label="Orbit: the crew at work" tabIndex={-1} onKeyDown={onKey}>
+    <div className={cx("orbit", focus && "looking", hd && "hd", ambient && "ambient", need > 0 && "needs")} ref={root} role="dialog" aria-modal="true" aria-label="Orbit: the crew at work" tabIndex={-1} onKeyDown={onKey}>
       {STARS.map((_, j) => <div key={j} className={`orb-stars s${j + 1}`} ref={(el) => { sheets[j] = el; }} aria-hidden="true" />)}
       {hd && <canvas className="orb-hd" ref={canvas} aria-hidden="true" />}
       <svg className={cx("orb-sky", over && "over")} aria-hidden="true" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { press.current = null; v.turning = false; }} onPointerLeave={() => { v.over = null; setOver(null); }}>
@@ -644,9 +744,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
             <circle className="orb-sun-core" ref={core} r={SUN_R} />
           </g>
           {planets.map((p, i) => {
-            const r = orbitOf(i), a = angleAt(i, 0), st = statusOf(p), out = outOf(p), mark = MARKS[p.id];
+            const r = orbitOf(i), a = angleAt(i, 0), st = statusOf(p), out = outOf(p), mark = MARKS[p.id], xp = xpOf(p);
             return (
-              <g key={p.id} className={cx("orb-planet", cClass(p.name), `st-${st.status}`, focus === p.id && "focused")} data-who={p.id}>
+              <g key={p.id} className={cx("orb-planet", cClass(p.name), `st-${st.status}`, says.get(p.id)?.quiet && "st-stalled", focus === p.id && "focused")} data-who={p.id}>
                 <radialGradient id={`orb-halo-${p.id}`}><stop offset="0" className="orb-g0" /><stop offset=".45" className="orb-g1" /><stop offset="1" className="orb-g2" /></radialGradient>
                 {/* The planet and its line turn as one (a frame at a time, from draw above), so it is always on its line and its tail is a stretch of it. */}
                 <g ref={(el) => { part(p.id).orbit = el; }} transform={`rotate(${a.toFixed(3)})`}>
@@ -661,11 +761,21 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
                       <circle className="orb-land" ref={(el) => { part(p.id).land = el; }} r={PLANET_R} opacity="0" />
                       <circle className="orb-blip" ref={(el) => { part(p.id).blip = el; }} r={PLANET_R} opacity="0" />
                       <g className="orb-busy" ref={(el) => { part(p.id).busy = el; }}><circle r={PLANET_R + 3.4} /></g>
-                      {/* A moon for each quest they have out. */}
-                      {MOON.map((_, j) => out[j] && (
-                        <g key={`${out[j].expId}|${out[j].id}`} className={cx("orb-moon", out[j].waiting && "st-waiting")} ref={(el) => { part(p.id).moons[j] = el; }}><circle cx={PLANET_R + 7 + j * 4.2} r="1.9" /></g>
-                      ))}
+                      {/* A moon for each quest they have out. It grows the longer its quest has been out, and gains a ring at ten minutes and another at thirty. */}
+                      {MOON.map((_, j) => {
+                        const q = out[j];
+                        if (!q) return null;
+                        const moon = moonOf(now - q.started), cx0 = PLANET_R + 7 + j * 4.2;
+                        return (
+                          <g key={`${q.expId}|${q.id}`} className={cx("orb-moon", q.waiting && "st-waiting", stalled(q, now) && "st-stalled")} ref={(el) => { part(p.id).moons[j] = el; }}>
+                            <circle cx={cx0} r={moon.r.toFixed(2)} />
+                            {Array.from({ length: moon.rings }, (_, k) => <circle key={k} className="orb-moon-ring" cx={cx0} r={(moon.r + 1.3 + k * 1.1).toFixed(2)} />)}
+                          </g>
+                        );
+                      })}
                       <circle className="orb-disc" r={PLANET_R} />
+                      {/* The lights of what's been built there: more of them with every level. */}
+                      {xp !== null && TOWN.slice(0, lightsOf(xp)).map(([x, y], k) => <rect key={k} className="orb-town" x={x.toFixed(2)} y={y.toFixed(2)} width=".7" height=".7" />)}
                       {mark ? <g className="orb-mark" transform="translate(-6 -6) scale(.5)">{mark}</g>
                         : <text className="orb-emoji" y="3.7" textAnchor="middle">{p.emoji ?? p.name.slice(0, 1)}</text>}
                     </g>
@@ -678,6 +788,32 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       </svg>
       {/* The marks and the names sit over the drawing, in the screen's own units, so they stay the same size however close you look. */}
       <svg className="orb-over" aria-hidden="true">
+        {/* The plan of each expedition that's running, as waypoints round the sun: one for each step, lit as it's done. */}
+        <g className="orb-ways" ref={wayEl}>
+          {ways.map((w, k) => w.steps.map((st, j) => { const at = wayAt(j, w.steps.length, k); return <rect key={`${w.expId}|${st.n}`} className={`way-${st.state}`} x={(at.x - WAY_SIZE / 2).toFixed(2)} y={(at.y - WAY_SIZE / 2).toFixed(2)} width={WAY_SIZE} height={WAY_SIZE} />; }))}
+        </g>
+        {/* Gauges: round the sun, how much of the plan's limit is used; round each planet, its share of what today has cost. */}
+        <g className={cx("orb-gauge", limit && limit.used >= NEAR_FULL && "warn")} ref={(el) => { part(LEAD).gauge = el; }}>
+          {limit && <><circle className="orb-gauge-track" r={SUN_R + 2.2} /><path d={arc(SUN_R + 2.2, limit.used)} /></>}
+        </g>
+        {planets.map((p) => { const share = spend ? spendOf(spend, p.name).share : 0; return (
+          <g key={p.id} className={cx("orb-gauge", cClass(p.name))} ref={(el) => { part(p.id).gauge = el; }}>
+            {share > 0 && <><circle className="orb-gauge-track" r={PLANET_R + 1.7} /><path d={arc(PLANET_R + 1.7, share)} /></>}
+          </g>
+        ); })}
+        {/* What's holding at the edge, and the satellites of the one you're with: each named when it's pointed at or open. */}
+        {ships.map((sh, j) => (
+          <g key={j} className={cx("orb-ship", `ship-${sh.kind}`, sh.bad && "bad", sh.held && "held", ship === sh.id && "on")} ref={(el) => { shipEls[j] = el; }}>
+            <path d={SHIP_SHAPE[sh.kind]} />
+            {(ship === sh.id || over === sh.id) && <text x="11" y="4">{short(sh.name, 40)}</text>}
+          </g>
+        ))}
+        {sats.map((k, j) => (
+          <g key={j} className={cx("orb-sat", `kit-${k.kind}`, k.state === "error" && "bad", picked === k.id && "on")} ref={(el) => { satEls[j] = el; }}>
+            <rect x="-3" y="-3" width="6" height="6" />
+            {(picked === k.id || over === `sat:${j}`) && <text x="9" y="4">{short(k.name, 32)}</text>}
+          </g>
+        ))}
         <path className="orb-leader" ref={leader} />
         <path className="orb-reticle hover" ref={hoverMark} />
         <path className={cx("orb-reticle", looking && cClass(looking.name))} ref={reticle} />
@@ -686,9 +822,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
         {bodies.map((b) => {
           const st = statusOf(b);
           return (
-            <div key={b.id} className={cx("orb-label", cClass(b.name), `st-${st.status}`, focus === b.id && "focused")} ref={(el) => { part(b.id).label = el; }}>
+            <div key={b.id} className={cx("orb-label", cClass(b.name), `st-${st.status}`, says.get(b.id)?.quiet && "st-stalled", focus === b.id && "focused")} ref={(el) => { part(b.id).label = el; }}>
               <b>{b.name}</b>
-              {st.status !== "idle" && <span>{statusLine(st, outOf(b))}</span>}
+              {st.status !== "idle" && <span>{says.get(b.id)?.text}</span>}
             </div>
           );
         })}
@@ -696,15 +832,26 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       <div className="orb-frame" aria-hidden="true"><i /><i /><i /><i /></div>
 
       <header className="orb-top">
-        <div className="orb-title"><h2>Orbit</h2>{demo ? <span className="orb-pretend" role="status">Demo: a pretend camp. None of this is really happening.</span> : <span>The crew at work, as it happens</span>}</div>
+        <div className="orb-title"><h2>Orbit</h2>{demo ? <span className="orb-pretend" role="status">Demo: a pretend camp. None of this is really happening.</span>
+          : replay ? <span className="orb-pretend" role="status">Replay: the last day, played back. None of this is happening now.</span>
+          : told ? <span className="orb-pretend" role="status">{told}</span>
+          : <span>The crew at work, as it happens</span>}</div>
         <dl className="orb-read">
           <div><dt>Expeditions</dt><dd>{running}</dd></div>
           <div><dt>Quests out</dt><dd>{quests.length}</dd></div>
           {waiting > 0 && <div className="warn"><dt>Waiting on you</dt><dd>{waiting}</dd></div>}
+          {spend && <div><dt>Spent today</dt><dd>{money(dayCost)}</dd></div>}
           <div><dt>Zoom</dt><dd ref={zoomRead}>×1.0</dd></div>
-          <div><dt>Local</dt><dd><Clock /></dd></div>
+          <div><dt>{replay ? "Then" : "Local"}</dt><dd><Clock clock={clock} /></dd></div>
         </dl>
-        {asks > 0 && onDecision && <button type="button" className="orb-alert" onClick={onDecision}>{asks === 1 ? "1 decision needs you" : `${asks} decisions need you`}</button>}
+        {/* A decision is answered here: this takes you to whoever is asking, and their panel has it. */}
+        {need > 0 && !ambient && <button type="button" className="orb-alert" title="Go to whoever is asking, and answer it there" onClick={() => lookAt(asker)}>{need === 1 ? "1 decision needs you" : `${need} decisions need you`}</button>}
+        {ambient ? (
+          <div className="orb-tools" role="group" aria-label="The view">
+            <button type="button" className="orb-tool worded" aria-pressed="true" title="Take the controls back (A, or Esc)" onClick={() => setAmbient(false)}>Ambient</button>
+            <button type="button" className="orb-tool" aria-label="Leave Orbit" title="Back to the page" onClick={onClose}><Icon name="x" /></button>
+          </div>
+        ) : (
         <div className="orb-tools" role="group" aria-label="The view">
           <button type="button" className="orb-tool" aria-label="Zoom out" title="Zoom out (−)" onClick={() => zoomBy(1 / 1.4)}>−</button>
           <button type="button" className="orb-tool" aria-label="Zoom in" title="Zoom in (+)" onClick={() => zoomBy(1.4)}>+</button>
@@ -714,28 +861,44 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
             title={noHd ? "HD needs WebGL 2, which this browser isn't offering" : hd ? "Back to the flat view (H)" : "HD: the same system in three dimensions, as lit worlds round a sun (H). A proof of concept."}>HD</button>
           {hd && <button type="button" className="orb-tool worded" onClick={(ev) => roll(ev.shiftKey ? 0 : newSeed())}
             title={`Reroll: make up other worlds for the crew (R). Each keeps its crew member's colour, the Artificer keeps a station, and a world you've made your own stays as you made it.${seed ? " Shift-click (or Shift+R) for the camp's own." : ""}`}>Reroll</button>}
-          <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? "End the demo and show the real camp (D)" : "Play a demo: a pretend camp at work, with nobody really sent anywhere (D)"} onClick={() => setDemo((on) => !on)}>Demo</button>
+          <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? "End the demo and show the real camp (D)" : "Play a demo: a pretend camp at work, with nobody really sent anywhere (D)"} onClick={toggleDemo}>Demo</button>
+          <button type="button" className="orb-tool worded" aria-pressed={!!replay} title={replay ? "End the replay and show the camp as it is now (P)" : "Replay: watch the last day's expeditions back, in about half a minute (P)"} onClick={toggleReplay}>Replay</button>
+          <button type="button" className="orb-tool worded" aria-pressed={false} title="Ambient: hands off. The camera goes to whoever just did something, and tells you quietly when a decision needs you (A)" onClick={() => setAmbient(true)}>Ambient</button>
           <button type="button" className="orb-tool" aria-label="Leave Orbit" title="Back to the page (Esc)" onClick={onClose}><Icon name="x" /></button>
         </div>
+        )}
       </header>
 
-      {looking && (
-        <Panel key={looking.id} body={looking} nth={planets.indexOf(looking)} S={demo ? null : S} store={feed} st={statusOf(looking)} bearing={bearing}
+      {ships.length > 0 && !ambient && <Holding ships={ships} open={ship} live={live} onOpen={setShip} />}
+
+      {looking && !ambient && (
+        <Panel key={looking.id} body={looking} lead={looking.id === LEAD} nth={planets.indexOf(looking)} xp={xpOf(looking)} store={feed} st={statusOf(looking)} bearing={bearing}
+          live={live} clock={clock} kit={kit} picked={picked} onPick={setPicked} spend={spend ? spendOf(spend, looking.name) : null} limit={limit} owns={owns} onSent={() => sent(looking.id)}
           make={hd && made.get(looking.id) && (
-            <WorldMaker name={looking.name} world={made.get(looking.id)!} changed={!!custom[looking.id]}
+            <WorldMaker name={looking.name} world={made.get(looking.id)!} changed={!!custom[looking.id]} kit={known ? kit.length : undefined}
               onChange={(c) => recustom((was) => ({ ...was, [looking.id]: { ...was[looking.id], ...c } }))}
-              onRoll={() => recustom((was) => ({ ...was, [looking.id]: { roll: newSeed() } }))}
+              onRoll={() => recustom((was) => ({ ...was, [looking.id]: { roll: newSeed(), ...(was[looking.id]?.kind !== undefined ? { kind: was[looking.id].kind } : {}) } }))} // (it stays the kind of thing you said it was)
               onReset={() => recustom(({ [looking.id]: _gone, ...rest }) => rest)} />
           )}
           onBack={() => lookAt(null)} onOpenAgent={onOpenAgent} onOpenQuest={onOpenQuest} onOpenConversation={onOpenConversation} />
       )}
 
+      {replay && <Timeline reel={replay.reel} store={replay.store} time={time} onLeave={() => setReplay(null)} />}
+      {/* Ambient: who the camera is on and what they're doing, and (quietly) that something is waiting on you. */}
+      {ambient && (
+        <div className="orb-caption">
+          <p>{looking ? <><b>{looking.name}</b>{says.get(looking.id)?.text}</> : <><b>The camp</b>{running ? `${running} ${running === 1 ? "expedition" : "expeditions"} under way, ${quests.length} ${quests.length === 1 ? "quest" : "quests"} out` : "At rest"}</>}</p>
+          {need > 0 && <button type="button" className="orb-need" onClick={() => { setAmbient(false); lookAt(asker); }}>{need === 1 ? "A decision needs you" : `${need} decisions need you`}</button>}
+          <small>Ambient: the camera follows the work. Esc, or a click, takes the controls back.</small>
+        </div>
+      )}
+      {!ambient && <>
       <p className="orb-hint" aria-hidden="true">Scroll to zoom · drag to {hd ? "turn" : "move"} · click a planet to stay with it · Esc to step back</p>
       <nav className="orb-strip" aria-label="The crew">
         {bodies.map((b, n) => {
-          const st = statusOf(b), out = outOf(b), text = statusLine(st, out);
+          const st = statusOf(b), out = outOf(b), say = says.get(b.id), text = say?.text ?? "";
           return (
-            <button key={b.id} type="button" className={cx("orb-cell", cClass(b.name), `st-${st.status}`, focus === b.id && "on")} aria-pressed={focus === b.id}
+            <button key={b.id} type="button" className={cx("orb-cell", cClass(b.name), `st-${st.status}`, say?.quiet && "st-stalled", focus === b.id && "on")} aria-pressed={focus === b.id}
               aria-label={`${b.name}: ${text}`} title={`${focus === b.id ? "Back to the whole system" : `Look at ${b.name}`}${n < 9 ? ` (${n + 1})` : ""}`}
               onClick={() => lookAt(focus === b.id ? null : b.id)}>
               <span className="orb-cell-who"><i className="orb-dot" />{b.name}{out.length > 1 && <em>×{out.length}</em>}<kbd>{n < 9 ? n + 1 : ""}</kbd></span>
@@ -744,6 +907,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           );
         })}
       </nav>
+      </>}
     </div>
   );
 }

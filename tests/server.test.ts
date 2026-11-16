@@ -121,6 +121,37 @@ test("it stays up through bad input, and stops promptly when told to", async () 
   if (!WINDOWS) assert.equal((c.child as any).signalCode, null, "it exited on its own terms: the exit hooks ran");
 });
 
+test("Anthropic settings import, replace, and remove keys without exposing them", async (t) => {
+  const provider = http.createServer((req, res) => {
+    const accepted = ["Bearer environment-key-123456", "Bearer saved-key-123456"].includes(String(req.headers.authorization));
+    res.writeHead(accepted ? 200 : 401, { "content-type": "application/json" });
+    res.end(JSON.stringify(accepted ? { data: [], has_more: false, first_id: null, last_id: null } : { type: "error", error: { type: "authentication_error", message: "invalid key" } }));
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  t.after(() => { provider.closeAllConnections(); provider.close(); });
+  const { port } = provider.address() as { port: number };
+  const c = await start({ ANTHROPIC_API_KEY: "environment-key-123456", ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}` });
+  const post = (body: object, token: string | null = c.token) => fetch(`http://127.0.0.1:${c.port}/api/anthropic/key`, {
+    method: "POST", headers: { "content-type": "application/json", ...(token ? { "x-camp-token": token } : {}) }, body: JSON.stringify(body),
+  });
+  assert.equal((await post({ import: true }, null)).status, 401);
+  const imported = await post({ import: true });
+  assert.equal(imported.status, 200);
+  const importedState = await imported.json() as any;
+  assert.deepEqual(importedState.anthropic, { connected: true, saved: true, environment: true, from: "camp" });
+  assert.ok(!JSON.stringify(importedState).includes("key-123456"));
+  assert.equal((await post({ key: "saved-key-123456" })).status, 200);
+  assert.equal((await post({ key: "invalid-key-123456" })).status, 400);
+  assert.equal(JSON.parse(readFileSync(join(camp, "camp/providers.json"), "utf8")).anthropic.key, "saved-key-123456");
+  const state = await (await get(c, "/api/state?full=0")).json() as any;
+  assert.equal(state.anthropic.from, "camp");
+  assert.ok(!JSON.stringify(state).includes("key-123456"));
+  const removed = await (await post({ key: null })).json() as any;
+  assert.deepEqual(removed.anthropic, { connected: true, saved: false, environment: true, from: "env" });
+  assert.ok(!c.out().includes("key-123456"));
+  assert.equal(await stop(c), 0);
+});
+
 test("a plan held for later starts from its card once, and only a plan that's there", async () => {
   const turn = { thread: "plan-1", expedition: "plan-1", agent: "quartermaster", direct: false, time: new Date().toISOString(), task: "Research it", reply: "The plan is ready.", status: "done" };
   writeFileSync(join(camp, "camp", "threads.jsonl"), [

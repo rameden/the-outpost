@@ -6,6 +6,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { writeJsonAtomic } from "./atomic.js";
 import { emit } from "./events.js";
+import { campRuntime } from "./settings.js";
 
 export const LIMITS_PATH = "camp/limits.json";
 export type PlanLimit = {
@@ -98,6 +99,7 @@ export function planLimits(now = Date.now()): PlanLimit[] {
 // A rejection with no reset time holds for 5 minutes. "Try anyway" (resumeNow) clears the pause
 // until Claude Code reports the limit again.
 export function pausedUntil(now = Date.now()): number | null {
+  if (campRuntime() !== "claude-code") return null;
   const s = load();
   let until = 0;
   for (const l of Object.values(s.limits)) {

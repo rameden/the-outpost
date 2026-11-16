@@ -2,7 +2,7 @@
 import { expect, test } from "vitest";
 import { orbitOf } from "../scene.ts";
 import { HD_PLANET, HD_SUN, hdFrame, type HdBody, type HdInput } from "./frame.ts";
-import { STATION, WORLD, worldsFor } from "./worlds.ts";
+import { MINE, STATION, WORLD, asKind, worldsFor } from "./worlds.ts";
 
 const IDS = ["scout", "artificer", "scribe", "warden", "hacker"];
 // (The camp's own worlds, unless a test says otherwise: every one the usual size. Their own moons are left off here,
@@ -164,4 +164,43 @@ test("a world has as many satellites of its own as it was given; more join them 
   expect(specks(3, 1)).toBe(7);
   expect(specks(6, 1)).toBe(10);
   expect(specks(0, 1)).toBe(0); // a world you've left bare stays bare
+});
+
+test("a cluster of asteroids: a main rock with the rig where the planet would be, the rest going round it; haulers between them, and beams at work", () => {
+  const cluster = { ...asKind(OWN[0], MINE), p: [6, 1.2, 0.58, 0.26] as [number, number, number, number] };
+  const quiet = hdFrame(input([body(0, { world: cluster })])).frame.planets[0];
+  expect(quiet.kind).toBe(MINE);
+  expect(quiet.rocks!.length).toBe(6);
+  expect(quiet.rough).toBe(0.26);
+  const [main, ...rest] = quiet.rocks!;
+  expect(main).toMatchObject({ pos: quiet.pos, rig: true });
+  expect(main.radius).toBeCloseTo(0.58 * quiet.radius);
+  for (const rock of rest) {
+    expect(rock.rig).toBe(false);
+    expect(rock.radius).toBeLessThan(main.radius);
+    const far = Math.hypot(rock.pos[0] - quiet.pos[0], rock.pos[1], rock.pos[2] - quiet.pos[2]);
+    expect(far).toBeGreaterThan(main.radius);                 // clear of the main rock
+    expect(far).toBeLessThan(quiet.radius * 1.3);              // and inside where a quest's moon goes
+  }
+  expect(new Set(rest.map((r) => r.seed)).size).toBe(5);       // each its own shape
+  // They go round, and it's the same cluster a moment later: the same rocks, somewhere else.
+  const later = hdFrame(input([body(0, { world: cluster })], { seconds: 20 })).frame.planets[0].rocks!;
+  expect(later.map((r) => r.radius)).toEqual(quiet.rocks!.map((r) => r.radius));
+  expect(later[1].pos).not.toEqual(rest[0].pos);
+  // More rocks when asked for.
+  expect(hdFrame(input([body(0, { world: { ...cluster, p: [9, 1.2, 0.58, 0.26] } })])).frame.planets[0].rocks!.length).toBe(9);
+  // A world has none.
+  expect(hdFrame(input([body(0)])).frame.planets[0].rocks).toBeUndefined();
+  // Close to: haulers at camp (small points, as ships are), more of them at work, and at work the beams: a line of light to a rock, with a spark on it.
+  const small = (f: ReturnType<typeof closeTo>) => f.points.filter((pt) => pt.size < 0.9 && pt.size !== 0.55 && pt.size !== 0.75).length;
+  const beams = (f: ReturnType<typeof closeTo>) => f.points.filter((pt) => pt.size === 0.75 || pt.size === 2.4).length;
+  const atCamp = closeTo(body(0, { world: cluster })), atWork = closeTo(body(0, { world: cluster, glow: 1 }), { seconds: 12.5 });
+  expect(small(atCamp)).toBeGreaterThan(0);
+  expect(small(atWork)).toBeGreaterThan(small(atCamp));
+  expect(beams(atCamp)).toBe(0);
+  expect(beams(atWork)).toBeGreaterThan(10);
+  // From far off there are no haulers, but a cluster at work still shows its beams, fainter.
+  const far = hdFrame(input([body(0, { world: cluster, glow: 1 })], { seconds: 12.5 })).frame;
+  expect(far.points.filter((pt) => pt.size < 0.9 && pt.size !== 0.75)).toEqual([]);
+  expect(far.points.some((pt) => pt.size === 2.4)).toBe(true);
 });

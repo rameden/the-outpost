@@ -1,7 +1,7 @@
 // The crew's worlds in the HD view, made up from a number: each one a world you could live on.
 import { expect, test } from "vitest";
 import type { Vec3 } from "./math.ts";
-import { LIMITS, SORT_NAMES, STATION, WORLD, anotherMoon, customised, middle, newSeed, shifted, sortOf, worldsFor } from "./worlds.ts";
+import { KINDS, LIMITS, MINE, SORT_NAMES, STATION, WORLD, anotherMoon, asKind, customised, laidOut, middle, newSeed, shifted, sortOf, worldsFor } from "./worlds.ts";
 
 const crew = ["scout", "artificer", "scribe", "warden", "hacker", "cook", "smith"].map((id, i) => ({ id, color: [0.3 + i * 0.08, 0.6, 0.9 - i * 0.08] as Vec3 }));
 
@@ -123,7 +123,7 @@ test("one world made your own: what you changed is laid over what the seed makes
   expect(rolled).toEqual(worldsFor(777, [me])[0]);
   expect(rolled).not.toEqual(scout);
   expect(customised(scout, { roll: 777, sats: 0 }, me)).toEqual({ ...rolled, sats: 0 });
-  // A station stays a station: it can be rebuilt and rolled, but not given seas, rings or moons.
+  // A station can be rebuilt and rolled, but not given seas, rings or moons.
   const rebuilt = customised(station, { p: [6, 0, 0.8, 0.2], sort: "ocean", ring: { inner: 1.4, outer: 2 }, moons: [anotherMoon(scout, 0)] }, crew[1]);
   expect(rebuilt).toMatchObject({ kind: STATION, sort: "station", p: [6, 0, 0.8, 0.2], ring: null, moons: [] });
   expect(customised(station, { roll: 5 }, crew[1]).kind).toBe(STATION);
@@ -145,4 +145,48 @@ test("another moon is the next one out, and always the same one for the same wor
     within(w.moons.length, LIMITS.moons); within(w.sats, LIMITS.sats);
     if (w.ring) { within(w.ring.inner, LIMITS.ringIn); within(w.ring.outer - w.ring.inner, LIMITS.ringWide); }
   }
+});
+
+test("anyone's can be a planet, a station or a cluster of asteroids: the same crew member's, as another kind of thing", () => {
+  expect(KINDS).toEqual([WORLD, STATION, MINE]);
+  for (const seed of [0, 7, 2026]) {
+    const [scout, station] = worldsFor(seed, crew);
+    // The Scout's world as a station, and as a cluster: built or laid out afresh, with no sea, rings or moons of its own…
+    const built = asKind(scout, STATION), mined = asKind(scout, MINE);
+    expect(built).toMatchObject({ kind: STATION, sort: "station", ring: null, moons: [] });
+    expect(mined).toMatchObject({ kind: MINE, sort: "asteroids", ring: null, moons: [] });
+    expect([3, 4, 5, 6]).toContain(built.p[0]);
+    const [rocks, spread, main, rough] = mined.p;
+    expect(Number.isInteger(rocks)).toBe(true);
+    for (const [v, limit] of [[rocks, LIMITS.rocks], [spread, LIMITS.spread], [main, LIMITS.mainRock], [rough, LIMITS.rough]] as const) { expect(v).toBeGreaterThanOrEqual(limit[0]); expect(v).toBeLessThanOrEqual(limit[1]); }
+    // …but still theirs: how it's tipped and turns, its second colour and its satellites are as they were.
+    for (const made of [built, mined]) expect(made).toMatchObject({ seed: scout.seed, tilt: scout.tilt, spin: scout.spin, color2: scout.color2, sats: scout.sats });
+    // The Artificer's station as a world: a sort of its own, at that sort's middle, with a moon.
+    const settled = asKind(station, WORLD);
+    expect(settled.kind).toBe(WORLD);
+    expect(SORT_NAMES).toContain(settled.sort);
+    expect(settled.p).toEqual(middle(settled.sort));
+    expect(settled.moons.length).toBe(1);
+    // The same thing asked twice is the same thing; what it already is, or something there's no such kind of, leaves it be.
+    expect(asKind(scout, MINE)).toEqual(mined);
+    expect(asKind(scout, WORLD)).toBe(scout);
+    expect(asKind(scout, 9)).toBe(scout);
+  }
+});
+
+test("what kind it is is one more thing you can change about a world, and is kept through a roll of its own", () => {
+  const [scout] = worldsFor(42, crew), me = crew[0];
+  const mined = customised(scout, { kind: MINE }, me);
+  expect(mined).toEqual(asKind(scout, MINE));
+  // Its settings are the cluster's from then on; a world's (a sort, rings, moons) don't apply to it, and ones left unsaid don't blank it.
+  expect(customised(scout, { kind: MINE, p: [9, 1.5, 0.6, 0.3], sort: "ocean", ring: { inner: 1.4, outer: 2 } }, me)).toMatchObject({ kind: MINE, sort: "asteroids", p: [9, 1.5, 0.6, 0.3], ring: null });
+  expect(customised(scout, { kind: MINE, p: undefined, sort: undefined, moons: undefined }, me)).toEqual(mined);
+  // Rolled by itself and said to be a station: that roll's world, as a station.
+  expect(customised(scout, { roll: 777, kind: STATION }, me)).toEqual(asKind(worldsFor(777, [me])[0], STATION));
+  // The Artificer, who has a station to begin with, can have a world like anyone.
+  const station = worldsFor(42, crew)[1];
+  expect(customised(station, { kind: WORLD }, crew[1]).kind).toBe(WORLD);
+  // Where a cluster's rocks lie is always the same for the same cluster.
+  const a = laidOut(mined.seed, "rocks"), b = laidOut(mined.seed, "rocks");
+  expect([a(), a(), a()]).toEqual([b(), b(), b()]);
 });
