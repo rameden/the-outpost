@@ -52,10 +52,23 @@ function Waiting({ p, refresh }: { p: Proposal; refresh: () => void }) {
     );
   }
   const was = linesOf(p.before), now = linesOf(text);
+  // It had outgrown what a prompt loads, so the draft was cut to fit, not only merged.
+  const cut = !!p.limit && p.before.length > p.limit;
+  const over = p.limit ? text.trim().length - p.limit : 0;
+  const leftOut = p.leftOut ?? [];
   return (
     <li className="mem-wait" aria-label={`A tidy of ${p.name}`}>
-      <div className="mem-wait-head"><b>Tidy {p.name}?</b><span>{was.length} lines to {now.length} · {p.before.length.toLocaleString()} characters to {text.length.toLocaleString()}</span></div>
-      <p className="mem-wait-note">Duplicates merged and superseded lines dropped, drafted by the smallest model. Read it before you approve: you can edit it here, and anything added since it was drafted is kept.</p>
+      <div className="mem-wait-head"><b>Tidy {p.name}?</b><span>{was.length} lines to {now.length} · {p.before.length.toLocaleString()} characters to {text.length.toLocaleString()}{cut && ` · a prompt loads ${p.limit!.toLocaleString()}`}</span></div>
+      <p className="mem-wait-note">{cut
+        ? "This had outgrown what a prompt loads, so the smallest model drafted it to fit: lines on one subject merged, each said in fewer words, and the least lasting dropped. More goes than in an ordinary tidy, so read it before you approve: you can edit it here, and anything added since it was drafted is kept."
+        : "Duplicates merged and superseded lines dropped, drafted by the smallest model. Read it before you approve: you can edit it here, and anything added since it was drafted is kept."}</p>
+      {leftOut.length > 0 && (
+        <div className="mem-warn" role="status">
+          The draft was still too long, so {leftOut.length === 1 ? "the oldest unpinned line was" : `the ${leftOut.length} oldest unpinned lines were`} left out to make it fit. Put back what you'd rather keep:
+          <ul className="mem-left">{leftOut.map((l, i) => <li key={i}>{l.replace(/^-\s*/, "")}</li>)}</ul>
+        </div>
+      )}
+      {over > 0 && <div className="mem-warn" role="status">As edited, this is {over.toLocaleString()} characters over what a prompt loads: the oldest lines would be loaded only when a request is about them.</div>}
       <textarea rows={Math.min(12, Math.max(4, now.length + 1))} value={text} aria-label={`The tidied ${p.name}`} spellCheck={false} onChange={(ev) => setText(ev.target.value)} />
       <button type="button" className="linkish" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? "Hide what's there now" : "Show what's there now"}</button>
       {open && <pre className="mem-before">{p.before}</pre>}

@@ -6,11 +6,12 @@ import { MessageInput, type MessageInputHandle } from "./MessageInput.tsx";
 import { api, errorText, storeGet, storeRemove, storeSet } from "../api.ts";
 import { COMMANDS, parseCommand, say } from "../bus.ts";
 import type { FeedStore } from "../feed/store.ts";
-import type { CampState, Link, PendingAttachment, SendResult, Snippet, Uploaded, JiraRef } from "../types.ts";
+import type { CampState, Link, PendingAttachment, SendResult, Uploaded, JiraRef } from "../types.ts";
 import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { LEFT_OUT, USED, WorkIn, chosenWorkspaces, leftOut, outsideChoice, outsidePick, replyPick, useRepos, usedIn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
+import { cx } from "../format.ts";
 import { ChatModel } from "./ChatModel.tsx";
 import { tell } from "./StatusLine.tsx";
 import { uploadFile as sendFile } from "../upload.ts";
@@ -46,7 +47,10 @@ function mentionToken(el: Pick<MessageInputHandle, "value" | "selectionStart">) 
 // conversation it follows that conversation's latest run; on a new page it can name a project.
 // folders: the linked folders that belong here (the "work in" picker shows only these).
 // newWorktree: the project starts each new conversation in its own worktree.
-export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean;
+// live: the conversation's run that's working right now. While it is, Send is a red Stop; Enter (or
+// Queue in its menu) queues the message for when the run has finished, and Send now in the menu says
+// it to the run straight away (the crew reads it on their next step).
+export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean; live?: string;
   working?: Record<string, string>;   // a conversation working in worktrees: the branch in each repository
   without?: string[] };               // a conversation started without some of its project's folders: which
 
@@ -56,6 +60,12 @@ export type SendContext = { replyTo?: string; project?: string; placeholder?: st
 // hidden: on a page that isn't a conversation (Projects, Jira, the wiki) there's no message box.
 // It stays in the page, out of sight, so what's attached or half-written is still there when you're back.
 // (memo: it's drawn again when what it's given changes, not each time the feed gets a word.)
+// The menu beside Send while a run works: queue what you've typed (as Enter does), or say it to the run now.
+const SEND_OPTIONS = [
+  { label: "Queue", now: false, title: "It goes once this run has finished (Enter does this too)" },
+  { label: "Send now", now: true, title: "The crew reads it on their next step, without waiting for the run to finish" },
+];
+
 export const Composer = memo(function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders, draftKey, hidden }: {
   hidden?: boolean;
   S: CampState | null; store: FeedStore; refresh: () => void; patch: (fn: (s: CampState) => CampState) => void; ref: Ref<ComposerHandle>;
@@ -94,6 +104,43 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   const [afterOpen, setAfterOpen] = useState(false);
   const inFlight = [...(S?.running ?? []), ...(S?.queued ?? [])];
   const afterLive = after && inFlight.some((w) => w.id === after.id) ? after : null; // it finished meanwhile: nothing to wait for
+  // This conversation's run is working: Send talks to it, unless you've pressed Reply on another run or chained this one.
+  const live = !reply && !afterLive && context?.live && (S?.running ?? []).some((w) => w.id === context.live) ? context.live : null;
+  const [queueOpen, setQueueOpen] = useState(false);
+  const queueMenu = useRef<HTMLDivElement>(null);
+  const [stopping, setStopping] = useState<string | null>(null);
+  // The menu's highlighted option: it follows the mouse and the arrow keys, and starts on Queue (what Enter does).
+  const [pickAt, setPickAt] = useState(0);
+  const typed = !!text.trim() || pending.length > 0;
+  useEffect(() => { if (!live) setQueueOpen(false); }, [live]);
+  // Messages queued behind the run go one after another, each after the last: find the end of the line.
+  const queueEnd = (run: string) => {
+    let end = run;
+    for (const seen = new Set<string>(); !seen.has(end); ) {
+      seen.add(end);
+      const next = (S?.queued ?? []).find((q) => q.after === end);
+      if (next) end = next.id;
+    }
+    return end;
+  };
+  async function stopLive() {
+    if (!live) return;
+    setStopping(live);
+    try { await api("/api/stop", { id: live }); } catch (e) { setStopping(null); setError(errorText(e)); }
+  }
+  useEffect(() => {
+    if (!queueOpen) return;
+    setPickAt(0);
+    queueMenu.current?.querySelector<HTMLButtonElement>("[role=menuitem]:not(:disabled)")?.focus();
+  }, [queueOpen]);
+  useEffect(() => {
+    if (!queueOpen) return;
+    const away = (ev: MouseEvent) => { if (!queueMenu.current?.contains(ev.target as Node)) setQueueOpen(false); };
+    const esc = (ev: { key: string }) => { if (ev.key === "Escape") setQueueOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [queueOpen]);
   const [sends, setSends] = useState(0);
   const { repos, reload: reloadRepos, switchBranch } = useRepos(S?.links); // links added or removed: look again
   // Moving to another project starts from that project's own default for where to work. So does
@@ -137,13 +184,6 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   pendingNow.current = pending;
 
   const focus = () => input.current?.focus();
-  // Whether the cursor is inside a code block, where Enter means a new line (the hint by Send says so).
-  const [inCode, setInCode] = useState(false);
-  useEffect(() => {
-    const look = () => setInCode(!!input.current?.el && document.activeElement === input.current.el && input.current.inCode());
-    document.addEventListener("selectionchange", look);
-    return () => document.removeEventListener("selectionchange", look);
-  }, []);
 
   // Once new text is in the box, put the cursor where whoever changed it asked. (The box grows
   // with the message by itself, up to a point: see .mi in the stylesheet.)
@@ -291,14 +331,6 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     ({ files: pickFiles, folder: pickFolder, images: pickImages })[what].current?.click();
   }
 
-  function insertSnippet(snippet: string) {
-    const next = text.trim() ? text.trimEnd() + "\n" + snippet : snippet;
-    const i = next.indexOf("{");
-    const j = next.indexOf("}", i);
-    if (i >= 0 && j > i) select.current = [i, j + 1]; // select the {placeholder} so you can type over it
-    setText(next);
-    focus();
-  }
 
   // Text from somewhere else on the page (a note), after what's already written, a blank line between.
   function insertText(more: string) {
@@ -379,8 +411,10 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   }
 
   // ---------- Sending ----------
-  async function submit(ev: FormEvent) {
-    ev.preventDefault();
+  // now: Send now, from the button's menu while a run is working. The message goes to the run straight away, instead
+  // of waiting (queued) for it to finish.
+  async function submit(ev: FormEvent | null, now = false) {
+    ev?.preventDefault();
     if (sendingNow.current) return; // the last one hasn't landed yet (what you've typed since stays in the box)
     if (pending.some((a) => a.status === "uploading")) return setError("Still uploading. It'll be ready in a moment.");
     const message = text.trim();
@@ -394,10 +428,28 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       setText("");
       return setMention(null);
     }
+    // Send now: say it to the run while it works.
+    if (live && now) {
+      if (attachments.length) return setError("A run that's working can't take attachments. Queue the message instead, and it goes once the run has finished.");
+      sendingNow.current = true;
+      setSending(true);
+      const said = await api("/api/steer", { id: live, text: message }).then(() => true, () => false);
+      sendingNow.current = false;
+      setSending(false);
+      if (said) {
+        if (draftKey) storeRemove(`camp-draft:${draftKey}`);
+        setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
+        return setMention(null);
+      }
+      // It finished meanwhile: send it as a reply instead.
+    }
+    // While the run works, a message waits its turn behind it. One for someone else (@scout …) starts their own work.
+    const queue = !!live && !now && !/^@\w+/.test(message);
+    const chainTo = queue && live ? queueEnd(live) : afterLive?.id;
     sendingNow.current = true;
     setSending(true);
     try {
-      const r = await api<SendResult>("/api/send", { text: message, attachments, ...(afterLive ? { after: afterLive.id } : {}),
+      const r = await api<SendResult>("/api/send", { text: message, attachments, ...(chainTo ? { after: chainTo } : {}),
         ...(optIn && !followedProject && chatModelNow !== undefined ? { model: chatModelNow } : {}),
         ...(follows ? { replyTo: follows, use: usedIn(picks), without: leftOut(picks) } : { workspaces: chosenWorkspaces(picks), use: usedIn(picks), without: leftOut(picks), project: context?.project }) });
       if (draftKey) storeRemove(`camp-draft:${draftKey}`); // sent: it's no longer a draft, here or on a fresh page
@@ -411,7 +463,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       setPending([]);
       batch.current = undefined;
       setMention(null);
-      if (r.after) tell(store, `Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
+      if (r.after) tell(store, queue ? "Queued: it goes once this run has finished." : `Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
       else if (r.position > 0) {
         tell(store, S?.pausedUntil
           ? `Queued (#${r.position}): it starts when your plan's limit resets`
@@ -470,7 +522,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
         </div>
       )}
       {menu && (
-        <AttachMenu S={S} view={menu} setView={setMenu} text={text} onClose={closeMenu}
+        <AttachMenu S={S} view={menu} setView={setMenu} onClose={closeMenu}
           repos={workRepos} work={shownChoice} workLocked={followsUp} workOptional workOptIn={optIn} workWithout={notUsed} workPlain={plainFolders} workWorking={working}
           onWorkAll={(v) => {
             // A reply: take out everything the conversation has, or bring back everything it's without.
@@ -492,14 +544,10 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
           onPick={pick}
           onPaste={() => { closeMenu(); void pasteFromClipboard(); }}
           onUrl={(url) => { addUrl(url); closeMenu(); focus(); }}
-          onAttachLink={(link) => { attachLink(link); closeMenu(); focus(); }}
-          onLinked={(link) => { attachLink(link); closeMenu(); focus(); refresh(); }}
-          onInsertSnippet={insertSnippet}
-          onNote={(note) => { void addFiles([noteFile(note)]); closeMenu(); focus(); }}
-          onSnippets={(fn: (list: Snippet[]) => Snippet[]) => patch((s) => ({ ...s, snippets: fn(s.snippets ?? []) }))} />
+          onNote={(note) => { void addFiles([noteFile(note)]); closeMenu(); focus(); }} />
       )}
       <form className="composer-box" onSubmit={submit}>
-        <MessageInput ref={input} placeholder={context?.placeholder ?? "Ask the Quartermaster…"} label="Request for the camp" value={text}
+        <MessageInput ref={input} placeholder={live ? "Queue a message for when they're done…" : context?.placeholder ?? "Ask the Quartermaster…"} label="Request for the camp" value={text}
           onChange={(t) => { setText(t); updateMention(); }} onClick={updateMention} onKeyDown={onKeyDown} onPaste={onPaste} />
         {/* One row under the text: the + menu, the branch the request will work on (click for the menu's Work in panel), send. */}
         <div className="composer-bar">
@@ -535,13 +583,35 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
               )}
             </span>
           )}
-          {/* Send, with its hint to the left of it. Where the row runs out of room the hint goes (it wraps out of sight) and Send stays. */}
+          {/* Send, at the right end of the row. While a run works the same button is a red Stop, and its
+              menu queues what you've typed (as Enter does) or sends it to the run now. */}
           <span className="composer-end">
-            <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>
-            {S && (inCode
-              ? <span className="composer-tip" title="You're in a code block: Enter adds a line of code. Move below the block, or press ⌘/Ctrl+Enter, to send.">⌘Enter to send</span>
-              : <span className="composer-tip" title="Shift+Enter for a new line. ⌘/Ctrl+Enter sends from anywhere.">Enter to send</span>)}
+            {live ? (
+              <span className="send-split stop">
+                <button className="btn primary" type="button" disabled={stopping === live} onClick={stopLive}
+                  title="Stop this run and every quest in it">{stopping === live ? "Stopping…" : "Stop"}</button>
+                <button className="btn primary send-more" type="button" aria-label="More ways to send" aria-haspopup="menu" aria-expanded={queueOpen} disabled={sending}
+                  onClick={() => { setMention(null); setMenu(null); setAfterOpen(false); setQueueOpen((o) => !o); }}><Icon name="chevron" /></button>
+              </span>
+            ) : <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>}
           </span>
+          {/* Over the right end of the row, above the button. */}
+          {live && queueOpen && (
+            <div className="popover send-menu" role="menu" aria-label="Send" ref={queueMenu}
+              onKeyDown={(ev) => {
+                if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+                ev.preventDefault();
+                const next = (pickAt + (ev.key === "ArrowDown" ? 1 : -1) + SEND_OPTIONS.length) % SEND_OPTIONS.length;
+                setPickAt(next);
+                queueMenu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]")[next]?.focus();
+              }}>
+              {SEND_OPTIONS.map((o, i) => (
+                <button key={o.label} type="button" role="menuitem" className={cx("mention-item", typed && pickAt === i && "active")} disabled={!typed} title={o.title}
+                  onMouseEnter={() => setPickAt(i)} onFocus={() => setPickAt(i)}
+                  onClick={() => { setQueueOpen(false); void submit(null, o.now); focus(); }}><span>{o.label}</span></button>
+              ))}
+            </div>
+          )}
         </div>
       </form>
       {error && <div className="form-error">{error}</div>}

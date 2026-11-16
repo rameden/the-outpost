@@ -25,7 +25,7 @@ const page = (over: Partial<HomePage> = {}): HomePage => ({
   name: "Ryley", today: "2026-11-13", brief, days: ["2026-11-13", "2026-11-12"], board: { weeks: [] },
   offers: [{ key: "github-pr:web", what: "Watch your pull requests in links/web", why: "In the last two weeks: 3 times you brought a pull request's review comments to the crew yourself.",
     trigger: { name: "my-pull-requests-web", kind: "github-pr", link: "web", describe: false, project: "p1" } }],
-  retros: [], drive: { brief: true, briefAt: "08:00", retro: true }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
+  held: [], retros: [], drive: { brief: true, briefAt: "08:00", retro: true }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
 });
 const S = {
   history: { projects: [{ id: "general", name: "General" }, { id: "p1", name: "web" }],
@@ -84,6 +84,26 @@ test("the page opens with the greeting and where you left off; each line of the 
   fireEvent.click(within(needs).getByRole("button", { name: "Resume" }));
   await waitFor(() => expect(asked).toContain('POST /api/send {"resume":"run-9"}'));
   expect(within(screen.getByText("In motion · 1").closest("section")!).queryByRole("button", { name: /Address|Resume|Start/ })).toBeNull();
+});
+
+test("plans you approved to start later wait on Home, and Start carries on their conversation", async () => {
+  expect(kickoff({ ...brief, needs: [], moving: [], tickets: [], next: [], done: { ...brief.done, finished: [], merged: [] } }, 2)).toBe("Two plans you approved are ready to start when you are.");
+  expect(kickoff({ ...brief, needs: [brief.needs[1]], moving: [], tickets: [], next: [], done: { ...brief.done, finished: [], merged: [] } }, 1))
+    .toBe("One thing is waiting on you: Fix the flaky date test (ended as stopped). One plan you approved is ready to start when you are.");
+
+  const held = [{ ask: "ask_7", conversation: "c3", title: "Migrate the settings page", project: "p1", held: "2026-11-13T09:00:00.000Z", plan: "1. Artificer moves it\n2. Warden reviews", steps: 2 }];
+  const asked = camp({ "/api/home": page({ held }), "/api/send": { ok: true, id: "run-30", thread: "c3" } });
+  const props = show();
+  const ready = (await screen.findByText("Ready to start · 1")).closest("section")!;
+  expect(ready.textContent).toContain("Migrate the settings page");
+  expect(ready.textContent).toContain("2 steps · web · approved");
+  expect(within(ready).getByText(/Warden reviews/)).toBeTruthy(); // the plan, folded under its line
+  expect(screen.getByRole("status").textContent).toMatch(/One plan you approved is ready to start when you are\./);
+  fireEvent.click(within(ready).getByRole("button", { name: "Migrate the settings page" }));
+  expect(props.setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "c3" });
+  fireEvent.click(within(ready).getByRole("button", { name: "Start plan" }));
+  await waitFor(() => expect(asked).toContain('POST /api/send {"start":"ask_7"}'));
+  await waitFor(() => expect(props.setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "c3" }));
 });
 
 test("your tickets, what's upcoming and your notes are part of it; the numbers and the switches live in Settings, not here", async () => {

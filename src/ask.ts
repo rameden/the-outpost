@@ -37,8 +37,10 @@ export function setAsker(a: Asker) {
 
 // Starts from the clock so ids stay unique across restarts (the saved feed holds old ones).
 let nextId = Date.now();
-export async function ask(q: Question): Promise<string> {
+// asked: told the question's id as it goes out (a plan held for later remembers which card it was).
+export async function ask(q: Question, asked?: (id: string) => void): Promise<string> {
   const id = `ask_${++nextId}`;
+  asked?.(id);
   emit({ type: "ask", id, ...q, questId: currentQuestId() });
   explainAsk(id, q); // in plain words, if you turned that on: it joins the card when it's ready
   const answer = (await asker({ ...q, id })).trim();

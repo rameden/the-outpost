@@ -7,7 +7,7 @@
 // It never changes the state it's given, so React can skip every card an event didn't touch.
 
 import type { AskKind, Attached, CampEvent, EventOf, Workspaces } from "../types.ts";
-import { askOutcome } from "./asks.ts";
+import { askOutcome, heldAnswer } from "./asks.ts";
 
 export type CrewStatus = { status: "idle" | "active" | "waiting"; line: string };
 
@@ -19,7 +19,9 @@ export type NoticeNode = { kind: "notice"; id: string; text: string };
 export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
 // listed: an approved plan whose steps are shown as the live list under it (so the card itself folds its text away).
-export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null; listed?: boolean; plain?: string }; // plain: what it does, in plain words
+// held: a plan you approved to start later. started: the run it was started as, once you have.
+export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null; listed?: boolean; plain?: string; // plain: what it does, in plain words
+  held?: boolean; started?: string };
 // The plan you approved, as a list that fills in: each numbered step, and the quests carrying it out.
 // ended: how the run finished, once it has (a step still out then was cut short).
 export type PlanQuest = { node: string; who: string; emoji: string; status: string | null };
@@ -60,6 +62,12 @@ export type FeedState = {
   quests: QuestOut[];                     // every quest that's out right now, in the order they set out
   localSeq: number;                       // for lines the page adds itself ("Queued (#2)…")
 };
+
+// What one of the crew is doing, in a line: their quests if several are out, else what they're on, else where they are.
+export function statusLine(st: CrewStatus, out: QuestOut[]): string {
+  if (out.length > 1) return `${out.length} quests out${out.some((q) => q.waiting) ? " · one needs your OK" : ""}`;
+  return st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : "At camp");
+}
 
 export const emptyFeed: FeedState = { lastSeq: 0, items: [], open: {}, live: {}, asks: [], crew: {}, quests: [], localSeq: 0 };
 
@@ -278,7 +286,8 @@ function explainAsk(s: FeedState, e: EventOf<"explained">) {
 function resolveAsk(s: FeedState, e: EventOf<"answered">) {
   const ask = s.asks.find((a) => a.id === e.id);
   if (!ask) return;
-  s.items = replaceNode(s.items, ask.node, (n) => (n.kind === "ask" ? { ...n, outcome: askOutcome(n.askKind, e.answer, e.lapsed) } : n));
+  const held = !e.lapsed && heldAnswer(e.answer);
+  s.items = replaceNode(s.items, ask.node, (n) => (n.kind === "ask" ? { ...n, outcome: askOutcome(n.askKind, e.answer, e.lapsed), ...(held && n.askKind === "plan" ? { held: true } : {}) } : n));
   s.asks = s.asks.filter((a) => a.id !== e.id);
   setCrew(s, ask.who, "active");
   // Still waiting only if another of its questions is open.
@@ -320,6 +329,12 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
     case "ask": addAsk(s, e); break;
     case "explained": explainAsk(s, e); break;
     case "answered": resolveAsk(s, e); break;
+    case "plan_started": {
+      // On a finished run (the one that planned it), so its card is found by its question's id.
+      const card = findNodes(s.items, "ask").find((n) => n.askId === e.ask);
+      if (card) s.items = replaceNode(s.items, card.id, (n) => (n.kind === "ask" ? { ...n, started: e.run } : n));
+      break;
+    }
     case "steer": place(s, { kind: "steer", id: `s${e.seq}`, text: e.text }, undefined, e.id); break;
     case "feedback": {
       // On a finished run, so it's found by its expedition id rather than among the open ones.

@@ -4,6 +4,7 @@
 // you, says in a few plain sentences where things stand, and lays out the morning brief
 // (brief.ts) to start the day from:
 //   - where you left off, to step straight back in;
+//   - plans you approved to start later, as cards under it, each with its Start button;
 //   - what's waiting on you, each line with its one next step as a button;
 //   - your Jira tickets under way, and what's upcoming;
 //   - your latest notes;
@@ -34,11 +35,13 @@ export function greeting(now: Date, name?: string): string {
   return `Good ${h < 5 ? "evening" : h < 12 ? "morning" : h < 18 ? "afternoon" : "evening"}${name ? `, ${name}` : ""}.`;
 }
 // Where things stand, in a few plain sentences: what the brief says, the way you'd say it.
-export function kickoff(b: Brief): string {
+// held: how many plans you approved to start later are still waiting (they're live, not in the brief).
+export function kickoff(b: Brief, held = 0): string {
   const out: string[] = [];
   const first = b.needs[0];
   if (first) out.push(`${count(b.needs.length, "thing")} ${b.needs.length === 1 ? "is" : "are"} waiting on you${b.needs.length === 1 ? ":" : ", starting with"} ${first.title} (${lower(first.says)}).`);
-  else out.push("Nothing is waiting on you.");
+  else if (!held) out.push("Nothing is waiting on you.");
+  if (held) out.push(heldLine(held));
   if (b.moving.length) out.push(`${count(b.moving.length, "pull request")} ${b.moving.length === 1 ? "is" : "are"} with reviewers.`);
   if (b.tickets.length) out.push(`You're in the middle of ${lower(count(b.tickets.length, "ticket"))}.`);
   const next = b.next.find((l) => l.kind === "ticket");
@@ -47,9 +50,11 @@ export function kickoff(b: Brief): string {
   if (d.finished.length || d.merged.length) {
     out.push(`Since last time, ${[d.finished.length ? `${lower(count(d.finished.length, "conversation"))} had work finish` : "", d.merged.length ? `${lower(count(d.merged.length, "pull request"))} merged` : ""].filter(Boolean).join(" and ")}.`);
   }
-  if (!first && !b.moving.length && !b.tickets.length && !next) out.push("A good day to start something.");
+  if (!first && !held && !b.moving.length && !b.tickets.length && !next) out.push("A good day to start something.");
   return out.join(" ");
 }
+
+const heldLine = (n: number) => `${count(n, "plan")} you approved ${n === 1 ? "is" : "are"} ready to start when you are.`;
 
 export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
   S: CampState; setView: (v: View) => void;
@@ -86,6 +91,12 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
       setView({ kind: "conversation", id: r.thread });
     });
   };
+  // A plan held for later, started from here: it carries on its conversation, which opens.
+  const startPlan = (h: HomePage["held"][number]) => doing(h.ask, async () => {
+    const r = await api<{ thread: string }>("/api/send", { start: h.ask });
+    setView({ kind: "conversation", id: r.thread });
+  });
+  const held = home?.held ?? [];
   const rewrite = () => doing("brief", async () => { await api("/api/brief", {}); setDay(null); await load(); });
 
   const brief = day ? earlier : home?.brief ?? null;
@@ -123,7 +134,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
         <div className="home-date">{now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</div>
         <h2>{greeting(now, home?.name)}</h2>
         <p className="home-kickoff" role="status">
-          {!home ? "One moment: reading where things stand…" : brief ? kickoff(brief) : "There's no brief yet. Write one, and this is where your day starts: what's waiting on you, your tickets, what's upcoming and your notes."}
+          {!home ? "One moment: reading where things stand…" : brief ? kickoff(brief, day ? 0 : held.length) : held.length ? `${heldLine(held.length)} There's no brief yet.` : "There's no brief yet. Write one, and this is where your day starts: what's waiting on you, your tickets, what's upcoming and your notes."}
         </p>
         <div className="home-hero-foot">
           <span className="meta">{brief ? (day ? `The brief for ${day}.` : fresh ? `Written ${when(brief.written)}.` : `This is the brief from ${brief.day}.`) : ""}</span>
@@ -148,6 +159,24 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
             </span>
             {status(last)}
             <button type="button" className="btn small primary" onClick={() => setView({ kind: "conversation", id: last.id })}>Pick it back up</button>
+          </div>
+        </section>
+      )}
+
+      {held.length > 0 && !day && (
+        <section>
+          <div className="section-label">Ready to start · {held.length}</div>
+          <div className="home-held-cards">
+            {held.map((h) => (
+              <div className="home-last home-held" key={h.ask}>
+                <span className="home-line-text">
+                  <button type="button" className="home-last-title" title="Open its conversation" onClick={() => setView({ kind: "conversation", id: h.conversation })}>{h.title}</button>
+                  <span className="meta">{[h.steps ? `${h.steps} ${plural(h.steps, "step")}` : "", nameOf(h.project), `approved ${when(h.held)}`].filter(Boolean).join(" · ")}</span>
+                  <details className="home-held-plan"><summary>The plan</summary><div className="ask-body">{h.plan}</div></details>
+                </span>
+                <button type="button" className="btn small primary" disabled={busy === h.ask} onClick={() => void startPlan(h)}>{busy === h.ask ? "Starting…" : "Start plan"}</button>
+              </div>
+            ))}
           </div>
         </section>
       )}

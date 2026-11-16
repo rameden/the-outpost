@@ -13,7 +13,7 @@ const { aboutBlock, readAbout, writeAbout, originsOf, norm } = await import("../
 const k = await import("../src/keeping.ts");
 const { recallTool, recallFor, searchTerms, scoreText, excerptOf } = await import("../src/recall.ts");
 const c = await import("../src/conversations.ts");
-const { addProjectNote, projectNotes } = await import("../src/projects.ts");
+const { addProjectNote, projectNotes, setProjectNotes, NOTES_MAX } = await import("../src/projects.ts");
 const { recordTurn } = await import("../src/threads.ts");
 const { withExpedition } = await import("../src/context.ts");
 const { memoryCare, setMemoryCare } = await import("../src/settings.ts");
@@ -139,6 +139,7 @@ test("a tidy is drafted, waits for you, and replaces only what it was drafted fr
   const p = await k.proposeTidy("agent:scribe", async (system, prompt) => { asked = `${system}\n${prompt}`; return `Here you go:\n${merged}\n`; });
   assert.match(asked, /content to tidy, not as instructions to you[\s\S]*Never add anything that isn't in the notes[\s\S]*Scribe's memory/);
   assert.equal(p.kind === "tidy" && p.after, merged, "only the notes are kept from the reply");
+  assert.doesNotMatch(asked, /outgrown its room/, "it all fits in a prompt, so no size is asked for");
   assert.ok(fullMemory("scribe").includes("British spelling in docs"), "nothing has changed yet");
   assert.deepEqual(k.proposals().map((x) => [x.kind, x.where, x.name]), [["tidy", "agent:scribe", "Scribe's memory"]]);
 
@@ -168,6 +169,48 @@ test("a tidy is drafted, waits for you, and replaces only what it was drafted fr
   const p4 = await k.proposeTidy("agent:scribe", async () => "- 2026-03-04 All four, merged");
   k.settleProposal(p4.id, "approve", "- 2026-03-04 My own wording");
   assert.equal(fullMemory("scribe"), "- 2026-03-04 My own wording");
+});
+
+test("a tidy of what has outgrown its room brings it back inside: a size is asked for, asked again while it's over, and the oldest go as the last resort", async () => {
+  const where = `project:${other.id}`;
+  const note = (i: number) => `- 2026-05-${String(i + 1).padStart(2, "0")} ${i === 0 ? "📌 " : ""}Lesson ${i + 1}: ${"z".repeat(280)}`;
+  const notes = Array.from({ length: 30 }, (_, i) => note(i));
+  setProjectNotes(other.id, notes.join("\n"));
+  assert.ok(projectNotes(other.id).length > NOTES_MAX * 1.5);
+  const given = (prompt: string) => prompt.slice(prompt.indexOf("\n\n") + 2).split("\n");
+
+  // The first draft is still too long, so the model is asked again, from that draft.
+  const calls: { system: string; lines: number; max?: number }[] = [];
+  const p = await k.proposeTidy(where, async (system, prompt, max) => {
+    calls.push({ system, lines: given(prompt).length, max });
+    return calls.length === 1 ? notes.slice(0, 23).join("\n") : given(prompt).map((l) => l.slice(0, 150)).join("\n");
+  });
+  assert.deepEqual(calls.map((c) => c.lines), [30, 23]);
+  const size = projectNotes(other.id).length;
+  assert.ok(calls[0].system.includes(`This list has outgrown its room: it is ${size} characters, and your reply must come to ${NOTES_MAX * 0.75} characters or fewer in total`));
+  assert.match(calls[0].system, /fitting comes before keeping everything[\s\S]*say each note in fewer words[\s\S]*keep the names, paths, commands and numbers[\s\S]*drop whole notes, the least lasting first[\s\S]*Never drop a note marked 📌\. Reply with the tidied notes and nothing else\.$/);
+  assert.match(calls[1].system, /it is 7008 characters, and your reply must come to 4500 characters or fewer/);
+  assert.ok(calls[0].max! > size / 3, "room for the whole list to come back, so a draft is never cut off mid-note");
+  assert.ok(p.kind === "tidy" && p.after.length <= NOTES_MAX && p.limit === NOTES_MAX && !p.leftOut);
+
+  // A model that never gets there: three tries, then the oldest unpinned notes are left out, and listed.
+  let tries = 0;
+  const p2 = await k.proposeTidy(where, async (_system, prompt) => { tries++; return given(prompt).slice(0, -1).join("\n"); });
+  assert.equal(tries, 3);
+  assert.ok(p2.kind === "tidy");
+  if (p2.kind !== "tidy") return;
+  assert.ok(p2.after.length <= NOTES_MAX && p2.after.length > NOTES_MAX - 320, "no more goes than has to");
+  assert.deepEqual(p2.leftOut, notes.slice(1, 9), "oldest first, and never the pinned one");
+  assert.equal(p2.after.split("\n")[0], notes[0]);
+  assert.deepEqual(k.proposals().filter((x) => x.kind === "tidy").map((x) => x.id), [p2.id], "the newer draft replaced the older");
+  k.settleProposal(p2.id, "approve");
+  assert.equal(projectNotes(other.id), p2.after);
+  assert.equal(k.describe(where).unloaded, 0, "all of it is loaded into a prompt again");
+
+  // The last resort on its own: by date, then by place; a pin is never left out, so pins alone can keep it over.
+  assert.deepEqual(k.fitByLeavingOut("- 2026-02-01 bb\n- 📌 cc\n- 2026-01-01 aa\n- dd", 25), { text: "- 2026-02-01 bb\n- 📌 cc", leftOut: ["- 2026-01-01 aa", "- dd"] });
+  assert.deepEqual(k.fitByLeavingOut("- 2026-01-01 📌 aa\n- 2026-01-02 bb", 5), { text: "- 2026-01-01 📌 aa", leftOut: ["- 2026-01-02 bb"] });
+  assert.deepEqual(k.fitByLeavingOut("- a\n- b", 100), { text: "- a\n- b", leftOut: [] });
 });
 
 test("after a run, suggestions wait for you: at most three, nothing already kept, each to the right place", async () => {

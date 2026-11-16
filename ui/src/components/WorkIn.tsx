@@ -144,7 +144,7 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, worki
   );
 }
 
-// Your checkout's branch, opened from the branch name beside "Your checkout": one box to find a
+// Your checkout's branch, opened from the branch name beside "Branch": one box to find a
 // branch or name a new one. Typing narrows the branches there are; pick one to switch to it, or
 // make the branch you typed from where the checkout stands. It's `git switch`, so git refuses (and
 // says why) if work you haven't committed would be overwritten. This works on a follow-up too: it's
@@ -204,27 +204,62 @@ function BranchPicker({ r, onBranch, onClose }: { r: RepoInfo; onBranch: (link: 
   );
 }
 
-// A repository's worktrees, folded under "Existing worktree": full names (they wrap rather than
-// being cut off, so two that start alike can be told apart), and a box to find one when there are many.
-const FIND_FROM = 6;
-function Worktrees({ r, value, onPick }: { r: RepoInfo; value: string; onPick: (path: string) => void }) {
-  const [q, setQ] = useState("");
-  const find = q.trim().toLowerCase();
-  const list = r.worktrees.filter((w) => !find || w.branch.toLowerCase().includes(find) || w.path.toLowerCase().includes(find));
+// Where the crew works when it's a worktree, opened from the name beside "Worktree": the same one
+// box as the branch picker. Typing narrows the worktrees there are; pick one to work in it, or make a
+// new worktree on a branch by the name you typed (or, with nothing typed, one named for the request).
+// Unlike the branch picker this only chooses: nothing is made until the request is sent.
+const SHOWN_WORKTREES = 8;
+function WorktreePicker({ r, value, onPick, onClose }: { r: RepoInfo; value: string; onPick: (value: string) => void; onClose: () => void }) {
+  const [typed, setTyped] = useState("");
+  const name = typed.trim();
+  const canMake = r.access === "write";
+  const find = name.toLowerCase();
+  // The one chosen first, so it's in view however many there are.
+  const matches = r.worktrees.filter((w) => !find || w.branch.toLowerCase().includes(find) || w.path.toLowerCase().includes(find))
+    .sort((a, b) => Number(b.path === value) - Number(a.path === value));
+  const exact = r.worktrees.find((w) => w.branch === name);
+  const taken = !exact && (r.branches ?? []).includes(name);
+  const pick = (v: string) => { onPick(v); onClose(); };
+  // Enter does what you typed: the worktree on that branch if there is one, otherwise a new one by that name.
+  const submit = (ev: FormEvent) => {
+    ev.preventDefault(); ev.stopPropagation();
+    if (exact) pick(exact.path);
+    else if (name && canMake) pick(`new:${name}`);
+    else if (matches.length === 1) pick(matches[0].path);
+  };
+  const newName = branchOf(value);
   return (
-    <div className="work-wts">
-      {r.worktrees.length >= FIND_FROM && (
-        <input className="work-wt-find" aria-label={`Find a worktree of ${r.link}`} placeholder={`Find among ${r.worktrees.length} worktrees`} value={q}
-          spellCheck={false} autoCapitalize="off" autoComplete="off" onChange={(ev) => setQ(ev.target.value)} />
-      )}
-      <div className="work-wt-list" role="radiogroup" aria-label={`Worktrees of ${r.link}`}>
-        {list.map((w) => (
-          <button key={w.path} type="button" role="radio" aria-checked={value === w.path} className="work-pick work-wt" title={w.path} onClick={() => onPick(w.path)}>
-            <span className="work-dot" aria-hidden="true" /><span className="work-pick-name mono">{w.branch}</span>
+    <div className="work-branch">
+      <form className="menu-form" onSubmit={submit}>
+        <input aria-label={canMake ? `Find a worktree of ${r.link}, or name a new one` : `Find a worktree of ${r.link}`} autoFocus
+          placeholder={canMake ? "Find one, or name a new branch" : "Find a worktree"} value={typed}
+          spellCheck={false} autoCapitalize="off" autoComplete="off"
+          onChange={(ev) => setTyped(ev.target.value)}
+          onKeyDown={(ev) => { ev.stopPropagation(); if (ev.key === "Escape") onClose(); }} />
+      </form>
+      <div className="work-branch-list" role="radiogroup" aria-label={`Worktrees of ${r.link}`}>
+        {canMake && (name ? !exact && (
+          <button type="button" role="radio" aria-checked={newName === name} className="work-branch-opt work-new" title={`A new worktree on a new branch, ${name}, made from ${r.branch} when the request is sent`} onClick={() => pick(`new:${name}`)}>
+            <span><Icon name="plus" />Create <span className="mono">{name}</span></span>
+            {newName === name && <Icon name="check" />}
+            <small>{taken ? `${name} is a branch already, so the new one is ${name}-2` : `A new worktree and branch from ${r.branch}`}</small>
+          </button>
+        ) : (
+          <button type="button" role="radio" aria-checked={isNewWork(value)} className="work-branch-opt work-new" title={`A fresh branch in a folder of its own, made from ${r.branch}: your checkout isn't touched`} onClick={() => pick(newName ? value : "new")}>
+            <span><Icon name="plus" />New worktree{newName && <> <span className="mono">{newName}</span></>}</span>
+            {isNewWork(value) && <Icon name="check" />}
+            <small>{newName ? `A new branch from ${r.branch}` : `A new branch from ${r.branch}, named for the request`}</small>
           </button>
         ))}
-        {!list.length && <div className="menu-tip">No worktree matches that.</div>}
+        {matches.slice(0, SHOWN_WORKTREES).map((w) => (
+          <button key={w.path} type="button" role="radio" aria-checked={value === w.path} className="work-branch-opt work-wt" title={w.path} onClick={() => pick(w.path)}>
+            <span className="mono">{w.branch}</span>{value === w.path && <Icon name="check" />}
+          </button>
+        ))}
+        {matches.length > SHOWN_WORKTREES && <div className="menu-tip">{matches.length - SHOWN_WORKTREES} more: type to narrow them down.</div>}
+        {!matches.length && (!name || !canMake || exact) && <div className="menu-tip">{name ? "No worktree matches that." : "No worktrees yet. Type a name to make one."}</div>}
       </div>
+      <div className="work-branch-foot">The crew works there; your checkout isn't touched.</div>
     </div>
   );
 }
@@ -249,7 +284,7 @@ function UseSwitch({ link, on, onChange }: { link: string; on: boolean; onChange
 
 // The + menu's "Where to work" panel: a card for each folder. Each card answers two questions, in
 // order: is the folder used at all (the switch), and if it's a git repository, where in it the crew
-// works (your checkout, a new worktree, or one that exists). Switching your checkout's branch is an
+// works (your checkout, or a worktree: a new one or one that exists). Switching your checkout's branch is an
 // action, not a choice, so it sits behind the branch name rather than in the list.
 // canLeaveOut: these are a project's folders, which a conversation there gets unless it's started without them.
 // without: for a follow-up, the folders its conversation is without.
@@ -264,7 +299,7 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
   repos: RepoInfo[]; choice: WorkChoice; locked: boolean; onPick: (link: string, value: string) => void;
   onBranch?: (link: string, name: string, create: boolean) => Promise<void>;
 }) {
-  // For each repository, what's unfolded under its choices: the branch box, or the worktrees.
+  // For each repository, what's unfolded under its choices: the branch box, or the worktree box.
   const [unfolded, setUnfolded] = useState<Record<string, "branch" | "worktrees" | undefined>>({});
   const unfold = (link: string, what: "branch" | "worktrees") => setUnfolded((u) => ({ ...u, [link]: u[link] === what ? undefined : what }));
   // Where a folder worked before it was switched off, so switching it back on puts it there again.
@@ -285,21 +320,18 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
   const offNote = (link: string) => (locked && stands(link) !== LEFT_OUT ? "Taken out from this message on: the crew is given nothing from it."
     : locked ? "Not part of this conversation. Turn it on to bring it in." : "Not used: the crew is given nothing from it.");
   const bulk = !!(canLeaveOut && onPickAll && (optIn ? inUse > 1 : every.length > 1));
-  const tip = locked ? "A follow-up stays where its conversation was working. You can still take a folder out, or bring one back."
-    : optIn ? "Outside a project, the crew is given only the folders you turn on here or attach to the message." : "";
   const showPlain = canLeaveOut || locked || plain.some((l) => valueOf(l) === LEFT_OUT);
   return (
     <>
-      <div className="fly-head work-head">
-        <span>Where to work</span><small>{locked ? "from this message on" : "for the next request"}</small>
-        {bulk && (
+      {/* No heading or explanation: the cards say it. Only the one bulk action, when there's something to do in bulk. */}
+      {bulk && (
+        <div className="work-bar">
           <button type="button" className="work-all" onClick={() => onPickAll!(allOut ? "" : LEFT_OUT)}
             title={allOut ? "Use all of this project's folders again" : optIn ? `Take out the ${inUse} in use: the crew is given nothing from them` : `Leave out all ${every.length} folders: the crew is given nothing from them`}>
             {allOut ? "Use all" : "Use none"}
           </button>
-        )}
-      </div>
-      {tip && <div className="menu-tip work-tip">{tip}</div>}
+        </div>
+      )}
       <div className="fly-list work-list">
         {repos.map((r) => {
           const value = valueOf(r.link);
@@ -308,6 +340,8 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
           const inWorktree = !!value && !isNewWork(value) && value !== USED && !off;
           const picked = inWorktree ? r.worktrees.find((w) => w.path === value) : undefined;
           const there = locked ? home(r.link) : "";
+          // What the worktree row is on: the one picked, or the new one's branch.
+          const wtName = picked?.branch ?? (isNewWork(value) ? branchOf(value) || "new branch" : "");
           // The branch your checkout is on; with a way to switch it, the name is the way in.
           const branch = onBranch ? (
             <button type="button" className="work-val work-branch-btn" aria-expanded={open === "branch"} aria-label={`Switch the branch of your checkout of ${r.link} (now ${r.branch})`}
@@ -327,7 +361,7 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
                 : locked ? (
                   <>
                     <div className="work-row work-fixed">
-                      <span className="work-fixed-name">{there ? "Its own worktree" : "Your checkout"}</span>
+                      <span className="work-fixed-name">{there ? "Its own worktree" : "Branch"}</span>
                       {there ? <span className="work-val mono" title={there}>{working?.[r.link]}</span> : branch}
                     </div>
                     {!there && picker}
@@ -335,29 +369,24 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
                 ) : (
                   <div className="work-choices" role="radiogroup" aria-label={`Where to work in ${r.link}`}>
                     <div className="work-row">
-                      <Pick on={value === ""} name="Your checkout" title={`Your own working copy of ${r.link}: the crew's changes land where you work`} onClick={() => onPick(r.link, "")} />
+                      <Pick on={value === ""} name="Branch" title={`Your own checkout of ${r.link}, on the branch beside it: the crew's changes land where you work`} onClick={() => onPick(r.link, "")} />
                       {branch}
                     </div>
                     {picker}
-                    {r.access === "write" && (
+                    {(r.access === "write" || r.worktrees.length > 0) && (
                       <div className="work-row">
-                        <Pick on={isNewWork(value)} name="New worktree" title={`A fresh branch in a folder of its own, made from ${r.branch}: your checkout isn't touched`} onClick={() => onPick(r.link, "new")} />
-                        <span className={cx("work-val", branchOf(value) && "mono")} title={branchOf(value) || undefined}>{branchOf(value) || "new branch"}</span>
+                        <Pick on={inWorktree || isNewWork(value)} name="Worktree" title={`A folder of its own: a new branch made from ${r.branch}, or a worktree that's there already. Your checkout isn't touched.`}
+                          onClick={() => (inWorktree || isNewWork(value) ? undefined : r.access === "write" ? onPick(r.link, "new") : unfold(r.link, "worktrees"))} />
+                        <button type="button" className="work-val work-branch-btn" aria-expanded={open === "worktrees"}
+                          aria-label={`Pick or make a worktree of ${r.link}${wtName ? ` (now ${wtName})` : ""}`}
+                          title={r.worktrees.length ? `Pick one of the ${r.worktrees.length} worktrees, or make a new one` : "Make a new worktree, on a branch named for the request or one you name"}
+                          onClick={() => unfold(r.link, "worktrees")}>
+                          <span className={cx(!wtName && "work-hint")}>{wtName || (r.worktrees.length ? `${r.worktrees.length} existing` : "new")}</span>
+                          <Icon name={open === "worktrees" ? "chevronUp" : "chevron"} />
+                        </button>
                       </div>
                     )}
-                    {r.worktrees.length > 0 && (
-                      <>
-                        <button type="button" className="work-row work-more" aria-expanded={open === "worktrees"} onClick={() => unfold(r.link, "worktrees")}
-                          aria-label={`Existing worktree${picked ? `: ${picked.branch}` : ""} (${r.worktrees.length})`}>
-                          <span className={cx("work-dot", inWorktree && "on")} aria-hidden="true" />
-                          <span className="work-pick-name">Existing worktree</span>
-                          <span className="work-val">{r.worktrees.length}</span>
-                          <Icon name={open === "worktrees" ? "chevronUp" : "chevron"} />
-                          {picked && open !== "worktrees" && <span className="work-more-sub mono">{picked.branch}</span>}
-                        </button>
-                        {open === "worktrees" && <Worktrees r={r} value={value} onPick={(path) => onPick(r.link, path)} />}
-                      </>
-                    )}
+                    {open === "worktrees" && <WorktreePicker r={r} value={value} onPick={(v) => onPick(r.link, v)} onClose={() => unfold(r.link, "worktrees")} />}
                   </div>
                 )}
             </section>

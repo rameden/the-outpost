@@ -62,6 +62,19 @@ test("each memory: how full it is, what no longer fits, where a line came from, 
   expect(within(screen.getByRole("region", { name: "Scout's memory" })).getByText("Nothing remembered yet.")).toBeTruthy();
 });
 
+test("a tidy of a memory that had outgrown its room says it was cut to fit, and which lines were left out", () => {
+  const before = Array.from({ length: 6 }, (_, i) => `- 2026-01-0${i + 1} Lesson ${i + 1}`).join("\n");
+  const cut: Proposal = { ...tidy, before, after: "- 2026-01-05 Lesson 5\n- 2026-01-06 Lesson 6", limit: 60, leftOut: ["- 2026-01-01 Lesson 1", "- 2026-01-02 Lesson 2"] } as Proposal;
+  render(<MemoryPage S={state([cut])} refresh={vi.fn()} />);
+  const t = within(screen.getByRole("listitem", { name: "A tidy of Scribe's memory" }));
+  expect(t.getByText(/^6 lines to 2 · 131 characters to 43 · a prompt loads 60$/)).toBeTruthy();
+  expect(t.getByText(/^This had outgrown what a prompt loads, so the smallest model drafted it to fit: .* More goes than in an ordinary tidy, so read it before you approve/)).toBeTruthy();
+  expect(t.getByRole("status").textContent).toMatch(/^The draft was still too long, so the 2 oldest unpinned lines were left out to make it fit\. Put back what you'd rather keep:2026-01-01 Lesson 12026-01-02 Lesson 2$/);
+  // Putting them back by hand takes it over again, and that's said before you approve.
+  fireEvent.change(t.getByLabelText("The tidied Scribe's memory"), { target: { value: before } });
+  expect(t.getAllByRole("status")[1].textContent).toMatch(/^As edited, this is 71 characters over what a prompt loads/);
+});
+
 test("about you is yours to write, whole; and the two switches say what each costs", async () => {
   const refresh = vi.fn();
   render(<MemoryPage S={state()} refresh={refresh} />);
@@ -89,6 +102,8 @@ test("what's waiting: a tidy you can read, edit and approve; a suggestion you ca
   expect(waiting.getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["A tidy of Scribe's memory", "Suggested for About you"]);
   const t = within(waiting.getByRole("listitem", { name: "A tidy of Scribe's memory" }));
   expect(t.getByText(/^4 lines to 2 · 15 characters to 7\d$/)).toBeTruthy();
+  expect(t.getByText(/^Duplicates merged and superseded lines dropped/)).toBeTruthy();
+  expect(t.queryByRole("status")).toBeNull();
   expect(t.queryByText("- a", { exact: false, selector: "pre" })).toBeNull();
   fireEvent.click(t.getByRole("button", { name: "Show what's there now" }));
   expect(t.getByText(/- a\s+- b/, { selector: "pre" })).toBeTruthy();

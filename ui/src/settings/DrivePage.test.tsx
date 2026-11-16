@@ -17,7 +17,7 @@ const page = (over: Partial<HomePage> = {}): HomePage => ({
   board: { weeks: [week({ week: "2026-11-02", label: "Nov 2 to Nov 8, 2026", requests: 20, operating: 70, byMae: 0 }), week()] },
   offers: [{ key: "github-pr:web", what: "Watch your pull requests in links/web", why: "In the last two weeks: 3 times you brought a pull request's review comments to the crew yourself.",
     trigger: { name: "my-pull-requests-web", kind: "github-pr", link: "web", describe: false, project: "p1" } }],
-  retros: [{ project: "p1", name: "web", week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", written: "2026-11-13T20:00:00.000Z", requests: 12, heard: 4, proposed: ["Sign every commit."] }],
+  held: [], retros: [{ project: "p1", name: "web", week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", written: "2026-11-13T20:00:00.000Z", requests: 12, heard: 4, proposed: ["Sign every commit."] }],
   drive: { brief: true, briefAt: "08:00", retro: false }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
 });
 const S = (over: Record<string, unknown> = {}) => ({

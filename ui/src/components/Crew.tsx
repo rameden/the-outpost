@@ -23,7 +23,7 @@ import { Icon } from "./bits.tsx";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, shortModel, took } from "../format.ts";
 import type { CampState, Character } from "../types.ts";
-import type { QuestOut } from "../feed/reducer.ts";
+import { statusLine, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 
 // How long something has been going, as you'd say it.
 export const outFor = (ms: number) => took(ms / 1000);
@@ -128,12 +128,12 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
     <div className="crew-half">
     <section className={cx("crew", slim && "slim")} aria-label="The crew" ref={bar}>
       {S?.characters.map((c) => {
-        const st = crew[c.name] ?? { status: "idle", line: "" };
+        const st: CrewStatus = crew[c.name] ?? { status: "idle", line: "" };
         const xp = S.xp[c.name] ?? 0;
         const out = quests.filter((q) => q.who === c.name);
         const several = out.length > 1;
         const outLines = several ? `\n${out.map((q) => `• ${q.brief || "A quest"}: ${q.waiting ? "waiting for your OK" : q.line || "working"}`).join("\n")}` : "";
-        const statusText = several ? `${out.length} quests out${out.some((q) => q.waiting) ? " · one needs your OK" : ""}` : st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : "At camp");
+        const statusText = statusLine(st, out);
         return (
           <div key={c.id} className={cx("member", cClass(c.name), st.status !== "idle" && st.status)} role="button" tabIndex={0}
             title={slim ? `${c.name}: ${statusText}${outLines}\n${shortModel(c.model)} · ${c.effort} · Lv ${Math.floor(xp / 50) + 1}\n${c.role}\nClick to open ${c.name}'s page.`

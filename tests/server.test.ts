@@ -121,6 +121,24 @@ test("it stays up through bad input, and stops promptly when told to", async () 
   if (!WINDOWS) assert.equal((c.child as any).signalCode, null, "it exited on its own terms: the exit hooks ran");
 });
 
+test("a plan held for later starts from its card once, and only a plan that's there", async () => {
+  const turn = { thread: "plan-1", expedition: "plan-1", agent: "quartermaster", direct: false, time: new Date().toISOString(), task: "Research it", reply: "The plan is ready.", status: "done" };
+  writeFileSync(join(camp, "camp", "threads.jsonl"), [
+    { ...turn, parked: { text: "1. Scout looks\n2. I write", ask: "ask_held" } },
+    { ...turn, expedition: "plan-2", thread: "plan-2", parked: { text: "1. Old", ask: "ask_done" } },
+    { ...turn, expedition: "plan-3", thread: "plan-2", started: "ask_done" },
+  ].map((t) => JSON.stringify(t)).join("\n") + "\n");
+  const c = await start();
+  const post = (body: object) => fetch(`http://127.0.0.1:${c.port}/api/send`, { method: "POST", headers: { "x-camp-token": c.token, "content-type": "application/json" }, body: JSON.stringify(body) });
+  const first = await post({ start: "ask_held" });
+  assert.equal(first.status, 200);
+  assert.equal((await first.json() as any).thread, "plan-1", "it carries on the conversation it was planned in");
+  assert.equal((await post({ start: "ask_held" })).status, 409, "a second click doesn't start it twice");
+  assert.equal((await post({ start: "ask_done" })).status, 409, "nor does one started before the camp restarted");
+  assert.equal((await post({ start: "ask_nope" })).status, 404);
+  assert.equal(await stop(c), 0);
+});
+
 // ---------- LAN mode ----------
 import http from "node:http";
 import { networkInterfaces } from "node:os";

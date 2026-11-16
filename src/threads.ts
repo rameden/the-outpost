@@ -37,7 +37,11 @@ export type Turn = { thread: string; expedition: string; agent: string; direct: 
   by?: string;        // what started it, when it wasn't you typing: "trigger:<name>" (the scoreboard counts these apart)
   // aside: someone else stepping in for one turn (a second opinion, a review). It reads the
   // conversation and is part of it, but the conversation stays with whoever it was with.
-  aside?: boolean };
+  aside?: boolean;
+  // parked: a plan you approved in this run to start later (its text, and the card it was approved
+  // on). started: the card of the held plan this run was started from.
+  parked?: { text: string; ask: string };
+  started?: string };
 
 let cache: { key: string; turns: Turn[] } | null = null;
 function all(): Turn[] {

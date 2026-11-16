@@ -15,7 +15,7 @@ const S = {
     { id: "scout", name: "Scout", emoji: "🏹", role: "Researches" },
     { id: "scribe", name: "Scribe", emoji: "🪶", role: "Writes" },
   ],
-  links: [], snippets: [{ id: "s1", title: "Standup", text: "Summarize yesterday" }],
+  links: [],
 } as unknown as CampState;
 
 const repo = { link: "web", branch: "main", access: "write", worktrees: [{ path: "/w/web/fix-nav", branch: "fix-nav" }] } as unknown as RepoInfo;
@@ -23,15 +23,14 @@ const repo = { link: "web", branch: "main", access: "write", worktrees: [{ path:
 function show(repos: RepoInfo[] = []) {
   const onTalkTo = vi.fn();
   const onWork = vi.fn();
-  const onInsertSnippet = vi.fn();
   const noop = () => {};
   function Harness() {
     const [view, setView] = useState<MenuView>("main");
-    return <AttachMenu S={S} view={view} setView={setView} text="" repos={repos} work={{}} workLocked={false} onWork={onWork} onClose={noop} onTalkTo={onTalkTo} onPick={noop} onPaste={noop}
-      onUrl={noop} onAttachLink={noop} onLinked={noop} onInsertSnippet={onInsertSnippet} onSnippets={noop} />;
+    return <AttachMenu S={S} view={view} setView={setView} repos={repos} work={{}} workLocked={false} onWork={onWork} onClose={noop} onTalkTo={onTalkTo} onPick={noop} onPaste={noop}
+      onUrl={noop} />;
   }
   render(<Harness />);
-  return { onTalkTo, onInsertSnippet, onWork };
+  return { onTalkTo, onWork };
 }
 
 test("the crew flies out from its row, and Enter picks the lit one", () => {
@@ -56,16 +55,12 @@ test("typing narrows the crew, and the Quartermaster means no one in particular"
   expect(onTalkTo).toHaveBeenCalledWith(null);
 });
 
-test("URL, Link a folder and Prompt snippets each open their own panel", () => {
-  const { onInsertSnippet } = show();
+test("URL opens its own panel; folders are linked in Settings, and there are no prompt snippets here", () => {
+  show();
   fireEvent.click(screen.getByRole("menuitem", { name: "URL" }));
   expect(screen.getByRole("dialog", { name: "Attach a link" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("menuitem", { name: "Link a folder" }));
-  expect(screen.queryByRole("dialog", { name: "Attach a link" })).toBeNull();
-  expect(screen.getByRole("button", { name: "Choose folder…" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("menuitem", { name: "Prompt snippets" }));
-  fireEvent.click(screen.getByText("Standup"));
-  expect(onInsertSnippet).toHaveBeenCalledWith("Summarize yesterday");
+  expect(screen.queryByRole("menuitem", { name: "Link a folder" })).toBeNull();
+  expect(screen.queryByRole("menuitem", { name: "Prompt snippets" })).toBeNull();
 });
 
 test("resting on a plain row puts the panel away, but only after a moment", () => {
@@ -90,10 +85,10 @@ test("the branch row shows where the next request works, and its panel changes i
   const row = screen.getByRole("menuitem", { name: /Branch/ });
   expect(row.textContent).toContain("main");
   fireEvent.click(row);
-  expect(screen.getAllByRole("radio").map((o) => o.textContent)).toEqual(["Your checkout", "New worktree"]);
-  expect(screen.getByRole("radio", { name: "Your checkout" }).getAttribute("aria-checked")).toBe("true");
-  expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Your checkout" })); // the panel opens on the choice that's made
-  fireEvent.click(screen.getByRole("button", { name: /^Existing worktree/ }));
+  expect(screen.getAllByRole("radio").map((o) => o.textContent)).toEqual(["Branch", "Worktree"]);
+  expect(screen.getByRole("radio", { name: "Branch" }).getAttribute("aria-checked")).toBe("true");
+  expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Branch" })); // the panel opens on the choice that's made
+  fireEvent.click(screen.getByRole("button", { name: /^Pick or make a worktree of web/ }));
   fireEvent.click(screen.getByRole("radio", { name: "fix-nav" }));
   expect(onWork).toHaveBeenCalledWith("web", "/w/web/fix-nav");
 });

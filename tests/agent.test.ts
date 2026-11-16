@@ -145,6 +145,9 @@ test("every prompt: identity, crew, memory, recent sessions; streamed with conte
   assert.ok(second.body.system.every((b: any) => b.cache_control?.type === "ephemeral"));
   assert.match(system, /You are the Scribe/);
   assert.match(system, /## Your crew/);
+  // It's told which model it's running on and which ones the camp can run, so a model you name is never news to it.
+  assert.match(second.body.system[1].text, new RegExp(`^## The models here\\nYou are running on Claude [\\w. ]+ \\(${second.body.model}\\)\\. The Claude models this camp can run: Claude Fable 5\\.2 \\(claude-fable-5-2\\), `));
+  assert.match(system, /whether or not you've heard of them/);
   assert.match(system, /## Your memory/);
   assert.match(system, /Who are you\?/, "the previous session is in the prompt");
   assert.equal(second.body.stream, true);
@@ -276,4 +279,41 @@ test("an approved plan goes out as its numbered steps, and each dispatch says wh
   script = (b) => (isFirstTurn(b) ? { tools: [{ name: "submit_plan", input: { plan: "1. One\n2. Two" } }] } : { text: "Stopped." });
   await runExpedition("Stop me");
   assert.equal(events.some((e) => e.type === "plan"), false);
+});
+
+test("a plan approved to start later sends nobody, is kept with the conversation, and starts already approved", async () => {
+  const { allTurns } = await import("../src/threads.ts");
+  const plan = "1. Scout looks it up\n2. I write it up";
+  answer = "later";
+  script = (b) => {
+    const res = lastToolResults(b);
+    if (whoAsks(b) === "Scout") return { text: "report" };
+    if (isFirstTurn(b)) return { tools: [{ name: "submit_plan", input: { plan } }] };
+    if (res.includes("start it later")) return { tools: [{ name: "dispatch", input: { adventurer: "scout", brief: "go anyway" } }] }; // a disobedient model
+    return { text: "The plan is ready." };
+  };
+  await runExpedition("Research it", { id: "held-1" });
+  assert.equal(api.seen.filter((s) => s.who === "Scout").length, 0, "nobody left camp");
+  assert.match(String(lastToolResults(api.seen.filter((s) => s.who === "Quartermaster").at(-1)!.body)), /Blocked: the user approved the plan to start later/);
+  assert.equal(events.some((e) => e.type === "plan"), false, "no list to fill in yet");
+  const asked = events.find((e) => e.type === "ask");
+  assert.deepEqual(allTurns().find((t) => t.expedition === "held-1")?.parked, { text: plan, ask: asked.id });
+  const { heldPlans } = await import("../src/quartermaster.ts");
+  assert.deepEqual(heldPlans().map((h) => [h.ask, h.conversation, h.steps, h.plan]), [[asked.id, "held-1", 2, plan]], "Home lists it, ready to start");
+
+  // Started later: no second approval, the steps go out as the list, and the plan is in the brief.
+  events.length = 0; asks = []; api.seen.length = 0;
+  script = (b) => (whoAsks(b) === "Scout" ? { text: "report" }
+    : isFirstTurn(b) ? { tools: [{ name: "dispatch", input: { adventurer: "scout", brief: "Look it up", step: 1 } }] } : { text: "Done." });
+  const r = await runExpedition("Start the plan.", { id: "held-2", replyTo: "held-1", approvedPlan: { text: plan, ask: asked.id } });
+  assert.equal(r.status, "done");
+  assert.deepEqual(asks, [], "it isn't asked about again");
+  assert.equal(api.seen.filter((s) => s.who === "Scout").length, 1);
+  assert.deepEqual(events.find((e) => e.type === "plan")?.steps, [{ n: 1, text: "Scout looks it up" }, { n: 2, text: "I write it up" }]);
+  const system = api.seen.find((s) => s.who === "Quartermaster")!.body.system.map((x: any) => x.text).join("\n");
+  assert.match(system, /## The approved plan, starting now[\s\S]*Scout looks it up/);
+  const started = allTurns().find((t) => t.expedition === "held-2");
+  assert.equal(started?.started, asked.id);
+  assert.equal(started?.thread, "held-1", "it carries on the conversation it was planned in");
+  assert.deepEqual(heldPlans(), [], "once started, it's no longer waiting");
 });
