@@ -26,7 +26,7 @@ const limits = await import("../src/limits.ts");
 const { recordTurn, threadFor, latestDirect } = await import("../src/threads.ts");
 const { loadFeed, FEED_PATH } = await import("../src/feed.ts");
 const { parseReply } = await import("../src/phone.ts");
-const { claimScheduler, releaseScheduler, SCHEDULER_LOCK, dueJobs } = await import("../src/scheduler.ts");
+const { claimScheduler, releaseScheduler, SCHEDULER_LOCK, dueJobs, toInbox, inboxEntries, inboxUnread, markInboxSeen } = await import("../src/scheduler.ts");
 const { saveJobs } = await import("../src/jobs.ts");
 after(() => rl.close());
 
@@ -135,7 +135,14 @@ test("parallel quests can't overwrite each other's edits", async (t) => {
   assert.equal(readFileSync("shared.txt", "utf8"), "from both\n");
 });
 
-test("plan limits: a used-up window pauses the camp until it resets", () => {
+test("plan limits: a used-up window pauses only the subscription runtime until it resets", (t) => {
+  const runtime = process.env.CAMP_RUNTIME;
+  t.after(() => {
+    if (runtime === undefined) delete process.env.CAMP_RUNTIME;
+    else process.env.CAMP_RUNTIME = runtime;
+    limits.resetLimitsForTests();
+  });
+  process.env.CAMP_RUNTIME = "claude-code";
   limits.resetLimitsForTests();
   limits.noteRateLimit({ status: "allowed", rateLimitType: "five_hour", utilization: 42, resetsAt: Math.floor(Date.now() / 1000) + 3600 });
   assert.equal(limits.pausedUntil(), null);
@@ -147,6 +154,13 @@ test("plan limits: a used-up window pauses the camp until it resets", () => {
   assert.equal(limits.pausedUntil(), reset);
   assert.match(limits.pauseMessage(reset), /5-hour limit is used up/);
   assert.equal(dueJobs().length, 0, "scheduled jobs wait");
+  process.env.CAMP_RUNTIME = "api";
+  assert.equal(limits.pausedUntil(), null, "subscription limits do not pause API-key work");
+  assert.equal(dueJobs().length, 1, "scheduled API-key jobs can run");
+  assert.equal(limits.planLimits()[0].status, "rejected", "the subscription limit is preserved");
+  process.env.CAMP_RUNTIME = "claude-code";
+  assert.equal(limits.pausedUntil(), reset, "switching back restores the subscription pause");
+  assert.equal(dueJobs().length, 0, "subscription jobs still wait");
   limits.resumeNow();
   assert.equal(limits.pausedUntil(), null, "\"try anyway\" lifts the pause");
   limits.noteRateLimit({ status: "rejected", rateLimitType: "seven_day", isUsingOverage: true });
@@ -252,6 +266,22 @@ test("phone replies only count with this launch's code", () => {
   assert.deepEqual(parseReply("ab12:ask_7 y", "ab12"), { askId: "ask_7", answer: "y" });
   assert.equal(parseReply("ffff:ask_7 y", "ab12"), null);
   assert.equal(parseReply("ab12:ask_7 rm -rf", "ab12"), null);
+});
+
+test("inbox entries can be marked as read, one or all, and only unread ones count", () => {
+  toInbox("2026-11-16 08:00 · morning-brief", "Where things stand.");
+  toInbox("2026-11-16 09:00 · digest", "Two new pages.");
+  toInbox("2026-11-16 10:00 · digest", "One more.");
+  assert.equal(inboxUnread(), 3);
+  assert.ok(markInboxSeen({ heading: "2026-11-16 08:00 · morning-brief" }));
+  assert.equal(inboxUnread(), 2);
+  assert.deepEqual(inboxEntries().map((m) => m.seen), [false, false, true], "newest first; the brief is read");
+  assert.ok(!markInboxSeen({ heading: "not in the inbox" }), "an unknown entry is refused");
+  assert.ok(!markInboxSeen({}), "so is marking nothing");
+  assert.ok(markInboxSeen({ all: true }));
+  assert.equal(inboxUnread(), 0);
+  toInbox("2026-11-16 11:00 · digest", "Something new.");
+  assert.equal(inboxUnread(), 1, "a new report counts again");
 });
 
 test("only one process runs scheduled jobs", () => {

@@ -13,8 +13,9 @@
 //      planets, each a world you could live on (seas, land, cloud, ice at its poles) in its crew
 //      member's colour, lit by the sun and lived on: a map of lights on its night side with
 //      routes between them, an aurora, lightning in its storms, all of it quiet at camp and
-//      busier as its crew member works; the Artificer's station; and the moons, a world's own
-//      (grey) and a quest's (its crew member's colour).
+//      busier as its crew member works; a station, or the rocks of a cluster being mined, for
+//      anyone who has one of those instead; and the moons, a world's own (grey) and a quest's
+//      (its crew member's colour).
 //   3. Everything that glows, added on top: the table the system sits on (bearings, the rim, the
 //      sun's ring going out), the contour lines, the air round each planet, the sun's corona, a
 //      giant's rings, the stream from the sun to whoever is working, the comets, and (close to)
@@ -27,7 +28,10 @@ import type { Camera3, Vec3 } from "./math.ts";
 export type HdPoint = { pos: Vec3; size: number; color: Vec3; a: number };
 export type HdPlanet = {
   pos: Vec3; radius: number; color: Vec3;
-  kind: number;   // 0 a world, 4 not a world at all: a station (the Artificer's)
+  kind: number;   // 0 a world, 4 a station, 5 a cluster of asteroids being mined (worlds.ts)
+  // A cluster's rocks, each where it is: the first is the main one, with the rig on it. turned: how far it has tumbled.
+  rocks?: { pos: Vec3; radius: number; seed: number; turned: number; rig: boolean }[];
+  rough?: number; // how rough its rocks are
   seed: number; spin: number;
   // What this one is like (worlds.ts makes these up): how far it's tipped, its four settings (for a world: sea level,
   // cloud, where its ice begins, how dry it is; for a station: how it's built), how fine its features are, its second colour, its rings if it has any (in its radii), and how thick its air is.
@@ -37,6 +41,7 @@ export type HdPlanet = {
   blip: number;    // a tool call's flash across it: 0 → 1 as it crosses, -1 none
   land: number;    // the ring as a quest lands: 0 → 1, -1 none
   moons: { pos: Vec3; radius: number; waiting: boolean; own?: boolean }[]; // own: one of the world's own, not a quest's
+  grown?: number;  // how far its settlements have spread: 0 a first camp … 1 a world built over
 };
 export type HdFrame = {
   time: number; cam: Camera3;
@@ -109,7 +114,7 @@ void main(){ v_q = a_q; v_world = u_center + (u_right*a_q.x + u_up*a_q.y)*u_size
 
 const FS_SPHERE = HEAD + NOISE + `
 uniform mat4 u_vp; uniform vec3 u_eye, u_center, u_color, u_light;
-uniform float u_radius, u_time, u_spin, u_seed, u_active, u_waiting, u_blip, u_tilt, u_scale;
+uniform float u_radius, u_time, u_spin, u_seed, u_active, u_waiting, u_blip, u_tilt, u_scale, u_grown;
 uniform vec3 u_color2; uniform vec4 u_p; // (what this world is like: see World in worlds.ts)
 uniform int u_mode; // 0 a planet, 1 the sun, 2 a moon
 in vec3 v_world; out vec4 o;
@@ -174,7 +179,7 @@ void main(){
     // (fine: 1 close enough to see each light, 0 from far off; without it a small planet would glitter).
     float night = 1.-day;
     float fine = fall(.05, .012, length(fwidth(p)));
-    float dens = smoothstep(.40,.68,fbm(p*2.6-sd))*settled;
+    float dens = smoothstep(mix(.47,.2,u_grown),mix(.75,.5,u_grown),fbm(p*2.6-sd))*settled;
     float grain = noise(p*46.+sd*3.)*.6+noise(p*93.-sd)*.4;
     float edge = mix(.66,.44,u_active);
     float lamps = smoothstep(edge, edge+.2, grain+dens*.34-.18)*dens;
@@ -217,7 +222,7 @@ void main(){
 // a tool call sends a light running round the ring.
 const FS_STATION = HEAD + NOISE + `
 uniform mat4 u_vp; uniform vec3 u_eye, u_center, u_color, u_light;
-uniform float u_radius, u_time, u_spin, u_active, u_waiting, u_blip, u_tilt;
+uniform float u_radius, u_time, u_spin, u_active, u_waiting, u_blip, u_tilt, u_grown;
 uniform vec4 u_p; // how many spokes, a second ring or not, how big its ring is, how long its wings are
 in vec3 v_world; out vec4 o;
 const float TAU = 6.2831853;
@@ -281,7 +286,7 @@ void main(){
     base = vec3(.58, .6, .64)*(.85+.15*step(.08, fract(round/TAU*cells*.5)));
     float cell = floor(round/TAU*cells), inCell = fract(round/TAU*cells);
     float pane = smoothstep(.18, .3, inCell)*fall(.82, .7, inCell)*fall(.3, .16, abs(abs(across)-(big ? .95 : 1.57)));
-    float on = step(hash(vec3(cell, sign(across), big ? 3. : 7.)), .3+.62*u_active);
+    float on = step(hash(vec3(cell, sign(across), big ? 3. : 7.)), .2+.22*u_grown+.58*u_active);
     emis += mix(vec3(1., .84, .55), u_color, .3)*pane*on*(.7+u_active*1.3)*(.85+.15*sin(u_time*2.+cell));
     emis += u_color*fall(.1, .03, abs(across))*(.25+.5*u_active);        // a line of its colour round the rim
     // Lights at four points of the big ring: red, blinking.
@@ -296,6 +301,53 @@ void main(){
   vec3 col = base*(.11+lit*shade*1.3)*nook;
   col += vec3(1., .96, .88)*pow(max(dot(reflect(rd, n), L), 0.), 36.)*gloss*shade;
   col += u_color*pow(max(1.-max(dot(n, -rd), 0.), 0.), 3.)*.08*(1.+u_active);  // a little of its colour on its edges, so it's still theirs from far off
+  o = vec4(max(col+emis, vec3(0.)), 1.);
+}`;
+
+// A rock of a cluster being mined: a lump, not a ball, worked out like the station by stepping along the line of
+// sight until it meets the shape (a ball pushed in and out by noise, so each rock is its own). It tumbles. Seams of ore
+// run through it in the crew member's colour, and glow where they're being worked; the main rock carries the rig, whose
+// lamps come on as the work picks up.
+const FS_ROCK = HEAD + NOISE + `
+uniform mat4 u_vp; uniform vec3 u_eye, u_center, u_color, u_light;
+uniform float u_radius, u_time, u_spin, u_seed, u_active, u_waiting, u_blip, u_rig, u_rough, u_grown;
+in vec3 v_world; out vec4 o;
+float lump(vec3 p){
+  float n = noise(p*1.6+u_seed)*.6+noise(p*3.7+u_seed*2.3)*.28+noise(p*8.+u_seed*3.1)*.12;
+  return length(p)-(.62+(n-.5)*u_rough*1.5);
+}
+void main(){
+  // Into the rock's own frame: its radius 1, and tumbling about an axis of its own.
+  float a = u_spin, b = .6+u_seed*1.7, ca = cos(a), sa = sin(a), cb = cos(b), sb = sin(b);
+  mat3 tumble = mat3(ca, 0., -sa, 0., 1., 0., sa, 0., ca)*mat3(1., 0., 0., 0., cb, sb, 0., -sb, cb);
+  vec3 ro = tumble*((u_eye-u_center)/u_radius), rd = tumble*normalize(v_world-u_eye), L = tumble*u_light;
+  float bb = dot(ro, rd), h = bb*bb-(dot(ro, ro)-1.);
+  if(h < 0.) discard;
+  float t = max(-bb-sqrt(h), 0.), end = -bb+sqrt(h), d = 1.;
+  for(int i = 0; i < 44; i++){ d = lump(ro+rd*t); if(d < .004 || t > end) break; t += d*.6; }
+  if(d >= .004) discard;
+  vec3 p = ro+rd*t; vec2 e = vec2(.006, 0.);
+  vec3 n = normalize(vec3(lump(p+e.xyy)-lump(p-e.xyy), lump(p+e.yxy)-lump(p-e.yxy), lump(p+e.yyx)-lump(p-e.yyx)));
+  vec4 clip = u_vp*vec4(u_center+(transpose(tumble)*p)*u_radius, 1.);
+  gl_FragDepth = clip.z/clip.w*.5+.5;
+  float lit = max(dot(n, L), 0.), mu = max(dot(n, -rd), 0.);
+  vec3 sd = vec3(u_seed*5.3, u_seed*2.9, u_seed*7.1);
+  vec3 base = mix(vec3(.2,.185,.17), vec3(.42,.38,.32), noise(p*5.+sd))*(.8+.2*noise(p*19.));
+  base *= 1.-.4*smoothstep(.56,.72,noise(p*3.1-sd));                             // pits
+  float seam = pow(max(1.-abs(noise(p*5.5+sd)*2.-1.), 0.), 7.);                  // ore, in seams
+  base = mix(base, u_color*.7, seam*.55);
+  vec3 emis = u_color*seam*u_active*(.5+.5*sin(noise(p*4.+sd)*18.-u_time*2.4))*1.5; // …hot where it's being cut
+  if(u_rig > .5){
+    // The rig: lamps set out over one side of the main rock, a few lit at camp and most of them at work; and a beacon.
+    vec2 uv = vec2(atan(p.z, p.x), asin(clamp(p.y/max(length(p), 1e-4), -1., 1.)))*9.;
+    float site = smoothstep(.2,.7,dot(normalize(p), normalize(vec3(.5,.6,.6))));
+    float on = step(hash(vec3(floor(uv), u_seed)), (.1+.2*u_grown+.5*u_active)*site);
+    emis += vec3(1.,.84,.55)*fall(.3,.1,length(fract(uv)-.5))*on*(.8+u_active*1.3);
+    emis += vec3(1.,.15,.1)*fall(.12,.0,length(normalize(p)-normalize(vec3(.5,.6,.6))))*step(.7, fract(u_time*.8))*3.;
+  }
+  if(u_blip >= 0.) emis += (u_color+.45)*fall(.13,0.,abs(acos(clamp(dot(normalize(transpose(tumble)*p), normalize(u_eye-u_center)), -1., 1.))-u_blip*2.4))*(1.-u_blip)*1.6;
+  emis += vec3(1.,.6,.14)*u_waiting*(.5+.5*sin(u_time*5.))*(pow(max(1.-mu, 0.), 2.)*.9+.05);
+  vec3 col = base*(.11+lit*1.3)+vec3(1.,.95,.88)*pow(max(dot(reflect(rd, n), L), 0.), 22.)*seam*.6;
   o = vec4(max(col+emis, vec3(0.)), 1.);
 }`;
 
@@ -410,13 +462,14 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
     return { p, u: Object.fromEntries(uniforms.map((n) => [n, g.getUniformLocation(p, `u_${n}`)])) };
   }
 
-  let P: Record<"sky" | "points" | "sphere" | "station" | "halo" | "plane" | "line" | "ring" | "bright" | "blur" | "final", Program>;
+  let P: Record<"sky" | "points" | "sphere" | "station" | "rock" | "halo" | "plane" | "line" | "ring" | "bright" | "blur" | "final", Program>;
   try {
     P = {
       sky: program(VS_SCREEN, FS_SKY, ["right", "up", "fwd", "tan", "shift"]),
       points: program(VS_POINTS, FS_POINTS, ["vp", "origin", "px", "fixed"]),
-      sphere: program(VS_BILL, FS_SPHERE, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "mode", "tilt", "scale", "color2", "p"]),
-      station: program(VS_BILL, FS_STATION, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "active", "waiting", "blip", "p", "tilt"]),
+      sphere: program(VS_BILL, FS_SPHERE, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "mode", "tilt", "scale", "color2", "p", "grown"]),
+      station: program(VS_BILL, FS_STATION, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "active", "waiting", "blip", "p", "tilt", "grown"]),
+      rock: program(VS_BILL, FS_ROCK, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "rig", "rough", "grown"]),
       halo: program(VS_BILL, FS_HALO, ["vp", "center", "right", "up", "size", "eye", "color", "radius", "strength", "falloff", "ring", "ringW", "time", "rays"]),
       plane: program(VS_PLANE, FS_PLANE, ["vp", "size", "reach", "ping", "pingA", "sun"]),
       line: program(VS_LINE, FS_LINE, ["vp", "rot", "color", "alpha", "tail"]),
@@ -529,12 +582,12 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
         g.uniform1f(u.active, o.active ?? 0); g.uniform1f(u.waiting, o.waiting ?? 0); g.uniform1f(u.blip, o.blip ?? -1);
         const w = o.world;
         g.uniform1f(u.tilt, w?.tilt ?? 0); g.uniform1f(u.scale, w?.scale ?? 1); v3(u.color2, w?.color2 ?? o.color);
-        g.uniform4f(u.p, w?.p[0] ?? 0, w?.p[1] ?? 0, w?.p[2] ?? 0, w?.p[3] ?? 0);
+        g.uniform4f(u.p, w?.p[0] ?? 0, w?.p[1] ?? 0, w?.p[2] ?? 0, w?.p[3] ?? 0); g.uniform1f(u.grown, w?.grown ?? 0.3);
         g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
       };
       sphere({ center: [0, 0, 0], radius: f.sun.radius, color: SUN, mode: 1, active: f.sun.active, waiting: f.sun.waiting });
       for (const p of f.planets) {
-        if (p.kind !== 4) sphere({ center: p.pos, radius: p.radius, color: p.color, mode: 0, seed: p.seed, spin: p.spin, active: p.active, waiting: p.waiting, blip: p.blip, world: p });
+        if (p.kind === 0) sphere({ center: p.pos, radius: p.radius, color: p.color, mode: 0, seed: p.seed, spin: p.spin, active: p.active, waiting: p.waiting, blip: p.blip, world: p });
         for (const m of p.moons) sphere({ center: m.pos, radius: m.radius, color: m.own ? OWN_MOON : p.color, mode: 2, seed: m.radius * 37, waiting: m.waiting ? 1 : 0 });
       }
       // The station (if the Artificer is in the crew).
@@ -545,8 +598,22 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
         v3(us.center, p.pos); g.uniform1f(us.radius, big); g.uniform1f(us.size, big * 1.35); v3(us.color, p.color);
         g.uniform3f(us.light, -p.pos[0] / far, -p.pos[1] / far, -p.pos[2] / far);
         g.uniform1f(us.spin, p.spin); g.uniform1f(us.active, p.active); g.uniform1f(us.waiting, p.waiting); g.uniform1f(us.blip, p.blip);
-        g.uniform4f(us.p, p.p[0], p.p[1], p.p[2], p.p[3]); g.uniform1f(us.tilt, p.tilt - 0.41); // (0.41, the usual tilt, is how it has always sat)
+        g.uniform4f(us.p, p.p[0], p.p[1], p.p[2], p.p[3]); g.uniform1f(us.tilt, p.tilt - 0.41); g.uniform1f(us.grown, p.grown ?? 0.3); // (0.41, the usual tilt, is how it has always sat)
         g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
+      }
+
+      // The rocks of a cluster (anyone's whose is one).
+      for (const p of f.planets) if (p.kind === 5 && p.rocks) {
+        const ur = use(P.rock);
+        g.uniformMatrix4fv(ur.vp, false, cam.viewProj); v3(ur.eye, cam.eye); v3(ur.right, cam.right); v3(ur.up, cam.up); g.uniform1f(ur.time, f.time);
+        v3(ur.color, p.color); g.uniform1f(ur.active, p.active); g.uniform1f(ur.waiting, p.waiting); g.uniform1f(ur.rough, p.rough ?? 0.26); g.uniform1f(ur.grown, p.grown ?? 0.3);
+        for (const rock of p.rocks) {
+          const far = Math.hypot(...rock.pos) || 1;
+          v3(ur.center, rock.pos); g.uniform1f(ur.radius, rock.radius); g.uniform1f(ur.size, rock.radius * 1.2);
+          g.uniform3f(ur.light, -rock.pos[0] / far, -rock.pos[1] / far, -rock.pos[2] / far);
+          g.uniform1f(ur.spin, rock.turned); g.uniform1f(ur.seed, rock.seed); g.uniform1f(ur.rig, rock.rig ? 1 : 0); g.uniform1f(ur.blip, rock.rig ? p.blip : -1);
+          g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
+        }
       }
 
       // 3. What glows, added on top (it's hidden by anything solid in front of it, and hides nothing itself).
@@ -587,7 +654,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
       };
       halo([0, 0, 0], f.sun.radius, SUN, 0.82 + f.sun.active * 0.45, { falloff: 2.2, reach: 10, rays: 1 });
       for (const p of f.planets) {
-        if (p.kind === 4) halo(p.pos, p.radius * 0.5, p.color, 0.05 + p.active * 0.16, { falloff: 1.6, reach: 5 });    // a station has no air: only the light it gives off
+        if (p.kind !== 0) halo(p.pos, p.radius * 0.5, p.color, 0.05 + p.active * 0.16, { falloff: 1.6, reach: 5 });    // a station or a cluster has no air: only the light it gives off
         else halo(p.pos, p.radius, p.color, (0.22 + p.active * 0.6) * p.air, { falloff: 5.5 / Math.sqrt(p.air), reach: 2.6 }); // its air
         if (p.waiting > 0) halo(p.pos, p.radius, [1, 0.6, 0.14], 0.35 + 0.35 * Math.sin(f.time * 5), { ring: 1.55, ringW: 0.05, reach: 2.2 }); // waiting on you: an amber ring, beating
         if (p.land >= 0) halo(p.pos, p.radius, p.color, 1.4 * (1 - p.land), { ring: 1 + p.land * 2.4, ringW: 0.09, reach: 4 });      // a quest lands

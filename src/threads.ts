@@ -39,8 +39,9 @@ export type Turn = { thread: string; expedition: string; agent: string; direct: 
   // conversation and is part of it, but the conversation stays with whoever it was with.
   aside?: boolean;
   // parked: a plan you approved in this run to start later (its text, and the card it was approved
-  // on). started: the card of the held plan this run was started from.
-  parked?: { text: string; ask: string };
+  // on). aside: when it was set aside without being started (a newer plan took its place, or you
+  // removed it). started: the card of the held plan this run was started from.
+  parked?: { text: string; ask: string; aside?: string };
   started?: string };
 
 let cache: { key: string; turns: Turn[] } | null = null;
@@ -85,6 +86,17 @@ export function copyTurns(turns: Turn[]) {
 
 export function recordTurn(t: Omit<Turn, "time">) {
   appendLine(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }));
+}
+
+// A plan held for later, set aside without being started: its run is written down again with the
+// plan marked, so it stops waiting (the last line for a run is the one that counts). The run that
+// held it, or undefined when there's no such plan waiting.
+export function setPlanAside(ask: string): Turn | undefined {
+  const t = all().find((x) => x.parked?.ask === ask && !x.parked.aside);
+  if (!t?.parked) return undefined;
+  const { time: _, ...rest } = t;
+  recordTurn({ ...rest, parked: { ...t.parked, aside: new Date().toISOString() } });
+  return t;
 }
 
 // The folders a conversation has, as its runs leave them, oldest first: each run adds the ones it

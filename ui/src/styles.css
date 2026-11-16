@@ -343,6 +343,7 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 0; background: none; border-radius: 8px; color: var(--muted); transition: background .12s, color .12s; }
 .icon-btn:hover { color: var(--text); background: var(--surface-2); }
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
+.icon-btn.egg-paused { color: var(--accent); } /* Barnstorm paused: there's a game to come back to */
 
 /* ---------- Crew (a bar across the top) ---------- */
 .crew { display: flex; gap: 8px; padding: 10px 20px; background: var(--bg); overflow-x: auto; overflow-y: hidden; }
@@ -1243,6 +1244,7 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 @media (max-width: 640px) { .ask-plain dl > div { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .ask-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .ask-row input { flex: 1 1 200px; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--surface); }
+.ask-row .ask-question { flex: 1 0 100%; font-size: 14px; }
 .ask.resolved { border: 1px solid var(--border); background: var(--surface-2); box-shadow: none; }
 .ask.resolved .ask-row { display: none; }
 .ask-outcome { font-size: 13px; font-weight: 600; }
@@ -1516,6 +1518,10 @@ a.att-name { color: var(--accent); }
 .clamp.open { -webkit-line-clamp: unset; display: block; }
 .clamp b { color: var(--text); font-weight: 600; }
 .card-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.inbox-note { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.card.inbox-read { opacity: .72; }
+.card.inbox-read:hover, .card.inbox-read:focus-within { opacity: 1; }
+.card-top .who .pill { margin-left: 8px; }
 .switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-right: auto; }
 /* On or off: a switch, not a tick box (a tick box is for picking among things). The knob is painted
    on the track, so there's nothing for a browser to leave out. */
@@ -1912,6 +1918,25 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .needs-item b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .needs-item small { color: var(--muted); font-size: 12px; }
 .needs-item.needs-clear { grid-template-columns: 1fr; border-top: 1px solid var(--border); border-radius: 0 0 8px 8px; margin-top: 4px; }
+/* The status chip's menu and the ··· menu: rows with an icon, a name and what clicking does. */
+.top-pick { position: relative; display: inline-flex; flex: none; }
+.chip-status > .icon { width: 13px; height: 13px; margin-left: -2px; color: var(--faint); }
+.top-tools > .top-pick > .chip-status { padding-right: 6px; } /* the chevron is its edge: no more room after it than between the icons */
+.popover.top-menu { position: absolute; top: calc(100% + 8px); right: 0; left: auto; bottom: auto; width: 280px; max-height: 70dvh; overflow-y: auto; padding: 6px; z-index: 45; display: grid; gap: 1px; }
+.popover.top-more { width: 230px; }
+.top-item { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 9px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; font-size: 13px; }
+button.top-item:hover, button.top-item:focus-visible { background: var(--surface-2); }
+button.top-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.top-item > .icon, .top-item > .gh-mark { width: 15px; height: 15px; color: var(--muted); justify-self: center; }
+.top-item > .dot { justify-self: center; }
+.top-item > span { display: grid; min-width: 0; }
+.top-item b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-item small { color: var(--muted); font-size: 12px; }
+.top-tool b { font-weight: 500; }
+.top-tool > .icon:last-child:not(:first-child) { color: var(--accent); } /* the tick on what's on */
+.top-item-sep { margin-top: 5px; position: relative; }
+.top-item-sep::before { content: ""; position: absolute; top: -3px; left: 6px; right: 6px; border-top: 1px solid var(--border); }
+.top-menu-foot { margin-top: 4px; padding: 8px 9px 4px; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.45; color: var(--faint); }
 button.chip.news { border-color: var(--border); color: var(--text); margin-right: 6px; }
 .hist-mark { margin-left: auto; flex: none; font-size: 11px; font-weight: 700; line-height: 16px; color: var(--accent); }
 .hist-mark + .hist-mark { margin-left: 6px; }
@@ -2100,7 +2125,7 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
    command palette can be opened from here and sit on top.
    Nothing here is rounded: a mark on a planet or a panel is a straight 2px line or a square bracket. */
 .orbit {
-  --o-bg: #05070c; --o-ink: #ece6d9; --o-dim: #98a0b2; --o-faint: #626b7d; --o-line: #262e3e; --o-line-2: #3d485e; --o-panel: #0a0d15; --o-sun: #e6a53a; --o-warn: #f0b24a;
+  --o-bg: #05070c; --o-ink: #ece6d9; --o-dim: #98a0b2; --o-faint: #626b7d; --o-line: #262e3e; --o-line-2: #3d485e; --o-panel: #0a0d15; --o-sun: #e6a53a; --o-warn: #f0b24a; --o-bad: #e5604d;
   --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-other: #7cb7c4;
   position: fixed; inset: 0; z-index: 44; overflow: clip; outline: none; user-select: none; color: var(--o-ink); font: 12px/1.45 var(--mono); color-scheme: dark;
   background: radial-gradient(120% 95% at 50% 42%, #101627 0%, #090c15 48%, var(--o-bg) 100%);
@@ -2263,10 +2288,104 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .orb-quiet { margin: 14px 0 0; font: 13px/1.5 var(--sans); color: var(--o-dim); }
 .orb-btn { justify-self: start; padding: 5px 10px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 11px/1.3 var(--mono); letter-spacing: .04em; }
 .orb-btn:hover { border-color: var(--c, var(--c-other)); color: var(--c, var(--c-other)); }
-.orb-panel > footer { padding: 10px 16px 12px; border-top: 1px solid var(--o-line); }
+.orb-panel > footer { display: grid; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--o-line); }
+.orb-btn:disabled { opacity: .45; cursor: default; }
+a.orb-btn { display: inline-block; text-decoration: none; }
+
+/* Acting from here (Act.tsx): a line to type and a button to send it; a word to an expedition, and its Stop. */
+.orb-say { display: grid; gap: 5px; margin: 0; }
+.orb-say-row { display: flex; gap: 6px; }
+.orbit input[type="text"], .orb-asks .ask-row input { flex: 1; min-width: 0; padding: 5px 8px; border: 1px solid var(--o-line-2); border-radius: 0; background: #0e131d; color: var(--o-ink); font: 12px/1.4 var(--sans); }
+.orbit input:focus-visible { outline: 2px solid var(--o-ink); outline-offset: 0; }
+.orbit input::placeholder { color: var(--o-faint); }
+.orb-say-note { margin: 0; font: 11px/1.4 var(--sans); color: var(--o-dim); } .orb-say-note.bad { color: var(--o-bad); }
+.orb-hand { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--o-line); }
+.orb-stop { color: var(--o-bad); } .orb-stop:hover:not(:disabled) { border-color: var(--o-bad); color: var(--o-bad); }
+/* A decision, answered here. The card is the page's own (AskCard.tsx), given this view's colours and its square corners. */
+.orb-asks { margin: 0 0 6px; --accent: var(--o-warn); --accent-ink: var(--o-bg); --accent-soft: rgba(240, 178, 74, .07); --surface: #0e131d; --surface-2: #0e131d; --border: var(--o-line); --border-strong: var(--o-line-2); --field: var(--o-line-2); --text: var(--o-ink); --muted: var(--o-dim); --faint: var(--o-faint); --bad: var(--o-bad); --shadow: none; --shadow-lg: none; }
+.orb-panel .orb-asks h4 { color: var(--o-warn); }
+.orb-asks .ask { margin: 0 0 8px; padding: 10px 12px; border-radius: 0; gap: 8px; font: 13px/1.45 var(--sans); color: var(--o-ink); }
+.orb-asks :is(.ask-body, .ask-plain, .btn) { border-radius: 0; }
+.orb-asks .ask-body { max-height: 220px; overflow-y: auto; font-size: 12px; } .orb-asks .ask-body.cmd { font-size: 11px; }
+.orb-asks .ask-plain { font-size: 12px; } .orb-asks .ask-plain dl > div { grid-template-columns: 84px minmax(0, 1fr); }
+.orb-asks .btn { padding: 5px 10px; font: 600 12px/1.3 var(--sans); color: var(--o-ink); } .orb-asks .btn.primary { color: var(--o-bg); } .orb-asks .btn.danger { color: var(--o-bad); }
+.orb-asks :is(.ask-note, .ask-question) { font-size: 12px; }
+/* A plan's steps, in the panel. (The same steps are the waypoints round the sun.) */
+.orb-plan { list-style: none; display: grid; gap: 4px; margin: 0; padding: 0; }
+.orb-plan li { display: grid; grid-template-columns: 7px minmax(0, 1fr); gap: 8px; align-items: baseline; font: 12px/1.4 var(--sans); color: var(--o-dim); }
+.orb-plan i { width: 7px; height: 7px; border: 1px solid var(--o-line-2); }
+.orb-plan .way-out { color: var(--o-ink); } .orb-plan .way-out i { border-color: var(--o-sun); }
+.orb-plan .way-done i { background: var(--o-sun); border-color: var(--o-sun); }
+.orb-plan .way-failed i { background: var(--o-bad); border-color: var(--o-bad); } .orb-plan .way-stopped i { border-style: dashed; }
+/* What they carry (their satellites), and what's holding at the edge (the ships): lists of things that open. */
+.orb-kit { margin-top: 14px; border-top: 1px solid var(--o-line); }
+.orb-panel h4 small { margin-left: 8px; font: 11px/1 var(--sans); letter-spacing: 0; text-transform: none; }
+:is(.orb-kit, .orb-holding) ul { list-style: none; display: grid; gap: 2px; margin: 0; padding: 0; }
+:is(.orb-kit, .orb-holding) li > button { width: 100%; display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 6px; border: 1px solid transparent; border-radius: 0; background: none; color: var(--o-ink); text-align: left; font: 12px/1.3 var(--mono); }
+:is(.orb-kit, .orb-holding) li > button:hover { border-color: var(--o-line-2); }
+:is(.orb-kit, .orb-holding) li.on > button { border: 2px solid var(--o-ink); padding: 4px 5px; }
+:is(.orb-kit, .orb-holding) li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:is(.orb-kit, .orb-holding) li em { font: 10px/1.3 var(--sans); font-style: normal; color: var(--o-faint); }
+:is(.orb-kit, .orb-holding) li i { width: 8px; height: 8px; border: 1px solid var(--o-ink); }
+.orb-kit .kit-connector i { background: var(--o-dim); border-color: var(--o-dim); }
+:is(.orb-kit, .orb-holding) li.bad i { background: var(--o-bad); border-color: var(--o-bad); } :is(.orb-kit, .orb-holding) li.bad em { color: var(--o-bad); }
+.orb-holding .ship-job i { transform: rotate(45deg) scale(.82); } .orb-holding .ship-pr i { background: var(--o-ink); } .orb-holding li.held i { border-style: dashed; border-color: var(--o-warn); }
+:is(.orb-kit-about, .orb-holding-about) { display: grid; gap: 6px; justify-items: start; padding: 2px 6px 8px 22px; font: 12px/1.45 var(--sans); color: var(--o-dim); }
+:is(.orb-kit-about, .orb-holding-about) p { margin: 0; overflow-wrap: anywhere; } .orb-kit-about .bad { color: var(--o-bad); }
+.orb-kit-tools { font: 11px/1.5 var(--mono); color: var(--o-faint); }
+.orb-make-told { margin: 0; padding: 0 10px 9px; font: 11px/1.4 var(--sans); color: var(--o-faint); }
+.orb-holding { position: absolute; top: 76px; left: 30px; width: 264px; max-height: 42%; overflow-y: auto; padding: 2px 8px 8px; background: rgba(10, 13, 21, .84); border: 1px solid var(--o-line); scrollbar-width: thin; scrollbar-color: var(--o-line-2) transparent; }
+.orb-holding h4 { margin: 9px 6px 6px; font: 600 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--o-faint); }
+
+/* Work that's gone quiet: its ring stops and thins, its words dim, and its card's edge is broken. */
+.orb-planet.st-stalled .orb-busy circle { stroke-dasharray: 1 4.8; }
+.orb-label.st-stalled span, .orb-cell.st-stalled .orb-cell-doing, .orb-work-card.st-stalled .orb-w-doing { color: var(--o-dim); }
+.orb-cell.st-stalled .orb-dot { animation: none; opacity: .45; }
+.orb-work-card.st-stalled { border-left-style: dashed; }
+.orb-facts .warn dd { color: var(--o-warn); }
+/* A moon's rings (it has been out a long while), and the lights of a world that's been built on. */
+.orb-moon circle.orb-moon-ring { fill: none; stroke: var(--c, var(--c-other)); stroke-width: .35; } .orb-moon.st-waiting circle.orb-moon-ring { stroke: var(--o-warn); }
+.orb-town { fill: var(--o-sun); opacity: .9; }
+/* Drawn over the system, in the screen's units: gauges, a plan's waypoints, the ships at the edge and the satellites. */
+.orb-over :is(.orb-gauge, .orb-ways) * { vector-effect: non-scaling-stroke; }
+.orb-gauge-track { fill: none; stroke: var(--o-line-2); stroke-width: 1; }
+.orb-gauge path { fill: none; stroke: var(--c, var(--o-sun)); stroke-width: 2.5; } .orb-gauge.warn path { stroke: var(--o-bad); }
+.orb-ways rect { fill: var(--o-bg); stroke: var(--o-line-2); stroke-width: 1; }
+.orb-ways rect.way-out { stroke: var(--o-sun); stroke-width: 2; } .orb-ways rect.way-done { fill: var(--o-sun); stroke: var(--o-sun); }
+.orb-ways rect.way-failed { fill: var(--o-bad); stroke: var(--o-bad); } .orb-ways rect.way-stopped { stroke-dasharray: 2 2; }
+.orb-ship path { fill: var(--o-bg); stroke: var(--o-ink); stroke-width: 1.5; stroke-linejoin: miter; }
+.orb-ship.ship-job path { stroke: var(--o-dim); } .orb-ship.held path { stroke: var(--o-warn); stroke-dasharray: 3 2; }
+.orb-ship.bad path { fill: var(--o-bad); stroke: var(--o-bad); } .orb-ship.on path { stroke-width: 3; }
+.orb-sat rect { fill: var(--o-bg); stroke: var(--o-ink); stroke-width: 1.2; } .orb-sat.kit-connector rect { fill: var(--o-dim); stroke: var(--o-dim); }
+.orb-sat.bad rect { fill: var(--o-bad); stroke: var(--o-bad); } .orb-sat.on rect { stroke: var(--o-ink); stroke-width: 2.5; }
+:is(.orb-ship, .orb-sat) text { fill: var(--o-ink); font: 11px var(--mono); paint-order: stroke; stroke: var(--o-bg); stroke-width: 4px; }
+
+/* The replay's timeline (Timeline.tsx), along the bottom above the crew. */
+.orb-reel { position: absolute; inset: auto 26px 100px 26px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: var(--o-panel); border: 1px solid var(--o-line-2); border-top: 2px solid var(--o-warn); }
+.orbit:has(.orb-reel) .orb-panel { bottom: 160px; } .orbit:has(.orb-reel) .orb-hint { display: none; }
+.orb-reel-line { position: relative; flex: 1; min-width: 0; height: 26px; }
+.orb-reel-line input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 26px; margin: 0; padding: 0; appearance: none; -webkit-appearance: none; background: none; cursor: pointer; }
+.orb-reel-line input::-webkit-slider-runnable-track { height: 2px; background: var(--o-line-2); }
+.orb-reel-line input::-moz-range-track { height: 2px; background: var(--o-line-2); }
+.orb-reel-line input::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 20px; margin-top: -9px; border: 0; border-radius: 0; background: var(--o-warn); }
+.orb-reel-line input::-moz-range-thumb { width: 8px; height: 20px; border: 0; border-radius: 0; background: var(--o-warn); }
+.orb-reel-marks { position: absolute; inset: 0; pointer-events: none; }
+.orb-reel-marks i { position: absolute; top: 2px; width: 1px; height: 7px; background: var(--o-dim); } .orb-reel-marks i.ask { width: 2px; background: var(--o-warn); }
+.orb-reel time { min-width: 42px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--o-ink); }
+.orb-reel-speed { display: flex; gap: 4px; }
+/* Ambient: nobody is driving. Who the camera is on is said at the bottom; a decision waiting is a steady line along the top, and a button. */
+.orb-caption { position: absolute; left: 30px; bottom: 28px; display: grid; gap: 9px; justify-items: start; max-width: min(620px, calc(100% - 60px)); }
+.orbit:has(.orb-reel) .orb-caption { bottom: 164px; }
+.orb-caption p { margin: 0; font: 16px/1.4 var(--sans); color: var(--o-ink); }
+.orb-caption b { display: block; margin-bottom: 3px; font: 600 11px/1.3 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--o-dim); }
+.orb-caption small { font-size: 11px; color: var(--o-faint); }
+.orb-need { padding: 7px 12px; border: 2px solid var(--o-warn); border-radius: 0; background: none; color: var(--o-warn); font: 600 12px/1.3 var(--mono); letter-spacing: .04em; }
+.orb-need:hover { background: var(--o-warn); color: var(--o-bg); }
+.orbit.ambient.needs::after { content: ""; position: absolute; inset: 0 0 auto 0; border-top: 2px solid var(--o-warn); pointer-events: none; }
 @media (max-width: 899px) {
   /* A narrow screen: the panel is a sheet over the lower half, and the camp's numbers give their room to the buttons. */
-  .orb-read, .orb-hint, .orb-title span:not(.orb-pretend) { display: none; }
+  .orb-read, .orb-hint, .orb-holding, .orb-reel-speed, .orb-title span:not(.orb-pretend) { display: none; }
+  .orb-reel { inset: auto 12px 84px 12px; } .orbit:has(.orb-reel) .orb-panel { bottom: 140px; } .orb-caption { left: 18px; bottom: 20px; }
   .orb-title .orb-pretend { position: absolute; top: 56px; left: 18px; right: 14px; }
   .orb-top { padding: 14px 14px 0 18px; } .orb-tools { margin-left: auto; } .orb-alert { position: absolute; top: 56px; left: 18px; }
   .orb-strip { inset: auto 12px 14px 12px; } .orb-cell { min-width: 118px; }
@@ -2325,7 +2444,6 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .barnstorm-paused button:hover { background: var(--text); color: var(--surface); }
 .barnstorm-paused button:focus-visible { border-radius: 0; }
 /* The plane in the top bar, while its game is paused: lit, but not pressed. */
-.icon-btn.egg-paused { color: var(--accent); }
 
 /* ---------- Today: the page the camp opens on (components/Home.tsx) ----------
    A greeting and a few sentences on where things stand, then the brief as plain rows (a title,
@@ -2369,7 +2487,7 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 /* Plans held for later: cards like "Where you left off", each with its text folded under it to read before you start it. */
 .home-held-cards { display: grid; gap: 8px; }
 .home-held { align-items: flex-start; }
-.home-held > .btn { margin-top: 2px; }
+.home-held-actions { display: flex; gap: 6px; flex: none; margin-top: 2px; }
 .home-held button.home-last-title { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
 .home-held button.home-last-title:hover { color: var(--accent); }
 .home-held-plan > summary { font-size: 12px; color: var(--muted); cursor: pointer; width: fit-content; margin-top: 2px; }

@@ -137,7 +137,7 @@ export function dueJobs(): Job[] {
 // The inbox as separate entries, newest first.
 // (Parsed once and kept until the file changes: the page asks for this on every refresh, and the file only grows.)
 let inboxCache: { key: string; all: { heading: string; body: string }[] } | null = null;
-export function inboxEntries(limit = 30): { heading: string; body: string }[] {
+export function inboxEntries(limit = 30): { heading: string; body: string; seen: boolean }[] {
   if (!existsSync(INBOX_PATH)) return [];
   const st = statSync(INBOX_PATH);
   const key = `${process.cwd()}|${st.mtimeMs}:${st.size}`;
@@ -152,5 +152,34 @@ export function inboxEntries(limit = 30): { heading: string; body: string }[] {
       })
       .reverse() };
   }
-  return inboxCache.all.slice(0, limit);
+  const seen = seenHeadings();
+  return inboxCache.all.slice(0, limit).map((m) => ({ ...m, seen: seen.has(m.heading) }));
+}
+
+// What you've marked as read, by heading (each one carries when it was written and by which job).
+// Kept apart from the inbox itself, which only ever grows. Read entries stay in the inbox; they
+// just stop counting towards the badge.
+export const INBOX_SEEN_PATH = "camp/inbox-seen.json";
+function seenHeadings(): Set<string> {
+  try {
+    const list = JSON.parse(readFileSync(INBOX_SEEN_PATH, "utf8"));
+    return new Set(Array.isArray(list) ? list.filter((h) => typeof h === "string") : []);
+  } catch { return new Set(); }
+}
+// How many of the entries the inbox shows are still unread (for the badge in Settings' own menu).
+export function inboxUnread(): number {
+  return inboxEntries().filter((m) => !m.seen).length;
+}
+// Mark one entry (by heading) or every entry as read. Headings no longer in the inbox are dropped.
+export function markInboxSeen(which: { heading?: string; all?: boolean }): boolean {
+  const all = inboxEntries(Number.MAX_SAFE_INTEGER);
+  const seen = seenHeadings();
+  if (which.all) for (const m of all) seen.add(m.heading);
+  else if (which.heading && all.some((m) => m.heading === which.heading)) seen.add(which.heading);
+  else return false;
+  const present = new Set(all.map((m) => m.heading));
+  mkdirSync("camp", { recursive: true });
+  writeFileSync(INBOX_SEEN_PATH, JSON.stringify([...seen].filter((h) => present.has(h)), null, 2) + "\n");
+  emit({ type: "changed", what: "inbox" });
+  return true;
 }

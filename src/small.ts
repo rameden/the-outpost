@@ -5,7 +5,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { askClaudeCode } from "./claude-code.js";
 import { getProject } from "./conversations.js";
-import { maySend, otherModel, providerAsk } from "./providers.js";
+import { anthropicKey, maySend, otherModel, providerAsk } from "./providers.js";
 import { campRuntime, smallModel } from "./settings.js";
 
 export const SMALL_MODEL = "claude-haiku-5-5";
@@ -20,6 +20,6 @@ export async function askSmall(system: string, prompt: string, maxTokens = 1500,
   if (other && maySend(other.provider, getProject(o.project)?.settings?.web)) return providerAsk(other, system, prompt, maxTokens);
   const model = other ? SMALL_MODEL : chosen ?? SMALL_MODEL;
   if (campRuntime() === "claude-code") return (await askClaudeCode(system, prompt, model)).text;
-  const r = await new Anthropic().messages.create({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: prompt }] });
+  const r = await new Anthropic({ apiKey: anthropicKey() }).messages.create({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: prompt }] });
   return r.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
 }

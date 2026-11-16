@@ -3,14 +3,18 @@
 // working on that isn't a quest (the Quartermaster's own part of an expedition, or a crew member
 // you messaged yourself). Pure: (the feed, a name) → what to show.
 
-import { stepState, type FeedNode, type FeedState, type QuestOut } from "../feed/reducer.ts";
+import { findNodes, stepState, type FeedNode, type FeedState, type QuestOut, type StepState } from "../feed/reducer.ts";
 
 // One step, as a line: what it was (said, a tool, a file, a question, a notice, something you said to it) and its words.
 // live: a reply that's still arriving.
 export type Line = { id: string; tag: "said" | "tool" | "file" | "ask" | "note" | "you"; text: string; live?: boolean };
 export type QuestDoing = QuestOut & { log: Line[] };
-// An expedition they're working in outside any quest. steps: how the approved plan stands, if there is one.
-export type RunDoing = { expId: string; task: string; thread?: string; started: number; log: Line[]; steps?: { done: number; out: number; total: number } };
+// A step of an approved plan, and how it stands.
+export type Step = { n: number; text: string; state: StepState };
+// An expedition they're working in outside any quest. steps: how the approved plan stands, if there is one (plan: step by step).
+export type RunDoing = { expId: string; task: string; thread?: string; started: number; log: Line[]; steps?: { done: number; out: number; total: number }; plan?: Step[] };
+// A running expedition's plan, as the waypoints round the sun show it.
+export type Way = { expId: string; task: string; steps: Step[] };
 
 export const LOG_LINES = 6;
 const WORDS = 180;
@@ -55,11 +59,32 @@ export function runsOf(s: Pick<FeedState, "items" | "open">, name: string): RunD
     if (!exp || !o.members.includes(name)) return [];
     const mine = exp.nodes.filter((n) => byName(n, name) || (lead && n.kind === "steer"));
     if (!lead && !mine.length) return [];
-    const plan = exp.nodes.find((n) => n.kind === "plan");
-    const states = plan?.kind === "plan" ? plan.steps.map((st) => stepState(st)) : null;
+    const plan = planOf(exp.nodes);
+    const states = plan?.map((st) => st.state);
     return [{
       expId, task: exp.task, started: o.started, log: lastLines(mine), ...(exp.thread ? { thread: exp.thread } : {}),
-      ...(states ? { steps: { done: states.filter((x) => x === "done").length, out: states.filter((x) => x === "out").length, total: states.length } } : {}),
+      ...(states && plan ? { plan, steps: { done: states.filter((x) => x === "done").length, out: states.filter((x) => x === "out").length, total: states.length } } : {}),
     }];
   });
+}
+function planOf(nodes: FeedNode[]): Step[] | null {
+  const plan = nodes.find((n) => n.kind === "plan");
+  return plan?.kind === "plan" && plan.steps.length ? plan.steps.map((st) => ({ n: st.n, text: flat(st.text), state: stepState(st, plan.ended) })) : null;
+}
+
+// The plans of the expeditions that are running, oldest first: what the waypoints round the sun are drawn from.
+export function waysOf(s: Pick<FeedState, "items" | "open">): Way[] {
+  return Object.entries(s.open).flatMap(([expId, o]) => {
+    const exp = o.plan ? expOf(s.items, o.node) : undefined;
+    const steps = exp && planOf(exp.nodes);
+    return exp && steps ? [{ expId, task: exp.task, steps }] : [];
+  });
+}
+// The same, as a word that changes only when a step does (so whoever draws them needn't look again until then).
+export const waysKey = (s: Pick<FeedState, "items" | "open">) => waysOf(s).map((w) => `${w.expId}:${w.steps.map((st) => st.state[0]).join("")}`).join("|");
+
+// The decisions waiting on you, as their cards: all of them, or one crew member's.
+export function asksOf(s: Pick<FeedState, "items" | "asks">, mine: (who: string) => boolean = () => true) {
+  const ids = new Set(s.asks.filter((a) => mine(a.who)).map((a) => a.node));
+  return ids.size ? findNodes(s.items, "ask").filter((n) => ids.has(n.id)) : [];
 }

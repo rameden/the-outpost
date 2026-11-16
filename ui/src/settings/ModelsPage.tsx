@@ -9,21 +9,32 @@ import { useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { ModelOptions, forgetModelLists, useModelList } from "../components/ModelPicker.tsx";
+import { ask } from "../components/Confirm.tsx";
 import type { CampState, ProviderState } from "../types.ts";
 
-function Provider({ p, refresh }: { p: ProviderState; refresh: () => void }) {
+type ModelProvider = Omit<ProviderState, "id"> & { id: ProviderState["id"] | "anthropic"; environment?: boolean };
+
+function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const connect = async () => {
+  const anthropic = p.id === "anthropic";
+  const connect = async (importEnvironment = false) => {
     setBusy(true); setError("");
-    try { await api("/api/providers/connect", { id: p.id, key }); setKey(""); forgetModelLists(); refresh(); }
+    try {
+      await api(anthropic ? "/api/anthropic/key" : "/api/providers/connect", anthropic ? importEnvironment ? { import: true } : { key } : { id: p.id, key });
+      setKey(""); forgetModelLists(); refresh();
+    }
     catch (e) { setError(errorText(e)); }
     setBusy(false);
   };
   const disconnect = async () => {
+    if (anthropic && !await ask({ title: "Remove the saved Anthropic key?", body: p.environment ? "API work will use the environment key instead." : "API work will need another key. Your Claude subscription is unchanged.", action: "Disconnect and forget the key", danger: true })) return;
     setBusy(true); setError("");
-    try { await api("/api/providers/disconnect", { id: p.id }); forgetModelLists(); refresh(); } catch (e) { setError(errorText(e)); }
+    try {
+      await api(anthropic ? "/api/anthropic/key" : "/api/providers/disconnect", anthropic ? { key: null } : { id: p.id });
+      forgetModelLists(); refresh();
+    } catch (e) { setError(errorText(e)); }
     setBusy(false);
   };
   return (
@@ -35,7 +46,7 @@ function Provider({ p, refresh }: { p: ProviderState; refresh: () => void }) {
           : <span className="pill">Not connected</span>}
       </div>
       <p className="set-note">{p.privacy}</p>
-      {p.connected && (
+      {p.connected && !anthropic && (
         <label className="fb-keep prov-approve">
           <input type="checkbox" checked={p.approved} disabled={busy}
             onChange={(ev) => { setError(""); api("/api/providers/approve", { id: p.id, on: ev.target.checked }).then(refresh, (e) => setError(errorText(e))); }} />
@@ -48,7 +59,10 @@ function Provider({ p, refresh }: { p: ProviderState; refresh: () => void }) {
       {p.connected ? (
         <div className="set-actions">
           {p.from === "env"
-            ? <span className="meta">Its key comes from where the camp was started, so it's changed there.</span>
+            ? <>
+              <span className="meta">Its key comes from where the camp was started, so it's changed there.</span>
+              {anthropic && <button type="button" className="btn small" disabled={busy} onClick={() => connect(true)}>{busy ? "Checking…" : "Import environment key"}</button>}
+            </>
             : <button type="button" className="btn small danger" disabled={busy} onClick={disconnect}>Disconnect and forget the key</button>}
         </div>
       ) : (
@@ -65,7 +79,7 @@ function Provider({ p, refresh }: { p: ProviderState; refresh: () => void }) {
 
 export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }) {
   const providers = S.providers ?? [];
-  const connected = providers.filter((p) => p.connected).map((p) => p.id).join(",");
+  const connected = [S.anthropic?.connected ? `anthropic:${S.anthropic.from}` : "", ...providers.filter((p) => p.connected).map((p) => p.id)].join(",");
   // The list changes with what's connected.
   const { list, error: listError } = useModelList(`${S.runtime}|${connected}`);
   const [error, setError] = useState("");
@@ -80,7 +94,8 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
   const other = /^(deepseek|gemini|groq|openrouter):/.test(small);
   return (
     <>
-      <p className="set-note">Claude runs the crew. Here you can connect other companies' models as well, for a crew member you'd rather run cheaply or the camp's own small jobs. Once one is connected, its models appear in every model picker under its name. Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no crew member can open, and are never shown again.</p>
+      <p className="set-note">Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no crew member can open, and are never shown again.</p>
+      <Provider p={{ id: "anthropic", name: "Anthropic", connected: S.anthropic?.connected ?? false, from: S.anthropic?.from ?? undefined, environment: S.anthropic?.environment, keysAt: "https://console.anthropic.com/settings/keys", privacy: "Claude API usage is billed separately from your Claude subscription and has its own limits.", models: 0, free: 0, approved: true }} refresh={refresh} />
       {providers.map((p) => <Provider key={p.id} p={p} refresh={refresh} />)}
 
       <h4 className="set-sub">Small jobs</h4>

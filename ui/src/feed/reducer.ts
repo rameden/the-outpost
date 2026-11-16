@@ -20,8 +20,10 @@ export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
 // listed: an approved plan whose steps are shown as the live list under it (so the card itself folds its text away).
 // held: a plan you approved to start later. started: the run it was started as, once you have.
+// waiting: plans from its conversation already waiting to start, when it was asked. aside: a held
+// plan set aside unstarted ("replaced" by a newer plan, or "removed").
 export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null; listed?: boolean; plain?: string; // plain: what it does, in plain words
-  held?: boolean; started?: string };
+  held?: boolean; started?: string; waiting?: { ask: string; held: string }[]; aside?: "replaced" | "removed" };
 // The plan you approved, as a list that fills in: each numbered step, and the quests carrying it out.
 // ended: how the run finished, once it has (a step still out then was cut short).
 export type PlanQuest = { node: string; who: string; emoji: string; status: string | null };
@@ -38,7 +40,8 @@ export function stepState(step: PlanStep, ended?: string): StepState {
 export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[]; brief?: string; started?: string; step?: number };
 // A quest that's out right now: whose it is, what it's for, and what it's doing this moment. Two
 // quests by the same crew member are two of these, which the crew's own status (one per member) can't show.
-export type QuestOut = { id: string; expId: string; node: string; who: string; emoji: string; brief: string; started: number; line: string; waiting: boolean; step?: number };
+export type QuestOut = { id: string; expId: string; node: string; who: string; emoji: string; brief: string; started: number; line: string; waiting: boolean; step?: number;
+  last: number }; // last: when it last did anything (a quest that goes a while without is shown as quiet)
 export type ExpNode = {
   kind: "exp"; id: string; expId: string; task: string; source: "user" | "direct" | "job"; job?: string; followUp: boolean;
   thread?: string; // the conversation it belongs to (jobs have none)
@@ -131,9 +134,10 @@ function setCrew(s: FeedState, name: string, status: CrewStatus["status"], line?
 }
 
 // What a quest that's out is doing now (or that it's waiting on you).
-function touchQuest(s: FeedState, e: { expeditionId?: string; questId?: string }, change: Partial<Pick<QuestOut, "line" | "waiting">>) {
+function touchQuest(s: FeedState, e: { expeditionId?: string; questId?: string; time?: string }, change: Partial<Pick<QuestOut, "line" | "waiting">>) {
   if (!e.questId || !s.quests.some((q) => q.id === e.questId && q.expId === e.expeditionId)) return;
-  s.quests = s.quests.map((q) => (q.id === e.questId && q.expId === e.expeditionId ? { ...q, ...change } : q));
+  const last = e.time ? new Date(e.time).getTime() : NaN;
+  s.quests = s.quests.map((q) => (q.id === e.questId && q.expId === e.expeditionId ? { ...q, ...change, ...(last > q.last ? { last } : {}) } : q));
 }
 const snippet = (text: string) => text.replace(/[#*`>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
 
@@ -223,7 +227,7 @@ function addDispatch(s: FeedState, e: EventOf<"dispatch">) {
     }
     s.items = appendTo(exp.node, node)(s.items); // quests sit side by side in the expedition, never inside each other
     const questId = e.questId ?? `q${Object.keys(exp.quests).length}`;
-    s.quests = [...s.quests, { id: questId, expId: e.expeditionId, node: node.id, who: e.who, emoji: e.emoji, brief: e.brief ?? "", started: new Date(e.time).getTime(), line: "Setting out", waiting: false, ...(e.step ? { step: e.step } : {}) }];
+    s.quests = [...s.quests, { id: questId, expId: e.expeditionId, node: node.id, who: e.who, emoji: e.emoji, brief: e.brief ?? "", started: new Date(e.time).getTime(), last: new Date(e.time).getTime(), line: "Setting out", waiting: false, ...(e.step ? { step: e.step } : {}) }];
     s.open = { ...s.open, [e.expeditionId]: { ...exp, quests: { ...exp.quests, [questId]: { node: node.id, who: e.who } } } };
   }
   setCrew(s, e.who, "active", "Setting out");
@@ -270,7 +274,7 @@ function addAsk(s: FeedState, e: EventOf<"ask">) {
   // Whoever is asking: the Quartermaster for plans and jobs, otherwise the quest's adventurer.
   const questOwner = e.expeditionId && e.questId ? s.open[e.expeditionId]?.quests[e.questId]?.who : undefined;
   const who = e.kind === "plan" || e.kind === "job" ? "Quartermaster" : questOwner ?? "Quartermaster";
-  const node: AskNode = { kind: "ask", id: `a${e.seq}`, askId: e.id, askKind: e.kind, title: e.title, body: e.body, who, outcome: null };
+  const node: AskNode = { kind: "ask", id: `a${e.seq}`, askId: e.id, askKind: e.kind, title: e.title, body: e.body, who, outcome: null, ...(e.waiting?.length ? { waiting: e.waiting } : {}) };
   place(s, node, e.questId, e.expeditionId);
   s.asks = [...s.asks, { id: e.id, node: node.id, who, expId: e.expeditionId, questId: e.questId }];
   setCrew(s, who, "waiting");
@@ -291,7 +295,7 @@ function resolveAsk(s: FeedState, e: EventOf<"answered">) {
   s.asks = s.asks.filter((a) => a.id !== e.id);
   setCrew(s, ask.who, "active");
   // Still waiting only if another of its questions is open.
-  if (!s.asks.some((a) => a.questId === ask.questId && a.expId === ask.expId)) touchQuest(s, { expeditionId: ask.expId, questId: ask.questId }, { waiting: false });
+  if (!s.asks.some((a) => a.questId === ask.questId && a.expId === ask.expId)) touchQuest(s, { expeditionId: ask.expId, questId: ask.questId, time: e.time }, { waiting: false });
 }
 
 const JOB_LINES = {
@@ -333,6 +337,11 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
       // On a finished run (the one that planned it), so its card is found by its question's id.
       const card = findNodes(s.items, "ask").find((n) => n.askId === e.ask);
       if (card) s.items = replaceNode(s.items, card.id, (n) => (n.kind === "ask" ? { ...n, started: e.run } : n));
+      break;
+    }
+    case "plan_aside": {
+      const card = findNodes(s.items, "ask").find((n) => n.askId === e.ask);
+      if (card) s.items = replaceNode(s.items, card.id, (n) => (n.kind === "ask" ? { ...n, aside: e.by ? "replaced" : "removed" } : n));
       break;
     }
     case "steer": place(s, { kind: "steer", id: `s${e.seq}`, text: e.text }, undefined, e.id); break;

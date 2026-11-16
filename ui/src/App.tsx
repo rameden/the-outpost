@@ -89,8 +89,8 @@ export function App({ store }: { store: FeedStore }) {
   // Orbit (orbit/Orbit.tsx): the crew at work as a solar system, over the whole page. Going anywhere on the page leaves it.
   // "demo": opened on its demo, a pretend camp at work (/orbit demo).
   const [orbit, setOrbit] = useState<false | "live" | "demo">(false);
-  const closeOrbit = useCallback(() => setOrbit(false), []);
   const toggleOrbit = useCallback(() => setOrbit((on) => (on ? false : "live")), []);
+  const closeOrbit = useCallback(() => setOrbit(false), []);
 
   const setView = useCallback((v: View) => {
     setOrbit(false);
@@ -454,9 +454,7 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
-            filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined}
-            notesOpen={notesOpen} onToggleNotes={hasNotes ? toggleNotes : undefined} onOpenLayout={openLayout}
-            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} />
+            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -564,7 +562,7 @@ export function App({ store }: { store: FeedStore }) {
       <Presence>{orbit && (
         <OverlayBoundary name="Orbit" onClose={closeOrbit}>
           <Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
-            onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} onDecision={() => { setOrbit(false); act.current.command("next"); }} />
+            onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} />
         </OverlayBoundary>
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}

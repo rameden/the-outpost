@@ -49,7 +49,10 @@ test("the busy chip counts running expeditions and what's queued, and the title 
   const S = { ...camp(), queued: [{ id: "q", label: "expedition" }] } as CampState;
   render(<Header S={S} store={store} conn="live" refresh={() => {}} />);
   expect(screen.getByText("Idle · 1 queued")).toBeTruthy();
-  expect(screen.getByText("$1.50 today")).toBeTruthy();
+  expect(screen.queryByText("$1.50 today")).toBeNull(); // today's spend is in the status chip's menu, not the bar
+  fireEvent.click(screen.getByRole("button", { name: /^Idle · 1 queued/ }));
+  expect(within(screen.getByRole("menu", { name: "The camp" })).getByText("$1.50 today")).toBeTruthy();
+  expect(screen.getByText(/Up to 3 expeditions run at once/)).toBeTruthy();
   expect(screen.queryByText("Live")).toBeNull(); // connected is the normal state: nothing to show
 
   events(store, { type: "expedition_start", id: "a", task: "One", source: "user" });
@@ -70,9 +73,11 @@ test("the busy chip counts running expeditions and what's queued, and the title 
 test("the runtime chip switches what runs the crew, after you confirm", async () => {
   const refresh = vi.fn();
   render(<Header S={onSubscription()} store={createFeedStore()} conn="live" refresh={refresh} />);
-  expect(screen.getByText("$1.50 today (est.)")).toBeTruthy();
   expect(screen.getByRole("button", { name: /Plan limit · resets in 30 min/ })).toBeTruthy();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Claude Max" })); });
+  expect(screen.queryByText("Claude Max")).toBeNull(); // set once, so it's in the status chip's menu
+  fireEvent.click(screen.getByRole("button", { name: /^Idle/ }));
+  expect(screen.getByText("$1.50 today (est.)")).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: /Claude Max/ })); });
   expect(confirm).toHaveBeenCalledWith("Switch the crew to the API? Usage will be billed to your API key.");
   expect(posts).toEqual([{ path: "/api/runtime", body: { runtime: "api" } }]);
   expect(refresh).toHaveBeenCalled();
@@ -109,13 +114,18 @@ test("Quests shows plan usage and the pause, and sends you to Settings for the b
 test("focus mode: one button closes the panels, and shows when they're closed", () => {
   const onToggleFocus = vi.fn();
   const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused={false} onToggleFocus={onToggleFocus} />);
-  const focus = screen.getByRole("button", { name: "Focus mode" });
-  expect(focus.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(screen.getByRole("button", { name: "More" })); // it's in the ··· menu
+  const focus = screen.getByRole("menuitemcheckbox", { name: "Focus mode" });
+  expect(focus.getAttribute("aria-checked")).toBe("false");
   fireEvent.click(focus);
   expect(onToggleFocus).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("menu", { name: "More" })).toBeNull(); // picking shuts the menu
   expect(screen.queryByRole("button", { name: /the terminal/ })).toBeNull(); // the terminal has its own tab now
   rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused onToggleFocus={onToggleFocus} />);
-  expect(screen.getByRole("button", { name: "Leave focus mode" }).getAttribute("aria-pressed")).toBe("true");
+  const more = screen.getByRole("button", { name: "More" });
+  expect(more.className).toContain("on"); // lit while focus is on
+  fireEvent.click(more);
+  expect(screen.getByRole("menuitemcheckbox", { name: "Focus mode" }).getAttribute("aria-checked")).toBe("true");
 });
 
 test("what needs you is one chip: several things open a list, and each row goes to its own", () => {

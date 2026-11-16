@@ -13,7 +13,7 @@ import { aboutBlock } from "./memlog.js";
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
-import { PROVIDERS, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
+import { PROVIDERS, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
 import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering, conversationModel } from "./context.js";
 import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
@@ -30,7 +30,11 @@ const join = posix.join;
 
 // Created on first use: on the Claude Code runtime there may be no API key at all.
 let apiClient: Anthropic | null = null;
-const client = () => (apiClient ??= new Anthropic()); // reads ANTHROPIC_API_KEY
+const client = () => {
+  const apiKey = anthropicKey();
+  if (!apiClient || apiClient.apiKey !== apiKey) apiClient = new Anthropic({ apiKey });
+  return apiClient;
+};
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
 const MAX_TOKENS = 32_000; // replies stream, so long ones can't time out; thinking counts against this too
 const MAX_CUTOFFS = 3;     // give up if a character keeps hitting the token limit

@@ -67,6 +67,68 @@ const events: any[] = [];
 onEvent((e) => events.push(e));
 beforeEach(() => { seen.length = 0; events.length = 0; claude.seen.length = 0; say = () => ({ text: "ok" }); });
 
+test("Anthropic settings validate and privately store a key, with the environment as fallback", async (t) => {
+  const environmentKey = process.env.ANTHROPIC_API_KEY;
+  t.after(() => {
+    if (environmentKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = environmentKey;
+  });
+  process.env.ANTHROPIC_API_KEY = "environment-key-123456";
+  t.mock.method(globalThis, "fetch", async (request: unknown, init?: RequestInit) => {
+    const accepted = new Headers(request instanceof Request ? request.headers : init?.headers).get("authorization") === "Bearer saved-key-123456";
+    return new Response(JSON.stringify(accepted
+      ? { data: [], has_more: false, first_id: null, last_id: null }
+      : { type: "error", error: { type: "authentication_error", message: "invalid key" } }), { status: accepted ? 200 : 401 });
+  });
+  assert.equal(p.anthropicKeyState().from, "env");
+  await assert.rejects(p.setAnthropicKey("short"), /doesn't look like an API key/);
+  await assert.rejects(p.setAnthropicKey("bad-key-123456"), /Anthropic didn't accept/);
+  assert.equal(p.anthropicKey(), "environment-key-123456");
+  const state = await p.setAnthropicKey("  saved-key-123456  ");
+  assert.deepEqual(state, { connected: true, saved: true, environment: true, from: "camp" });
+  assert.equal(p.anthropicKey(), "saved-key-123456");
+  assert.ok(!JSON.stringify(state).includes("key-123456"));
+  if (!WINDOWS) assert.equal(statSync(p.PROVIDERS_PATH).mode & 0o777, 0o600);
+  await assert.rejects(() => readFileFor("scout").run!({ path: p.PROVIDERS_PATH }) as Promise<unknown>);
+  await assert.rejects(p.setAnthropicKey("bad-key-123456"), /Anthropic didn't accept/);
+  assert.equal(p.anthropicKey(), "saved-key-123456", "a rejected replacement preserves the saved key");
+  await p.setAnthropicKey(null);
+  assert.equal(p.anthropicKey(), "environment-key-123456");
+  delete process.env.ANTHROPIC_API_KEY;
+  assert.deepEqual(p.anthropicKeyState(), { connected: false, saved: false, environment: false, from: null });
+});
+
+test("agent and small-job requests use saved Anthropic keys and pick up replacements without restarting", async (t) => {
+  const environmentKey = process.env.ANTHROPIC_API_KEY;
+  const originalFetch = globalThis.fetch;
+  const smallKeys: (string | null)[] = [];
+  t.after(async () => {
+    await p.setAnthropicKey(null);
+    if (environmentKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = environmentKey;
+  });
+  delete process.env.ANTHROPIC_API_KEY;
+  t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const request = new Request(input, init);
+    if (new URL(request.url).pathname === "/v1/models") return new Response(JSON.stringify({ data: [], has_more: false, first_id: null, last_id: null }));
+    if (new URL(request.url).pathname === "/v1/messages") {
+      const body = await request.clone().json() as any;
+      if (!body.stream) {
+        smallKeys.push(request.headers.get("authorization"));
+        return new Response(JSON.stringify({ id: "msg_small", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: "small answered" }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } }), { headers: { "content-type": "application/json" } });
+      }
+    }
+    return originalFetch(input, init);
+  });
+  for (const key of ["saved-key-123456", "rotated-key-123456"]) {
+    await p.setAnthropicKey(key);
+    await runDirect("scout", "Reply briefly, without tools.");
+    assert.equal(claude.seen.at(-1)?.headers.authorization, `Bearer ${key}`);
+    assert.equal(await askSmall("Be brief.", "Hello."), "small answered");
+    assert.equal(smallKeys.at(-1), `Bearer ${key}`);
+  }
+});
+
 test("connecting: the provider checks the key, it's kept on disk for you alone, and the page is never shown it", async () => {
   assert.deepEqual(p.providersState().map((s) => [s.id, s.connected]), [["deepseek", false], ["gemini", false], ["groq", false], ["openrouter", false]]);
   await assert.rejects(p.connectProvider("groq", "bad-key-000000"), /Groq didn't accept that key: Invalid API Key/);

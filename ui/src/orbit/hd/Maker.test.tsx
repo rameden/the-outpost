@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { WorldMaker } from "./Maker.tsx";
-import { RING_USUAL, anotherMoon, middle, worldsFor, type Custom } from "./worlds.ts";
+import { MINE, RING_USUAL, STATION, WORLD, anotherMoon, asKind, middle, worldsFor, type Custom } from "./worlds.ts";
 
 afterEach(cleanup);
 const [scoutsWorld, station] = worldsFor(0, [{ id: "scout", color: [0.5, 0.7, 0.4] }, { id: "artificer", color: [0.9, 0.6, 0.4] }]);
@@ -105,4 +105,43 @@ test("the Artificer's is a station, and is built: spokes, a second ring, how big
   slide("Wings", 0.3);
   expect(last().p).toEqual([4, 1, 0.8, 0.3]);
   expect(screen.getByRole("group", { name: "Satellites" })).toBeTruthy(); // it has those like anyone
+});
+
+test("what it is can be changed: anyone's can be a planet, a station or asteroids, and changing it starts its settings afresh", () => {
+  const { last, onChange } = show();
+  const kinds = within(screen.getByRole("group", { name: "What it is" }));
+  expect(kinds.getByRole("button", { name: "Planet" }).getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(kinds.getByRole("button", { name: "Asteroids" }));
+  // (The settings that were the world's are let go by name, so they aren't laid over the cluster.)
+  expect(last()).toEqual({ kind: MINE, sort: undefined, p: undefined, ring: undefined, moons: undefined });
+  fireEvent.click(kinds.getByRole("button", { name: "Station" }));
+  expect(last().kind).toBe(STATION);
+  const asked = onChange.mock.calls.length;
+  fireEvent.click(kinds.getByRole("button", { name: "Planet" })); // what it already is: nothing to ask
+  expect(onChange.mock.calls.length).toBe(asked);
+  // The Artificer's station can be a planet like anyone's.
+  cleanup();
+  const theirs = show(station);
+  fireEvent.click(within(screen.getByRole("group", { name: "What it is" })).getByRole("button", { name: "Planet" }));
+  expect(theirs.last().kind).toBe(WORLD);
+});
+
+test("a cluster of asteroids is set up: how many rocks, how far spread, how big the main one, how rough; no seas, rings or moons", () => {
+  const cluster = { ...asKind(scoutsWorld, MINE), p: [6, 1.2, 0.58, 0.26] as [number, number, number, number] };
+  const { container, last } = show(cluster, true);
+  expect(container.querySelector("summary")!.textContent).toBe("Set up Scout's mining clusterasteroids");
+  expect(within(screen.getByRole("group", { name: "What it is" })).getByRole("button", { name: "Asteroids" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByRole("slider", { name: "Sea" })).toBe(null);
+  expect(screen.queryByRole("switch", { name: "Rings" })).toBe(null);
+  expect(screen.queryByRole("group", { name: "Moons" })).toBe(null);
+  expect(screen.queryByRole("group", { name: "Spokes" })).toBe(null);
+  fireEvent.click(screen.getByRole("button", { name: "One more: rocks" }));
+  expect(last().p).toEqual([7, 1.2, 0.58, 0.26]);
+  slide("Spread", 1.5);
+  expect(last().p).toEqual([6, 1.5, 0.58, 0.26]);
+  slide("Main rock", 0.7);
+  expect(last().p).toEqual([6, 1.2, 0.7, 0.26]);
+  slide("Rough", 0.35);
+  expect(last().p).toEqual([6, 1.2, 0.58, 0.35]);
+  expect(screen.getByRole("group", { name: "Satellites" })).toBeTruthy();
 });

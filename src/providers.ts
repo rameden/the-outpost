@@ -15,6 +15,7 @@
 // crew member running on one), effort levels, and a cost estimate (their usage counts as $0 here).
 // DeepSeek is the exception on cost: it sells its own two models at listed prices, so costs.ts has them.
 
+import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { emit } from "./events.js";
@@ -45,7 +46,7 @@ const baseUrl = (p: Preset) => (process.env[`PROVIDER_BASE_URL_${p.id.toUpperCas
 export class ProviderError extends Error { fixable = true; }
 
 // ---------- Keys ----------
-type Saved = Partial<Record<ProviderId, { key: string; connected: string }>>;
+type Saved = Partial<Record<ProviderId | "anthropic", { key: string; connected: string }>>;
 function load(): Saved {
   try { return existsSync(PROVIDERS_PATH) ? (JSON.parse(readFileSync(PROVIDERS_PATH, "utf8")) as Saved) : {}; } catch { return {}; }
 }
@@ -58,6 +59,32 @@ function keyOf(p: Preset): { key: string; from: "env" | "camp" } | null {
   if (env) return { key: env, from: "env" };
   const kept = load()[p.id]?.key;
   return kept ? { key: kept, from: "camp" } : null;
+}
+
+export const anthropicKey = (): string | undefined => load().anthropic?.key || process.env.ANTHROPIC_API_KEY?.trim() || undefined;
+export function anthropicKeyState() {
+  const saved = !!load().anthropic?.key;
+  const environment = !!process.env.ANTHROPIC_API_KEY?.trim();
+  return { connected: saved || environment, saved, environment, from: saved ? "camp" as const : environment ? "env" as const : null };
+}
+export async function setAnthropicKey(key: unknown) {
+  if (key === null) {
+    const saved = load();
+    delete saved.anthropic;
+    save(saved);
+  } else {
+    if (typeof key !== "string" || key.trim().length < 10 || /\s/.test(key.trim())) throw new ProviderError("That doesn't look like an API key.");
+    const value = key.trim();
+    try {
+      await new Anthropic({ apiKey: value, timeout: 20_000, maxRetries: 0 }).models.list({ limit: 1 });
+    } catch (error) {
+      if (error instanceof Anthropic.AuthenticationError || error instanceof Anthropic.PermissionDeniedError) throw new ProviderError("Anthropic didn't accept that key.");
+      throw new ProviderError("Couldn't verify the key with Anthropic. Try again shortly.");
+    }
+    save({ ...load(), anthropic: { key: value, connected: new Date().toISOString() } });
+  }
+  emit({ type: "changed", what: "settings" });
+  return anthropicKeyState();
 }
 
 // A request with no Stop signal of its own (listing models, checking a key) gives up after this

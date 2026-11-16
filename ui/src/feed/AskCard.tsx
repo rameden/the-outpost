@@ -5,14 +5,17 @@
 
 import { memo, useState } from "react";
 import { api, errorText } from "../api.ts";
-import { cx } from "../format.ts";
-import { ASK_LABELS, START_LATER, heldAnswer } from "./asks.ts";
+import { cx, when } from "../format.ts";
+import { ASK_LABELS, REPLACE_LATER, REPLACE_START, START_LATER, heldAnswer } from "./asks.ts";
 import type { AskNode } from "./reducer.ts";
 
 export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [starting, setStarting] = useState(false);
+  // Approving a plan when its conversation already has one waiting to start: which approve you
+  // pressed, while the card asks whether this plan replaces the waiting one or joins it.
+  const [choosing, setChoosing] = useState<"start" | "later" | null>(null);
   const kind = ask.askKind;
   const resolved = ask.outcome !== null;
 
@@ -23,14 +26,16 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   }
   const typed = draft.trim();
   // A typed "y", "n" or "later" would read as approve, stop or hold, so those go through the buttons.
-  const sendChanges = () => { if (typed && typed.toLowerCase() !== "n" && typed.toLowerCase() !== "y" && !heldAnswer(typed)) void answer(typed); };
+  const sendChanges = () => { const t = typed.toLowerCase(); if (typed && t !== "n" && t !== "y" && t !== REPLACE_START && !heldAnswer(typed)) void answer(typed); };
+  const earlier = ask.waiting ?? [];
+  const approve = (how: "start" | "later") => { if (earlier.length) setChoosing(how); else void answer(how === "later" ? START_LATER : ""); };
   // A plan held for later, started now: it carries on this conversation, already approved.
   async function start() {
     setStarting(true);
     try { await api("/api/send", { start: ask.askId }); }
     catch (e) { setStarting(false); alert(errorText(e)); }
   }
-  const waiting = !!ask.held && !ask.started; // approved, and waiting for you to start it
+  const waiting = !!ask.held && !ask.started && !ask.aside; // approved, and waiting for you to start it
   const sendAnswer = () => { if (typed) void answer(typed); };
 
   // A command that's been answered is a record, and a run can have dozens: each folds to one
@@ -67,7 +72,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
         : <div className={kind === "shell" || kind === "tool" ? "ask-body cmd" : "ask-body"}>{ask.body}</div>}
       {resolved ? (
         <>
-          <div className="ask-outcome">{ask.started ? "▶ Plan approved, and started" : ask.outcome}</div>
+          <div className="ask-outcome">{ask.started ? "▶ Plan approved, and started" : ask.aside === "replaced" ? "↺ Set aside: a newer plan took its place" : ask.aside === "removed" ? "✕ Removed from Ready to start" : ask.outcome}</div>
           {waiting && (
             <div className="ask-start">
               <button type="button" className="btn primary" disabled={starting} onClick={start}>{starting ? "Starting…" : "Start plan"}</button>
@@ -79,11 +84,24 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
         <>
           <div className="ask-note">{ASK_LABELS[kind]?.note ?? ""}</div>
           <div className="ask-row">
-            {kind === "plan" ? (
+            {kind === "plan" && choosing ? (
+              <>
+                <span className="ask-question">
+                  {earlier.length === 1
+                    ? `This conversation already has a plan waiting to start (approved ${when(earlier[0].held)}). Does this one update it, or is it a new plan?`
+                    : `This conversation already has ${earlier.length} plans waiting to start. Does this one replace them, or is it a new plan?`}
+                </span>
+                <button type="button" className="btn primary" disabled={sending} onClick={() => answer(choosing === "later" ? REPLACE_LATER : REPLACE_START)}
+                  title="The waiting plan comes off Ready to start, and this one takes its place">{earlier.length === 1 ? "Update the waiting plan" : "Replace them"}</button>
+                <button type="button" className="btn" disabled={sending} onClick={() => answer(choosing === "later" ? START_LATER : "")}
+                  title="Keep the waiting plan as it is, and add this one">Keep both</button>
+                <button type="button" className="btn" disabled={sending} onClick={() => setChoosing(null)}>Back</button>
+              </>
+            ) : kind === "plan" ? (
               <>
                 {/* No Stop here: the message box's Stop ends the run, plan and all. */}
-                <button type="button" className="btn primary" disabled={sending} onClick={() => answer("")}>Approve and start</button>
-                <button type="button" className="btn" disabled={sending} onClick={() => answer(START_LATER)}
+                <button type="button" className="btn primary" disabled={sending} onClick={() => approve("start")}>Approve and start</button>
+                <button type="button" className="btn" disabled={sending} onClick={() => approve("later")}
                   title="Approve it now, and start it yourself from this card whenever you're ready">Approve, start later</button>
                 <input placeholder="Or describe changes…" aria-label="Changes to the plan" value={draft} disabled={sending}
                   onChange={(ev) => setDraft(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") sendChanges(); }} />

@@ -59,6 +59,36 @@ export function loadFeed(limit: number): CampEvent[] {
   return all;
 }
 
+// Everything since a moment, oldest first, for playing the day back (Orbit's replay). The file is
+// read from its end a stretch at a time until a line older than that turns up, so a long history
+// costs nothing. It never starts part-way through an expedition: what belongs to one that set
+// out earlier is left out. What was still open at the end is left open, as it was.
+export function feedSince(since: number, limit = 6000): CampEvent[] {
+  if (!existsSync(FEED_PATH)) return [];
+  const parse = (l: string): CampEvent[] => { try { const e = JSON.parse(l) as CampEvent; return e && typeof e === "object" && e.time ? [e] : []; } catch { return []; } };
+  const fd = openSync(FEED_PATH, "r");
+  let got = Buffer.alloc(0), from = statSync(FEED_PATH).size;
+  try {
+    while (from > 0) {
+      const to = from;
+      from = Math.max(0, from - SINCE_CHUNK);
+      const buf = Buffer.alloc(to - from);
+      readSync(fd, buf, 0, buf.length, from);
+      got = Buffer.concat([buf, got]);
+      const start = from > 0 ? got.indexOf(10) + 1 : 0; // (the first line is cut short unless this is the start of the file)
+      const end = got.indexOf(10, start);
+      const [first] = parse(got.subarray(start, end < 0 ? got.length : end).toString("utf8"));
+      if ((first && Date.parse(first.time) < since) || got.length > 24_000_000) break;
+    }
+  } finally { closeSync(fd); }
+  const text = got.subarray(from > 0 ? got.indexOf(10) + 1 : 0).toString("utf8");
+  let events = text.split("\n").flatMap((l) => (l ? parse(l) : [])).filter((e) => Date.parse(e.time) >= since);
+  if (events.length > limit) events = events.slice(-limit);
+  const began = new Set(events.flatMap((e) => (e.type === "expedition_start" ? [e.id] : [])));
+  return events.filter((e) => e.type === "expedition_start" || !e.expeditionId || began.has(e.expeditionId));
+}
+const SINCE_CHUNK = 1_000_000;
+
 // Once the file is large, drop its older half. Called at start-up and now and then while the
 // camp runs (it can stay up for weeks). The new file is written beside the old one and renamed
 // into place, so a crash part-way leaves the feed as it was. Returns whether it trimmed.

@@ -45,6 +45,13 @@ test("the nav moves between sections and Escape closes", () => {
   expect(onClose).toHaveBeenCalled();
 });
 
+test("General keeps runtime selection while Anthropic key management lives in Models", () => {
+  show("general", { ...camp(), anthropic: { connected: true, saved: true, environment: false, from: "camp" } });
+  expect(screen.getByRole("radiogroup", { name: "Runtime" })).toBeTruthy();
+  expect(screen.queryByLabelText("Anthropic API key")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Remove key" })).toBeNull();
+});
+
 test("the approval level, the allow-list, and removing an always-allowed command", async () => {
   const { refresh } = show("approvals");
   expect((screen.getByRole("radio", { name: /Allow safe commands/ }) as HTMLInputElement).checked).toBe(true);
@@ -105,20 +112,41 @@ test("the camp's records that used to be in the side panel are sections here", (
   expect(screen.getByRole("button", { name: /Inbox/ }).textContent).toContain("1");
 });
 
-test("today's cost can be taken out of the top bar, at once, and stays out in this browser", () => {
+test("inbox entries can be marked as read, one at a time or all at once, and only unread ones count on the badge", async () => {
+  const inbox = [
+    { heading: "2026-11-16 08:00 · morning-brief", body: "Where things stand.", seen: false },
+    { heading: "2026-11-15 09:00 · digest", body: "Two new pages.", seen: false },
+    { heading: "2026-11-14 09:00 · digest", body: "Old news.", seen: true },
+  ];
+  const { refresh } = show("inbox", { ...camp(), inbox } as unknown as CampState);
+  expect(screen.getByRole("button", { name: /Inbox/ }).textContent).toContain("2");
+  expect(screen.getByText("2 unread")).toBeTruthy();
+  const buttons = screen.getAllByRole("button", { name: "Mark as read" });
+  expect(buttons).toHaveLength(2); // the read one has none
+  await act(async () => { fireEvent.click(buttons[0]); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Mark all as read" })); });
+  expect(posts).toEqual([
+    { path: "/api/inbox/seen", body: { heading: "2026-11-16 08:00 · morning-brief" } },
+    { path: "/api/inbox/seen", body: { all: true } },
+  ]);
+  expect(refresh).toHaveBeenCalledTimes(2);
+});
+
+test("today's cost can be taken out of the top bar's status menu, at once, and stays out in this browser", () => {
   localStorage.clear();
   const S = { ...camp(), spend: { today: 1.5 } } as unknown as CampState;
   render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
   show("general", S);
-  const box = screen.getByRole("checkbox", { name: /Shown/ });
-  expect(screen.getByText("$1.50 today")).toBeTruthy();
+  // The spend is in the menu under the status chip; a click elsewhere (on the setting) shuts it, so it's opened each time.
+  const spend = () => { fireEvent.click(screen.getByRole("button", { name: /^Idle/ })); const there = screen.queryByText("$1.50 today"); fireEvent.click(screen.getByRole("button", { name: /^Idle/ })); return there; };
+  expect(spend()).toBeTruthy();
 
-  fireEvent.click(box);
-  expect(screen.queryByText("$1.50 today")).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: /Shown/ }));
+  expect(spend()).toBeNull();
   expect(screen.getByRole("checkbox", { name: /Hidden/ })).toHaveProperty("checked", false);
   expect(localStorage.getItem("camp-show-cost")).toBe("0");
 
   fireEvent.click(screen.getByRole("checkbox", { name: /Hidden/ }));
-  expect(screen.getByText("$1.50 today")).toBeTruthy();
+  expect(spend()).toBeTruthy();
   localStorage.clear();
 });

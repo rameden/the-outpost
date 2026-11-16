@@ -21,7 +21,7 @@ import { FINDINGS_FORMAT, REVIEW_SCOPE } from "./review.js";
 import { workspaceStatus } from "./repos.js";
 import { budgetUsd, fixAttempts, questLimit, reviewChangesOn } from "./settings.js";
 import { changedFiles, sealSnapshots } from "./checkpoints.js";
-import { allTurns, recordTurn, threadFor } from "./threads.js";
+import { allTurns, recordTurn, setPlanAside, threadFor } from "./threads.js";
 import { GENERAL, getProject, history } from "./conversations.js";
 import { proposeSkill, skillCatalog } from "./forge.js";
 import { wikiWrite } from "./wiki.js";
@@ -39,10 +39,15 @@ const rosterLines = () => Object.entries(ROSTER)
 
 // parked: a plan you approved to start later (its text and its card). The run ends without
 // dispatching anyone, and the plan is kept with the conversation until you start it.
-type Expedition = { planApproved: boolean; job?: string; parked?: { text: string; ask: string } };
+// thread: the conversation this run is in (a plan card asks about one already waiting there).
+type Expedition = { planApproved: boolean; job?: string; parked?: { text: string; ask: string }; thread?: string };
 
 // The answer that approves a plan but holds it for later (the plan card's "Approve, start later").
 export const START_LATER = "later";
+// When the conversation already has a plan waiting to start, approving a new one asks whether it
+// takes that one's place: these approve (to start now, or later) and set the waiting one aside.
+export const REPLACE_START = "y+replace";
+export const REPLACE_LATER = "later+replace";
 
 // Nothing is dispatched until you've seen and approved the plan.
 // Scheduled jobs skip this: you approved the job itself when it was scheduled.
@@ -66,7 +71,12 @@ function makeSubmitPlan(exp: Expedition): Tool {
       const stands = () => { if (steps.length >= 2) emit({ type: "plan", steps }); };
       if (exp.planApproved && (campMode.unattended || !APPROVE_PLANS)) { stands(); return "Approved. Go ahead."; }
       let askId = "";
-      const answer = await ask({ kind: "plan", title: "🗺️  The Quartermaster's plan:", body: String(plan) }, (id) => { askId = id; });
+      // A plan from this conversation already waiting to start: the card asks if this one replaces it.
+      const waiting = exp.thread ? heldPlans().filter((h) => h.conversation === exp.thread).map((h) => ({ ask: h.ask, held: h.held })) : [];
+      const reply = await ask({ kind: "plan", title: "🗺️  The Quartermaster's plan:", body: String(plan), ...(waiting.length ? { waiting } : {}) }, (id) => { askId = id; });
+      const replacing = reply.toLowerCase() === REPLACE_START || reply.toLowerCase() === REPLACE_LATER;
+      if (replacing) for (const w of waiting) if (setPlanAside(w.ask)) emit({ type: "plan_aside", ask: w.ask, by: askId });
+      const answer = reply.toLowerCase() === REPLACE_LATER ? START_LATER : reply.toLowerCase() === REPLACE_START ? "" : reply;
       if (answer.toLowerCase() === START_LATER) {
         exp.planApproved = false;
         exp.parked = { text: String(plan), ask: askId };
@@ -290,7 +300,7 @@ export function heldPlans(): HeldPlan[] {
   const byThread = new Map(history().conversations.map((c) => [c.id, c]));
   return turns.flatMap((t) => {
     const c = byThread.get(t.thread); // a conversation you removed takes its plans with it
-    if (!t.parked || started.has(t.parked.ask) || !c) return [];
+    if (!t.parked || t.parked.aside || started.has(t.parked.ask) || !c) return [];
     return [{ ask: t.parked.ask, conversation: c.id, title: c.title, project: c.project, held: t.time, plan: t.parked.text, steps: planSteps(t.parked.text).length }];
   }).sort((a, b) => b.held.localeCompare(a.held));
 }
@@ -435,6 +445,7 @@ export async function runExpedition(
   const where = placeOf(opts);
   const workspaces = stillHere(opts.workspaces ?? thread?.workspaces, where.scope);
   const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.without?.length ? { without: opts.without } : {}), ...(opts.jira ? { jira: opts.jira } : {}), ...(opts.model ? { model: opts.model } : {}), ...(opts.by ? { by: opts.by } : {}), ...(opts.approvedPlan ? { started: opts.approvedPlan.ask } : {}) };
+  exp.thread = turn.thread;
   emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
     ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });

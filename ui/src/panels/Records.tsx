@@ -272,16 +272,29 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
 }
 
 // ---------- Inbox ----------
-export function Inbox({ S }: Panel) {
+// Unread entries count on the badge in Settings' menu. Marking one as read keeps it here, quieter.
+export function Inbox({ S, refresh }: Panel) {
   if (!S.inbox.length) return <Empty title="Inbox is empty">Reports from scheduled jobs land here, newest first. Runs that find nothing new stay quiet.</Empty>;
+  const unread = S.inbox.filter((m) => !m.seen).length;
+  const markRead = (which: { heading: string } | { all: true }) => api("/api/inbox/seen", which).then(refresh, (e) => alert(errorText(e)));
   return (
-    <ul className="list">
-      {S.inbox.map((m, i) => (
-        <li className="card" key={`${m.heading}-${i}`}>
-          <div className="card-top"><span className="who"><Icon name="inbox" /> {m.heading.split(" · ").pop()}</span><time>{m.heading.split(" · ")[0]}</time></div>
-          <Markdown text={m.body} style={{ marginTop: 6, fontSize: 13.5 }} />
-        </li>
-      ))}
-    </ul>
+    <>
+      <div className="panel-note inbox-note">
+        <span>{unread ? `${unread} unread` : "All read."}</span>
+        {unread > 1 && <button className="btn small" type="button" onClick={() => markRead({ all: true })}>Mark all as read</button>}
+      </div>
+      <ul className="list">
+        {S.inbox.map((m, i) => (
+          <li className={cx("card", m.seen && "inbox-read")} key={`${m.heading}-${i}`}>
+            <div className="card-top">
+              <span className="who"><Icon name="inbox" /> {m.heading.split(" · ").pop()}{!m.seen && <span className="pill live">New</span>}</span>
+              <time>{m.heading.split(" · ")[0]}</time>
+            </div>
+            <Markdown text={m.body} style={{ marginTop: 6, fontSize: 13.5 }} />
+            {!m.seen && <div className="card-actions"><button className="btn small" type="button" onClick={() => markRead({ heading: m.heading })}>Mark as read</button></div>}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

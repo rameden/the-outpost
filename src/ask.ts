@@ -6,7 +6,8 @@ import { rl } from "./terminal.js";
 import { currentQuestId } from "./context.js";
 import { explainAsk } from "./explain.js";
 
-export type Question = { kind: AskKind; title: string; body: string };
+// waiting: on a plan, the plans from its conversation already waiting to start.
+export type Question = { kind: AskKind; title: string; body: string; waiting?: { ask: string; held: string }[] };
 type Asker = (q: Question & { id: string }) => Promise<string>;
 
 const CLI_PROMPTS: Record<AskKind, string> = {
