@@ -132,7 +132,7 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, notesOpen, onToggleNotes, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, filesOpen, onToggleFiles, notesOpen, onToggleNotes, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit }: {
   onHome?: () => void; // the logo takes you to Today
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
@@ -144,6 +144,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   onOpenLayout?: () => void;
   // The easter egg (egg/Barnstorm.tsx): fly a plane over the page. Its button starts it, then is play and pause.
   barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
+  orbit?: boolean; onOrbit?: () => void; // the crew at work as a solar system, full screen (orbit/Orbit.tsx)
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
@@ -213,6 +214,10 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         </div>
         <div className="top-tools">
         <Bell />
+        {onOrbit && (
+          <button className={cx("icon-btn", orbit && "on")} type="button" aria-pressed={!!orbit} aria-label={orbit ? "Leave Orbit" : "Orbit"}
+            title="Orbit: watch the crew at work as a solar system, full screen" onClick={onOrbit}><Icon name="orbit" /></button>
+        )}
         {onBarnstorm && (
           <button className={cx("icon-btn", "wide-only", barnstorm === "on" && "on", barnstorm === "paused" && "egg-paused")} type="button" aria-pressed={barnstorm === "on"}
             aria-label={barnstorm === "on" ? "Pause Barnstorm" : barnstorm === "paused" ? "Resume Barnstorm" : "Barnstorm"}

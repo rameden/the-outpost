@@ -49,6 +49,7 @@ import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link, Note } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
 import { Barnstorm, useKonami } from "./egg/Barnstorm.tsx";
+import { Orbit } from "./orbit/Orbit.tsx";
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -85,7 +86,13 @@ export function App({ store }: { store: FeedStore }) {
   }, []);
   const picking = picker && S?.characters.find((c) => c.id === picker.id);
 
+  // Orbit (orbit/Orbit.tsx): the crew at work as a solar system, over the whole page. Going anywhere on the page leaves it.
+  const [orbit, setOrbit] = useState(false);
+  const closeOrbit = useCallback(() => setOrbit(false), []);
+  const toggleOrbit = useCallback(() => setOrbit((on) => !on), []);
+
   const setView = useCallback((v: View) => {
+    setOrbit(false);
     setViewState(v);
     storeSet("camp-view", JSON.stringify(v));
     composer.current?.focus();
@@ -312,6 +319,7 @@ export function App({ store }: { store: FeedStore }) {
   // One place for everything a typed /command, the palette, or a shortcut can ask for.
   const command = (name: string, arg?: string) => {
     if (name === "today") goHome();
+    else if (name === "orbit") setOrbit(true);
     else if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
     else if (name === "focus") toggleFocus();
     else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
@@ -351,7 +359,7 @@ export function App({ store }: { store: FeedStore }) {
   }, []);
   const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
     ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
-      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
+      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
       label: c.does, hint: `/${c.name}`, run: () => act.current.command(c.name),
     })),
     ...S.history.conversations.map((c): PaletteItem => ({
@@ -447,7 +455,7 @@ export function App({ store }: { store: FeedStore }) {
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
             filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined}
             notesOpen={notesOpen} onToggleNotes={hasNotes ? toggleNotes : undefined} onOpenLayout={openLayout}
-            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} />
+            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={orbit} onOrbit={toggleOrbit} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -551,6 +559,13 @@ export function App({ store }: { store: FeedStore }) {
           }}
         </LayoutFrame>
       </div>
+      {/* Orbit takes the whole page, and sits under what opens over the page: an agent's page opens over it, and it stays. */}
+      <Presence>{orbit && (
+        <OverlayBoundary name="Orbit" onClose={closeOrbit}>
+          <Orbit S={S} store={store} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
+            onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} onDecision={() => { setOrbit(false); act.current.command("next"); }} />
+        </OverlayBoundary>
+      )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}
       <Presence>{agentId && (
         <OverlayBoundary key={agentId} name="This agent's page" onClose={closeAgent}>

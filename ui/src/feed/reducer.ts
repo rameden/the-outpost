@@ -63,6 +63,12 @@ export type FeedState = {
   localSeq: number;                       // for lines the page adds itself ("Queued (#2)…")
 };
 
+// What one of the crew is doing, in a line: their quests if several are out, else what they're on, else where they are.
+export function statusLine(st: CrewStatus, out: QuestOut[]): string {
+  if (out.length > 1) return `${out.length} quests out${out.some((q) => q.waiting) ? " · one needs your OK" : ""}`;
+  return st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : "At camp");
+}
+
 export const emptyFeed: FeedState = { lastSeq: 0, items: [], open: {}, live: {}, asks: [], crew: {}, quests: [], localSeq: 0 };
 
 export const liveKey = (e: { expeditionId?: string; questId?: string; who: string }) => `${e.expeditionId ?? ""}|${e.questId || `top:${e.who}`}`;

@@ -2087,6 +2087,163 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .trigger-form textarea { min-height: 64px; resize: vertical; }
 .trigger-form input:focus-visible, .trigger-form select:focus-visible, .trigger-form textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
+/* ---------- Orbit: the crew at work, full screen (ui/src/orbit) ----------
+   The camp at rest (.mae-system, above) grown to fill the screen and wired to what the crew is
+   doing. Everything in the sky that moves is moved by Orbit.tsx, a frame at a time off one clock:
+   nothing inside the drawing is animated or eased from here, because the browser runs a
+   stylesheet's animation a frame apart from what a script moves, and the two shake against each
+   other as soon as the camera is following something. What is animated here is outside the
+   drawing: the cells, the panel, the way in and out.
+   It is the night sky, so it is dark whatever the theme: its own few colours (--o-…), and the
+   crew's colours as the dark themes have them. It sits over the page (and the panels a narrow
+   screen lays over it) and under everything that opens over the page, so an agent's page or the
+   command palette can be opened from here and sit on top.
+   Nothing here is rounded: a mark on a planet or a panel is a straight 2px line or a square bracket. */
+.orbit {
+  --o-bg: #05070c; --o-ink: #ece6d9; --o-dim: #98a0b2; --o-faint: #626b7d; --o-line: #262e3e; --o-line-2: #3d485e; --o-panel: #0a0d15; --o-sun: #e6a53a; --o-warn: #f0b24a;
+  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-other: #7cb7c4;
+  position: fixed; inset: 0; z-index: 44; overflow: clip; outline: none; user-select: none; color: var(--o-ink); font: 12px/1.45 var(--mono); color-scheme: dark;
+  background: radial-gradient(120% 95% at 50% 42%, #101627 0%, #090c15 48%, var(--o-bg) 100%);
+}
+.orbit :is(button, [tabindex]):focus-visible { outline: 2px solid var(--o-ink); outline-offset: 2px; }
+/* The stars: three sheets, each one tile repeated, shifted (by Orbit.tsx) as the camera moves, the nearer the further.
+   They reach well past the screen, which is why .orbit clips what's outside it rather than hiding it: a box that hides can still be scrolled. */
+.orb-stars { position: absolute; pointer-events: none; will-change: transform; } /* (each reaches one tile past the top and left: as far as it is ever shifted) */
+.orb-stars.s1 { inset: -640px 0 0 -640px; background-size: 640px 640px; opacity: .8; background-image: radial-gradient(1.5px 1.5px at 467px 577px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 524px 605px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 528px 491px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 461px 314px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 555px 46px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 634px 165px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 64px 40px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 618px 34px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 455px 609px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 305px 515px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 472px 288px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 264px 326px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 34px 75px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 114px 301px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 21px 4px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 57px 485px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 433px 78px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 348px 93px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 19px 423px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 256px 107px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 480px 502px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 462px 525px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 433px 396px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 434px 221px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 610px 315px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 195px 407px, rgba(233, 228, 216, .5) 55%, transparent 60%); }
+.orb-stars.s2 { inset: -820px 0 0 -820px; background-size: 820px 820px; background-image: radial-gradient(1px 1px at 802px 300px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 610px 318px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 546px 370px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 277px 459px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 639px 469px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 91px 731px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 24px 528px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 793px 62px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 607px 381px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 756px 375px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 680px 325px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 185px 739px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 695px 661px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 186px 550px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 600px 121px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 440px 43px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 608px 342px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 299px 559px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 566px 227px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 113px 638px, rgba(240, 190, 110, .8) 55%, transparent 60%); }
+.orb-stars.s3 { inset: -1040px 0 0 -1040px; background-size: 1040px 1040px; background-image: radial-gradient(2px 2px at 191px 76px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 224px 939px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 870px 913px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 190px 850px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(2px 2px at 743px 889px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 440px 857px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 19px 743px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 52px 667px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 48px 31px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 469px 621px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(2.5px 2.5px at 562px 420px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 440px 549px, rgba(240, 190, 110, .8) 55%, transparent 60%); }
+.orb-sky, .orb-over { position: absolute; inset: 0; width: 100%; height: 100%; }
+.orb-sky { touch-action: none; cursor: grab; } .orb-sky:active { cursor: grabbing; } .orb-sky.over { cursor: pointer; }
+.orb-over { pointer-events: none; }
+/* The instrument behind the system: bearings, and a rim with its ticks. */
+.orb-grid { fill: none; stroke: var(--o-line); stroke-width: 1; opacity: .5; vector-effect: non-scaling-stroke; }
+.orb-rim { fill: none; stroke: var(--o-line-2); stroke-width: 1; opacity: .6; vector-effect: non-scaling-stroke; }
+.orb-ticks { fill: none; stroke: var(--o-faint); stroke-width: 4; opacity: .7; } .orb-ticks.long { stroke: var(--o-dim); stroke-width: 9; }
+/* The contour lines, as the small drawing has them. */
+.orb-ring { fill: none; stroke: var(--o-line-2); stroke-width: 1; opacity: .85; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.orb-ring.far { opacity: .4; }
+.orb-tone { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.6; opacity: 0; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.orb-planet:is(.active, .waiting) .orb-tone { opacity: .7; } .orb-planet.focused .orb-tone { opacity: .9; }
+.orb-tail { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .22; }
+.orb-planet:is(.active, .waiting) .orb-tail { opacity: .5; }
+/* The sun: the Quartermaster. Two dials turn round it (as on the sign-in page's orb, which styles its own dial and core wherever those
+   class names appear: these are named apart from them), faster while it's at work; pale while it waits on you. */
+.orb-g0 { stop-color: var(--c, var(--o-sun)); stop-opacity: .55; } .orb-g1 { stop-color: var(--c, var(--o-sun)); stop-opacity: .14; } .orb-g2 { stop-color: var(--c, var(--o-sun)); stop-opacity: 0; }
+.orb-sun-core { fill: var(--o-sun); }
+.orb-sun-dial circle { fill: none; stroke: var(--o-sun); stroke-width: .7; stroke-dasharray: 14 5 2 5; opacity: .75; }
+.orb-sun-dial.inner circle { stroke-dasharray: 2 4.5; opacity: .55; }
+.orb-sun.waiting .orb-sun-dial circle { stroke: var(--o-ink); opacity: .9; }
+.orb-ping { fill: none; stroke: var(--o-sun); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.orb-lit { fill: none; stroke: var(--o-sun); stroke-width: 1.7; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+/* A planet: dim at camp, lit while its crew member works, with a dashed ring turning round it and a moon for each quest out. */
+.orb-halo { opacity: .22; }
+.orb-planet.active .orb-halo { opacity: 1; } .orb-planet.waiting .orb-halo { opacity: .8; }
+.orb-disc { fill: #0b0f18; stroke: var(--c, var(--c-other)); stroke-width: 1.5; }
+.orb-planet:not(.active, .waiting, .focused) :is(.orb-disc, .orb-mark, .orb-emoji) { opacity: .7; }
+.orb-mark * { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.orb-emoji { font-size: 10.5px; }
+.orb-busy { opacity: 0; }
+.orb-busy circle { fill: none; stroke: var(--c, var(--c-other)); stroke-width: .7; stroke-dasharray: 3.2 2.6; }
+.orb-planet:is(.active, .waiting) .orb-busy { opacity: .9; }
+.orb-planet.waiting .orb-busy circle { stroke: var(--o-warn); stroke-width: 1.1; }
+.orb-moon circle { fill: var(--c, var(--c-other)); } .orb-moon.waiting circle { fill: var(--o-warn); }
+/* What crosses the sky (flown and timed by Orbit.tsx): a quest out along the line from the sun to its planet, which rings as it
+   lands; a report home along the same line; a small ring off a planet for a tool call. */
+.orb-comet circle { fill: var(--c, var(--c-other)); }
+.orb-land, .orb-blip { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.5; vector-effect: non-scaling-stroke; } .orb-blip { stroke-width: 1; }
+@keyframes orb-blink { 0% { opacity: 1; } 100% { opacity: .25; } }
+/* The marks round what you're looking at (and, fainter, what the pointer is over), and the line from the first to its panel. */
+.orb-reticle { --c: var(--o-ink); fill: none; stroke: var(--c); stroke-width: 2; } .orb-reticle.hover { stroke: var(--o-dim); stroke-width: 1; }
+.orb-leader { fill: none; stroke: var(--o-line-2); stroke-width: 1; }
+/* The names, under each body. */
+.orb-labels { position: absolute; inset: 0; overflow: clip; pointer-events: none; }
+.orb-label { --c: var(--o-sun); position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 1px; max-width: 220px; white-space: nowrap; text-align: center; will-change: transform; }
+.orb-label b { font-weight: 600; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--o-dim); }
+.orb-label:is(.active, .waiting, .focused) b { color: var(--c); }
+.orb-label span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font: 12px/1.35 var(--sans); color: var(--o-ink); }
+.orb-label.waiting span { color: var(--o-warn); } .orbit[data-far] .orb-label:not(.focused) span { display: none; }
+/* The frame: a bracket in each corner of the screen. */
+.orb-frame i { position: absolute; width: 18px; height: 18px; border: 0 solid var(--o-line-2); pointer-events: none; }
+.orb-frame i:nth-child(1) { top: 10px; left: 10px; border-width: 2px 0 0 2px; } .orb-frame i:nth-child(2) { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+.orb-frame i:nth-child(3) { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; } .orb-frame i:nth-child(4) { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+/* Along the top: what this is, the camp's numbers, and the view's own buttons. */
+.orb-top { position: absolute; inset: 0 0 auto 0; display: flex; align-items: center; gap: 22px; padding: 20px 26px 0 30px; pointer-events: none; }
+.orb-top > * { pointer-events: auto; }
+.orb-title { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.orb-title h2 { margin: 0; font: 700 13px/1 var(--mono); letter-spacing: .32em; text-transform: uppercase; color: var(--o-sun); }
+.orb-title span { color: var(--o-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.orb-read { display: flex; gap: 22px; margin: 0 0 0 auto; }
+.orb-read > div { display: grid; gap: 1px; }
+.orb-read dt, .orb-facts dt { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--o-faint); }
+.orb-read dd { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--o-ink); }
+.orb-read .warn dd { color: var(--o-warn); }
+.orb-alert { padding: 6px 10px; border: 2px solid var(--o-warn); border-radius: 0; background: none; color: var(--o-warn); letter-spacing: .04em; white-space: nowrap; }
+.orb-alert:hover { background: var(--o-warn); color: var(--o-bg); }
+.orb-tools { display: flex; gap: 6px; }
+.orb-tool { width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--o-line-2); border-radius: 0; background: var(--o-panel); color: var(--o-dim); font-size: 15px; line-height: 1; }
+.orb-tool:hover, .orb-tool[aria-pressed="true"] { color: var(--o-ink); border-color: var(--o-dim); }
+.orb-tool .icon { width: 16px; height: 16px; }
+/* Along the bottom: one cell for each of the crew. The one you're looking at is marked with a straight line along its top. */
+.orb-hint { position: absolute; left: 30px; bottom: 92px; margin: 0; font-size: 11px; letter-spacing: .04em; color: var(--o-faint); pointer-events: none; }
+.orb-strip { position: absolute; inset: auto 26px 22px 26px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.orb-cell { --c: var(--c-other); flex: 1 1 0; min-width: 132px; max-width: 260px; display: grid; gap: 3px; padding: 8px 11px 9px; border: 1px solid var(--o-line); border-top: 2px solid var(--o-line-2); border-radius: 0; background: var(--o-panel); text-align: left; }
+.orb-cell:hover { border-color: var(--o-line-2); border-top-color: var(--o-dim); }
+.orb-cell.on { border-top-color: var(--c); }
+.orb-cell-who { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--o-dim); }
+.orb-cell:is(.active, .waiting, .on) .orb-cell-who { color: var(--c); }
+.orb-cell-who em { font-style: normal; letter-spacing: 0; color: var(--o-ink); }
+.orb-cell-who kbd { margin-left: auto; padding: 0; border: 0; background: none; font: 10px/1 var(--mono); color: var(--o-faint); }
+.orb-dot { flex: none; width: 7px; height: 7px; background: var(--o-line-2); }
+.orb-cell.active .orb-dot { background: var(--c); animation: orb-blink 1s steps(2, jump-none) infinite; }
+.orb-cell.waiting .orb-dot { background: var(--o-warn); animation: orb-blink 1s steps(2, jump-none) infinite; }
+.orb-cell-doing { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 12px/1.35 var(--sans); color: var(--o-faint); }
+.orb-cell:is(.active, .waiting) .orb-cell-doing { color: var(--o-ink); } .orb-cell.waiting .orb-cell-doing { color: var(--o-warn); }
+/* The panel for the one you're looking at: who they are, and what they're doing as it happens. Its top edge is their colour. */
+.orb-panel { --c: var(--c-other); position: absolute; top: 74px; right: 26px; bottom: 100px; width: 354px; display: flex; flex-direction: column; min-height: 0; background: var(--o-panel); border: 1px solid var(--o-line-2); border-top: 2px solid var(--c); user-select: text; }
+.orb-panel > header { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 14px 12px 16px; border-bottom: 1px solid var(--o-line); }
+.orb-p-face { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--c); font-size: 19px; }
+.orb-panel h3 { margin: 0; font: 700 13px/1.2 var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--c); }
+.orb-panel > header p { margin: 3px 0 0; font: 12px/1.35 var(--sans); color: var(--o-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.orb-facts { display: grid; gap: 7px; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--o-line); }
+.orb-facts > div { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.orb-facts dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.orb-state { font: 13px/1.4 var(--sans); } .orb-panel.active .orb-state { color: var(--c); } .orb-panel.waiting .orb-state { color: var(--o-warn); }
+.orb-p-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 14px; scrollbar-width: thin; scrollbar-color: var(--o-line-2) transparent; }
+.orb-panel h4 { margin: 12px 0 8px; font: 600 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--o-faint); }
+.orb-work-card { display: grid; gap: 7px; margin: 0 0 10px; padding: 0 0 12px 12px; border-left: 2px solid var(--c); }
+.orb-work-card.waiting { border-left-color: var(--o-warn); }
+.orb-w-head { display: flex; align-items: baseline; gap: 8px; font: 13px/1.4 var(--sans); }
+.orb-w-head span { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.orb-w-head time { flex: none; font: 11px/1.4 var(--mono); font-variant-numeric: tabular-nums; color: var(--o-dim); }
+.orb-step { flex: none; min-width: 18px; padding: 0 4px; border: 1px solid var(--c); font: 600 11px/16px var(--mono); text-align: center; color: var(--c); }
+.orb-w-doing { margin: 0; font: 12px/1.4 var(--sans); color: var(--c); overflow-wrap: anywhere; }
+.orb-work-card.waiting .orb-w-doing { color: var(--o-warn); }
+.orb-log { list-style: none; display: grid; gap: 5px; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--o-line); }
+.orb-log li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.orb-log i { font: 10px/1.5 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--o-faint); }
+.orb-log span { font: 12px/1.45 var(--sans); color: var(--o-dim); overflow-wrap: anywhere; }
+.orb-log :is(.tool, .file) span { font: 11px/1.5 var(--mono); }
+.orb-log li:last-child span { color: var(--o-ink); } .orb-log .ask span { color: var(--o-warn); }
+.orb-caret { display: inline-block; width: 6px; height: 12px; margin-left: 3px; vertical-align: -1px; background: var(--c); animation: orb-blink .9s steps(2, jump-none) infinite; }
+.orb-quiet { margin: 14px 0 0; font: 13px/1.5 var(--sans); color: var(--o-dim); }
+.orb-btn { justify-self: start; padding: 5px 10px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 11px/1.3 var(--mono); letter-spacing: .04em; }
+.orb-btn:hover { border-color: var(--c); color: var(--c); }
+.orb-panel > footer { padding: 10px 16px 12px; border-top: 1px solid var(--o-line); }
+@media (max-width: 899px) {
+  /* A narrow screen: the panel is a sheet over the lower half, and the camp's numbers give their room to the buttons. */
+  .orb-read, .orb-hint, .orb-title span { display: none; }
+  .orb-top { padding: 14px 14px 0 18px; } .orb-tools { margin-left: auto; } .orb-alert { position: absolute; top: 56px; left: 18px; }
+  .orb-strip { inset: auto 12px 14px 12px; } .orb-cell { min-width: 118px; }
+  .orb-panel { top: 50%; left: 12px; right: 12px; bottom: 84px; width: auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .orbit { animation: fade-in 320ms ease-out; }
+  .presence.leaving .orbit { animation: fade-out var(--leave) ease-in forwards; }
+  .orb-panel { animation: orb-panel-in 260ms var(--ease) backwards; }
+}
+@keyframes orb-panel-in { from { opacity: 0; transform: translateX(18px); } }
+@media (prefers-reduced-motion: reduce) { .orbit, .orbit * { animation: none !important; } }
+
 /* ---------- Barnstorm, the easter egg (ui/src/egg) ---------- */
 /* What the plane has shot is hidden, not removed: an attribute on a part of the page, another
    naming the sides of a border, and a highlight in no colour over a word. Taking them off puts

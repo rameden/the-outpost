@@ -1,6 +1,6 @@
 // The whole page, put together: it comes up before the camp has answered, and a zone that throws
 // while drawing itself says so in its own space, leaving the message box (and the rest) working.
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { say } from "./bus.ts";
 import { createFeedStore } from "./feed/store.ts";
@@ -43,4 +43,18 @@ test("what the page says back shows by the message box, where a conversation's v
   act(() => say({ do: "command", name: "good" })); // what typing /good does, on a page with nothing to rate
   expect(within(line).getByText("There's no finished answer here to rate yet.")).toBeTruthy();
   expect(store.getState().items.at(-1)).toMatchObject({ kind: "sys", text: "There's no finished answer here to rate yet." }); // and in the feed, for All activity
+});
+
+test("Orbit takes the whole page from its button in the top bar or /orbit, and going anywhere on the page leaves it", () => {
+  render(<App store={createFeedStore()} />);
+  expect(screen.queryByRole("dialog", { name: "Orbit: the crew at work" })).toBe(null);
+  fireEvent.click(screen.getByRole("button", { name: "Orbit" }));
+  const view = screen.getByRole("dialog", { name: "Orbit: the crew at work" });
+  expect(screen.getByRole("button", { name: "Leave Orbit", pressed: true })).toBeTruthy(); // the top bar's button, lit while it's open
+  fireEvent.keyDown(view, { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: "Orbit: the crew at work" })).toBe(null);
+  act(() => say({ do: "command", name: "orbit" })); // what typing /orbit does
+  expect(screen.getByRole("dialog", { name: "Orbit: the crew at work" })).toBeTruthy();
+  act(() => say({ do: "open-conversation", id: "c1" })); // the page went somewhere: you're taken there
+  expect(screen.queryByRole("dialog", { name: "Orbit: the crew at work" })).toBe(null);
 });
