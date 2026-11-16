@@ -55,16 +55,18 @@ export const LAPS = [24, 37, 56, 86, 124, 170, 228];
 // map does (the same two waves, three and five to a turn). `i` counts outwards: each line is shaped
 // differently, and wanders more than the one inside it. Where it starts (due right of the sun) the
 // two waves cancel, so the line is exactly r from the sun there: that is where its planet sits.
-export function contour(r: number, i: number): string {
+export function contourPoints(r: number, i: number): [number, number][] {
   const n = 120, wander = Math.min(1, 0.25 + i * 0.15);
   const p = (i % 2 ? Math.PI : 0) + 0.6 * Math.sin(2.1 * i + 1), q0 = Math.asin(1.5 * Math.sin(p)), q = i % 3 ? q0 : Math.PI - q0;
-  let d = "";
-  for (let k = 0; k < n; k++) {
+  return Array.from({ length: n }, (_, k) => {
     const a = (k / n) * 2 * Math.PI;
     const at = r * (1 + wander * (0.06 * Math.sin(3 * a + p) - 0.04 * Math.sin(5 * a + q)));
-    d += `${k ? "L" : "M"}${(at * Math.cos(a)).toFixed(1)} ${(at * Math.sin(a)).toFixed(1)}`;
-  }
-  return d + "Z";
+    return [at * Math.cos(a), at * Math.sin(a)];
+  });
+}
+// The same line as an SVG path. (The full-screen view's 3D drawing takes the points themselves.)
+export function contour(r: number, i: number): string {
+  return contourPoints(r, i).map(([x, y], k) => `${k ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join("") + "Z";
 }
 // The tail: three stretches of the planet's own line that end at the planet, each shorter than the
 // last, so it is faintest furthest back. Each is the whole line with all but that stretch left

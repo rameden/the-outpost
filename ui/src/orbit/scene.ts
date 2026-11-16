@@ -26,6 +26,9 @@ export function placeAt(i: number, seconds: number): Point {
   return { x: r * Math.cos(a), y: r * Math.sin(a) };
 }
 
+// How something sets off and arrives: slowly at each end (0 → 1).
+export const ease = (p: number) => (p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2);
+
 // ---------- The camera ----------
 // It looks at a point of the drawing (x, y) and shows it k times its size. `centre` is where on the
 // screen that point lands: the middle, or to one side of it while a panel is open.

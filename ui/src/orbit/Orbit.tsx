@@ -17,6 +17,15 @@
 // command palette or Settings can be opened from here and sit on top of it. It is always dark,
 // whatever the theme: it's the night sky.
 //
+// And it has HD (the HD button, or H): a proof of concept that draws the same system in three
+// dimensions (hd/), as lit worlds round a sun of plasma. Everything else is as it was: the same
+// clock, the same crew, the same names, panel and demo laid over it. It opens looking straight
+// down, which is the flat view exactly, and tips over into depth; there, dragging turns the
+// camera about what it's looking at. A browser that can't draw it stays flat, and says so.
+// What each world is like there is made up from a number (hd/worlds.ts): Reroll (or R) picks
+// another number and so other worlds, and Shift+R goes back to the camp's own. The number is
+// remembered, so the worlds you settle on are the ones you come back to.
+//
 // It has a demo (the Demo button, D, or /orbit demo): a pretend camp, playing one expedition after
 // another, for seeing the view busy without sending anyone anywhere (demo.ts). The demo has a feed
 // of its own, so nothing of it reaches the real one, and it says plainly that it's pretend. What
@@ -34,7 +43,8 @@
 // nothing is sent across the sky; what each is doing is still all there.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
-import { contour, LAP, MARKS, stretch, TAIL } from "../components/MaeSystem.tsx";
+import { storeGet, storeSet } from "../api.ts";
+import { contour, contourPoints, LAP, MARKS, stretch, TAIL } from "../components/MaeSystem.tsx";
 import { Icon } from "../components/bits.tsx";
 import { runningCount, statusLine, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
@@ -43,8 +53,12 @@ import { motionOK } from "../motion.tsx";
 import type { CampState } from "../types.ts";
 import { DEMO_CREW, runDemo } from "./demo.ts";
 import { questsOf, runsOf, type Line } from "./doing.ts";
+import { hdFrame, type HdBody } from "./hd/frame.ts";
+import { rgbOf, turnTo, type Vec3 } from "./hd/math.ts";
+import { createHd, type HdRenderer } from "./hd/renderer.ts";
+import { newSeed, worldsFor, type World } from "./hd/worlds.ts";
 import {
-  PLANET_R, SUN_R, angleAt, clampZoom, closeZoom, fitZoom, hit, lapOf, linesFor, orbitOf, placeAt, reachOf, toScreen, withinReach, zoomAbout,
+  PLANET_R, SUN_R, angleAt, clampZoom, closeZoom, ease, fitZoom, hit, lapOf, linesFor, orbitOf, placeAt, reachOf, toScreen, withinReach, zoomAbout,
   type Camera, type Point, type Spot,
 } from "./scene.ts";
 
@@ -65,7 +79,11 @@ const COMET_MS = FLIGHT_MS + 210;
 // As many moons as a planet is drawn with, however many quests it has out: how long each takes round it, and where it starts.
 const MOON: [number, number][] = [[5.5, 0], [7.5, 100], [9.5, 240], [11.5, 140], [13.5, 310]];
 const DRIFT = [150, -190, 230, -270]; // seconds for a line with nobody on it to drift once round (one way, then the other)
-const ease = (p: number) => (p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2);
+// HD: where the camera stands. Over the whole system it looks down from a little above (and drifts round slowly);
+// with a planet, from low and to one side of the line to the sun, so the planet is half lit with the sun in the sky behind it.
+const HD_KEY = "camp-orbit-hd", WORLDS_KEY = "camp-orbit-worlds";
+const HD_OVER = 0.6, HD_NEAR = 0.2, HD_SUNWARD = 0.34, HD_SIDE = 1.62, HD_DRIFT = 0.022, HD_CLOSER = 1.2;
+const NO_COLOUR: Vec3 = [0.49, 0.72, 0.77];
 const EASE_S = 0.26;           // how quickly the camera settles on what it's looking at
 const FAR = 0.7;               // below this many screen pixels to one of the drawing's units, the names lose their second line
 const WIDE = 900, PANEL = 380; // from this width the panel sits beside the system, and is this wide
@@ -193,10 +211,12 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const contours = useMemo(() => Array.from({ length: lines + 1 }, (_, i) => contour(i < lines ? orbitOf(i) : orbitOf(lines - 1) + 30, i)), [lines]);
   const grid = useMemo(() => SPOKES.map((a) => `M${((SUN_R + 26) * Math.cos(a)).toFixed(1)} ${((SUN_R + 26) * Math.sin(a)).toFixed(1)}L${(reach * Math.cos(a)).toFixed(1)} ${(reach * Math.sin(a)).toFixed(1)}`).join(""), [reach]);
   // What the drawing needs to know, wherever it's called from.
-  const scene = useRef({ ids: [] as string[], names: new Map<string, string>(), lines, reach, running, busy: new Set<string>(), leading: false });
+  const scene = useRef({ ids: [] as string[], names: new Map<string, string>(), lines, reach, running, busy: new Set<string>(), waiting: new Set<string>(), out: new Map<string, boolean[]>(), leading: false });
   scene.current = {
     ids: planets.map((p) => p.id), names: new Map(bodies.map((b) => [b.name, b.id])), lines, reach, running,
     busy: new Set(planets.filter((p) => crew[p.name]?.status === "active").map((p) => p.id)), leading: crew[bodies[0].name]?.status === "active",
+    waiting: new Set(bodies.filter((b) => crew[b.name]?.status === "waiting").map((b) => b.id)),            // (HD draws from these two as well)
+    out: new Map(planets.map((p) => [p.id, quests.filter((q) => q.who === p.name).map((q) => q.waiting)])),
   };
 
   // ---------- The camera ----------
@@ -207,10 +227,16 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const [over, setOver] = useState<string | null>(null);
   const v = useRef({
     focus: null as string | null, over: null as string | null, pan: { x: 0, y: 0 }, zoom: 1,
-    off: { x: 0, y: 0, lk: Math.log(0.4), cx: 0, cy: 0 }, // (it opens from further out, and comes in)
+    off: { x: 0, y: 0, lk: Math.log(0.4), cx: 0, cy: 0, yaw: 0, pitch: 0 }, // (it opens from further out, and comes in)
     cam: { x: 0, y: 0, k: 1 } as Camera, centre: { x: 0, y: 0 }, spots: [] as Spot[],
     w: 0, h: 0, began: 0, last: 0, seconds: 0,
+    // HD: where the camera stands round what it's looking at. Free of anyone, a yaw of its own (a quarter turn is the flat
+    // view's way up) and a height; with a planet, a yaw measured from the line out from the sun, so it goes round with it.
+    yawFree: Math.PI / 2, pitchFree: HD_OVER, yawRel: HD_SIDE, pitchRel: HD_NEAR, yaw: Math.PI / 2, pitch: Math.PI / 2, turning: false,
   }).current;
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const hdView = useRef<HdRenderer | null>(null);
+  const colours = useRef(new Map<string, Vec3>()), worlds = useRef(new Map<string, World>()), glows = useRef<Record<string, number>>({}).current;
   const root = useRef<HTMLDivElement>(null);
   const world = useRef<SVGGElement>(null);
   type Part = { orbit?: SVGGElement | null; upright?: SVGGElement | null; label?: HTMLElement | null; busy?: SVGGElement | null; comet?: SVGGElement | null; land?: SVGCircleElement | null; blip?: SVGCircleElement | null; moons: (SVGGElement | null)[] };
@@ -234,15 +260,18 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     const at: Point = v.focus === LEAD ? { x: 0, y: 0 } : i >= 0 ? placeAt(i, v.seconds) : v.pan;
     // With the panel open the system is looked at from the room that's left: beside it, or above it on a narrow screen.
     const beside = v.focus && v.w >= WIDE, above = v.focus && v.w < WIDE;
-    return { x: at.x, y: at.y, k: fitZoom(v.w, v.h, lines) * v.zoom, cx: beside ? (v.w - PANEL) / 2 : v.w / 2, cy: above ? 56 + (v.h * 0.5 - 56) / 2 : v.h / 2 - 8 };
+    return {
+      x: at.x, y: at.y, k: fitZoom(v.w, v.h, lines) * v.zoom, cx: beside ? (v.w - PANEL) / 2 : v.w / 2, cy: above ? 56 + (v.h * 0.5 - 56) / 2 : v.h / 2 - 8,
+      yaw: i >= 0 ? (angleAt(i, v.seconds) * Math.PI) / 180 + v.yawRel : v.yawFree, pitch: i >= 0 ? v.pitchRel : v.focus === LEAD ? HD_SUNWARD : v.pitchFree,
+    };
   }, [v]);
   // Change what it's headed for without it jumping: it carries on from where it is now.
   const retarget = useCallback((change: () => void) => {
     if (!v.w) return change();
-    const was = { ...v.cam, cx: v.centre.x, cy: v.centre.y };
+    const was = { ...v.cam, cx: v.centre.x, cy: v.centre.y, yaw: v.yaw, pitch: v.pitch };
     change();
     const at = target();
-    v.off = { x: was.x - at.x, y: was.y - at.y, lk: Math.log(was.k / at.k), cx: was.cx - at.cx, cy: was.cy - at.cy };
+    v.off = { x: was.x - at.x, y: was.y - at.y, lk: Math.log(was.k / at.k), cx: was.cx - at.cx, cy: was.cy - at.cy, yaw: turnTo(was.yaw, at.yaw), pitch: was.pitch - at.pitch };
   }, [v, target]);
 
   const draw = useCallback((now: number) => {
@@ -258,8 +287,11 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     v.w = el.clientWidth || window.innerWidth;
     v.h = el.clientHeight || window.innerHeight;
 
-    const at = target(), off = v.off, keep = moving ? Math.exp(-dt / EASE_S) : 0;
-    off.x *= keep; off.y *= keep; off.lk *= keep; off.cx *= keep; off.cy *= keep;
+    const hd = hdView.current;
+    if (hd && moving && !v.focus && !v.turning) v.yawFree += dt * HD_DRIFT; // over the whole system, the camera drifts round it
+    const at = target(), off = v.off, keep = moving ? Math.exp(-dt / EASE_S) : 0, slow = moving ? Math.exp(-dt / (EASE_S * 2.4)) : 0;
+    off.x *= keep; off.y *= keep; off.lk *= keep; off.cx *= keep; off.cy *= keep; off.yaw *= slow; off.pitch *= slow;
+    v.yaw = at.yaw + off.yaw; v.pitch = at.pitch + off.pitch;
     const cam = v.cam = { x: at.x + off.x, y: at.y + off.y, k: at.k * Math.exp(off.lk) };
     const centre = v.centre = { x: at.cx + off.cx, y: at.cy + off.cy };
     world.current?.setAttribute("transform", `translate(${(centre.x - cam.x * cam.k).toFixed(2)} ${(centre.y - cam.y * cam.k).toFixed(2)}) scale(${cam.k.toFixed(4)})`);
@@ -277,6 +309,8 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       el?.setAttribute("opacity", p < 1 ? (0.9 * (1 - p)).toFixed(3) : "0");
       return p < 1;
     };
+    const hdBodies: HdBody[] = [];
+    const rise = moving ? 1 - Math.exp(-dt / 0.45) : 1; // how quickly a planet lights up as its crew member starts work, and dims after
     ids.forEach((id, i) => {
       const a = angleAt(i, v.seconds), p = parts[id], r = orbitOf(i);
       turn(p?.orbit, a);
@@ -298,9 +332,19 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
         dots[k].setAttribute("cx", (SUN_R + (r - 11 - SUN_R) * along).toFixed(2));
         dots[k].setAttribute("opacity", q > 0 && q < 1 ? (bright * Math.min(1, q / 0.08, (1 - q) / 0.08)).toFixed(3) : "0");
       });
-      if (!ring(p?.land, sky.lands[id], 1.6)) delete sky.lands[id];
-      if (!ring(p?.blip, sky.blips[id], 0.9)) delete sky.blips[id];
+      const landed = sky.lands[id], blipped = sky.blips[id];
+      if (!ring(p?.land, landed, 1.6)) delete sky.lands[id];
+      if (!ring(p?.blip, blipped, 0.9)) delete sky.blips[id];
       spots.push({ id, ...toScreen(cam, centre, placeAt(i, v.seconds)), r: PLANET_R * cam.k });
+      if (hd) {
+        const glow = glows[id] = (glows[id] ?? 0) + ((scene.current.busy.has(id) ? 1 : 0) - (glows[id] ?? 0)) * rise;
+        hdBodies.push({
+          id, i, angle: a, color: colours.current.get(id) ?? NO_COLOUR, world: worlds.current.get(id) ?? worldsFor(0, [{ id, color: NO_COLOUR }])[0],
+          glow, waiting: scene.current.waiting.has(id), focused: v.focus === id,
+          blip: sky.blips[id] ? (now - blipped) / RING_MS : -1, land: sky.lands[id] ? (now - landed) / RING_MS : -1,
+          quests: scene.current.out.get(id) ?? [], flight: sky.flights[id] ? { kind: flight.kind, since } : null,
+        });
+      }
     });
     // The sun: its dials turn (faster while the Quartermaster is at work) and it breathes. With nothing running it sends
     // a ring out now and then, as it does on the blank page; a ring lights each line as it passes through it.
@@ -317,11 +361,25 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     const out = sky.ping ? (now - sky.ping) / 1000 : Infinity, going = out < PING_MS / 1000;
     pingRing.current?.setAttribute("r", (SUN_R + (going ? PING_SPEED * out : 0)).toFixed(1));
     pingRing.current?.setAttribute("opacity", going ? (0.7 * (1 - out / (PING_MS / 1000)) ** 1.6).toFixed(3) : "0");
-    lits.forEach((line, i) => {
+    const litAt = (i: number) => {
       const t = (out - ((i < lines ? orbitOf(i) : orbitOf(lines - 1) + 30) - SUN_R) / PING_SPEED) * 1000; // since the ring reached this line
-      line?.setAttribute("opacity", t > 0 && t < LIT_MS ? (0.85 * Math.min(1, t / 110, (LIT_MS - t) / (LIT_MS - 110))).toFixed(3) : "0");
-    });
+      return t > 0 && t < LIT_MS ? 0.85 * Math.min(1, t / 110, (LIT_MS - t) / (LIT_MS - 110)) : 0;
+    };
+    lits.forEach((line, i) => line?.setAttribute("opacity", litAt(i).toFixed(3)));
     drifts.forEach((g, i) => turn(g, (v.seconds * 360) / DRIFT[i % DRIFT.length]));
+    // HD: the same moment, drawn in three dimensions; and where everything is on the screen is where that puts it.
+    if (hd) {
+      const sun = glows[LEAD] = (glows[LEAD] ?? 0) + ((scene.current.leading ? 1 : 0) - (glows[LEAD] ?? 0)) * rise;
+      const made = hdFrame({
+        seconds: v.seconds, w: v.w, h: v.h, cx: centre.x, cy: centre.y, at: cam, k: cam.k * HD_CLOSER, yaw: v.yaw, pitch: v.pitch,
+        lead: LEAD, sun: { glow: sun, waiting: scene.current.waiting.has(LEAD) }, bodies: hdBodies,
+        lines: Array.from({ length: lines + 1 }, (_, i) => ({ rot: ((i < ids.length ? hdBodies[i].angle : (v.seconds * 360) / DRIFT[i % DRIFT.length]) * Math.PI) / 180, lit: litAt(i), body: i < ids.length ? i : -1 })),
+        ping: { r: going ? SUN_R + PING_SPEED * out : 0, a: going ? (1 - out / (PING_MS / 1000)) ** 1.6 : 0 }, reach: scene.current.reach, flightMs: FLIGHT_MS,
+      });
+      spots.splice(0, spots.length, ...made.spots);
+      hd.resize(v.w, v.h, window.devicePixelRatio || 1);
+      hd.draw(made.frame);
+    }
     v.spots = spots;
     // A planet's name is on its far side from the sun (so it never lies across the sun), and goes round with it: its
     // box is pushed out along the line from the sun by as much as it is deep that way. The sun's own name keeps to the
@@ -332,7 +390,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       if (!label) continue;
       const w = label.offsetWidth, h = label.offsetHeight;
       const [ux, uy] = s.id !== LEAD ? from(s, spots[0]) : spots[1] ? from(spots[0], spots[1]) : [0, 1];
-      const clear = s.id === LEAD ? (SUN_R + 12) * cam.k + 8 : (PLANET_R + 9) * cam.k + 6; // past the sun's dials, or the planet's nearest moon
+      const clear = s.id === LEAD ? s.r * (1 + 12 / SUN_R) + 8 : s.r * (1 + 9 / PLANET_R) + 6; // past the sun's dials, or the planet's nearest moon
       const out = clear + (Math.abs(ux) * w + Math.abs(uy) * h) / 2;
       label.style.transform = `translate(${(s.x + ux * out - w / 2).toFixed(1)}px, ${(s.y + uy * out - h / 2).toFixed(1)}px)`;
     }
@@ -361,7 +419,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       const deg = `${String(Math.round(angleAt(i, v.seconds)) % 360).padStart(3, "0")}°`;
       if (bearing.current.textContent !== deg) bearing.current.textContent = deg;
     }
-  }, [v, parts, sheets, drifts, lits, dials, sky, target]);
+  }, [v, parts, sheets, drifts, lits, dials, sky, glows, target]);
 
   // Drawn at once whenever the page draws this (so nothing new sits in the corner for a frame), then a frame at a
   // time. Only a frame moves the clock on: drawn in between, it is as it was at the last one.
@@ -376,6 +434,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const lookAt = useCallback((id: string | null) => {
     retarget(() => {
       if (id && !v.focus) v.zoom = clampZoom(closeZoom(v.w, v.h) / fitZoom(v.w, v.h, scene.current.lines)); // (going from one to the next keeps the zoom you chose)
+      if (id && id !== v.focus) { v.yawRel = HD_SIDE; v.pitchRel = HD_NEAR; } // HD: each is first seen from the same side, low down
       if (!id) { v.pan = { x: 0, y: 0 }; v.zoom = 1; }
       v.focus = id;
     });
@@ -393,7 +452,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       if (ev.target instanceof Element && ev.target.closest(".orb-panel, .orb-strip, .orb-top")) return; // (the panel scrolls)
       ev.preventDefault();
       const zoom = clampZoom(v.zoom * Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.012 : ev.deltaMode === 1 ? 0.05 : 0.0016)));
-      if (!v.focus) {
+      if (!v.focus && !hdView.current) {
         const box = el.getBoundingClientRect(), at = target();
         const next = zoomAbout(at, { x: at.cx, y: at.cy }, { x: ev.clientX - box.left, y: ev.clientY - box.top }, fitZoom(v.w, v.h, scene.current.lines) * zoom);
         v.pan = withinReach(next, scene.current.reach);
@@ -417,6 +476,14 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     if (!p) { const id = hit(v.spots, where(ev)); v.over = id; return setOver(id); }
     const dx = ev.clientX - p.x, dy = ev.clientY - p.y;
     if (!p.moved && Math.hypot(dx, dy) < 5) return;
+    if (hdView.current) {
+      // HD: a drag turns the camera about what it's looking at (and stays with whoever that is).
+      p.moved = v.turning = true; p.x = ev.clientX; p.y = ev.clientY;
+      const withPlanet = !!v.focus && v.focus !== LEAD;
+      if (withPlanet) { v.yawRel -= dx * 0.006; v.pitchRel = Math.min(1.5, Math.max(0.04, v.pitchRel + dy * 0.005)); }
+      else { v.yawFree -= dx * 0.006; if (!v.focus) v.pitchFree = Math.min(1.5, Math.max(0.08, v.pitchFree + dy * 0.005)); }
+      return;
+    }
     if (!p.moved && v.focus) { retarget(() => { v.pan = { x: v.cam.x, y: v.cam.y }; v.focus = null; }); setFocus(null); }
     p.moved = true; p.x = ev.clientX; p.y = ev.clientY;
     v.pan = withinReach({ x: v.pan.x - dx / v.cam.k, y: v.pan.y - dy / v.cam.k }, scene.current.reach);
@@ -424,6 +491,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const onUp = (ev: ReactPointerEvent<SVGSVGElement>) => {
     const p = press.current;
     press.current = null;
+    v.turning = false;
     if (!p || p.moved) return;
     const id = hit(v.spots, where(ev));
     if (id) lookAt(id); else if (v.focus) lookAt(null);
@@ -442,6 +510,39 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     return () => { document.removeEventListener("fullscreenchange", on); if (document.fullscreenElement) void document.exitFullscreen?.(); };
   }, []);
 
+  // HD: on or off (remembered), and whether this browser can draw it at all.
+  const [hd, setHd] = useState(() => storeGet(HD_KEY) === "1");
+  const [noHd, setNoHd] = useState(false);
+  const toggleHd = useCallback(() => setHd((on) => { storeSet(HD_KEY, on ? "0" : "1"); return !on; }), []);
+  const points = useMemo(() => Array.from({ length: lines + 1 }, (_, i) => contourPoints(i < lines ? orbitOf(i) : orbitOf(lines - 1) + 30, i)), [lines]);
+  useEffect(() => {
+    const el = canvas.current;
+    if (!hd || !el) return;
+    const made = createHd(el);
+    if (!made) { setNoHd(true); setHd(false); return; } // (not remembered as off: it may work in another browser)
+    hdView.current = made;
+    // It opens looking straight down, which is the flat view exactly, and tips over into depth from there.
+    v.yaw = Math.PI / 2; v.pitch = Math.PI / 2 - 0.01;
+    retarget(() => { v.yawFree = Math.PI / 2; v.pitchFree = HD_OVER; });
+    const lost = (ev: Event) => { ev.preventDefault(); setHd(false); };
+    el.addEventListener("webglcontextlost", lost);
+    return () => { el.removeEventListener("webglcontextlost", lost); hdView.current = null; made.dispose(); };
+  }, [hd, v, retarget]);
+  useEffect(() => { if (hd) hdView.current?.setLines(points); }, [hd, points]);
+  // What the worlds are made up from (0: the camp's own), remembered; Reroll picks another.
+  const [seed, setSeed] = useState(() => Number(storeGet(WORLDS_KEY)) || 0);
+  const roll = useCallback((to: number) => { storeSet(WORLDS_KEY, String(to)); setSeed(to); }, []);
+  // Each one's colour, as the stylesheet has it for their class (read off their name on the page), and their world.
+  useLayoutEffect(() => {
+    if (!hd) return;
+    colours.current = new Map(bodies.flatMap((b) => {
+      const el = parts[b.id]?.label, c = el ? rgbOf(getComputedStyle(el).getPropertyValue("--c")) : null;
+      return c ? [[b.id, c] as [string, Vec3]] : [];
+    }));
+    const crewNow = bodies.slice(1).map((b) => ({ id: b.id, color: colours.current.get(b.id) ?? NO_COLOUR }));
+    worlds.current = new Map(worldsFor(seed, crewNow).map((w, i) => [crewNow[i].id, w]));
+  }, [hd, cast, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
   const onKey = (ev: KeyboardEvent<HTMLDivElement>) => {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
@@ -456,6 +557,8 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     }
     else if ((ev.key === "f" || ev.key === "F") && canFill) toggleFull();
     else if (ev.key === "d" || ev.key === "D") setDemo((on) => !on);
+    else if ((ev.key === "h" || ev.key === "H") && !noHd) toggleHd();
+    else if ((ev.key === "r" || ev.key === "R") && hd) roll(ev.shiftKey ? 0 : newSeed());
     else return;
     ev.preventDefault();
     ev.stopPropagation();
@@ -495,9 +598,10 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const ticks = (every: number, long: number) => { const gap = (2 * Math.PI * (reach + 6)) / (360 / every); return `${long} ${(gap - long).toFixed(3)}`; };
 
   return (
-    <div className={cx("orbit", focus && "looking")} ref={root} role="dialog" aria-modal="true" aria-label="Orbit: the crew at work" tabIndex={-1} onKeyDown={onKey}>
+    <div className={cx("orbit", focus && "looking", hd && "hd")} ref={root} role="dialog" aria-modal="true" aria-label="Orbit: the crew at work" tabIndex={-1} onKeyDown={onKey}>
       {STARS.map((_, j) => <div key={j} className={`orb-stars s${j + 1}`} ref={(el) => { sheets[j] = el; }} aria-hidden="true" />)}
-      <svg className={cx("orb-sky", over && "over")} aria-hidden="true" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { press.current = null; }} onPointerLeave={() => { v.over = null; setOver(null); }}>
+      {hd && <canvas className="orb-hd" ref={canvas} aria-hidden="true" />}
+      <svg className={cx("orb-sky", over && "over")} aria-hidden="true" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { press.current = null; v.turning = false; }} onPointerLeave={() => { v.over = null; setOver(null); }}>
         <g ref={world}>
           {/* The instrument behind it all: bearings every thirty degrees, and a rim with a tick every five. */}
           <path className="orb-grid" d={grid} />
@@ -586,6 +690,10 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           <button type="button" className="orb-tool" aria-label="Zoom in" title="Zoom in (+)" onClick={() => zoomBy(1.4)}>+</button>
           <button type="button" className="orb-tool" aria-label="Show the whole system" title="Show the whole system (0)" onClick={() => lookAt(null)}><Icon name="focus" /></button>
           {canFill && <button type="button" className="orb-tool" aria-pressed={full} aria-label={full ? "Leave full screen" : "Fill the screen"} title={`${full ? "Leave full screen" : "Fill the screen"} (F)`} onClick={toggleFull}>{full ? "⤡" : "⤢"}</button>}
+          <button type="button" className="orb-tool worded" aria-pressed={hd} disabled={noHd} onClick={toggleHd}
+            title={noHd ? "HD needs WebGL 2, which this browser isn't offering" : hd ? "Back to the flat view (H)" : "HD: the same system in three dimensions, as lit worlds round a sun (H). A proof of concept."}>HD</button>
+          {hd && <button type="button" className="orb-tool worded" onClick={(ev) => roll(ev.shiftKey ? 0 : newSeed())}
+            title={`Reroll: make up other worlds for the crew (R). Each keeps its crew member's colour, and the Artificer keeps a station.${seed ? " Shift-click (or Shift+R) for the camp's own." : ""}`}>Reroll</button>}
           <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? "End the demo and show the real camp (D)" : "Play a demo: a pretend camp at work, with nobody really sent anywhere (D)"} onClick={() => setDemo((on) => !on)}>Demo</button>
           <button type="button" className="orb-tool" aria-label="Leave Orbit" title="Back to the page (Esc)" onClick={onClose}><Icon name="x" /></button>
         </div>
@@ -596,7 +704,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           onBack={() => lookAt(null)} onOpenAgent={onOpenAgent} onOpenQuest={onOpenQuest} onOpenConversation={onOpenConversation} />
       )}
 
-      <p className="orb-hint" aria-hidden="true">Scroll to zoom · drag to move · click a planet to stay with it · Esc to step back</p>
+      <p className="orb-hint" aria-hidden="true">Scroll to zoom · drag to {hd ? "turn" : "move"} · click a planet to stay with it · Esc to step back</p>
       <nav className="orb-strip" aria-label="The crew">
         {bodies.map((b, n) => {
           const st = statusOf(b), out = outOf(b), text = statusLine(st, out);
