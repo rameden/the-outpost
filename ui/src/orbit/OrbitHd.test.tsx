@@ -158,3 +158,58 @@ test("Reroll makes up other worlds for the crew, remembers them, and Shift+R goe
   expect(looks()).toEqual(own);
   expect(localStorage.getItem("camp-orbit-worlds")).toBe("0");
 });
+
+test("one world can be made your own from its panel, and stays yours through a reroll of the rest, until it's put back", () => {
+  const { view } = show();
+  fireEvent.keyDown(view, { key: "2" }); // looking at the Scout, flat: there's no world to make there
+  expect(screen.queryByText("Make Scout's world")).toBe(null);
+  fireEvent.click(screen.getByRole("button", { name: "HD" }));
+  pass(4000);
+  const panel = within(screen.getByRole("complementary", { name: "What Scout is doing" }));
+  expect(panel.getByText("Make Scout's world")).toBeTruthy();
+  const scouts = () => drawn.at(-1)!.planets[0], scribes = () => drawn.at(-1)!.planets[1];
+  const look = (p: HdFrame["planets"][number]) => [p.seed, p.radius, p.tilt, p.scale, ...p.p, JSON.stringify(p.ring), p.moons.filter((m) => m.own).length].join();
+  // (The Scout's satellites: the specks within a couple of its radii.)
+  const specks = () => { const p = scouts(); return new Set(drawn.at(-1)!.points.filter((pt) => pt.size === 0.55 && Math.hypot(pt.pos[0] - p.pos[0], pt.pos[1], pt.pos[2] - p.pos[2]) < p.radius * 1.8).map((pt) => pt.pos.join())).size; };
+  const asMade = look(scouts());
+  expect(scouts().ring).toBe(null);
+  expect(specks()).toBe(2);
+  // Rings, another satellite, another moon: each is there the next frame.
+  fireEvent.click(panel.getByRole("switch", { name: "Rings" }));
+  fireEvent.click(panel.getByRole("button", { name: "One more: satellites" }));
+  fireEvent.click(panel.getByRole("button", { name: "One more: moons" }));
+  pass(60);
+  expect(scouts().ring).toEqual({ inner: 1.4, outer: 2.2 });
+  expect(specks()).toBe(3);
+  expect(scouts().moons.filter((m) => m.own).length).toBe(2);
+  expect(panel.getByText(/made your own/)).toBeTruthy();
+  expect(Object.keys(JSON.parse(localStorage.getItem("camp-orbit-custom")!))).toEqual(["scout"]);
+  // Rerolling the system makes up another world for the Scribe; the Scout's keeps what you gave it.
+  const scribeWas = look(scribes());
+  fireEvent.keyDown(view, { key: "r" });
+  pass(60);
+  expect(look(scribes())).not.toBe(scribeWas);
+  expect(scouts().ring).toEqual({ inner: 1.4, outer: 2.2 });
+  expect(scouts().moons.filter((m) => m.own).length).toBe(2);
+  // Rolling the Scout's again, by itself, changes only that one (and starts it afresh).
+  const scribeNow = look(scribes()), scoutNow = look(scouts());
+  fireEvent.click(panel.getByRole("button", { name: "Roll this one again" }));
+  pass(60);
+  expect(look(scouts())).not.toBe(scoutNow);
+  expect(look(scribes())).toBe(scribeNow);
+  // It's remembered…
+  const kept = look(scouts());
+  cleanup();
+  const again = show();
+  pass(100);
+  expect(look(scouts())).toBe(kept);
+  // …until it's put back: then it's whatever the system's roll makes of it (here, the camp's own again).
+  fireEvent.keyDown(again.view, { key: "R", shiftKey: true });
+  fireEvent.keyDown(again.view, { key: "2" });
+  pass(60);
+  expect(look(scouts())).toBe(kept); // (still yours)
+  fireEvent.click(screen.getByRole("button", { name: "Put it back" }));
+  pass(60);
+  expect(look(scouts())).toBe(asMade);
+  expect(localStorage.getItem("camp-orbit-custom")).toBe("{}");
+});

@@ -86,10 +86,10 @@ void main(){
   float n1 = fbm3(d*1.7+vec3(3.1,0.,7.7));
   float n2 = fbm3(d*3.4+vec3(11.,5.,2.)+n1);
   float band = exp(-sq(d.y*2.4+(n1-.5)*.9)*3.);            // a band of dust level with the system
-  vec3 col = vec3(.010,.013,.030);
-  col += vec3(.045,.065,.16)*band*n2;
-  col += vec3(.20,.085,.03)*sq(max(n2-.42,0.))*4.*band;     // amber dust in it
-  col += vec3(.075,.03,.13)*sq(max(n1-.48,0.))*5.;          // violet cloud, anywhere
+  vec3 col = vec3(.018,.024,.052);
+  col += vec3(.07,.10,.24)*band*n2;
+  col += vec3(.30,.13,.05)*sq(max(n2-.42,0.))*4.*band;     // amber dust in it
+  col += vec3(.11,.05,.19)*sq(max(n1-.48,0.))*5.;          // violet cloud, anywhere
   o = vec4(col, 1.);
 }`;
 
@@ -137,7 +137,7 @@ void main(){
     col = mix(col, col*vec3(1.,.9,.75)+.15, u_waiting*(.5+.5*sin(u_time*5.))*.5);
   } else if(u_mode == 2){
     float lit = smoothstep(-.1,.45,dot(n, u_light));
-    col = mix(vec3(.55), u_color, .55)*(.05+lit*.95)*(.72+.28*noise(n*7.+u_seed))*(1.-.35*smoothstep(.55,.75,noise(n*3.5+u_seed*2.)));
+    col = mix(vec3(.55), u_color, .55)*(.13+lit*1.05)*(.72+.28*noise(n*7.+u_seed))*(1.-.35*smoothstep(.55,.75,noise(n*3.5+u_seed*2.)));
     col = mix(col, vec3(1.6,.95,.25), u_waiting*(.55+.45*sin(u_time*6.)));
   } else {
     float ndl = dot(n, u_light), day = smoothstep(-.12,.28,ndl);
@@ -166,7 +166,7 @@ void main(){
     // Where people would be: green lowland under clear sky. And where the sun glints: open water.
     vec3 emis = vec3(0.);
     float settled = land*(1.-cloud*.6)*(1.-cap)*(1.-high*.65)*(1.-dry*.55), gloss = (1.-land)*(1.-cloud)*(1.-cap);
-    col = base*(.025+max(ndl, 0.)*1.05+day*.14);
+    col = base*(.085+max(ndl, 0.)*1.2+day*.2);
     col += vec3(1.,.95,.85)*pow(max(dot(n, normalize(u_light-d+1e-4)), 0.), 70.)*gloss*day*.9;
     // Its night side is lived on: a map of lights, thick in some places and empty in others, with routes that wander
     // between them. At camp it's dim and still. While its crew member works the lit places spread and brighten, and
@@ -217,7 +217,7 @@ void main(){
 // a tool call sends a light running round the ring.
 const FS_STATION = HEAD + NOISE + `
 uniform mat4 u_vp; uniform vec3 u_eye, u_center, u_color, u_light;
-uniform float u_radius, u_time, u_spin, u_active, u_waiting, u_blip;
+uniform float u_radius, u_time, u_spin, u_active, u_waiting, u_blip, u_tilt;
 uniform vec4 u_p; // how many spokes, a second ring or not, how big its ring is, how long its wings are
 in vec3 v_world; out vec4 o;
 const float TAU = 6.2831853;
@@ -248,7 +248,7 @@ float station(vec3 p, out float part){
 }
 void main(){
   // Into its own frame: tipped over, and its radius 1.
-  float cx = cos(.55), sx = sin(.55), cz = cos(.35), sz = sin(.35);
+  float cx = cos(.55+u_tilt), sx = sin(.55+u_tilt), cz = cos(.35), sz = sin(.35);
   mat3 tip = mat3(1., 0., 0., 0., cx, sx, 0., -sx, cx)*mat3(cz, sz, 0., -sz, cz, 0., 0., 0., 1.);
   vec3 ro = tip*((u_eye-u_center)/u_radius), rd = tip*normalize(v_world-u_eye), L = tip*u_light;
   float b = dot(ro, rd), h = b*b-(dot(ro, ro)-1.6);                        // (a ball that holds all of it)
@@ -293,7 +293,7 @@ void main(){
     float cellLine = max(step(.94, fract(w.x*16.)), step(.92, fract(w.z*12.)));
     base = mix(vec3(.02, .035, .1), vec3(.25, .27, .32), cellLine); gloss = 1.3;
   }
-  vec3 col = base*(.035+lit*shade*1.15)*nook;
+  vec3 col = base*(.11+lit*shade*1.3)*nook;
   col += vec3(1., .96, .88)*pow(max(dot(reflect(rd, n), L), 0.), 36.)*gloss*shade;
   col += u_color*pow(max(1.-max(dot(n, -rd), 0.), 0.), 3.)*.08*(1.+u_active);  // a little of its colour on its edges, so it's still theirs from far off
   o = vec4(max(col+emis, vec3(0.)), 1.);
@@ -335,10 +335,10 @@ void main(){
   float tick = abs(fract(a/.0872665+.5)-.5)*.0872665*r;
   g += thin(tick, wr)*.4*smoothstep(u_reach+3., u_reach+3.6, r)*fall(u_reach+9.6, u_reach+9., r);
   g += thin(abs(fract(r/42.+.5)-.5)*42., wr)*.06*fall(u_reach, u_reach-12., r);
-  vec3 col = vec3(.30,.37,.54)*g;
+  vec3 col = vec3(.42,.52,.74)*g;
   float front = exp(-sq((r-u_ping)/(5.+u_ping*.02)));
   col += u_sun*(front*1.8 + exp(-sq((r-u_ping+16.)/24.))*.22*step(r, u_ping))*u_pingA;
-  col += u_sun*.07*exp(-r/80.);                                   // the sun's light, pooled on the table under it
+  col += u_sun*(.12*exp(-r/80.)+.035*exp(-r/260.));                                   // the sun's light, pooled on the table under it
   col *= fall(u_reach*2.1, u_reach*1.05, r);
   o = vec4(col, 1.);
 }`;
@@ -377,9 +377,9 @@ void main(){
   vec2 fringe = c*r2*.012;                                        // the lens: colours part a little toward the corners
   vec3 col = vec3(texture(u_scene, v_uv+fringe).r, texture(u_scene, v_uv).g, texture(u_scene, v_uv-fringe).b);
   col += texture(u_bloomA, v_uv).rgb*.85+texture(u_bloomB, v_uv).rgb*1.15;
-  col = 1.-exp(-col*1.3);
+  col = 1.-exp(-col*1.5);
   col = pow(col, vec3(.94));
-  col *= 1.-r2*.85;
+  col *= 1.-r2*.5;
   col += (hash(vec3(gl_FragCoord.xy, fract(u_time)*60.))-.5)*.016;
   o = vec4(col, 1.);
 }`;
@@ -416,7 +416,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
       sky: program(VS_SCREEN, FS_SKY, ["right", "up", "fwd", "tan", "shift"]),
       points: program(VS_POINTS, FS_POINTS, ["vp", "origin", "px", "fixed"]),
       sphere: program(VS_BILL, FS_SPHERE, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "mode", "tilt", "scale", "color2", "p"]),
-      station: program(VS_BILL, FS_STATION, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "active", "waiting", "blip", "p"]),
+      station: program(VS_BILL, FS_STATION, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "active", "waiting", "blip", "p", "tilt"]),
       halo: program(VS_BILL, FS_HALO, ["vp", "center", "right", "up", "size", "eye", "color", "radius", "strength", "falloff", "ring", "ringW", "time", "rays"]),
       plane: program(VS_PLANE, FS_PLANE, ["vp", "size", "reach", "ping", "pingA", "sun"]),
       line: program(VS_LINE, FS_LINE, ["vp", "rot", "color", "alpha", "tail"]),
@@ -444,7 +444,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
   for (let i = 0; i < STARS; i++) {
     const y = rand() * 2 - 1, a = rand() * 2 * Math.PI, s = Math.sqrt(1 - y * y), bright = rand() ** 3, tint = rand();
     stars.set([s * Math.cos(a) * 4000, y * 4000, s * Math.sin(a) * 4000, 1.1 + bright * 2.4,
-      tint < 0.12 ? 1 : 0.86, tint < 0.12 ? 0.78 : 0.9, tint < 0.12 ? 0.55 : tint > 0.85 ? 1.2 : 1, 0.25 + bright * 1.5], i * 8);
+      tint < 0.12 ? 1 : 0.86, tint < 0.12 ? 0.78 : 0.9, tint < 0.12 ? 0.55 : tint > 0.85 ? 1.2 : 1, 0.4 + bright * 1.8], i * 8);
   }
   const starVao = vao(buffer(stars), [4, 4]);
   const liveBuf = g.createBuffer()!;
@@ -545,7 +545,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
         v3(us.center, p.pos); g.uniform1f(us.radius, big); g.uniform1f(us.size, big * 1.35); v3(us.color, p.color);
         g.uniform3f(us.light, -p.pos[0] / far, -p.pos[1] / far, -p.pos[2] / far);
         g.uniform1f(us.spin, p.spin); g.uniform1f(us.active, p.active); g.uniform1f(us.waiting, p.waiting); g.uniform1f(us.blip, p.blip);
-        g.uniform4f(us.p, p.p[0], p.p[1], p.p[2], p.p[3]);
+        g.uniform4f(us.p, p.p[0], p.p[1], p.p[2], p.p[3]); g.uniform1f(us.tilt, p.tilt - 0.41); // (0.41, the usual tilt, is how it has always sat)
         g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
       }
 
@@ -561,9 +561,9 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
       f.lines.forEach((l, i) => {
         const line = lineVaos[i];
         if (!line) return;
-        const base: Vec3 = [0.3, 0.37, 0.52];
+        const base: Vec3 = [0.42, 0.52, 0.72];
         g.uniform3f(u.color, base[0] + (l.color[0] - base[0]) * l.tone + SUN[0] * l.lit * 1.6, base[1] + (l.color[1] - base[1]) * l.tone + SUN[1] * l.lit * 1.6, base[2] + (l.color[2] - base[2]) * l.tone + SUN[2] * l.lit * 1.6);
-        g.uniform1f(u.rot, l.rot); g.uniform1f(u.alpha, 0.5 + l.tone * 0.55 + l.lit); g.uniform1f(u.tail, l.tail ? 0.5 + l.tone : 0);
+        g.uniform1f(u.rot, l.rot); g.uniform1f(u.alpha, 0.68 + l.tone * 0.55 + l.lit); g.uniform1f(u.tail, l.tail ? 0.5 + l.tone : 0);
         g.bindVertexArray(line.vao); g.drawArrays(g.LINE_STRIP, 0, line.n);
       });
 
@@ -585,7 +585,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
         g.uniform1f(u.strength, strength); g.uniform1f(u.falloff, o.falloff ?? 4); g.uniform1f(u.ring, o.ring ?? 0); g.uniform1f(u.ringW, o.ringW ?? 0.1); g.uniform1f(u.rays, o.rays ?? 0);
         g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
       };
-      halo([0, 0, 0], f.sun.radius, SUN, 0.75 + f.sun.active * 0.45, { falloff: 2.2, reach: 9, rays: 1 });
+      halo([0, 0, 0], f.sun.radius, SUN, 0.82 + f.sun.active * 0.45, { falloff: 2.2, reach: 10, rays: 1 });
       for (const p of f.planets) {
         if (p.kind === 4) halo(p.pos, p.radius * 0.5, p.color, 0.05 + p.active * 0.16, { falloff: 1.6, reach: 5 });    // a station has no air: only the light it gives off
         else halo(p.pos, p.radius, p.color, (0.22 + p.active * 0.6) * p.air, { falloff: 5.5 / Math.sqrt(p.air), reach: 2.6 }); // its air

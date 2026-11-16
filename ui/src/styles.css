@@ -2236,6 +2236,30 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .orb-log :is(.orb-l-tool, .orb-l-file) span { font: 11px/1.5 var(--mono); }
 .orb-log li:last-child span { color: var(--o-ink); } .orb-log .orb-l-ask span { color: var(--o-warn); }
 .orb-caret { display: inline-block; width: 6px; height: 12px; margin-left: 3px; vertical-align: -1px; background: var(--c, var(--c-other)); animation: orb-blink .9s steps(2, jump-none) infinite; }
+/* The world maker (orbit/hd/Maker.tsx), in the panel while HD is on: folded away until it's wanted. Each setting is a row: its
+   name, then what's slid, counted or switched. */
+.orb-make { margin: 10px 0 2px; border: 1px solid var(--o-line); }
+.orb-make > summary { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 7px 10px; cursor: pointer; list-style: none; font: 600 10px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--o-dim); }
+.orb-make > summary::-webkit-details-marker { display: none; }
+.orb-make > summary::before { content: "+"; color: var(--c, var(--c-other)); } .orb-make[open] > summary::before { content: "−"; }
+.orb-make > summary small { margin-left: auto; font: 11px/1.4 var(--sans); letter-spacing: 0; text-transform: none; color: var(--o-faint); }
+.orb-make[open] > summary { border-bottom: 1px solid var(--o-line); color: var(--o-ink); }
+.orb-make-acts { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 10px 4px; }
+.orb-set { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 26px; padding: 0 10px; font: 11px/1.3 var(--mono); color: var(--o-dim); }
+.orb-set:last-child { padding-bottom: 8px; }
+.orb-set > span:first-child { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--o-faint); }
+.orb-set small { font: 11px/1.3 var(--sans); color: var(--o-faint); }
+.orb-set input[type="range"] { appearance: none; -webkit-appearance: none; width: 100%; height: 14px; margin: 0; background: linear-gradient(var(--o-line-2), var(--o-line-2)) center / 100% 2px no-repeat; cursor: pointer; }
+.orb-set input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 7px; height: 14px; border: 0; border-radius: 0; background: var(--c, var(--c-other)); }
+.orb-set input[type="range"]::-moz-range-thumb { width: 7px; height: 14px; border: 0; border-radius: 0; background: var(--c, var(--c-other)); }
+.orb-set input[type="range"]::-moz-range-track { height: 2px; background: var(--o-line-2); }
+.orb-count { display: inline-flex; align-items: center; gap: 8px; } .orb-count b { min-width: 14px; text-align: center; font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
+.orb-step-btn { min-width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0 6px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 12px/1 var(--mono); justify-self: start; }
+.orb-step-btn.worded { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--o-dim); }
+.orb-step-btn:hover:not(:disabled) { border-color: var(--c, var(--c-other)); color: var(--c, var(--c-other)); }
+.orb-step-btn:disabled { opacity: .35; cursor: default; }
+.orb-step-btn:is([aria-pressed="true"], [aria-checked="true"]) { border: 2px solid var(--c, var(--c-other)); color: var(--c, var(--c-other)); padding: 0 5px; }
+.orb-sorts { grid-template-columns: 1fr; padding-top: 4px; padding-bottom: 4px; } .orb-sorts { display: flex; flex-wrap: wrap; gap: 4px; }
 .orb-quiet { margin: 14px 0 0; font: 13px/1.5 var(--sans); color: var(--o-dim); }
 .orb-btn { justify-self: start; padding: 5px 10px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 11px/1.3 var(--mono); letter-spacing: .04em; }
 .orb-btn:hover { border-color: var(--c, var(--c-other)); color: var(--c, var(--c-other)); }

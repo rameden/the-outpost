@@ -25,6 +25,10 @@
 // What each world is like there is made up from a number (hd/worlds.ts): Reroll (or R) picks
 // another number and so other worlds, and Shift+R goes back to the camp's own. The number is
 // remembered, so the worlds you settle on are the ones you come back to.
+// Any one world can be made your own as well: with HD on, the panel of whoever you're looking at
+// has a world maker (hd/Maker.tsx) to roll that one again by itself, or change it a setting at a
+// time, rings and moons and satellites and all. What you've changed is remembered for that crew
+// member, and stays theirs when the rest are rerolled.
 //
 // It has a demo (the Demo button, D, or /orbit demo): a pretend camp, playing one expedition after
 // another, for seeing the view busy without sending anyone anywhere (demo.ts). The demo has a feed
@@ -42,7 +46,7 @@
 // for less motion the planets rest where they start, the camera cuts rather than flies, and
 // nothing is sent across the sky; what each is doing is still all there.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { storeGet, storeSet } from "../api.ts";
 import { contour, contourPoints, LAP, MARKS, stretch, TAIL } from "../components/MaeSystem.tsx";
 import { Icon } from "../components/bits.tsx";
@@ -56,7 +60,8 @@ import { questsOf, runsOf, type Line } from "./doing.ts";
 import { hdFrame, type HdBody } from "./hd/frame.ts";
 import { rgbOf, turnTo, type Vec3 } from "./hd/math.ts";
 import { createHd, type HdRenderer } from "./hd/renderer.ts";
-import { newSeed, worldsFor, type World } from "./hd/worlds.ts";
+import { WorldMaker } from "./hd/Maker.tsx";
+import { customised, newSeed, worldsFor, type Custom, type World } from "./hd/worlds.ts";
 import {
   PLANET_R, SUN_R, angleAt, clampZoom, closeZoom, ease, fitZoom, hit, lapOf, linesFor, orbitOf, placeAt, reachOf, toScreen, withinReach, zoomAbout,
   type Camera, type Point, type Spot,
@@ -81,7 +86,11 @@ const MOON: [number, number][] = [[5.5, 0], [7.5, 100], [9.5, 240], [11.5, 140],
 const DRIFT = [150, -190, 230, -270]; // seconds for a line with nobody on it to drift once round (one way, then the other)
 // HD: where the camera stands. Over the whole system it looks down from a little above (and drifts round slowly);
 // with a planet, from low and to one side of the line to the sun, so the planet is half lit with the sun in the sky behind it.
-const HD_KEY = "camp-orbit-hd", WORLDS_KEY = "camp-orbit-worlds";
+const HD_KEY = "camp-orbit-hd", WORLDS_KEY = "camp-orbit-worlds", CUSTOM_KEY = "camp-orbit-custom";
+// What you've changed about each crew member's world, as it's kept in this browser (nothing, if what's kept can't be read).
+function keptCustom(): Record<string, Custom> {
+  try { const kept = JSON.parse(storeGet(CUSTOM_KEY) ?? "{}"); return kept && typeof kept === "object" && !Array.isArray(kept) ? kept : {}; } catch { return {}; }
+}
 const HD_OVER = 0.6, HD_NEAR = 0.2, HD_SUNWARD = 0.34, HD_SIDE = 1.62, HD_DRIFT = 0.022, HD_CLOSER = 1.2;
 const NO_COLOUR: Vec3 = [0.49, 0.72, 0.77];
 const EASE_S = 0.26;           // how quickly the camera settles on what it's looking at
@@ -120,8 +129,9 @@ function Log({ lines }: { lines: Line[] }) {
 }
 
 // What the one you're looking at is doing. bearing: where its planet is round the sun, kept up to date by the drawing.
-function Panel({ body, nth, S, store, st, bearing, onBack, onOpenAgent, onOpenQuest, onOpenConversation }: {
-  body: Body; nth: number; S: CampState | null; store: FeedStore; st: CrewStatus; bearing: RefObject<HTMLElement | null>;
+// make: the HD view's world maker for this one, when HD is on.
+function Panel({ body, nth, S, store, st, bearing, make, onBack, onOpenAgent, onOpenQuest, onOpenConversation }: {
+  body: Body; nth: number; S: CampState | null; store: FeedStore; st: CrewStatus; bearing: RefObject<HTMLElement | null>; make?: ReactNode;
   onBack: () => void; onOpenAgent?: (id: string) => void; onOpenQuest?: (q: QuestOut) => void; onOpenConversation?: (id: string) => void;
 }) {
   const items = useFeed(store, (s) => s.items);
@@ -147,6 +157,7 @@ function Panel({ body, nth, S, store, st, bearing, onBack, onOpenAgent, onOpenQu
           : <div><dt>Orbit</dt><dd>{nth + 1} out · a lap every {Math.round(lapOf(nth))}s · <span ref={bearing} title="Where it is round the sun, clockwise from due right">000°</span></dd></div>}
       </dl>
       <div className="orb-p-body">
+        {make}
         {out.length > 0 && <h4>{out.length === 1 ? "Out on a quest" : `${out.length} quests out`}</h4>}
         {out.map((q) => (
           <article key={`${q.expId}|${q.id}`} className={cx("orb-work-card", q.waiting && "st-waiting")}>
@@ -237,6 +248,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const canvas = useRef<HTMLCanvasElement>(null);
   const hdView = useRef<HdRenderer | null>(null);
   const colours = useRef(new Map<string, Vec3>()), worlds = useRef(new Map<string, World>()), glows = useRef<Record<string, number>>({}).current;
+  const turned = useRef<Record<string, number>>({}).current; // how far each world has turned on its axis (kept, so changing how fast it spins doesn't fling it round)
   const root = useRef<HTMLDivElement>(null);
   const world = useRef<SVGGElement>(null);
   type Part = { orbit?: SVGGElement | null; upright?: SVGGElement | null; label?: HTMLElement | null; busy?: SVGGElement | null; comet?: SVGGElement | null; land?: SVGCircleElement | null; blip?: SVGCircleElement | null; moons: (SVGGElement | null)[] };
@@ -338,8 +350,10 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       spots.push({ id, ...toScreen(cam, centre, placeAt(i, v.seconds)), r: PLANET_R * cam.k });
       if (hd) {
         const glow = glows[id] = (glows[id] ?? 0) + ((scene.current.busy.has(id) ? 1 : 0) - (glows[id] ?? 0)) * rise;
+        const world = worlds.current.get(id) ?? worldsFor(0, [{ id, color: NO_COLOUR }])[0];
+        turned[id] = (turned[id] ?? i * 1.7) + (moving ? dt * world.spin : 0);
         hdBodies.push({
-          id, i, angle: a, color: colours.current.get(id) ?? NO_COLOUR, world: worlds.current.get(id) ?? worldsFor(0, [{ id, color: NO_COLOUR }])[0],
+          id, i, angle: a, color: colours.current.get(id) ?? NO_COLOUR, world, turned: turned[id],
           glow, waiting: scene.current.waiting.has(id), focused: v.focus === id,
           blip: sky.blips[id] ? (now - blipped) / RING_MS : -1, land: sky.lands[id] ? (now - landed) / RING_MS : -1,
           quests: scene.current.out.get(id) ?? [], flight: sky.flights[id] ? { kind: flight.kind, since } : null,
@@ -532,6 +546,11 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   // What the worlds are made up from (0: the camp's own), remembered; Reroll picks another.
   const [seed, setSeed] = useState(() => Number(storeGet(WORLDS_KEY)) || 0);
   const roll = useCallback((to: number) => { storeSet(WORLDS_KEY, String(to)); setSeed(to); }, []);
+  // What you've changed about any one world (by crew member), remembered too. A world rolled or changed by itself keeps
+  // that through a reroll of the rest, until it's put back.
+  const [custom, setCustom] = useState(keptCustom);
+  const recustom = useCallback((change: (was: Record<string, Custom>) => Record<string, Custom>) => setCustom((was) => { const now = change(was); storeSet(CUSTOM_KEY, JSON.stringify(now)); return now; }), []);
+  const [made, setMade] = useState(() => new Map<string, World>()); // the worlds as they stand, for the maker to show
   // Each one's colour, as the stylesheet has it for their class (read off their name on the page), and their world.
   useLayoutEffect(() => {
     if (!hd) return;
@@ -540,8 +559,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       return c ? [[b.id, c] as [string, Vec3]] : [];
     }));
     const crewNow = bodies.slice(1).map((b) => ({ id: b.id, color: colours.current.get(b.id) ?? NO_COLOUR }));
-    worlds.current = new Map(worldsFor(seed, crewNow).map((w, i) => [crewNow[i].id, w]));
-  }, [hd, cast, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+    worlds.current = new Map(worldsFor(seed, crewNow).map((w, i) => [crewNow[i].id, customised(w, custom[crewNow[i].id], crewNow[i])]));
+    setMade(worlds.current);
+  }, [hd, cast, seed, custom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
   const onKey = (ev: KeyboardEvent<HTMLDivElement>) => {
@@ -693,7 +713,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           <button type="button" className="orb-tool worded" aria-pressed={hd} disabled={noHd} onClick={toggleHd}
             title={noHd ? "HD needs WebGL 2, which this browser isn't offering" : hd ? "Back to the flat view (H)" : "HD: the same system in three dimensions, as lit worlds round a sun (H). A proof of concept."}>HD</button>
           {hd && <button type="button" className="orb-tool worded" onClick={(ev) => roll(ev.shiftKey ? 0 : newSeed())}
-            title={`Reroll: make up other worlds for the crew (R). Each keeps its crew member's colour, and the Artificer keeps a station.${seed ? " Shift-click (or Shift+R) for the camp's own." : ""}`}>Reroll</button>}
+            title={`Reroll: make up other worlds for the crew (R). Each keeps its crew member's colour, the Artificer keeps a station, and a world you've made your own stays as you made it.${seed ? " Shift-click (or Shift+R) for the camp's own." : ""}`}>Reroll</button>}
           <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? "End the demo and show the real camp (D)" : "Play a demo: a pretend camp at work, with nobody really sent anywhere (D)"} onClick={() => setDemo((on) => !on)}>Demo</button>
           <button type="button" className="orb-tool" aria-label="Leave Orbit" title="Back to the page (Esc)" onClick={onClose}><Icon name="x" /></button>
         </div>
@@ -701,6 +721,12 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
 
       {looking && (
         <Panel key={looking.id} body={looking} nth={planets.indexOf(looking)} S={demo ? null : S} store={feed} st={statusOf(looking)} bearing={bearing}
+          make={hd && made.get(looking.id) && (
+            <WorldMaker name={looking.name} world={made.get(looking.id)!} changed={!!custom[looking.id]}
+              onChange={(c) => recustom((was) => ({ ...was, [looking.id]: { ...was[looking.id], ...c } }))}
+              onRoll={() => recustom((was) => ({ ...was, [looking.id]: { roll: newSeed() } }))}
+              onReset={() => recustom(({ [looking.id]: _gone, ...rest }) => rest)} />
+          )}
           onBack={() => lookAt(null)} onOpenAgent={onOpenAgent} onOpenQuest={onOpenQuest} onOpenConversation={onOpenConversation} />
       )}
 

@@ -21,18 +21,21 @@ const STREAM = 26;                          // the stream from the sun to someon
 // that's waiting on you.
 const CLOSE: [number, number] = [26, 70];
 // A satellite: how far out (in the planet's radii), how long a lap takes (s), where it starts, and how its path is turned and tipped.
-const SATS: [number, number, number, number, number][] = [[1.24, 7, 0.4, 0.3, 0.35], [1.36, 9.5, 2.9, 2.2, 1.15], [1.3, 8.2, 5.1, 4.0, 0.75], [1.48, 12, 1.7, 1.1, 1.45], [1.42, 10.6, 4.2, 5.3, 0.2], [1.58, 14, 0.9, 3.1, 0.95]];
-const SATS_AT_CAMP = 2;
+const SATS: [number, number, number, number, number][] = [
+  [1.24, 7, 0.4, 0.3, 0.35], [1.36, 9.5, 2.9, 2.2, 1.15], [1.3, 8.2, 5.1, 4.0, 0.75], [1.48, 12, 1.7, 1.1, 1.45], [1.42, 10.6, 4.2, 5.3, 0.2],
+  [1.58, 14, 0.9, 3.1, 0.95], [1.27, 7.6, 3.6, 5.9, 1.3], [1.52, 12.8, 5.7, 0.8, 0.55], [1.33, 8.9, 1.2, 2.9, 0.1], [1.45, 11.3, 2.3, 4.6, 1.0],
+];
+const SATS_AT_WORK = 4; // as many more join a world's own satellites when its crew member is at their busiest (none, if it has none)
 const SHIPS = 3, SHIP_LAP = 5.2;            // as many ships to a moon as there are at the busiest, and how long one takes each way (s)
 const PALE: Vec3 = [0.82, 0.88, 1], WARM: Vec3 = [1, 0.86, 0.62];
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const mix3 = (a: Vec3, b: Vec3, t: number): Vec3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-// One of the crew, as Orbit has them this frame. world: what theirs is like (worlds.ts). angle: how far round its orbit (degrees, as the flat view turns it).
+// One of the crew, as Orbit has them this frame. world: what theirs is like (worlds.ts). turned: how far it has turned on its axis. angle: how far round its orbit (degrees, as the flat view turns it).
 // glow: 0 at camp … 1 at work, eased. blip / land: 0 → 1 while a tool call's flash or a landing's ring lasts, else -1.
 // quests: one for each quest out, true if it's waiting on you. flight: a comet to it or from it, and how long it has been going.
 export type HdBody = {
-  id: string; i: number; angle: number; color: Vec3; world: World; glow: number; waiting: boolean; focused: boolean;
+  id: string; i: number; angle: number; color: Vec3; world: World; turned: number; glow: number; waiting: boolean; focused: boolean;
   blip: number; land: number; quests: boolean[]; flight: { kind: "out" | "home"; since: number } | null;
 };
 export type HdInput = {
@@ -81,9 +84,9 @@ export function hdFrame(o: HdInput): { frame: HdFrame; spots: Spot[] } {
     const own = world.moons.map((m) => ({ pos: round(m.far * R, m.start + (o.seconds * 2 * Math.PI) / m.lap, m.tip), radius: m.size * R, waiting: false, own: true }));
     const close = clamp01((here.r - CLOSE[0]) / (CLOSE[1] - CLOSE[0]));
     if (close > 0) {
-      // Satellites, low over it: each a speck with a light that blinks. The first is always there; the rest come as the work picks up.
+      // Satellites, low over it: each a speck with a light that blinks. Its own are always there; more come as the work picks up.
       SATS.forEach(([far, lap, start, turn, tip], j) => {
-        const there = clamp01(SATS_AT_CAMP + (SATS.length - SATS_AT_CAMP) * b.glow - j) * close;
+        const there = clamp01(world.sats + (world.sats ? SATS_AT_WORK * b.glow : 0) - j) * close;
         if (there <= 0) return;
         const t = start + (o.seconds * two) / lap + b.i, d = far * R, ct = Math.cos(turn), st = Math.sin(turn);
         const x = Math.cos(t), y = Math.sin(t) * Math.cos(tip), up = Math.sin(t) * Math.sin(tip); // round a circle, tipped, then turned about
@@ -110,7 +113,7 @@ export function hdFrame(o: HdInput): { frame: HdFrame; spots: Spot[] } {
       });
     }
     return {
-      pos, radius: R, color: b.color, kind: world.kind, seed: world.seed, spin: o.seconds * world.spin + b.i * 1.7,
+      pos, radius: R, color: b.color, kind: world.kind, seed: world.seed, spin: b.turned,
       tilt: world.tilt, p: world.p, scale: world.scale, color2: world.color2, ring: world.ring, air: world.air,
       active: b.glow, waiting: b.waiting ? 1 : 0, blip: b.blip, land: b.land, moons: [...moons, ...own],
     };

@@ -1,7 +1,7 @@
 // The crew's worlds in the HD view, made up from a number: each one a world you could live on.
 import { expect, test } from "vitest";
 import type { Vec3 } from "./math.ts";
-import { SORT_NAMES, STATION, WORLD, newSeed, shifted, sortOf, worldsFor } from "./worlds.ts";
+import { LIMITS, SORT_NAMES, STATION, WORLD, anotherMoon, customised, middle, newSeed, shifted, sortOf, worldsFor } from "./worlds.ts";
 
 const crew = ["scout", "artificer", "scribe", "warden", "hacker", "cook", "smith"].map((id, i) => ({ id, color: [0.3 + i * 0.08, 0.6, 0.9 - i * 0.08] as Vec3 }));
 
@@ -104,4 +104,45 @@ test("a second colour is the first, turned round the wheel a way: still a colour
   for (const c of turned) { expect(c).toBeGreaterThanOrEqual(0); expect(c).toBeLessThanOrEqual(1); }
   shifted(turned, -60, 0).forEach((c, i) => expect(c).toBeCloseTo(green[i], 5)); // (and turned back, it's the first again)
   expect(shifted([0.5, 0.5, 0.5], 90, 0)).toEqual([0.5, 0.5, 0.5]); // grey has nowhere to turn
+});
+
+test("one world made your own: what you changed is laid over what the seed makes, and the rest is as it was", () => {
+  const [scout, station] = worldsFor(42, crew), me = crew[0];
+  expect(customised(scout, undefined, me)).toBe(scout);
+  const ringed = customised(scout, { ring: { inner: 1.4, outer: 2 }, sats: 5 }, me);
+  expect(ringed).toEqual({ ...scout, ring: { inner: 1.4, outer: 2 }, sats: 5 });
+  // Its rings can be taken away too, which isn't the same as never having said.
+  expect(customised({ ...scout, ring: { inner: 1.4, outer: 2 } }, { ring: null }, me).ring).toBe(null);
+  // Picking a sort by hand gives it that sort's middle; an unknown one is ignored.
+  const dry = customised(scout, { sort: "arid", p: middle("arid") }, me);
+  expect(dry.sort).toBe("arid");
+  expect(dry.p[3]).toBeGreaterThan(0.6);
+  expect(customised(scout, { sort: "lava" }, me).sort).toBe(scout.sort);
+  // Rolled again by itself: another world, the same one each time for that roll, with what's changed since laid over it.
+  const rolled = customised(scout, { roll: 777 }, me);
+  expect(rolled).toEqual(worldsFor(777, [me])[0]);
+  expect(rolled).not.toEqual(scout);
+  expect(customised(scout, { roll: 777, sats: 0 }, me)).toEqual({ ...rolled, sats: 0 });
+  // A station stays a station: it can be rebuilt and rolled, but not given seas, rings or moons.
+  const rebuilt = customised(station, { p: [6, 0, 0.8, 0.2], sort: "ocean", ring: { inner: 1.4, outer: 2 }, moons: [anotherMoon(scout, 0)] }, crew[1]);
+  expect(rebuilt).toMatchObject({ kind: STATION, sort: "station", p: [6, 0, 0.8, 0.2], ring: null, moons: [] });
+  expect(customised(station, { roll: 5 }, crew[1]).kind).toBe(STATION);
+});
+
+test("another moon is the next one out, and always the same one for the same world", () => {
+  const [scout] = worldsFor(42, crew);
+  const first = anotherMoon(scout, 0), second = anotherMoon(scout, 1), fourth = anotherMoon(scout, 3);
+  expect(anotherMoon(scout, 0)).toEqual(first);
+  expect(second.far).toBeGreaterThan(first.far);
+  expect(fourth.far).toBeGreaterThan(second.far);
+  expect(fourth.far).toBeLessThan(3.4);
+  // What the seed makes is always inside how far each setting can be taken by hand.
+  for (let seed = 0; seed <= 40; seed++) for (const w of worldsFor(seed, crew)) {
+    if (w.kind !== WORLD) { expect(w.p[0]).toBeLessThanOrEqual(LIMITS.spokes[1]); continue; }
+    const within = (v: number, [lo, hi]: readonly [number, number]) => { expect(v).toBeGreaterThanOrEqual(lo); expect(v).toBeLessThanOrEqual(hi); };
+    within(w.size, LIMITS.size); within(w.tilt, LIMITS.tilt); within(w.spin, LIMITS.spin); within(w.air, LIMITS.air);
+    within(w.p[0], LIMITS.sea); within(w.p[1], LIMITS.cloud); within(w.p[2], LIMITS.ice); within(w.p[3], LIMITS.dry);
+    within(w.moons.length, LIMITS.moons); within(w.sats, LIMITS.sats);
+    if (w.ring) { within(w.ring.inner, LIMITS.ringIn); within(w.ring.outer - w.ring.inner, LIMITS.ringWide); }
+  }
 });

@@ -9,7 +9,7 @@ const IDS = ["scout", "artificer", "scribe", "warden", "hacker"];
 // so the moons a test counts are the quests'; one test below puts them back.)
 const OWN = worldsFor(0, IDS.map((id) => ({ id, color: [0.5, 0.5, 0.5] }))).map((w) => ({ ...w, moons: [] }));
 const body = (i: number, over: Partial<HdBody> = {}): HdBody => ({
-  id: IDS[i], i, angle: 30 + i * 70, color: [0.2 * i, 0.5, 0.9], world: OWN[i], glow: 0, waiting: false, focused: false,
+  id: IDS[i], i, angle: 30 + i * 70, color: [0.2 * i, 0.5, 0.9], world: OWN[i], turned: 0, glow: 0, waiting: false, focused: false,
   blip: -1, land: -1, quests: [], flight: null, ...over,
 });
 const input = (bodies: HdBody[], over: Partial<HdInput> = {}): HdInput => ({
@@ -92,7 +92,7 @@ const closeTo = (b: HdBody, over: Partial<HdInput> = {}) => {
 const round = (f: ReturnType<typeof closeTo>) => f.points.map((pt) => Math.hypot(pt.pos[0] - f.planets[0].pos[0], pt.pos[1], pt.pos[2] - f.planets[0].pos[2]) / HD_PLANET);
 
 test("close to, a planet has satellites low over it: a couple at camp, more as its crew member gets busy", () => {
-  const atCamp = closeTo(body(0)), atWork = closeTo(body(0, { glow: 1 }), { sun: { glow: 1, waiting: false } });
+  const atCamp = closeTo(body(0)), atWork = closeTo(body(0, { glow: 1 }), { sun: { glow: 1, waiting: false } }); // (the camp's own has two of its own)
   const low = (f: ReturnType<typeof closeTo>) => round(f).filter((d) => d > 1.15 && d < 1.7).length;
   expect(low(atCamp)).toBeGreaterThanOrEqual(2);
   expect(low(atCamp)).toBeLessThanOrEqual(4);      // (two of them, each with its light perhaps mid-blink)
@@ -128,18 +128,16 @@ test("none of that is drawn from far off, where it would only be specks over the
   expect(far.points).toEqual([]);
 });
 
-test("a world is drawn as it was made up: its size, its tilt, its rings, the way it turns", () => {
+test("a world is drawn as it was made up: its size, its tilt, its rings, how far it has turned", () => {
   const [made] = worldsFor(7, [{ id: "scribe", color: [0.6, 0.5, 0.9] }]);
-  const { frame, spots } = hdFrame(input([body(2, { world: { ...made, size: 1.25, ring: { inner: 1.4, outer: 2.2 }, spin: -0.1 } })]));
+  const { frame, spots } = hdFrame(input([body(2, { turned: 2.5, world: { ...made, size: 1.25, ring: { inner: 1.4, outer: 2.2 } } })]));
   const [p] = frame.planets;
   expect(p.radius).toBeCloseTo(HD_PLANET * 1.25);
   expect(p).toMatchObject({ kind: made.kind, seed: made.seed, tilt: made.tilt, p: made.p, scale: made.scale, color2: made.color2, air: made.air, ring: { inner: 1.4, outer: 2.2 } });
   // A bigger world is a bigger thing to click on, and its name sits further out.
   const usual = hdFrame(input([body(2)])).spots[1];
   expect(spots[1].r).toBeCloseTo(usual.r * 1.25, 1);
-  // One that turns the other way does.
-  const later = hdFrame(input([body(2, { world: { ...made, spin: -0.1 } })], { seconds: 22 })).frame.planets[0];
-  expect(later.spin).toBeLessThan(hdFrame(input([body(2, { world: { ...made, spin: -0.1 } })])).frame.planets[0].spin);
+  expect(p.spin).toBe(2.5); // (Orbit keeps how far each has turned, so changing how fast one spins doesn't fling it round)
 });
 
 test("a world's own moons are always there, grey and further out than a quest's; ships go to the quests' moons only", () => {
@@ -157,4 +155,13 @@ test("a world's own moons are always there, grey and further out than a quest's;
   // Close to, at work, with only its own moon: satellites, but no ships (there's no quest to go to).
   const f = closeTo(body(0, { world: withMoon, glow: 1 }));
   expect(f.points.filter((pt) => pt.size < 0.9 && pt.size !== 0.55)).toEqual([]);
+});
+
+test("a world has as many satellites of its own as it was given; more join them at work, unless it has none", () => {
+  const [made] = worldsFor(0, [{ id: "scout", color: [0.5, 0.5, 0.5] }]);
+  const specks = (sats: number, glow: number) => new Set(closeTo(body(0, { glow, world: { ...made, moons: [], sats } })).points.filter((pt) => pt.size === 0.55).map((pt) => pt.pos.join())).size;
+  expect([0, 1, 3, 6].map((n) => specks(n, 0))).toEqual([0, 1, 3, 6]);
+  expect(specks(3, 1)).toBe(7);
+  expect(specks(6, 1)).toBe(10);
+  expect(specks(0, 1)).toBe(0); // a world you've left bare stays bare
 });
