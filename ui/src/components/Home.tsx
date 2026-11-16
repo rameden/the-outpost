@@ -4,7 +4,7 @@
 // you, says in a few plain sentences where things stand, and lays out the morning brief
 // (brief.ts) to start the day from:
 //   - where you left off, to step straight back in;
-//   - plans you approved to start later, each with its Start button;
+//   - plans you approved to start later, as cards under it, each with its Start button;
 //   - what's waiting on you, each line with its one next step as a button;
 //   - your Jira tickets under way, and what's upcoming;
 //   - your latest notes;
@@ -166,18 +166,18 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
       {held.length > 0 && !day && (
         <section>
           <div className="section-label">Ready to start · {held.length}</div>
-          <ul className="list home-lines">
+          <div className="home-held-cards">
             {held.map((h) => (
-              <li className="home-line home-held" key={h.ask}>
+              <div className="home-last home-held" key={h.ask}>
                 <span className="home-line-text">
-                  <button type="button" className="home-line-title" title="Open its conversation" onClick={() => setView({ kind: "conversation", id: h.conversation })}>{h.title}</button>
+                  <button type="button" className="home-last-title" title="Open its conversation" onClick={() => setView({ kind: "conversation", id: h.conversation })}>{h.title}</button>
                   <span className="meta">{[h.steps ? `${h.steps} ${plural(h.steps, "step")}` : "", nameOf(h.project), `approved ${when(h.held)}`].filter(Boolean).join(" · ")}</span>
                   <details className="home-held-plan"><summary>The plan</summary><div className="ask-body">{h.plan}</div></details>
                 </span>
                 <button type="button" className="btn small primary" disabled={busy === h.ask} onClick={() => void startPlan(h)}>{busy === h.ask ? "Starting…" : "Start plan"}</button>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       )}
 

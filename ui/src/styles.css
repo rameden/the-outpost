@@ -2089,9 +2089,12 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .home-line + .home-line { border-top: 1px solid var(--border); }
 .home-line-text { display: grid; gap: 1px; flex: 1; min-width: 0; }
 .home-line-text .meta { margin: 0; }
-/* A plan held for later: its text folds under the line, to read before you start it. */
+/* Plans held for later: cards like "Where you left off", each with its text folded under it to read before you start it. */
+.home-held-cards { display: grid; gap: 8px; }
 .home-held { align-items: flex-start; }
 .home-held > .btn { margin-top: 2px; }
+.home-held button.home-last-title { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
+.home-held button.home-last-title:hover { color: var(--accent); }
 .home-held-plan > summary { font-size: 12px; color: var(--muted); cursor: pointer; width: fit-content; margin-top: 2px; }
 .home-held-plan > .ask-body { margin-top: 6px; font-size: 13px; }
 .home-line-title { border: 0; background: none; padding: 0; color: var(--text); font-size: 14px; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
