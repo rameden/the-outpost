@@ -58,6 +58,28 @@ test("Stop posts that expedition's id, and only that card stops", async () => {
   expect(within(card("Research memory")).getByRole("button", { name: "Stop" })).toBeTruthy(); // A is still running
 });
 
+test("a plan approved to start later waits on its card until you start it, once", async () => {
+  const store = twoExpeditions();
+  send(store, { type: "ask", id: "ask-p", kind: "plan", title: "📜 Plan", body: "1. Scout reads the code\n2. Scribe writes it up", expeditionId: "exp-a" });
+  const a = within(card("Research memory"));
+  expect(a.getByRole("button", { name: "Approve and start" })).toBeTruthy();
+  await act(async () => { fireEvent.click(a.getByRole("button", { name: "Approve, start later" })); });
+  expect(posts).toEqual([{ path: "/api/answer", body: { id: "ask-p", answer: "later" } }]);
+
+  send(store, { type: "answered", id: "ask-p", answer: "later" });
+  expect(a.getByText("⏸ Plan approved, to start later")).toBeTruthy();
+  expect(a.getByText(/Scribe writes it up/)).toBeTruthy(); // the plan stays readable while it waits
+  expect(a.queryByRole("button", { name: "Approve and start" })).toBeNull();
+  send(store, { type: "expedition_end", id: "exp-a", status: "done", text: "The plan is ready." });
+
+  posts.length = 0;
+  await act(async () => { fireEvent.click(a.getByRole("button", { name: "Start plan" })); });
+  expect(posts).toEqual([{ path: "/api/send", body: { start: "ask-p" } }]);
+  send(store, { type: "plan_started", ask: "ask-p", run: "exp-c" });
+  expect(a.getByText("▶ Plan approved, and started")).toBeTruthy();
+  expect(a.queryByRole("button", { name: /Start plan|Starting/ })).toBeNull();
+});
+
 test("an approval card answers with its id and closes when the camp confirms", async () => {
   const store = twoExpeditions();
   send(store, { type: "ask", id: "ask-1", kind: "shell", title: "🖥️ Run a shell command", body: "npm test", expeditionId: "exp-a" });

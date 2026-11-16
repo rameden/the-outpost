@@ -3,7 +3,7 @@
 import type { AskKind } from "../types.ts";
 
 export const ASK_LABELS: Record<AskKind, { note: string; yes?: string; done?: string }> = {
-  plan: { note: "Nobody leaves camp until you approve.", yes: "Approve plan" },
+  plan: { note: "Nobody leaves camp until you approve.", yes: "Approve and start" },
   shell: { note: "This runs on your machine.", yes: "Run command", done: "✓ Command allowed" },
   job: { note: "It runs on schedule while mission control (or npm run watch) is open.", yes: "Schedule it", done: "✓ Job scheduled" },
   tool: { note: "This connector tool makes changes outside the camp.", yes: "Allow", done: "✓ Allowed" },
@@ -22,11 +22,15 @@ export const ASK_NOTIFY_TITLES: Record<AskKind, string> = {
   describe: "A pull request description to approve",
 };
 
+// The answer that approves a plan to start later (the camp's START_LATER).
+export const START_LATER = "later";
+export const heldAnswer = (answer: string) => answer.trim().toLowerCase() === START_LATER;
+
 // What to show once an approval has been answered (from the page, the terminal, or a phone).
 export function askOutcome(kind: AskKind, answer: string, lapsed?: boolean): string {
   if (lapsed) return "Not answered (the camp was restarted)";
   const a = answer.toLowerCase();
-  if (kind === "plan") return answer === "" || a === "y" ? "✓ Plan approved" : a === "n" ? "✕ Plan stopped" : `↺ Changes requested: ${answer}`;
+  if (kind === "plan") return answer === "" || a === "y" ? "✓ Plan approved" : a === "n" ? "✕ Plan stopped" : heldAnswer(answer) ? "⏸ Plan approved, to start later" : `↺ Changes requested: ${answer}`;
   if (kind === "question") return answer ? `You answered: ${answer}` : "Skipped: left to the Quartermaster";
   if (kind === "describe") return a === "y" ? "✓ Updated as you" : a === "n" || a === "" ? "✕ Not updated" : `↺ Changes requested: ${answer}`;
   if (kind === "post") return a === "y" ? "✓ Posted as you" : a === "n" || a === "" ? "✕ Not posted" : `↺ Changes requested: ${answer}`;

@@ -6,12 +6,13 @@
 import { memo, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { cx } from "../format.ts";
-import { ASK_LABELS } from "./asks.ts";
+import { ASK_LABELS, START_LATER, heldAnswer } from "./asks.ts";
 import type { AskNode } from "./reducer.ts";
 
 export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
+  const [starting, setStarting] = useState(false);
   const kind = ask.askKind;
   const resolved = ask.outcome !== null;
 
@@ -21,8 +22,15 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
     catch (e) { setSending(false); alert(errorText(e)); }
   }
   const typed = draft.trim();
-  // A typed "y" or "n" would read as approve or stop, so those go through the buttons.
-  const sendChanges = () => { if (typed && typed.toLowerCase() !== "n" && typed.toLowerCase() !== "y") void answer(typed); };
+  // A typed "y", "n" or "later" would read as approve, stop or hold, so those go through the buttons.
+  const sendChanges = () => { if (typed && typed.toLowerCase() !== "n" && typed.toLowerCase() !== "y" && !heldAnswer(typed)) void answer(typed); };
+  // A plan held for later, started now: it carries on this conversation, already approved.
+  async function start() {
+    setStarting(true);
+    try { await api("/api/send", { start: ask.askId }); }
+    catch (e) { setStarting(false); alert(errorText(e)); }
+  }
+  const waiting = !!ask.held && !ask.started; // approved, and waiting for you to start it
   const sendAnswer = () => { if (typed) void answer(typed); };
 
   // A command that's been answered is a record, and a run can have dozens: each folds to one
@@ -44,7 +52,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   }
 
   return (
-    <div className={cx("ask", resolved && "resolved")} id={`ask-${ask.askId}`} data-kind={kind}>
+    <div className={cx("ask", resolved && "resolved", waiting && "held")} id={`ask-${ask.askId}`} data-kind={kind}>
       <div className="ask-title">{ask.title.replace(/^\S+\s+/, "")}</div>
       {/* An approved plan is shown as the live list under this card: its own wording folds away. */}
       {ask.plain && (
@@ -57,13 +65,25 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
       {ask.listed
         ? <details className="ask-written"><summary>The plan as it was written</summary><div className="ask-body">{ask.body}</div></details>
         : <div className={kind === "shell" || kind === "tool" ? "ask-body cmd" : "ask-body"}>{ask.body}</div>}
-      {resolved ? <div className="ask-outcome">{ask.outcome}</div> : (
+      {resolved ? (
+        <>
+          <div className="ask-outcome">{ask.started ? "▶ Plan approved, and started" : ask.outcome}</div>
+          {waiting && (
+            <div className="ask-start">
+              <button type="button" className="btn primary" disabled={starting} onClick={start}>{starting ? "Starting…" : "Start plan"}</button>
+              <span className="ask-note">It carries on this conversation. Nobody has left camp yet.</span>
+            </div>
+          )}
+        </>
+      ) : (
         <>
           <div className="ask-note">{ASK_LABELS[kind]?.note ?? ""}</div>
           <div className="ask-row">
             {kind === "plan" ? (
               <>
-                <button type="button" className="btn primary" disabled={sending} onClick={() => answer("")}>Approve plan</button>
+                <button type="button" className="btn primary" disabled={sending} onClick={() => answer("")}>Approve and start</button>
+                <button type="button" className="btn" disabled={sending} onClick={() => answer(START_LATER)}
+                  title="Approve it now, and start it yourself from this card whenever you're ready">Approve, start later</button>
                 <button type="button" className="btn danger" disabled={sending} onClick={() => answer("n")}>Stop</button>
                 <input placeholder="Or describe changes…" aria-label="Changes to the plan" value={draft} disabled={sending}
                   onChange={(ev) => setDraft(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") sendChanges(); }} />

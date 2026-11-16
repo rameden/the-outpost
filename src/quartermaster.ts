@@ -21,8 +21,8 @@ import { FINDINGS_FORMAT, REVIEW_SCOPE } from "./review.js";
 import { workspaceStatus } from "./repos.js";
 import { budgetUsd, fixAttempts, questLimit, reviewChangesOn } from "./settings.js";
 import { changedFiles, sealSnapshots } from "./checkpoints.js";
-import { recordTurn, threadFor } from "./threads.js";
-import { GENERAL, getProject } from "./conversations.js";
+import { allTurns, recordTurn, threadFor } from "./threads.js";
+import { GENERAL, getProject, history } from "./conversations.js";
 import { proposeSkill, skillCatalog } from "./forge.js";
 import { wikiWrite } from "./wiki.js";
 import { scheduleJob, listJobs, cancelJob } from "./jobs.js";
@@ -37,7 +37,12 @@ const rosterLines = () => Object.entries(ROSTER)
   .map(([id, a]) => `- ${id} (${a.emoji} ${a.name}): ${a.role}`)
   .join("\n");
 
-type Expedition = { planApproved: boolean; job?: string };
+// parked: a plan you approved to start later (its text and its card). The run ends without
+// dispatching anyone, and the plan is kept with the conversation until you start it.
+type Expedition = { planApproved: boolean; job?: string; parked?: { text: string; ask: string } };
+
+// The answer that approves a plan but holds it for later (the plan card's "Approve, start later").
+export const START_LATER = "later";
 
 // Nothing is dispatched until you've seen and approved the plan.
 // Scheduled jobs skip this: you approved the job itself when it was scheduled.
@@ -60,7 +65,15 @@ function makeSubmitPlan(exp: Expedition): Tool {
       // Once it stands, the plan goes out as its steps: the page keeps them as a list that fills in.
       const stands = () => { if (steps.length >= 2) emit({ type: "plan", steps }); };
       if (exp.planApproved && (campMode.unattended || !APPROVE_PLANS)) { stands(); return "Approved. Go ahead."; }
-      const answer = await ask({ kind: "plan", title: "🗺️  The Quartermaster's plan:", body: String(plan) });
+      let askId = "";
+      const answer = await ask({ kind: "plan", title: "🗺️  The Quartermaster's plan:", body: String(plan) }, (id) => { askId = id; });
+      if (answer.toLowerCase() === START_LATER) {
+        exp.planApproved = false;
+        exp.parked = { text: String(plan), ask: askId };
+        return "The user approved this plan but will start it later themselves. Don't dispatch anyone or start any of the work now. " +
+          "End your turn with one short line: the plan is ready, and they can start it from the plan card whenever they like.";
+      }
+      exp.parked = undefined;
       if (answer === "" || answer.toLowerCase() === "y") {
         exp.planApproved = true;
         stands();
@@ -152,6 +165,7 @@ function makeDispatch(exp: Expedition): Tool {
     run: async ({ adventurer, brief, step }) => {
       const spec = ROSTER[adventurer];
       if (!spec) return `No adventurer named ${adventurer}.`;
+      if (exp.parked) return "Blocked: the user approved the plan to start later, not now. Don't start any work; end your turn.";
       if (!exp.planApproved) return "Blocked: submit your plan with submit_plan and get the user's approval first.";
       if (questsRunning >= questLimit()) {
         emit({ type: "notice", who: "Quartermaster", emoji: "🧭", depth: 0, text: `⏳ ${spec.name}'s quest is waiting for a free slot (${questLimit()} quests run at once).` });
@@ -265,6 +279,20 @@ export function planSteps(plan: string): { n: number; text: string }[] {
   }
   const seen = new Set<number>();
   return steps.filter((s) => !seen.has(s.n) && !!seen.add(s.n)).map((s) => ({ n: s.n, text: s.text.replace(/\s+/g, " ").slice(0, 400) })).slice(0, 30);
+}
+
+// Plans you approved to start later and haven't started yet, newest first: the conversation each
+// was planned in, and the plan itself (for Home's "Ready to start").
+export type HeldPlan = { ask: string; conversation: string; title: string; project: string; held: string; plan: string; steps: number };
+export function heldPlans(): HeldPlan[] {
+  const turns = allTurns();
+  const started = new Set(turns.flatMap((t) => (t.started ? [t.started] : [])));
+  const byThread = new Map(history().conversations.map((c) => [c.id, c]));
+  return turns.flatMap((t) => {
+    const c = byThread.get(t.thread); // a conversation you removed takes its plans with it
+    if (!t.parked || started.has(t.parked.ask) || !c) return [];
+    return [{ ask: t.parked.ask, conversation: c.id, title: c.title, project: c.project, held: t.time, plan: t.parked.text, steps: planSteps(t.parked.text).length }];
+  }).sort((a, b) => b.held.localeCompare(a.held));
 }
 
 // A quest in a line, for the page: how its brief opens, without the markdown, cut to a label's length.
@@ -395,9 +423,10 @@ export async function runExpedition(
     jira?: string;       // the Jira ticket a new conversation is working on (its key)
     model?: string;      // the model picked for this conversation: the Quartermaster answers on it (quests keep their own)
     by?: string;         // what started it, when it wasn't you typing ("trigger:<name>")
-    review?: boolean } = {} // have the changes reviewed before the report (or not) for this run, whatever the project and camp are set to
+    review?: boolean;    // have the changes reviewed before the report (or not) for this run, whatever the project and camp are set to
+    approvedPlan?: { text: string; ask: string } } = {} // a plan you approved earlier to start later, being started now
 ): Promise<AgentResult> {
-  const exp: Expedition = { planApproved: !APPROVE_PLANS || !!opts.unattended, job: opts.job };
+  const exp: Expedition = { planApproved: !APPROVE_PLANS || !!opts.unattended || !!opts.approvedPlan, job: opts.job };
   const id = opts.id ?? randomUUID();
   const started = new Date();
   const shown = opts.displayTask ?? requestDisplay(task);
@@ -405,7 +434,7 @@ export async function runExpedition(
   // A follow-up keeps working where the conversation was working (the same worktree), unless told otherwise.
   const where = placeOf(opts);
   const workspaces = stillHere(opts.workspaces ?? thread?.workspaces, where.scope);
-  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.without?.length ? { without: opts.without } : {}), ...(opts.jira ? { jira: opts.jira } : {}), ...(opts.model ? { model: opts.model } : {}), ...(opts.by ? { by: opts.by } : {}) };
+  const turn = { thread: thread?.thread ?? id, expedition: id, agent: "quartermaster", direct: false, task: shown, ...(workspaces && Object.keys(workspaces).length ? { workspaces } : {}), ...(opts.links?.length ? { links: opts.links } : {}), ...(opts.without?.length ? { without: opts.without } : {}), ...(opts.jira ? { jira: opts.jira } : {}), ...(opts.model ? { model: opts.model } : {}), ...(opts.by ? { by: opts.by } : {}), ...(opts.approvedPlan ? { started: opts.approvedPlan.ask } : {}) };
   emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
     ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
@@ -414,6 +443,9 @@ export async function runExpedition(
     const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without, model: opts.model }, async () => {
       // A worktree the camp just made gets its setup (installs…) before anyone works in it.
       const setup = await setUpWorkspaces(workspaces, { who: "Quartermaster", emoji: "🧭" });
+      // A held plan being started: its steps go out as the list to fill in, as on approval.
+      const held = opts.approvedPlan ? planSteps(opts.approvedPlan.text) : [];
+      if (held.length >= 2) emit({ type: "plan", steps: held });
       return runAgent(buildQuartermaster(exp), task, {
         source: opts.source ?? (opts.job ? "job" : "user"),
         extraSystem:
@@ -421,11 +453,12 @@ export async function runExpedition(
           ((opts.review ?? reviewsHere(where.project)) && !opts.job ? `\n\n${REVIEW_RULE}` : "") +
           (setup ? `\n\n${setup}\nMention a failed setup in your briefs: the crew's checks and tests may fail because of it.` : "") +
           (opts.extraSystem ? `\n\n${opts.extraSystem}` : "") +
+          (opts.approvedPlan ? `\n\n${heldPlanNote(opts.approvedPlan.text, held.length >= 2)}` : "") +
           (thread ? `\n\n${thread.history}` : ""),
       });
     });
     logQuest(opts.job ? "job" : "expedition", "Quartermaster", shown, started, result, opts.job, where.project);
-    if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status });
+    if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status, ...(exp.parked ? { parked: exp.parked } : {}) });
     await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     return result;
@@ -436,6 +469,15 @@ export async function runExpedition(
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     throw err;
   }
+}
+
+// What the Quartermaster is told when you start a plan you approved earlier and held.
+function heldPlanNote(plan: string, numbered: boolean): string {
+  return `## The approved plan, starting now\nThe user approved this plan earlier and held it to start later. They've now started it, so ` +
+    `carry it out: dispatch its steps without submitting it again. Check first whether anything has changed since ` +
+    `(files, branches, what's already done); only if a step no longer makes sense, submit a revised plan.` +
+    (numbered ? " Give each dispatch the number of the plan step it carries out (step), so the user can see the plan fill in." : "") +
+    `\n\n${plan}`;
 }
 
 // Where each of an expedition's worktrees stands when it ends: its branch, uncommitted files, new commits.

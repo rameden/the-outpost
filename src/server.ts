@@ -23,7 +23,7 @@ import { checked, linkedRepos, prepareWorkspaces, workspaceStatus, commitWorkspa
 import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, checkPullRequests, markSeen, startPrWatch } from "./prs.js";
 import { sandboxAvailable, sandboxKind, SANDBOX_NEEDS } from "./sandbox.js";
 import { DEFAULT_ALLOW } from "./shell.js";
-import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT } from "./quartermaster.js";
+import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT, heldPlans } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
 import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, uploadKeepDays, setUploadKeepDays } from "./settings.js";
@@ -162,6 +162,10 @@ onEvent((e) => {
 // Each remembers its expedition, so stopping one expedition only declines its own questions.
 const pendingAsks = new Map<string, { q: Question; resolve: (answer: string) => void; expeditionId?: string }>();
 setAsker((q) => new Promise((resolve) => pendingAsks.set(q.id, { q, resolve, expeditionId: currentExpeditionId() })));
+
+// Plans held for later that have been started this time the camp is up (a run records it as it starts,
+// and this covers one still waiting in the queue), so a second click doesn't start one twice.
+const startedPlans = new Set<string>();
 
 // ---------- Several expeditions at once; past the limit, work waits its turn ----------
 // Each piece of work has its own expedition id and stop signal, so its events, approvals, and
@@ -360,7 +364,9 @@ function homePage(project?: string) {
     if (latest) retros.push({ ...latest, project: p.id, name: p.name });
   }
   const known = knownPulls();
-  return { name: yourName, today: dayOf(new Date()), brief: days.length ? readBrief(days[0]) : null, days, board, offers: offers(board), retros, drive: drive(),
+  // held: plans approved to start later, waiting for you (read live, not from the morning's brief).
+  const held = heldPlans().filter((h) => !project || h.project === project);
+  return { name: yourName, today: dayOf(new Date()), brief: days.length ? readBrief(days[0]) : null, days, board, offers: offers(board), retros, drive: drive(), held,
     pulls: { fetched: known.fetched, count: known.pulls.filter((p) => p.state === "OPEN").length, ...(known.error ? { error: known.error } : {}) } };
 }
 export type HomePage = ReturnType<typeof homePage>;
@@ -914,6 +920,17 @@ const server = http.createServer(async (req, res) => {
       // { resume: <expedition id> }: pick up a run that was cut off or stopped, from what it had done.
       const resume = typeof body.resume === "string" ? body.resume : undefined;
       if (resume) { body.replyTo = resume; text ||= "Pick up where this left off and finish the job. Check what's already done before redoing anything."; }
+      // { start: <plan card id> }: start a plan you approved earlier to start later. It carries on
+      // the conversation it was planned in, already approved, and goes once.
+      let held: { text: string; ask: string } | undefined;
+      if (typeof body.start === "string") {
+        const planned = allTurns().find((t) => t.parked?.ask === body.start);
+        if (!planned?.parked) return send(res, 404, { error: "That plan can't be found any more. Ask for it again." });
+        if (startedPlans.has(body.start) || allTurns().some((t) => t.started === body.start)) return send(res, 409, { error: "That plan has already been started." });
+        held = planned.parked;
+        body.replyTo = planned.expedition;
+        text ||= "Start the plan.";
+      }
       // { aside: true, brief: "opinion" | "review" }, with "@who" as the text: the standing brief for a second opinion or a review (review.ts).
       const brief: unknown = body.brief;
       if (body.aside === true && isAsideBrief(brief) && /^@\w+$/.test(text)) text = `${text} ${ASIDE_BRIEFS[brief]}`;
@@ -1024,12 +1041,13 @@ const server = http.createServer(async (req, res) => {
             const c = chained();
             // { review: true | false }: have this run's changes reviewed before it reports, whatever the project and camp are set to.
             const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem,
-              ...(typeof body.review === "boolean" ? { review: body.review } : {}) });
+              ...(typeof body.review === "boolean" ? { review: body.review } : {}), ...(held ? { approvedPlan: held } : {}) });
             if (isNew) void titleConversation(id, text, r.text);
             void afterRun({ run: id, who: "quartermaster", project: where.project, task: text, reply: r.text });
             void runFinished(id, r.status).catch(() => { /* the ticket goes without */ });
             return r;
           } });
+      if (held) { startedPlans.add(held.ask); emit({ type: "plan_started", ask: held.ask, run: w.id }); }
       const position = queue.indexOf(w) + 1; // 0: it started right away
       const conversation = replyTo && thread ? thread.thread : w.id; // a new conversation is named after its first run
       if (isNew) fileConversation(conversation, project.id);
