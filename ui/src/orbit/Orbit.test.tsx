@@ -72,17 +72,17 @@ test("the Quartermaster is the sun and everyone else has a planet on their own l
 
 test("nothing is acted out: with the camp quiet, everyone is at camp and no planet is lit", () => {
   const { container, cell } = show();
-  expect(container.querySelectorAll(".orb-planet.active, .orb-planet.waiting, .orb-moon, [data-flying]").length).toBe(0);
+  expect(container.querySelectorAll(".orb-planet.st-active, .orb-planet.st-waiting, .orb-moon, [data-flying]").length).toBe(0);
   expect(cell("Scout").getAttribute("aria-label")).toBe("Scout: At camp");
   pass(60_000);
-  expect(container.querySelectorAll(".orb-planet.active, .orb-moon, [data-flying]").length).toBe(0);
+  expect(container.querySelectorAll(".orb-planet.st-active, .orb-moon, [data-flying]").length).toBe(0);
 });
 
 test("a quest sent is a comet from the sun to that planet, which then carries a moon and says what it's doing", () => {
   const { container, planet, cell, store } = show();
   send(store, ...underWay.slice(0, 2));
-  expect(container.querySelector(".orb-sun")!.classList.contains("active")).toBe(true);
-  expect(planet("scout").classList.contains("active")).toBe(true);
+  expect(container.querySelector(".orb-sun")!.classList.contains("st-active")).toBe(true);
+  expect(planet("scout").classList.contains("st-active")).toBe(true);
   expect(flying(planet("scout"))).toBe("out");
   expect(flying(planet("scribe"))).toBe(null);
   // Part of the way there, its head is somewhere between the sun and the planet, with three fainter dots behind it.
@@ -120,8 +120,8 @@ test("a quest sent is a comet from the sun to that planet, which then carries a 
   send(store, { type: "dispatch", ...scout, questId: "q2", brief: "Check the cookie flags", expeditionId: "A" },
     { type: "ask", id: "k2", kind: "shell", title: "Run a command", body: "curl -I localhost", questId: "q2", expeditionId: "A" });
   expect(planet("scout").querySelectorAll(".orb-moon").length).toBe(2);
-  expect(planet("scout").querySelectorAll(".orb-moon.waiting").length).toBe(1);
-  expect(planet("scout").classList.contains("waiting")).toBe(true);
+  expect(planet("scout").querySelectorAll(".orb-moon.st-waiting").length).toBe(1);
+  expect(planet("scout").classList.contains("st-waiting")).toBe(true);
   expect(within(screen.getByRole("dialog")).getByText("Waiting on you").nextElementSibling!.textContent).toBe("1");
 });
 
@@ -157,7 +157,7 @@ test("what the feed replays on a reconnect isn't flown across the sky again", ()
     underWay.forEach((b, i) => store.apply({ ...b, seq: 9000 + i, time: new Date(Date.now() - 60_000).toISOString() } as CampEvent));
     vi.advanceTimersByTime(20);
   });
-  expect(planet("scout").classList.contains("active")).toBe(true); // it is out, and shown so
+  expect(planet("scout").classList.contains("st-active")).toBe(true); // it is out, and shown so
   pass(100);
   expect(container.querySelectorAll("[data-flying]").length).toBe(0);
   expect(planet("scout").querySelector(".orb-blip")!.getAttribute("opacity")).toBe("0");
@@ -267,9 +267,56 @@ test("for less motion nothing is sent across the sky, and the stylesheet stops t
   expect(container.querySelectorAll("[data-flying]").length).toBe(0);
   expect(container.querySelector(".orb-ping")!.getAttribute("opacity")).toBe("0"); // (with the camp quiet too: no ring now and then)
   expect(planet("scout").querySelector("g[transform^='rotate']")!.getAttribute("transform")).toBe(still); // the planets rest where they start
-  expect(planet("scout").classList.contains("active")).toBe(true);
+  expect(planet("scout").classList.contains("st-active")).toBe(true);
   expect(cell("Scout").getAttribute("aria-label")).toBe("Scout: Using read_file");
   expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.orbit, \.orbit \* \{ animation: none !important; \}/);
+});
+
+test("the demo is a pretend camp at work: it says so, your own crew plays it, and none of it reaches the real feed", () => {
+  const { container, planet, cell, store, onOpenQuest } = show();
+  expect(screen.queryByRole("status")).toBe(null);
+  fireEvent.click(screen.getByRole("button", { name: "Demo", pressed: false }));
+  expect(screen.getByRole("status").textContent).toBe("Demo: a pretend camp. None of this is really happening.");
+  expect(screen.getByRole("button", { name: "Demo", pressed: true })).toBeTruthy();
+  // A few seconds in, the Quartermaster has planned and the Scout is out, alone: the rest wait for the report.
+  pass(6000);
+  expect(container.querySelector(".orb-sun")!.classList.contains("st-active")).toBe(true);
+  expect(planet("scout").classList.contains("st-active")).toBe(true);
+  expect(planet("scout").querySelectorAll(".orb-moon").length).toBe(1);
+  expect(container.querySelectorAll(".orb-planet.st-active").length).toBe(1);
+  expect(container.querySelectorAll(".orb-moon").length).toBe(1);
+  // Their panel shows the pretend work, but offers no way to it: there's nowhere to go.
+  fireEvent.click(cell("Scout"));
+  const panel = within(screen.getByRole("complementary", { name: "What Scout is doing" }));
+  expect(panel.getByText("Read the session code and say where the cookie is set")).toBeTruthy();
+  expect(panel.queryByRole("button", { name: /Go to it|Open Scout's page/ })).toBe(null);
+  expect(onOpenQuest).not.toHaveBeenCalled();
+  // The real feed has had none of it.
+  expect(store.getState().items).toEqual([]);
+  expect(store.getState().crew).toEqual({});
+  // Once the Scout has reported, the next stage goes: three quests at once, on the Cook you added (who stands in for those parts).
+  pass(30_000);
+  expect(planet("scout").querySelectorAll(".orb-moon").length).toBe(0);
+  expect(planet("cook").querySelectorAll(".orb-moon").length).toBe(3);
+  // Ending the demo shows the real camp again, which is quiet, and nothing is left crossing the sky.
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "d" });
+  expect(screen.queryByRole("status")).toBe(null);
+  expect(container.querySelectorAll(".orb-planet.st-active, .orb-moon, [data-flying]").length).toBe(0);
+  expect(cell("Scout").getAttribute("aria-label")).toBe("Scout: At camp");
+  pass(30_000);
+  expect(container.querySelectorAll(".orb-planet.st-active, .orb-moon").length).toBe(0); // and the demo has stopped playing
+});
+
+test("opened on the demo with no crew to play it, the camp's own do", () => {
+  const on = { onClose: vi.fn() };
+  const { container } = render(<Orbit S={null} store={createFeedStore()} demo {...on} />);
+  expect(screen.getByRole("status").textContent).toMatch(/^Demo:/);
+  expect([...container.querySelectorAll(".orb-planet")].map((p) => p.getAttribute("data-who"))).toEqual(["scout", "artificer", "scribe", "warden", "hacker"]);
+  pass(36_000); // the Scout has been and gone: the Artificer has two out, and the Hacker one
+  expect(container.querySelector('.orb-planet[data-who="artificer"]')!.querySelectorAll(".orb-moon").length).toBe(2);
+  expect(container.querySelector('.orb-planet[data-who="hacker"]')!.querySelectorAll(".orb-moon").length).toBe(1);
+  expect(container.querySelectorAll(".orb-moon").length).toBe(3);
+  expect(within(screen.getByRole("navigation", { name: "The crew" })).getByRole("button", { name: /^Quartermaster:/ })).toBeTruthy();
 });
 
 test("it sits over the page and under what opens over the page, and never bends a coloured edge round a corner", () => {
@@ -279,8 +326,38 @@ test("it sits over the page and under what opens over the page, and never bends 
   const own = css.slice(css.indexOf("/* ---------- Orbit:"), css.indexOf("/* ---------- Barnstorm"));
   expect(own).not.toMatch(/border-radius: (?!0\b)/);
   expect(own).not.toMatch(/box-shadow/);
+  // Each of the crew's colour is their class's (--c), set earlier in the sheet: a rule here that set --c would take it from them.
+  expect(own).not.toMatch(/--c:/);
   // The sign-in page's orb has parts by these names, styled wherever they appear: nothing here shares one.
   expect(own).not.toMatch(/\.orb-(glow|ripple|dial|core|light)\b/);
+});
+
+test("a name that's saying what its crew member is doing has a backing to be read against; one at camp is just the name", () => {
+  const { container, store } = show();
+  const label = (who: string) => container.querySelector(`.orb-label.c-${who}`)!;
+  expect(label("scout").classList.contains("st-idle")).toBe(true);
+  expect(label("scout").querySelector("span")).toBe(null);
+  send(store, ...underWay);
+  expect(label("scout").classList.contains("st-active")).toBe(true);
+  expect(label("scout").querySelector("span")!.textContent).toBe("Using read_file");
+  expect(label("scribe").classList.contains("st-idle")).toBe(true);
+  expect(css).toMatch(/\.orb-label:is\(\.st-active, \.st-waiting\) \{ background: rgba\([^)]+, \.\d+\);/); // see-through, so the sky still shows
+});
+
+test("its class names are its own: the page's styles for other things by the same name don't land on it", () => {
+  // (A step's line marked plain "ask" once picked up the approval card's rounded amber box, and "waiting" the waiting list's padding.)
+  const { view, cell, store } = show();
+  send(store, ...underWay, { type: "ask", id: "k9", kind: "shell", title: "Run a command", body: "npm test", questId: "q1", expeditionId: "A" });
+  fireEvent.click(cell("Scout"));
+  fireEvent.click(screen.getByRole("button", { name: "Demo" }));
+  pass(9000);
+  const used = new Set([view, ...view.querySelectorAll("*")].flatMap((el) => [...el.classList]));
+  expect(used.size).toBeGreaterThan(40);
+  expect([...used].some((c) => c.startsWith("orb-l-"))).toBe(true);
+  const elsewhere = css.slice(0, css.indexOf("/* ---------- Orbit:")) + css.slice(css.indexOf("/* ---------- Barnstorm"));
+  const taken = [...used].filter((name) => !/^c-/.test(name) && name !== "icon" // (the crew's colours and the icons are meant to be shared)
+    && new RegExp(`(^|[\\s,>+~])\\.${name.replace(/[^\w-]/g, "\\$&")}(?![\\w-])`, "m").test(elsewhere));
+  expect(taken).toEqual([]);
 });
 
 test("everything in the sky moves off the one clock: the planets go round, and the stylesheet animates nothing inside the drawing", () => {

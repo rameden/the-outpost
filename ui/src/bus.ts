@@ -23,7 +23,7 @@ export function hear(fn: (ask: Ask) => void): () => void {
 export const COMMANDS: { name: string; arg?: string; does: string }[] = [
   { name: "today", does: "Open Today: your brief, and where things stand (the logo goes there too)" },
   { name: "new", does: "Start a new conversation" },
-  { name: "orbit", does: "Watch the crew at work as a solar system, full screen" },
+  { name: "orbit", arg: "demo", does: "Watch the crew at work as a solar system, full screen (/orbit demo plays a pretend camp)" },
   { name: "focus", does: "Close the history, files, notes and terminal (again brings them back)" },
   { name: "files", does: "Show or hide the files" },
   { name: "terminal", does: "Show or hide the terminal" },

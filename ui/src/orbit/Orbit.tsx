@@ -17,6 +17,12 @@
 // command palette or Settings can be opened from here and sit on top of it. It is always dark,
 // whatever the theme: it's the night sky.
 //
+// It has a demo (the Demo button, D, or /orbit demo): a pretend camp, playing one expedition after
+// another, for seeing the view busy without sending anyone anywhere (demo.ts). The demo has a feed
+// of its own, so nothing of it reaches the real one, and it says plainly that it's pretend. What
+// would take you to the work (a quest in its conversation, a decision) isn't offered there: there
+// is no such work.
+//
 // How it's drawn: the system is SVG, and everything in it that moves is moved from here, a frame
 // at a time, off one clock (scene.ts has the arithmetic): the planets, their moons, the sun's
 // dials, a comet in flight, and the camera looking at it all. None of it is left to the
@@ -31,10 +37,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { contour, LAP, MARKS, stretch, TAIL } from "../components/MaeSystem.tsx";
 import { Icon } from "../components/bits.tsx";
 import { runningCount, statusLine, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
-import { useFeed, type FeedStore } from "../feed/store.ts";
+import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, shortModel, took } from "../format.ts";
 import { motionOK } from "../motion.tsx";
 import type { CampState } from "../types.ts";
+import { DEMO_CREW, runDemo } from "./demo.ts";
 import { questsOf, runsOf, type Line } from "./doing.ts";
 import {
   PLANET_R, SUN_R, angleAt, clampZoom, closeZoom, fitZoom, hit, lapOf, linesFor, orbitOf, placeAt, reachOf, toScreen, withinReach, zoomAbout,
@@ -60,7 +67,7 @@ const MOON: [number, number][] = [[5.5, 0], [7.5, 100], [9.5, 240], [11.5, 140],
 const DRIFT = [150, -190, 230, -270]; // seconds for a line with nobody on it to drift once round (one way, then the other)
 const ease = (p: number) => (p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2);
 const EASE_S = 0.26;           // how quickly the camera settles on what it's looking at
-const FAR = 0.95;              // below this many screen pixels to one of the drawing's units, the names lose their second line
+const FAR = 0.7;               // below this many screen pixels to one of the drawing's units, the names lose their second line
 const WIDE = 900, PANEL = 380; // from this width the panel sits beside the system, and is this wide
 // The stars: three sheets of them, each a tile repeated (the tile's size, and how far the sheet shifts as the camera moves).
 const STARS: [number, number][] = [[640, 0.03], [820, 0.065], [1040, 0.11]];
@@ -83,12 +90,13 @@ function Clock() {
   return <>{new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</>;
 }
 
+// (Its classes, here and for who's working or waiting below, are orb-… and st-…: the page has styles of its own for plain "ask", "tool" and "waiting".)
 const TAGS: Record<Line["tag"], string> = { said: "says", tool: "tool", file: "file", ask: "asks", note: "note", you: "you" };
 function Log({ lines }: { lines: Line[] }) {
   if (!lines.length) return null;
   return (
     <ol className="orb-log">
-      {lines.map((l) => <li key={l.id} className={l.tag}><i>{TAGS[l.tag]}</i><span>{l.text}{l.live && <b className="orb-caret" aria-hidden="true" />}</span></li>)}
+      {lines.map((l) => <li key={l.id} className={`orb-l-${l.tag}`}><i>{TAGS[l.tag]}</i><span>{l.text}{l.live && <b className="orb-caret" aria-hidden="true" />}</span></li>)}
     </ol>
   );
 }
@@ -107,7 +115,7 @@ function Panel({ body, nth, S, store, st, bearing, onBack, onOpenAgent, onOpenQu
   const now = useNow(out.length + runs.length > 0);
   const xp = S?.xp?.[body.name] ?? 0;
   return (
-    <aside className={cx("orb-panel", cClass(body.name), st.status)} aria-label={`What ${body.name} is doing`}>
+    <aside className={cx("orb-panel", cClass(body.name), `st-${st.status}`)} aria-label={`What ${body.name} is doing`}>
       <header>
         <span className="orb-p-face" aria-hidden="true">{body.emoji ?? body.name.slice(0, 1)}</span>
         <div><h3>{body.name}</h3>{body.role && <p>{body.role}</p>}</div>
@@ -123,7 +131,7 @@ function Panel({ body, nth, S, store, st, bearing, onBack, onOpenAgent, onOpenQu
       <div className="orb-p-body">
         {out.length > 0 && <h4>{out.length === 1 ? "Out on a quest" : `${out.length} quests out`}</h4>}
         {out.map((q) => (
-          <article key={`${q.expId}|${q.id}`} className={cx("orb-work-card", q.waiting && "waiting")}>
+          <article key={`${q.expId}|${q.id}`} className={cx("orb-work-card", q.waiting && "st-waiting")}>
             <div className="orb-w-head">{q.step ? <b className="orb-step" title={`Step ${q.step} of the plan`}>{q.step}</b> : null}<span>{q.brief || "A quest"}</span><time>{took((now - q.started) / 1000)}</time></div>
             <p className="orb-w-doing">{q.waiting ? "Waiting for your OK" : q.line}</p>
             <Log lines={q.log} />
@@ -152,21 +160,33 @@ function Panel({ body, nth, S, store, st, bearing, onBack, onOpenAgent, onOpenQu
 
 // onOpenAgent: an agent's page, which opens over this. onOpenQuest / onOpenConversation / onDecision:
 // go to where the work is, on the page underneath (whoever shows this closes it as they go).
-export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConversation, onDecision }: {
-  S: CampState | null; store: FeedStore; onClose: () => void;
+// demo: open it on the demo.
+export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConversation, onDecision, demo: startInDemo = false }: {
+  S: CampState | null; store: FeedStore; onClose: () => void; demo?: boolean;
   onOpenAgent?: (id: string) => void; onOpenQuest?: (q: QuestOut) => void; onOpenConversation?: (id: string) => void; onDecision?: () => void;
 }) {
-  const crew = useFeed(store, (s) => s.crew);
-  const quests = useFeed(store, (s) => s.quests);
-  const asks = useFeed(store, (s) => s.asks.length);
-  const running = useFeed(store, runningCount);
-
+  const [demo, setDemo] = useState(startInDemo);
   // Who's in the sky: the Quartermaster in the middle, then everyone else from the nearest orbit out.
+  // The demo is played by your own crew, or by the camp's own five if there's nobody yet to play it.
   const bodies = useMemo<Body[]>(() => {
-    const all = S?.characters ?? [];
+    const mine = S?.characters ?? [];
+    const all: Body[] = demo && !mine.some((c) => c.id !== LEAD) ? DEMO_CREW : mine;
     const lead = all.find((c) => c.id === LEAD);
     return [lead ?? { id: LEAD, name: "Quartermaster" }, ...all.filter((c) => c.id !== LEAD)];
-  }, [S?.characters]);
+  }, [S?.characters, demo]);
+  // The demo's own feed, played into for as long as the demo is on (and started over if the crew playing it changes).
+  const cast = bodies.map((b) => `${b.name}\u0000${b.emoji ?? ""}`).join("\u0001");
+  const pretend = useMemo(() => (demo ? createFeedStore() : null), [demo, cast]); // eslint-disable-line react-hooks/exhaustive-deps
+  const actors = useRef(bodies);
+  actors.current = bodies;
+  useEffect(() => (pretend ? runDemo(pretend, actors.current[0], actors.current.slice(1)) : undefined), [pretend]);
+  const feed = pretend ?? store;
+  if (demo) onOpenQuest = onOpenConversation = onDecision = onOpenAgent = undefined; // (there's no such work to go to)
+
+  const crew = useFeed(feed, (s) => s.crew);
+  const quests = useFeed(feed, (s) => s.quests);
+  const asks = useFeed(feed, (s) => s.asks.length);
+  const running = useFeed(feed, runningCount);
   const planets = bodies.slice(1);
   const lines = linesFor(planets.length);
   const reach = reachOf(lines);
@@ -303,10 +323,18 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     });
     drifts.forEach((g, i) => turn(g, (v.seconds * 360) / DRIFT[i % DRIFT.length]));
     v.spots = spots;
+    // A planet's name is on its far side from the sun (so it never lies across the sun), and goes round with it: its
+    // box is pushed out along the line from the sun by as much as it is deep that way. The sun's own name keeps to the
+    // side of it away from the nearest planet, which is the one that would otherwise pass through it.
+    const from = (p: Spot, q: Spot): [number, number] => { const d = Math.hypot(p.x - q.x, p.y - q.y) || 1; return [(p.x - q.x) / d, (p.y - q.y) / d]; };
     for (const s of spots) {
       const label = parts[s.id]?.label;
-      const below = s.id === LEAD ? (SUN_R + 12) * cam.k + 8 : (PLANET_R + 9) * cam.k + 6; // clear of the sun's dials, or the planet's nearest moon
-      if (label) label.style.transform = `translate(${s.x.toFixed(1)}px, ${(s.y + below).toFixed(1)}px) translate(-50%, 0)`;
+      if (!label) continue;
+      const w = label.offsetWidth, h = label.offsetHeight;
+      const [ux, uy] = s.id !== LEAD ? from(s, spots[0]) : spots[1] ? from(spots[0], spots[1]) : [0, 1];
+      const clear = s.id === LEAD ? (SUN_R + 12) * cam.k + 8 : (PLANET_R + 9) * cam.k + 6; // past the sun's dials, or the planet's nearest moon
+      const out = clear + (Math.abs(ux) * w + Math.abs(uy) * h) / 2;
+      label.style.transform = `translate(${(s.x + ux * out - w / 2).toFixed(1)}px, ${(s.y + uy * out - h / 2).toFixed(1)}px)`;
     }
 
     // The marks round what you're looking at and what the pointer is over, and the line from the first to its panel.
@@ -427,6 +455,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       lookAt(bodies[(at < 0 ? (step > 0 ? 0 : bodies.length - 1) : at + step + bodies.length) % bodies.length].id);
     }
     else if ((ev.key === "f" || ev.key === "F") && canFill) toggleFull();
+    else if (ev.key === "d" || ev.key === "D") setDemo((on) => !on);
     else return;
     ev.preventDefault();
     ev.stopPropagation();
@@ -437,7 +466,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   // on the drawing's clock, and drawn from there (in draw, above) for as long as it lasts.
   useEffect(() => {
     if (!motionOK()) return;
-    return store.onEvent((e) => {
+    const stop = feed.onEvent((e) => {
       if (Date.now() - new Date(e.time).getTime() > FRESH_MS) return;
       if (e.type === "expedition_end") sky.ping = v.last;
       const who = "who" in e ? scene.current.names.get(e.who) : undefined;
@@ -447,7 +476,13 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
         parts[who]?.comet?.setAttribute("data-flying", sky.flights[who].kind);
       } else if ((e.type === "tool" || e.type === "file") && !sky.blips[who]) sky.blips[who] = v.last; // (a burst of calls is one ring, not a blur of them)
     });
-  }, [store, sky, v, parts]);
+    // Another feed (the demo starting, or ending): what was crossing the sky belonged to the last one.
+    return () => {
+      stop();
+      sky.flights = {}; sky.lands = {}; sky.blips = {}; sky.ping = 0;
+      for (const p of Object.values(parts)) p.comet?.removeAttribute("data-flying");
+    };
+  }, [feed, sky, v, parts]);
 
   // A line as the sun's ring lights it in passing (each line has the one, lit from draw above).
   const lit = (d: string, i: number) => <path className="orb-lit" d={d} opacity="0" ref={(el) => { lits[i] = el; }} />;
@@ -477,7 +512,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
             </g>
           )).filter((_, i) => !planets[i])}
           <circle className="orb-ping" ref={pingRing} r={SUN_R} opacity="0" />
-          <g className={cx("orb-sun", sun.status)} data-who={LEAD}>
+          <g className={cx("orb-sun", `st-${sun.status}`)} data-who={LEAD}>
             <radialGradient id="orb-corona"><stop offset="0" className="orb-g0" /><stop offset=".3" className="orb-g1" /><stop offset="1" className="orb-g2" /></radialGradient>
             <circle className="orb-corona" ref={corona} r={SUN_R * 4.8} fill="url(#orb-corona)" opacity=".72" />
             <g className="orb-sun-dial" ref={(el) => { dials[0] = el; }}><circle r={SUN_R + 9} /></g>
@@ -487,7 +522,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           {planets.map((p, i) => {
             const r = orbitOf(i), a = angleAt(i, 0), st = statusOf(p), out = outOf(p), mark = MARKS[p.id];
             return (
-              <g key={p.id} className={cx("orb-planet", cClass(p.name), st.status, focus === p.id && "focused")} data-who={p.id}>
+              <g key={p.id} className={cx("orb-planet", cClass(p.name), `st-${st.status}`, focus === p.id && "focused")} data-who={p.id}>
                 <radialGradient id={`orb-halo-${p.id}`}><stop offset="0" className="orb-g0" /><stop offset=".45" className="orb-g1" /><stop offset="1" className="orb-g2" /></radialGradient>
                 {/* The planet and its line turn as one (a frame at a time, from draw above), so it is always on its line and its tail is a stretch of it. */}
                 <g ref={(el) => { part(p.id).orbit = el; }} transform={`rotate(${a.toFixed(3)})`}>
@@ -504,7 +539,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
                       <g className="orb-busy" ref={(el) => { part(p.id).busy = el; }}><circle r={PLANET_R + 3.4} /></g>
                       {/* A moon for each quest they have out. */}
                       {MOON.map((_, j) => out[j] && (
-                        <g key={`${out[j].expId}|${out[j].id}`} className={cx("orb-moon", out[j].waiting && "waiting")} ref={(el) => { part(p.id).moons[j] = el; }}><circle cx={PLANET_R + 7 + j * 4.2} r="1.9" /></g>
+                        <g key={`${out[j].expId}|${out[j].id}`} className={cx("orb-moon", out[j].waiting && "st-waiting")} ref={(el) => { part(p.id).moons[j] = el; }}><circle cx={PLANET_R + 7 + j * 4.2} r="1.9" /></g>
                       ))}
                       <circle className="orb-disc" r={PLANET_R} />
                       {mark ? <g className="orb-mark" transform="translate(-6 -6) scale(.5)">{mark}</g>
@@ -527,7 +562,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
         {bodies.map((b) => {
           const st = statusOf(b);
           return (
-            <div key={b.id} className={cx("orb-label", cClass(b.name), st.status, focus === b.id && "focused")} ref={(el) => { part(b.id).label = el; }}>
+            <div key={b.id} className={cx("orb-label", cClass(b.name), `st-${st.status}`, focus === b.id && "focused")} ref={(el) => { part(b.id).label = el; }}>
               <b>{b.name}</b>
               {st.status !== "idle" && <span>{statusLine(st, outOf(b))}</span>}
             </div>
@@ -537,7 +572,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       <div className="orb-frame" aria-hidden="true"><i /><i /><i /><i /></div>
 
       <header className="orb-top">
-        <div className="orb-title"><h2>Orbit</h2><span>The crew at work, as it happens</span></div>
+        <div className="orb-title"><h2>Orbit</h2>{demo ? <span className="orb-pretend" role="status">Demo: a pretend camp. None of this is really happening.</span> : <span>The crew at work, as it happens</span>}</div>
         <dl className="orb-read">
           <div><dt>Expeditions</dt><dd>{running}</dd></div>
           <div><dt>Quests out</dt><dd>{quests.length}</dd></div>
@@ -551,12 +586,13 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           <button type="button" className="orb-tool" aria-label="Zoom in" title="Zoom in (+)" onClick={() => zoomBy(1.4)}>+</button>
           <button type="button" className="orb-tool" aria-label="Show the whole system" title="Show the whole system (0)" onClick={() => lookAt(null)}><Icon name="focus" /></button>
           {canFill && <button type="button" className="orb-tool" aria-pressed={full} aria-label={full ? "Leave full screen" : "Fill the screen"} title={`${full ? "Leave full screen" : "Fill the screen"} (F)`} onClick={toggleFull}>{full ? "⤡" : "⤢"}</button>}
+          <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? "End the demo and show the real camp (D)" : "Play a demo: a pretend camp at work, with nobody really sent anywhere (D)"} onClick={() => setDemo((on) => !on)}>Demo</button>
           <button type="button" className="orb-tool" aria-label="Leave Orbit" title="Back to the page (Esc)" onClick={onClose}><Icon name="x" /></button>
         </div>
       </header>
 
       {looking && (
-        <Panel key={looking.id} body={looking} nth={planets.indexOf(looking)} S={S} store={store} st={statusOf(looking)} bearing={bearing}
+        <Panel key={looking.id} body={looking} nth={planets.indexOf(looking)} S={demo ? null : S} store={feed} st={statusOf(looking)} bearing={bearing}
           onBack={() => lookAt(null)} onOpenAgent={onOpenAgent} onOpenQuest={onOpenQuest} onOpenConversation={onOpenConversation} />
       )}
 
@@ -565,7 +601,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
         {bodies.map((b, n) => {
           const st = statusOf(b), out = outOf(b), text = statusLine(st, out);
           return (
-            <button key={b.id} type="button" className={cx("orb-cell", cClass(b.name), st.status, focus === b.id && "on")} aria-pressed={focus === b.id}
+            <button key={b.id} type="button" className={cx("orb-cell", cClass(b.name), `st-${st.status}`, focus === b.id && "on")} aria-pressed={focus === b.id}
               aria-label={`${b.name}: ${text}`} title={`${focus === b.id ? "Back to the whole system" : `Look at ${b.name}`}${n < 9 ? ` (${n + 1})` : ""}`}
               onClick={() => lookAt(focus === b.id ? null : b.id)}>
               <span className="orb-cell-who"><i className="orb-dot" />{b.name}{out.length > 1 && <em>×{out.length}</em>}<kbd>{n < 9 ? n + 1 : ""}</kbd></span>

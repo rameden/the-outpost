@@ -87,9 +87,10 @@ export function App({ store }: { store: FeedStore }) {
   const picking = picker && S?.characters.find((c) => c.id === picker.id);
 
   // Orbit (orbit/Orbit.tsx): the crew at work as a solar system, over the whole page. Going anywhere on the page leaves it.
-  const [orbit, setOrbit] = useState(false);
+  // "demo": opened on its demo, a pretend camp at work (/orbit demo).
+  const [orbit, setOrbit] = useState<false | "live" | "demo">(false);
   const closeOrbit = useCallback(() => setOrbit(false), []);
-  const toggleOrbit = useCallback(() => setOrbit((on) => !on), []);
+  const toggleOrbit = useCallback(() => setOrbit((on) => (on ? false : "live")), []);
 
   const setView = useCallback((v: View) => {
     setOrbit(false);
@@ -319,7 +320,7 @@ export function App({ store }: { store: FeedStore }) {
   // One place for everything a typed /command, the palette, or a shortcut can ask for.
   const command = (name: string, arg?: string) => {
     if (name === "today") goHome();
-    else if (name === "orbit") setOrbit(true);
+    else if (name === "orbit") setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live");
     else if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
     else if (name === "focus") toggleFocus();
     else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
@@ -455,7 +456,7 @@ export function App({ store }: { store: FeedStore }) {
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
             filesOpen={files} onToggleFiles={hasFiles && placed(layout, "files") ? toggleFiles : undefined}
             notesOpen={notesOpen} onToggleNotes={hasNotes ? toggleNotes : undefined} onOpenLayout={openLayout}
-            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={orbit} onOrbit={toggleOrbit} />
+            needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -562,7 +563,7 @@ export function App({ store }: { store: FeedStore }) {
       {/* Orbit takes the whole page, and sits under what opens over the page: an agent's page opens over it, and it stays. */}
       <Presence>{orbit && (
         <OverlayBoundary name="Orbit" onClose={closeOrbit}>
-          <Orbit S={S} store={store} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
+          <Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
             onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} onDecision={() => { setOrbit(false); act.current.command("next"); }} />
         </OverlayBoundary>
       )}</Presence>

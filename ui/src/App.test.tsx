@@ -57,4 +57,7 @@ test("Orbit takes the whole page from its button in the top bar or /orbit, and g
   expect(screen.getByRole("dialog", { name: "Orbit: the crew at work" })).toBeTruthy();
   act(() => say({ do: "open-conversation", id: "c1" })); // the page went somewhere: you're taken there
   expect(screen.queryByRole("dialog", { name: "Orbit: the crew at work" })).toBe(null);
+  // /orbit demo opens it on its demo: a pretend camp, which says that's what it is.
+  act(() => say({ do: "command", name: "orbit", arg: "demo" }));
+  expect(within(screen.getByRole("dialog", { name: "Orbit: the crew at work" })).getByRole("status").textContent).toMatch(/^Demo: a pretend camp/);
 });

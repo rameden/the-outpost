@@ -2123,45 +2123,48 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .orb-ring { fill: none; stroke: var(--o-line-2); stroke-width: 1; opacity: .85; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 .orb-ring.far { opacity: .4; }
 .orb-tone { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.6; opacity: 0; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.orb-planet:is(.active, .waiting) .orb-tone { opacity: .7; } .orb-planet.focused .orb-tone { opacity: .9; }
+.orb-planet:is(.st-active, .st-waiting) .orb-tone { opacity: .7; } .orb-planet.focused .orb-tone { opacity: .9; }
 .orb-tail { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .22; }
-.orb-planet:is(.active, .waiting) .orb-tail { opacity: .5; }
+.orb-planet:is(.st-active, .st-waiting) .orb-tail { opacity: .5; }
 /* The sun: the Quartermaster. Two dials turn round it (as on the sign-in page's orb, which styles its own dial and core wherever those
    class names appear: these are named apart from them), faster while it's at work; pale while it waits on you. */
 .orb-g0 { stop-color: var(--c, var(--o-sun)); stop-opacity: .55; } .orb-g1 { stop-color: var(--c, var(--o-sun)); stop-opacity: .14; } .orb-g2 { stop-color: var(--c, var(--o-sun)); stop-opacity: 0; }
 .orb-sun-core { fill: var(--o-sun); }
 .orb-sun-dial circle { fill: none; stroke: var(--o-sun); stroke-width: .7; stroke-dasharray: 14 5 2 5; opacity: .75; }
 .orb-sun-dial.inner circle { stroke-dasharray: 2 4.5; opacity: .55; }
-.orb-sun.waiting .orb-sun-dial circle { stroke: var(--o-ink); opacity: .9; }
+.orb-sun.st-waiting .orb-sun-dial circle { stroke: var(--o-ink); opacity: .9; }
 .orb-ping { fill: none; stroke: var(--o-sun); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .orb-lit { fill: none; stroke: var(--o-sun); stroke-width: 1.7; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 /* A planet: dim at camp, lit while its crew member works, with a dashed ring turning round it and a moon for each quest out. */
 .orb-halo { opacity: .22; }
-.orb-planet.active .orb-halo { opacity: 1; } .orb-planet.waiting .orb-halo { opacity: .8; }
+.orb-planet.st-active .orb-halo { opacity: 1; } .orb-planet.st-waiting .orb-halo { opacity: .8; }
 .orb-disc { fill: #0b0f18; stroke: var(--c, var(--c-other)); stroke-width: 1.5; }
-.orb-planet:not(.active, .waiting, .focused) :is(.orb-disc, .orb-mark, .orb-emoji) { opacity: .7; }
+.orb-planet:not(.st-active, .st-waiting, .focused) :is(.orb-disc, .orb-mark, .orb-emoji) { opacity: .7; }
 .orb-mark * { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .orb-emoji { font-size: 10.5px; }
 .orb-busy { opacity: 0; }
 .orb-busy circle { fill: none; stroke: var(--c, var(--c-other)); stroke-width: .7; stroke-dasharray: 3.2 2.6; }
-.orb-planet:is(.active, .waiting) .orb-busy { opacity: .9; }
-.orb-planet.waiting .orb-busy circle { stroke: var(--o-warn); stroke-width: 1.1; }
-.orb-moon circle { fill: var(--c, var(--c-other)); } .orb-moon.waiting circle { fill: var(--o-warn); }
+.orb-planet:is(.st-active, .st-waiting) .orb-busy { opacity: .9; }
+.orb-planet.st-waiting .orb-busy circle { stroke: var(--o-warn); stroke-width: 1.1; }
+.orb-moon circle { fill: var(--c, var(--c-other)); } .orb-moon.st-waiting circle { fill: var(--o-warn); }
 /* What crosses the sky (flown and timed by Orbit.tsx): a quest out along the line from the sun to its planet, which rings as it
    lands; a report home along the same line; a small ring off a planet for a tool call. */
 .orb-comet circle { fill: var(--c, var(--c-other)); }
 .orb-land, .orb-blip { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.5; vector-effect: non-scaling-stroke; } .orb-blip { stroke-width: 1; }
 @keyframes orb-blink { 0% { opacity: 1; } 100% { opacity: .25; } }
 /* The marks round what you're looking at (and, fainter, what the pointer is over), and the line from the first to its panel. */
-.orb-reticle { --c: var(--o-ink); fill: none; stroke: var(--c); stroke-width: 2; } .orb-reticle.hover { stroke: var(--o-dim); stroke-width: 1; }
+.orb-reticle { fill: none; stroke: var(--c, var(--o-ink)); stroke-width: 2; } .orb-reticle.hover { stroke: var(--o-dim); stroke-width: 1; }
 .orb-leader { fill: none; stroke: var(--o-line-2); stroke-width: 1; }
-/* The names, under each body. */
+/* The names: the sun's beside it, a planet's on its far side from the sun (Orbit.tsx places them). One that's saying what its crew
+   member is doing has a dark backing, so its words can be read over the lines and whatever passes behind. Their colours, like the
+   cells' and the panel's below, come from the crew's own class (--c): nothing here sets --c, which would override it. */
 .orb-labels { position: absolute; inset: 0; overflow: clip; pointer-events: none; }
-.orb-label { --c: var(--o-sun); position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 1px; max-width: 220px; white-space: nowrap; text-align: center; will-change: transform; }
+.orb-label { position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 1px; max-width: 236px; padding: 3px 8px 4px; border: 1px solid transparent; white-space: nowrap; text-align: center; will-change: transform; }
+.orb-label:is(.st-active, .st-waiting) { background: rgba(5, 7, 12, .78); border-color: var(--o-line-2); }
 .orb-label b { font-weight: 600; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--o-dim); }
-.orb-label:is(.active, .waiting, .focused) b { color: var(--c); }
+.orb-label:is(.st-active, .st-waiting, .focused) b { color: var(--c, var(--c-other)); }
 .orb-label span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font: 12px/1.35 var(--sans); color: var(--o-ink); }
-.orb-label.waiting span { color: var(--o-warn); } .orbit[data-far] .orb-label:not(.focused) span { display: none; }
+.orb-label.st-waiting span { color: var(--o-warn); } .orbit[data-far] .orb-label:not(.focused) span { display: none; }
 /* The frame: a bracket in each corner of the screen. */
 .orb-frame i { position: absolute; width: 18px; height: 18px; border: 0 solid var(--o-line-2); pointer-events: none; }
 .orb-frame i:nth-child(1) { top: 10px; left: 10px; border-width: 2px 0 0 2px; } .orb-frame i:nth-child(2) { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
@@ -2183,55 +2186,59 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .orb-tool { width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--o-line-2); border-radius: 0; background: var(--o-panel); color: var(--o-dim); font-size: 15px; line-height: 1; }
 .orb-tool:hover, .orb-tool[aria-pressed="true"] { color: var(--o-ink); border-color: var(--o-dim); }
 .orb-tool .icon { width: 16px; height: 16px; }
+.orb-tool.worded { width: auto; padding: 0 10px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.orb-tool.worded[aria-pressed="true"] { border: 2px solid var(--o-warn); color: var(--o-warn); padding: 0 9px; }
+.orb-title .orb-pretend { color: var(--o-warn); }
 /* Along the bottom: one cell for each of the crew. The one you're looking at is marked with a straight line along its top. */
 .orb-hint { position: absolute; left: 30px; bottom: 92px; margin: 0; font-size: 11px; letter-spacing: .04em; color: var(--o-faint); pointer-events: none; }
 .orb-strip { position: absolute; inset: auto 26px 22px 26px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-.orb-cell { --c: var(--c-other); flex: 1 1 0; min-width: 132px; max-width: 260px; display: grid; gap: 3px; padding: 8px 11px 9px; border: 1px solid var(--o-line); border-top: 2px solid var(--o-line-2); border-radius: 0; background: var(--o-panel); text-align: left; }
+.orb-cell { flex: 1 1 0; min-width: 132px; max-width: 260px; display: grid; gap: 3px; padding: 8px 11px 9px; border: 1px solid var(--o-line); border-top: 2px solid var(--o-line-2); border-radius: 0; background: var(--o-panel); text-align: left; }
 .orb-cell:hover { border-color: var(--o-line-2); border-top-color: var(--o-dim); }
-.orb-cell.on { border-top-color: var(--c); }
+.orb-cell.on { border-top-color: var(--c, var(--c-other)); }
 .orb-cell-who { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--o-dim); }
-.orb-cell:is(.active, .waiting, .on) .orb-cell-who { color: var(--c); }
+.orb-cell:is(.st-active, .st-waiting, .on) .orb-cell-who { color: var(--c, var(--c-other)); }
 .orb-cell-who em { font-style: normal; letter-spacing: 0; color: var(--o-ink); }
 .orb-cell-who kbd { margin-left: auto; padding: 0; border: 0; background: none; font: 10px/1 var(--mono); color: var(--o-faint); }
 .orb-dot { flex: none; width: 7px; height: 7px; background: var(--o-line-2); }
-.orb-cell.active .orb-dot { background: var(--c); animation: orb-blink 1s steps(2, jump-none) infinite; }
-.orb-cell.waiting .orb-dot { background: var(--o-warn); animation: orb-blink 1s steps(2, jump-none) infinite; }
+.orb-cell.st-active .orb-dot { background: var(--c, var(--c-other)); animation: orb-blink 1s steps(2, jump-none) infinite; }
+.orb-cell.st-waiting .orb-dot { background: var(--o-warn); animation: orb-blink 1s steps(2, jump-none) infinite; }
 .orb-cell-doing { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 12px/1.35 var(--sans); color: var(--o-faint); }
-.orb-cell:is(.active, .waiting) .orb-cell-doing { color: var(--o-ink); } .orb-cell.waiting .orb-cell-doing { color: var(--o-warn); }
+.orb-cell:is(.st-active, .st-waiting) .orb-cell-doing { color: var(--o-ink); } .orb-cell.st-waiting .orb-cell-doing { color: var(--o-warn); }
 /* The panel for the one you're looking at: who they are, and what they're doing as it happens. Its top edge is their colour. */
-.orb-panel { --c: var(--c-other); position: absolute; top: 74px; right: 26px; bottom: 100px; width: 354px; display: flex; flex-direction: column; min-height: 0; background: var(--o-panel); border: 1px solid var(--o-line-2); border-top: 2px solid var(--c); user-select: text; }
+.orb-panel { position: absolute; top: 74px; right: 26px; bottom: 100px; width: 354px; display: flex; flex-direction: column; min-height: 0; background: var(--o-panel); border: 1px solid var(--o-line-2); border-top: 2px solid var(--c, var(--c-other)); user-select: text; }
 .orb-panel > header { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 14px 12px 16px; border-bottom: 1px solid var(--o-line); }
-.orb-p-face { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--c); font-size: 19px; }
-.orb-panel h3 { margin: 0; font: 700 13px/1.2 var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--c); }
+.orb-p-face { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--c, var(--c-other)); font-size: 19px; }
+.orb-panel h3 { margin: 0; font: 700 13px/1.2 var(--mono); letter-spacing: .2em; text-transform: uppercase; color: var(--c, var(--c-other)); }
 .orb-panel > header p { margin: 3px 0 0; font: 12px/1.35 var(--sans); color: var(--o-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .orb-facts { display: grid; gap: 7px; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--o-line); }
 .orb-facts > div { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; align-items: baseline; }
 .orb-facts dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.orb-state { font: 13px/1.4 var(--sans); } .orb-panel.active .orb-state { color: var(--c); } .orb-panel.waiting .orb-state { color: var(--o-warn); }
+.orb-state { font: 13px/1.4 var(--sans); } .orb-panel.st-active .orb-state { color: var(--c, var(--c-other)); } .orb-panel.st-waiting .orb-state { color: var(--o-warn); }
 .orb-p-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 16px 14px; scrollbar-width: thin; scrollbar-color: var(--o-line-2) transparent; }
 .orb-panel h4 { margin: 12px 0 8px; font: 600 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--o-faint); }
-.orb-work-card { display: grid; gap: 7px; margin: 0 0 10px; padding: 0 0 12px 12px; border-left: 2px solid var(--c); }
-.orb-work-card.waiting { border-left-color: var(--o-warn); }
+.orb-work-card { display: grid; gap: 7px; margin: 0 0 10px; padding: 0 0 12px 12px; border-left: 2px solid var(--c, var(--c-other)); }
+.orb-work-card.st-waiting { border-left-color: var(--o-warn); }
 .orb-w-head { display: flex; align-items: baseline; gap: 8px; font: 13px/1.4 var(--sans); }
 .orb-w-head span { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .orb-w-head time { flex: none; font: 11px/1.4 var(--mono); font-variant-numeric: tabular-nums; color: var(--o-dim); }
-.orb-step { flex: none; min-width: 18px; padding: 0 4px; border: 1px solid var(--c); font: 600 11px/16px var(--mono); text-align: center; color: var(--c); }
-.orb-w-doing { margin: 0; font: 12px/1.4 var(--sans); color: var(--c); overflow-wrap: anywhere; }
-.orb-work-card.waiting .orb-w-doing { color: var(--o-warn); }
+.orb-step { flex: none; min-width: 18px; padding: 0 4px; border: 1px solid var(--c, var(--c-other)); font: 600 11px/16px var(--mono); text-align: center; color: var(--c, var(--c-other)); }
+.orb-w-doing { margin: 0; font: 12px/1.4 var(--sans); color: var(--c, var(--c-other)); overflow-wrap: anywhere; }
+.orb-work-card.st-waiting .orb-w-doing { color: var(--o-warn); }
 .orb-log { list-style: none; display: grid; gap: 5px; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--o-line); }
 .orb-log li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: baseline; }
 .orb-log i { font: 10px/1.5 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--o-faint); }
 .orb-log span { font: 12px/1.45 var(--sans); color: var(--o-dim); overflow-wrap: anywhere; }
-.orb-log :is(.tool, .file) span { font: 11px/1.5 var(--mono); }
-.orb-log li:last-child span { color: var(--o-ink); } .orb-log .ask span { color: var(--o-warn); }
-.orb-caret { display: inline-block; width: 6px; height: 12px; margin-left: 3px; vertical-align: -1px; background: var(--c); animation: orb-blink .9s steps(2, jump-none) infinite; }
+.orb-log :is(.orb-l-tool, .orb-l-file) span { font: 11px/1.5 var(--mono); }
+.orb-log li:last-child span { color: var(--o-ink); } .orb-log .orb-l-ask span { color: var(--o-warn); }
+.orb-caret { display: inline-block; width: 6px; height: 12px; margin-left: 3px; vertical-align: -1px; background: var(--c, var(--c-other)); animation: orb-blink .9s steps(2, jump-none) infinite; }
 .orb-quiet { margin: 14px 0 0; font: 13px/1.5 var(--sans); color: var(--o-dim); }
 .orb-btn { justify-self: start; padding: 5px 10px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 11px/1.3 var(--mono); letter-spacing: .04em; }
-.orb-btn:hover { border-color: var(--c); color: var(--c); }
+.orb-btn:hover { border-color: var(--c, var(--c-other)); color: var(--c, var(--c-other)); }
 .orb-panel > footer { padding: 10px 16px 12px; border-top: 1px solid var(--o-line); }
 @media (max-width: 899px) {
   /* A narrow screen: the panel is a sheet over the lower half, and the camp's numbers give their room to the buttons. */
-  .orb-read, .orb-hint, .orb-title span { display: none; }
+  .orb-read, .orb-hint, .orb-title span:not(.orb-pretend) { display: none; }
+  .orb-title .orb-pretend { position: absolute; top: 56px; left: 18px; right: 14px; }
   .orb-top { padding: 14px 14px 0 18px; } .orb-tools { margin-left: auto; } .orb-alert { position: absolute; top: 56px; left: 18px; }
   .orb-strip { inset: auto 12px 14px 12px; } .orb-cell { min-width: 118px; }
   .orb-panel { top: 50%; left: 12px; right: 12px; bottom: 84px; width: auto; }
