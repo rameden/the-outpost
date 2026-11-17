@@ -7,7 +7,7 @@
 // included. Clicking a project's name opens that project's page.
 // A dot marks a conversation with something running; a number, decisions waiting on you.
 
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { activityOf, type View } from "../feed/conversation.ts";
 import type { Need } from "../needs.ts";
@@ -104,6 +104,27 @@ export const History = memo(function History({ S, store, view, setView, patch, o
   const selected = view.kind === "conversation" ? view.id : null;
   const projects = history?.projects ?? [];
 
+  // Projects can be dragged into the order you want, within their part of the list (General and
+  // pinned ones on top, the rest below), or moved a step at a time from their ⋯ menu.
+  const tier = (p: Project) => (p.id === GENERAL || p.pinned ? 0 : 1);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<{ id: string; after: boolean } | null>(null);
+  function reorder(id: string, target: string, after: boolean) {
+    if (id === target) return;
+    const rest = projects.filter((p) => p.id !== id);
+    const moved = projects.find((p) => p.id === id);
+    const at = rest.findIndex((p) => p.id === target);
+    if (!moved || at < 0) return;
+    const next = [...rest.slice(0, at + (after ? 1 : 0)), moved, ...rest.slice(at + (after ? 1 : 0))];
+    if (next.every((p, i) => p.id === projects[i].id)) return;
+    patch((s) => ({ ...s, history: { ...s.history, projects: next } })); // show it at once; the camp's answer follows
+    void change({ action: "project.order", ids: next.map((p) => p.id) });
+  }
+  const neighbour = (p: Project, step: -1 | 1) => {
+    const same = projects.filter((x) => tier(x) === tier(p));
+    return same[same.indexOf(p) + step];
+  };
+
   // Chats you had with one crew member directly are kept together under the project, behind
   // that crew member's name; they open when you click it (and stay open, in this browser).
   const [agentsOpen, setAgentsOpen] = useState<string[]>(() => { try { return JSON.parse(storeGet("camp-agents-open") ?? "[]") as string[]; } catch { return []; } });
@@ -179,7 +200,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
           <button type="button" className="hist-agent-head" aria-expanded={isOpen} disabled={here && !agentsOpen.includes(key)}
             title={`${chats.length} ${chats.length === 1 ? "chat" : "chats"} with ${who?.name ?? `@${agent}`} in ${p.name}${here && !agentsOpen.includes(key) ? " (open because you're in one)" : ""}`}
             onClick={() => toggleAgent(key)}>
-            <span className="hist-agent-twist" aria-hidden="true">{isOpen ? "⌄" : "›"}</span>
+            <span className="hist-agent-twist" aria-hidden="true"><Icon name={isOpen ? "chevron" : "chevronRight"} /></span>
             <span className="hist-agent-name">@{agent}</span>
             {running && <span className="dot live" title="Something is running here" />}
             <span className="hist-agent-count">{chats.length}</span>
@@ -189,18 +210,40 @@ export const History = memo(function History({ S, store, view, setView, patch, o
         </li>
       );
     };
+    const up = neighbour(p, -1), down = neighbour(p, 1);
+    const canDrop = (ev: DragEvent) => dragging && dragging !== p.id && tier(projects.find((x) => x.id === dragging) ?? p) === tier(p) && ev.dataTransfer.types.includes("text/plain");
     return (
-      <section key={p.id} className="hist-project">
-        <header className={cx("hist-project-head", onPage && "selected")}>
+      <section key={p.id} className={cx("hist-project", dragging === p.id && "dragging", dropAt?.id === p.id && (dropAt.after ? "drop-after" : "drop-before"))}
+        onDragOver={(ev) => {
+          if (!canDrop(ev)) return;
+          ev.preventDefault();
+          ev.dataTransfer.dropEffect = "move";
+          // Above the middle of its name row goes before it; anywhere lower, after it.
+          const head = ev.currentTarget.querySelector(".hist-project-head")!.getBoundingClientRect();
+          const after = ev.clientY > head.top + head.height / 2;
+          if (dropAt?.id !== p.id || dropAt.after !== after) setDropAt({ id: p.id, after });
+        }}
+        onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setDropAt((d) => (d?.id === p.id ? null : d)); }}
+        onDrop={(ev) => {
+          if (!canDrop(ev) || !dragging) return;
+          ev.preventDefault();
+          reorder(dragging, p.id, dropAt?.id === p.id ? dropAt.after : true);
+          setDragging(null); setDropAt(null);
+        }}>
+        <header className={cx("hist-project-head", onPage && "selected")} draggable title="Drag to reorder"
+          onDragStart={(ev) => { ev.dataTransfer.effectAllowed = "move"; ev.dataTransfer.setData("text/plain", p.id); setDragging(p.id); }}
+          onDragEnd={() => { setDragging(null); setDropAt(null); }}>
           <button type="button" className="hist-project-name" aria-current={onPage ? "page" : undefined} onClick={() => setView({ kind: "project", id: p.id })}
             title={`Open ${p.name}${p.links?.length ? ` (${p.links.map((l) => `links/${l}/`).join(", ")})` : ""}`}>
             <span>{p.pinned && <><Icon name="pin" /> </>}{p.name}</span>
           </button>
           <button type="button" className="hist-icon hist-chevron" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${p.name}'s conversations`}
-            title={open ? "Hide its conversations" : "Show its conversations"} onClick={() => toggle(p.id)}>{open ? "⌄" : "›"}</button>
+            title={open ? "Hide its conversations" : "Show its conversations"} onClick={() => toggle(p.id)}><Icon name={open ? "chevron" : "chevronRight"} /></button>
           <Menu label={`Options for ${p.name}`}>{(close) => (
             <>
               <button type="button" role="menuitem" onClick={() => { close(); onEditProject(p); }}>Edit…</button>
+              {up && <button type="button" role="menuitem" onClick={() => { close(); reorder(p.id, up.id, false); }}>Move up</button>}
+              {down && <button type="button" role="menuitem" onClick={() => { close(); reorder(p.id, down.id, true); }}>Move down</button>}
               {p.id !== GENERAL && (
                 <button type="button" role="menuitem" onClick={() => { close(); void change({ action: "project.pin", id: p.id, pinned: !p.pinned }); }}>{p.pinned ? "Unpin" : "Pin to the top"}</button>
               )}

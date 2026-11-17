@@ -149,9 +149,9 @@ export function history(): History {
     });
   }
   conversations.sort((a, b) => b.updated.localeCompare(a.updated));
-  // General first, then the ones you pinned, then the rest in the order you made them.
-  const order = (p: Project) => (p.id === GENERAL ? 0 : p.pinned ? 1 : 2);
-  return { projects: [...s.projects].sort((a, b) => order(a) - order(b)), conversations };
+  // General and the ones you pinned on top, then the rest; each in the order you dragged them into
+  // (or made them, until you have).
+  return { projects: [...s.projects].sort((a, b) => projectTier(a) - projectTier(b)), conversations };
 }
 
 // ---------- Your changes ----------
@@ -237,6 +237,21 @@ export function projectOf(thread: string | undefined, asked?: unknown): Project 
 }
 
 // Its conversations go back to General.
+// Which part of the list a project sits in: General and pinned ones on top, the rest below.
+// Dragging moves a project within its part; pinning moves it between them.
+export const projectTier = (p: Project) => (p.id === GENERAL || p.pinned ? 0 : 1);
+
+// The order you dragged your projects into. Ids it doesn't name keep their place after the ones it does.
+export function orderProjects(ids: unknown): boolean {
+  if (!Array.isArray(ids)) return false;
+  const s = load();
+  const at = new Map(ids.map((id, i) => [String(id), i] as const));
+  const rank = (p: Project) => at.get(p.id) ?? ids.length + s.projects.indexOf(p);
+  s.projects = [...s.projects].sort((a, b) => rank(a) - rank(b));
+  save(s);
+  return true;
+}
+
 export function removeProject(id: string): boolean {
   const s = load();
   if (id === GENERAL || !s.projects.some((p) => p.id === id)) return false;
