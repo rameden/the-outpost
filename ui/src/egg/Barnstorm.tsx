@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { storeGet, storeSet } from "../api.ts";
 import {
-  BULLET_SPEED, FIRE_EVERY, GREMLIN_POINTS, PAINT, PIXEL, SPRITE, UP, konami, muzzle, newPlane, scoreText, stepPlane,
+  BULLET_SPEED, FIRE_EVERY, GREMLIN_POINTS, PAINT, PIXEL, SPRITE, UP, muzzle, newPlane, scoreText, stepPlane,
   type Plane,
 } from "./flight.ts";
 import {
@@ -37,25 +37,8 @@ const BEST = "camp-barnstorm-best";
 const FLY: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 const FIRE = " ";
 
-// Calls `start` when the Konami code is typed, wherever the keyboard happens to be.
-export function useKonami(start: () => void) {
-  const go = useRef(start);
-  go.current = start;
-  useEffect(() => {
-    const next = konami();
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.metaKey || ev.ctrlKey || ev.altKey || !next(ev.key)) return;
-      ev.preventDefault(); // the last letter of the code isn't typed…
-      // …and the one before it is taken back out of a text box it landed in.
-      const box = document.activeElement;
-      if ((box instanceof HTMLTextAreaElement || box instanceof HTMLInputElement) && box.selectionStart && box.selectionStart === box.selectionEnd
-        && box.value[box.selectionStart - 1]?.toLowerCase() === "b") document.execCommand?.("delete");
-      go.current();
-    };
-    addEventListener("keydown", onKey, true);
-    return () => removeEventListener("keydown", onKey, true);
-  }, []);
-}
+// useKonami lives in konami.ts, so the page can listen for the code without loading the game.
+export { useKonami } from "./konami.ts";
 
 // over: what on the page it was last seen over (so it's noticed when that changes).
 type Bullet = { x: number; y: number; vx: number; vy: number; big: boolean; boom: boolean; hops: number; over?: Element | null };

@@ -2,14 +2,14 @@
 // conversation you're in (with the composer) beside it. An agent's page opens as a drawer over
 // it; Settings (with the camp's records) over everything.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { storeGet, storeSet } from "./api.ts";
 import { useCampEvents, useCampState } from "./camp.ts";
 import { AgentDrawer, type AgentTab } from "./components/AgentDrawer.tsx";
 import { Composer, type ComposerHandle, type SendContext } from "./components/Composer.tsx";
 import { Dock } from "./components/Dock.tsx";
 import { History, HistoryRail } from "./components/History.tsx";
-import { TerminalPanel, TerminalRail } from "./components/Terminal.tsx";
+import { TerminalRail } from "./components/TerminalRail.tsx";
 import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
 import { NotesPanel, NotesRail, PickToNote } from "./components/Notes.tsx";
 import { appendToNote, newNote, noteFile, notesNow, openNote, titleOf } from "./notes.ts";
@@ -44,12 +44,19 @@ import { NextStep } from "./feed/NextStep.tsx";
 import { Waiting } from "./components/Waiting.tsx";
 import { loadSeen, markSeen, needsOf, seenAll, type Need } from "./needs.ts";
 import { activityOf } from "./feed/conversation.ts";
-import { Settings, isSettingsSection, type SettingsSection } from "./settings/Settings.tsx";
+import { isSettingsSection, type SettingsSection } from "./settings/sections.ts";
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link, Note } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
-import { Barnstorm, useKonami } from "./egg/Barnstorm.tsx";
-import { Orbit } from "./orbit/Orbit.tsx";
+import { useKonami } from "./egg/konami.ts";
+
+// The big pieces that not every visit opens load when they're first opened, each its own script:
+// the terminal (xterm.js is a quarter of the page's code), Orbit, Settings, and the game. Until
+// one arrives (a moment, from this machine) nothing shows in its place.
+const TerminalPanel = lazy(() => import("./components/Terminal.tsx").then((m) => ({ default: m.TerminalPanel })));
+const Orbit = lazy(() => import("./orbit/Orbit.tsx").then((m) => ({ default: m.Orbit })));
+const Settings = lazy(() => import("./settings/Settings.tsx").then((m) => ({ default: m.Settings })));
+const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ default: m.Barnstorm })));
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -547,7 +554,7 @@ export function App({ store }: { store: FeedStore }) {
                   </ZoneBoundary>;
               case "terminal": return state === "collapsed"
                 ? <TerminalRail onShow={toggleTerminal} />
-                : <ZoneBoundary name="The terminal"><TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={setUpTerminal} /></ZoneBoundary>;
+                : <ZoneBoundary name="The terminal"><Suspense fallback={null}><TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={setUpTerminal} /></Suspense></ZoneBoundary>;
               default: return (
                 <div className="zone-empty">
                   <b>Empty zone</b>
@@ -561,8 +568,8 @@ export function App({ store }: { store: FeedStore }) {
       {/* Orbit takes the whole page, and sits under what opens over the page: an agent's page opens over it, and it stays. */}
       <Presence>{orbit && (
         <OverlayBoundary name="Orbit" onClose={closeOrbit}>
-          <Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
-            onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} />
+          <Suspense fallback={null}><Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
+            onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}
@@ -574,7 +581,7 @@ export function App({ store }: { store: FeedStore }) {
       )}</Presence>
       <Presence>{settings && (
         <OverlayBoundary name="Settings" onClose={closeSettings}>
-          <Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} />
+          <Suspense fallback={null}><Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       <Presence>{layoutEditor && (
@@ -624,7 +631,7 @@ export function App({ store }: { store: FeedStore }) {
       <ConfirmHost />
       {barnstorm !== "off" && (
         <OverlayBoundary name="Barnstorm" onClose={endBarnstorm}>
-          <Barnstorm paused={barnstorm === "paused"} onPause={pauseBarnstorm} onResume={resumeBarnstorm} onClose={endBarnstorm} />
+          <Suspense fallback={null}><Barnstorm paused={barnstorm === "paused"} onPause={pauseBarnstorm} onResume={resumeBarnstorm} onClose={endBarnstorm} /></Suspense>
         </OverlayBoundary>
       )}
     </>

@@ -140,6 +140,8 @@ The page is a React app in `ui/` (React 19, TypeScript, plain CSS, Vite).
 ```bash
 npm run ui          # the camp plus Vite: page edits reload live (restart it for edits under src/)
 npm run ui:serve    # the camp alone, serving the built page
+npm run prod        # production: typecheck, build the page and the server (dist/server.js), run it with plain node
+npm run prod:start  # run the last prod build again, without rebuilding (a restart in ~0.3 s)
 npm test            # the camp's tests, then the page's; no API key or Claude login needed
 npm run typecheck   # source, tests, evals, and the page
 npm run eval        # standard tasks against the real API (spends tokens)

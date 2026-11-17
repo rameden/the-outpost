@@ -3,7 +3,8 @@
 //   tsx scripts/ui-build.ts --if-stale    build only when ui/dist is missing or older than its
 //                                         sources (this is what `npm run ui:serve` runs first)
 
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
@@ -32,3 +33,16 @@ if (process.argv.includes("--if-stale") && !uiIsStale()) process.exit(0);
 
 console.log("🔨 Building mission control's page (ui/ → ui/dist)…");
 await build({ configFile: join(UI, "vite.config.ts"), logLevel: "warn" });
+
+// A compressed copy of each script and stylesheet beside it (.br, .gz), made once here at the
+// best settings so the camp server never compresses anything as it serves (src/ui-files.ts picks
+// the copy the browser takes). On this machine it changes little; over LAN mode it's ~4x less.
+const ASSETS = join(UI, "dist", "assets");
+for (const name of readdirSync(ASSETS)) {
+  if (!/\.(js|css|svg)$/.test(name)) continue;
+  const raw = readFileSync(join(ASSETS, name));
+  const br = brotliCompressSync(raw, { params: { [constants.BROTLI_PARAM_QUALITY]: 11, [constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
+  const gz = gzipSync(raw, { level: 9 });
+  if (br.length < raw.length) writeFileSync(join(ASSETS, name + ".br"), br);
+  if (gz.length < raw.length) writeFileSync(join(ASSETS, name + ".gz"), gz);
+}

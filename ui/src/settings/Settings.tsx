@@ -24,7 +24,8 @@ import { SkillEditor } from "./SkillEditor.tsx";
 import { TerminalActions } from "./TerminalActions.tsx";
 import { StatsPage, UnaskedPage } from "./DrivePage.tsx";
 
-export type SettingsSection = "general" | "crew" | "approvals" | "limits" | "phone" | "usage" | "stats" | "unasked" | "jobs" | "inbox" | "memory" | "skills" | "connectors" | "terminal" | "models";
+import type { SettingsSection } from "./sections.ts";
+export { isSettingsSection, type SettingsSection } from "./sections.ts";
 const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] = [
   { title: "Camp", items: [
     ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["models", "Models", "spark"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
@@ -33,7 +34,6 @@ const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] 
   { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
-export const isSettingsSection = (s: string | null): s is SettingsSection => ALL.some(([id]) => id === s);
 
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
   try { await work(); then(); } catch (e) { alert(errorText(e)); }

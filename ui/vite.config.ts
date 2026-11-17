@@ -13,16 +13,17 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    // One script and one stylesheet, no inline code: the page's Content-Security-Policy allows
-    // only files the camp server itself serves.
+    // One stylesheet and no inline code: the page's Content-Security-Policy allows only files the
+    // camp server itself serves. The script is the page's main one plus a few loaded when first
+    // opened (the terminal, Orbit, Settings, the game: see App.tsx); those are fetched by the
+    // script itself, as built files that need no key, so the policy allows them as it is.
+    // No module preload: Vite's preload helper would add an inline script.
     cssCodeSplit: false,
     modulePreload: false,
     assetsInlineLimit: 0,
-    // The one script is a little over 1 MB with the terminal (xterm.js) in it, and stays one on
-    // purpose: every built file is fetched with the launch token on its link, and a script
-    // split into pieces would fetch the other pieces without it. It's served from this machine,
-    // so the size costs nothing; this just keeps Vite from warning about it on every build.
-    chunkSizeWarningLimit: 1500,
+    // The main script is about 750 KB (React, highlight.js and the page itself): served from this
+    // machine, and compressed, so that costs little. This keeps Vite from warning on every build.
+    chunkSizeWarningLimit: 800,
   },
   server: {
     host: "127.0.0.1",

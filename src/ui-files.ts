@@ -55,9 +55,24 @@ export function uiPage(dist = UI_DIST, styleNonce = ""): string | null {
   return readFileSync(file, "utf8").replace("__CAMP_NONCE__", styleNonce);
 }
 
+// Built files are named by what's in them (index-abc123.js), so a browser can keep them for good:
+// a new build gives them new names, and the page (never kept: its nonce is new each launch)
+// names the new ones.
+export const ASSET_CACHE = "public, max-age=31536000, immutable";
+
+// Does an Accept-Encoding header take this encoding? ("gzip, deflate, br", "br;q=0" says no.)
+function accepts(header: string, encoding: string): boolean {
+  return header.split(",").some((part) => {
+    const [name, ...params] = part.trim().toLowerCase().split(";");
+    return name.trim() === encoding && !params.some((p) => /^\s*q=0(\.0*)?\s*$/.test(p));
+  });
+}
+
 // One built file from ui/dist/assets, by request path ("/assets/index-abc123.js"). Only files
-// of a known type that really are inside that folder; anything else is null.
-export function uiAsset(pathname: string, dist = UI_DIST): { type: string; body: Buffer } | null {
+// of a known type that really are inside that folder; anything else is null. When the build left
+// a compressed copy beside it (index-abc123.js.br, .gz: scripts/ui-build.ts makes them) and the
+// browser takes that encoding, that copy is sent instead, brotli first.
+export function uiAsset(pathname: string, dist = UI_DIST, acceptEncoding = ""): { type: string; body: Buffer; encoding?: "br" | "gzip" } | null {
   if (!pathname.startsWith("/assets/")) return null;
   let rel: string;
   try { rel = decodeURIComponent(pathname.slice("/assets/".length)); } catch { return null; }
@@ -66,5 +81,8 @@ export function uiAsset(pathname: string, dist = UI_DIST): { type: string; body:
   const abs = resolve(root, rel);
   const type = ASSET_TYPES[extname(abs).toLowerCase()];
   if (!type || !abs.startsWith(root + sep) || !existsSync(abs) || !statSync(abs).isFile()) return null;
+  for (const [encoding, ext] of [["br", ".br"], ["gzip", ".gz"]] as const) {
+    if (accepts(acceptEncoding, encoding) && existsSync(abs + ext)) return { type, body: readFileSync(abs + ext), encoding };
+  }
   return { type, body: readFileSync(abs) };
 }
