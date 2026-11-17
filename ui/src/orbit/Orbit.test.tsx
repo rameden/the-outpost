@@ -375,3 +375,299 @@ test("everything in the sky moves off the one clock: the planets go round, and t
   expect(inSky.length).toBeGreaterThan(15);
   for (const rule of inSky) expect(rule).not.toMatch(/animation|transition/);
 });
+
+// ---------- Holding, satellites, replay, ambient, quiet, plans ----------
+const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(20); });
+const posts: { path: string; body: unknown }[] = [];
+function camp(handlers: Record<string, () => { status?: number; body: object }> = {}) {
+  posts.length = 0;
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    posts.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    const h = handlers[path] ?? (() => ({ body: { ok: true } }));
+    const { status = 200, body } = h();
+    return new Response(JSON.stringify(body), { status });
+  }));
+}
+const dialog = () => screen.getByRole("dialog");
+const holding = () => screen.getByRole("complementary", { name: "Waiting at the edge of the system" });
+const withKit = {
+  ...S,
+  installedSkills: [{ owner: "scout", name: "read-logs", description: "Where to look." }, { owner: "shared", name: "camp-rules", description: "Be kind." }],
+  connectors: [{ name: "github", description: "PRs", agents: ["scout"], state: "connected", tools: [{ name: "list" }], allowWrite: false }],
+} as unknown as CampState;
+
+test("the demo holds a pretend queue, pull requests and jobs at the edge; each opens, and the failing one is red", () => {
+  show();
+  expect(screen.queryByRole("complementary", { name: "Waiting at the edge of the system" })).toBeNull(); // a quiet camp has nothing holding
+  fireEvent.keyDown(dialog(), { key: "D" });
+  const list = within(holding());
+  expect(list.getByRole("heading", { name: "Holding at the edge" })).toBeTruthy();
+  expect(list.getAllByRole("listitem")).toHaveLength(5);
+  const red = list.getByRole("button", { name: /#208/ }).closest("li")!;
+  expect(red.className).toContain("bad");
+  expect(list.getByRole("button", { name: /#212/ }).closest("li")!.className).not.toContain("bad");
+  expect(list.queryByText("Checks running")).toBeNull();
+  fireEvent.click(list.getByRole("button", { name: /#212/ }));
+  expect(list.getByText("Checks running")).toBeTruthy();
+  fireEvent.click(list.getByRole("button", { name: /#208/ })); // one at a time
+  expect(list.queryByText("Checks running")).toBeNull();
+  expect(list.getByText("2 checks failing")).toBeTruthy();
+  fireEvent.click(list.getByRole("button", { name: /#208/ }));
+  expect(list.queryByText("2 checks failing")).toBeNull();
+  // A pretend camp can't send anything: there's nothing to start.
+  fireEvent.click(list.getByRole("button", { name: /Tidy the changelog/ }));
+  expect(list.queryByRole("button", { name: "Start it without waiting" })).toBeNull();
+});
+
+test("something waiting in the real queue can be started without waiting, which posts its id", async () => {
+  camp();
+  show(createFeedStore(), { ...S, queued: [{ id: "w1", task: "Tidy the changelog", label: "Tidy", after: "w0" }] } as unknown as CampState);
+  fireEvent.click(within(holding()).getByRole("button", { name: /Tidy the changelog/ }));
+  expect(within(holding()).getByText("Waiting for the run before it")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Start it without waiting" }));
+  await settle();
+  expect(posts).toEqual([{ path: "/api/queue/release", body: { id: "w1" } }]);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("if the queued one isn't waiting any more, the camp's reason is shown", async () => {
+  camp({ "/api/queue/release": () => ({ status: 404, body: { error: "That one isn't waiting any more." } }) });
+  show(createFeedStore(), { ...S, queued: [{ id: "w1", task: "Tidy", label: "Tidy" }] } as unknown as CampState);
+  fireEvent.click(within(holding()).getByRole("button", { name: /Tidy/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Start it without waiting" }));
+  await settle();
+  expect(screen.getByRole("alert").textContent).toBe("That one isn't waiting any more.");
+});
+
+test("an open pull request links to it; jobs that are off and merged ones aren't held", () => {
+  show(createFeedStore(), { ...S, prs: [{ number: 9, title: "Fix", url: "https://example.test/9", state: "OPEN", failing: 0, pending: 0 }, { number: 8, title: "Old", url: "u", state: "MERGED", failing: 0 }], jobs: [{ name: "Off", schedule: "never", enabled: false }] } as unknown as CampState);
+  expect(within(holding()).getAllByRole("listitem")).toHaveLength(1);
+  fireEvent.click(within(holding()).getByRole("button", { name: /#9 Fix/ }));
+  expect(screen.getByRole("link", { name: "Open the pull request" }).getAttribute("href")).toBe("https://example.test/9");
+});
+
+test("what a crew member carries is listed in their panel as their satellites", () => {
+  const { cell } = show(createFeedStore(), withKit);
+  fireEvent.click(cell("Scout"));
+  const panel = within(screen.getByRole("complementary", { name: "What Scout is doing" }));
+  expect(panel.getByRole("heading", { name: /^3 satellites/ })).toBeTruthy();
+  expect(panel.getAllByRole("listitem").map((li) => li.querySelector("span")!.textContent)).toEqual(["read-logs", "github", "camp-rules"]);
+  fireEvent.click(cell("Scribe"));
+  expect(within(screen.getByRole("complementary", { name: "What Scribe is doing" })).getByRole("heading", { name: /^One satellite/ })).toBeTruthy(); // (the camp's shared one)
+});
+
+test("a camp that doesn't say what they carry lists no satellites", () => {
+  const { cell } = show();
+  fireEvent.click(cell("Scout"));
+  expect(screen.queryByRole("heading", { name: /satellite/ })).toBeNull();
+});
+
+test("a quest with nothing for three minutes dims its planet and its label says it's quiet", () => {
+  // Four minutes pass here. Only the clock and the timers are stood in for, not the frames: quiet is worked out
+  // on the fifteen-second beat, and drawing fifteen thousand frames to get there took a slow machine past the time limit.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "performance"] });
+  const { store, planet, cell } = show();
+  send(store, ...underWay);
+  pass(2 * 60_000);
+  expect(planet("scout").classList.contains("st-stalled")).toBe(false);
+  pass(2 * 60_000); // Orbit looks again every fifteen seconds
+  expect(planet("scout").classList.contains("st-stalled")).toBe(true);
+  expect(cell("Scout").getAttribute("aria-label")).toMatch(/^Scout: Quiet for 4m$/);
+  expect(document.querySelector('.orb-label.st-stalled')!.textContent).toContain("Quiet for 4m");
+  send(store, { type: "tool", ...scout, tool: "grep", input: "x", questId: "q1", expeditionId: "A" }); // it speaks again
+  pass(15_000);
+  expect(planet("scout").classList.contains("st-stalled")).toBe(false);
+});
+
+test("a plan's steps are waypoints round the sun, each in the state it's in", () => {
+  const { container, store } = show();
+  expect(container.querySelectorAll("g.orb-ways rect").length).toBe(0);
+  send(store, { type: "expedition_start", id: "A", task: "Audit", source: "user" }, { type: "plan", steps: [{ n: 1, text: "Look" }, { n: 2, text: "Write" }, { n: 3, text: "Check" }], expeditionId: "A" });
+  const ways = () => [...container.querySelectorAll("g.orb-ways rect")].map((r) => [...r.classList].find((c) => c.startsWith("way-")));
+  expect(ways()).toHaveLength(3);
+  expect(ways().every((w) => w !== undefined)).toBe(true);
+  const before = ways();
+  send(store, { type: "dispatch", ...scout, questId: "q1", step: 1, expeditionId: "A" });
+  expect(ways()[0]).toBe("way-out");
+  expect(ways()[0]).not.toBe(before[0]);
+  send(store, { type: "return", ...scout, status: "done", questId: "q1", expeditionId: "A" }, { type: "expedition_end", id: "A", status: "done", text: "Done" });
+  expect(container.querySelectorAll("g.orb-ways rect").length).toBe(0); // over: nothing to show
+});
+
+test("keys typed into a box inside Orbit are typing, not shortcuts", () => {
+  const { cell } = show();
+  fireEvent.click(cell("Scout"));
+  const box = screen.getByRole("textbox", { name: "Ask Scout for something" });
+  for (const key of ["d", "a", "p", "2", "0", "+"]) fireEvent.keyDown(box, { key });
+  expect(screen.queryByRole("status")).toBeNull(); // not the demo, not a replay
+  expect(dialog().classList.contains("ambient")).toBe(false);
+  expect(screen.getByRole("complementary", { name: "What Scout is doing" })).toBeTruthy(); // still with the Scout
+  fireEvent.keyDown(box, { key: "Escape" }); // steps out of the box, and nothing more
+  expect(screen.getByRole("complementary", { name: "What Scout is doing" })).toBeTruthy();
+  expect(document.activeElement).toBe(dialog());
+});
+
+const dayOf = (...bodies: object[]) => bodies.map((b, i) => ({ ...b, seq: i + 1, time: new Date(Date.now() - (bodies.length - i) * 60_000).toISOString() }));
+const day = dayOf(...underWay, { type: "return", ...scout, status: "done", questId: "q1", expeditionId: "A" });
+
+test("the replay fetches the last day and plays it back, with the timeline and a note that it isn't now", async () => {
+  camp({ "/api/feed/day": () => ({ body: { events: day } }) });
+  const { container } = show();
+  fireEvent.click(screen.getByRole("button", { name: "Replay" }));
+  await settle();
+  expect(posts[0]).toEqual({ path: "/api/feed/day", body: undefined });
+  expect(screen.getByRole("region", { name: "Replay of the last day" })).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toBe("Replay: the last day, played back. None of this is happening now.");
+  expect(screen.getByRole("button", { name: "Replay", pressed: true })).toBeTruthy();
+  pass(2000);
+  expect(container.querySelector('.orb-planet[data-who="scout"]')).toBeTruthy();
+});
+
+test("while replaying there's nothing to act with, and Esc leaves it", async () => {
+  camp({ "/api/feed/day": () => ({ body: { events: day } }) });
+  const { cell, store } = show();
+  fireEvent.keyDown(dialog(), { key: "P" });
+  await settle();
+  expect(screen.getByRole("region", { name: "Replay of the last day" })).toBeTruthy();
+  pass(10_000);
+  fireEvent.click(cell("Scout"));
+  expect(screen.queryByRole("textbox", { name: /Ask Scout|Say something/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Stop this expedition" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Go to it|Open Scout's page/ })).toBeNull();
+  expect(store.getState().items).toEqual([]); // the real feed has none of it
+  fireEvent.keyDown(dialog(), { key: "Escape" }); // (one Esc for what's looked at, then the replay)
+  fireEvent.keyDown(dialog(), { key: "Escape" });
+  expect(screen.queryByRole("region", { name: "Replay of the last day" })).toBeNull();
+  expect(screen.queryByRole("status")).toBeNull();
+});
+
+test("Back to now leaves the replay for the camp as it is", async () => {
+  camp({ "/api/feed/day": () => ({ body: { events: day } }) });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Replay" }));
+  await settle();
+  fireEvent.click(screen.getByRole("button", { name: "Back to now" }));
+  expect(screen.queryByRole("region", { name: "Replay of the last day" })).toBeNull();
+});
+
+test("with nothing to replay it says so, and when the day can't be fetched it says that", async () => {
+  camp({ "/api/feed/day": () => ({ body: { events: [] } }) });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Replay" }));
+  await settle();
+  expect(screen.getByRole("status").textContent).toBe("Nothing has happened in the last day to replay.");
+  expect(screen.queryByRole("region", { name: "Replay of the last day" })).toBeNull();
+  cleanup();
+  camp({ "/api/feed/day": () => ({ status: 500, body: { error: "No feed" } }) });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Replay" }));
+  await settle();
+  expect(screen.getByRole("status").textContent).toBe("The replay couldn't be fetched: No feed");
+});
+
+// Ambient: hands off.
+const ambient = () => fireEvent.keyDown(dialog(), { key: "A" });
+const caption = (c: HTMLElement) => c.querySelector(".orb-caption")!;
+
+test("ambient takes the panel, the strip and the hint away, and names who the camera is on", () => {
+  const { container, store, cell } = show();
+  fireEvent.click(cell("Scout"));
+  ambient();
+  expect(dialog().classList.contains("ambient")).toBe(true);
+  expect(screen.queryByRole("navigation", { name: "The crew" })).toBeNull();
+  expect(container.querySelector(".orb-panel")).toBeNull();
+  expect(container.querySelector(".orb-hint")).toBeNull();
+  expect(screen.getByRole("button", { name: "Ambient", pressed: true })).toBeTruthy();
+  expect(caption(container).querySelector("b")!.textContent).toBe("Scout"); // (it was with the Scout)
+  fireEvent.keyDown(dialog(), { key: "Escape" });
+  expect(dialog().classList.contains("ambient")).toBe(false);
+  expect(container.querySelector(".orb-caption")).toBeNull();
+  expect(container.querySelector(".orb-hint")).toBeTruthy();
+  expect(store).toBeTruthy();
+});
+
+test("the Ambient button turns it on, and with the camp quiet the camera is on the whole camp", () => {
+  const { container } = show();
+  fireEvent.click(screen.getByRole("button", { name: "Ambient" }));
+  expect(dialog().classList.contains("ambient")).toBe(true);
+  expect(caption(container).querySelector("b")!.textContent).toBe("The camp");
+  expect(caption(container).querySelector("p")!.textContent).toBe("The campAt rest");
+});
+
+test("the camera cuts to whoever does something, waits its turn for the next, and steps back when it's quiet", () => {
+  const { container, store } = show();
+  ambient();
+  send(store, ...underWay.slice(1));
+  expect(caption(container).querySelector("b")!.textContent).toBe("Scout");
+  expect(dialog().querySelector(".orb-planet.focused")!.getAttribute("data-who")).toBe("scout");
+  // The Scribe does something a moment later: the camera stays on the Scout until it's had its time...
+  pass(1000);
+  send(store, { type: "tool", who: "Scribe", emoji: "🪶", depth: 1, tool: "write_file", input: "notes.md", questId: "q2", expeditionId: "A" });
+  expect(caption(container).querySelector("b")!.textContent).toBe("Scout");
+  pass(6000);
+  expect(caption(container).querySelector("b")!.textContent).toBe("Scribe");
+  // ...and with nothing from anyone for a while it goes back to the whole system.
+  pass(25_000);
+  expect(caption(container).querySelector("b")!.textContent).toBe("The camp");
+  expect(container.querySelector(".orb-planet.focused")).toBeNull();
+});
+
+test("a decision for you is said quietly, goes to the front of the queue, and takes you to whoever is asking", () => {
+  const { container, store } = show();
+  ambient();
+  send(store, ...underWay.slice(1));
+  expect(screen.queryByRole("button", { name: "A decision needs you" })).toBeNull();
+  expect(dialog().classList.contains("needs")).toBe(false);
+  pass(1000); // (the Scout's turn isn't up)
+  send(store, { type: "ask", id: "k1", kind: "plan", title: "Approve the plan", body: "1. Look", expeditionId: "A" }); // plans are the Quartermaster's to ask
+  expect(caption(container).querySelector("b")!.textContent).toBe("Quartermaster"); // (it didn't wait its turn)
+  expect(dialog().classList.contains("needs")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "A decision needs you" }));
+  expect(dialog().classList.contains("ambient")).toBe(false);
+  expect(container.querySelector(".orb-caption")).toBeNull();
+  expect(screen.getByRole("complementary", { name: "What Quartermaster is doing" })).toBeTruthy();
+});
+
+test("a decision asked from a quest takes the camera to whoever is out on it", () => {
+  const { container, store } = show();
+  ambient();
+  send(store, ...underWay, { type: "dispatch", who: "Scribe", emoji: "🪶", depth: 1, questId: "q2", brief: "Write it up", step: 2, expeditionId: "A" });
+  expect(caption(container).querySelector("b")!.textContent).toBe("Quartermaster"); // (the expedition has just set out)
+  pass(1000); // (its turn isn't up, and the Scout and the Scribe are waiting for theirs)
+  send(store, { type: "ask", id: "k3", kind: "shell", title: "Run a command", body: "git status", questId: "q2", expeditionId: "A" }); // (the Scribe's quest)
+  expect(caption(container).querySelector("b")!.textContent).toBe("Scribe"); // (who's asking, and it didn't wait its turn)
+  expect(dialog().classList.contains("needs")).toBe(true);
+});
+
+test("a press on the sky takes the controls back", () => {
+  class Press extends MouseEvent { pointerId = 1; }
+  vi.stubGlobal("PointerEvent", Press);
+  const { container } = show();
+  ambient();
+  fireEvent(container.querySelector(".orb-sky")!, new Press("pointerdown", { bubbles: true, button: 0 }));
+  expect(dialog().classList.contains("ambient")).toBe(false);
+});
+
+test("the sun can be turned down from its own panel, and stays as you left it", () => {
+  const { cell, container } = show();
+  const corona = () => num(container.querySelector(".orb-corona"), "opacity"), core = () => num(container.querySelector(".orb-sun-core"), "opacity");
+  const full = corona();
+  expect(core()).toBe(1);
+  fireEvent.click(cell("Quartermaster"));
+  const dimmer = screen.getByRole("slider", { name: "Brightness" });
+  expect(num(dimmer, "value")).toBe(1);
+  fireEvent.change(dimmer, { target: { value: "0.4" } });
+  expect(screen.getByText("40%")).toBeTruthy();
+  expect(corona()).toBeLessThan(full * 0.5);
+  expect(core()).toBeLessThan(1);
+  expect(core()).toBeGreaterThan(0.3); // (dimmer, but never out)
+  expect(localStorage.getItem("camp-orbit-sun")).toBe("0.4");
+  // A planet's panel has no such setting: it is the sun's.
+  fireEvent.click(cell("Scout"));
+  expect(screen.queryByRole("slider", { name: "Brightness" })).toBe(null);
+  // Opened again later, it comes up as dim as it was left.
+  cleanup();
+  const again = show();
+  expect(num(again.container.querySelector(".orb-sun-core"), "opacity")).toBeLessThan(1);
+  localStorage.removeItem("camp-orbit-sun");
+});

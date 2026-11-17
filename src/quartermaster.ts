@@ -451,7 +451,7 @@ export async function runExpedition(
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
   try {
     // One shared spending tally (and the optional budget) for the Quartermaster and every quest it sends.
-    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without, model: opts.model }, async () => {
+    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without, model: opts.model, thread: turn.thread, replyTo: thread ? opts.replyTo : undefined }, async () => {
       // A worktree the camp just made gets its setup (installs…) before anyone works in it.
       const setup = await setUpWorkspaces(workspaces, { who: "Quartermaster", emoji: "🧭" });
       // A held plan being started: its steps go out as the list to fill in, as on approval.
@@ -530,7 +530,7 @@ export async function runChat(
   emit({ type: "expedition_start", id, task: shown, source: "user", chat: true, attachments: opts.attached, ...(thread ? { replyTo: opts.replyTo } : {}), thread: turn.thread });
   recordTurn({ ...turn, reply: "", status: "running" });
   try {
-    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without, model: opts.model }, () =>
+    const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without, model: opts.model, thread: turn.thread, replyTo: thread ? opts.replyTo : undefined }, () =>
       runAgent(spec, task, { plain: true, source: "direct", extraSystem: [opts.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined }));
     logQuest("expedition", spec.name, shown, started, result, undefined, where.project);
     recordTurn({ ...turn, reply: result.text, status: result.status });
@@ -576,7 +576,7 @@ export async function runDirect(
     ? note + task
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));
   try {
-    const result = await withExpedition({ id, budget: where.budget, signal, workspaces, steering: more.steering, project: where.project, scope: where.scope, without: more.without, model: more.model }, () => withQuest(questId, async () => {
+    const result = await withExpedition({ id, budget: where.budget, signal, workspaces, steering: more.steering, project: where.project, scope: where.scope, without: more.without, model: more.model, thread: turn.thread, replyTo: thread ? replyTo : undefined }, () => withQuest(questId, async () => {
       const setup = await setUpWorkspaces(workspaces, { who: spec.name, emoji: spec.emoji });
       const extraSystem = [setup, more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;
       const { result: r, checks, text } = await questWithChecks(spec, questId,

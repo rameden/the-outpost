@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { runningCount } from "../feed/reducer.ts";
 import { createFeedStore } from "../feed/store.ts";
-import { DEMO_CREW, castFor, demoRun, runDemo } from "./demo.ts";
+import { DEMO_CREW, castFor, demoCamp, demoRun, runDemo } from "./demo.ts";
 
 const [lead, ...crew] = DEMO_CREW;
 beforeEach(() => { vi.useFakeTimers(); });
@@ -93,4 +93,36 @@ test("a camp with nobody to send still has its Quartermaster planning", () => {
   vi.advanceTimersByTime(4000);
   expect(runningCount(store.getState())).toBe(0);
   stop();
+});
+
+test("a pretend camp has experience, a kit, a day's spend, a limit and ships for whoever is in the sky", () => {
+  const camp = demoCamp(DEMO_CREW);
+  expect(Object.keys(camp.xp)).toEqual(DEMO_CREW.map((c) => c.name));
+  expect(Object.keys(camp.kit)).toEqual(DEMO_CREW.map((c) => c.id));
+  expect(camp.kit[lead.id]).toEqual([]); // the sun carries nothing
+  for (const c of crew) {
+    expect(camp.kit[c.id].length).toBeGreaterThan(1);
+    expect(camp.kit[c.id].at(-1)).toMatchObject({ shared: true }); // the camp's own rules, last
+  }
+  expect(camp.spend.today).toBeCloseTo(Object.values(camp.spend.byAgent).reduce((a, b) => a + b, 0));
+  expect(Object.keys(camp.spend.byAgent)).toEqual(DEMO_CREW.map((c) => c.name));
+  expect(camp.limit.used).toBeGreaterThan(0);
+  expect(camp.limit.used).toBeLessThan(1);
+});
+
+test("the pretend ships include a failing pull request and are all different", () => {
+  const { ships } = demoCamp(DEMO_CREW);
+  expect(new Set(ships.map((s) => s.id)).size).toBe(ships.length);
+  expect(new Set(ships.map((s) => s.kind))).toEqual(new Set(["queued", "pr", "job"]));
+  expect(ships.filter((s) => s.bad).map((s) => s.kind)).toEqual(["pr"]);
+});
+
+test("the pretend camp is the same every time, and copes with a crew of any size", () => {
+  expect(demoCamp(DEMO_CREW)).toEqual(demoCamp(DEMO_CREW));
+  const many = Array.from({ length: 14 }, (_, i) => ({ id: `c${i}`, name: `C${i}` }));
+  const camp = demoCamp(many);
+  expect(Object.keys(camp.xp)).toHaveLength(14);
+  expect(camp.kit.c0).toEqual([]);
+  expect(camp.kit.c13.length).toBeGreaterThan(1);
+  expect(demoCamp([])).toMatchObject({ xp: {}, kit: {}, spend: { today: 0, byAgent: {} } });
 });

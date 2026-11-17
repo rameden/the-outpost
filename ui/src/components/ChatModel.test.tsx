@@ -25,7 +25,7 @@ test("it starts on the default model; pick one and it's named; go back and it sa
   const pick = within(menu).getByLabelText("Model") as HTMLSelectElement;
   await waitFor(() => expect(pick.disabled).toBe(false));
   expect(pick.querySelector("option")!.textContent).toBe("Default model (Claude Sonnet; a crew member's own if you @ one)");
-  expect([...pick.querySelectorAll("optgroup")].map((g) => g.label)).toEqual(["Groq", "Gemini"]);
+  expect([...pick.querySelectorAll("optgroup")].map((g) => g.label)).toEqual(["Auto", "Groq", "Gemini"]);
   expect(within(menu).getByText(/With no @, your message goes straight to this model: a plain chat, no crew\./)).toBeTruthy();
   fireEvent.change(pick, { target: { value: "groq:llama-fast" } });
   expect(onPick).toHaveBeenLastCalledWith("groq:llama-fast");
@@ -57,4 +57,24 @@ test("in a conversation that already has one it shows that; another pick, or bac
   expect(within(screen.getByRole("dialog")).getByText("groq:gone (not available right now)")).toBeTruthy();
   fireEvent.keyDown(document, { key: "Escape" });
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+test("Auto is offered first, Balanced recommended; picked, it's named as Auto with its preference, never as a missing model", async () => {
+  const onPick = vi.fn();
+  const { rerender } = render(<ChatModel S={S} picked={undefined} onPick={onPick} />);
+  const label = () => screen.getByRole("button", { name: /^Model for this conversation:/ });
+  fireEvent.click(label());
+  const pick = screen.getByLabelText("Model") as HTMLSelectElement;
+  await waitFor(() => expect(pick.disabled).toBe(false));
+  const auto = [...pick.querySelectorAll("optgroup")].find((g) => g.label === "Auto")!;
+  expect([...auto.querySelectorAll("option")].map((o) => [o.value, o.textContent])).toEqual([
+    ["auto:balanced", "Auto · Balanced (recommended)"], ["auto:economy", "Auto · Economy"], ["auto:quality", "Auto · Quality"]]);
+  fireEvent.change(pick, { target: { value: "auto:economy" } });
+  expect(onPick).toHaveBeenLastCalledWith("auto:economy");
+  rerender(<ChatModel S={S} picked={undefined} standing="auto:economy" onPick={onPick} />);
+  expect(label().getAttribute("aria-label")).toBe("Model for this conversation: Auto · Economy");
+  fireEvent.click(label());
+  const menu = screen.getByRole("dialog");
+  expect(within(menu).queryByText(/not available right now/)).toBeNull();
+  expect(within(menu).getByText(/Auto picks a model for each task and can switch part-way/)).toBeTruthy();
 });

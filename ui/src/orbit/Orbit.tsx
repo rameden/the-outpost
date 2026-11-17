@@ -61,9 +61,9 @@ import { waysKey, waysOf } from "./doing.ts";
 import { hdFrame, type HdBody } from "./hd/frame.ts";
 import { rgbOf, turnTo, type Vec3 } from "./hd/math.ts";
 import { createHd, type HdRenderer } from "./hd/renderer.ts";
-import { WorldMaker } from "./hd/Maker.tsx";
+import { Slide, WorldMaker } from "./hd/Maker.tsx";
 import { customised, newSeed, worldsFor, type Custom, type World } from "./hd/worlds.ts";
-import { grownOf, kitOf, lightsOf, SATS_MAX } from "./kit.ts";
+import { grownOf, kitOf, SATS_MAX } from "./kit.ts";
 import { arc, moonOf, sayOf, shipAt, shipsOf, spendOf, stalled, tightest, wayAt, MOON_R, NEAR_FULL, SHIP_OUT, SHIPS, WAY_APART, WAY_R, WAY_SIZE, WAYS, type Ship } from "./meaning.ts";
 import { Panel, useNow, type Body } from "./Panel.tsx";
 import { reelOf, type Reel } from "./replay.ts";
@@ -91,7 +91,9 @@ const MOON: [number, number][] = [[5.5, 0], [7.5, 100], [9.5, 240], [11.5, 140],
 const DRIFT = [150, -190, 230, -270]; // seconds for a line with nobody on it to drift once round (one way, then the other)
 // HD: where the camera stands. Over the whole system it looks down from a little above (and drifts round slowly);
 // with a planet, from low and to one side of the line to the sun, so the planet is half lit with the sun in the sky behind it.
-const HD_KEY = "camp-orbit-hd", WORLDS_KEY = "camp-orbit-worlds", CUSTOM_KEY = "camp-orbit-custom";
+const HD_KEY = "camp-orbit-hd", WORLDS_KEY = "camp-orbit-worlds", CUSTOM_KEY = "camp-orbit-custom", SUN_KEY = "camp-orbit-sun";
+// How bright the sun can be set, in either view: from nearly out to as it's made (1).
+export const SUN_LIGHT = [0.15, 1] as const;
 // What you've changed about each crew member's world, as it's kept in this browser (nothing, if what's kept can't be read).
 function keptCustom(): Record<string, Custom> {
   try { const kept = JSON.parse(storeGet(CUSTOM_KEY) ?? "{}"); return kept && typeof kept === "object" && !Array.isArray(kept) ? kept : {}; } catch { return {}; }
@@ -105,11 +107,10 @@ const WIDE = 900, PANEL = 380; // from this width the panel sits beside the syst
 const STARS: [number, number][] = [[640, 0.03], [820, 0.065], [1040, 0.11]];
 const wrap = (n: number, tile: number) => ((n % tile) + tile) % tile;
 const SPOKES = Array.from({ length: 12 }, (_, i) => (i * Math.PI) / 6);
+const WAY_PX = 7; // as big as a waypoint is drawn, in pixels
 const BEAT_MS = 15_000;        // how often the picture looks again at how long things have been out, or quiet
 // On the flat view the satellites of the one you're with go round it this far out (in the drawing's units), a lap in this many seconds.
 const SAT_OUT = 36, SAT_LAP = 48;
-// The lights of a settled world: where each sits, just inside the disc's edge and clear of the mark in its middle.
-const TOWN = Array.from({ length: 24 }, (_, k) => { const a = k * 2.39996, r = 7.1 + (k % 3) * 0.7; return [r * Math.cos(a) - 0.35, r * Math.sin(a) - 0.35]; });
 // What's holding at the edge, by what it is: a request in the queue (a square), a job on a schedule (a diamond), a pull request (a craft).
 const SHIP_SHAPE: Record<Ship["kind"], string> = { queued: "M-4 -4h8v8h-8z", job: "M0 -5.5L5.5 0L0 5.5L-5.5 0z", pr: "M-5 4.5L0 -5.5L5 4.5L0 2z" };
 const SHIP_KIND: Record<Ship["kind"], string> = { queued: "queued", job: "scheduled", pr: "pull request" };
@@ -250,6 +251,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     // view's way up) and a height; with a planet, a yaw measured from the line out from the sun, so it goes round with it.
     yawFree: Math.PI / 2, pitchFree: HD_OVER, yawRel: HD_SIDE, pitchRel: HD_NEAR, yaw: Math.PI / 2, pitch: Math.PI / 2, turning: false,
     bare: false, // nothing is open beside the system (ambient), so it has the whole screen
+    sun: 1,      // how bright the sun is set (SUN_LIGHT)
   }).current;
   v.bare = ambient;
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -398,7 +400,8 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     turn(dials[1], sky.dial[1]);
     const breath = Math.sin((v.seconds * 2 * Math.PI) / 5);
     core.current?.setAttribute("transform", `scale(${(1 + 0.03 * breath).toFixed(4)})`);
-    corona.current?.setAttribute("opacity", ((scene.current.leading ? 1 : 0.72) + 0.1 * breath).toFixed(3));
+    core.current?.setAttribute("opacity", (0.35 + 0.65 * v.sun).toFixed(3)); // (turned down, the disc itself dims too, but never goes out)
+    corona.current?.setAttribute("opacity", (((scene.current.leading ? 1 : 0.72) + 0.1 * breath) * v.sun).toFixed(3));
     sky.pinged ||= now - ALONE_MS + 2500; // (the first comes soon after it opens)
     if (sky.ping > sky.pinged) sky.pinged = sky.ping;
     if (moving && !scene.current.running && now - sky.pinged > ALONE_MS) sky.ping = sky.pinged = now;
@@ -416,7 +419,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       const sun = glows[LEAD] = (glows[LEAD] ?? 0) + ((scene.current.leading ? 1 : 0) - (glows[LEAD] ?? 0)) * rise;
       const made = hdFrame({
         seconds: v.seconds, w: v.w, h: v.h, cx: centre.x, cy: centre.y, at: cam, k: cam.k * HD_CLOSER, yaw: v.yaw, pitch: v.pitch,
-        lead: LEAD, sun: { glow: sun, waiting: scene.current.waiting.has(LEAD) }, bodies: hdBodies,
+        lead: LEAD, sun: { glow: sun, waiting: scene.current.waiting.has(LEAD), light: v.sun }, bodies: hdBodies,
         lines: Array.from({ length: lines + 1 }, (_, i) => ({ rot: ((i < ids.length ? hdBodies[i].angle : (v.seconds * 360) / DRIFT[i % DRIFT.length]) * Math.PI) / 180, lit: litAt(i), body: i < ids.length ? i : -1 })),
         ping: { r: going ? SUN_R + PING_SPEED * out : 0, a: going ? (1 - out / (PING_MS / 1000)) ** 1.6 : 0 }, reach: scene.current.reach, flightMs: FLIGHT_MS, marks,
       });
@@ -436,6 +439,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     };
     put(parts[LEAD]?.gauge, spotOf.get(LEAD), SUN_R);
     put(wayEl.current, spotOf.get(LEAD), SUN_R);
+    // (Where the waypoints are goes with the sun's size; how big each is stops at a few pixels, however close you look.)
+    const sun = spotOf.get(LEAD);
+    if (sun && wayEl.current) wayEl.current.style.setProperty("--way", Math.min(1, (WAY_PX * SUN_R) / (WAY_SIZE * sun.r)).toFixed(4));
     for (const id of ids) put(parts[id]?.gauge, spotOf.get(id), PLANET_R);
     shipEls.forEach((ship, j) => put(ship, spotOf.get(shipIds[j])));
     satEls.forEach((sat, j) => put(sat, spotOf.get(`sat:${j}`)));
@@ -577,6 +583,10 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     return () => { document.removeEventListener("fullscreenchange", on); if (document.fullscreenElement) void document.exitFullscreen?.(); };
   }, []);
 
+  // How bright the sun is, in either view (remembered): it's turned down from its own panel.
+  const [sunLight, setSunLight] = useState(() => { const kept = Number(storeGet(SUN_KEY)); return kept >= SUN_LIGHT[0] && kept <= SUN_LIGHT[1] ? kept : 1; });
+  const dimSun = useCallback((to: number) => { storeSet(SUN_KEY, String(to)); setSunLight(to); }, []);
+  v.sun = sunLight;
   // HD: on or off (remembered), and whether this browser can draw it at all.
   const [hd, setHd] = useState(() => storeGet(HD_KEY) === "1");
   const [noHd, setNoHd] = useState(false);
@@ -637,7 +647,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     const stop = feed.onEvent((e) => {
       if (time.quiet) return;
       const lead = e.type === "expedition_start" || e.type === "plan" || e.type === "ask";
-      const who = ("who" in e && typeof e.who === "string" ? scene.current.names.get(e.who) : undefined) ?? (lead ? LEAD : undefined);
+      // (A decision doesn't say who's asking: the feed has worked that out by now, from whose quest it is.)
+      const name = e.type === "ask" ? feed.getState().asks.find((a) => a.id === e.id)?.who : "who" in e && typeof e.who === "string" ? e.who : undefined;
+      const who = (name ? scene.current.names.get(name) : undefined) ?? (lead ? LEAD : undefined);
       if (who) go(direct(cut, Date.now(), { who, urgent: e.type === "ask" }));
     });
     const t = setInterval(() => go(direct(cut, Date.now())), 1000);
@@ -744,7 +756,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
             <circle className="orb-sun-core" ref={core} r={SUN_R} />
           </g>
           {planets.map((p, i) => {
-            const r = orbitOf(i), a = angleAt(i, 0), st = statusOf(p), out = outOf(p), mark = MARKS[p.id], xp = xpOf(p);
+            const r = orbitOf(i), a = angleAt(i, 0), st = statusOf(p), out = outOf(p), mark = MARKS[p.id];
             return (
               <g key={p.id} className={cx("orb-planet", cClass(p.name), `st-${st.status}`, says.get(p.id)?.quiet && "st-stalled", focus === p.id && "focused")} data-who={p.id}>
                 <radialGradient id={`orb-halo-${p.id}`}><stop offset="0" className="orb-g0" /><stop offset=".45" className="orb-g1" /><stop offset="1" className="orb-g2" /></radialGradient>
@@ -774,8 +786,6 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
                         );
                       })}
                       <circle className="orb-disc" r={PLANET_R} />
-                      {/* The lights of what's been built there: more of them with every level. */}
-                      {xp !== null && TOWN.slice(0, lightsOf(xp)).map(([x, y], k) => <rect key={k} className="orb-town" x={x.toFixed(2)} y={y.toFixed(2)} width=".7" height=".7" />)}
                       {mark ? <g className="orb-mark" transform="translate(-6 -6) scale(.5)">{mark}</g>
                         : <text className="orb-emoji" y="3.7" textAnchor="middle">{p.emoji ?? p.name.slice(0, 1)}</text>}
                     </g>
@@ -874,7 +884,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       {looking && !ambient && (
         <Panel key={looking.id} body={looking} lead={looking.id === LEAD} nth={planets.indexOf(looking)} xp={xpOf(looking)} store={feed} st={statusOf(looking)} bearing={bearing}
           live={live} clock={clock} kit={kit} picked={picked} onPick={setPicked} spend={spend ? spendOf(spend, looking.name) : null} limit={limit} owns={owns} onSent={() => sent(looking.id)}
-          make={hd && made.get(looking.id) && (
+          make={looking.id === LEAD ? (
+            <div className="orb-dimmer"><Slide label="Brightness" value={sunLight} limit={SUN_LIGHT} onChange={dimSun} says={`${Math.round(sunLight * 100)}%`} /></div>
+          ) : hd && made.get(looking.id) && (
             <WorldMaker name={looking.name} world={made.get(looking.id)!} changed={!!custom[looking.id]} kit={known ? kit.length : undefined}
               onChange={(c) => recustom((was) => ({ ...was, [looking.id]: { ...was[looking.id], ...c } }))}
               onRoll={() => recustom((was) => ({ ...was, [looking.id]: { roll: newSeed(), ...(was[looking.id]?.kind !== undefined ? { kind: was[looking.id].kind } : {}) } }))} // (it stays the kind of thing you said it was)

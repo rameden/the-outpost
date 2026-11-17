@@ -2,7 +2,7 @@
 import { expect, test } from "vitest";
 import { applyEvent, emptyFeed, type FeedState } from "../feed/reducer.ts";
 import type { CampEvent } from "../types.ts";
-import { LOG_LINES, questsOf, runsOf } from "./doing.ts";
+import { LOG_LINES, asksOf, questsOf, runsOf, waysKey, waysOf } from "./doing.ts";
 
 function feedOf(bodies: object[]): FeedState {
   return bodies.reduce<FeedState>((s, b, i) => applyEvent(s, { ...b, seq: i + 1, time: new Date(Date.UTC(2026, 0, 1, 9, 0, i)).toISOString() } as CampEvent), emptyFeed);
@@ -83,3 +83,47 @@ test("once it's over there is nothing left to show", () => {
   expect(questsOf(done, "Scout")).toEqual([]);
   expect(runsOf(done, "Quartermaster")).toEqual([]);
 });
+
+test("a running plan's steps are what the waypoints show, each as it stands", () => {
+  const [w, ...rest] = waysOf(s);
+  expect(rest).toEqual([]);
+  expect(w).toMatchObject({ expId: "A", task: "Audit the login flow" });
+  expect(w.steps.map((st) => [st.n, st.text])).toEqual([[1, "Look"], [2, "Write"]]);
+  expect(w.steps[0].state).toBe("out"); // the Scout is out on step 1
+  expect(w.steps[1].state).not.toBe("done");
+});
+
+test("there are no waypoints for an expedition with no plan, or one that's over", () => {
+  expect(waysOf(emptyOpen)).toEqual([]);
+  const noPlan = feedOf([{ type: "expedition_start", id: "B", task: "Tidy", source: "direct" }]);
+  expect(waysOf(noPlan)).toEqual([]);
+  const over = feedOf([
+    { type: "expedition_start", id: "A", task: "Dig", source: "user" },
+    { type: "plan", steps: [{ n: 1, text: "Look" }], expeditionId: "A" },
+    { type: "expedition_end", id: "A", status: "done", text: "Done" },
+  ]);
+  expect(waysOf(over)).toEqual([]);
+});
+
+test("the waypoints' key changes when a step does, and not when only other things do", () => {
+  const plan = [
+    { type: "expedition_start", id: "A", task: "Dig", source: "user" },
+    { type: "plan", steps: [{ n: 1, text: "Look" }, { n: 2, text: "Write" }], expeditionId: "A" },
+  ];
+  const before = feedOf(plan);
+  expect(waysKey(before)).toMatch(/^A:[a-z]{2}$/);
+  const chatter = feedOf([...plan, { type: "text", ...qm, text: "hello", expeditionId: "A" }]);
+  expect(waysKey(chatter)).toBe(waysKey(before));
+  const moved = feedOf([...plan, { type: "dispatch", ...scout, questId: "q1", step: 1, expeditionId: "A" }]);
+  expect(waysKey(moved)).not.toBe(waysKey(before));
+  expect(waysKey(emptyOpen)).toBe("");
+});
+
+test("the decisions waiting on you are their cards, all of them or one crew member's", () => {
+  expect(asksOf(s).map((a) => a.askId)).toEqual(["k2"]); // (the plan's was answered)
+  expect(asksOf(s, (who) => who === "Scout").map((a) => a.askId)).toEqual(["k2"]);
+  expect(asksOf(s, (who) => who === "Scribe")).toEqual([]);
+  expect(asksOf(emptyOpen)).toEqual([]);
+});
+
+const emptyOpen = feedOf([]);

@@ -7,7 +7,7 @@ import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
-import { cClass, clock, crewNow, cx, plural, spaced } from "../format.ts";
+import { autoName, cClass, clock, crewNow, cx, plural, shortModel, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
 import { MaeSystem } from "../components/MaeSystem.tsx";
 import { Markdown } from "../markdown.tsx";
@@ -63,6 +63,11 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
     case "tool": return <div className={cx("tool", cClass(node.who))}><b>{node.tool}</b><code title={node.input}>{node.input}</code></div>;
     case "file": return <FileCard file={node} />;
     case "notice": return <div className="notice">{node.text}</div>;
+    case "route": return (
+      <div className="notice route" title={`${autoName(node.choice)}: ${node.reason}`}>
+        🧭 {node.who} {node.switched ? "switched to" : "is on"} <b>{shortModel(node.model)}{node.effort ? ` · ${node.effort}` : ""}</b> ({autoName(node.choice)}). {node.reason}
+      </div>
+    );
     case "sys": return <div className="sys">{node.text}</div>;
     case "steer": return <div className="steer-msg"><small>You, while it was working</small>{node.text}</div>;
   }

@@ -19,7 +19,9 @@ export type Steering = { messages: { text: string; at: number }[]; waiters: Set<
 type RunContext = { ledger: Ledger; expeditionId?: string; questId?: string; signal?: AbortSignal; unattended?: boolean;
   workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[];
   without?: string[];   // folders the user left out of this conversation, or took out of it part-way
-  model?: string };     // the model you picked for this conversation: whoever you're talking to answers on it (the quests they send keep their own)
+  model?: string;       // the model you picked for this conversation: whoever you're talking to answers on it (the quests they send keep their own)
+  thread?: string;      // the conversation this run is part of (its first run's id): a task that's picked up again keeps it
+  replyTo?: string };   // the run this one replies to, if any: the only run whose unfinished work it may pick up (oplog.ts)
 
 const store = new AsyncLocalStorage<RunContext>();
 
@@ -40,9 +42,11 @@ export const inScope = (link: string) => { const s = store.getStore()?.scope; re
 export const leftOutHere = () => store.getStore()?.without ?? [];
 // The model picked for this conversation, for whoever it's with (not for the quests they send out).
 export const conversationModel = () => store.getStore()?.model;
+export const currentThread = () => store.getStore()?.thread;
+export const currentReplyTo = () => store.getStore()?.replyTo;
 
 export type ExpeditionOpts = { id?: string; budget?: number; signal?: AbortSignal; unattended?: boolean;
-  workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[]; without?: string[]; model?: string };
+  workspaces?: Record<string, Workspace>; steering?: Steering; project?: string; scope?: string[]; without?: string[]; model?: string; thread?: string; replyTo?: string };
 
 export const newSteering = (): Steering => ({ messages: [], waiters: new Set() });
 export function steer(s: Steering, text: string) {
@@ -53,7 +57,7 @@ export function steer(s: Steering, text: string) {
 // A new expedition: fresh tally, optional budget in dollars, stop signal, and unattended mode.
 export function withExpedition<T>(opts: ExpeditionOpts, fn: () => Promise<T>): Promise<T> {
   return store.run({ ledger: { spent: 0, budget: opts.budget }, expeditionId: opts.id, signal: opts.signal, unattended: opts.unattended,
-    workspaces: opts.workspaces, steering: opts.steering, project: opts.project, scope: opts.scope, without: opts.without, model: opts.model }, fn);
+    workspaces: opts.workspaces, steering: opts.steering, project: opts.project, scope: opts.scope, without: opts.without, model: opts.model, thread: opts.thread, replyTo: opts.replyTo }, fn);
 }
 
 // A quest inside the current expedition (same tally, stop signal, and mode; its own id).

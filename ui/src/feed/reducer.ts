@@ -16,6 +16,8 @@ export type ToolNode = { kind: "tool"; id: string; who: string; tool: string; in
 // A file the crew wrote whole: a card that opens it. It takes the place of the write_file line it came from.
 export type FileNode = { kind: "file"; id: string; who: string; path: string; change: "created" | "updated"; bytes: number };
 export type NoticeNode = { kind: "notice"; id: string; text: string };
+// Auto chose a model for a crew member, or switched part-way: which, under what preference, and why.
+export type RouteNode = { kind: "route"; id: string; who: string; model: string; effort?: string; choice: string; reason: string; switched: boolean };
 export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
 // listed: an approved plan whose steps are shown as the live list under it (so the card itself folds its text away).
@@ -49,7 +51,7 @@ export type ExpNode = {
   end: { status: string; seconds: number; changed: number; workspaces: Workspaces } | null; // null: still running
   feedback?: { rating: "up" | "down"; note?: string; kept?: string }; // what you said about it once it finished
 };
-export type FeedNode = MsgNode | ToolNode | FileNode | PlanNode | NoticeNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
+export type FeedNode = MsgNode | ToolNode | FileNode | PlanNode | NoticeNode | RouteNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
 
 // A running expedition: where its card is, its quests by id, and who is working in it.
 type OpenExpedition = { node: string; started: number; members: string[]; quests: Record<string, { node: string; who: string }>; plan?: string };
@@ -327,6 +329,10 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
       break;
     case "file": addFile(s, e); break;
     case "notice": place(s, { kind: "notice", id: `n${e.seq}`, text: e.text }, e.questId, e.expeditionId); break;
+    case "route":
+      finishLive(s, (k) => k === liveKey(e)); // a new model's words start a new message
+      place(s, { kind: "route", id: `r${e.seq}`, who: e.who, model: e.model, ...(e.effort ? { effort: e.effort } : {}), choice: e.choice, reason: e.reason, switched: e.switched }, e.questId, e.expeditionId);
+      break;
     case "dispatch": addDispatch(s, e); break;
     case "plan": addPlan(s, e); break;
     case "return": addReturn(s, e); break;

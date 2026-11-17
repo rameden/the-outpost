@@ -204,3 +204,38 @@ test("a cluster of asteroids: a main rock with the rig where the planet would be
   expect(far.points.filter((pt) => pt.size < 0.9 && pt.size !== 0.75)).toEqual([]);
   expect(far.points.some((pt) => pt.size === 2.4)).toBe(true);
 });
+
+test("when Orbit says how many satellites a world really has, that many are drawn, whatever the world's own, and work adds none", () => {
+  const specks = (b: HdBody) => new Set(closeTo(b).points.filter((pt) => pt.size === 0.55).map((pt) => pt.pos.join())).size;
+  expect([0, 1, 4, 8].map((n) => specks(body(0, { sats: n })))).toEqual([0, 1, 4, 8]);
+  expect(specks(body(0, { sats: 3, glow: 1 }))).toBe(3); // (not 3 and four more)
+  expect(specks(body(0, { sats: 0 }))).toBe(0); // the world's own two aren't drawn
+});
+
+test("the satellites of the world looked at can be pressed, once they're really something and not behind the world", () => {
+  const ids = (b: HdBody) => hdFrame(input([b], { at: { x: orbitOf(b.i) * Math.cos((b.angle * Math.PI) / 180), y: orbitOf(b.i) * Math.sin((b.angle * Math.PI) / 180) }, k: 6, pitch: 0.2 })).spots.map((s) => s.id).filter((id) => id.startsWith("sat:"));
+  expect(ids(body(0, { sats: 3, focused: true })).length).toBeGreaterThan(0); // (one may be round the back of the world)
+  expect(ids(body(0, { sats: 3, focused: true })).length).toBeLessThanOrEqual(3);
+  expect(ids(body(0, { sats: 3, focused: false }))).toEqual([]);
+  expect(ids(body(0, { focused: true }))).toEqual([]); // the world's own aren't real ones
+});
+
+test("a quest's moon is as big as it has grown, and a world as settled as its crew member's level says", () => {
+  const f = (b: HdBody) => hdFrame(input([b])).frame.planets[0];
+  const small = f(body(0, { quests: [false, false] })), big = f(body(0, { quests: [false, false], moonSize: [1, 2] }));
+  expect(big.moons[0].radius).toBe(small.moons[0].radius);
+  expect(big.moons[1].radius).toBeCloseTo(small.moons[1].radius * 2);
+  expect(small.grown).toBeCloseTo(0.3); // nobody said: the usual
+  expect(f(body(0, { grown: 0 })).grown).toBe(0);
+  expect(f(body(0, { grown: 1 })).grown).toBe(1);
+});
+
+test("places Orbit marks itself (ships at the edge) come back as spots on the screen, after the worlds", () => {
+  const { spots } = hdFrame(input([body(0)], { marks: [{ id: "ship:a", x: 0, y: 0, r: 4 }, { id: "ship:b", x: 100, y: 50, r: 4 }] }));
+  expect(spots.map((s) => s.id)).toEqual(["quartermaster", "scout", "ship:a", "ship:b"]);
+  expect(spots[2].x).toBeCloseTo(spots[0].x, 0); // the middle of the table is where the sun is
+  expect(spots[2].y).toBeCloseTo(spots[0].y, 0);
+  expect(spots[3].x).not.toBeCloseTo(spots[2].x, 0);
+  expect(spots[2].r).toBeGreaterThan(0);
+  expect(hdFrame(input([body(0)])).spots.map((s) => s.id)).toEqual(["quartermaster", "scout"]);
+});

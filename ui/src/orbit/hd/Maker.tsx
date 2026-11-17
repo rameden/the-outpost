@@ -18,7 +18,7 @@ type Limit = readonly [number, number];
 const clamp = (x: number, [lo, hi]: Limit) => Math.min(hi, Math.max(lo, x));
 
 // A setting you slide. flip: the bar reads the other way from the number (more cloud is a lower number, to the drawing).
-function Slide({ label, value, limit, onChange, flip, says }: { label: string; value: number; limit: Limit; onChange: (v: number) => void; flip?: boolean; says?: string }) {
+export function Slide({ label, value, limit, onChange, flip, says }: { label: string; value: number; limit: Limit; onChange: (v: number) => void; flip?: boolean; says?: string }) {
   const [lo, hi] = limit, shown = flip ? lo + hi - value : value;
   return (
     <label className="orb-set">

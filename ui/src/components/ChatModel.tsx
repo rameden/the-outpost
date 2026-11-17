@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CampState } from "../types.ts";
 import { Icon } from "./bits.tsx";
 import { ModelOptions, useModelList } from "./ModelPicker.tsx";
+import { autoName, isAuto } from "../format.ts";
 
 // picked: what you've chosen for the next message (undefined: nothing yet; null: back to their own).
 // standing: what the conversation already runs on, if you picked one before.
@@ -32,7 +33,7 @@ export function ChatModel({ S, picked, standing, onPick }: {
 
   const now = picked === undefined ? standing ?? "" : picked ?? "";
   const info = list?.models.find((m) => m.id === now);
-  const name = !now ? "Default model" : info ? `${info.provider ? `${info.provider} · ` : ""}${info.name}` : now;
+  const name = !now ? "Default model" : isAuto(now) ? autoName(now) : info ? `${info.provider ? `${info.provider} · ` : ""}${info.name}` : now;
   const changed = picked !== undefined && (picked ?? "") !== (standing ?? "");
   return (
     <span className="model-pick" ref={box}>
@@ -44,11 +45,12 @@ export function ChatModel({ S, picked, standing, onPick }: {
           <label className="field">Model for this conversation
             <select autoFocus value={now} disabled={!list} aria-label="Model" onChange={(ev) => { onPick(ev.target.value || null); setOpen(false); }}>
               <option value="">Default model (Claude Sonnet; a crew member's own if you @ one)</option>
-              {list && now && !info && <option value={now}>{now} (not available right now)</option>}
-              {list && <ModelOptions models={list.models} />}
+              {list && now && !info && !isAuto(now) && <option value={now}>{now} (not available right now)</option>}
+              {list && <ModelOptions models={list.models} auto />}
             </select>
           </label>
-          <div className="menu-tip">With no @, your message goes straight to this model: a plain chat, no crew. If you @ a crew member, they answer on it. Crew sent out on quests keep their own models. Replies keep your choice until you change it.</div>
+          <div className="menu-tip">With no @, your message goes straight to this model: a plain chat, no crew. If you @ a crew member, they answer on it. Crew sent out on quests keep their own models. Replies keep your choice until you change it.
+            {isAuto(now) && " Auto picks a model for each task and can switch part-way; each run says which model it used and why."}</div>
         </div>
       )}
     </span>

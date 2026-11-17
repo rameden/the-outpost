@@ -8,6 +8,7 @@ import { readMemory, recentSessions } from "./memory.js";
 import { buildRequest } from "./attachments.js";
 import { addLink, loadLinks, removeLink } from "./links.js";
 import { listModels, resolveModel, resolveTurns } from "./agent.js";
+import { isAutoChoice } from "./routing.js";
 import { agentSettings, setAgentSettings, budgetUsd, setBudgetUsd, campRuntime, setRuntime, TURNS_MIN, TURNS_MAX, type Effort } from "./settings.js";
 import { claudeLogin } from "./claude-code.js";
 import { ROSTER } from "./roster.js";
@@ -87,9 +88,15 @@ async function modelCommand(name?: string, model?: string, effort?: string) {
     setAgentSettings(who.id, { model: null, effort: null, maxTurns: null });
     return console.log(`${who.emoji} ${who.name} is back on the default model and turn limit.`);
   }
+  // Auto ("auto", or "auto:economy" / "auto:balanced" / "auto:quality") picks the model and effort for each task.
+  if (isAutoChoice(model)) {
+    const choice = model === "auto" ? "auto:balanced" : model;
+    setAgentSettings(who.id, { model: choice, effort: null });
+    return console.log(`${who.emoji} ${who.name} now runs on ${choice}: a model and effort chosen for each task, from their next run.`);
+  }
   const { models } = await listModels();
   const m = models.find((x) => x.id === model);
-  if (!m) return console.log(`Pick one of: ${models.map((x) => x.id).join(", ")}`);
+  if (!m) return console.log(`Pick auto, auto:economy, auto:balanced, auto:quality, or one of: ${models.map((x) => x.id).join(", ")}`);
   if (effort && !m.efforts.includes(effort as Effort)) return console.log(`${m.name} supports effort: ${m.efforts.join(", ") || "none"}`);
   setAgentSettings(who.id, { model: m.id, effort: (effort as Effort) ?? null });
   console.log(`${who.emoji} ${who.name} now runs on ${m.id}${effort ? ` · ${effort}` : ""}, from their next run.`);

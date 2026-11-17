@@ -72,6 +72,8 @@ import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeTidy, 
 import { logKept, writeAbout } from "./memlog.js";
 import { anthropicKeyState, setAnthropicKey, approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
 import { writeModelGuide } from "./modelguide.js";
+import { isAutoChoice, POLICY } from "./routing.js";
+import { routingReport } from "./autoroute.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./chronicle.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
@@ -822,6 +824,8 @@ const server = http.createServer(async (req, res) => {
 
     // Models this API key can use, with the effort levels each supports.
     if (req.method === "GET" && url.pathname === "/api/models") return send(res, 200, await listModels());
+    // Auto's policy version and how it compares with fixed models on matched tasks (autoroute.ts).
+    if (req.method === "GET" && url.pathname === "/api/routing") return send(res, 200, { policy: POLICY.version, ...routingReport() });
 
     // The Files flyout: one folder's contents inside a linked folder (or one of its worktrees), a
     // file to preview, or an image's bytes. link: the linked folder; root: a worktree of it; path:
@@ -1011,7 +1015,7 @@ const server = http.createServer(async (req, res) => {
       let model: string | undefined = replyTo ? thread?.model : undefined;
       if (body.model === null) model = undefined;
       else if (typeof body.model === "string" && body.model) {
-        if (!(await listModels()).models.some((m) => m.id === body.model)) return send(res, 400, { error: `Unknown model "${body.model}". Pick another beside the message box.` });
+        if (!isAutoChoice(body.model) && !(await listModels()).models.some((m) => m.id === body.model)) return send(res, 400, { error: `Unknown model "${body.model}". Pick another beside the message box.` });
         model = body.model;
       }
       if (aside) model = undefined;
@@ -1083,6 +1087,11 @@ const server = http.createServer(async (req, res) => {
         if (!Number.isInteger(maxTurns) || maxTurns < TURNS_MIN || maxTurns > TURNS_MAX) {
           return send(res, 400, { error: `Max turns must be a whole number from ${TURNS_MIN} to ${TURNS_MAX}` });
         }
+      }
+      // Auto ("auto:balanced"…) picks the model and effort for each task itself: no effort is kept with it.
+      if (isAutoChoice(body.model)) {
+        setAgentSettings(id, { model: body.model, effort: null, maxTurns });
+        return send(res, 200, { ok: true });
       }
       const { models } = await listModels();
       const model = models.find((m) => m.id === body.model);
@@ -1500,7 +1509,7 @@ const server = http.createServer(async (req, res) => {
 
     // Other models (providers.ts). connect: keep a provider's key ({ id, key }), once the provider
     // has accepted it. disconnect: forget it ({ id }). small: which model does the camp's own small
-    // jobs ({ model }: a Claude model, "<provider>:<model>", or null for the default).
+    // jobs ({ model }: a Claude model, "<provider>:<model>", "auto", or null for the default).
     if (url.pathname.startsWith("/api/providers/")) {
       try {
         // guide: write the wiki's models guide now (it's also rewritten whenever what's connected changes).
@@ -1524,8 +1533,9 @@ const server = http.createServer(async (req, res) => {
           return send(res, 200, { ok });
         }
         if (url.pathname === "/api/providers/small") {
-          const model = body.model ? String(body.model) : null;
-          if (model && !(await listModels()).models.some((m) => m.id === model)) return send(res, 400, { error: `Unknown model "${model}"` });
+          // "auto": Auto picks for each small job (small.ts). It has one setting there: the cheapest model that's up to it.
+          const model = body.model ? (isAutoChoice(String(body.model)) ? "auto" : String(body.model)) : null;
+          if (model && model !== "auto" && !(await listModels()).models.some((m) => m.id === model)) return send(res, 400, { error: `Unknown model "${model}"` });
           setSmallModel(model);
           emit({ type: "changed", what: "settings" });
           return send(res, 200, { ok: true, smallModel: smallModel() });

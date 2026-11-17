@@ -45,7 +45,7 @@ export type HdPlanet = {
 };
 export type HdFrame = {
   time: number; cam: Camera3;
-  sun: { radius: number; active: number; waiting: number };
+  sun: { radius: number; active: number; waiting: number; light: number }; // light: how bright it is set (1: as made)
   planets: HdPlanet[];
   lines: { rot: number; color: Vec3; tone: number; lit: number; tail: boolean }[]; // the contour lines, in order outwards
   ping: { r: number; a: number }; // the sun's ring: how far out it is, and how bright
@@ -114,7 +114,7 @@ void main(){ v_q = a_q; v_world = u_center + (u_right*a_q.x + u_up*a_q.y)*u_size
 
 const FS_SPHERE = HEAD + NOISE + `
 uniform mat4 u_vp; uniform vec3 u_eye, u_center, u_color, u_light;
-uniform float u_radius, u_time, u_spin, u_seed, u_active, u_waiting, u_blip, u_tilt, u_scale, u_grown;
+uniform float u_radius, u_time, u_spin, u_seed, u_active, u_waiting, u_blip, u_tilt, u_scale, u_grown, u_dim;
 uniform vec3 u_color2; uniform vec4 u_p; // (what this world is like: see World in worlds.ts)
 uniform int u_mode; // 0 a planet, 1 the sun, 2 a moon
 in vec3 v_world; out vec4 o;
@@ -140,6 +140,7 @@ void main(){
     col *= (1.55+u_active*.8)*(.6+.4*mu);
     col += vec3(1.,.5,.12)*pow(max(1.-mu, 0.), 2.4)*.9;
     col = mix(col, col*vec3(1.,.9,.75)+.15, u_waiting*(.5+.5*sin(u_time*5.))*.5);
+    col *= u_dim; // (as bright as it's been set)
   } else if(u_mode == 2){
     float lit = smoothstep(-.1,.45,dot(n, u_light));
     col = mix(vec3(.55), u_color, .55)*(.13+lit*1.05)*(.72+.28*noise(n*7.+u_seed))*(1.-.35*smoothstep(.55,.75,noise(n*3.5+u_seed*2.)));
@@ -376,7 +377,7 @@ void main(){
 const VS_PLANE = HEAD + `layout(location=0) in vec2 a_q; uniform mat4 u_vp; uniform float u_size; out vec2 v_xz;
 void main(){ v_xz = a_q*u_size; gl_Position = u_vp*vec4(v_xz.x, 0., v_xz.y, 1.); }`;
 const FS_PLANE = HEAD + `
-uniform float u_reach, u_ping, u_pingA; uniform vec3 u_sun;
+uniform float u_reach, u_ping, u_pingA, u_pool; uniform vec3 u_sun;
 in vec2 v_xz; out vec4 o;
 float thin(float dist, float px){ return fall(px*1.3+1e-4, 0., dist); } // a line, a pixel or so wide however far off it is
 void main(){
@@ -390,7 +391,7 @@ void main(){
   vec3 col = vec3(.42,.52,.74)*g;
   float front = exp(-sq((r-u_ping)/(5.+u_ping*.02)));
   col += u_sun*(front*1.8 + exp(-sq((r-u_ping+16.)/24.))*.22*step(r, u_ping))*u_pingA;
-  col += u_sun*(.12*exp(-r/80.)+.035*exp(-r/260.));                                   // the sun's light, pooled on the table under it
+  col += u_sun*(.12*exp(-r/80.)+.035*exp(-r/260.))*u_pool;                                   // the sun's light, pooled on the table under it
   col *= fall(u_reach*2.1, u_reach*1.05, r);
   o = vec4(col, 1.);
 }`;
@@ -467,11 +468,11 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
     P = {
       sky: program(VS_SCREEN, FS_SKY, ["right", "up", "fwd", "tan", "shift"]),
       points: program(VS_POINTS, FS_POINTS, ["vp", "origin", "px", "fixed"]),
-      sphere: program(VS_BILL, FS_SPHERE, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "mode", "tilt", "scale", "color2", "p", "grown"]),
+      sphere: program(VS_BILL, FS_SPHERE, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "mode", "tilt", "scale", "color2", "p", "grown", "dim"]),
       station: program(VS_BILL, FS_STATION, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "active", "waiting", "blip", "p", "tilt", "grown"]),
       rock: program(VS_BILL, FS_ROCK, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "rig", "rough", "grown"]),
       halo: program(VS_BILL, FS_HALO, ["vp", "center", "right", "up", "size", "eye", "color", "radius", "strength", "falloff", "ring", "ringW", "time", "rays"]),
-      plane: program(VS_PLANE, FS_PLANE, ["vp", "size", "reach", "ping", "pingA", "sun"]),
+      plane: program(VS_PLANE, FS_PLANE, ["vp", "size", "reach", "ping", "pingA", "sun", "pool"]),
       line: program(VS_LINE, FS_LINE, ["vp", "rot", "color", "alpha", "tail"]),
       ring: program(VS_RING, FS_RING, ["vp", "center", "size", "color", "seed", "active", "tilt", "in", "out"]),
       bright: program(VS_SCREEN, FS_BRIGHT, ["tex"]),
@@ -574,18 +575,18 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
       u = use(P.sphere);
       g.uniformMatrix4fv(u.vp, false, cam.viewProj); v3(u.eye, cam.eye); v3(u.right, cam.right); v3(u.up, cam.up); g.uniform1f(u.time, f.time);
       g.bindVertexArray(quad);
-      const sphere = (o: { center: Vec3; radius: number; color: Vec3; mode: number; seed?: number; spin?: number; active?: number; waiting?: number; blip?: number; world?: HdPlanet }) => {
+      const sphere = (o: { center: Vec3; radius: number; color: Vec3; mode: number; dim?: number; seed?: number; spin?: number; active?: number; waiting?: number; blip?: number; world?: HdPlanet }) => {
         v3(u.center, o.center); g.uniform1f(u.radius, o.radius); g.uniform1f(u.size, o.radius * 1.25); v3(u.color, o.color);
         const far = Math.hypot(...o.center) || 1;
         g.uniform3f(u.light, -o.center[0] / far, -o.center[1] / far, -o.center[2] / far); // the sun is in the middle: the light comes from there
-        g.uniform1i(u.mode, o.mode); g.uniform1f(u.seed, o.seed ?? 0); g.uniform1f(u.spin, o.spin ?? 0);
+        g.uniform1i(u.mode, o.mode); g.uniform1f(u.dim, o.dim ?? 1); g.uniform1f(u.seed, o.seed ?? 0); g.uniform1f(u.spin, o.spin ?? 0);
         g.uniform1f(u.active, o.active ?? 0); g.uniform1f(u.waiting, o.waiting ?? 0); g.uniform1f(u.blip, o.blip ?? -1);
         const w = o.world;
         g.uniform1f(u.tilt, w?.tilt ?? 0); g.uniform1f(u.scale, w?.scale ?? 1); v3(u.color2, w?.color2 ?? o.color);
         g.uniform4f(u.p, w?.p[0] ?? 0, w?.p[1] ?? 0, w?.p[2] ?? 0, w?.p[3] ?? 0); g.uniform1f(u.grown, w?.grown ?? 0.3);
         g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
       };
-      sphere({ center: [0, 0, 0], radius: f.sun.radius, color: SUN, mode: 1, active: f.sun.active, waiting: f.sun.waiting });
+      sphere({ center: [0, 0, 0], radius: f.sun.radius, color: SUN, mode: 1, dim: f.sun.light, active: f.sun.active, waiting: f.sun.waiting });
       for (const p of f.planets) {
         if (p.kind === 0) sphere({ center: p.pos, radius: p.radius, color: p.color, mode: 0, seed: p.seed, spin: p.spin, active: p.active, waiting: p.waiting, blip: p.blip, world: p });
         for (const m of p.moons) sphere({ center: m.pos, radius: m.radius, color: m.own ? OWN_MOON : p.color, mode: 2, seed: m.radius * 37, waiting: m.waiting ? 1 : 0 });
@@ -620,7 +621,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
       g.depthMask(false); g.enable(g.BLEND); g.blendFunc(g.ONE, g.ONE);
       u = use(P.plane);
       g.uniformMatrix4fv(u.vp, false, cam.viewProj); g.uniform1f(u.size, f.reach * 2.2); g.uniform1f(u.reach, f.reach);
-      g.uniform1f(u.ping, f.ping.r); g.uniform1f(u.pingA, f.ping.a); v3(u.sun, SUN);
+      g.uniform1f(u.ping, f.ping.r); g.uniform1f(u.pingA, f.ping.a); v3(u.sun, SUN); g.uniform1f(u.pool, f.sun.light);
       g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
 
       u = use(P.line);
@@ -652,7 +653,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
         g.uniform1f(u.strength, strength); g.uniform1f(u.falloff, o.falloff ?? 4); g.uniform1f(u.ring, o.ring ?? 0); g.uniform1f(u.ringW, o.ringW ?? 0.1); g.uniform1f(u.rays, o.rays ?? 0);
         g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
       };
-      halo([0, 0, 0], f.sun.radius, SUN, 0.82 + f.sun.active * 0.45, { falloff: 2.2, reach: 10, rays: 1 });
+      halo([0, 0, 0], f.sun.radius, SUN, (0.82 + f.sun.active * 0.45) * f.sun.light, { falloff: 2.2, reach: 10, rays: 1 });
       for (const p of f.planets) {
         if (p.kind !== 0) halo(p.pos, p.radius * 0.5, p.color, 0.05 + p.active * 0.16, { falloff: 1.6, reach: 5 });    // a station or a cluster has no air: only the light it gives off
         else halo(p.pos, p.radius, p.color, (0.22 + p.active * 0.6) * p.air, { falloff: 5.5 / Math.sqrt(p.air), reach: 2.6 }); // its air
