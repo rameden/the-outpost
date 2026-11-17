@@ -463,6 +463,9 @@ test("a camp that doesn't say what they carry lists no satellites", () => {
 });
 
 test("a quest with nothing for three minutes dims its planet and its label says it's quiet", () => {
+  // Four minutes pass here. Only the clock and the timers are stood in for, not the frames: quiet is worked out
+  // on the fifteen-second beat, and drawing fifteen thousand frames to get there took a slow machine past the time limit.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "performance"] });
   const { store, planet, cell } = show();
   send(store, ...underWay);
   pass(2 * 60_000);
