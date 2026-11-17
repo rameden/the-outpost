@@ -13,8 +13,11 @@ import { aboutBlock } from "./memlog.js";
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
-import { PROVIDERS, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
-import { currentLedger, currentQuestId, currentRunKey, currentSignal, currentSteering, conversationModel } from "./context.js";
+import { PROVIDERS, ProviderError, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
+import { currentExpeditionId, currentLedger, currentQuestId, currentReplyTo, currentRunKey, currentSignal, currentSteering, currentThread, conversationModel } from "./context.js";
+import { isAutoChoice, parseChoice, profileTask, requestTokens as sizeOf, routeId, type Decision, type Route } from "./routing.js";
+import { TaskRouter, Verification, autoMode, coolDown, gradeOf, lastRouteOf, logOutcome, noteOutcome, tierOf, type RouteStep, type RouteUse } from "./autoroute.js";
+import { OpJournal, journaled } from "./oplog.js";
 import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
 import { mcpToolsFor } from "./mcp.js";
@@ -207,6 +210,7 @@ export function resolveModel(spec: Pick<AgentSpec, "id" | "model" | "effort">): 
   const here = getProject(currentProjectId())?.settings?.agents?.[spec.id];
   const model = here?.model ?? s.model ?? spec.model ?? DEFAULT_MODEL;
   let effort = (here?.model ? (here.effort as Effort | undefined) : undefined) ?? s.effort ?? spec.effort;
+  if (isAutoChoice(model)) return { model }; // Auto chooses the effort along with the model, task by task
   const info = knownModel(model);
   if (effort && info && !info.efforts.includes(effort)) effort = undefined;
   return { model, effort };
@@ -267,6 +271,8 @@ export type AgentResult = {
   session?: string;    // where this run's full transcript was saved
   runtime?: Runtime;   // what ran it: your subscription (claude-code) or the API
   costUsd?: number;    // Claude Code's own figure at API prices (an estimate on a subscription)
+  // Auto: what you picked ("auto:balanced"…), each route it ran on and why, and what each one cost.
+  route?: { choice: string; steps: RouteStep[]; use: RouteUse[] };
 };
 
 // Skills you set to "always on" for a crew member: their instructions, in full, in every prompt.
@@ -346,6 +352,10 @@ function announcingFiles(t: Tool, self: string, me: { who: string; emoji: string
   };
 }
 
+let runCount = 0;
+const resultText = (c: unknown): string =>
+  typeof c === "string" ? c : Array.isArray(c) ? c.map((b: any) => (b?.type === "text" ? String(b.text) : "")).join("\n") : "";
+
 function preview(input: unknown): string {
   const s = JSON.stringify(input);
   return s.length > 120 ? s.slice(0, 120) + "…" : s;
@@ -359,13 +369,18 @@ export async function runAgent(
   opts: { extraSystem?: string; depth?: number; source?: SessionSource; plain?: boolean } = {}
 ): Promise<AgentResult> {
   const me = { who: spec.name, emoji: spec.emoji, depth: opts.depth ?? 0, questId: currentQuestId() };
+  const startedAt = Date.now();
   await claudeModels(); // so effort support is known (cached for 10 minutes). Only Claude's list: other providers' models take no effort level, and asking each of them here would hold up every run's start.
   // A conversation can name its own model (picked beside the message box): whoever you're talking
   // to answers on it. Crew sent out on quests keep the models they're set to (see withQuest).
   const picked = conversationModel();
   const own = resolveModel(spec);
-  const model = picked ?? own.model;
-  const effort = picked && picked !== own.model ? (knownModel(picked)?.efforts.includes(own.effort as Effort) ? own.effort : undefined) : own.effort;
+  // Auto ("auto", "auto:economy"…) is a choice, not a model: the route is chosen below, once the
+  // request it has to carry is known. Anything else is a model you pinned, used as it always was.
+  const choice = parseChoice(picked ?? own.model);
+  let model = choice.kind === "manual" ? choice.model : DEFAULT_MODEL;
+  let effort = choice.kind === "auto" ? undefined
+    : picked && picked !== own.model ? (knownModel(picked)?.efforts.includes(own.effort as Effort) ? own.effort : undefined) : own.effort;
   const maxTurns = resolveTurns(spec);
   if (!opts.plain) ensureWorkspace(spec.id);
   // The prompt comes in two parts, and the order is for caching as much as for the model. First
@@ -385,8 +400,7 @@ export async function runAgent(
         `## How you work\n${spec.persona}`,
         `## Your skills\nWhen a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, always.map((s) => s.dir))}` + alwaysBlock(spec.id, spec.skillDirs),
       ]);
-  const moving = parts([
-    modelsBlock(model),
+  const movingRest = parts([
     !opts.plain && continuityBlock(spec.id, requestText(task)),
     aboutBlock(),
     !opts.plain && wikiIndex(),
@@ -397,7 +411,9 @@ export async function runAgent(
     !opts.plain && feedbackBlock(spec.id, currentProjectId()),
     opts.extraSystem,
   ]);
-  const system = parts([fixed, moving]); // as one text, for the runtimes that take it that way
+  // What's said about models names the one answering, so it's worked out for each route.
+  const movingFor = (m: string) => parts([modelsBlock(m), movingRest]);
+  const systemFor = (m: string) => parts([fixed, movingFor(m)]); // as one text, for the runtimes that take it that way
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).
   // In a project, the crew can keep notes about it; a project can also turn the web tools off.
@@ -405,9 +421,18 @@ export async function runAgent(
   const inProject = !!project && project.id !== "general";
   const webOff = project?.settings?.web === "off";
   const isWeb = (t: Tool) => "name" in t.def && (t.def.name === "web_search" || t.def.name === "web_fetch");
+  // A task in a conversation can be picked up again (after a dropped connection, a crash, a switch
+  // of model): what its tools changed is journaled so it's never done twice (oplog.ts).
+  const thread = currentThread();
+  // (A crew member sent back to the same quest, to fix a failing check, is a run of its own.)
+  const runId = `${currentExpeditionId() ?? "solo"}:${currentQuestId() ?? "-"}:${spec.id}:${(++runCount).toString(36)}`;
+  const journal = thread ? new OpJournal(`${thread}:${spec.id}`, runId, currentReplyTo()) : null;
+  const notice = (text: string) => emit({ type: "notice", ...me, text });
   const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject && !opts.plain ? [projectRemember] : []), ...(opts.plain ? [] : await mcpToolsFor(spec.id))]
-    .map((t) => announcingFiles(t, spec.id, me));
-  const defs = toolsFor(model, tools.map((t) => t.def));
+    .map((t) => announcingFiles(t, spec.id, me))
+    .map((t) => (journal ? journaled(t, journal, notice) : t));
+  const defsFor = (m: string) => toolsFor(m, tools.map((t) => t.def));
+  let defs = defsFor(model);
   const handlers = new Map<string, NonNullable<Tool["run"]>>();
   for (const t of tools) {
     if (t.run && "name" in t.def) handlers.set(t.def.name, t.run);
@@ -423,7 +448,8 @@ export async function runAgent(
   let fellBack = false;   // another model carried on for at least one reply
   const finish = (status: AgentResult["status"], note = ""): AgentResult => {
     // (After a fallback the tokens were used at two models' rates: the cost worked out reply by reply is the right one.)
-    const result: AgentResult = { text: lastText + note, status, turns: turn, usage, model, effort, ...(fellBack ? { costUsd: spentHere } : {}) };
+    const result: AgentResult = { text: lastText + note, status, turns: turn, usage, model, effort, ...(fellBack || router ? { costUsd: spentHere } : {}),
+      ...(router ? { route: { choice: autoMode(router.mode), steps: router.steps, use: [...router.use.values()] } } : {}) };
     // Every conversation lands in this agent's own session history, so the next one can build on it.
     const asked = requestText(task).replace(/^\(Sent directly by the user[^)]*\)\s*/, "");
     // (A plain chat has no crew member to keep it for: its conversation is its record.)
@@ -462,8 +488,85 @@ export async function runAgent(
   // A failure part-way (a network error, the plan's limit) still leaves a transcript and a cost.
   let failedCost: number | undefined;
   // A model from another provider ("groq:…"): the same loop as the API's, talking to them instead.
-  const other = otherModel(model);
+  let other = otherModel(model);
+
+  // ---------- Auto ----------
+  // The route is chosen here, right before the first dispatch, from what the request has to carry,
+  // and looked at again before each one after that (routing.ts decides; autoroute.ts knows the camp).
+  const reqTokens = () => sizeOf({ system: systemFor(model), tools: defs, messages });
+  const confidential = ["careful", "off"].includes(String(getProject(currentProjectId())?.settings?.web ?? ""));
+  let router: TaskRouter | null = null;
+  const pinnedChecks = new Verification(); // a pinned model's run: whether it checked its own work (Auto's router keeps its own)
+  const applyRoute = (r: Route) => { model = r.model; effort = r.effort; other = otherModel(model); defs = defsFor(model); };
+  const announce = (d: Extract<Decision, { kind: "selected" }>, switched: boolean) =>
+    emit({ type: "route", ...me, model: d.primary.model, ...(d.primary.effort ? { effort: d.primary.effort } : {}), choice: autoMode(router!.mode), trigger: d.trigger, reason: d.reason, switched });
+  // Look again (a trigger fired, or the route can't take the next request). Waits, cancellably,
+  // when every route is cooling down but one will be back before the task's deadline.
+  // The first choice is made the same way, with no route yet: a task picked up again starts from
+  // the route it was on (and changes only if it's worth it); a new one from nothing.
+  const reroute = async (trigger: Parameters<TaskRouter["decide"]>[0], evidence?: string, incumbent?: string): Promise<AgentResult | null> => {
+    const first = !router!.route;
+    for (;;) {
+      if (signal?.aborted) return finish("stopped", stoppedNote);
+      const before = router!.route?.id;
+      const size = reqTokens();
+      const d = first ? router!.decide(trigger, size, 0, evidence, incumbent) : router!.decide(trigger, size, size, evidence);
+      if (d.kind === "selected") {
+        if (d.primary.id !== before) { applyRoute(d.primary); announce(d, !first); }
+        else if (trigger === "scope_change" || trigger === "repeated_failure") announce(d, false);
+        return null;
+      }
+      if (d.retryAfterMs != null && d.retryAfterMs <= router!.waitLeft()) {
+        notice(`⏳ ${d.reason}`);
+        if (!(await pause(d.retryAfterMs, signal))) return finish("stopped", stoppedNote);
+        continue;
+      }
+      throw new Error(`Auto couldn't ${first ? "pick a model" : "carry on"}: ${d.reason}`);
+    }
+  };
+  if (choice.kind === "auto") {
+    const { models } = await listModels();
+    const text = requestText(task);
+    router = new TaskRouter({
+      mode: choice.preference, task: `${thread ?? currentExpeditionId() ?? "solo"}:${spec.id}`, run: runId, agent: spec.id, models, confidential,
+      budgetLeft: () => (ledger?.budget != null ? ledger.budget - ledger.spent : undefined),
+      profile: { text, context: opts.extraSystem, role: spec.id, hasImages: Array.isArray(task) && task.some((b: any) => b?.type === "image"), tools: tools.some((t) => !!t.run),
+        serverTools: tools.some(isWeb) && /\b(web|online|internet|latest|news|website|search the)\b|https?:\/\//i.test(text) },
+      requestTokens: reqTokens(),
+    });
+  }
+  // On a switch, each provider gets a transcript it can take: reasoning another model wrote stays
+  // with that model (Claude only takes back its own signed thinking), and tool-call ids are made
+  // unique and in the form every provider accepts.
+  const authorOf = new WeakMap<object, string>();
+  const usedIds = new Set<string>();
+  const forRoute = (list: Anthropic.MessageParam[], target: string): Anthropic.MessageParam[] => list.map((m) => {
+    if (m.role !== "assistant" || !Array.isArray(m.content) || authorOf.get(m) === target) return m;
+    const toClaude = !otherModel(target);
+    const kept = (m.content as any[]).filter((b) => !(b?.type === "thinking" || b?.type === "redacted_thinking") || (toClaude && !!b.signature && !otherModel(authorOf.get(m) ?? "")));
+    return kept.length === m.content.length ? m : { ...m, content: kept.length ? kept : [{ type: "text", text: "(continued)" }] } as Anthropic.MessageParam;
+  });
+  const fixIds = (content: any[]) => content.map((b, i) => {
+    if (b?.type !== "tool_use") return b;
+    let id = String(b.id ?? "");
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id) || usedIds.has(id)) id = `toolu_auto_${turn}_${i}`;
+    usedIds.add(id);
+    return id === b.id ? b : { ...b, id };
+  });
+  const retryAfterOf = (err: any): number | undefined => {
+    if (err instanceof ProviderError) return err.retryAfterMs;
+    const h = err?.headers;
+    const v = Number(typeof h?.get === "function" ? h.get("retry-after") : h?.["retry-after"]);
+    return Number.isFinite(v) && v >= 0 && (typeof h?.get === "function" ? h.get("retry-after") : h?.["retry-after"]) != null ? v * 1000 : undefined;
+  };
+  const pinnedHint = " Pick Auto for this conversation (beside the message box) or for the crew member to let another model carry on.";
+
   const work = async (): Promise<AgentResult> => {
+    if (router) {
+      const was = thread ? lastRouteOf(`${thread}:${spec.id}`, spec.id) : undefined;
+      const stopped = await reroute(was ? "resume" : "new_task", was ? "the task was picked up again" : undefined, was);
+      if (stopped) return stopped;
+    }
     if (other) {
       // A project you've marked confidential (web: careful, or off) keeps its files with Claude:
       // another provider would be sent the prompt, and with it whatever the crew reads there.
@@ -479,7 +582,7 @@ export async function runAgent(
       if (overBudget()) return finish("over_budget", budgetNote());
       let spentLive = 0;
       const r = await runClaudeCode({
-        model, effort, system, task, tools, signal, messages, steering,
+        model, effort, system: systemFor(model), task, tools, signal, messages, steering,
         // The shared tally moves with every reply, so parallel quests and the Quartermaster see
         // each other's spending while they run, and the run ends itself once the budget is gone.
         onSpend: (usd) => { spentLive += usd; if (ledger) ledger.spent += usd; },
@@ -513,48 +616,76 @@ export async function runAgent(
         turn--;
         return finish("over_budget", budgetNote());
       }
-      let resp: { content: any[]; stop_reason: string | null; model?: string; usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null; iterations?: unknown } };
-      if (other) {
+      // Auto: the route is checked before every dispatch (still available, still big enough), and
+      // looked at again if the last turn's tool calls turned up a reason to.
+      if (router) {
+        const t = router.check(reqTokens());
+        if (t) { const stopped = await reroute(t.trigger, t.evidence); if (stopped) { turn--; return stopped; } }
+      }
+      let resp!: { content: any[]; stop_reason: string | null; model?: string; usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null; iterations?: unknown } };
+      const servedBy = () => router?.route;
+      let route = servedBy();
+      for (let attempt = 0, got = false; !got; attempt++) {
+        if (signal?.aborted) { turn--; return finish("stopped", stoppedNote); }
+        route = servedBy();
+        const outgoing = router ? forRoute(messages, model) : messages;
         try {
-          resp = await providerChat({ provider: other.provider, model: other.model, system, messages: messages as any, tools: defs, maxTokens: MAX_TOKENS, signal,
-            onDelta: (delta) => emit({ type: "text_delta", ...me, delta }) });
-        } catch (err) {
-          if (signal?.aborted) return finish("stopped", stoppedNote);
-          throw err;
-        }
-      } else {
-      for (let attempt = 0; ; attempt++) {
-        const stream = client().beta.messages.stream({
-          model,
-          max_tokens: MAX_TOKENS,
-          betas: ["context-management-2025-06-27", ...(fallsBack(model) ? [FALLBACK_BETA] : [])],
-          context_management: CONTEXT_MANAGEMENT,
-          ...(fallsBack(model) ? { fallbacks: "default" as const } : {}),
-          ...(effort ? { output_config: { effort } } : {}),
-          // Three cache layers: a breakpoint after the fixed part of the prompt (with the tools
-          // ahead of it), one after the moving part, and automatic caching for the conversation,
-          // which grows by one turn each loop.
-          cache_control: { type: "ephemeral" },
-          system: [
-            { type: "text" as const, text: fixed, cache_control: { type: "ephemeral" as const } },
-            ...(moving ? [{ type: "text" as const, text: moving, cache_control: { type: "ephemeral" as const } }] : []),
-          ],
-          tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
-          messages: messages as unknown as Anthropic.Beta.BetaMessageParam[],
-        }, { signal });
-        // Words appear in mission control as they're written.
-        stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
-        try {
-          resp = await stream.finalMessage();
-          break;
+          if (other) {
+            resp = await providerChat({ provider: other.provider, model: other.model, system: systemFor(model), messages: outgoing as any, tools: defs, maxTokens: MAX_TOKENS, signal,
+              onDelta: (delta) => emit({ type: "text_delta", ...me, delta }) });
+          } else {
+            const moving = movingFor(model);
+            const stream = client().beta.messages.stream({
+              model,
+              max_tokens: MAX_TOKENS,
+              betas: ["context-management-2025-06-27", ...(fallsBack(model) ? [FALLBACK_BETA] : [])],
+              context_management: CONTEXT_MANAGEMENT,
+              ...(fallsBack(model) ? { fallbacks: "default" as const } : {}),
+              ...(effort ? { output_config: { effort } } : {}),
+              // Three cache layers: a breakpoint after the fixed part of the prompt (with the tools
+              // ahead of it), one after the moving part, and automatic caching for the conversation,
+              // which grows by one turn each loop.
+              cache_control: { type: "ephemeral" },
+              system: [
+                { type: "text" as const, text: fixed, cache_control: { type: "ephemeral" as const } },
+                ...(moving ? [{ type: "text" as const, text: moving, cache_control: { type: "ephemeral" as const } }] : []),
+              ],
+              tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
+              messages: outgoing as unknown as Anthropic.Beta.BetaMessageParam[],
+            // Under Auto the router owns retries, so one budget covers the whole task across models.
+            }, { signal, ...(router ? { maxRetries: 0 } : {}) });
+            // Words appear in mission control as they're written.
+            stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
+            resp = await stream.finalMessage();
+          }
+          got = true;
         } catch (err: any) {
           if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
-          if (attempt >= retryWaits.length || !isPassingFailure(err)) throw err;
-          emit({ type: "notice", ...me, text: `⏳ The reply was cut off (${String(err?.message ?? err).slice(0, 120)}). Asking again in ${Math.round(retryWaits[attempt] / 1000)}s (${attempt + 1} of ${retryWaits.length}).` });
+          const passing = err instanceof ProviderError ? err.passing : isPassingFailure(err);
+          if (router && (passing || err instanceof ProviderError)) {
+            // A provider that refused outright (a spent balance, a key it no longer takes) is set aside for longer.
+            const next = err instanceof ProviderError && !err.passing
+              ? (coolDown(`provider:${otherModel(model)?.provider ?? "anthropic"}`, 10 * 60_000, "refused"), { do: "switch" as const, evidence: `${model} couldn't be used (${String(err.message).slice(0, 100)})` })
+              : router.failed(retryAfterOf(err), retryWaits);
+            if (next.do === "give_up") { err.message = `${err.message} (Auto ${next.why}.)`; throw err; }
+            if (next.do === "wait") {
+              notice(`⏳ The reply was cut off (${String(err?.message ?? err).slice(0, 120)}). Asking ${model} again in ${Math.round(next.ms / 1000)}s.`);
+              if (!(await pause(next.ms, signal))) return finish("stopped", stoppedNote);
+              continue;
+            }
+            const stopped = await reroute("provider_unavailable", next.evidence);
+            if (stopped) { turn--; return stopped; }
+            continue;
+          }
+          if (other || attempt >= retryWaits.length || !passing) {
+            if (passing && err instanceof Error) err.message += pinnedHint;
+            throw err;
+          }
+          notice(`⏳ The reply was cut off (${String(err?.message ?? err).slice(0, 120)}). Asking again in ${Math.round(retryWaits[attempt] / 1000)}s (${attempt + 1} of ${retryWaits.length}).`);
           if (!(await pause(retryWaits[attempt], signal))) return finish("stopped", stoppedNote);
         }
       }
-      }
+      if (router) resp.content = fixIds(resp.content);
       // Another model carried on after this one declined: say so, and keep only what carries over.
       const { content: kept, live } = afterFallback(resp.content);
       for (const b of resp.content) {
@@ -564,7 +695,9 @@ export async function runAgent(
         emit({ type: "notice", ...me, text: `↪️ ${b.from?.model ?? model} declined this request${why}; ${b.to?.model ?? resp.model ?? "another model"} carried on.` });
       }
       if (Array.isArray(resp.usage.iterations) && resp.usage.iterations.some((i: any) => i?.type === "fallback_message")) fellBack = true; // (a later reply in a conversation that already fell back has no block)
-      messages.push({ role: "assistant", content: kept as unknown as Anthropic.ContentBlockParam[] });
+      const reply: Anthropic.MessageParam = { role: "assistant", content: kept as unknown as Anthropic.ContentBlockParam[] };
+      authorOf.set(reply, model);
+      messages.push(reply);
       const turnUsage = {
         input: resp.usage.input_tokens,
         output: resp.usage.output_tokens,
@@ -577,6 +710,7 @@ export async function runAgent(
       usage.cacheWrite += turnUsage.cacheWrite;
       const cost = replyCost(model, turnUsage, resp.usage.iterations);
       spentHere += cost;
+      if (router && route) router.account(route, cost, turnUsage.input + turnUsage.cacheRead + turnUsage.cacheWrite, turnUsage.output);
       if (ledger) ledger.spent += cost;
 
       const text = resp.content
@@ -658,17 +792,44 @@ export async function runAgent(
       // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn limit.
       const notes = [takeSteer(), maxTurns >= 6 ? wrapUpNote(maxTurns - turn) : null].filter((n): n is string => !!n);
       messages.push({ role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] });
+      // What the tools turned up: a failure reproduced after distinct fixes, or a bigger task than it looked.
+      const calls = uses.map((b, i) => ({ name: b.name, input: b.input, output: resultText(results[i]?.content), failed: !!results[i]?.is_error }));
+      if (router) router.observe(calls, reqTokens());
+      else pinnedChecks.note(calls);
     }
     turn--; // the loop counter ran one past the last turn
     return finish("out_of_turns", turnsNote(spec.name, maxTurns) + handoff());
   };
+  // Every run's outcome goes in the routing log: Auto's, and a pinned model's (the baseline Auto is
+  // compared with). The journal is closed for a run that ended on its own terms, and left open for
+  // one that failed part-way, so the run that picks it up again can reuse what it did.
+  const settle = (r: AgentResult) => {
+    const total = r.costUsd ?? spentHere;
+    try {
+      if (router) return router.finish(r.status, total);
+      const { family, difficulty } = profileTask({ text: requestText(task), role: spec.id, requestTokens: 0 });
+      const id = routeId(model, effort);
+      const grade = gradeOf(r.status, pinnedChecks.state);
+      const tier = tierOf(model);
+      logOutcome({ task: `${thread ?? currentExpeditionId() ?? "solo"}:${spec.id}`, run: runId, agent: spec.id, mode: "manual", status: r.status, ok: r.status === "done", ...(grade ? { grade } : {}),
+        seconds: Math.round((Date.now() - startedAt) / 1000), usd: total, switches: 0, family,
+        routes: [{ route: id, usd: total, input: usage.input + usage.cacheRead + usage.cacheWrite, output: usage.output, turns: r.turns }] });
+      if (grade && tier) noteOutcome({ id, tier, effort }, family, difficulty, grade);
+    } catch { /* the log is a record, never a reason to fail a run */ }
+  };
+  journal?.begin();
   try {
-    return await work();
+    const r = await work();
+    journal?.end();
+    settle(r);
+    return r;
   } catch (err: any) {
-    if (signal?.aborted) return finish("stopped", stoppedNote);
+    if (signal?.aborted) { journal?.end(); const r = finish("stopped", stoppedNote); settle(r); return r; }
+    journal?.abandon();
     const e: AgentFailure = err instanceof Error ? err : new Error(String(err));
     const partial = finish("error", `\n\n[Failed: ${e.message}]`);
     e.partial = campRuntime() === "claude-code" && !other ? { ...partial, runtime: "claude-code", costUsd: failedCost ?? 0 } : partial;
+    settle(e.partial);
     throw e;
   }
 }

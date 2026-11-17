@@ -30,6 +30,8 @@ export type QuestEntry = {
   session?: string;                      // that run's full transcript (camp/agents/<id>/sessions/…)
   runtime?: "api" | "claude-code";       // API key, or your Claude subscription through Claude Code
   costUsd?: number;                      // Claude Code's own figure at API prices (subscription runs)
+  // Auto: what you picked, and each model it ran on with the reason (model is the last of them).
+  route?: { choice: string; steps: { model: string; effort?: string; trigger: string; reason: string }[] };
 };
 
 // What a quest cost: Claude Code's own figure when it ran on the subscription (an estimate at API
@@ -70,6 +72,7 @@ export function logQuest(
     ...(result.session ? { session: result.session } : {}),
     ...(result.runtime ? { runtime: result.runtime } : {}),
     ...(result.costUsd != null ? { costUsd: result.costUsd } : {}),
+    ...(result.route ? { route: { choice: result.route.choice, steps: result.route.steps.map(({ model, effort, trigger, reason }) => ({ model, ...(effort ? { effort } : {}), trigger, reason })) } } : {}),
   };
   appendLine(QUEST_LOG_PATH, JSON.stringify(entry));
   emit({ type: "changed", what: "log" });

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
-import { cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
+import { autoName, cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
 import type { CampState } from "../types.ts";
 
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
@@ -98,6 +98,7 @@ export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: 
                   <div className="meta">
                     <b>{money(q.cost)}{q.runtime === "claude-code" ? " est." : ""}</b> · {took(q.seconds)} · {q.turns} {plural(q.turns, "turn")} · {kTok(total)} in ({cached}% cached) · {kTok(u.output)} out · {shortModel(q.model)} · {q.effort ?? "default"}
                   </div>
+                  {q.route && <Clamp><b>{autoName(q.route.choice)}</b> {q.route.steps.map((st) => `${shortModel(st.model)}${st.effort ? ` · ${st.effort}` : ""}: ${st.reason}`).join(" → ")}</Clamp>}
                   <Clamp><b>Asked</b> {q.task}</Clamp>
                   <Clamp><b>Result</b> {q.result}</Clamp>
                 </li>

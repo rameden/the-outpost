@@ -58,7 +58,7 @@ In `npm start`, type a request for the Quartermaster, or:
 | `/diff` · `/undo` | What the last expedition changed; put those files back |
 | `/review` | Approve or reject skills the Quartermaster proposed |
 | `/log` · `/jobs` · `/wiki` · `/memory <name>` | Recent quests; scheduled jobs; the wiki index; what a crew member remembers |
-| `/model [name model [effort] \| name reset]` · `/turns <name> <n \| reset>` | A crew member's model, or how many turns one run may take |
+| `/model [name model [effort] \| name auto[:economy\|balanced\|quality] \| name reset]` · `/turns <name> <n \| reset>` | A crew member's model (or Auto), or how many turns one run may take |
 | `/runtime [claude-code \| api]` · `/budget [dollars \| off]` | What runs the crew; a spending cap per expedition |
 | Ctrl+C | Stop the running expedition; press again to quit |
 
@@ -83,6 +83,8 @@ echo "Tidy the README" | npm run headless -- --agent scribe -
 ## How it works
 
 - **Two runtimes, one loop** (`src/agent.ts`). On your subscription each character runs as a Claude Code session (`src/claude-code.ts`), with the camp's tools served from an in-process MCP server so every boundary and approval still applies. On the API the camp runs the loop itself. Other providers (DeepSeek, Gemini, Groq, OpenRouter) can be connected under Settings → Models.
+- **Auto model selection** (`src/routing.ts`, `src/autoroute.ts`). Pick **Auto** beside the message box, in a crew member's model picker, for a project's crew, or with `/model <name> auto` (Balanced unless you say `auto:economy` or `auto:quality`). Right before each dispatch, Auto profiles the task (kind, scope, what's at stake, images and tools needed, how big the request is), drops every model that can't take it (not connected, a confidential project's unapproved provider, too small a context, cooling down, over budget, or listed in `autoExclude` in `camp/settings.json`), and scores the rest on the odds of finishing (a model must clear the task's bar on its own), the expected cost including a possible rescue by another model, and time. It keeps the model through routine reads, edits and tests, and looks again when the task changes, a failing check shows the work is riskier than it looked, distinct fixes keep reproducing one failure, the request outgrows the model, or the provider is unavailable; a switch between healthy models has to be worth replaying the conversation. Each run says which model it used and why (in the feed and in Quests). Estimates start from labelled priors in a versioned policy and shift, within a limit, with graded outcomes (`camp/routing-evidence.json`): a run counts as a success only if its last check passed, and is weighed against what was expected on a task that hard; decisions and outcomes go to `camp/routing.jsonl` (no prompts, no keys), and `GET /api/routing` compares Auto with fixed models on matched tasks. A model you pick yourself stays pinned: if its provider fails, the run says so and suggests Auto. On your subscription Auto chooses at the start of a run; mid-run switching needs the API runtime.
+- **Nothing done twice** (`src/oplog.ts`). In a conversation, every command, file write and review a crew member makes is journaled before and after it runs (`camp/ops/`). When a run that didn't finish is picked up again, a call that already ran gets its recorded result back instead of running again, and one whose outcome was never recorded is checked (or held back with an explanation) before it can be retried.
 - **Dispatch keeps context clean.** An adventurer starts with no memory of the Quartermaster's conversation, works from a self-contained brief, and returns only a report.
 - **Identity** lives in `src/crew.ts` and tools in `src/roster.ts`. Agents can grow their memory, but they can't rewrite who they are.
 - **Memory** has three layers: each agent's own `camp/agents/<id>/memory.md` and sessions; the shared wiki in `camp/wiki/` (`facts/` from you, `notes/` the crew found, with sources); and skills in `skills/<agent>/`, proposed by the Quartermaster and approved by you. `recall` searches what no longer fits in a prompt.
@@ -118,7 +120,7 @@ Everything in `camp/` is local to you and gitignored. The main files:
 
 | File | Holds |
 |---|---|
-| `camp/settings.json` | Models, budget, runtime, how much runs at once, shell rules, `selfEdit`, `phone`, terminal quick actions |
+| `camp/settings.json` | Models, budget, runtime, how much runs at once, shell rules, `selfEdit`, `phone`, terminal quick actions, `autoExclude` (models Auto never picks) |
 | `camp/mcp.json` | MCP connectors (copy `mcp.example.json`) and which agents may use each |
 | `camp/links.json` | Linked folders, their access, and their check commands |
 | `camp/conversations.json` · `camp/projects/<id>/` | Projects and conversation filing; each project's survey, notes and chronicle |

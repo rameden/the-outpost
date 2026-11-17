@@ -6,9 +6,9 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
-import { shortModel } from "../format.ts";
+import { autoName, isAuto, shortModel } from "../format.ts";
 import type { CampState, History, PickResult, Project, ProjectSettings } from "../types.ts";
-import { useModelList } from "./ModelPicker.tsx";
+import { AUTO_CHOICES, useModelList } from "./ModelPicker.tsx";
 import { Icon } from "./bits.tsx";
 
 type NewFolder = { path: string; access: "read" | "write" };
@@ -215,7 +215,8 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
                   <span>{c.emoji} {c.name}</span>
                   <select aria-label={`${c.name}'s model in this project`} value={mine?.model ?? ""} onChange={(ev) => setAgent(c.id, { model: ev.target.value, effort: "" })}>
                     <option value="">Same as the camp ({shortModel(c.model)})</option>
-                    {mine?.model && !models?.models.some((m) => m.id === mine.model) && <option value={mine.model}>{shortModel(mine.model)}</option>}
+                    {mine?.model && !isAuto(mine.model) && !models?.models.some((m) => m.id === mine.model) && <option value={mine.model}>{shortModel(mine.model)}</option>}
+                    {AUTO_CHOICES.map((a) => <option key={a.id} value={a.id}>{autoName(a.id)}</option>)}
                     {models?.models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                   <select aria-label={`${c.name}'s effort in this project`} value={mine?.effort ?? ""} disabled={!mine?.model} onChange={(ev) => setAgent(c.id, { effort: ev.target.value })}>

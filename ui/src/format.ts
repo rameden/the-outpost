@@ -32,7 +32,11 @@ export function kTok(n: number) { return n >= 1000 ? (n / 1000).toFixed(1) + "k"
 export const money = (n: number | undefined | null) => (!n ? "$0" : n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`);
 export const plural = (n: number, one: string, many = one + "s") => (n === 1 ? one : many);
 export const spaced = (status: string) => status.replace(/_/g, " ");
-export const shortModel = (model: string) => model.replace(/^claude-/, "");
+// Auto ("auto", "auto:economy"…) reads as what it is: Auto, and the preference it was given.
+const AUTO = /^auto(?::(economy|balanced|quality))?$/;
+export const isAuto = (model: string | undefined | null) => !!model && AUTO.test(model);
+export const autoName = (model: string) => { const p = model.match(AUTO)?.[1] ?? "balanced"; return `Auto · ${p[0].toUpperCase()}${p.slice(1)}`; };
+export const shortModel = (model: string) => (isAuto(model) ? autoName(model) : model.replace(/^claude-/, ""));
 export const isImagePath = (p: string | undefined | null) => /\.(png|jpe?g|gif|webp)$/i.test(p || "");
 export const stripFrontmatter = (src: string) => String(src).replace(/^---\n[\s\S]*?\n---\n?/, "");
 export const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");

@@ -43,7 +43,21 @@ const preset = (id: string) => PROVIDERS.find((p) => p.id === id);
 // Tests and the throwaway camp point a provider at a stand-in (PROVIDER_BASE_URL_GROQ=http://127.0.0.1:…).
 const baseUrl = (p: Preset) => (process.env[`PROVIDER_BASE_URL_${p.id.toUpperCase()}`] ?? p.baseUrl).replace(/\/+$/, "");
 
-export class ProviderError extends Error { fixable = true; }
+// passing: a failure that may clear by itself (rate limited, overloaded, the connection dropped):
+// Auto tries another model; a model you picked yourself says so and stops. retryAfterMs: how long
+// the provider asked to be left alone, when it said.
+export class ProviderError extends Error {
+  fixable = true;
+  passing = false;
+  status?: number;
+  retryAfterMs?: number;
+  constructor(message: string, o: { passing?: boolean; status?: number; retryAfterMs?: number } = {}) {
+    super(message);
+    if (o.passing) this.passing = true;
+    if (o.status != null) this.status = o.status;
+    if (o.retryAfterMs != null) this.retryAfterMs = o.retryAfterMs;
+  }
+}
 
 // ---------- Keys ----------
 type Saved = Partial<Record<ProviderId | "anthropic", { key: string; connected: string }>>;
@@ -108,7 +122,7 @@ async function call(p: Preset, key: string, path: string, init: RequestInit = {}
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...(p.id === "openrouter" ? { "x-title": "Mae" } : {}), ...(init.headers ?? {}) } });
   } catch (e: any) {
     if (e?.name === "AbortError") throw e;
-    throw new ProviderError(e?.name === "TimeoutError" ? `${p.name} didn't answer within ${CALL_TIMEOUT_MS / 1000} seconds.` : `Couldn't reach ${p.name}: ${e?.message ?? e}`);
+    throw new ProviderError(e?.name === "TimeoutError" ? `${p.name} didn't answer within ${CALL_TIMEOUT_MS / 1000} seconds.` : `Couldn't reach ${p.name}: ${e?.message ?? e}`, { passing: true });
   }
   if (res.ok) return res;
   if (res.status === 429 && retries > 0) {
@@ -120,14 +134,16 @@ async function call(p: Preset, key: string, path: string, init: RequestInit = {}
     }
   }
   const body = await res.text().catch(() => "");
+  const afterS = Number(res.headers.get("retry-after"));
+  const passing = { passing: res.status === 429 || res.status === 408 || res.status >= 500, status: res.status, ...(Number.isFinite(afterS) && afterS >= 0 && res.headers.has("retry-after") ? { retryAfterMs: afterS * 1000 } : {}) };
   let said = "";
   try { const j = JSON.parse(body); said = String((Array.isArray(j) ? j[0] : j)?.error?.message ?? j?.message ?? ""); } catch { said = body.slice(0, 200); }
   // Gemini answers a bad key with 400 ("Please pass a valid API key"), not 401.
   if (res.status === 401 || res.status === 403 || (res.status === 400 && /api key/i.test(said))) throw new ProviderError(`${p.name} didn't accept that key${said ? `: ${said}` : "."}`);
   // DeepSeek is paid for up front: 402 means the balance is spent.
   if (res.status === 402) throw new ProviderError(`${p.name} says your balance has run out${said ? `: ${said}` : "."} Top up with ${p.name}, then try again.`);
-  if (res.status === 429) throw new ProviderError(`${p.name} says you've hit its rate limit${said ? `: ${said}` : "."} ${p.paid ? "It allows only so many requests at once." : "Free tiers allow only so many requests a minute."}`);
-  throw new ProviderError(`${p.name} answered ${res.status}${said ? `: ${said}` : "."}`);
+  if (res.status === 429) throw new ProviderError(`${p.name} says you've hit its rate limit${said ? `: ${said}` : "."} ${p.paid ? "It allows only so many requests at once." : "Free tiers allow only so many requests a minute."}`, passing);
+  throw new ProviderError(`${p.name} answered ${res.status}${said ? `: ${said}` : "."}`, passing);
 }
 
 // ---------- Models ----------
@@ -309,8 +325,11 @@ export async function providerChat(o: { provider: string; model: string; system:
   }
   if (buffer.trim()) take(buffer.trim());
   // DeepSeek's two ways of saying it gave up part-way: neither is a finished reply.
-  if (finish === "insufficient_system_resource") throw new ProviderError(`${p.name} ran out of capacity part-way through the reply. Try again in a moment.`);
-  if (finish === "aborted") throw new ProviderError(`${p.name} stopped the reply part-way. Try again.`);
+  if (finish === "insufficient_system_resource") throw new ProviderError(`${p.name} ran out of capacity part-way through the reply. Try again in a moment.`, { passing: true });
+  if (finish === "aborted") throw new ProviderError(`${p.name} stopped the reply part-way. Try again.`, { passing: true });
+  // A stream that ended without saying how it finished was cut off: a tool call in it may be
+  // missing part of its input, so none of it is used (and none of its calls run).
+  if (!finish) throw new ProviderError(`${p.name}'s reply was cut off part-way.`, { passing: true });
 
   const content: Block[] = [];
   if (thought) content.push({ type: "thinking", thinking: thought }); // kept with the reply, so the next request can send it back

@@ -1194,6 +1194,9 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .tool b { font-family: var(--mono); font-weight: 600; color: var(--muted); flex: none; }
 .tool code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--faint); font-size: 12px; }
 .notice { font-size: 13px; color: var(--muted); padding-left: 40px; font-style: italic; }
+/* Auto's choice of model: plain text, so the model's name reads as a fact rather than an aside. */
+.notice.route { font-style: normal; }
+.notice.route b { color: var(--text); font-weight: 600; }
 
 /* A file the crew wrote: a card under the message, set in from the avatars like the tool lines. */
 .artifact {
@@ -2278,6 +2281,10 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .orb-set input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 7px; height: 14px; border: 0; border-radius: 0; background: var(--c, var(--c-other)); }
 .orb-set input[type="range"]::-moz-range-thumb { width: 7px; height: 14px; border: 0; border-radius: 0; background: var(--c, var(--c-other)); }
 .orb-set input[type="range"]::-moz-range-track { height: 2px; background: var(--o-line-2); }
+/* The sun's own setting, in its panel: how bright it is. */
+.orb-dimmer { margin: 10px 0 2px; border: 1px solid var(--o-line); }
+.orb-dimmer input[type="range"]::-webkit-slider-thumb { background: var(--o-sun); } .orb-dimmer input[type="range"]::-moz-range-thumb { background: var(--o-sun); }
+.orb-dimmer .orb-set { grid-template-columns: auto minmax(0, 1fr) 4ch; padding: 4px 10px; } .orb-dimmer small { text-align: right; }
 .orb-count { display: inline-flex; align-items: center; gap: 8px; } .orb-count b { min-width: 14px; text-align: center; font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
 .orb-step-btn { min-width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0 6px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 12px/1 var(--mono); justify-self: start; }
 .orb-step-btn.worded { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--o-dim); }
@@ -2300,6 +2307,7 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 .orbit input::placeholder { color: var(--o-faint); }
 .orb-say-note { margin: 0; font: 11px/1.4 var(--sans); color: var(--o-dim); } .orb-say-note.bad { color: var(--o-bad); }
 .orb-hand { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--o-line); }
+.orb-sure { display: flex; gap: 6px; } .orb-sure .orb-btn { flex: 1; }
 .orb-stop { color: var(--o-bad); } .orb-stop:hover:not(:disabled) { border-color: var(--o-bad); color: var(--o-bad); }
 /* A decision, answered here. The card is the page's own (AskCard.tsx), given this view's colours and its square corners. */
 .orb-asks { margin: 0 0 6px; --accent: var(--o-warn); --accent-ink: var(--o-bg); --accent-soft: rgba(240, 178, 74, .07); --surface: #0e131d; --surface-2: #0e131d; --border: var(--o-line); --border-strong: var(--o-line-2); --field: var(--o-line-2); --text: var(--o-ink); --muted: var(--o-dim); --faint: var(--o-faint); --bad: var(--o-bad); --shadow: none; --shadow-lg: none; }
@@ -2345,12 +2353,11 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 .orb-facts .warn dd { color: var(--o-warn); }
 /* A moon's rings (it has been out a long while), and the lights of a world that's been built on. */
 .orb-moon circle.orb-moon-ring { fill: none; stroke: var(--c, var(--c-other)); stroke-width: .35; } .orb-moon.st-waiting circle.orb-moon-ring { stroke: var(--o-warn); }
-.orb-town { fill: var(--o-sun); opacity: .9; }
 /* Drawn over the system, in the screen's units: gauges, a plan's waypoints, the ships at the edge and the satellites. */
 .orb-over :is(.orb-gauge, .orb-ways) * { vector-effect: non-scaling-stroke; }
 .orb-gauge-track { fill: none; stroke: var(--o-line-2); stroke-width: 1; }
 .orb-gauge path { fill: none; stroke: var(--c, var(--o-sun)); stroke-width: 2.5; } .orb-gauge.warn path { stroke: var(--o-bad); }
-.orb-ways rect { fill: var(--o-bg); stroke: var(--o-line-2); stroke-width: 1; }
+.orb-ways rect { fill: var(--o-bg); stroke: var(--o-line-2); stroke-width: 1; transform-box: fill-box; transform-origin: center; transform: scale(var(--way, 1)); }
 .orb-ways rect.way-out { stroke: var(--o-sun); stroke-width: 2; } .orb-ways rect.way-done { fill: var(--o-sun); stroke: var(--o-sun); }
 .orb-ways rect.way-failed { fill: var(--o-bad); stroke: var(--o-bad); } .orb-ways rect.way-stopped { stroke-dasharray: 2 2; }
 .orb-ship path { fill: var(--o-bg); stroke: var(--o-ink); stroke-width: 1.5; stroke-linejoin: miter; }
@@ -2370,7 +2377,7 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 .orb-reel-line input::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 20px; margin-top: -9px; border: 0; border-radius: 0; background: var(--o-warn); }
 .orb-reel-line input::-moz-range-thumb { width: 8px; height: 20px; border: 0; border-radius: 0; background: var(--o-warn); }
 .orb-reel-marks { position: absolute; inset: 0; pointer-events: none; }
-.orb-reel-marks i { position: absolute; top: 2px; width: 1px; height: 7px; background: var(--o-dim); } .orb-reel-marks i.ask { width: 2px; background: var(--o-warn); }
+.orb-reel-marks i { position: absolute; top: 2px; width: 1px; height: 7px; background: var(--o-dim); } .orb-reel-marks i.m-ask { width: 2px; background: var(--o-warn); }
 .orb-reel time { min-width: 42px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--o-ink); }
 .orb-reel-speed { display: flex; gap: 4px; }
 /* Ambient: nobody is driving. Who the camera is on is said at the bottom; a decision waiting is a steady line along the top, and a button. */

@@ -4,7 +4,7 @@ A multi-agent harness on Claude: a Quartermaster plans and dispatches a crew (Sc
 
 ## Where things live
 
-- `src/` — Node/TS backend. `server.ts` is the mission-control HTTP/SSE server (big: grep it, don't read it whole). `quartermaster.ts` plans and dispatches; `agent.ts` runs a crew member; `claude-code.ts` is the Claude Code subscription path; `tools.ts` holds agent tools; `memory.ts`, `memfit.ts`, `recall.ts` handle memory; `scheduler.ts` and `jobs.ts` handle recurring jobs; `providers.ts` handles other model providers.
+- `src/` — Node/TS backend. `server.ts` is the mission-control HTTP/SSE server (big: grep it, don't read it whole). `quartermaster.ts` plans and dispatches; `agent.ts` runs a crew member; `claude-code.ts` is the Claude Code subscription path; `tools.ts` holds agent tools; `memory.ts`, `memfit.ts`, `recall.ts` handle memory; `scheduler.ts` and `jobs.ts` handle recurring jobs; `providers.ts` handles other model providers; `routing.ts` (pure decisions) and `autoroute.ts` (registry, health, log) are Auto model selection; `oplog.ts` journals side-effecting tool calls so a resumed task never repeats them.
 - `ui/src/` — React app, built into `ui/dist`. `App.tsx` is the shell; `components/` holds UI pieces (Header, Composer, Crew, Terminal, Files…); `panels/` holds Quests and Records; `settings/` holds the Settings pages; `orbit/` holds the full-screen crew view. `styles.css` is ~2,400 lines: grep it for the selector you need.
 - `tests/` — node `--test` backend tests; UI tests sit beside components as `*.test.tsx` (vitest).
 - `camp/` — runtime state (crew, memory, feeds). It's data, not code, so don't explore it unless the task is about it.

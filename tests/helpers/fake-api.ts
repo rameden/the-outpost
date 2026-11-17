@@ -14,6 +14,8 @@ export type Reply = {
   blocks?: any[];   // content blocks sent whole, before the text and tools (a "fallback" block, say)
   model?: string;   // the model named as having written the reply (a fallback model)
   iterations?: any[]; // usage.iterations: one entry per attempt
+  status?: number;     // answer with this HTTP error instead (529 overloaded, 429 rate limited…)
+  retryAfter?: number; // seconds, sent as retry-after with an error
 };
 
 export type Seen = { at: number; who: string; body: any; headers: http.IncomingHttpHeaders };
@@ -45,6 +47,11 @@ export async function startFakeApi(respond: (body: any) => Reply | Promise<Reply
       const r = await respond(body);
       if (r.delayMs) await new Promise((ok) => setTimeout(ok, r.delayMs));
       if (res.destroyed) return; // the client gave up (Stop)
+      if (r.status) {
+        const type = r.status === 529 ? "overloaded_error" : r.status === 429 ? "rate_limit_error" : "api_error";
+        res.writeHead(r.status, { "content-type": "application/json", ...(r.retryAfter != null ? { "retry-after": String(r.retryAfter) } : {}) });
+        return res.end(JSON.stringify({ type: "error", error: { type, message: `fake ${type}` } }));
+      }
       res.writeHead(200, { "content-type": "text/event-stream" });
       const send = (event: string, data: object) => res.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`);
       const usage = r.usage ?? { input_tokens: 100, output_tokens: 20 };

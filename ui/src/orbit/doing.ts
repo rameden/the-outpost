@@ -33,6 +33,7 @@ function lineOf(n: FeedNode): Line | null {
     case "file": return { id: n.id, tag: "file", text: `${n.change === "created" ? "Created" : "Updated"} ${n.path}` };
     case "ask": return { id: n.id, tag: "ask", text: n.outcome ? `${n.title}: ${n.outcome}` : `${n.title}: waiting for your OK` };
     case "notice": return { id: n.id, tag: "note", text: flat(n.text).slice(0, WORDS) };
+    case "route": return { id: n.id, tag: "note", text: `${n.switched ? "Switched to" : "On"} ${n.model}: ${flat(n.reason)}`.slice(0, WORDS) };
     case "steer": return { id: n.id, tag: "you", text: flat(n.text).slice(0, WORDS) };
     default: return null;
   }

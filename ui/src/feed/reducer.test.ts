@@ -187,6 +187,20 @@ describe("stop", () => {
 });
 
 describe("the rest of the feed", () => {
+  test("Auto's choice of model is a line in the run, and a switch part-way ends the message before it", () => {
+    const art = { who: "Artificer", emoji: "🔧", depth: 0 };
+    const s = feedOf([
+      start("R", "Fix the duplicate notification", "direct"),
+      { type: "route", ...art, model: "claude-sonnet-5-5", effort: "medium", choice: "auto:balanced", trigger: "new_task", reason: "claude-sonnet-5-5 (medium effort) for a debugging task.", switched: false, expeditionId: "R" },
+      { type: "text_delta", ...art, delta: "Trying a patch", expeditionId: "R" },
+      { type: "route", ...art, model: "claude-opus-5-5", effort: "high", choice: "auto:balanced", trigger: "repeated_failure", reason: "Switched: after two distinct patches reproduced the same failure.", switched: true, expeditionId: "R" },
+    ]);
+    const nodes = exp(s, "R").nodes;
+    expect(kinds(nodes)).toEqual(["route", "msg", "route"]);
+    expect(nodes[2]).toMatchObject({ kind: "route", who: "Artificer", model: "claude-opus-5-5", effort: "high", switched: true, reason: "Switched: after two distinct patches reproduced the same failure." });
+    expect(findNodes(s.items, "msg").every((m) => !m.streaming)).toBe(true);
+  });
+
   test("job runs and the page's own notes are lines between the cards", () => {
     let s = feedOf([start("A", "One"), { type: "job", name: "digest", outcome: "running" }, { type: "job", name: "digest", outcome: "quiet" }]);
     s = addSysLine(s, "Queued (#1)");
@@ -280,6 +294,22 @@ describe("who's out", () => {
     // The run is stopped with quests still out: nobody's out any more.
     s = feedOf([{ type: "expedition_end", id: "A", status: "stopped", text: "Stopped by you." }], s);
     expect(s.quests).toEqual([]);
+  });
+
+  test("a quest says when it last did anything: each step moves it on, and an older event never takes it back", () => {
+    const at = (sec: number) => Date.UTC(2026, 0, 1, 9, 0, sec);
+    let s = feedOf([start("A", "Dig"), { type: "dispatch", ...smith, questId: "q1", brief: "b", expeditionId: "A" }]); // seq 2
+    expect(s.quests[0].last).toBe(at(2));
+    s = feedOf([{ type: "tool", ...smith, tool: "grep", input: "x", questId: "q1", expeditionId: "A" }], s); // seq 3
+    expect(s.quests[0].last).toBe(at(3));
+    s = feedOf([{ type: "text", ...smith, text: "found it", questId: "q1", expeditionId: "A" }], s); // seq 4
+    expect(s.quests[0].last).toBe(at(4));
+    // One that arrives with an earlier time (a replay out of order) leaves it where it was.
+    s = applyEvent(s, { type: "tool", ...smith, tool: "grep", input: "y", questId: "q1", expeditionId: "A", seq: 5, time: new Date(at(1)).toISOString() } as CampEvent);
+    expect(s.quests[0].last).toBe(at(4));
+    // Someone else's work in the same run doesn't touch it.
+    s = feedOf([{ type: "text", ...qm, text: "meanwhile", expeditionId: "A" }], s);
+    expect(s.quests[0].last).toBe(at(4));
   });
 
   test("quests in different runs with the same id are kept apart", () => {

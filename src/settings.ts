@@ -47,6 +47,7 @@ type Settings = {
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
   drive?: { brief?: boolean; briefAt?: string; retro?: boolean }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts)
+  autoExclude?: string[];  // models (or id prefixes, like "openrouter:") Auto never picks (routing.ts); a hand-edited policy
 };
 // Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
 // work starts from it and when its pull request opens, and (if you name a status) moves it.
@@ -213,6 +214,7 @@ export function setProviderApproved(id: string, on: boolean) {
 // The camp's own small jobs (naming a conversation, tidying a memory, suggesting what to keep)
 // go to the smallest Claude model unless you've pointed them somewhere else, such as a free model
 // from a provider you've connected. Null: the default.
+export const autoExcluded = (): string[] => (Array.isArray(load().autoExclude) ? load().autoExclude!.filter((x) => typeof x === "string" && x) : []);
 export const smallModel = (): string | null => load().smallModel ?? null;
 export function setSmallModel(model: string | null) {
   const s = load();

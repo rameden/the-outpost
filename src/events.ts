@@ -25,6 +25,8 @@ export type CampEventBody =
   // path: as the camp shows it (camp/agents/<id>/outputs/…, links/<name>/…). bytes: its size now.
   | ({ type: "file"; path: string; change: "created" | "updated"; bytes: number } & Who)
   | ({ type: "notice"; text: string } & Who)
+  // Auto chose (or changed, or looked again and kept) the model a crew member is running on, and why.
+  | ({ type: "route"; model: string; effort?: string; choice: string; trigger: string; reason: string; switched: boolean } & Who)
   // brief: the quest in a line (how its brief opens), so two quests by the same crew member can be told apart
   // step: the numbered step of the approved plan this quest carries out, when the Quartermaster said
   | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string; step?: number }
@@ -74,6 +76,8 @@ export function attachConsole() {
         return console.log(`${pad}  📄 ${e.change === "created" ? "Created" : "Updated"} ${e.path}`);
       case "notice":
         return console.log(`${pad}  ${e.text}`);
+      case "route":
+        return console.log(`${pad}  🧭 ${e.switched ? "Now on" : "On"} ${e.model}${e.effort ? ` (${e.effort})` : ""}: ${e.reason}`);
       case "dispatch":
         return console.log(`\n📜 Quartermaster dispatches ${e.emoji} ${e.who}`);
       case "return":

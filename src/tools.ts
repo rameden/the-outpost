@@ -34,7 +34,8 @@ export const campMode = { get unattended() { return isUnattended(); } };
 
 // A handler returns text, or content blocks (e.g. an image) for tools like view_file.
 export type ToolOutput = string | Exclude<Anthropic.ToolResultBlockParam["content"], string | undefined>;
-export type Handler = (input: any) => Promise<ToolOutput>;
+// ctx.opId: the operation id the call was journaled under (oplog.ts), for a tool that can use it as an idempotency key.
+export type Handler = (input: any, ctx?: { opId?: string }) => Promise<ToolOutput>;
 export type Tool = { def: Anthropic.ToolUnion; run?: Handler }; // no `run` = server-side tool
 
 // ---------- Camp boundaries ----------

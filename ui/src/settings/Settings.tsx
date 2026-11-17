@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { About } from "../components/AgentDrawer.tsx";
-import { useModelList } from "../components/ModelPicker.tsx";
+import { AUTO_CHOICES, useModelList } from "../components/ModelPicker.tsx";
 import { Quests } from "../panels/Quests.tsx";
 import { Connectors, Inbox, Jobs, Skills } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
@@ -14,7 +14,7 @@ import { ModelsPage } from "./ModelsPage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
 import { PALETTES, modeNow, paletteNow, setMode, setPalette, type Mode, type PaletteId } from "../themes.ts";
-import { cClass, cx, money } from "../format.ts";
+import { autoName, cClass, cx, isAuto, money } from "../format.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
 import { ask, Confirm } from "../components/Confirm.tsx";
@@ -237,10 +237,11 @@ function ModelForm({ c, runtime, refresh }: { c: Character; runtime: string; ref
   }
   return (
     <form onSubmit={save}>
-      <Row label="Model" help={m?.price ? `Per million tokens: ${m.price} (input / output).` : loadError || undefined}>
+      <Row label="Model" help={isAuto(model) ? "Auto picks the model and effort for each task, and says which it used and why." : m?.price ? `Per million tokens: ${m.price} (input / output).` : loadError || undefined}>
         <select aria-label="Model" value={list ? model : ""} disabled={!list} onChange={(ev) => setModel(ev.target.value)}>
           {!list && <option value="">Loading models…</option>}
-          {list && !list.models.some((x) => x.id === c.model) && <option value={c.model}>{c.model}</option>}
+          {list && !isAuto(c.model) && !list.models.some((x) => x.id === c.model) && <option value={c.model}>{c.model}</option>}
+          {list && AUTO_CHOICES.map((a) => <option key={a.id} value={a.id}>{autoName(a.id)}{a.id === "auto:balanced" ? " (recommended)" : ""}</option>)}
           {list?.models.map((x) => <option key={x.id} value={x.id}>{x.name}{x.id === c.defaultModel ? " (default)" : ""}</option>)}
         </select>
       </Row>
