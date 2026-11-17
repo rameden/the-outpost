@@ -14,7 +14,7 @@ import { MaeLogo } from "./MaeLogo.tsx";
 import { needsDoing, needsLabel, type Need } from "../needs.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
-import type { SettingsSection } from "../settings/Settings.tsx";
+import type { SettingsSection } from "../settings/sections.ts";
 import type { CampState, GithubStatus } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 

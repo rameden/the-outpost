@@ -2,9 +2,10 @@
 import { expect, test } from "vitest";
 import {
   ACE_DODGE, ACE_NERVE, ACE_OFF, ACE_STAYS, ACE_SWAPS, BREAK, CARRIER_GUNS, CARRIER_LAUNCHES, CARRIER_PLANES, CARRIER_SPEED, CHAIN_WINDOW, HULL, WING_SAVES, CLEAN_BONUS, DART_LINES_UP, DRONES, ENEMY, EXTRA_EVERY, FIRE_EVERY, FLIGHT_BONUS, GUNS_MAX, INTRO, LIVES, LIVES_MAX, LOOPS, LOOPS_MAX,
-  LOOP_LASTS, LOOP_REACH, MEDAL, MINE_RING, PATHS, SAFE, SPEED, STAGES, WING_OUT,
-  along, chainTimes, flagshipHp, gunsAt, leadAim, leadOf, liningUp, loopPose, wall, looping, newEnemy, newGame, onPath, roundSpeed, speedOn, step, wavesOf, wingAt,
-  type Enemy, type EnemyKind, type Game, type Input, type PathName, type SortieEvent,
+  LOOP_LASTS, LOOP_REACH, MEDAL, MINE_RING, PATHS, SAFE, SPEED, WING_OUT,
+  BOAT_FIRES, CABLE, CHASE_WARN, FLAK_DODGE, FLAK_FUSE, LEVELS, LEVEL_ORDER, MISSILE_POINTS, PERKS, TWISTS,
+  along, chainTimes, cloudsIn, dailySeed, offerFor, planStage, shielded, flagshipHp, formationsIn, gunsAt, leadAim, leadOf, liningUp, loopPose, wall, looping, newEnemy, newGame, onPath, roundSpeed, randomStage, speedOn, step, wingAt,
+  type Enemy, type EnemyKind, type Game, type Input, type Level, type PathName, type Perk, type SortieEvent, type Twist, type Wave,
 } from "./sortie.ts";
 
 const field = { width: 700, height: 900 };
@@ -14,9 +15,15 @@ const run = (g: Game, input: Partial<Input>, seconds: number): SortieEvent[] => 
   for (let i = 0, n = Math.round(seconds * 60); i < n; i++) events.push(...step(g, { ...still, ...input }, 1 / 60, field));
   return events;
 };
+// A small seeded generator, so a test can roll stages and roll the same ones again.
+const seeded = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+// Forty rolled stages (of each of the first three, or of one).
+const rolls = (stage?: number): Wave[][] =>
+  (stage ? [stage] : [1, 2, 3]).flatMap((n) => Array.from({ length: 40 }, (_, i) => randomStage(n, seeded(i + 1))));
 // A game under way with a plane that can be hit, and a clear sky: the stage's own formations
 // are held back (its clock is wound a long way back), so each test has only what it puts up.
-const playing = (): Game => { const g = newGame(field); run(g, {}, INTRO + 0.05); g.player.safe = 0; g.clock = -1e6; return g; };
+// (On Hard: the rules at full pace, which is what the timings here are written for.)
+const playing = (): Game => { const g = newGame(field, undefined, false, "hard"); run(g, {}, INTRO + 0.05); g.player.safe = 0; g.clock = -1e6; return g; };
 // An enemy put straight onto the field, part-way along a path.
 const enemy = (g: Game, kind: EnemyKind, path: PathName, u: number): Enemy => {
   const e = newEnemy(kind, { path, age: u * PATHS[path].lasts, ...onPath(path, u, false, field), fired: 99 });
@@ -92,10 +99,11 @@ test("the plane slides eight ways at one speed, stays on the field, and its guns
 });
 
 test("a stage's formations come in on time, one aircraft after another along the same path", () => {
-  const g = newGame(field);
+  const g = newGame(field, undefined, false, "hard");
   run(g, {}, INTRO - 0.1);
   expect([g.phase, g.enemies.length]).toEqual(["intro", 0]); // nothing until the stage's name has gone
-  const first = STAGES[0][0];
+  g.waves = [{ at: 1.5, kind: "scout", path: "sweep", count: 5, gap: 0.38, mirror: false }]; // (a sweep: it's flown left to right)
+  const first = g.waves[0];
   run(g, {}, 0.1 + first.at + 0.1);
   expect(g.phase).toBe("play");
   expect(g.enemies.length).toBe(first.count);
@@ -106,8 +114,7 @@ test("a stage's formations come in on time, one aircraft after another along the
   const xs = g.enemies.map((e) => e.x);
   expect(g.enemies.every((e) => e.age >= 0)).toBe(true);
   expect([...xs].sort((a, b) => b - a)).toEqual(xs); // strung out along the path, leader furthest on
-  // Later stages come round again, with faster rounds.
-  expect(wavesOf(STAGES.length + 1)).toBe(STAGES[0]);
+  // Later stages fire faster rounds.
   expect(roundSpeed(3)).toBeGreaterThan(roundSpeed(1));
   expect(roundSpeed(99)).toBe(300);
 });
@@ -272,7 +279,7 @@ test("a stage ends with the score and the share of what flew in that you shot do
   const g = playing();
   // Skip to the last of the stage: everything has come in (the flagship too, and it's down), 10 of 39
   // were shot down, a plane was lost on the way, and one scout is still up.
-  g.nextWave = STAGES[0].length; g.boss = "done";
+  g.nextWave = g.waves.length; g.boss = "done";
   g.flew = 39; g.downed = 9; g.score = 900; g.lost = 1;
   const last = enemy(g, "scout", "sweep", 0.5);
   run(g, {}, 0.1);
@@ -289,12 +296,16 @@ test("a stage ends with the score and the share of what flew in that you shot do
   expect(g.phase).toBe("tally");
   run(g, {}, 0.6);
   run(g, { go: true }, 1 / 60);
-  expect([g.phase, g.stage, g.flew, g.downed, g.lost, g.boss, g.tally, g.loops]).toEqual(["intro", 2, 0, 0, 0, "none", null, LOOPS]); // on to the next, loops back
+  expect([g.phase, g.offer.length]).toEqual(["pick", 3]); // an upgrade to pick first…
+  g.offer = ["steady", "magnet", "pierce"];
+  run(g, { pick: 2 }, 0.5);
+  expect(g.perks).toEqual(["magnet"]);
+  expect([g.phase, g.stage, g.flew, g.downed, g.lost, g.boss, g.tally, g.loops]).toEqual(["intro", 2, 0, 0, 0, "none", null, LOOPS]); // …then on to the next, loops back
   expect(g.score).toBe(900 + ENEMY.scout.points + 26 * 20); // the score carries on
 
   // One that got away counts against you: it flew in, and wasn't shot down.
   const h = playing();
-  h.nextWave = STAGES[0].length; h.boss = "done"; h.flew = 5; h.downed = 4;
+  h.nextWave = h.waves.length; h.boss = "done"; h.flew = 5; h.downed = 4;
   enemy(h, "scout", "sweep", 0.99);
   run(h, {}, 0.3);
   // …and with no plane of yours lost, there's more on top.
@@ -321,7 +332,7 @@ test("with no planes left it's over, and firing starts again from the top", () =
 });
 
 test("every stage has formations to learn, a ferry, and paths that start and end off the field", () => {
-  for (const waves of STAGES) {
+  for (const waves of rolls()) {
     expect(waves.length).toBeGreaterThanOrEqual(9);
     expect(waves.some((w) => w.kind === "ferry")).toBe(true);
     expect(waves.map((w) => w.at)).toEqual([...waves.map((w) => w.at)].sort((a, b) => a - b));
@@ -418,7 +429,7 @@ test("a hauler spills its drones when it's shot down, and they count as having f
 
 test("the flagship comes when the last formation has gone, and the stage isn't over until it's down", () => {
   const g = playing();
-  g.nextWave = STAGES[0].length; g.flew = 10; g.downed = 10;
+  g.nextWave = g.waves.length; g.flew = 10; g.downed = 10;
   const events = run(g, {}, 0.1);
   expect(events).toContainEqual({ type: "warning" });
   const boss = g.enemies.find((e) => e.kind === "flagship")!;
@@ -533,15 +544,51 @@ test("every so many points there's another plane, up to a limit", () => {
   expect(g.nextLife).toBe(EXTRA_EVERY * 3);
 });
 
+test("each stage is rolled fresh: different formations, paths, sizes and timings every time", () => {
+  const key = (w: Wave) => `${w.at}:${w.kind}:${w.path}:${w.count}:${w.mirror}`;
+  for (let stage = 1; stage <= 4; stage++) {
+    const seen = new Set<string>(), paths = new Set<string>(), sizes = new Set<number>();
+    for (let seed = 1; seed <= 40; seed++) {
+      const waves = randomStage(stage, seeded(seed));
+      expect(waves.length).toBe(formationsIn(stage));
+      expect(waves[0].kind).toBe("scout"); // something to get your eye in on
+      expect(waves.filter((w) => w.kind === "ferry").length).toBeGreaterThanOrEqual(1);
+      expect(waves.filter((w) => w.kind === "carrier").length).toBeLessThanOrEqual(stage > 1 ? 2 : 1);
+      seen.add(waves.map(key).join());
+      for (const w of waves) { if (w.path) paths.add(w.path); if (w.kind === "scout") sizes.add(w.count); }
+    }
+    expect(seen.size).toBe(40); // no two the same
+    expect(paths.size).toBeGreaterThanOrEqual(5);
+    expect(sizes.size).toBeGreaterThanOrEqual(2);
+  }
+  // Each stage is longer and busier than the one before.
+  expect(formationsIn(2)).toBeGreaterThan(formationsIn(1));
+  expect(formationsIn(99)).toBe(formationsIn(50)); // (up to a point)
+  // The same roll is the same stage, and a new game and each next stage roll their own.
+  expect(randomStage(2, seeded(7))).toEqual(randomStage(2, seeded(7)));
+  expect(newGame(field, 3).waves).toEqual(planStage(1, 3).waves);
+  const g = newGame(field), before = g.waves;
+  Object.assign(g, { phase: "tally", since: 2 });
+  step(g, { ...still, go: true }, 1 / 60, field);
+  expect(g.phase).toBe("pick"); // (an upgrade first)
+  g.since = 1;
+  step(g, { ...still, pick: 1 }, 1 / 60, field);
+  expect(g.stage).toBe(2);
+  expect(g.waves).not.toEqual(before);
+});
+
 test("the later stages bring the new aircraft in", () => {
-  const kinds = (i: number) => new Set(STAGES[i].map((w) => w.kind));
-  expect([...kinds(0)].sort()).toEqual(["carrier", "dart", "ferry", "mine", "scout"]); // the first stage is the gentlest
-  expect([...kinds(1)].sort()).toEqual(["ace", "carrier", "dart", "ferry", "hauler", "heavy", "mine", "scout"]);
-  expect(kinds(2).size).toBe(8);
+  const kinds = (stage: number) => new Set(rolls(stage).flatMap((waves) => waves.map((w) => w.kind)));
+  expect([...kinds(1)].sort()).toEqual(["carrier", "dart", "ferry", "mine", "scout"]); // the first stage is the gentlest
+  expect([...kinds(2)].sort()).toEqual(["ace", "carrier", "chaser", "dart", "ferry", "hauler", "heavy", "mine", "scout"]);
+  expect([...kinds(3)]).toEqual(expect.arrayContaining(["boat", "gunship"]));
+  expect(rolls(2).some((waves) => waves.some((w) => w.leader))).toBe(true); // squadron leaders, from the second
+  expect(rolls(1).some((waves) => waves.some((w) => w.leader))).toBe(false);
   // The ones that fly themselves come in spread across the top, each with its own place.
-  for (const waves of STAGES) for (const w of waves.filter((it) => !it.path)) {
+  for (const waves of [...rolls(1), ...rolls(3)]) for (const w of waves.filter((it) => !it.path)) {
     expect(w.xs?.length).toBe(w.count);
     expect(w.xs!.every((x) => x > 0 && x < 1)).toBe(true);
+    expect([...w.xs!].sort((a, b) => a - b)).toEqual(w.xs);
   }
 });
 
@@ -615,11 +662,11 @@ test("a scout takes one snap shot at a plane camping under its path, and only on
   expect(g.rounds.length).toBe(1); // that was its one
   // From a stage's own formations: every other scout at first, then every one.
   const first = newGame(field);
-  run(first, {}, INTRO + STAGES[0][0].at + 0.2);
-  expect(first.enemies.map((it) => it.snappy)).toEqual([false, true, false, true, false]);
+  run(first, {}, INTRO + first.waves[0].at + 0.2);
+  expect(first.enemies.map((it) => it.snappy)).toEqual(first.enemies.map((_, i) => i % 2 === 1));
   const later = newGame(field);
-  later.stage = 2;
-  run(later, {}, INTRO + STAGES[1][0].at + 0.2);
+  later.stage = 2; later.waves = randomStage(2);
+  run(later, {}, INTRO + later.waves[0].at + 0.2);
   expect(later.enemies.filter((it) => it.kind === "scout").every((it) => it.snappy)).toBe(true);
 });
 
@@ -687,7 +734,7 @@ test("the flagship, once it's hurt, lays a wall right across with one gap in it,
   expect(new Set([1, 2, 3, 4, 5, 6, 7, 8].map((k) => wall(k).join())).size).toBe(8);
 
   const g = playing();
-  g.nextWave = STAGES[0].length;
+  g.nextWave = g.waves.length;
   run(g, {}, 0.1);
   const boss = g.enemies.find((e) => e.kind === "flagship")!;
   g.player.safe = 99;
@@ -776,4 +823,225 @@ test("you fly over the carrier, hit it anywhere along its hull, and it leaves a 
   hit(g, second);
   expect(second.gone).toBe(true);
   expect(g.crates.at(-1)?.what).toBe("medal");
+});
+
+// ---------- What's in the sky besides, the twists, the upgrades ----------
+
+test("inside a cloud they can't see you: they go for where you went in", () => {
+  const g = playing(), p = g.player;
+  p.x = 200; run(g, {}, 1 / 60);
+  expect([g.hidden, g.seen.x]).toEqual([false, 200]);
+  g.clouds = [{ x: 350, y: 450, w: 4000, h: 4000 }]; // (one big enough to fly about in)
+  p.x = 520; run(g, {}, 1 / 60);
+  expect([g.hidden, g.seen.x]).toEqual([true, 200]);
+  const dart = free(g, "dart", { home: 0.5 });
+  run(g, {}, 0.6);
+  expect(dart.x).toBeLessThan(350); // lining up on the old place, not on you
+  g.clouds = []; run(g, {}, 1 / 60);
+  expect([g.hidden, g.seen.x]).toEqual([false, 520]); // out again, and seen
+});
+
+test("flak goes off where you were marked: move off it, or loop through it for a bonus", () => {
+  const mark = (g: Game) => { g.flak = [{ x: 0, y: 0, wait: 0.05, fuse: FLAK_FUSE }]; run(g, {}, 0.1); };
+  const g = playing();
+  mark(g);
+  expect([g.flak[0].x, g.flak[0].y]).toEqual([g.player.x, g.player.y]);
+  run(g, { x: -1 }, 0.5);
+  const events = run(g, {}, 0.6);
+  expect(events.map((e) => e.type)).toContain("flak");
+  expect([g.lives, g.flak.length]).toEqual([LIVES, 0]);
+  // Sitting still under it costs the plane.
+  const h = playing(); mark(h); run(h, {}, FLAK_FUSE);
+  expect(h.lives).toBe(LIVES - 1);
+  // Up in a loop as it goes off: nothing, and a bonus.
+  const k = playing(); mark(k); run(k, {}, 0.5);
+  const score = k.score;
+  const looped = [...run(k, { loop: true }, 1 / 60), ...run(k, {}, 0.6)];
+  expect(looped).toContainEqual(expect.objectContaining({ type: "dodge", n: FLAK_DODGE }));
+  expect([k.lives, k.score - score]).toEqual([LIVES, FLAK_DODGE]);
+});
+
+test("a barrage balloon stops your rounds; cut its cable and it floats off, leaving a crate", () => {
+  const g = playing();
+  const b = free(g, "balloon", { home: 0.5, x: 350 });
+  run(g, {}, 3);
+  g.shots.push({ x: b.x, y: b.y, vx: 0, vy: 0 });
+  expect(run(g, {}, 1 / 60).map((e) => e.type)).toContain("block");
+  expect(b.fired).toBe(0);
+  g.shots.push({ x: b.x, y: b.y + ENEMY.balloon.size + CABLE / 2, vx: 0, vy: 0 });
+  const cut = run(g, {}, 1 / 60);
+  expect(cut).toContainEqual(expect.objectContaining({ type: "points", n: ENEMY.balloon.points }));
+  expect([b.fired, g.crates.length]).toEqual([1, 1]);
+  run(g, {}, 3);
+  expect(g.enemies).not.toContain(b); // up and away
+  // It doesn't count as one that flew, and the flagship doesn't wait for it.
+  const h = playing(); h.nextWave = h.waves.length; free(h, "balloon", { home: 0.5 });
+  run(h, {}, 1 / 60);
+  expect([h.boss, h.flew]).toEqual(["out", 1]);
+});
+
+test("a chaser waits below you, comes up your column, and fires back down once it's past", () => {
+  const g = playing(), p = g.player;
+  const c = free(g, "chaser", { x: 100, y: field.height + 40 });
+  run(g, {}, CHASE_WARN - 0.05);
+  expect([Math.round(c.x), c.y]).toEqual([Math.round(p.x), field.height + 40]); // the warning: right under you
+  run(g, { x: -1 }, 0.5); // sidestep it
+  const before = g.rounds.length;
+  run(g, {}, 0.5);
+  expect([g.lives, g.rounds.length - before]).toEqual([LIVES, 2]);
+  // Sit still on it and it flies straight into you.
+  const h = playing(); free(h, "chaser", { x: h.player.x, y: field.height + 40 });
+  run(h, {}, CHASE_WARN + 0.6);
+  expect(h.lives).toBe(LIVES - 1);
+});
+
+test("a gunship's armour stops rounds from straight below: catch it with its nose turned away", () => {
+  const g = playing(), e = free(g, "gunship", { home: 0.5 });
+  run(g, {}, 1.2);
+  e.heading = Math.PI / 2; // nose down, at you
+  expect(shielded(e)).toBe(true);
+  const blocked = hit(g, e, 3);
+  expect([e.hp, blocked.filter((it) => it.type === "block").length]).toEqual([ENEMY.gunship.hp, 3]);
+  e.heading = Math.PI / 2 - 1.2; // turned off after you, to one side
+  hit(g, e, 2);
+  expect(e.hp).toBe(ENEMY.gunship.hp - 2);
+  // It turns after you: off to one side of it, its nose follows.
+  g.player.x = e.x + 300; run(g, {}, 2);
+  expect(e.heading).toBeLessThan(Math.PI / 2 - 0.5);
+});
+
+test("a squadron leader's flight fires as one on its word; shoot it and they panic", () => {
+  const g = playing();
+  Object.assign(g, { stage: 2, clock: 0, nextWave: 0, hazards: [], waves: [{ at: 0.1, kind: "scout", path: "sweep", count: 4, gap: 0.38, mirror: false, leader: true }] });
+  const jumps: number[] = [];
+  for (let i = 0; i < 160; i++) { const was = g.rounds.length; run(g, {}, 1 / 60); jumps.push(g.rounds.length - was); }
+  expect(g.enemies.map((e) => e.kind)).toEqual(["leader", "scout", "scout", "scout"]);
+  expect(Math.max(...jumps)).toBeGreaterThanOrEqual(3); // a volley
+  const [leader, ...flight] = g.enemies;
+  hit(g, leader);
+  expect(flight.every((e) => e.panic && e.path === null && e.jink === 0)).toBe(true); // running, not breaking
+  const score = g.score;
+  hit(g, flight[0]);
+  expect(g.score - score).toBe((ENEMY.scout.points / 2) * chainTimes(g.chain)); // worth half
+});
+
+test("a missile boat fires missiles that turn after you; shoot them down for points", () => {
+  const g = playing(), boat = free(g, "boat", { home: 0.5 });
+  run(g, {}, 2 + BOAT_FIRES);
+  expect(g.missiles.length).toBeGreaterThan(0);
+  expect(boat.hp).toBe(ENEMY.boat.hp);
+  const m = g.missiles[0], dx = () => Math.abs(m.x - g.player.x);
+  g.player.x = 600; const far = dx(); run(g, {}, 0.6);
+  expect(dx()).toBeLessThan(far); // turning after you
+  const score = g.score;
+  g.shots.push({ x: m.x, y: m.y, vx: 0, vy: 0 });
+  run(g, {}, 1 / 60);
+  expect(g.missiles).not.toContain(m);
+  expect(g.score - score).toBe(MISSILE_POINTS);
+});
+
+test("every stage but the first rolls a twist, the same one for the same run", () => {
+  expect(Array.from({ length: 30 }, (_, i) => planStage(1, i).twist).every((t) => t === "none")).toBe(true);
+  const twists = new Set(Array.from({ length: 80 }, (_, i) => planStage(2, i).twist));
+  expect([...twists].sort()).toEqual((Object.keys(TWISTS) as Twist[]).filter((t) => t !== "none").sort());
+  expect(planStage(3, 11)).toEqual(planStage(3, 11));
+  expect(planStage(3, 11)).not.toEqual(planStage(3, 12));
+  // The hazards come while the formations do, in order, and the fog brings more cloud.
+  const plan = planStage(2, 4), clouds = plan.hazards.filter((h) => h.kind === "cloud");
+  expect(plan.hazards.map((h) => h.at)).toEqual([...plan.hazards.map((h) => h.at)].sort((a, b) => a - b));
+  expect(plan.hazards.every((h) => h.at <= plan.waves.at(-1)!.at)).toBe(true);
+  expect(clouds.length).toBe(cloudsIn(2, plan.twist));
+  expect(cloudsIn(2, "fog")).toBeGreaterThan(cloudsIn(2, "none"));
+  // A headwind pushes you back; an ace squadron's aces are worth double.
+  const g = playing(); g.twist = "headwind"; g.player.y = 500;
+  run(g, {}, 1);
+  expect(g.player.y).toBeGreaterThan(530);
+  const h = playing(); h.twist = "aces"; h.stage = 2;
+  const ace = free(h, "ace", { x: 350, y: 300, age: 2 });
+  run(h, {}, 1 / 60); // (into its place)
+  expect(hit(h, ace)).toContainEqual(expect.objectContaining({ type: "points", n: ENEMY.ace.points * 2 }));
+});
+
+test("the daily run is the date's seed, and starting again is the same run", () => {
+  expect(dailySeed(new Date(2026, 10, 16))).toBe(20261116);
+  const g = newGame(field, 20261116, true), waves = g.waves;
+  Object.assign(g, { phase: "over", since: 2 });
+  step(g, { ...still, go: true }, 1 / 60, field);
+  expect([g.daily, g.run, g.stage]).toEqual([true, 20261116, 1]);
+  expect(g.waves).toEqual(waves);
+  expect(newGame(field, 20261116, true).waves).toEqual(newGame(field, 20261116).waves);
+});
+
+test("three upgrades on offer, none you can't take", () => {
+  const g = playing();
+  const offer = offerFor(g);
+  expect(new Set(offer).size).toBe(3);
+  g.perks = ["loop", "loop", "chain", "chain", "wing", "pierce", "plate", "magnet"]; g.lives = LIVES_MAX;
+  expect(offerFor(g).sort()).toEqual(["steady"]); // (no spare plane at the most planes)
+  expect(Object.keys(PERKS).length).toBe(8);
+});
+
+test("the upgrades: plate, piercing rounds, steady hands, a third wingman, an extra loop, the magnet", () => {
+  const take = (perk: Perk) => { const g = playing(); Object.assign(g, { phase: "pick", since: 1, offer: [perk] }); step(g, { ...still, pick: 1 }, 1 / 60, field); run(g, {}, INTRO + 0.05); g.player.safe = 0; g.clock = -1e6; return g; };
+  // The plate takes the first hit of the stage.
+  const a = take("plate");
+  a.rounds.push({ x: a.player.x, y: a.player.y, vx: 0, vy: 0 });
+  expect(run(a, {}, 1 / 60).map((e) => e.type)).toContain("plate");
+  expect([a.lives, a.plate]).toEqual([LIVES, false]);
+  // A piercing round brings down one and flies on into the next.
+  const b = take("pierce"), first = free(b, "scout", { x: 300, y: 300, age: 1 }), second = free(b, "scout", { x: 300, y: 240, age: 1, vy: 0 });
+  b.shots.push({ x: 300, y: 300, vx: 0, vy: -760 });
+  run(b, {}, 0.2);
+  expect([first.gone, second.gone]).toEqual([true, true]);
+  // Steady hands: losing a plane doesn't cost a gun.
+  const c = take("steady"); c.guns = 3;
+  c.rounds.push({ x: c.player.x, y: c.player.y, vx: 0, vy: 0 }); run(c, {}, 1 / 60);
+  expect([c.lives, c.guns]).toEqual([LIVES - 1, 3]);
+  // A third wingman, behind you.
+  const d = take("wing");
+  expect(d.wingmen).toEqual([false, false, true]);
+  expect(wingAt(d, 2)).toEqual({ x: d.player.x, y: d.player.y + 44 });
+  // An extra loop every stage.
+  expect(take("loop").loops).toBe(LOOPS + 1);
+  // Crates drift across to you.
+  const f = take("magnet"); f.crates.push({ x: 100, y: 300, what: "medal", age: 0 });
+  run(f, {}, 0.5);
+  expect(f.crates[0].x).toBeGreaterThan(200);
+});
+
+// ---------- How hard ----------
+test("the level sets the pace of everything of theirs: slowest on Easy, flat out only on Hard", () => {
+  expect(LEVEL_ORDER.map((it) => LEVELS[it].pace)).toEqual([0.7, 0.85, 1]);
+  expect(newGame(field).level).toBe("normal"); // (the default)
+  // The same round, the same second: how far it goes is the level's pace of the distance.
+  const gone = (level: Level) => {
+    const g = newGame(field, 1, false, level);
+    run(g, {}, INTRO + 0.05);
+    g.clock = -1e6; g.player.safe = 99; // (nothing else coming, and the round can't hit)
+    g.rounds = [{ x: 100, y: 100, vx: 0, vy: 120 }];
+    run(g, {}, 1);
+    return g.rounds[0].y - 100;
+  };
+  expect(gone("hard")).toBeCloseTo(120, 0);
+  expect(gone("normal")).toBeCloseTo(120 * 0.85, 0);
+  expect(gone("easy")).toBeCloseTo(120 * 0.7, 0);
+  // An aircraft along its path, too: on Easy, a second gets it 70% as far round.
+  const along = (level: Level) => {
+    const g = newGame(field, 1, false, level);
+    run(g, {}, INTRO + 0.05);
+    g.clock = -1e6;
+    g.enemies = [newEnemy("scout", { path: "sweep" })];
+    run(g, {}, 1);
+    return g.enemies[0].age;
+  };
+  expect(along("easy") / along("hard")).toBeCloseTo(0.7, 2);
+});
+
+test("Easy starts you with a spare plane, and flying again keeps the level you chose", () => {
+  expect(newGame(field, 1, false, "easy").lives).toBe(LIVES + 1);
+  expect(newGame(field, 1, false, "hard").lives).toBe(LIVES);
+  const g = newGame(field, 7, true, "easy");
+  g.phase = "over"; g.since = 2;
+  step(g, { ...still, go: true }, 1 / 60, field);
+  expect([g.phase, g.level, g.daily, g.run, g.lives]).toEqual(["intro", "easy", true, 7, LIVES + 1]);
 });

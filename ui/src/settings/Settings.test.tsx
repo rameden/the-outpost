@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { Settings, type SettingsSection } from "./Settings.tsx";
+import { SETTINGS_SECTIONS } from "./sections.ts";
 import { Header } from "../components/Header.tsx";
 import { createFeedStore } from "../feed/store.ts";
 
@@ -35,6 +36,13 @@ function show(section: SettingsSection, S = camp()) {
   render(<Settings S={S} section={section} setSection={setSection} refresh={refresh} onAttachLink={() => {}} onClose={onClose} />);
   return { refresh, setSection, onClose };
 }
+
+test("the section names the page knows without loading Settings are the ones its nav lists", () => {
+  const { setSection } = show("general");
+  const nav = screen.getByRole("navigation", { name: "Settings sections" });
+  for (const b of nav.querySelectorAll("button")) fireEvent.click(b);
+  expect(setSection.mock.calls.map(([id]) => id).sort()).toEqual([...SETTINGS_SECTIONS].sort());
+});
 
 test("the nav moves between sections and Escape closes", () => {
   const { setSection, onClose } = show("general");

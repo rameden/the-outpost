@@ -35,8 +35,9 @@ export function usePause(paused: boolean) {
 export type Stat = { label: string; value: ReactNode; title?: string };
 export type KeyHint = [keys: string, does: string];
 
-export function EggBar({ mode, onMode, stats, status, keys, resetTitle, onReset, onPause, onClose }: {
+export function EggBar({ mode, onMode, controls, stats, status, keys, resetTitle, onReset, onPause, onClose }: {
   mode: Mode; onMode: (m: Mode) => void;
+  controls?: ReactNode; // the game's own settings, after the game switcher (the Sortie's level)
   stats: Stat[];
   status?: { text: string; loud?: boolean } | null; // what's going on right now (a power-up running, the page flattened)
   keys: KeyHint[];
@@ -50,6 +51,7 @@ export function EggBar({ mode, onMode, stats, status, keys, resetTitle, onReset,
           <button key={m.id} type="button" className={cx(mode === m.id && "on")} aria-pressed={mode === m.id} title={m.says} onClick={() => onMode(m.id)}>{m.name}</button>
         ))}
       </div>
+      {controls}
       <dl>
         {stats.map((s) => <div key={s.label} title={s.title}><dt>{s.label}</dt><dd>{s.value}</dd></div>)}
       </dl>

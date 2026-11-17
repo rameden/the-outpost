@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { uiPage, uiAsset, uiCsp, UI_CSP, splashPage, SPLASH_CSP, SPLASH_FILE } from "../src/ui-files.ts";
+import { uiPage, uiAsset, uiCsp, UI_CSP, splashPage, SPLASH_CSP, SPLASH_FILE, ASSET_CACHE } from "../src/ui-files.ts";
 import { withFilms } from "../scripts/tour-films.ts";
 
 const dist = mkdtempSync(join(tmpdir(), "mae-ui-"));
@@ -19,6 +19,8 @@ writeFileSync(join(dist, "index.html"), [
 writeFileSync(join(dist, "assets", "index-abc123.js"), "console.log('camp')");
 writeFileSync(join(dist, "assets", "style-def456.css"), "body{}");
 writeFileSync(join(dist, "assets", "notes.txt"), "not a page asset");
+writeFileSync(join(dist, "assets", "index-abc123.js.br"), "BR");
+writeFileSync(join(dist, "assets", "index-abc123.js.gz"), "GZ");
 writeFileSync(join(dist, "secret.js"), "outside assets/");
 
 test("the page is served as built: the camp's key is never written into it or onto a link", () => {
@@ -37,6 +39,23 @@ test("assets are served with the right type", () => {
   assert.equal(uiAsset("/assets/index-abc123.js", dist)?.type, "text/javascript; charset=utf-8");
   assert.equal(uiAsset("/assets/style-def456.css", dist)?.type, "text/css; charset=utf-8");
   assert.equal(uiAsset("/assets/index-abc123.js", dist)?.body.toString(), "console.log('camp')");
+});
+
+test("the build's compressed copy goes to a browser that takes it, brotli first", () => {
+  const as = (enc: string) => { const a = uiAsset("/assets/index-abc123.js", dist, enc)!; return [a.encoding ?? "none", a.body.toString(), a.type]; };
+  assert.deepEqual(as("gzip, deflate, br"), ["br", "BR", "text/javascript; charset=utf-8"]);
+  assert.deepEqual(as("gzip"), ["gzip", "GZ", "text/javascript; charset=utf-8"]);
+  assert.deepEqual(as("br;q=0, gzip;q=0.5"), ["gzip", "GZ", "text/javascript; charset=utf-8"]);
+  assert.deepEqual(as(""), ["none", "console.log('camp')", "text/javascript; charset=utf-8"]);
+  // No copy beside it: the file itself, whatever the browser takes.
+  assert.equal(uiAsset("/assets/style-def456.css", dist, "br")?.encoding, undefined);
+  // The copies aren't files of their own.
+  assert.equal(uiAsset("/assets/index-abc123.js.br", dist, "br"), null);
+});
+
+test("built files are kept for good: their names change with what's in them", () => {
+  assert.match(ASSET_CACHE, /immutable/);
+  assert.match(ASSET_CACHE, /max-age=31536000/);
 });
 
 test("nothing outside the built assets folder, and nothing of an unknown type", () => {

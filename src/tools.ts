@@ -50,7 +50,7 @@ const READ_ONLY = new Set(["skills", "camp", ".git", "node_modules", "plugins"])
 // camp/settings.json), so nothing they read can talk them into loosening the rules in this file
 // or in shell.ts. It only applies where the harness itself lives, not to a project's own src/.
 const HARNESS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const HARNESS_DIRS = ["src", "tests", "evals"];
+const HARNESS_DIRS = ["src", "dist", "tests", "evals"]; // dist/: the built server that `npm run prod` runs
 const HARNESS_FILES = ["package.json", "package-lock.json", "tsconfig.json"];
 function isHarnessCode(abs: string): boolean {
   const rel = relative(HARNESS_ROOT, abs);

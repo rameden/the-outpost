@@ -14,6 +14,9 @@ evals/results/
 # Mission control's built page (`npm run ui` builds it from ui/src).
 ui/dist/
 
+# The camp server, built for production (`npm run prod` builds it from src/).
+/dist/
+
 # The Barnstorm browser extension, built (`npm run extension:build` builds it from extension/ and ui/src/egg).
 extension/dist/
 extension/*.zip

@@ -81,7 +81,7 @@ import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError
 import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
-import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP } from "./ui-files.js";
+import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
 
 const PORT = Number(process.env.CAMP_PORT ?? 4747);
 // The page's key. It's kept in camp/.token (yours alone to read, and off limits to the crew's
@@ -642,9 +642,13 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, page, "text/html; charset=utf-8");
     }
     if (req.method === "GET" && url.pathname.startsWith("/assets/")) {
-      const asset = uiAsset(url.pathname);
+      const asset = uiAsset(url.pathname, undefined, String(req.headers["accept-encoding"] ?? ""));
       if (!asset) return send(res, 404, { error: "Not found" });
-      res.writeHead(200, { "content-type": asset.type, "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer" });
+      res.writeHead(200, {
+        "content-type": asset.type, "cache-control": ASSET_CACHE, vary: "accept-encoding",
+        ...(asset.encoding ? { "content-encoding": asset.encoding } : {}),
+        "x-content-type-options": "nosniff", "referrer-policy": "no-referrer",
+      });
       return res.end(asset.body);
     }
     // A sign-in code for the key: once. { code } → { token }.
