@@ -75,6 +75,7 @@ export type Subject = { key: string; source: "mae" | "jira"; title: string; crit
 export const maeSubject = (t: MaeTicket): Subject => ({ key: t.key, source: "mae", title: t.title, criteria: t.criteria, ...(t.project ? { project: t.project } : {}) });
 const worksOn = (t: Pick<Subject, "key" | "source">) => (c: { ticket?: string; jira?: string }) => (t.source === "mae" ? c.ticket : c.jira) === t.key;
 type Detail = (key: string) => Promise<{ summary: string; criteria: string[] }>;
+const fromJira: Detail = async (key) => { if (!jiraConnected()) throw new Error("Jira isn't connected."); return ticketDetail(key); };
 // A Jira ticket is read from Jira for its title and criteria; if Jira can't be asked, the
 // conversation's own title stands in, and the debrief goes without the criteria.
 async function subjectOf(key: string, detail: Detail): Promise<Subject | null> {
@@ -84,8 +85,15 @@ async function subjectOf(key: string, detail: Detail): Promise<Subject | null> {
   const mine = history().conversations.filter(worksOn({ key, source: "jira" }));
   const project = mine.find((c) => c.project && c.project !== GENERAL)?.project;
   let title = mine.at(-1)?.title ?? key, criteria: string[] = [];
-  if (jiraConnected()) try { const d = await detail(key); title = d.summary || title; criteria = d.criteria; } catch { /* without them */ }
+  try { const d = await detail(key); title = d.summary || title; criteria = d.criteria; } catch { /* without them */ }
   return { key, source: "jira", title, criteria, ...(project ? { project } : {}) };
+}
+
+// Whether the crew has work on record for a ticket: something a debrief could read.
+export function workedOn(key: string): boolean {
+  if (!(MAE_KEY.test(key) || JIRA_KEY.test(key))) return false;
+  const source = MAE_KEY.test(key) && getTicket(key) ? "mae" : "jira";
+  return history().conversations.some(worksOn({ key, source }));
 }
 
 // What the record says about the work on one ticket.
@@ -177,7 +185,7 @@ export function parseDebrief(raw: string): { well: string[]; better: string[]; l
 }
 
 // Hold one ticket's debrief, and keep it. ask: the model call; detail: the read from Jira (both swapped out in tests).
-export async function runDebrief(key: string, ask?: (system: string, prompt: string) => Promise<string>, detail: Detail = ticketDetail): Promise<Debrief> {
+export async function runDebrief(key: string, ask?: (system: string, prompt: string) => Promise<string>, detail: Detail = fromJira): Promise<Debrief> {
   const t = await subjectOf(key, detail);
   if (!t) throw new Error("There's no such ticket.");
   const f = debriefFacts(t);

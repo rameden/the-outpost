@@ -39,7 +39,7 @@ import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTrigg
 import { checkPulls, freshPulls, pulls as knownPulls } from "./pulls.js";
 import { briefDays, briefDue, dayOf, readBrief, writeBrief } from "./brief.js";
 import { readRetro, retrosDue, runRetro, type Retro } from "./retro.js";
-import { debriefsDue, readDebrief, runDebrief } from "./debrief.js";
+import { debriefsDue, readDebrief, runDebrief, workedOn } from "./debrief.js";
 import { offers, scoreboard } from "./scoreboard.js";
 import { drive, setDrive } from "./settings.js";
 import { recentQuests, questCost } from "./questlog.js";
@@ -890,7 +890,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/notes") return send(res, 200, { notes: loadNotes() });
     if (req.method === "GET" && url.pathname === "/api/tickets") return send(res, 200, { tickets: loadTickets() });
     // How the crew did on a ticket that's done (?key=): nothing until it's been debriefed (debrief.ts).
-    if (req.method === "GET" && url.pathname === "/api/debrief") return send(res, 200, { debrief: readDebrief(String(url.searchParams.get("key") ?? "").trim().toUpperCase()) });
+    if (req.method === "GET" && url.pathname === "/api/debrief") {
+      const key = String(url.searchParams.get("key") ?? "").trim().toUpperCase();
+      return send(res, 200, { debrief: readDebrief(key), worked: workedOn(key) });
+    }
     // What a new ticket can start from: the plans approved and waiting to start (Ready to start), each with its conversation.
     if (req.method === "GET" && url.pathname === "/api/tickets/plans") {
       const plans = heldPlans().map((h) => ({ id: h.ask, body: h.plan.trim(), time: h.held, conversation: h.conversation, conversationTitle: h.title, ...(h.project !== GENERAL ? { project: h.project } : {}) }));

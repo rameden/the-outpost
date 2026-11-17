@@ -104,7 +104,7 @@ test("a card opens the whole ticket: its facts, description and comments, to att
   fireEvent.click(await screen.findByRole("button", { name: "MP-544: Open button on file citations" }));
   const dialog = await screen.findByRole("dialog", { name: "MP-544: Open button on file citations" });
   await waitFor(() => expect(within(dialog).getByText("Reporter")).toBeTruthy());
-  expect(calls.at(-1)!.url).toBe("/api/jira/ticket?key=MP-544");
+  expect(calls.filter((c) => c.url.startsWith("/api/jira/")).at(-1)!.url).toBe("/api/jira/ticket?key=MP-544");
   expect([...dialog.querySelectorAll(".jira-facts dd")].map((d) => d.textContent).slice(0, 6)).toEqual(["In Progress", "Story", "High", "Ryley", "Sam", "MP"]);
   expect(within(dialog).getByRole("heading", { name: "Acceptance criteria" })).toBeTruthy(); // the description, formatted
   expect(dialog.querySelector("strong")?.textContent).toBe("Open");
@@ -194,4 +194,26 @@ test("an open ticket asks Jira once, however often the page behind it is redrawn
   rerender(ticket(onClose));
   fireEvent.keyDown(document, { key: "Escape" });
   expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test("a Jira ticket the crew worked on shows how they did; one they never touched shows nothing", async () => {
+  const debrief = { key: "MP-544", written: "2026-11-12T09:02:00.000Z", conversations: 1, runs: 2, asks: 1, quests: 3, cost: 1.5,
+    well: ["The button landed in one quest."], better: [], proposed: [] };
+  const base = fetch;
+  let answer: object = { debrief: null, worked: false };
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => (url.startsWith("/api/debrief") ? new Response(JSON.stringify(answer)) : base(url, init))));
+  const ticket = <JiraTicket id="MP-544" summary="Open button on file citations" onClose={() => {}} onOpen={() => {}} />;
+  const first = render(ticket);
+  await screen.findByText("Reporter");
+  await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+  expect(screen.queryByText("How the crew did")).toBeNull();
+  first.unmount();
+  answer = { debrief: null, worked: true };
+  const second = render(ticket);
+  expect(await screen.findByText(/within a couple of minutes of the ticket's pull request merging/)).toBeTruthy();
+  second.unmount();
+  answer = { debrief, worked: true };
+  render(ticket);
+  expect(await screen.findByText("The button landed in one quest.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Debrief again" })).toBeTruthy();
 });

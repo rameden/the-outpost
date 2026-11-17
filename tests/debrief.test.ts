@@ -2,7 +2,7 @@
 // and proposes lessons, which wait for your say. With a stand-in for the small model: no API.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("debrief");
@@ -39,14 +39,14 @@ turn("elsewhere", ago(30), "Something else entirely");
 fileConversation("open-button", project.id);
 
 test("the facts are the ticket's own work: its runs, the quests sent in them, what the review found", () => {
-  const f = D.debriefFacts(ticket);
+  const f = D.debriefFacts(D.maeSubject(ticket));
   assert.deepEqual([f.conversations, f.runs, f.asks, f.quests, f.cost, f.running], [1, 3, 2, 2, 1, false]);
   assert.match(f.facts, /Done means:\n- The report card has an Open button/);
   assert.match(f.facts, /Artificer sent \(claude-sonnet-5-5, 30 turns, 120s, \$0\.50\), ended out of turns\. Brief: Write the test/);
   assert.match(f.facts, /The review found 1 thing\(s\), 1 of them blocking/);
   assert.match(f.facts, /Run 3 \(the user asked; answered by Quartermaster\): You forgot the test, add it/);
   assert.ok(!f.facts.includes("Something else entirely"), "another conversation's work isn't this ticket's");
-  assert.equal(D.debriefFacts(idle).facts, "");
+  assert.equal(D.debriefFacts(D.maeSubject(idle)).facts, "");
 });
 
 test("what the model says is read strictly: who a lesson is for has to be someone", () => {
@@ -92,4 +92,29 @@ test("work that's still running isn't debriefed", async () => {
   turn("still-going", ago(5), `Work on ${busy.key}`, { ticket: busy.key, status: "running", reply: "" });
   assert.deepEqual(D.debriefsDue(), []);
   await assert.rejects(() => D.runDebrief(busy.key, async () => answer), /still running/);
+});
+
+test("a Jira ticket is debriefed once its pull request merges, read from Jira for what done meant", async () => {
+  const run = turn("mp-544", ago(20), "Work on MP-544: Open button on file citations", { jira: "MP-544" });
+  quest(run, "Artificer");
+  fileConversation("mp-544", project.id);
+  const pr = (state: string) => writeFileSync("camp/prwatch.json", JSON.stringify({ prs: { "mp-544": { conversation: "mp-544", link: "web", path: ".", branch: "MP-544-open", number: 12, url: "https://github.com/acme/web/pull/12",
+    title: "Open button", state, failing: 0, pending: 0, comments: 0, review: null, conflicts: false, checked: ago(1) } } }));
+  assert.equal(D.workedOn("MP-544"), true);
+  assert.equal(D.workedOn("MP-999"), false);
+  pr("OPEN");
+  assert.deepEqual(D.debriefsDue(), [], "not while its pull request is open");
+  pr("MERGED");
+  assert.deepEqual(D.debriefsDue(), ["MP-544"]);
+
+  let asked = "";
+  const d = await D.runDebrief("MP-544", async (_s, p) => { asked = p; return answer; }, async () => ({ summary: "Open button on file citations", criteria: ["It opens the cited file"] }));
+  assert.match(asked, /Done means:\n- It opens the cited file/);
+  assert.deepEqual([d.source, d.title, d.project, d.runs, d.quests], ["jira", "Open button on file citations", project.id, 1, 1]);
+  assert.equal(D.readDebrief("MP-544")?.source, "jira");
+  assert.deepEqual(D.debriefsDue(), [], "one per ticket");
+  // Jira out of reach: the conversation's own title stands in, and the debrief still gets written.
+  const blind = await D.runDebrief("MP-544", async () => answer, async () => { throw new Error("Jira is down"); });
+  assert.match(blind.title, /MP-544/);
+  await assert.rejects(() => D.runDebrief("MP-999", async () => answer, async () => ({ summary: "x", criteria: [] })), /No work is on record/);
 });

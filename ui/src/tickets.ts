@@ -59,7 +59,8 @@ export const removeTicket = async (key: string) => { await act({ action: "remove
 // gone better, and the lessons it put in front of you to keep (Settings, Memory). None until it's written.
 export type Debrief = { key: string; written: string; conversations: number; runs: number; asks: number; quests: number; cost: number;
   well: string[]; better: string[]; proposed: { where: string; name: string; text: string }[] };
-export const loadDebrief = (key: string) => api<{ debrief: Debrief | null }>(`/api/debrief?key=${encodeURIComponent(key)}`).then((r) => r.debrief);
+// worked: the crew has work on record for it, so there's something to debrief.
+export const loadDebrief = (key: string) => api<{ debrief: Debrief | null; worked?: boolean }>(`/api/debrief?key=${encodeURIComponent(key)}`);
 export const holdDebrief = (key: string) => api<{ debrief: Debrief }>("/api/debrief", { key }).then((r) => r.debrief);
 
 export const draftTickets = (text: string, kind: "note" | "plan", title?: string, project?: string) =>

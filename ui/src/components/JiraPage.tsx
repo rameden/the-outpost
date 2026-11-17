@@ -9,6 +9,7 @@ import { when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, JiraCard, JiraDetail, JiraRef } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { TicketDebrief } from "./TicketDebrief.tsx";
 
 export const GROUPS = { todo: "To do", doing: "In progress", done: "Done" } as const;
 export const pillOf = (g: JiraCard["group"]) => (g === "done" ? "pill done" : g === "doing" ? "pill live" : "pill");
@@ -97,6 +98,7 @@ export function JiraTicket({ id, summary, onClose, onAttach, onOpen, onStart }: 
                   {t.moreChildren && <div className="meta">The first {t.children.length}; the rest are in Jira.</div>}
                 </>
               )}
+              <TicketDebrief ticketKey={id} jira />
               <h3>Comments{t.comments.length ? ` (${t.comments.length + t.earlierComments})` : ""}</h3>
               {t.earlierComments > 0 && <div className="meta">The latest {t.comments.length}; {t.earlierComments} earlier ones are in Jira.</div>}
               {!t.comments.length && <div className="meta">None yet.</div>}
