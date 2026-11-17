@@ -81,14 +81,14 @@ function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
 
 // Auto: what it is, where it's turned on, and how the tasks it has run so far came out (/api/routing).
 type Routing = { policy: string; arms: { arm: string; source: string; tasks: number; completed: number; usdPerSuccess: number | null }[] };
-function AutoInfo({ models }: { models?: number }) {
+function AutoInfo({ models, subscription }: { models?: number; subscription: boolean }) {
   const [routing, setRouting] = useState<Routing | null>(null);
   useEffect(() => { let on = true; api<Routing>("/api/routing").then((r) => { if (on && Array.isArray(r?.arms)) setRouting(r); }, () => {}); return () => { on = false; }; }, []);
   const ran = (routing?.arms ?? []).filter((a) => a.source === "observed" && a.arm.startsWith("auto") && a.tasks > 0);
   return (
     <>
       <h4 className="set-sub">Auto</h4>
-      <p className="set-note">Instead of one fixed model, a crew member or a conversation can run on Auto. For each task it looks at how hard the work is, how much rides on it and how big the request is, then picks a model and an effort from the ones you can use{models ? ` (${models} right now)` : ""}. It moves to another when the one it chose keeps failing, is rate limited, or is too small for the conversation, waits out an outage rather than giving up, and says in the feed which model it used and why.</p>
+      <p className="set-note">Instead of one fixed model, a crew member or a conversation can run on Auto. For each task it looks at how hard the work is, how much rides on it and how big the request is, then picks a model and an effort from the ones you can use{models ? ` (${models} right now)` : ""}. It moves to another when the one it chose keeps failing, is rate limited, or is too small for the conversation, waits out an outage rather than giving up, and says in the feed which model it used and why.{subscription ? " On your Claude subscription it chooses at the start of a run; moving to another model part-way needs the API." : ""}</p>
       <ul className="prov-notes">
         {AUTO_CHOICES.map((a) => <li key={a.id}><b>{autoName(a.id)}{a.id === "auto:balanced" ? " (recommended)" : ""}.</b> {a.tip[0].toUpperCase()}{a.tip.slice(1)}.</li>)}
         <li><b>Where it's turned on.</b> Per crew member under Settings → Crew (Model), or for one conversation in the model picker beside the message box. Small jobs can use it too, below.</li>
@@ -128,7 +128,7 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
       <Provider p={{ id: "anthropic", name: "Anthropic", connected: S.anthropic?.connected ?? false, from: S.anthropic?.from ?? undefined, environment: S.anthropic?.environment, keysAt: "https://console.anthropic.com/settings/keys", privacy: "Claude API usage is billed separately from your Claude subscription and has its own limits.", models: 0, free: 0, approved: true }} refresh={refresh} />
       {providers.map((p) => <Provider key={p.id} p={p} refresh={refresh} />)}
 
-      <AutoInfo models={list?.models.length} />
+      <AutoInfo models={list?.models.length} subscription={S.runtime === "claude-code"} />
 
       <h4 className="set-sub">Small jobs</h4>
       <p className="set-note">Naming a conversation, tidying a memory, and suggesting what to keep after a run are done by one small model. They're short and simple, so a free model usually does.</p>

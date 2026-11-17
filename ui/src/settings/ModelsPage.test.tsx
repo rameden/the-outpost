@@ -168,6 +168,7 @@ test("Auto: what it is, its three settings, how it has done so far, and what it 
   expect(screen.getByRole("heading", { name: "Auto" })).toBeTruthy();
   for (const name of ["Auto · Balanced (recommended).", "Auto · Economy.", "Auto · Quality."]) expect(screen.getByText(name)).toBeTruthy();
   expect(screen.getByText(/picks a model and an effort from the ones you can use/)).toBeTruthy();
+  expect(screen.getByText(/On your Claude subscription it chooses at the start of a run/)).toBeTruthy(); // (this camp runs on one)
   // What's run on Auto here, and nothing that ran on a fixed model or came from a fixture.
   const done = await screen.findByRole("status", { name: "How Auto has done" });
   expect(done.textContent).toBe("So far: Auto · Balanced has run 12 tasks and finished 11 ($0.25 each); Auto · Economy has run 1 task and finished 1. Policy auto-test.1.");
