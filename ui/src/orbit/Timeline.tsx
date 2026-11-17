@@ -62,7 +62,7 @@ export function Timeline({ reel, store, time, onLeave }: { reel: Reel; store: Fe
         <input type="range" min={0} max={reel.span} step={100} value={pos} aria-label="Where in the day" aria-valuetext={shown}
           onChange={(ev) => seek(Number(ev.target.value), true)} />
         <div className="orb-reel-marks" aria-hidden="true">
-          {marks.map((m, i) => <i key={i} className={m.kind} title={m.label} style={{ left: `${((m.at / reel.span) * 100).toFixed(2)}%` }} />)}
+          {marks.map((m, i) => <i key={i} className={`m-${m.kind}`} title={m.label} style={{ left: `${((m.at / reel.span) * 100).toFixed(2)}%` }} />)}
         </div>
       </div>
       <time>{shown}</time>

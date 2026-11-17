@@ -49,7 +49,7 @@ export type HdBody = {
 export type HdInput = {
   seconds: number; w: number; h: number; cx: number; cy: number; // the clock, the screen, and where on it the camera's target lands
   at: { x: number; y: number }; k: number; yaw: number; pitch: number; // what it looks at (in the flat view's units), how close, and from where
-  lead: string; sun: { glow: number; waiting: boolean };
+  lead: string; sun: { glow: number; waiting: boolean; light?: number }; // light: how bright it is set (1, as made, unless said)
   bodies: HdBody[];
   lines: { rot: number; lit: number; body: number }[]; // the contour lines outwards: turned by, lit by the sun's ring, and whose (an index into bodies, or -1)
   ping: { r: number; a: number }; reach: number; flightMs: number;
@@ -178,7 +178,7 @@ export function hdFrame(o: HdInput): { frame: HdFrame; spots: Spot[] } {
     return { rot: l.rot, lit: l.lit, color: b?.color ?? GREY, tone: b && (b.glow > 0.3 || b.waiting || b.focused) ? 0.75 : 0, tail: !!b };
   });
   return {
-    frame: { time: o.seconds, cam, sun: { radius: HD_SUN, active: o.sun.glow, waiting: o.sun.waiting ? 1 : 0 }, planets, lines, ping: o.ping, reach: o.reach, points },
+    frame: { time: o.seconds, cam, sun: { radius: HD_SUN, active: o.sun.glow, waiting: o.sun.waiting ? 1 : 0, light: o.sun.light ?? 1 }, planets, lines, ping: o.ping, reach: o.reach, points },
     spots: [...spots, ...sats, ...(o.marks ?? []).map((m) => spot(m.id, [m.x, 0, m.y], m.r))],
   };
 }

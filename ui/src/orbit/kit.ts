@@ -29,5 +29,3 @@ export const levelOf = (xp: number) => Math.floor(Math.max(0, xp) / 50) + 1;
 export const questsDone = (xp: number) => Math.floor(Math.max(0, xp) / 10);
 // How settled their world is (0 to 1): it fills up over the first nine levels.
 export const grownOf = (xp: number) => Math.min(1, (levelOf(xp) - 1) / 8);
-// The lights of a settled world, round the inside of its disc on the flat view: two more for each level.
-export const lightsOf = (xp: number) => Math.min(24, (levelOf(xp) - 1) * 2);

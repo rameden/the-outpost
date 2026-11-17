@@ -55,8 +55,10 @@ export function Steer({ expId }: { expId: string }) {
 // Stop one expedition: everyone it has out comes home.
 export function Stop({ expId }: { expId: string }) {
   const [busy, setBusy] = useState(false);
+  const [sure, setSure] = useState(false); // (it sits just under the box you type in, and can't be undone: it asks once)
   const [failed, setFailed] = useState("");
   async function stop() {
+    setSure(false);
     setBusy(true);
     setFailed("");
     try { await api("/api/stop", { id: expId }); }
@@ -64,7 +66,9 @@ export function Stop({ expId }: { expId: string }) {
   }
   return (
     <>
-      <button type="button" className="orb-btn orb-stop" disabled={busy} onClick={stop}>{busy ? "Stopping…" : "Stop this expedition"}</button>
+      {sure
+        ? <span className="orb-sure" role="group" aria-label="Stop this expedition?"><button type="button" className="orb-btn orb-stop" onClick={stop}>Yes, stop it</button><button type="button" className="orb-btn" onClick={() => setSure(false)}>Keep it going</button></span>
+        : <button type="button" className="orb-btn orb-stop" disabled={busy} onClick={() => setSure(true)}>{busy ? "Stopping…" : "Stop this expedition"}</button>}
       {failed && <p className="orb-say-note bad" role="alert">{failed}</p>}
     </>
   );

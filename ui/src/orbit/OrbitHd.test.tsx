@@ -249,3 +249,18 @@ test("anyone's can be made a station or a cluster of asteroids from their panel,
   expect(scouts().kind).toBe(0);
   expect(drawn.at(-1)!.planets[1].kind).toBe(0); // (nobody else's changed)
 });
+
+test("the sun is drawn as bright as it's been set, and as made until it's set", () => {
+  localStorage.setItem("camp-orbit-hd", "1");
+  show(); pass(40);
+  expect(drawn.at(-1)!.sun.light).toBe(1);
+  cleanup(); drawn.length = 0;
+  localStorage.setItem("camp-orbit-sun", "0.5");
+  show(); pass(40);
+  expect(drawn.at(-1)!.sun.light).toBe(0.5);
+  // Something kept that isn't a brightness at all is left aside.
+  cleanup(); drawn.length = 0;
+  localStorage.setItem("camp-orbit-sun", "9");
+  show(); pass(40);
+  expect(drawn.at(-1)!.sun.light).toBe(1);
+});

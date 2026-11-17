@@ -145,3 +145,16 @@ test("a cluster of asteroids is set up: how many rocks, how far spread, how big 
   expect(last().p).toEqual([6, 1.2, 0.58, 0.35]);
   expect(screen.getByRole("group", { name: "Satellites" })).toBeTruthy();
 });
+
+test("satellites are a number to choose, unless the camp knows what the crew member carries", () => {
+  const { unmount } = show();
+  expect(screen.getByRole("group", { name: "Satellites" })).toBeTruthy();
+  expect(screen.queryByText(/one for each skill and connector/)).toBeNull();
+  unmount();
+  const on = { onChange: vi.fn<(c: Custom) => void>(), onRoll: vi.fn(), onReset: vi.fn() };
+  const { rerender } = render(<WorldMaker name="Scout" world={scoutsWorld} changed={false} kit={3} {...on} />);
+  expect(screen.getByText("Satellites: 3, one for each skill and connector it has.")).toBeTruthy();
+  expect(screen.queryByRole("group", { name: "Satellites" })).toBeNull();
+  rerender(<WorldMaker name="Scout" world={scoutsWorld} changed={false} kit={0} {...on} />);
+  expect(screen.getByText("Satellites: 0, one for each skill and connector it has.")).toBeTruthy(); // none is still known
+});
