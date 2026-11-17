@@ -64,6 +64,7 @@ export type Conversation = {
   status: string;        // how the latest run ended ("running" while it's going)
   suggest?: string;      // filed under General, but it used a folder that belongs to this project
   jira?: string;         // the Jira ticket it's working on (its key), if it was started from one
+  ticket?: string;       // the Mae ticket it's working on (tickets.ts), if it was started from one
   model?: string;        // the model you picked for it, as of its latest run (none: whoever it's with uses their own)
   links?: string[];      // linked folders attached to it along the way, beyond its project's own
   without?: string[];    // folders it's without: left out when it started, or taken out since (the crew sees nothing of them here)
@@ -137,13 +138,14 @@ export function history(): History {
     // Who it's with: an aside (a second opinion, a review) doesn't take the conversation over.
     const own = [...turns].reverse().find((t) => !t.aside) ?? last;
     const jira = turns.find((t) => t.jira)?.jira;
+    const ticket = turns.find((t) => t.ticket)?.ticket;
     const project = meta.project && known.has(meta.project) ? meta.project : GENERAL;
     // Unfiled, but it used exactly one project's folder: offer to move it there.
     const used = new Set(turns.flatMap((t) => [...(t.links ?? []), ...Object.keys(t.workspaces ?? {})]));
     const owners = project === GENERAL ? s.projects.filter((p) => p.links?.some((l) => used.has(l))) : [];
     conversations.push({
       id, title: meta.title || titleOf(first.task), project, ...(owners.length === 1 ? { suggest: owners[0].id } : {}),
-      created: first.time, updated: last.time, agent: own.agent, direct: own.direct, ...(jira ? { jira } : {}), ...(own.model ? { model: own.model } : {}),
+      created: first.time, updated: last.time, agent: own.agent, direct: own.direct, ...(jira ? { jira } : {}), ...(ticket ? { ticket } : {}), ...(own.model ? { model: own.model } : {}),
       expeditions: turns.map((t) => t.expedition), status: last.status,
       ...folders(turns),
     });

@@ -15,12 +15,12 @@ import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refus
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
 import { PROVIDERS, ProviderError, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
 import { currentExpeditionId, currentLedger, currentQuestId, currentReplyTo, currentRunKey, currentSignal, currentSteering, currentThread, conversationModel } from "./context.js";
-import { isAutoChoice, parseChoice, profileTask, requestTokens as sizeOf, routeId, type Decision, type Route } from "./routing.js";
+import { autoLabel, isAutoChoice, parseChoice, profileTask, requestTokens as sizeOf, routeId, type Decision, type Route } from "./routing.js";
 import { TaskRouter, Verification, autoMode, coolDown, gradeOf, lastRouteOf, logOutcome, noteOutcome, tierOf, type RouteStep, type RouteUse } from "./autoroute.js";
 import { OpJournal, journaled } from "./oplog.js";
 import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
-import { mcpToolsFor } from "./mcp.js";
+import { connectorsFor, mcpToolsFor } from "./mcp.js";
 import { linksBlock, projectInstructions } from "./links.js";
 import { getProject } from "./conversations.js";
 import { leftOutBlock, projectBlock, projectRemember } from "./projects.js";
@@ -221,6 +221,36 @@ export function resolveTurns(spec: Pick<AgentSpec, "id" | "maxTurns">): number {
   return agentSettings(spec.id).maxTurns ?? spec.maxTurns ?? DEFAULT_TURNS;
 }
 
+// What the Quartermaster is told about a crew member, so its plans and briefs fit how they really
+// run: model, effort, turn limit, tools, skills and connectors, as set right now (your overrides
+// and the project's included). It's worked out each time the Quartermaster sets out.
+// A model's name, with a 1M-context id ("claude-fable-5-2[1m]") named after its base model.
+const modelName = (id: string): string => {
+  const known = knownModel(id)?.name;
+  if (known) return known;
+  const base = knownModel(id.replace(/\[1m\]$/i, ""))?.name;
+  return base ? `${base} (1M context)` : id;
+};
+
+export function crewSetup(spec: AgentSpec): string {
+  const { model, effort } = resolveModel(spec);
+  const choice = parseChoice(model);
+  const runsOn = choice.kind === "auto"
+    ? `${autoLabel(choice.preference)} (picks the model and effort quest by quest)`
+    : `${modelName(model)}, ${effort ? `${effort} effort` : "the model's default effort"}`;
+  const webOff = getProject(currentProjectId())?.settings?.web === "off";
+  const tools = spec.tools.map((t) => ("name" in t.def ? t.def.name : "")).filter((n) => n && !(webOff && (n === "web_search" || n === "web_fetch")));
+  const skills = skillNames(spec.skillDirs);
+  const connectors = connectorsFor(spec.id);
+  return [
+    `runs on ${runsOn}`,
+    `${resolveTurns(spec)} turns per quest`,
+    `tools: ${tools.join(", ") || "none"}`,
+    `skills: ${skills.join(", ") || "none"}`,
+    ...(connectors.length ? [`connectors: ${connectors.join(", ")}`] : []),
+  ].join("; ");
+}
+
 // What a run that used every turn says at the end, so whoever reads it knows what to do next.
 const turnsNote = (name: string, n: number) =>
   `\n\n[Stopped: used all ${n} turns before finishing. Send ${name} back to continue, or raise the turn limit in ${name}'s model picker.]`;
@@ -314,6 +344,15 @@ function unquoted(value: string): string {
 
 // Progressive disclosure: only name + description go in the prompt.
 // always: skills whose instructions are in the prompt already (see alwaysBlock), marked so.
+// The names of the skills in these folders (what skillIndex lists, without the descriptions).
+export function skillNames(dirs: string[]): string[] {
+  return dirs.filter(existsSync).flatMap((dir) => readdirSync(dir).flatMap((sub) => {
+    const path = join(dir, sub, "SKILL.md");
+    if (!existsSync(path)) return [];
+    return [unquoted(readFileSync(path, "utf8").match(/^name:\s*(.+)$/m)?.[1] ?? sub)];
+  }));
+}
+
 export function skillIndex(dirs: string[], always: string[] = []): string {
   const lines: string[] = [];
   for (const dir of dirs) {

@@ -539,6 +539,8 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .jira-ticket .file-head .pill { margin-left: auto; flex: none; }
 .jira-body { padding: 14px 18px 18px; background: var(--surface); }
 .jira-body h3 { margin: 18px 0 6px; font: 600 13px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.ticket-debrief h4 { margin: 12px 0 4px; font: 600 13px var(--sans); }
+.ticket-debrief .btn { margin-top: 12px; }
 .jira-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; margin: 0 0 10px; }
 .jira-facts dt { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
 .jira-facts dd { margin: 1px 0 0; font-size: 14px; overflow-wrap: anywhere; }
@@ -546,6 +548,52 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .jira-comment .meta { margin: 0 0 3px; }
 .jira-ticket .dialog-actions a.btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--text); margin-right: auto; }
 .jira-ticket .dialog-actions a.btn .icon { width: 14px; height: 14px; }
+/* Mae's own tickets (TicketsPage.tsx), on the same cards and dialogs as Jira's. Mae's mark says whose a card is. */
+.mae-mark { width: 14px; height: 14px; flex: none; color: var(--wordmark); }
+.jira-card-top .mae-mark { margin-right: -2px; }
+.jira-chip .mae-mark { width: 13px; height: 13px; }
+.ticket-sources { display: inline-flex; gap: 6px; padding-right: 6px; margin-right: 2px; border-right: 1px solid var(--border); }
+.ticket-priority { font: 600 11px var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.ticket-priority.medium { color: var(--muted); }
+.ticket-priority.high { color: var(--bad); }
+.tickets-more { justify-self: start; margin-top: 4px; font-size: 13px; }
+.tickets-empty { display: grid; gap: 4px; padding: 18px 2px; font-size: 14px; }
+.tickets-empty b { color: var(--text); font-weight: 600; }
+.mae-ticket .file-head { flex-wrap: wrap; }
+.mae-ticket .file-head b { flex: 1 1 200px; }
+.ticket-moves { display: inline-flex; gap: 4px; margin-left: auto; }
+.ticket-moves .jira-chip { padding: 2px 9px; font-size: 12px; }
+.ticket-from { margin: 0 0 6px; }
+.mae-ticket .dialog-actions .ticket-edit { margin-left: auto; }
+.ticket-form .file-body { padding: 14px 18px 6px; background: var(--surface); }
+.ticket-form-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 2fr); gap: 10px; }
+/* Start from a note or a plan: above the fields it fills, set off by a rule. */
+.ticket-start { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.ticket-start .field { margin-bottom: 4px; }
+.ticket-fill { line-height: 1.5; }
+.ticket-fill .linkish { margin-left: 4px; }
+.field span small { font-weight: 400; color: var(--faint); margin-left: 4px; }
+@media (max-width: 560px) { .ticket-form-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ticket-form-row .ticket-labels { grid-column: 1 / -1; } }
+/* Turning a note or a plan into tickets: the drafts, each kept or left out. */
+.draft-tickets .file-body { padding: 14px 18px; background: var(--surface); display: grid; gap: 10px; align-content: start; }
+.draft-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.draft { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.draft > input[type="checkbox"] { margin-top: 8px; flex: none; }
+.draft.off { opacity: .55; }
+.draft.off .draft-title { text-decoration: line-through; }
+.draft-main { flex: 1; min-width: 0; display: grid; gap: 2px; justify-items: start; }
+.draft-main .linkish { font-size: 12px; }
+.draft-title { width: 100%; font: 600 14px var(--sans); color: var(--text); padding: 5px 6px; margin-left: -6px; border: 2px solid transparent; border-radius: 6px; background: none; }
+.draft-title:hover { border-color: var(--border); }
+.draft-title:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.draft-more { display: grid; gap: 6px; padding: 4px 0 2px; font-size: 14px; }
+.draft-project { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
+.draft-project select { font: 13px var(--sans); color: var(--text); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); }
+/* Where a note or a plan offers to become tickets, and says it already has. */
+.note-filed { display: inline-flex; gap: 4px; align-items: baseline; min-width: 0; overflow: hidden; white-space: nowrap; }
+.note-filed .jira-key { font-size: 11px; }
+.ask-tickets { margin-top: 8px; font-size: 13px; }
+.wizard-whose { padding: 6px 2px 2px; }
 /* A question before something that costs something */
 .dialog.confirm { width: min(460px, calc(100vw - 32px)); }
 .confirm-host { position: relative; z-index: 60; } /* a question asked from anywhere (ask() in Confirm.tsx) sits above whatever asked it */
@@ -1198,6 +1246,24 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .tool-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .tool-chips code { font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); color: var(--muted); }
 .tool-chips code.write { background: var(--accent-soft); color: var(--accent-deep); }
+/* Condensed feed: a stretch of behind-the-scenes work as one line that opens to every call (feed/condense.ts). */
+.steps { padding-left: 40px; min-width: 0; font-size: 13px; color: var(--muted); }
+.steps-head { display: flex; align-items: baseline; gap: 8px; width: 100%; min-width: 0; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.steps-head:hover .steps-text { color: var(--text, inherit); text-decoration: underline; text-underline-offset: 3px; }
+.steps-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.steps-chev { flex: none; width: 10px; color: var(--faint); }
+.steps-text { flex: none; }
+.steps-tag { flex: none; font-size: 12px; color: var(--good); }
+.steps-tag.bad { color: var(--bad); }
+.steps-count { flex: none; font-size: 12px; color: var(--faint); }
+.steps-last { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 12px; color: var(--faint); }
+.steps.now .steps-chev { color: var(--accent); }
+.steps-body { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 2px 4px; padding-left: 12px; border-left: 1px solid var(--border); }
+.steps-body .tool, .steps-body .notice { padding-left: 0; }
+.detail-switch { margin-left: auto; display: inline-flex; gap: 2px; flex: none; }
+.detail-switch button { border: 0; border-bottom: 2px solid transparent; background: none; padding: 2px 6px; font: 500 12px/1.4 var(--sans); color: var(--muted); cursor: pointer; }
+.detail-switch button[aria-pressed="true"] { color: var(--accent-deep); border-bottom-color: var(--accent); }
+.detail-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tool { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--muted); padding-left: 40px; min-width: 0; }
 .tool b { font-family: var(--mono); font-weight: 600; color: var(--muted); flex: none; }
 .tool code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--faint); font-size: 12px; }
@@ -1320,12 +1386,16 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .mi b { font-weight: 700; }
 .mi s { color: var(--muted); }
 /* One row, and it stays one: where there isn't the width, a long folder or branch name is cut
-   short and the folders wrap among themselves, while Send keeps its room. */
+   short, while Send keeps its room. */
 .composer-bar { display: flex; align-items: center; gap: 4px 6px; padding: 4px 8px 8px; }
 .composer-bar > * { min-width: 0; }
-.composer-bar > .work-in { margin: 0 0 0 6px; flex: 0 1 auto; }
-.composer-bar .work-btn { min-width: 0; max-width: 100%; }
-.composer-bar .work-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The folders stay on one line too: short of room, each branch name is cut short first (most where
+   it's longest), then the folder names. The folders give way before Start after… does. */
+.composer-bar > .work-in { margin: 0 0 0 6px; flex: 0 100 auto; flex-wrap: nowrap; overflow: hidden; }
+.composer-bar .work-btn { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.composer-bar .work-in > .work-btn > .icon { flex: none; }
+.composer-bar .work-btn > span { flex: 0 0.02 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; }
+.composer-bar .work-in > .work-btn > b { flex: 0 4 auto; min-width: 5ch; }
 /* Send and its hint, from the right. The group is one line tall and clips what doesn't fit, so a
    hint with no room wraps under Send and out of sight. (The padding is room for Send's focus ring.) */
 .composer-end { flex: none; margin-left: auto; display: flex; align-items: center; }
@@ -1619,7 +1689,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .feed { padding: 16px 16px 12px; }
   .exp-ask { max-width: 92%; }
   .composer { padding: 10px 16px 12px; }
-  .tool, .notice { padding-left: 0; }
+  .tool, .notice, .steps { padding-left: 0; }
 }
 .exp-feedback { border-top: 1px solid var(--border); padding: 8px 16px; display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
 .fb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -1955,12 +2025,13 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .hist-mark.failed { color: var(--bad); }
 
 /* ---------- Where the work stands, and the next step ---------- */
+/* Its stage is a class prefixed at- (at-changes…), so it can't pick up another rule of the same name (.changes is the Files list). */
 .next-step { container-type: inline-size; display: flex; align-items: center; gap: 14px; padding: 7px clamp(16px, 3vw, 32px); border-bottom: 1px solid var(--border); background: var(--surface); font-size: 13px; min-width: 0; }
 .next-steps { display: flex; gap: 14px; list-style: none; margin: 0; padding: 0; flex: none; color: var(--faint); }
 .next-steps li { padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
 .next-steps li.done { color: var(--muted); }
 .next-steps li.now { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
-.next-step.failed .next-steps li.now, .next-step.feedback .next-steps li.now, .next-step.closed .next-steps li.now { border-bottom-color: var(--bad); }
+.next-step.at-failed .next-steps li.now, .next-step.at-feedback .next-steps li.now, .next-step.at-closed .next-steps li.now { border-bottom-color: var(--bad); }
 .next-says { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; color: var(--muted); }
 .next-says code { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; max-width: 26ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 100 auto; min-width: 0; }
 .next-says code .icon { width: 12px; height: 12px; flex: none; }
@@ -1968,6 +2039,13 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .next-says a { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--muted); }
 .next-says a .icon { width: 12px; height: 12px; }
 .next-actions { display: inline-flex; gap: 8px; flex: none; }
+.next-repo { flex: none; font-weight: 600; color: var(--text); }
+.next-says .linkish { flex: none; font-size: 12px; white-space: nowrap; }
+/* One repository's own, under its row in Files (several repositories in one conversation). */
+.ft-stage:empty { display: none; }
+.next-step.compact { gap: 8px; padding: 0 4px 6px calc(8px + 20px); border-bottom: 0; background: none; font-size: 12px; }
+.next-step.compact .next-says { gap: 6px; }
+.next-step.compact .next-actions { gap: 4px; }
 .next-more { position: relative; display: inline-flex; }
 .popover.next-menu { position: absolute; top: calc(100% + 6px); right: 0; left: auto; bottom: auto; width: 230px; padding: 6px; z-index: 30; display: grid; }
 .commit-dialog { width: min(560px, calc(100vw - 32px)); }

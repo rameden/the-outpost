@@ -5,10 +5,14 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { AlwaysOn } from "../settings/Settings.tsx";
 import { TicketWizard, kickoff } from "./TicketWizard.tsx";
+import { loadTickets } from "../tickets.ts";
 
 const ISSUES = [{ key: "MP-544", summary: "Open button on file citations", type: "Story", status: "To Do" }, { key: "MP-601", summary: "Fix the nav on small screens", type: "Bug", status: "To Do" }];
 const DETAIL = { key: "MP-544", summary: "Open button on file citations", type: "Story", status: "To Do", priority: "High", assignee: "Ryley", epic: null,
   description: "Add an **Open** button.", criteria: ["An Open button on web reports", "Closing returns to the chat"] };
+// Mae's own: one waiting, one done (which isn't offered).
+const mae = (key: string, title: string, status: string, more: object = {}) => ({ key, title, status, criteria: [], labels: [], description: "", created: "2026-11-10T09:00:00.000Z", updated: "2026-11-10T09:00:00.000Z", ...more });
+const MAE = [mae("MAE-3", "Tidy the settings page", "todo", { priority: "high", criteria: ["Every page has a heading"], description: "The pages drifted." }), mae("MAE-1", "Old work", "done")];
 const calls: { url: string; body?: any }[] = [];
 let refuse = false;
 beforeEach(() => {
@@ -23,6 +27,8 @@ beforeEach(() => {
     if (u.pathname === "/api/jira/ticket") return json({ ...DETAIL, key: u.searchParams.get("key") });
     if (u.pathname === "/api/repos") return json({ repos: [{ link: "web", access: "write", branch: "main", worktrees: [], branches: [] }, { link: "docs", access: "read", branch: "main", worktrees: [], branches: [] }] });
     if (u.pathname === "/api/upload") return body.name === "huge.bin" ? json({ error: "That file couldn't be saved." }, 400) : json({ name: body.name, path: `camp/uploads/b7/${body.name}`, batch: "b7" });
+    if (u.pathname === "/api/tickets") return json({ tickets: MAE });
+    if (u.pathname === "/api/tickets/attach") return json({ name: "MAE-3.md", path: "camp/uploads/b2/MAE-3.md", batch: "b2", key: "MAE-3", summary: MAE[0].title });
     if (u.pathname === "/api/jira/attach") return json({ name: "MP-544.md", path: "camp/uploads/b1/MP-544.md", batch: "b1" });
     if (u.pathname === "/api/send") return refuse ? json({ error: "links/web isn't a git repository, so it can't have a worktree." }, 400) : json({ ok: true, id: "run1", thread: "run1", position: 0, attached: 1 });
     return json({});
@@ -34,6 +40,7 @@ const S = {
   characters: [{ id: "quartermaster", name: "Quartermaster", emoji: "🎒", role: "Plans" }, { id: "scout", name: "Scout", emoji: "🔭", role: "Researches." }, { id: "artificer", name: "Artificer", emoji: "🔧", role: "Builds." }],
   history: { projects: [{ id: "general", name: "General" }, { id: "p1", name: "Web app", links: ["web"] }, { id: "p2", name: "Docs", links: ["docs"], settings: { review: "on" } }], conversations: [] },
   settings: { reviewChanges: false, jiraWrite: { on: true, startStatus: "In Progress", prStatus: "" } },
+  jira: { connected: true },
 } as unknown as CampState;
 const next = (name: string) => fireEvent.click(screen.getByRole("button", { name: `Next: ${name}` }));
 
@@ -133,6 +140,7 @@ test("what's sent, from what was chosen", () => {
   expect(kickoff({ ...base, who: "quartermaster", review: true }).review).toBe(true);
   expect(kickoff({ ...base, who: "quartermaster", review: false }).review).toBe(false);
   expect(kickoff({ ...base, who: "scout", review: true })).toEqual({ text: "@scout Do it.", attachments: [{ kind: "file", ...attachment }], jira: "MP-1" });
+  expect(kickoff({ ...base, key: "MAE-2", who: "quartermaster", review: null })).toEqual({ text: "Do it.", attachments: [{ kind: "file", ...attachment }], ticket: "MAE-2" }); // Mae's own: no Jira
   expect(kickoff({ ...base, who: "quartermaster", review: null, project: "p1", repos: ["web", "api"] }).workspaces).toEqual({ web: { mode: "new", branch: "MP-1-x" }, api: { mode: "new", branch: "MP-1-x" } });
 });
 
@@ -230,4 +238,28 @@ test("dropping files on the details step, or pasting an image there, attaches th
   fireEvent.click(within(dialog).getByRole("button", { name: "Remove pasted.png" }));
   next("Where"); next("Who"); next("Start");
   expect((within(dialog).getByLabelText("The brief") as HTMLTextAreaElement).value).toContain("I've also attached this for context (designs, references): screenshot.png. Look at it before you plan, and say so if it disagrees with the ticket.");
+});
+
+// Last, as the tickets store it loads is the page's for the rest of the file.
+test("a Mae ticket is picked up the same way: its own details, and it moves along without Jira", async () => {
+  await loadTickets();
+  const onStarted = vi.fn();
+  render(<TicketWizard S={{ ...S, jira: undefined } as unknown as CampState} onClose={() => {}} onStarted={onStarted} />);
+  const dialog = screen.getByRole("dialog", { name: "Start a ticket" });
+  expect(within(dialog).getAllByRole("option").map((o) => o.textContent)).toEqual(["MAE-3Tidy the settings pageTo do · high"]); // not Done's, and no Jira to ask
+  expect(calls.some((c) => c.url.startsWith("/api/jira"))).toBe(false);
+  fireEvent.click(within(dialog).getByRole("option", { name: /MAE-3/ }));
+  expect((within(dialog).getByLabelText("Criterion 1") as HTMLInputElement).value).toBe("Every page has a heading");
+  expect(dialog.textContent).toContain("Mae ticket · To do · high");
+  next("Where"); next("Who"); next("Start");
+  const summary = dialog.querySelector(".wizard-summary")!.textContent!;
+  expect(summary).toContain("moves to In progress as the work starts, and to Done when its pull request merges");
+  expect(summary).not.toContain("a comment says");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Start the work" }));
+  await waitFor(() => expect(onStarted).toHaveBeenCalledWith("run1"));
+  expect(calls.find((c) => c.url === "/api/tickets/attach")!.body).toEqual({ key: "MAE-3" });
+  const sent = calls.find((c) => c.url === "/api/send")!.body;
+  expect(sent.ticket).toBe("MAE-3");
+  expect("jira" in sent).toBe(false);
+  expect(sent.text).toContain("Work on MAE-3: Tidy the settings page");
 });

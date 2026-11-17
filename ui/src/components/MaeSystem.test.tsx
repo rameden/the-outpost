@@ -76,19 +76,19 @@ test("someone you added joins the rotation on the next orbit out, in the colour 
   const crew = [
     { id: "scout", name: "Scout", emoji: "🏹", role: "" }, { id: "artificer", name: "Artificer", emoji: "🔨", role: "" },
     { id: "scribe", name: "Scribe", emoji: "🪶", role: "" }, { id: "warden", name: "Warden", emoji: "🛡️", role: "" },
-    { id: "hacker", name: "Hacker", emoji: "⚡", role: "", custom: true, color: "rose" },
+    { id: "wizard", name: "Wizard", emoji: "🪄", role: "", custom: true, color: "rose" },
     { id: "cook", name: "Cook", emoji: "🍳", role: "", custom: true, color: "teal" },
   ];
   setCrewColors(crew);
   const { container } = render(<MaeSystem crew={crew} />);
-  expect(who(container)).toEqual(["scout", "artificer", "scribe", "warden", "hacker", "cook"]);
+  expect(who(container)).toEqual(["scout", "artificer", "scribe", "warden", "wizard", "cook"]);
   const svg = container.querySelector("svg")!;
   expect(svg.classList.contains("sys-n6")).toBe(true); // wider, so the planets stay the same size
   expect(svg.querySelectorAll("path.sys-ring").length).toBe(7);
-  const hacker = svg.querySelector('[data-who="hacker"]')!;
-  expect(hacker.classList.contains("c-x-rose")).toBe(true);
-  expect(hacker.querySelector(".sys-orbit")!.classList.contains("sys-o5")).toBe(true);
-  expect(hacker.querySelectorAll(".sys-mark").length).toBe(1); // the Hacker has a mark of their own
+  const wizard = svg.querySelector('[data-who="wizard"]')!;
+  expect(wizard.classList.contains("c-x-rose")).toBe(true);
+  expect(wizard.querySelector(".sys-orbit")!.classList.contains("sys-o5")).toBe(true);
+  expect(wizard.querySelectorAll(".sys-mark").length).toBe(1); // the Wizard has a mark of their own
   // Anyone else shows their emoji.
   const cook = svg.querySelector('[data-who="cook"]')!;
   expect(cook.classList.contains("c-x-teal")).toBe(true);

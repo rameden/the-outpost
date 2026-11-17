@@ -186,6 +186,15 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
       </div>
 
       <div className="set-row">
+        <div className="set-label"><b>Ticket debrief</b>
+          <p>When a Mae ticket is done, the smallest model reads how the crew did on it (the plan, each quest and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the Quartermaster, the crew or the project. One small call per ticket; nothing is kept until you approve it under Memory.</p>
+        </div>
+        <div className="set-control unasked-control">
+          <label className="switch"><input type="checkbox" checked={d.debrief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { debrief: ev.target.checked }))} /> {d.debrief ? "On" : "Off"}</label>
+        </div>
+      </div>
+
+      <div className="set-row">
         <div className="set-label"><b>Your pull requests</b>
           <p>The camp follows the pull requests you opened in linked repositories, wherever their branches live, reading them again every ten minutes. {home.pulls.error ? `They couldn't be read: ${home.pulls.error}` : home.pulls.fetched ? `Last read ${when(home.pulls.fetched)}: ${home.pulls.count} open.` : "They haven't been read yet."}</p></div>
         <div className="set-control unasked-control">

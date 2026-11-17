@@ -5,7 +5,7 @@
 //
 // It plays expeditions one after another, round and round, and each goes in stages, the way real
 // work does: the Scout goes out alone to find things out; once they've reported, the Artificer is
-// sent on two quests at once and the Hacker on a third; when those are in, the Warden reviews; and
+// sent on two quests at once and the Wizard on a third; when those are in, the Warden reviews; and
 // last the Scribe writes it up. Nobody leaves before the stage before them is home. On the way
 // they use tools and write (a word at a time, as a real reply arrives), and one of them stops to
 // ask for your OK and is given it. Nothing is random: the same crew sees the same show, which is
@@ -60,11 +60,11 @@ export const DEMO_CREW = [
   { id: "artificer", name: "Artificer", emoji: "🔨", role: "Builds and changes things" },
   { id: "scribe", name: "Scribe", emoji: "🪶", role: "Writes it up" },
   { id: "warden", name: "Warden", emoji: "🛡️", role: "Reviews and checks" },
-  { id: "hacker", name: "Hacker", emoji: "⚡", role: "Moves fast on small things" },
+  { id: "wizard", name: "Wizard", emoji: "🪄", role: "Moves fast on small things" },
 ];
 
 // Whose part each is. A crew without one of these has someone else stand in (see castFor).
-const ROLES = ["scout", "artificer", "hacker", "warden", "scribe"] as const;
+const ROLES = ["scout", "artificer", "wizard", "warden", "scribe"] as const;
 type Role = (typeof ROLES)[number];
 // A quest: whose it is, what it's for, the tools it uses on the way, what it says at the end, and
 // (for some) a file it writes or a command it stops to ask about.
@@ -82,14 +82,14 @@ const SHOWS: { task: string; plan: string; done: string; stages: Stage[] }[] = [
           tools: [["read_file", "links/app/src/session.ts"], ["grep", "\"Set-Cookie\" links/app/src"], ["read_file", "links/app/src/cookies.ts"], ["read_file", "links/app/src/sign-out.ts"], ["grep", "\"SameSite\" links/app"]],
           says: "The session cookie is set in session.ts on line 48 without the Secure flag, and SameSite falls back to the browser's default. Sign-out clears it with its own copy of the options, which has drifted from the first." },
       ] },
-      { says: "The Scout is back with two things to fix, so the Artificer takes both, and the Hacker a quick one beside them.", parts: [
+      { says: "The Scout is back with two things to fix, so the Artificer takes both, and the Wizard a quick one beside them.", parts: [
         { who: "artificer", brief: "Set the cookie flags where the session is made",
           tools: [["read_file", "links/app/src/cookies.ts"], ["edit_file", "links/app/src/cookies.ts"], ["edit_file", "links/app/src/session.ts"], ["write_file", "links/app/tests/cookies.test.ts"]],
           asks: "npm test -- cookies", says: "Both flags are set where the cookie is made, and the new test fails without them. The suite passes." },
         { who: "artificer", brief: "Make sign-out clear the cookie with the same options",
           tools: [["read_file", "links/app/src/sign-out.ts"], ["edit_file", "links/app/src/sign-out.ts"], ["edit_file", "links/app/tests/sign-out.test.ts"], ["shell", "npm test -- sign-out"]],
           says: "Sign-out now takes its options from the one place the session does, so the two can't drift apart again." },
-        { who: "hacker", brief: "Add a check that fails the build if a cookie is set without Secure",
+        { who: "wizard", brief: "Add a check that fails the build if a cookie is set without Secure",
           tools: [["read_file", "links/app/scripts/lint.ts"], ["write_file", "links/app/scripts/check-cookies.ts"], ["edit_file", "links/app/package.json"], ["shell", "npm run check:cookies"]],
           says: "A twenty-line check, wired into the lint step. It catches the old code and passes on the new." },
       ] },
@@ -115,14 +115,14 @@ const SHOWS: { task: string; plan: string; done: string; stages: Stage[] }[] = [
           tools: [["read_file", "links/app/jobs/export.ts"], ["shell", "node jobs/export.js --profile --limit 500"], ["grep", "\"SELECT\" links/app/jobs"], ["read_file", "links/app/db/orders.ts"], ["shell", "node jobs/export.js --explain"]],
           says: "Almost all of the time is in one loop: it runs the orders query again for every customer, about nine thousand times a night. The file is also written a row at a time." },
       ] },
-      { says: "Two slow things, so two quests for the Artificer, and the Hacker adds a timer so we'd see it next time.", parts: [
+      { says: "Two slow things, so two quests for the Artificer, and the Wizard adds a timer so we'd see it next time.", parts: [
         { who: "artificer", brief: "Read the orders once and group them in memory",
           tools: [["read_file", "links/app/jobs/export.ts"], ["edit_file", "links/app/jobs/export.ts"], ["edit_file", "links/app/db/orders.ts"], ["edit_file", "links/app/jobs/export.test.ts"]],
           asks: "node jobs/export.js --profile", says: "One query now, grouped by customer as it's read. The output is byte for byte what it was." },
         { who: "artificer", brief: "Write the file in batches, not a row at a time",
           tools: [["read_file", "links/app/jobs/write-csv.ts"], ["edit_file", "links/app/jobs/write-csv.ts"], ["shell", "npm test -- write-csv"], ["shell", "node jobs/export.js --limit 5000"]],
           says: "Rows go out a thousand at a time, and the file closes cleanly if the job is stopped part-way." },
-        { who: "hacker", brief: "Log how long each stage of the export takes",
+        { who: "wizard", brief: "Log how long each stage of the export takes",
           tools: [["read_file", "links/app/jobs/run.ts"], ["edit_file", "links/app/jobs/run.ts"], ["shell", "node jobs/export.js --limit 100"]],
           says: "Each stage logs its time, and the job warns if the whole run passes ten minutes." },
       ] },
@@ -148,14 +148,14 @@ const SHOWS: { task: string; plan: string; done: string; stages: Stage[] }[] = [
           tools: [["grep", "\"#[0-9a-f]{6}\" links/app/src/settings"], ["read_file", "links/app/src/settings/theme.css"], ["read_file", "links/app/src/settings/Toggle.tsx"], ["read_file", "links/app/src/settings/Field.tsx"], ["grep", "\"prefers-color-scheme\" links/app/src"]],
           says: "Most colours come from eleven variables, but six are written straight into the components and would stay light. Nothing follows the system's setting yet." },
       ] },
-      { says: "So: the dark set, and the six stragglers. The Artificer takes those two, and the Hacker the switch itself.", parts: [
+      { says: "So: the dark set, and the six stragglers. The Artificer takes those two, and the Wizard the switch itself.", parts: [
         { who: "artificer", brief: "Add the dark colours beside the light ones",
           tools: [["read_file", "links/app/src/settings/theme.css"], ["edit_file", "links/app/src/settings/theme.css"], ["edit_file", "links/app/src/settings/theme.test.ts"], ["shell", "npm test -- theme"]],
           says: "The dark set is in, variable for variable, and follows the system until you choose." },
         { who: "artificer", brief: "Move the six hard-coded colours onto variables",
           tools: [["edit_file", "links/app/src/settings/Toggle.tsx"], ["edit_file", "links/app/src/settings/Field.tsx"], ["edit_file", "links/app/src/settings/Slider.tsx"], ["grep", "\"#[0-9a-f]{6}\" links/app/src/settings"]],
           asks: "npm run screenshots -- settings", says: "All six are on variables now, and the search for a hard-coded colour comes back empty." },
-        { who: "hacker", brief: "Add the light, dark or system switch to the page",
+        { who: "wizard", brief: "Add the light, dark or system switch to the page",
           tools: [["read_file", "links/app/src/settings/General.tsx"], ["edit_file", "links/app/src/settings/General.tsx"], ["edit_file", "links/app/src/prefs.ts"]],
           says: "Three choices at the top of General, remembered in this browser." },
       ] },

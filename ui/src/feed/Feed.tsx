@@ -18,6 +18,7 @@ import { WorkspaceBox } from "./Workspaces.tsx";
 import { AsideButton } from "./Aside.tsx";
 import { ForkButton } from "./Fork.tsx";
 import { cardsFor, type View } from "./conversation.ts";
+import { condense, summarize, type FeedDetail, type StepsNode } from "./condense.ts";
 import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type StepState } from "./reducer.ts";
 import { useFeed, type FeedStore } from "./store.ts";
 
@@ -41,7 +42,40 @@ const StopInBox = createContext<string | undefined>(undefined);
 
 // Each item is drawn on its own: one that can't be (a reply the page fails to lay out) leaves a
 // line saying so, and everything around it stays.
-const Nodes = ({ nodes, onReply }: { nodes: FeedNode[]; onReply: OnReply }) => <>{nodes.map((n) => <ItemBoundary key={n.id}><NodeView node={n} onReply={onReply} /></ItemBoundary>)}</>;
+// Condensed (the default) folds the behind-the-scenes lines into one per stretch (condense.ts);
+// detailed shows every one. live: the run or quest these are in is still going, so the newest
+// stretch says what it's doing right now.
+export const Detail = createContext<FeedDetail>("condensed");
+const Nodes = ({ nodes, onReply, live }: { nodes: FeedNode[]; onReply: OnReply; live?: boolean }) => {
+  const detail = useContext(Detail);
+  if (detail === "detailed") return <>{nodes.map((n) => <ItemBoundary key={n.id}><NodeView node={n} onReply={onReply} /></ItemBoundary>)}</>;
+  const shown = condense(nodes);
+  return <>{shown.map((n, i) => (
+    <ItemBoundary key={n.id}>
+      {n.kind === "steps" ? <Steps steps={n} onReply={onReply} now={live && i === shown.length - 1} /> : <NodeView node={n} onReply={onReply} />}
+    </ItemBoundary>
+  ))}</>;
+};
+
+// A stretch of behind-the-scenes work as one line, which opens to every call in it.
+const Steps = memo(function Steps({ steps, onReply, now }: { steps: StepsNode; onReply: OnReply; now?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const sum = summarize(steps.nodes);
+  const n = steps.nodes.length;
+  return (
+    <div className={cx("steps", open && "open", now && "now")}>
+      <button type="button" className="steps-head" aria-expanded={open} title={open ? "Hide these steps" : "Show every step"} onClick={() => setOpen((o) => !o)}>
+        <span className="steps-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
+        <span className="steps-text">{sum.text}</span>
+        {sum.allowed > 0 && <span className="steps-tag">{sum.allowed} approved</span>}
+        {sum.declined > 0 && <span className="steps-tag bad">{sum.declined} declined</span>}
+        <span className="steps-count">{n} {plural(n, "step")}{sum.who.length > 1 ? ` · ${sum.who.join(", ")}` : ""}</span>
+        {now && !open && sum.last && <code className="steps-last" title={sum.last}>{sum.last}</code>}
+      </button>
+      {open && <div className="steps-body">{steps.nodes.map((x) => <ItemBoundary key={x.id}><NodeView node={x} onReply={onReply} /></ItemBoundary>)}</div>}
+    </div>
+  );
+});
 
 const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onReply: OnReply }) {
   switch (node.kind) {
@@ -122,7 +156,7 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
         {quest.status === null ? <span className="pill live">On quest</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
       </div>
-      <div className="quest-body"><Nodes nodes={quest.nodes} onReply={onReply} /></div>
+      <div className="quest-body"><Nodes nodes={quest.nodes} onReply={onReply} live={quest.status === null} /></div>
     </section>
   );
 }
@@ -239,7 +273,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
       <div className="exp-reply">
         <div className="exp-body">
           {/* Nothing back yet: say so, so the answer's place isn't an empty box. */}
-          {!end && exp.nodes.length === 0 ? <div className="exp-wait" role="status">{exp.source === "job" ? "Starting…" : "Reading your message…"}</div> : <Nodes nodes={exp.nodes} onReply={onReply} />}
+          {!end && exp.nodes.length === 0 ? <div className="exp-wait" role="status">{exp.source === "job" ? "Starting…" : "Reading your message…"}</div> : <Nodes nodes={exp.nodes} onReply={onReply} live={!end} />}
         </div>
         {end && showChanges && <Changes expId={exp.expId} />}
         {end && end.workspaces.length > 0 && <WorkspaceBox workspaces={end.workspaces} task={exp.task} expId={exp.expId} />}
@@ -291,8 +325,9 @@ const NO_PAST: FeedNode[] = [];
 // past: that conversation's earlier runs, read back from history. waiting: a line for a blank page.
 // plain: a blank page outside any project, where a message is a plain chat with a model.
 // stopInBox: the run whose Stop is the message box's button.
-export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting, plain, stopInBox }: {
+export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting, plain, stopInBox, detail = "condensed" }: {
   store: FeedStore; onReply: OnReply; onExample: (text: string) => void; view?: View; past?: FeedNode[]; waiting?: string; plain?: boolean; stopInBox?: string;
+  detail?: FeedDetail; // condensed (behind-the-scenes work folded) or detailed (every line)
 }) {
   const live = useFeed(store, (s) => s.items);
   const items = useMemo(() => cardsFor(view, live, past), [view, live, past]);
@@ -348,7 +383,7 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
             {(plain ? PLAIN_EXAMPLES : EXAMPLES).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>
         </div>
-      ) : <StopInBox.Provider value={stopInBox}><Nodes nodes={items} onReply={onReply} /></StopInBox.Provider>}
+      ) : <Detail.Provider value={detail}><StopInBox.Provider value={stopInBox}><Nodes nodes={items} onReply={onReply} /></StopInBox.Provider></Detail.Provider>}
     </div>
   );
 }

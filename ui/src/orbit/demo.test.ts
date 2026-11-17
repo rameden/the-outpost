@@ -11,21 +11,21 @@ afterEach(() => { vi.useRealTimers(); });
 type Timed<T> = [number, T][];
 const of = <T,>(events: [number, object][], type: string) => events.filter(([, e]) => (e as { type: string }).type === type) as Timed<T>;
 
-test("an expedition goes in stages: the Scout, then two Artificer quests and the Hacker, then the Warden, then the Scribe", () => {
+test("an expedition goes in stages: the Scout, then two Artificer quests and the Wizard, then the Warden, then the Scribe", () => {
   const { events, lasts } = demoRun(0, lead, crew);
   expect((events[0][1] as { type: string }).type).toBe("expedition_start");
   expect((events.at(-1)![1] as { type: string }).type).toBe("expedition_end");
   expect(events.at(-1)![0]).toBe(lasts);
   expect(events.map(([at]) => at)).toEqual(events.map(([at]) => at).sort((a, b) => a - b)); // in the order they happen
   const out = of<{ who: string; step: number; questId: string }>(events, "dispatch"), back = of<{ questId: string }>(events, "return");
-  expect(out.map(([, e]) => e.who)).toEqual(["Scout", "Artificer", "Artificer", "Hacker", "Warden", "Scribe"]);
+  expect(out.map(([, e]) => e.who)).toEqual(["Scout", "Artificer", "Artificer", "Wizard", "Warden", "Scribe"]);
   expect(out.map(([, e]) => e.step)).toEqual([1, 2, 3, 4, 5, 6]); // each a numbered step of the plan
   expect(back.length).toBe(6);
   // Nobody leaves until everyone in the stage before is home.
   const home = (...quests: number[]) => Math.max(...quests.map((q) => back.find(([, e]) => e.questId === `q${q}`)![0]));
   const leaves = (q: number) => out[q][0];
   expect(leaves(1)).toBeGreaterThan(home(0));       // the Artificer waits for the Scout
-  expect(leaves(3)).toBeLessThan(home(1));          // the Artificer's two and the Hacker are out together
+  expect(leaves(3)).toBeLessThan(home(1));          // the Artificer's two and the Wizard are out together
   expect(leaves(4)).toBeGreaterThan(home(1, 2, 3)); // the Warden waits for all three
   expect(leaves(5)).toBeGreaterThan(home(4));       // the Scribe waits for the Warden
   // The Quartermaster says a word as each stage goes; one quest stops to ask for your OK, and is given it.
@@ -41,7 +41,7 @@ test("an expedition goes in stages: the Scout, then two Artificer quests and the
 
 test("a crew without one of the parts has someone else stand in, someone with no part of their own first", () => {
   const scout = { name: "Scout" }, scribe = { name: "Scribe" }, cook = { name: "Cook" };
-  expect(castFor([scout, scribe, cook])).toEqual({ scout, scribe, artificer: cook, hacker: cook, warden: cook });
+  expect(castFor([scout, scribe, cook])).toEqual({ scout, scribe, artificer: cook, wizard: cook, warden: cook });
   expect(Object.values(castFor([scout])).every((a) => a === scout)).toBe(true);
   const run = demoRun(0, lead, [scout, scribe, cook]);
   expect(of<{ who: string }>(run.events, "dispatch").map(([, e]) => e.who)).toEqual(["Scout", "Cook", "Cook", "Cook", "Cook", "Scribe"]);

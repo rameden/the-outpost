@@ -8,6 +8,7 @@ import { api, errorText } from "../api.ts";
 import { cx, when } from "../format.ts";
 import { ASK_LABELS, REPLACE_LATER, REPLACE_START, START_LATER, heldAnswer } from "./asks.ts";
 import type { AskNode } from "./reducer.ts";
+import { turnIntoTickets } from "../tickets.ts";
 
 export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   const [sending, setSending] = useState(false);
@@ -70,6 +71,13 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
       {ask.listed
         ? <details className="ask-written"><summary>The plan as it was written</summary><div className="ask-body">{ask.body}</div></details>
         : <div className={kind === "shell" || kind === "tool" ? "ask-body cmd" : "ask-body"}>{ask.body}</div>}
+      {/* A plan's steps can be tracked as Mae tickets, approved or not (the app files them under this conversation). */}
+      {kind === "plan" && ask.body.trim() && (
+        <div className="ask-tickets">
+          <button type="button" className="linkish" title="Split this plan into Mae tickets, one per piece of work: you choose which to file"
+            onClick={() => turnIntoTickets({ text: ask.body, kind: "plan" })}>Turn into tickets</button>
+        </div>
+      )}
       {resolved ? (
         <>
           <div className="ask-outcome">{ask.started ? "▶ Plan approved, and started" : ask.aside === "replaced" ? "↺ Set aside: a newer plan took its place" : ask.aside === "removed" ? "✕ Removed from Ready to start" : ask.outcome}</div>

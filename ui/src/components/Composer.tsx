@@ -4,7 +4,7 @@
 import { memo, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type Ref } from "react";
 import { MessageInput, type MessageInputHandle } from "./MessageInput.tsx";
 import { api, errorText, storeGet, storeRemove, storeSet } from "../api.ts";
-import { COMMANDS, parseCommand, say } from "../bus.ts";
+import { COMMANDS, parseCommand, say, type Sent } from "../bus.ts";
 import type { FeedStore } from "../feed/store.ts";
 import type { CampState, Link, PendingAttachment, SendResult, Uploaded, JiraRef } from "../types.ts";
 import { AttachmentChip } from "./AttachmentChip.tsx";
@@ -16,12 +16,14 @@ import { ChatModel } from "./ChatModel.tsx";
 import { tell } from "./StatusLine.tsx";
 import { uploadFile as sendFile } from "../upload.ts";
 import { noteFile } from "../notes.ts";
+import { isMaeKey } from "../tickets.ts";
 
 const MAX_FOLDER_FILES = 200;
 
 // What the rest of the page can ask of the composer.
 export type ComposerHandle = {
   setText: (text: string) => void;               // an example prompt
+  send: (text: string) => Promise<Sent>;         // a request made for you (a review's "fix these"): to the working run now, else sent as a reply. What you've typed stays put.
   attachLink: (link: Link) => void;              // "Attach" on a linked folder
   mention: (path: string) => void;               // a file or folder picked in the Files flyout
   attachJira: (issue: Pick<JiraRef, "key" | "summary">) => void; // "Attach to message" on a ticket
@@ -242,7 +244,8 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     setError("");
     const key = add({ kind: "file", name: `${issue.key} · ${issue.summary}`.slice(0, 80), status: "uploading" });
     try {
-      const r = await api<Uploaded>("/api/jira/attach", { key: issue.key, batch: batch.current });
+      // A Mae ticket (MAE-3) is the camp's own; any other key is Jira's.
+      const r = await api<Uploaded>(isMaeKey(issue.key) ? "/api/tickets/attach" : "/api/jira/attach", { key: issue.key, batch: batch.current });
       batch.current = r.batch;
       update(key, { path: r.path, status: "ready" });
     } catch (e) { update(key, { status: "error" }); setError(errorText(e)); }
@@ -413,56 +416,68 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   // ---------- Sending ----------
   // now: Send now, from the button's menu while a run is working. The message goes to the run straight away, instead
   // of waiting (queued) for it to finish.
-  async function submit(ev: FormEvent | null, now = false) {
+  // given: a message made for you (send, on the handle), sent as it is: not what's in the box, which stays as it was.
+  async function submit(ev: FormEvent | null, now = false, given?: string): Promise<Sent> {
     ev?.preventDefault();
-    if (sendingNow.current) return; // the last one hasn't landed yet (what you've typed since stays in the box)
-    if (pending.some((a) => a.status === "uploading")) return setError("Still uploading. It'll be ready in a moment.");
-    const message = text.trim();
-    const attachments = pending.filter((a) => a.status === "ready").map(({ kind, name, path, url }) => ({ kind, name, path, url }));
-    if (!message && !attachments.length) return;
+    if (sendingNow.current) { // the last one hasn't landed yet (what you've typed since stays in the box)
+      if (given !== undefined) setError("Your last message is still on its way. Try again in a moment.");
+      return null;
+    }
+    if (given === undefined && pending.some((a) => a.status === "uploading")) { setError("Still uploading. It'll be ready in a moment."); return null; }
+    const message = (given ?? text).trim();
+    const attachments = given !== undefined ? [] : pending.filter((a) => a.status === "ready").map(({ kind, name, path, url }) => ({ kind, name, path, url }));
+    if (!message && !attachments.length) return null;
     setError("");
     // /new, /focus, /good…: for the page itself, not the crew.
-    const command = attachments.length ? null : parseCommand(message);
+    const command = attachments.length || given !== undefined ? null : parseCommand(message);
     if (command) {
       say({ do: "command", name: command.name, arg: command.arg || undefined });
       setText("");
-      return setMention(null);
+      setMention(null);
+      return null;
     }
+    // One made for you goes to this conversation as it stands: its working run, else a reply to its
+    // latest. What you've set up for your own message (Reply on another run, Start after…, folders) is for that one.
+    const run = given === undefined ? live : context?.live && (S?.running ?? []).some((w) => w.id === context.live) ? context.live : null;
     // Send now: say it to the run while it works.
-    if (live && now) {
-      if (attachments.length) return setError("A run that's working can't take attachments. Queue the message instead, and it goes once the run has finished.");
+    if (run && now) {
+      if (attachments.length) { setError("A run that's working can't take attachments. Queue the message instead, and it goes once the run has finished."); return null; }
       sendingNow.current = true;
       setSending(true);
-      const said = await api("/api/steer", { id: live, text: message }).then(() => true, () => false);
+      const said = await api("/api/steer", { id: run, text: message }).then(() => true, () => false);
       sendingNow.current = false;
       setSending(false);
       if (said) {
+        if (given !== undefined) return "now";
         if (draftKey) storeRemove(`camp-draft:${draftKey}`);
         setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
-        return setMention(null);
+        setMention(null);
+        return "now";
       }
       // It finished meanwhile: send it as a reply instead.
     }
     // While the run works, a message waits its turn behind it. One for someone else (@scout …) starts their own work.
     const queue = !!live && !now && !/^@\w+/.test(message);
-    const chainTo = queue && live ? queueEnd(live) : afterLive?.id;
+    const chainTo = given !== undefined ? undefined : queue && live ? queueEnd(live) : afterLive?.id;
     sendingNow.current = true;
     setSending(true);
     try {
-      const r = await api<SendResult>("/api/send", { text: message, attachments, ...(chainTo ? { after: chainTo } : {}),
+      const r = await api<SendResult>("/api/send", given !== undefined ? { text: message, attachments, ...(context?.replyTo ? { replyTo: context.replyTo } : { project: context?.project }) } : { text: message, attachments, ...(chainTo ? { after: chainTo } : {}),
         ...(optIn && !followedProject && chatModelNow !== undefined ? { model: chatModelNow } : {}),
         ...(follows ? { replyTo: follows, use: usedIn(picks), without: leftOut(picks) } : { workspaces: chosenWorkspaces(picks), use: usedIn(picks), without: leftOut(picks), project: context?.project }) });
-      if (draftKey) storeRemove(`camp-draft:${draftKey}`); // sent: it's no longer a draft, here or on a fresh page
       onSent?.(r);
       setSends((n) => n + 1); // a new worktree shows up in the picker a moment later
-      setWorkChoice({}); // the picks were for that request: the next one starts clean
-      setChatModel(undefined); // it's the conversation's now
-      setReply(null);
-      setAfter(null);
-      setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
-      setPending([]);
-      batch.current = undefined;
-      setMention(null);
+      if (given === undefined) {
+        if (draftKey) storeRemove(`camp-draft:${draftKey}`); // sent: it's no longer a draft, here or on a fresh page
+        setWorkChoice({}); // the picks were for that request: the next one starts clean
+        setChatModel(undefined); // it's the conversation's now
+        setReply(null);
+        setAfter(null);
+        setText((now) => (now.startsWith(text) ? now.slice(text.length) : now)); // keep anything typed while it was sending
+        setPending([]);
+        batch.current = undefined;
+        setMention(null);
+      }
       if (r.after) tell(store, queue ? "Queued: it goes once this run has finished." : `Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
       else if (r.position > 0) {
         tell(store, S?.pausedUntil
@@ -470,7 +485,8 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
           : `Queued (#${r.position}): ${S?.parallel ?? 3} expeditions are already running, so it starts when one finishes`);
       }
       refresh();
-    } catch (e) { setError(errorText(e)); }
+      return "sent";
+    } catch (e) { setError(errorText(e)); return null; }
     finally { sendingNow.current = false; setSending(false); }
   }
 
@@ -482,6 +498,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
 
   useImperativeHandle(ref, () => ({
     setText: (t) => { setText(t); focus(); },
+    send: (t) => submit(null, true, t),
     attachLink: (link) => { attachLink(link); focus(); },
     mention: insertRef,
     attachJira: (issue) => { void attachJira(issue); focus(); },

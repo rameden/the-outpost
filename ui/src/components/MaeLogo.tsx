@@ -18,3 +18,18 @@ export function MaeLogo({ className }: { className?: string }) {
     </svg>
   );
 }
+
+// The mark alone, at the size of a word: what marks a Mae ticket beside Jira's (TicketsPage.tsx).
+export function MaeMark({ className, title }: { className?: string; title?: string }) {
+  return (
+    <svg className={className ? `mae-mark ${className}` : "mae-mark"} xmlns="http://www.w3.org/2000/svg" viewBox="10 10 180 180" role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+      {title && <title>{title}</title>}
+      <path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z" />
+      <g fill="none" stroke="currentColor" strokeWidth="12">
+        <path d="M100 48 A52 52 0 0 1 100 152" />
+        <path d="M100 14 A86 86 0 0 1 100 186" />
+      </g>
+      <circle className="logo-dot" cx="100" cy="100" r="22" />
+    </svg>
+  );
+}

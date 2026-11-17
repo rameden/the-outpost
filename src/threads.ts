@@ -33,6 +33,7 @@ export type Turn = { thread: string; expedition: string; agent: string; direct: 
   // without, and any folder taken out along the way. Nothing from them is given to the crew.
   without?: string[];
   jira?: string;      // the Jira ticket this conversation is working on (its key), set when it's started from one
+  ticket?: string;    // the Mae ticket it's working on (tickets.ts), set the same way
   model?: string;     // the model you picked for this conversation, if you did (a reply keeps it unless you change it)
   by?: string;        // what started it, when it wasn't you typing: "trigger:<name>" (the scoreboard counts these apart)
   // aside: someone else stepping in for one turn (a second opinion, a review). It reads the
@@ -117,7 +118,8 @@ export type ThreadContext = { thread: string; agent: string; direct: boolean; tu
   links?: string[];
   without?: string[];                        // its project's folders this conversation leaves out
   model?: string;                            // the model picked for the conversation, as of its latest run
-  jira?: string }                            // the ticket the conversation is working on;                        // folders attached earlier in the conversation stay attached
+  jira?: string                              // the ticket the conversation is working on;
+  ticket?: string }                          // the Mae ticket it's working on;                        // folders attached earlier in the conversation stay attached
 
 // The conversation a reply continues, ready to put in the prompt. `replyTo` is an expedition id.
 // `stillRunning` says whether a run is going right now (mission control knows; a plain "running"
@@ -150,12 +152,13 @@ export function threadFor(replyTo: string | undefined, stillRunning: (expedition
   const dropped = mine.length - blocks.length;
   const last = [...mine].reverse().find((t) => !t.aside) ?? mine[mine.length - 1];
   const jira = mine.find((t) => t.jira)?.jira;
+  const ticket = mine.find((t) => t.ticket)?.ticket;
   // Where the conversation last worked in each folder, up to the run being replied to. Usually
   // that's just where that run worked; but a folder that was taken out for a while and is brought
   // back picks up in its worktree again, not in your own checkout.
   const worked: Record<string, Workspace> = Object.assign({}, ...mine.slice(0, mine.indexOf(hit) + 1).map((t) => t.workspaces ?? {}));
   return {
-    thread: hit.thread, agent: last.agent, direct: last.direct, turns: mine.length, ...(jira ? { jira } : {}), ...(last.model ? { model: last.model } : {}),
+    thread: hit.thread, agent: last.agent, direct: last.direct, turns: mine.length, ...(jira ? { jira } : {}), ...(ticket ? { ticket } : {}), ...(last.model ? { model: last.model } : {}),
     unfinished: hit.status !== "done", workspaces: Object.keys(worked).length ? worked : hit.workspaces,
     ...foldersOf(mine),
     history:
