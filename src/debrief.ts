@@ -20,9 +20,11 @@
 // from then on: that's how the next ticket is run differently. What the debrief read is a record
 // to learn from, never instructions: a reviewer's comment is someone else's words.
 //
-// One is written per ticket (camp/debriefs/<key>.json), within a minute or two of the ticket
-// reaching Done, by hand or by its pull request merging. Reopening a ticket and finishing it
-// again doesn't hold another: ask for one on the ticket if you want it.
+// One is written per ticket (camp/debriefs/<key>.json), within a minute or two of it being done.
+// A Mae ticket is done when it reaches Done, by hand or by its pull request merging. A Jira
+// ticket is done, as far as the camp can tell without asking Jira every minute, when a pull
+// request from one of its conversations is merged. Reopening a ticket and finishing it again
+// doesn't hold another: ask for one on the ticket if you want it.
 
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { posix } from "node:path";
@@ -34,6 +36,7 @@ import { allFeedback } from "./feedback.js";
 import { nameOf, proposeKeeps, textOf } from "./keeping.js";
 import { findingsIn, spentOn, type Spent } from "./payoff.js";
 import { prStates } from "./prs.js";
+import { JIRA_KEY, jiraConnected, ticketDetail } from "./jira.js";
 import { pulls as knownPulls } from "./pulls.js";
 import { questCost, recentQuests, type QuestEntry } from "./questlog.js";
 import { drive } from "./settings.js";
@@ -53,12 +56,12 @@ const money = (n: number) => `$${n.toFixed(2)}`;
 export type Lesson = { where: string; name: string; text: string };
 // runs: every run in its conversations. asks: the ones you typed. quests: crew sent out. cost: what the quests used.
 // proposed: the lessons put in front of you (ones already kept or already waiting aren't put there twice).
-export type Debrief = { key: string; title: string; project?: string; written: string;
+export type Debrief = { key: string; source: "mae" | "jira"; title: string; project?: string; written: string;
   conversations: number; runs: number; asks: number; quests: number; cost: number;
   well: string[]; better: string[]; proposed: Lesson[] };
 
 export function readDebrief(key: string): Debrief | null {
-  if (!MAE_KEY.test(key) || !existsSync(fileOf(key))) return null;
+  if (!(MAE_KEY.test(key) || JIRA_KEY.test(key)) || !existsSync(fileOf(key))) return null;
   try { return JSON.parse(readFileSync(fileOf(key), "utf8")) as Debrief; } catch { return null; }
 }
 
@@ -67,9 +70,27 @@ const KIND: Record<Spent, string> = {
   feedback: "pull request feedback brought in to address", chronicle: "the weekly chronicle",
 };
 
+// The ticket a debrief is about, Mae's or Jira's: what it asked for, and how its conversations are told.
+export type Subject = { key: string; source: "mae" | "jira"; title: string; criteria: string[]; project?: string };
+export const maeSubject = (t: MaeTicket): Subject => ({ key: t.key, source: "mae", title: t.title, criteria: t.criteria, ...(t.project ? { project: t.project } : {}) });
+const worksOn = (t: Pick<Subject, "key" | "source">) => (c: { ticket?: string; jira?: string }) => (t.source === "mae" ? c.ticket : c.jira) === t.key;
+type Detail = (key: string) => Promise<{ summary: string; criteria: string[] }>;
+// A Jira ticket is read from Jira for its title and criteria; if Jira can't be asked, the
+// conversation's own title stands in, and the debrief goes without the criteria.
+async function subjectOf(key: string, detail: Detail): Promise<Subject | null> {
+  const mae = MAE_KEY.test(key) ? getTicket(key) : undefined;
+  if (mae) return maeSubject(mae);
+  if (!JIRA_KEY.test(key)) return null;
+  const mine = history().conversations.filter(worksOn({ key, source: "jira" }));
+  const project = mine.find((c) => c.project && c.project !== GENERAL)?.project;
+  let title = mine.at(-1)?.title ?? key, criteria: string[] = [];
+  if (jiraConnected()) try { const d = await detail(key); title = d.summary || title; criteria = d.criteria; } catch { /* without them */ }
+  return { key, source: "jira", title, criteria, ...(project ? { project } : {}) };
+}
+
 // What the record says about the work on one ticket.
-export function debriefFacts(t: MaeTicket): { conversations: number; runs: number; asks: number; quests: number; cost: number; last?: string; running: boolean; facts: string } {
-  const mine = history().conversations.filter((c) => c.ticket === t.key);
+export function debriefFacts(t: Subject): { conversations: number; runs: number; asks: number; quests: number; cost: number; last?: string; running: boolean; facts: string } {
+  const mine = history().conversations.filter(worksOn(t));
   const ids = new Set(mine.map((c) => c.id));
   const turns = allTurns().filter((x) => ids.has(x.thread));
   const runs = new Set(turns.map((x) => x.expedition));
@@ -114,7 +135,7 @@ export function debriefFacts(t: MaeTicket): { conversations: number; runs: numbe
   if (record.length > FACTS_MAX) record = `${record.slice(0, FACTS_MAX / 2)}\n[… the middle of the record is left out …]\n${record.slice(-FACTS_MAX / 2)}`;
   const facts = [
     `Ticket ${t.key}: ${t.title}`,
-    t.criteria.length ? `Done means:\n${t.criteria.map((c) => `- ${c}`).join("\n")}` : "It has no acceptance criteria.",
+    t.criteria.length ? `Done means:\n${t.criteria.map((c) => `- ${c}`).join("\n")}` : "No acceptance criteria are on record for it.",
     "",
     `The work: ${mine.length} conversation(s), ${turns.length} run(s), ${typed.length} of them typed by the user; ${quests.length} quest(s) sent, costing ${money(cost)}.`,
     record,
@@ -155,9 +176,9 @@ export function parseDebrief(raw: string): { well: string[]; better: string[]; l
   return { well: points(o.well), better: points(o.better), lessons };
 }
 
-// Hold one ticket's debrief, and keep it. ask: the model call (swapped out in tests).
-export async function runDebrief(key: string, ask?: (system: string, prompt: string) => Promise<string>): Promise<Debrief> {
-  const t = getTicket(key);
+// Hold one ticket's debrief, and keep it. ask: the model call; detail: the read from Jira (both swapped out in tests).
+export async function runDebrief(key: string, ask?: (system: string, prompt: string) => Promise<string>, detail: Detail = ticketDetail): Promise<Debrief> {
+  const t = await subjectOf(key, detail);
   if (!t) throw new Error("There's no such ticket.");
   const f = debriefFacts(t);
   if (!f.facts) throw new Error("No work is on record for that ticket: start it from the Tickets page, so its conversation is tied to it.");
@@ -171,7 +192,7 @@ export async function runDebrief(key: string, ask?: (system: string, prompt: str
   const read = parseDebrief(await call(system(), `${f.facts}\n\nAlready in the notes:\n${known}`));
   const proposed = proposeKeeps(read.lessons.map((l) => ({ where: whereOf(l.for), text: l.text })), f.last)
     .flatMap((p) => (p.kind === "keep" ? [{ where: p.where, name: p.name, text: p.text }] : []));
-  const debrief: Debrief = { key: t.key, title: t.title, ...(t.project ? { project: t.project } : {}), written: new Date().toISOString(),
+  const debrief: Debrief = { key: t.key, source: t.source, title: t.title, ...(t.project ? { project: t.project } : {}), written: new Date().toISOString(),
     conversations: f.conversations, runs: f.runs, asks: f.asks, quests: f.quests, cost: f.cost, well: read.well, better: read.better, proposed };
   mkdirSync(DEBRIEFS_DIR, { recursive: true });
   writeJsonAtomic(fileOf(t.key), debrief);
@@ -181,12 +202,18 @@ export async function runDebrief(key: string, ask?: (system: string, prompt: str
 }
 
 // The tickets whose debrief is due now: done in the last week, worked on by the crew, nothing
-// still running on them, and not debriefed before.
+// still running on them, and not debriefed before. A Jira ticket: one whose conversation was
+// last touched in the last week and has a merged pull request.
 export function debriefsDue(now = new Date()): string[] {
   if (!drive().debrief) return [];
-  return loadTickets().filter((t) => {
-    if (t.status !== "done" || !t.done || now.getTime() - new Date(t.done).getTime() > DUE_WITHIN || existsSync(fileOf(t.key))) return false;
-    const f = debriefFacts(t);
-    return !!f.facts && !f.running;
-  }).map((t) => t.key);
+  const recent = (iso: string) => now.getTime() - new Date(iso).getTime() <= DUE_WITHIN;
+  const ready = (t: Subject) => { const f = debriefFacts(t); return !!f.facts && !f.running; };
+  const mae = loadTickets().filter((t) => t.status === "done" && !!t.done && recent(t.done) && !existsSync(fileOf(t.key)) && ready(maeSubject(t))).map((t) => t.key);
+  const merged = new Set(prStates().filter((p) => p.state === "MERGED").map((p) => p.conversation));
+  const jira = new Set<string>();
+  for (const c of history().conversations) {
+    if (!c.jira || !JIRA_KEY.test(c.jira) || MAE_KEY.test(c.jira) || !merged.has(c.id) || !recent(c.updated) || existsSync(fileOf(c.jira))) continue;
+    if (ready({ key: c.jira, source: "jira", title: c.title, criteria: [] })) jira.add(c.jira);
+  }
+  return [...mae, ...jira];
 }
