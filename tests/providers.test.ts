@@ -57,6 +57,7 @@ const { threadFor } = await import("../src/threads.ts");
 const { listModels } = await import("../src/agent.ts");
 const { setAgentSettings, setSmallModel, smallModel } = await import("../src/settings.ts");
 const { askSmall } = await import("../src/small.ts");
+const { resetHealthForTests } = await import("../src/autoroute.ts");
 const c = await import("../src/conversations.ts");
 const { readFileFor, rl } = await import("../src/tools.ts");
 const { setAsker } = await import("../src/ask.ts");
@@ -290,6 +291,30 @@ test("the camp's small jobs go to the model you chose, except for a confidential
   assert.equal(seen.length, 0, "the provider wasn't sent it");
   assert.equal(claude.seen.length, 1, "Claude was asked instead");
   assert.equal(claude.seen[0].body.model, "claude-haiku-5-5");
+  // Auto: each small job goes to the cheapest model that's up to it (the free one, here).
+  setSmallModel("auto");
+  seen.length = 0; claude.seen.length = 0;
+  say = () => ({ text: "Auto named it" });
+  assert.equal(await askSmall("You name conversations.", "The user asked: tidy the changelog"), "Auto named it");
+  const asked = () => claude.seen.filter((r) => r.body?.messages); // (Auto also looks up which models there are)
+  assert.deepEqual([seen.at(-1)!.body.model, asked().length], ["meta/llama:free", 0]);
+  // A confidential project's still stays with Claude: its smallest model.
+  seen.length = 0;
+  await askSmall("You name conversations.", "The user asked about the work app", 40, { project: secret.id }).catch(() => "");
+  resetHealthForTests(); // (the stand-in for Claude doesn't answer a small job, which sets its model aside)
+  assert.deepEqual([seen.length, asked().at(-1)!.body.model], [0, "claude-haiku-5-5"]);
+  // When the model it chose fails, the next best takes the job, and the one that failed is set aside for a while.
+  claude.seen.length = 0;
+  say = (body) => (body.model === "meta/llama:free" ? { status: 500, error: "down for the count" } : { text: "another provider answered" });
+  const rescued = await askSmall("You name conversations.", "The user asked: tidy the changelog");
+  assert.ok(seen.some((r) => r.body?.model === "meta/llama:free"), "the free one was tried first");
+  assert.equal(rescued, "another provider answered");
+  seen.length = 0;
+  await askSmall("You name conversations.", "The user asked: tidy the changelog");
+  assert.ok(!seen.some((r) => r.body?.model === "meta/llama:free"), "it isn't asked again while it's set aside");
+  resetHealthForTests();
+  setSmallModel("openrouter:meta/llama:free");
+  seen.length = 0; claude.seen.length = 0;
   // Approved, that provider gets the confidential project's small jobs too. Forgetting its key takes the approval with it.
   p.approveProvider("openrouter", true);
   say = () => ({ text: "Work app title" });

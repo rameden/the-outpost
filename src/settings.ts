@@ -41,7 +41,7 @@ type Settings = {
   prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
   jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
   providersApproved?: string[];             // other providers you've said may be sent confidential projects' work (approved where you work, say)
-  smallModel?: string;                      // what does the camp's own small jobs (titles, tidying a memory, suggestions): a Claude model, or "<provider>:<model>"
+  smallModel?: string;                      // what does the camp's own small jobs (titles, tidying a memory, suggestions): a Claude model, or "<provider>:<model>", or "auto"
   memoryCare?: { tidy?: boolean; suggest?: boolean }; // looking after what the crew remembers (see keeping.ts)
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
@@ -213,7 +213,7 @@ export function setProviderApproved(id: string, on: boolean) {
 
 // The camp's own small jobs (naming a conversation, tidying a memory, suggesting what to keep)
 // go to the smallest Claude model unless you've pointed them somewhere else, such as a free model
-// from a provider you've connected. Null: the default.
+// from a provider you've connected, or "auto" (Auto picks the cheapest model that's up to each one: small.ts). Null: the default.
 export const autoExcluded = (): string[] => (Array.isArray(load().autoExclude) ? load().autoExclude!.filter((x) => typeof x === "string" && x) : []);
 export const smallModel = (): string | null => load().smallModel ?? null;
 export function setSmallModel(model: string | null) {

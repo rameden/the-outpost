@@ -3,13 +3,15 @@
 // Connect one by pasting its API key: the camp checks it with the provider, keeps it on your
 // machine (camp/providers.json, readable only by you, off limits to the crew), and never shows it
 // again. Its models then appear in every model picker, under the provider's name. Below that:
-// which model does the camp's own small jobs.
+// what Auto is (the camp choosing a model for each task) and how it has done so far, and which
+// model does the camp's own small jobs.
 
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
-import { ModelOptions, forgetModelLists, useModelList } from "../components/ModelPicker.tsx";
+import { AUTO_CHOICES, ModelOptions, forgetModelLists, useModelList } from "../components/ModelPicker.tsx";
 import { ask } from "../components/Confirm.tsx";
+import { autoName, money } from "../format.ts";
 import type { CampState, ProviderState } from "../types.ts";
 
 type ModelProvider = Omit<ProviderState, "id"> & { id: ProviderState["id"] | "anthropic"; environment?: boolean };
@@ -77,6 +79,34 @@ function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
   );
 }
 
+// Auto: what it is, where it's turned on, and how the tasks it has run so far came out (/api/routing).
+type Routing = { policy: string; arms: { arm: string; source: string; tasks: number; completed: number; usdPerSuccess: number | null }[] };
+function AutoInfo({ models }: { models?: number }) {
+  const [routing, setRouting] = useState<Routing | null>(null);
+  useEffect(() => { let on = true; api<Routing>("/api/routing").then((r) => { if (on && Array.isArray(r?.arms)) setRouting(r); }, () => {}); return () => { on = false; }; }, []);
+  const ran = (routing?.arms ?? []).filter((a) => a.source === "observed" && a.arm.startsWith("auto") && a.tasks > 0);
+  return (
+    <>
+      <h4 className="set-sub">Auto</h4>
+      <p className="set-note">Instead of one fixed model, a crew member or a conversation can run on Auto. For each task it looks at how hard the work is, how much rides on it and how big the request is, then picks a model and an effort from the ones you can use{models ? ` (${models} right now)` : ""}. It moves to another when the one it chose keeps failing, is rate limited, or is too small for the conversation, waits out an outage rather than giving up, and says in the feed which model it used and why.</p>
+      <ul className="prov-notes">
+        {AUTO_CHOICES.map((a) => <li key={a.id}><b>{autoName(a.id)}{a.id === "auto:balanced" ? " (recommended)" : ""}.</b> {a.tip[0].toUpperCase()}{a.tip.slice(1)}.</li>)}
+        <li><b>Where it's turned on.</b> Per crew member under Settings → Crew (Model), or for one conversation in the model picker beside the message box. Small jobs can use it too, below.</li>
+        <li><b>It keeps to your rules.</b> A confidential project only goes to providers you've approved, and a run's budget is a hard limit on what it picks.</li>
+        <li><b>It learns from how runs end.</b> A run whose last check passed counts for the model that did it, and one that failed counts against it, in <code>camp/routing-evidence.json</code>. Every choice, with its reason, is written to <code>camp/routing.jsonl</code>.</li>
+      </ul>
+      {routing && (
+        <p className="set-note" role="status" aria-label="How Auto has done">
+          {ran.length
+            ? <>So far: {ran.map((a) => `${autoName(a.arm)} has run ${a.tasks} ${a.tasks === 1 ? "task" : "tasks"} and finished ${a.completed}${a.usdPerSuccess != null ? ` (${money(a.usdPerSuccess)} each)` : ""}`).join("; ")}.</>
+            : <>Nothing has run on Auto yet.</>}
+          {" "}<span className="meta">Policy {routing.policy}.</span>
+        </p>
+      )}
+    </>
+  );
+}
+
 export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }) {
   const providers = S.providers ?? [];
   const connected = [S.anthropic?.connected ? `anthropic:${S.anthropic.from}` : "", ...providers.filter((p) => p.connected).map((p) => p.id)].join(",");
@@ -91,22 +121,26 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
   };
   const small = S.settings.smallModel ?? "";
   const setSmall = (model: string) => api("/api/providers/small", { model: model || null }).then(refresh, (e) => setError(errorText(e)));
-  const other = /^(deepseek|gemini|groq|openrouter):/.test(small);
+  const other = small === "auto" || /^(deepseek|gemini|groq|openrouter):/.test(small);
   return (
     <>
       <p className="set-note">Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no crew member can open, and are never shown again.</p>
       <Provider p={{ id: "anthropic", name: "Anthropic", connected: S.anthropic?.connected ?? false, from: S.anthropic?.from ?? undefined, environment: S.anthropic?.environment, keysAt: "https://console.anthropic.com/settings/keys", privacy: "Claude API usage is billed separately from your Claude subscription and has its own limits.", models: 0, free: 0, approved: true }} refresh={refresh} />
       {providers.map((p) => <Provider key={p.id} p={p} refresh={refresh} />)}
 
+      <AutoInfo models={list?.models.length} />
+
       <h4 className="set-sub">Small jobs</h4>
       <p className="set-note">Naming a conversation, tidying a memory, and suggesting what to keep after a run are done by one small model. They're short and simple, so a free model usually does.</p>
       <label className="field prov-small">Model for small jobs
         <select value={small} disabled={!list} aria-label="Model for small jobs" onChange={(ev) => setSmall(ev.target.value)}>
           <option value="">Claude Haiku (the default)</option>
-          {list && small && !list.models.some((m) => m.id === small) && <option value={small}>{small} (not available right now)</option>}
+          <option value="auto">Auto (the cheapest model that's up to it)</option>
+          {list && small && small !== "auto" && !list.models.some((m) => m.id === small) && <option value={small}>{small} (not available right now)</option>}
           {list && <ModelOptions models={list.models} />}
         </select>
       </label>
+      {small === "auto" && <p className="set-note">Auto sends each small job to the cheapest model that's connected and up to it (a free one, if you've connected one), and to the next best when that one fails or is rate limited. It chooses among Claude Haiku and other providers' models, never a large one.</p>}
       {(error || listError) && <div className="form-error" role="alert">{error || listError}</div>}
 
       <h4 className="set-sub">Models guide</h4>

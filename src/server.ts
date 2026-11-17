@@ -1509,7 +1509,7 @@ const server = http.createServer(async (req, res) => {
 
     // Other models (providers.ts). connect: keep a provider's key ({ id, key }), once the provider
     // has accepted it. disconnect: forget it ({ id }). small: which model does the camp's own small
-    // jobs ({ model }: a Claude model, "<provider>:<model>", or null for the default).
+    // jobs ({ model }: a Claude model, "<provider>:<model>", "auto", or null for the default).
     if (url.pathname.startsWith("/api/providers/")) {
       try {
         // guide: write the wiki's models guide now (it's also rewritten whenever what's connected changes).
@@ -1533,8 +1533,9 @@ const server = http.createServer(async (req, res) => {
           return send(res, 200, { ok });
         }
         if (url.pathname === "/api/providers/small") {
-          const model = body.model ? String(body.model) : null;
-          if (model && !(await listModels()).models.some((m) => m.id === model)) return send(res, 400, { error: `Unknown model "${model}"` });
+          // "auto": Auto picks for each small job (small.ts). It has one setting there: the cheapest model that's up to it.
+          const model = body.model ? (isAutoChoice(String(body.model)) ? "auto" : String(body.model)) : null;
+          if (model && model !== "auto" && !(await listModels()).models.some((m) => m.id === model)) return send(res, 400, { error: `Unknown model "${model}"` });
           setSmallModel(model);
           emit({ type: "changed", what: "settings" });
           return send(res, 200, { ok: true, smallModel: smallModel() });

@@ -11,10 +11,13 @@ const MODELS = { live: true, models: [
   { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", efforts: [] },
   { id: "groq:llama-fast", name: "Llama Fast", efforts: [], provider: "Groq" },
   { id: "openrouter:meta/llama:free", name: "Llama (free)", efforts: [], provider: "OpenRouter", free: true, price: "free" }] };
+let routing: object = { policy: "auto-test.1", arms: [], matchedTasks: 0 };
 beforeEach(() => {
+  routing = { policy: "auto-test.1", arms: [], matchedTasks: 0 };
   posts.length = 0; forgetModelLists(); answer = () => new Response(JSON.stringify({ ok: true }));
   vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
     if (path === "/api/models") return new Response(JSON.stringify(MODELS));
+    if (path === "/api/routing") return new Response(JSON.stringify(routing));
     posts.push({ path, body: JSON.parse(String(init?.body ?? "{}")) });
     return answer(path);
   }));
@@ -138,6 +141,10 @@ test("the small-jobs model: Claude Haiku unless you choose another, with each pr
   await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/providers/small", body: { model: "openrouter:meta/llama:free" } }));
   fireEvent.change(pick, { target: { value: "" } });
   await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/providers/small", body: { model: null } }));
+  // Auto is one of the choices, after the default.
+  expect([...pick.querySelectorAll(":scope > option")].map((o) => o.textContent).slice(0, 2)).toEqual(["Claude Haiku (the default)", "Auto (the cheapest model that's up to it)"]);
+  fireEvent.change(pick, { target: { value: "auto" } });
+  await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/providers/small", body: { model: "auto" } }));
   expect(screen.getByText(/Confidential projects stay with Claude unless you approve a provider\./)).toBeTruthy();
   // The wiki's models guide: rewritten on request, and opened from here.
   const asked: object[] = [];
@@ -149,4 +156,33 @@ test("the small-jobs model: Claude Haiku unless you choose another, with each pr
   fireEvent.click(screen.getByRole("button", { name: "Open the guide" }));
   expect(asked).toEqual([{ do: "open-file", path: "camp/wiki/notes/models-guide.md" }]);
   window.removeEventListener("camp:ask", hear);
+});
+
+test("Auto: what it is, its three settings, how it has done so far, and what it means for small jobs", async () => {
+  routing = { policy: "auto-test.1", matchedTasks: 0, arms: [
+    { arm: "auto:balanced", source: "observed", tasks: 12, completed: 11, completionRate: 11 / 12, usdPerSuccess: 0.25, medianSeconds: 40 },
+    { arm: "auto:economy", source: "observed", tasks: 1, completed: 1, completionRate: 1, usdPerSuccess: null, medianSeconds: 9 },
+    { arm: "auto:quality", source: "fixture", tasks: 5, completed: 5, completionRate: 1, usdPerSuccess: 1, medianSeconds: 90 },
+    { arm: "manual:claude-opus-5-5@high", source: "observed", tasks: 3, completed: 3, completionRate: 1, usdPerSuccess: 2, medianSeconds: 60 }] };
+  render(<ModelsPage S={state([], "auto")} refresh={() => {}} />);
+  expect(screen.getByRole("heading", { name: "Auto" })).toBeTruthy();
+  for (const name of ["Auto · Balanced (recommended).", "Auto · Economy.", "Auto · Quality."]) expect(screen.getByText(name)).toBeTruthy();
+  expect(screen.getByText(/picks a model and an effort from the ones you can use/)).toBeTruthy();
+  // What's run on Auto here, and nothing that ran on a fixed model or came from a fixture.
+  const done = await screen.findByRole("status", { name: "How Auto has done" });
+  expect(done.textContent).toBe("So far: Auto · Balanced has run 12 tasks and finished 11 ($0.25 each); Auto · Economy has run 1 task and finished 1. Policy auto-test.1.");
+  await waitFor(() => expect(screen.getByText(/\(3 right now\)/)).toBeTruthy()); // how many models it's choosing among
+  // Small jobs set to Auto: the choice is shown, and what it means is said under it.
+  const pick = screen.getByLabelText("Model for small jobs") as HTMLSelectElement;
+  expect(pick.value).toBe("auto");
+  expect(screen.getByText(/Auto sends each small job to the cheapest model that's connected and up to it/)).toBeTruthy();
+  expect(within(pick).queryByText(/not available right now/)).toBeNull();
+  expect(posts).toEqual([]); // (looking is all it did)
+});
+
+test("Auto, before anything has run on it, says so", async () => {
+  render(<ModelsPage S={state([])} refresh={() => {}} />);
+  const done = await screen.findByRole("status", { name: "How Auto has done" });
+  expect(done.textContent).toBe("Nothing has run on Auto yet. Policy auto-test.1.");
+  expect(screen.queryByText(/Auto sends each small job/)).toBeNull();
 });
