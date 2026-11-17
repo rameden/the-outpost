@@ -626,26 +626,22 @@ footer .mae-word { height: 16px; }
         <p>Connect another provider's key and its models show up in every picker. A wiki guide ranks them by cost and speed. On the API, if a model declines a request, another Claude model carries on and the feed says so.</p>
         <div class="models"><span class="lead">Claude</span><span>DeepSeek</span><span>Gemini</span><span>Groq</span><span>OpenRouter</span></div>
       </div>
-      <div class="item">
-        <span class="tag">Auto</span>
-        <h3>A model chosen for each task</h3>
-        <p>Set a crew member, a project or one conversation to Auto: Economy, Balanced or Quality. Before each dispatch it sizes up the task, rules out the models that can't carry it, and picks the cheapest that should finish, or the likeliest to. If a model starts failing, the next one takes over. Each run says which model it used and why.</p>
+      <div class="item wide">
+        <span class="tag">Auto, the router</span>
+        <h3>A router picks the model for each task</h3>
+        <p>Set a crew member, a project or one conversation to Auto: Economy, Balanced or Quality. Right before each dispatch the router sizes up the task (how hard it is, how much is at stake, how big the request is), rules out every model that can't carry it, and picks the cheapest that should finish, or the likeliest to.</p>
+        <ul><li>It keeps a model through routine work, and moves on when one is failing, rate limited or too small for the conversation</li><li>An outage is waited out, not given up on, and a model you pick yourself stays pinned</li><li>It learns from how each run actually went, within a limit, so one good or bad day doesn't decide a model's fate</li><li>Every run says which model it used and why, and Settings → Models shows how Auto's runs have gone</li></ul>
+      </div>
+      <div class="item wide">
+        <span class="tag">While you're away</span>
+        <h3>It keeps an eye on the work</h3>
+        <p>Each part has its own switch under Settings, and nothing it starts goes ahead without your OK.</p>
+        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections. Nothing is kept until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
       </div>
       <div class="item">
         <span class="tag">Projects &amp; Jira</span>
         <h3>From a note to a pull request</h3>
         <p>Jot a note and the Scout can write it up as a ticket with acceptance criteria, or ask for ideas and get up to five from the project's record. Start from a Jira ticket, step by step. Pull requests go out with a real description, from your own button, and review comments come back for you to read.</p>
-      </div>
-      <div class="item">
-        <span class="tag">Scheduled jobs</span>
-        <h3>Work that runs while you're away</h3>
-        <p>Recurring jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new. A weekly chronicle shows whether the camp is paying off.</p>
-      </div>
-      <div class="item wide">
-        <span class="tag">What Mae does unasked</span>
-        <h3>It keeps an eye on the work</h3>
-        <p>While mission control is open, each with its own switch under Settings. Nothing it starts goes ahead without your OK.</p>
-        <ul><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections. Nothing is kept until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline</li></ul>
       </div>
       <div class="item wide">
         <div class="phone">
