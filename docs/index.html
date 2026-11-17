@@ -321,7 +321,7 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .stop p { color: var(--muted); font-size: 15px; }
 
 /* Kit */
-.kit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.kit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; grid-auto-flow: dense; } /* dense: on two columns a card moves up into the gap a wide one leaves */
 .item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; display: grid; gap: 10px; align-content: start; min-width: 0; }
 .item.wide { grid-column: span 2; }
 .item p { color: var(--muted); font-size: 15px; }
@@ -423,6 +423,7 @@ footer .mae-word { height: 16px; }
         <a href="#crew">The crew</a>
         <a href="#route">How it runs</a>
         <a href="#films">On film</a>
+        <a href="#orbit">Orbit</a>
         <a href="#kit">The kit</a>
         <a href="#rules">Camp rules</a>
         <a href="#pitch">Get started</a>
@@ -555,7 +556,7 @@ footer .mae-word { height: 16px; }
     </div>
     <div class="route">
       <div class="stop"><div class="pin"><b>1</b></div><h3>Ask</h3><p>Type a request in mission control or the terminal camp. If it could mean two things, the Quartermaster asks you one short question first.</p></div>
-      <div class="stop"><div class="pin"><b>2</b></div><h3>Approve the plan</h3><p>The plan fills in step by step. Approve it, change it, or set a budget for the whole expedition.</p></div>
+      <div class="stop"><div class="pin"><b>2</b></div><h3>Approve the plan</h3><p>The plan fills in step by step. Approve it and start, or approve it now and start it later from Home. Change it, or set a budget for the whole expedition.</p></div>
       <div class="stop"><div class="pin"><b>3</b></div><h3>Quests set out</h3><p>Up to four run at once. Each adventurer starts clean from a written brief, so nobody drags the whole conversation along.</p></div>
       <div class="stop"><div class="pin"><b>4</b></div><h3>Reports come home</h3><p>The Quartermaster reviews each report, sends a failed check back to be fixed, can have the Warden look over the change, and hands you one next step.</p></div>
     </div>
@@ -586,6 +587,21 @@ footer .mae-word { height: 16px; }
 </section>
 <!-- films:end -->
 
+<section id="orbit">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Orbit</div>
+      <h2>The same sky, live, with your crew in it.</h2>
+      <p class="lede">Orbit is mission control at full screen. The Quartermaster is the sun and each crew member a planet that lights up while it works. A dispatch is a comet going out, a report is a comet coming home, and each quest out is a moon. Open it from the top bar, the command palette or <code>/orbit</code>.</p>
+    </div>
+    <div class="words">
+      <div class="word"><h3>Watch</h3><p>Click a planet and the camera flies to it and stays there. Its panel shows each quest, how long it has been out, its last few steps, and a reply as it's written. The sun's panel shows the running expeditions and where each plan stands.</p></div>
+      <div class="word"><h3>Act</h3><p>Answer a question, steer a quest, stop one or send new work from the panel, without leaving the view. Stopping a whole expedition asks you once first.</p></div>
+      <div class="word"><h3>Replay</h3><p>Scrub back through the day on a timeline. Demo plays a pretend camp, so you can see it busy without sending anyone anywhere. HD draws the system in three dimensions, as worlds you can make your own.</p></div>
+    </div>
+  </div>
+</section>
+
 <section id="kit">
   <div class="wrap">
     <div class="sec-head">
@@ -597,7 +613,7 @@ footer .mae-word { height: 16px; }
         <span class="tag">Mission control</span>
         <h3>A local dashboard for the whole camp</h3>
         <p><code>npm run ui</code> opens it on <code>127.0.0.1</code>. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
-        <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
+        <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
       </div>
       <div class="item">
         <span class="tag">Memory</span>
@@ -611,14 +627,25 @@ footer .mae-word { height: 16px; }
         <div class="models"><span class="lead">Claude</span><span>DeepSeek</span><span>Gemini</span><span>Groq</span><span>OpenRouter</span></div>
       </div>
       <div class="item">
+        <span class="tag">Auto</span>
+        <h3>A model chosen for each task</h3>
+        <p>Set a crew member, a project or one conversation to Auto: Economy, Balanced or Quality. Before each dispatch it sizes up the task, rules out the models that can't carry it, and picks the cheapest that should finish, or the likeliest to. If a model starts failing, the next one takes over. Each run says which model it used and why.</p>
+      </div>
+      <div class="item">
         <span class="tag">Projects &amp; Jira</span>
-        <h3>From ticket to pull request</h3>
-        <p>Start from a Jira ticket, step by step. Pull requests go out with a real description, from your own button, and review comments come back for you to read.</p>
+        <h3>From a note to a pull request</h3>
+        <p>Jot a note and the Scout can write it up as a ticket with acceptance criteria, or ask for ideas and get up to five from the project's record. Start from a Jira ticket, step by step. Pull requests go out with a real description, from your own button, and review comments come back for you to read.</p>
       </div>
       <div class="item">
         <span class="tag">Scheduled jobs</span>
         <h3>Work that runs while you're away</h3>
         <p>Recurring jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new. A weekly chronicle shows whether the camp is paying off.</p>
+      </div>
+      <div class="item wide">
+        <span class="tag">What Mae does unasked</span>
+        <h3>It keeps an eye on the work</h3>
+        <p>While mission control is open, each with its own switch under Settings. Nothing it starts goes ahead without your OK.</p>
+        <ul><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections. Nothing is kept until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline</li></ul>
       </div>
       <div class="item wide">
         <div class="phone">
@@ -639,16 +666,16 @@ footer .mae-word { height: 16px; }
         <h3>It tidies up when you say</h3>
         <p>Ask the Quartermaster to clean up the camp. It lists what could go (unused uploads, finished worktrees, leftovers from a crash), then asks before each step and shows exactly what will be removed.</p>
       </div>
-      <div class="item">
-        <span class="tag">Skills</span>
-        <h3>How-tos the crew picks up</h3>
-        <p>After a good expedition the Quartermaster can propose a skill: the steps, the format, the pitfall that cost a retry. It goes live only when you approve it. Import a skill pack, or set one to apply to everything a crew member does.</p>
-      </div>
       <div class="item wide">
         <span class="tag">Built for every day</span>
         <h3>Leave it running</h3>
         <p>The camp's own files are written whole or not at all, so a crash can't leave one half-written. A reply cut off by a dropped connection is asked for again. Stop the camp and its running work stops with it, with a Resume button waiting on each run.</p>
-        <ul><li>A settings file with a typo is set aside, not silently replaced</li><li>Checks you list run after every change, and a failure goes back to be fixed</li><li>Budgets hold even on a model too new to have a listed price</li></ul>
+        <ul><li>A run picked up again, even on another model, never repeats a command, pull request or review</li><li>A settings file with a typo is set aside, not silently replaced</li><li>Checks you list run after every change, and a failure goes back to be fixed</li><li>Budgets hold even on a model too new to have a listed price</li></ul>
+      </div>
+      <div class="item">
+        <span class="tag">Skills</span>
+        <h3>How-tos the crew picks up</h3>
+        <p>After a good expedition the Quartermaster can propose a skill: the steps, the format, the pitfall that cost a retry. It goes live only when you approve it. Import a skill pack, or set one to apply to everything a crew member does.</p>
       </div>
     </div>
   </div>
@@ -688,7 +715,7 @@ footer .mae-word { height: 16px; }
       <div class="term-body">
         <div class="line"><code id="c1">npm install</code><button class="copy" type="button" data-copy="c1">Copy</button></div>
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
-        <div class="note">On the API instead: put ANTHROPIC_API_KEY in .env and switch the runtime chip.</div>
+        <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
         <div class="line"><code id="c3">npm run ui</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
         <div class="note">Mission control in your browser: open the link it prints, which signs that browser in. Or npm start for the camp in your terminal, and npm run watch for scheduled jobs.</div>
       </div>

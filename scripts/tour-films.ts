@@ -190,8 +190,8 @@ ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
   page = page.replace(link, "");
   const before = (marker: string, text: string) => { page = swap(page, marker, text + marker); };
   before("@media (max-width: 960px) {", styles);
-  before('<section id="kit">', section);
-  before('        <a href="#kit">The kit</a>', link);
+  before('<section id="orbit">', section); // the films come just ahead of Orbit, the same sky live
+  before('        <a href="#orbit">Orbit</a>', link);
   before("</body>", code);
   return page;
 }
