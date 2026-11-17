@@ -432,7 +432,14 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .hist-project-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 5px 6px; border-radius: 6px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--muted); text-align: left; }
 .hist-project-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist-project-name:hover { color: var(--text); }
-.hist-icon.hist-chevron { font-size: 13px; color: var(--faint); width: 22px; }
+.hist-icon.hist-chevron { color: var(--faint); width: 22px; }
+.hist-icon.hist-chevron > .icon { width: 14px; height: 14px; }
+/* Dragging a project into a new place: it fades where it was, and a straight line marks where it will go */
+.hist-project { position: relative; }
+.hist-project.dragging { opacity: .45; }
+.hist-project.drop-before::before, .hist-project.drop-after::after { content: ""; position: absolute; left: 4px; right: 4px; height: 2px; background: var(--accent); pointer-events: none; }
+.hist-project.drop-before::before { top: -7px; }
+.hist-project.drop-after::after { bottom: -7px; }
 .hist-icon.hist-chevron[aria-expanded="true"]:not(:hover) { background: none; color: var(--faint); }
 .hist-icon { border: 0; background: none; color: var(--muted); width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; font-size: 16px; line-height: 1; flex: none; }
 .hist-icon:hover, .hist-icon[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
@@ -460,7 +467,8 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .hist-agent-head { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 8px 5px 6px; border: 0; border-radius: 8px; background: none; color: color-mix(in srgb, var(--c) 60%, var(--text)); font-size: 14px; font-weight: 600; text-align: left; }
 .hist-agent-head:hover:not(:disabled) { background: var(--surface-2); }
 .hist-agent-head:disabled { cursor: default; }
-.hist-agent-twist { width: 12px; flex: none; text-align: center; font-size: 12px; color: var(--faint); font-weight: 400; }
+.hist-agent-twist { width: 12px; height: 12px; flex: none; display: grid; place-items: center; color: var(--faint); }
+.hist-agent-twist > .icon { width: 12px; height: 12px; }
 .hist-agent-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist-agent-count { margin-left: auto; flex: none; font-size: 12px; font-weight: 500; color: var(--faint); }
 .hist-agent-head .hist-needs { margin-left: 0; }

@@ -83,6 +83,20 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
   assert.ok(threadFor("b"), "removing only hides it: the record is still there");
 });
 
+test("projects keep the order you drag them into, with General and pinned ones on top", () => {
+  const a = c.addProject("Alpha"), b = c.addProject("Beta"), d = c.addProject("Delta");
+  const names = () => c.history().projects.map((p) => p.name).filter((n) => ["General", "Alpha", "Beta", "Delta"].includes(n));
+  assert.deepEqual(names(), ["General", "Alpha", "Beta", "Delta"], "in the order you made them, to start with");
+  assert.ok(c.orderProjects([d.id, a.id]));
+  assert.deepEqual(names(), ["General", "Delta", "Alpha", "Beta"], "ones it doesn't name keep their place after the ones it does");
+  c.updateProject(b.id, { pinned: true });
+  assert.deepEqual(names(), ["General", "Beta", "Delta", "Alpha"], "pinned goes up beside General");
+  assert.ok(c.orderProjects([b.id, "general", d.id, a.id]));
+  assert.deepEqual(names(), ["Beta", "General", "Delta", "Alpha"], "General can go below a pinned project");
+  assert.ok(!c.orderProjects("nope"));
+  for (const p of [a, b, d]) c.removeProject(p.id);
+});
+
 test("a project made with a folder doesn't get a second, automatic project for that folder", () => {
   const other = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-proj2-")));
   const name = addLink(other, "write").name; // what the dialog's "Link another folder…" does first

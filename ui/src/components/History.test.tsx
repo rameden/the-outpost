@@ -62,7 +62,7 @@ const project = (name: string) => screen.getByRole("button", { name: name }).clo
 test("conversations sit under their projects, and opening one selects it", () => {
   const { setView } = setup({ kind: "conversation", id: "c2" });
   // The Quartermaster's conversation is listed; the chat with the Scout waits behind the Scout's name.
-  expect(within(project("General")).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Rebuild the UI⋯", "›@scout1"]);
+  expect(within(project("General")).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Rebuild the UI⋯", "@scout1"]);
   expect(within(project("mi-web-app")).getByRole("button", { name: /^Fix the flaky test/ }).getAttribute("aria-current")).toBe("page");
   fireEvent.click(screen.getByRole("button", { name: /^Rebuild the UI/ }));
   expect(setView).toHaveBeenCalledWith({ kind: "conversation", id: "c1" });
@@ -132,6 +132,42 @@ test("a long project shows its newest conversations and a way to see them all; p
   fireEvent.click(screen.getByRole("menuitem", { name: "Pin to the top" }));
   await vi.waitFor(() => expect(patch).toHaveBeenCalled());
   expect(posts.at(-1)).toEqual({ path: "/api/history", body: { action: "project.pin", id: "p1", pinned: true } });
+});
+
+test("projects can be dragged into a new order, or moved a step from their menu, within their part of the list", async () => {
+  vi.useRealTimers();
+  const three: HistoryData = { ...HISTORY, projects: [...HISTORY.projects, { id: "p2", name: "Ameden Clan" }] };
+  const patch = vi.fn();
+  render(<History S={{ ...S, history: three } as CampState} store={createFeedStore()} view={{ kind: "new" }} setView={() => {}} patch={patch} onNewProject={() => {}} onEditProject={() => {}} />);
+  const types = ["text/plain"];
+  const dataTransfer = { types, setData: vi.fn(), effectAllowed: "", dropEffect: "" };
+  const head = (name: string) => project(name).querySelector("header")!;
+
+  // General sits on top: nothing can be dropped beside it from below.
+  fireEvent.dragStart(head("mi-web-app"), { dataTransfer });
+  expect(project("mi-web-app").className).toContain("dragging");
+  fireEvent.dragOver(project("General"), { dataTransfer, clientY: 0 });
+  expect(project("General").className).not.toMatch(/drop-/);
+  fireEvent.dragEnd(head("mi-web-app"), { dataTransfer });
+
+  // Above the middle of a project's name row drops before it, and the camp is told the new order.
+  fireEvent.dragStart(head("Ameden Clan"), { dataTransfer });
+  fireEvent.dragOver(project("mi-web-app"), { dataTransfer, clientY: 0 });
+  expect(project("mi-web-app").className).toContain("drop-before");
+  fireEvent.drop(project("mi-web-app"), { dataTransfer, clientY: 0 });
+  await vi.waitFor(() => expect(posts.length).toBe(1));
+  expect(posts[0]).toEqual({ path: "/api/history", body: { action: "project.order", ids: ["general", "p2", "p1"] } });
+  expect(patch).toHaveBeenCalled();
+  expect(project("mi-web-app").className).not.toMatch(/drop-|dragging/);
+
+  // From the menu: a step at a time, and only where there's somewhere to go.
+  fireEvent.click(screen.getByRole("button", { name: "Options for mi-web-app" }));
+  expect(screen.queryByRole("menuitem", { name: "Move up" })).toBeNull();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Move down" }));
+  await vi.waitFor(() => expect(posts.length).toBe(2));
+  expect(posts[1].body).toEqual({ action: "project.order", ids: ["general", "p2", "p1"] });
+  fireEvent.click(screen.getByRole("button", { name: "Options for General" }));
+  expect(screen.queryByRole("menuitem", { name: /Move/ })).toBeNull();
 });
 
 test("Projects sits under New conversation and opens the projects page; its + opens the dialog; a project's name opens its page", () => {
@@ -300,7 +336,7 @@ test("chats with a crew member are kept together under the project, behind their
   const draw = (view: View) => render(<History S={{ ...S, history } as CampState} store={store} view={view} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} />);
   const { unmount } = draw({ kind: "new" });
   const items = () => within(project("mi-web-app")).getAllByRole("listitem").map((li) => li.textContent);
-  expect(items()).toEqual(["Fix the flaky test⋯", "›@scout2", "›@scribe1"]); // the Quartermaster's stays out in the open
+  expect(items()).toEqual(["Fix the flaky test⋯", "@scout2", "@scribe1"]); // the Quartermaster's stays out in the open
   const scout = screen.getByRole("button", { name: /@scout/ });
   expect(scout.getAttribute("aria-expanded")).toBe("false");
   expect(scout.closest("li")!.className).toContain("c-scout"); // in the Scout's colour

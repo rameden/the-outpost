@@ -65,7 +65,7 @@ import { noteName, parseTicket, ticketRequest } from "./ticket.js";
 import { passIdea, suggestIdeas } from "./ideas.js";
 import { loadLinks, addLink, removeLink, setLinkVerify, setLinkSetup } from "./links.js";
 import { githubStatus, switchGithub } from "./github.js";
-import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
+import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, orderProjects, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
 import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
@@ -1183,6 +1183,7 @@ const server = http.createServer(async (req, res) => {
         : body.action === "project.brief" ? (id !== GENERAL && !!getProject(id) ? (setProjectBrief(id, String(body.brief ?? "")), true) : false)
         : body.action === "project.rename" ? renameProject(id, body.name)
         : body.action === "project.remove" ? removeProject(id)
+        : body.action === "project.order" ? orderProjects(body.ids)
         : body.action === "conversation.rename" ? (renameConversation(id, body.title), true)
         : body.action === "conversation.move" ? moveConversation(id, String(body.project ?? ""))
         : body.action === "conversation.remove" ? (running.has(id) ? false : (removeConversation(id), true))
