@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
-import { autoName, cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
+import { autoName, cash, cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
 import type { CampState } from "../types.ts";
 
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
@@ -40,6 +40,7 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
             </div>
           );
         })}
+        <Credit S={S} />
         <div className="limit-as-of">
           <span>{S.limitsMeasured ? `Your plan's own figures, as of ${new Date(S.limitsMeasured).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.` : "These are from what the last run reported; they haven't been read from your plan yet."}</span>
           <button type="button" className="linkish" disabled={reading} title="Read your plan's usage now. It sends no message, so it uses none of your plan." onClick={read}>{reading ? "Reading…" : "Refresh"}</button>
@@ -56,6 +57,27 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
   );
 }
 
+// Extra usage: what's left of this month's credit, and whether the crew is drawing on it now.
+function Credit({ S }: { S: CampState }) {
+  const c = S.credit;
+  if (!c) return null;
+  const pct = c.limit ? Math.min(100, Math.round(((c.used ?? 0) / c.limit) * 100)) : null;
+  const level = c.out ? "full" : c.inUse || (pct ?? 0) >= 80 ? "warn" : "";
+  const left = c.out ? "used up" : c.left != null ? `${cash(c.left, c.currency)} left of ${cash(c.limit!, c.currency)}`
+    : c.used != null ? `${cash(c.used, c.currency)} used · no monthly cap` : "on";
+  return (
+    <div className="limit-row">
+      <div className="limit-top">
+        <b>Extra usage (credit){c.inUse && <span className="credit-live"> · in use</span>}</b>
+        <span>{left}</span>
+      </div>
+      {pct != null && <div className={cx("meter", level)}><i style={{ width: `${c.out ? 100 : pct}%` }} /></div>}
+      {c.inUse && !c.out && <div className="meta">Your plan's limit is used up, so the crew is carrying on with credit{c.until ? ` until it resets in ${resetIn(c.until)}` : ""}. This is charged.</div>}
+      {c.out && <div className="meta">Your extra-usage credit is used up for this month.</div>}
+    </div>
+  );
+}
+
 function SpendCard({ S, refresh, onOpenSettings }: { S: CampState; refresh: () => void; onOpenSettings?: () => void }) {
   const sub = S.runtime === "claude-code";
   return (
@@ -65,7 +87,9 @@ function SpendCard({ S, refresh, onOpenSettings }: { S: CampState; refresh: () =
         <div><b>{money(S.spend.week)}</b><span>Last 7 days</span></div>
         <div><b>{money(S.spend.total)}</b><span>All time</span></div>
       </div>
-      {sub && <div className="meta" style={{ marginTop: 8 }}>On your Claude subscription these are estimates at API prices, not charges; your plan's usage limits apply.</div>}
+      {sub && <div className="meta" style={{ marginTop: 8 }}>{S.credit?.inUse
+        ? "On your Claude subscription these are estimates at API prices. Right now the crew is running on credit, which is charged: see Extra usage below."
+        : "On your Claude subscription these are estimates at API prices, not charges; your plan's usage limits apply."}</div>}
       <Limits S={S} refresh={refresh} />
       <div className="budget-form">
         <span>{S.budgetUsd ? `Budget ${money(S.budgetUsd)} per expedition` : "No budget"} · up to {S.parallel} at once</span>

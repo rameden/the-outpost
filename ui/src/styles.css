@@ -1092,7 +1092,7 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
    costs what's on screen, not everything in it, when the page changes width. (The browser keeps
    each card's last real height, so the scrollbar holds its place.) */
 .feed > .exp { content-visibility: auto; contain-intrinsic-size: auto 320px; }
-.feed > * { flex-shrink: 0; width: 100%; max-width: 980px; margin-inline: auto; } /* cards grow and the feed scrolls, instead of cards being squeezed */
+.feed > * { flex-shrink: 0; width: 100%; max-width: 1100px; margin-inline: auto; } /* cards grow and the feed scrolls, instead of cards being squeezed */
 .empty-feed { margin: auto; text-align: center; max-width: 440px; color: var(--muted); padding: 40px 0; }
 .empty-feed h2 { font: 600 22px/1.3 var(--serif); color: var(--text); margin: 8px 0 6px; }
 .examples { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
@@ -1164,14 +1164,15 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .co-head { flex: none; display: flex; gap: 6px; align-items: baseline; padding: 4px 0; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .co-head b { color: var(--text); font-weight: 600; }
 .crew-out ul { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
-.co-row { --c: var(--c-other); display: grid; grid-template-columns: minmax(84px, max-content) minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 3px 8px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 13px; color: var(--text); cursor: pointer; }
+/* Columns that don't depend on a row's own text, so who / brief / doing / time line up down the list. --co-who is set to the longest name out. */
+.co-row { --c: var(--c-other); display: grid; grid-template-columns: var(--co-who, 11ch) minmax(0, 1.4fr) minmax(0, 1fr) 8ch; gap: 12px; align-items: center; width: 100%; padding: 3px 8px; border: 0; border-radius: 8px; background: none; text-align: left; font-size: 13px; color: var(--text); cursor: pointer; }
 .co-row:hover { background: var(--surface-2); }
-.co-who { font-weight: 600; color: color-mix(in srgb, var(--c) 60%, var(--text)); white-space: nowrap; }
+.co-who { font-weight: 600; color: color-mix(in srgb, var(--c) 60%, var(--text)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .co-brief, .co-doing { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .co-doing { color: var(--muted); font: 12px var(--mono); }
 .co-row.waiting .co-doing { color: var(--accent); font: 600 12px var(--sans); }
-.co-time { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-@media (max-width: 760px) { .crew-area, .crew-area:is(.fold-crew, .fold-out) { grid-template-columns: minmax(0, 1fr); } .crew-line, .half-hide { display: none; } .zone-rail.half-rail { flex-direction: row; width: 100%; border: 0; } .crew-out { flex-direction: column; padding: 2px 16px 8px; } .co-row { grid-template-columns: max-content minmax(0, 1fr) auto; } .co-doing { display: none; } }
+.co-time { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+@media (max-width: 760px) { .crew-area, .crew-area:is(.fold-crew, .fold-out) { grid-template-columns: minmax(0, 1fr); } .crew-line, .half-hide { display: none; } .zone-rail.half-rail { flex-direction: row; width: 100%; border: 0; } .crew-out { flex-direction: column; padding: 2px 16px 8px; } .co-row { grid-template-columns: var(--co-who, 11ch) minmax(0, 1fr) 8ch; } .co-doing { display: none; } }
 /* The approved plan as a live list. */
 .plan-list { border: 1px solid var(--border); border-radius: 10px; background: var(--bg); padding: 8px 6px 6px; }
 .plan-head { display: flex; gap: 8px; align-items: baseline; padding: 0 8px 4px; font-size: 13px; color: var(--muted); }
@@ -1421,16 +1422,16 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 
 /* ---------- Attachments ---------- */
 .composer { position: relative; }
-.composer > :not(.popover) { max-width: 980px; margin-inline: auto; }
+.composer > :not(.popover) { max-width: 1100px; margin-inline: auto; }
 .composer.dragging > .composer-box { outline: 2px dashed var(--accent); outline-offset: 3px; background: var(--accent-soft); }
 .attach-btn { flex: none; width: 32px; height: 32px; border-radius: 8px; border: 0; background: none; color: var(--muted); display: grid; place-items: center; }
 .attach-btn svg { width: 18px; height: 18px; transition: transform .15s; }
 .attach-btn:hover, .attach-btn[aria-expanded="true"] { color: var(--text); background: var(--surface-2); }
 .attach-btn[aria-expanded="true"] svg { transform: rotate(45deg); }
 .popover { position: absolute; bottom: calc(100% - 4px); left: clamp(16px, 3vw, 32px); z-index: 20; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-menu); padding: 6px; }
-/* The message box is centred once the page is wider than it (980px), so its menus start at the
+/* The message box is centred once the page is wider than it (1100px), so its menus start at the
    box's own left edge, not the page's. */
-.composer > .popover { left: max(clamp(16px, 3vw, 32px), calc(50% - 490px)); }
+.composer > .popover { left: max(clamp(16px, 3vw, 32px), calc(50% - 550px)); }
 .attach-menu { width: min(300px, calc(100% - 32px)); }
 /* The menu opens upwards, so it's never taller than the room above it (AttachMenu.tsx measures that): its rows scroll, and the panel beside it (which hangs down from the menu's top) stays whole. */
 .attach-menu > .menu-view { max-height: var(--room, none); overflow-y: auto; }
@@ -1676,7 +1677,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .top-right { flex: 1; gap: 6px; }
   .top-chips { flex: 1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
   .top-chips > .chip-status { order: -1; }
-  .top-chips > :is(.chip.needs, .chip.paused, .chip.offline, .needs-pick) { order: -2; }
+  .top-chips > :is(.chip.needs, .chip.paused, .chip.credit, .chip.offline, .needs-pick) { order: -2; }
   /* The crew is one line that scrolls sideways, and "No agents running" is left to the header's "Idle". */
   .crew { padding: 8px 12px; }
   .crew-half > .crew.slim { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 200px; overflow-x: auto; scrollbar-width: none; }
@@ -1719,11 +1720,14 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 /* What the page says back to you, above the message box (StatusLine.tsx). */
 .status-line { display: grid; gap: 4px; padding: 0 clamp(16px, 3vw, 32px) 4px; }
 .status-line:empty { display: none; }
-.status-msg { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 980px; margin-inline: auto; padding: 3px 4px 3px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 13px; color: var(--muted); }
+.status-msg { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 1100px; margin-inline: auto; padding: 3px 4px 3px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 13px; color: var(--muted); }
 .status-msg > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .status-msg.bad { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
 .reply-bar b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .badge.follow { background: var(--info-soft); color: var(--info); }
+/* Running on extra-usage credit: charged, so it shows, but nothing is blocked. */
+.chip.credit { color: var(--text); border-color: var(--accent); cursor: pointer; }
+.limit-row .credit-live { color: var(--accent); font-weight: 600; }
 .chip.paused { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); cursor: pointer; }
 /* The camp has been unreachable for a while: says what to do, so it may run to two lines. */
 .chip.offline { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); height: auto; min-height: 30px; padding-block: 4px; white-space: normal; text-align: left; max-width: 420px; }
@@ -1944,7 +1948,8 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .after-menu .mention-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .after-pick .work-btn .icon { width: 13px; height: 13px; }
 
-.waiting { display: grid; gap: 6px; padding: 8px clamp(16px, 3vw, 32px) 0; }
+/* The queue of decisions waiting to start (its own name: .waiting alone also marks crew rows and members). */
+.waiting-list { display: grid; gap: 6px; padding: 8px clamp(16px, 3vw, 32px) 0; }
 .waiting-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 13px; }
 .waiting-row.held { border: 2px solid var(--bad); padding: 7px 9px; }
 .waiting-row > .icon { width: 15px; height: 15px; color: var(--muted); flex: none; }

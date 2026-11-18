@@ -17,7 +17,20 @@ export type PlanLimit = {
   seen: number;                                   // when Claude Code last reported it
   measured?: number;                              // when its utilization was last read from your plan's own usage figures
 };
-type Saved = { limits: Record<string, PlanLimit>; resumed?: number };
+// Extra usage: once a plan window is used up, Claude Code can carry on by drawing on credit.
+// Amounts are in the currency's own units (dollars, not cents).
+export type Credit = {
+  enabled?: boolean;                              // whether your plan can draw on credit at all
+  limit?: number | null;                          // the monthly cap (null: no cap)
+  used?: number | null;                           // spent on credit this month
+  currency?: string;                              // USD, EUR…
+  measured?: number;                              // when these figures were last read from your plan
+  inUse?: boolean;                                // the crew is running on credit right now
+  until?: number;                                 // …until this (the reset of the window that ran out)
+  out?: boolean;                                  // credit is used up (or can't cover more work)
+  seen?: number;                                  // when Claude Code last said anything about it
+};
+type Saved = { limits: Record<string, PlanLimit>; resumed?: number; credit?: Credit };
 
 // Kept until the file changes: `npm run watch` and mission control both write it, and each must
 // see what the other noted (a pause one of them hit holds for both).
@@ -47,10 +60,12 @@ const LABELS: Record<string, string> = {
 export const limitLabel = (type: string) => LABELS[type] ?? (type.startsWith("model:") ? `weekly ${type.slice(6)} limit` : type.replace(/_/g, " "));
 
 // From Claude Code's rate_limit_event. Times may arrive in seconds; utilization as 0–1 or 0–100.
-export function noteRateLimit(info: { status?: string; resetsAt?: number; rateLimitType?: string; utilization?: number; isUsingOverage?: boolean }) {
+const ms = (t: unknown) => typeof t === "number" ? (t < 1e12 ? t * 1000 : t) : undefined;
+export function noteRateLimit(info: { status?: string; resetsAt?: number; rateLimitType?: string; utilization?: number; isUsingOverage?: boolean; overageStatus?: string; overageDisabledReason?: string }) {
   if (!info || (info.status !== "allowed" && info.status !== "allowed_warning" && info.status !== "rejected")) return;
   const type = info.rateLimitType ?? "five_hour";
-  const resetsAt = typeof info.resetsAt === "number" ? (info.resetsAt < 1e12 ? info.resetsAt * 1000 : info.resetsAt) : undefined;
+  const resetsAt = ms(info.resetsAt);
+  noteCreditEvent(info, resetsAt);
   const utilization = typeof info.utilization === "number" ? (info.utilization > 1 ? info.utilization / 100 : info.utilization) : undefined;
   // Still running on extra usage: the plan window is full, but work isn't blocked.
   const status = info.status === "rejected" && info.isUsingOverage ? "allowed_warning" : info.status;
@@ -70,6 +85,45 @@ export function noteRateLimit(info: { status?: string; resetsAt?: number; rateLi
   if (changed) emit({ type: "changed", what: "limits" });
 }
 
+// What a run event says about credit: whether this run is drawing on it, and whether it ran out.
+function noteCreditEvent(info: { isUsingOverage?: boolean; overageStatus?: string; overageDisabledReason?: string }, resetsAt?: number) {
+  const out = info.overageStatus === "rejected" || info.overageDisabledReason === "out_of_credits";
+  if (info.isUsingOverage === undefined && !out) return;
+  const s = load();
+  const before = s.credit ?? {};
+  const inUse = !!info.isUsingOverage && !out;
+  const next: Credit = { ...before, inUse, until: inUse ? resetsAt ?? before.until : undefined, out, seen: Date.now() };
+  if (before.inUse === next.inUse && !!before.out === out && before.until === next.until) return;
+  save({ ...s, credit: next });
+  emit({ type: "changed", what: "limits" });
+}
+
+// Extra usage as your plan reports it (Claude Code's usage read): amounts arrive in minor units
+// (cents for USD), so they're turned into the currency's own units here.
+export type ExtraUsage = { is_enabled?: boolean; monthly_limit?: number | null; used_credits?: number | null; currency?: string | null };
+export function noteCredit(extra: ExtraUsage | null | undefined, now = Date.now()) {
+  if (!extra || typeof extra !== "object") return;
+  const currency = typeof extra.currency === "string" && /^[A-Z]{3}$/.test(extra.currency) ? extra.currency : "USD";
+  let digits = 2;
+  try { digits = new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits ?? 2; } catch { /* unknown code: cents */ }
+  const unit = (n: unknown) => typeof n === "number" ? n / 10 ** digits : null;
+  const s = load();
+  const limit = unit(extra.monthly_limit), used = unit(extra.used_credits);
+  const out = !!extra.is_enabled && limit !== null && used !== null && used >= limit;
+  save({ ...s, credit: { ...s.credit, enabled: !!extra.is_enabled, limit, used, currency, measured: now, out: out || (s.credit?.out && !extra.is_enabled) || undefined } });
+  emit({ type: "changed", what: "limits" });
+}
+
+// Credit as the UI shows it: null when your plan has none and isn't using any.
+export function creditState(now = Date.now()) {
+  const c = load().credit;
+  if (!c) return null;
+  const inUse = !!c.inUse && (!c.until || c.until > now);
+  if (!c.enabled && !inUse && !c.out) return null;
+  const left = c.limit != null && c.used != null ? Math.max(0, c.limit - c.used) : null;
+  return { inUse, until: inUse ? c.until ?? null : null, out: !!c.out, limit: c.limit ?? null, used: c.used ?? null, left, currency: c.currency ?? "USD", measured: c.measured ?? null };
+}
+
 // Your plan's own usage figures (what `/usage` shows in Claude Code): each window, how full, and
 // when it resets. These are the real numbers; the events above mostly say only "still allowed".
 // A window you've been told is used up stays used up until the figures say there's room again.
@@ -84,7 +138,11 @@ export function noteUsage(windows: UsageWindow[], now = Date.now()) {
     const status: PlanLimit["status"] = before?.status === "rejected" && u >= 1 ? "rejected" : u >= 0.8 ? "allowed_warning" : "allowed";
     limits[w.type] = { type: w.type, status, utilization: u, resetsAt: w.resetsAt ?? before?.resetsAt, seen: now, measured: now };
   }
-  save({ ...s, limits });
+  // A used-up window with extra usage on means the crew is on credit until it resets; no used-up
+  // window means it isn't on credit any more.
+  const full = windows.filter((w) => w.utilization >= 1);
+  const credit = s.credit && (full.length ? (s.credit.enabled ? { ...s.credit, inUse: true, until: Math.max(...full.map((w) => w.resetsAt ?? 0)) || s.credit.until } : s.credit) : { ...s.credit, inUse: false, until: undefined });
+  save({ ...s, limits, ...(credit ? { credit } : {}) });
   emit({ type: "changed", what: "limits" });
 }
 // When the figures were last read (0: never).

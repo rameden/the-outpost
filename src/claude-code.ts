@@ -24,7 +24,7 @@ import { clipOutput, steerNote, wrapUpNote, type Tool, type ToolOutput } from ".
 import type { Steering } from "./context.js";
 import type { RequestContent } from "./attachments.js";
 import { costOf } from "./costs.js";
-import { noteRateLimit, noteUsage, pausedUntil, pauseMessage, type UsageWindow } from "./limits.js";
+import { noteCredit, noteRateLimit, noteUsage, pausedUntil, pauseMessage, type UsageWindow } from "./limits.js";
 import { claudeOnWindows, isWindows } from "./platform.js";
 
 const run = promisify(execFile);
@@ -395,8 +395,10 @@ export function refreshPlanUsage(force = false): Promise<boolean> {
           new Promise<never>((_, no) => setTimeout(() => no(new Error("timed out")), 20_000)),
         ]);
         const windows = u?.rate_limits_available ? usageWindows(u.rate_limits) : [];
+        // Credit first: noteUsage decides from it whether a used-up window means "on credit".
+        noteCredit(u?.rate_limits?.extra_usage);
         noteUsage(windows);
-        return windows.length > 0;
+        return windows.length > 0 || !!u?.rate_limits?.extra_usage;
       } finally {
         release();
         abort.abort();

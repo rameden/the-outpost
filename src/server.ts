@@ -52,7 +52,7 @@ import { feedEventsOf, feedSince, keepInFeed, loadFeed, saveToFeed, trimFeed } f
 import { accessFrom, addressOf, hostAllowed, isLocal } from "./access.js";
 import { hostname, networkInterfaces } from "node:os";
 import { writeAtomic } from "./atomic.js";
-import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
+import { creditState, planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { allTurns, latestDirect, setPlanAside, threadFor } from "./threads.js";
 import { chainNote, chainReady } from "./chains.js";
@@ -583,6 +583,7 @@ async function fullState(full: boolean, historySeen?: string) {
     },
     installedSkills: none(() => installedSkills()),
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
+    credit: campRuntime() === "claude-code" ? creditState() : null, // extra usage: running on credit, and how much is left
     limitsMeasured: usageMeasuredAt() || null, // when the plan's own usage figures were last read
     pausedUntil: pausedUntil(),
     pauseMessage: pausedUntil() ? pauseMessage(pausedUntil()!) : null,
