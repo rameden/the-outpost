@@ -1,7 +1,7 @@
 // The feed's part of the ticket-to-pull-request loop: a review's findings as a list you can
 // act on, asking someone else for a second opinion or a review, the pull request dialog, and
 // the chip that says where a conversation's pull request stands.
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { hear, type Ask } from "../bus.ts";
 import { setCrewColors } from "../format.ts";
@@ -12,7 +12,7 @@ import { ForkButton } from "./Fork.tsx";
 import { Findings, fixRequest, parseFindings, postRequest } from "./Findings.tsx";
 import { AskCard } from "./AskCard.tsx";
 import { askOutcome } from "./asks.ts";
-import { NextStep, commitStart, prSays, stageOf } from "./NextStep.tsx";
+import { NextStep, WorkStrip, commitStart, prSays, stageOf } from "./NextStep.tsx";
 import { CommitDialog } from "./CommitDialog.tsx";
 import { PrDialog } from "./PrDialog.tsx";
 
@@ -50,7 +50,7 @@ test("a review's findings are read from its block: the worst first, anything mal
   expect(parseFindings(JSON.stringify(Array.from({ length: 200 }, (_, i) => ({ title: `f${i}` }))))!.length).toBe(60);
 });
 
-test("in an answer, the findings block is a list: tick what you want fixed and it goes to the message box, not to the crew", () => {
+test("in an answer, the findings block is a list: tick what you want fixed and the button sends it, once", () => {
   render(<Markdown text={`Two real problems.\n\n\`\`\`findings\n${BLOCK}\n\`\`\`\n\nThat's all.`} />);
   const box = screen.getByRole("group", { name: "Review findings" });
   expect(within(box).getByText("3 findings")).toBeTruthy();
@@ -62,13 +62,24 @@ test("in an answer, the findings block is a list: tick what you want fixed and i
   expect(asks).toEqual([{ do: "open-file", path: "src/app.ts", line: 42 }]);
   fireEvent.click(ticks[1]);
   fireEvent.click(within(box).getByRole("button", { name: "Ask for 1 of them to be fixed" }));
-  expect(asks[1].do).toBe("compose");
-  const text = (asks[1] as Extract<Ask, { do: "compose" }>).text;
+  expect(asks[1].do).toBe("send");
+  const said = asks[1] as Extract<Ask, { do: "send" }>;
+  const text = said.text;
   expect(text).toContain("Fix these review findings. Where you think one is wrong, say why");
   expect(text).toContain("1. [must fix] `src/app.ts:42` — Closing doesn't return to the chat\n   onClose is never called.\n   Call it from the Esc handler.");
   expect(text).not.toContain("Missing test");
-  expect(within(box).getByRole("status").textContent).toMatch(/in the message box/);
-  expect(calls).toEqual([]); // nothing was sent
+  const fix = within(box).getByRole("button", { name: "Ask for 1 of them to be fixed" }) as HTMLButtonElement;
+  expect(within(box).getByRole("status").textContent).toBe("Sending…");
+  expect(fix.disabled).toBe(true); // not twice
+  act(() => said.sent?.("now"));
+  expect(within(box).getByRole("status").textContent).toBe("Sent to the crew: they'll take it on their next step.");
+  expect(fix.disabled).toBe(true);
+  act(() => said.sent?.(null));
+  expect(within(box).getByRole("status").textContent).toBe("It didn't go: the message box says why.");
+  expect(fix.disabled).toBe(false); // try again
+  fireEvent.click(ticks[0]); // a new choice: it can go again
+  expect(within(box).getByRole("status").textContent).toMatch(/opinion, not a verdict/);
+  expect(calls).toEqual([]); // the message box sends it (App passes it on), not the card
   expect(fixRequest(parseFindings(BLOCK)!)).toContain("3. [small] `src/a.ts` — Name could be clearer");
 });
 
@@ -267,6 +278,40 @@ test("a failed run's next step is Resume; working, or with nothing to step throu
   rerender(<NextStep running={false} status="error" title="A question" lastRun="run4" />);
   expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   expect(screen.queryByRole("list")).toBeNull(); // no stages without a branch
+});
+
+test("work in several repositories: one strip, about the one with something to do; the rest are in Files", async () => {
+  const three = ["web", "chatbot", "bff"].map((link) => ({ link, path: `/code/${link}-camp/MP-577`, branch: "preview/MP-577", created: true }));
+  answer = (url) => {
+    const path = new URL(url, "http://x").searchParams.get("path");
+    return { json: { link: "", path, branch: "preview/MP-577", changed: path!.includes("chatbot") ? 2 : 0, commits: 0, exists: true } };
+  };
+  const onShowRepos = vi.fn();
+  const { rerender } = render(<WorkStrip worktrees={three} prs={[]} running status="running" title="MP-577" lastRun="run1" onShowRepos={onShowRepos} />);
+  // Working: one strip, not three.
+  await waitFor(() => expect(screen.getAllByRole("group", { name: /^Where the work in/ })).toHaveLength(1));
+  expect(screen.getByRole("status").textContent).toBe("The crew is working.");
+  fireEvent.click(screen.getByRole("button", { name: "+2 more repos" }));
+  expect(onShowRepos).toHaveBeenCalled();
+  // Done: the strip is about the repository with uncommitted changes.
+  rerender(<WorkStrip worktrees={three} prs={[]} running={false} status="done" title="MP-577" lastRun="run1" onShowRepos={onShowRepos} />);
+  const strip = await screen.findByRole("group", { name: "Where the work in chatbot stands" });
+  await waitFor(() => expect(within(strip).getByRole("status").textContent).toBe("2 uncommitted files."));
+  expect(within(strip).getByRole("button", { name: "Commit…" })).toBeTruthy();
+  // Its stage is a prefixed class: a bare "changes" would pick up the Files panel's .changes layout.
+  expect(strip.className).toContain("at-changes");
+  expect(strip.classList.contains("changes")).toBe(false);
+});
+
+test("a repository's own, on its row in Files: no stages or branch, and nothing while the crew works", async () => {
+  answer = (url) => (url.startsWith("/api/repo/status") ? { json: standing(1, 0) } : { json: {} });
+  const { rerender, container } = render(<NextStep compact ws={WS} running status="running" title="Open button" lastRun="run1" />);
+  expect(container.textContent).toBe("");
+  rerender(<NextStep compact ws={WS} running={false} status="done" title="Open button" lastRun="run1" />);
+  const row = screen.getByRole("group", { name: "Where this work stands" });
+  await waitFor(() => expect(within(row).getByRole("status").textContent).toBe("1 uncommitted file."));
+  expect(within(row).queryByRole("list")).toBeNull();
+  expect(row.querySelector("code")).toBeNull();
 });
 
 test("the commit dialog: a refusal from git is shown and the dialog stays", async () => {

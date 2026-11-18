@@ -61,6 +61,11 @@ function loadConfig(): Record<string, ServerConfig> {
 }
 
 // See the rules at the top: your "readTools", then the server's own annotations, then the name.
+// The connectors (camp/mcp.json) a crew member is given, by server name. Read from the config
+// alone, so asking connects to nothing.
+export const connectorsFor = (agentId: string): string[] =>
+  Object.entries(loadConfig()).filter(([, cfg]) => cfg.agents?.includes(agentId)).map(([server]) => server);
+
 export function isReadOnly(t: Pick<McpTool, "name" | "annotations">, cfg: Pick<ServerConfig, "readTools"> = {}): boolean {
   if (Array.isArray(cfg.readTools) && cfg.readTools.includes(t.name)) return true;
   const a = t.annotations;

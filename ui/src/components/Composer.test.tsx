@@ -190,6 +190,30 @@ test("the menu highlights the option you're on: Queue when it opens, then wherev
   expect(now.className).toContain("active");
 });
 
+test("a message sent for you (a review's \"fix these\") goes to the working run now, and leaves what you've typed alone", async () => {
+  const { ref, write } = setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
+  write("my half-written note");
+  let how: unknown;
+  await act(async () => { how = await ref.current!.send("Fix these review findings."); });
+  expect(how).toBe("now");
+  expect(steers).toEqual([{ path: "/api/steer", id: "run-1", text: "Fix these review findings." }]);
+  expect(sends).toEqual([]);
+  expect((screen.getByRole("textbox") as HTMLElement).textContent).toContain("my half-written note");
+});
+
+test("with no run working, a message sent for you goes as a reply in the conversation", async () => {
+  const { ref, write } = setup({ replyTo: "run-0", placeholder: "Reply…" }, "c:a");
+  write("my half-written note");
+  let done: Promise<unknown> | undefined;
+  act(() => { done = ref.current!.send("Fix these review findings."); });
+  await waitFor(() => expect(sends.length).toBe(1));
+  expect(sends[0]).toEqual({ text: "Fix these review findings.", attachments: [], replyTo: "run-0" });
+  await land(0);
+  expect(await done).toBe("sent");
+  expect(steers).toEqual([]);
+  expect((screen.getByRole("textbox") as HTMLElement).textContent).toContain("my half-written note");
+});
+
 test("a message for someone else still starts their own work while a run is going", async () => {
   const { write, submit } = setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
   write("@scout look into caching");

@@ -276,7 +276,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
             <Icon name="plus" />New conversation
           </button>
         </div>
-        {onStartTicket && S?.jira?.connected && (
+        {onStartTicket && (
           <button type="button" className="hist-nav-item hist-ticket" title="Pick up a ticket: choose it, check its details, say where and who, and start" onClick={onStartTicket}>
             <Icon name="spark" />Start a ticket
           </button>
@@ -287,11 +287,10 @@ export const History = memo(function History({ S, store, view, setView, patch, o
           </button>
           <button type="button" className="hist-icon" aria-label="Create project" title="Create project" onClick={onNewProject}>+</button>
         </div>
-        {S?.jira?.connected && (
-          <button type="button" className={cx("hist-nav-item", view.kind === "jira" && "selected")} aria-current={view.kind === "jira" ? "page" : undefined} onClick={() => setView({ kind: "jira" })}>
-            <Icon name="check" />Jira
-          </button>
-        )}
+        <button type="button" className={cx("hist-nav-item", view.kind === "tickets" && "selected")} aria-current={view.kind === "tickets" ? "page" : undefined}
+          title={S?.jira?.connected ? "Mae's own tickets, and Jira's" : "Mae's own tickets: work to do, being done, and done"} onClick={() => setView({ kind: "tickets" })}>
+          <Icon name="check" />Tickets
+        </button>
         {onOpenWiki && (
           <button type="button" className={cx("hist-nav-item", view.kind === "wiki" && "selected")} aria-current={view.kind === "wiki" ? "page" : undefined}
             title="The camp's wiki: facts you've told the crew, and notes it brought back" onClick={onOpenWiki}>

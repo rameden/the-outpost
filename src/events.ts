@@ -40,7 +40,7 @@ export type CampEventBody =
   | { type: "plan_started"; ask: string; run: string } // a plan held for later was started (from its card), as that run
   | { type: "plan_aside"; ask: string; by?: string } // a plan held for later was set aside unstarted: by the newer plan that took its place, or removed
   | { type: "job"; name: string; outcome: "running" | "quiet" | "reported" | "failed"; text?: string }
-  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" | "triggers" | "notes" };
+  | { type: "changed"; what: "jobs" | "wiki" | "skills" | "log" | "memory" | "inbox" | "snippets" | "settings" | "connectors" | "links" | "queue" | "limits" | "checkpoints" | "history" | "crew" | "prs" | "chronicle" | "triggers" | "notes" | "tickets" };
 
 export type AskKind = "plan" | "shell" | "job" | "tool" | "question" | "post" | "describe"; // post, describe: a review comment, or a new description, put on GitHub as you
 // expeditionId: which expedition an event belongs to (several can run at once). Added by emit().

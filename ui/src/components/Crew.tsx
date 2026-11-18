@@ -53,7 +53,8 @@ function QuestsOut({ quests, onOpen, onHide }: { quests: QuestOut[]; onOpen?: (q
   return (
     <div className="crew-out" role="group" aria-label="Quests out now">
       <span className="co-head"><b>{quests.length} out</b>{waiting > 0 && <span>· {waiting} {waiting === 1 ? "needs" : "need"} your OK</span>}</span>
-      <ul>
+      {/* One name width for every row (emoji + space + name, in ch), so the columns line up. */}
+      <ul style={{ "--co-who": `${Math.max(...quests.map((q) => q.who.length)) + 4}ch` } as CSSProperties}>
         {quests.map((q) => (
           <li key={`${q.expId}|${q.id}`}>
             <button type="button" className={cx("co-row", cClass(q.who), q.waiting && "waiting")} title={`${q.who}: ${q.brief || "a quest"}\nClick to go to it.`} onClick={() => onOpen?.(q)}>

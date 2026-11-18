@@ -62,8 +62,13 @@ const LABEL: Record<Action, string> = { commit: "Commit…", push: "Push", pr: "
 
 // ws: the worktree the conversation works in (none: it works in your own checkout, where only a failed run has a next step).
 // title: the conversation's (the start of a commit message). ticket: its Jira key. lastRun: its latest run.
-export function NextStep({ ws, pr, running, status, title, ticket, lastRun }: {
+// With work in several repositories: repo names the one this strip is about, others says how many
+// more there are (and opens the Files panel, where each has its own). compact: one of those, on its
+// row in Files: no stages, no branch (the row has it), and nothing while the crew is working.
+// refresh/onChanged: look again when it changes; say when a click here changed a worktree.
+export function NextStep({ ws, pr, running, status, title, ticket, lastRun, repo, others: elsewhere, compact, refresh = 0, onChanged }: {
   ws?: Place; pr?: Pr; running: boolean; status: string; title: string; ticket?: string; lastRun?: string;
+  repo?: string; others?: { count: number; onShow: () => void }; compact?: boolean; refresh?: number; onChanged?: () => void;
 }) {
   const [st, setSt] = useState<{ branch: string; changed: number; commits: number; exists: boolean; ahead?: number } | null>(null);
   const [looks, setLooks] = useState(0);
@@ -73,9 +78,10 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun }: {
   const [note, setNote] = useState("");
   const menu = useRef<HTMLSpanElement>(null);
   const close = useCallback(() => setOpen(null), []);
+  const changed = () => (onChanged ? onChanged() : setLooks((n) => n + 1));
 
   // Look at the worktree when the conversation changes (a run ends), its pull request does, or you've just done something.
-  const stamp = `${ws?.path ?? ""}|${running}|${status}|${pr?.checked ?? ""}|${looks}`;
+  const stamp = `${ws?.path ?? ""}|${running}|${status}|${pr?.checked ?? ""}|${looks}|${refresh}`;
   useEffect(() => {
     if (!ws) return setSt(null);
     let gone = false;
@@ -96,6 +102,7 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun }: {
   const ok = status === "done";
   if (!ws && (running || ok)) return null; // nothing to step through
   if (ws && st && !st.exists) return null;   // the worktree is gone
+  if (compact && running) return null;       // the strip under the title says so, once
   const stage = stageOf({ running, ok, st, pr });
   const branch = st?.branch || ws?.branch || "";
 
@@ -129,14 +136,14 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun }: {
     try {
       if (a === "feedback" && ws) setNote(await bringFeedback(ws, running ? undefined : lastRun, title));
       if (a === "resume") await api("/api/send", { resume: lastRun });
-      if (a === "push" && ws) { const r = await api<{ pushed: string }>("/api/repo/push", { link: ws.link, path: ws.path }); setNote(`Pushed ${r.pushed}.`); setLooks((n) => n + 1); }
+      if (a === "push" && ws) { const r = await api<{ pushed: string }>("/api/repo/push", { link: ws.link, path: ws.path }); setNote(`Pushed ${r.pushed}.`); changed(); }
     } catch (e) { setNote(errorText(e)); }
     setBusy(false);
   }
   async function remove() {
     if (!ws) return;
     setBusy(true);
-    try { await api("/api/repo/remove", { link: ws.link, path: ws.path }); setOpen(null); setLooks((n) => n + 1); }
+    try { await api("/api/repo/remove", { link: ws.link, path: ws.path }); setOpen(null); changed(); }
     catch (e) { setOpen(null); setNote(errorText(e)); }
     setBusy(false);
   }
@@ -150,16 +157,22 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun }: {
   };
 
   return (
-    <div className={cx("next-step", stage)} role="group" aria-label="Where this work stands">
-      {ws && (
+    <div className={cx("next-step", `at-${stage}`, compact && "compact")} role="group" aria-label={repo ? `Where the work in ${repo} stands` : "Where this work stands"}>
+      {ws && !compact && (
         <ol className="next-steps" aria-label="Stages">
           {STEPS.map((s, i) => <li key={s} className={cx(i < AT[stage] && "done", i === AT[stage] && "now")} aria-current={i === AT[stage] ? "step" : undefined}>{s}</li>)}
         </ol>
       )}
       <span className="next-says">
+        {repo && !compact && <strong className="next-repo">{repo}</strong>}
         <span role="status">{note || says[stage]}</span>
-        {branch && <code title={ws?.path}><Icon name="branch" /> {branch}</code>}
-        {pr && <a href={pr.url} target="_blank" rel="noopener noreferrer" title="Open the pull request">Open it <Icon name="link" /></a>}
+        {branch && !compact && <code title={ws?.path}><Icon name="branch" /> {branch}</code>}
+        {pr && <a href={pr.url} target="_blank" rel="noopener noreferrer" title="Open the pull request">{compact ? "" : "Open it "}<Icon name="link" /></a>}
+        {elsewhere && elsewhere.count > 0 && (
+          <button type="button" className="linkish" title="Each repository's own stage and next step are on its row in Files" onClick={elsewhere.onShow}>
+            +{elsewhere.count} more {plural(elsewhere.count, "repo")}
+          </button>
+        )}
       </span>
       <span className="next-actions">
         {next && <button type="button" className="btn small primary" disabled={busy} title={hint[next]} onClick={() => act(next)}>{busy ? "Working…" : LABEL[next]}</button>}
@@ -176,11 +189,11 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun }: {
       </span>
       {open === "commit" && ws && st && (
         <CommitDialog w={ws} branch={branch} changed={st.changed} start={commitStart(title, ticket)} onClose={close}
-          onDone={(commit) => { setOpen(null); setNote(`Committed: ${commit}`); setLooks((n) => n + 1); }} />
+          onDone={(commit) => { setOpen(null); setNote(`Committed: ${commit}`); changed(); }} />
       )}
       {open === "pr" && ws && (
         <PrDialog w={ws} expId={lastRun} onClose={close}
-          onDone={(r) => { setOpen(null); setNote(`${r.updated ? "Pull request updated" : "Pull request opened"}: ${r.url}${r.jira ? ` · ${r.jira}` : ""}`); setLooks((n) => n + 1); }} />
+          onDone={(r) => { setOpen(null); setNote(`${r.updated ? "Pull request updated" : "Pull request opened"}: ${r.url}${r.jira ? ` · ${r.jira}` : ""}`); changed(); }} />
       )}
       <Presence>{open === "remove" && ws && (
         <Confirm title="Remove this worktree?" action="Remove the worktree" danger busy={busy} onConfirm={remove} onCancel={close}>
@@ -190,4 +203,39 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun }: {
       )}</Presence>
     </div>
   );
+}
+
+// The strip under a conversation's title: one, however many repositories the work spans. With
+// several, it's about the one that most wants something from you (feedback, then uncommitted
+// changes, then commits to push or open a pull request for), named; the others are each on their
+// row in Files (FilesPanel's rootExtra, a compact NextStep).
+const URGENCY: Stage[] = ["feedback", "failed", "changes", "unpushed", "committed", "open", "working", "merged", "closed", "clean"];
+type Status = WorkspaceStatus | null;
+export function WorkStrip({ worktrees, prs, running, status, title, ticket, lastRun, refresh = 0, onChanged, onShowRepos }: {
+  worktrees: Place[]; prs: Pr[]; running: boolean; status: string; title: string; ticket?: string; lastRun?: string;
+  refresh?: number; onChanged?: () => void; onShowRepos: () => void;
+}) {
+  const [sts, setSts] = useState<Record<string, Status>>({});
+  const many = worktrees.length > 1;
+  const stamp = `${worktrees.map((w) => w.path).join(",")}|${running}|${status}|${prs.map((p) => p.checked).join(",")}|${refresh}`;
+  useEffect(() => {
+    if (!many) return;
+    let gone = false;
+    Promise.all(worktrees.map((w) => {
+      const q = new URLSearchParams({ link: w.link, path: w.path, ...(w.base ? { base: w.base } : {}) });
+      return api<WorkspaceStatus>(`/api/repo/status?${q}`).then((s): Status => s, (): Status => null);
+    })).then((all) => { if (!gone) setSts(Object.fromEntries(worktrees.map((w, i) => [w.path, all[i]]))); });
+    return () => { gone = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stamp]);
+
+  const prOf = (w: Place) => prs.find((p) => p.path === w.path);
+  const common = { running, status, title, ticket, lastRun, refresh, onChanged };
+  if (!worktrees.length) return <NextStep {...common} />;
+  if (!many) return <NextStep ws={worktrees[0]} pr={prOf(worktrees[0])} {...common} />;
+  const here = worktrees.filter((w) => sts[w.path]?.exists !== false);
+  if (!here.length) return null;
+  const rank = (w: Place) => URGENCY.indexOf(stageOf({ running, ok: status === "done", st: sts[w.path] ?? null, pr: prOf(w) }));
+  const lead = here.reduce((a, b) => (rank(b) < rank(a) ? b : a));
+  return <NextStep key={lead.path} ws={lead} pr={prOf(lead)} repo={lead.link} others={{ count: here.length - 1, onShow: onShowRepos }} {...common} />;
 }

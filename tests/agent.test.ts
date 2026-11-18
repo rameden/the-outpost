@@ -206,6 +206,21 @@ test("turn limit: your setting caps the run, and the note says how to continue",
   }
 });
 
+test("roster: the Quartermaster is told each crew member's real model, effort, turns and tools", async () => {
+  setAgentSettings("artificer", { model: "claude-opus-5-5", effort: "low", maxTurns: 77 });
+  try {
+    let tools: any[] = [];
+    script = (b) => { if (whoAsks(b) === "Quartermaster") tools = b.tools ?? []; return { text: "Nothing to do." }; };
+    await runExpedition("Just say hi");
+    const roster = tools.find((t) => t.name === "dispatch")?.description ?? "";
+    const artificer = roster.split("\n- ").find((l: string) => l.startsWith("artificer")) ?? "";
+    assert.match(artificer, /Setup: runs on Claude Opus 5\.5, low effort; 77 turns per quest; tools: [^;]*\bedit_file\b[^;]*\bbash\b/);
+    assert.match(roster, /scout[^\n]*\n  Setup: [^\n]*turns per quest; tools: [^;]*web_search/, "everyone gets a setup line");
+  } finally {
+    setAgentSettings("artificer", { model: null, effort: null, maxTurns: null });
+  }
+});
+
 test("steering: what you say mid-run reaches the agent on its next step", async () => {
   const { newSteering, steer } = await import("../src/context.ts");
   const steering = newSteering();

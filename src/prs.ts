@@ -17,6 +17,7 @@ import { history, titleOf } from "./conversations.js";
 import { emit } from "./events.js";
 import { jiraConnected, ticketDetail } from "./jira.js";
 import { pullMerged } from "./jiramoments.js";
+import { advanceTicket } from "./tickets.js";
 import { handEdits, handEditsSection, notesAfterEdits } from "./handedits.js";
 import type { askSmall } from "./small.js";
 import { checked, fail, tryGit } from "./repos.js";
@@ -191,7 +192,11 @@ export async function checkPullRequests(now = Date.now()): Promise<PrState[]> {
         const found = await look({ conversation: c.id, link, path: ws.path }, was);
         if (found) next[ws.path] = found;
         // Merged since the last look: say so on its ticket, if you've turned write-back on (jiramoments.ts).
-        if (was?.state === "OPEN" && found?.state === "MERGED") void pullMerged(c.id, ticketOf({ link, path: ws.path }), found.url).catch(() => { /* the ticket goes without */ });
+        if (was?.state === "OPEN" && found?.state === "MERGED") {
+          void pullMerged(c.id, ticketOf({ link, path: ws.path }), found.url).catch(() => { /* the ticket goes without */ });
+          // A Mae ticket's work merged: it's done.
+          if (c.ticket && advanceTicket(c.ticket, "done")) emit({ type: "notice", who: "Tickets", emoji: "🎫", depth: 0, text: `${c.ticket} is done: its pull request was merged.` });
+        }
       }
     }
     const same = (p: PrState) => JSON.stringify({ ...p, checked: "", firstSeen: "" });

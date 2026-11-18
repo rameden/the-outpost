@@ -5,6 +5,9 @@
 // criteria, the project you used last, a branch named after the ticket, the Quartermaster), so
 // most of the time it's Next, Next, Next, Start. Anything can be changed on the way, and the
 // brief on the last step is yours to edit: nothing is sent until you press Start there.
+//
+// The ticket is a Mae ticket (MAE-3, tickets.ts) or, with Jira connected, a Jira one. A Mae
+// ticket's details are its own; starting work on it moves it to In progress.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
@@ -15,9 +18,12 @@ import { linkAttachment, uploadFile } from "../upload.ts";
 import { AttachmentChip } from "./AttachmentChip.tsx";
 import { Icon } from "./bits.tsx";
 import { startBrief, ticketBranch } from "./JiraPage.tsx";
+import { STATUS_NAMES, isMaeKey, useTickets } from "../tickets.ts";
 
 export const WIZARD_STEPS = ["Ticket", "Details", "Where", "Who", "Start"] as const;
 type Criterion = { text: string; on: boolean };
+// What the details step shows: a Jira ticket's, or a Mae ticket's made to look the same.
+type Detail = Pick<JiraDetail, "summary" | "description" | "criteria" | "type" | "status" | "priority" | "assignee" | "epic">;
 
 // What the wizard sends: everything /api/send needs to start the work (the ticket itself is attached first).
 export function kickoff(o: { key: string; brief: string; who: string; project: string; repos: string[]; branch: string; review: boolean | null; attachment: { name: string; path: string };
@@ -25,7 +31,7 @@ export function kickoff(o: { key: string; brief: string; who: string; project: s
   return {
     text: (o.who === "quartermaster" ? "" : `@${o.who} `) + o.brief.trim(),
     attachments: [{ kind: "file", name: o.attachment.name, path: o.attachment.path }, ...(o.extras ?? [])],
-    jira: o.key,
+    ...(isMaeKey(o.key) ? { ticket: o.key } : { jira: o.key }),
     ...(o.project === "general" ? {} : { project: o.project }),
     ...(o.repos.length ? { workspaces: Object.fromEntries(o.repos.map((l) => [l, { mode: "new", branch: o.branch }])) } : {}),
     ...(o.who === "quartermaster" && o.review !== null ? { review: o.review } : {}),
@@ -45,22 +51,38 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
   const [query, setQuery] = useState("");
   const [issues, setIssues] = useState<JiraRef[] | null>(null);
   const [ticket, setTicket] = useState<{ key: string; summary: string } | null>(start ?? null);
+  const jiraOn = !!S.jira?.connected;
+  const { tickets: mae } = useTickets();
+  const mine = ticket && isMaeKey(ticket.key) ? mae.find((t) => t.key === ticket.key) : undefined;
+  // Mae's tickets that aren't done, narrowed by what's typed: To do first, then In progress.
+  const maeShown = useMemo(() => {
+    const w = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return mae.filter((t) => t.status !== "done" && w.every((x) => `${t.key} ${t.title} ${t.labels.join(" ")}`.toLowerCase().includes(x)))
+      .sort((a, b) => (a.status === b.status ? 0 : a.status === "todo" ? -1 : 1)).slice(0, 30);
+  }, [mae, query]);
   useEffect(() => {
-    if (step !== 0) return;
+    if (step !== 0 || !jiraOn) return;
     let gone = false;
     const t = setTimeout(() => {
       api<{ issues: JiraRef[] }>(`/api/jira/issues?q=${encodeURIComponent(query.trim())}`)
         .then((r) => { if (!gone) { setIssues(r.issues); setError(""); } }, (e) => { if (!gone) { setIssues([]); setError(errorText(e)); } });
     }, query ? 250 : 0);
     return () => { gone = true; clearTimeout(t); };
-  }, [query, step]);
+  }, [query, step, jiraOn]);
 
   // ---------- 2: its details ----------
-  const [detail, setDetail] = useState<JiraDetail | null>(null);
+  const [detail, setDetail] = useState<Detail | null>(null);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [notes, setNotes] = useState("");
   useEffect(() => {
     if (!ticket) return;
+    if (isMaeKey(ticket.key)) {
+      if (!mine) { setDetail(null); return; } // not read yet (or deleted since)
+      setDetail({ summary: mine.title, description: mine.description, criteria: mine.criteria, type: "Mae ticket", status: STATUS_NAMES[mine.status], priority: mine.priority ?? null, assignee: null, epic: null });
+      setCriteria(mine.criteria.map((text) => ({ text, on: true })));
+      setBrief(null);
+      return;
+    }
     let gone = false;
     setDetail(null);
     api<JiraDetail>(`/api/jira/ticket?key=${encodeURIComponent(ticket.key)}`).then((d) => {
@@ -70,7 +92,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
       setBrief(null);
     }, (e) => { if (!gone) setError(errorText(e)); });
     return () => { gone = true; };
-  }, [ticket?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ticket?.key, !!mine]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Extra context: files, images (a design, a screenshot) and links (a Figma page) to go with the
   // ticket. They're uploaded as you add them, into one batch the ticket itself joins at the end.
@@ -107,6 +129,8 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
   const [project, setProject] = useState(() => { const last = storeGet("camp-jira-project"); return projects.some((p) => p.id === last) ? last! : projects.find((p) => p.links?.length)?.id ?? projects[0]?.id ?? "general"; });
   const [repos, setRepos] = useState<RepoInfo[]>([]);
   useEffect(() => { api<{ repos: RepoInfo[] }>("/api/repos").then((r) => setRepos(r.repos), () => setRepos([])); }, []);
+  // A Mae ticket filed under a project is worked on there, unless you choose otherwise.
+  useEffect(() => { if (mine?.project && projects.some((p) => p.id === mine.project)) setProject(mine.project); }, [mine?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = projects.find((p) => p.id === project);
   // The project's repositories the crew may change: each can have a worktree of its own for this.
   const editable = useMemo(() => (chosen?.links ?? []).filter((l) => repos.some((r) => r.link === l && r.access === "write")), [chosen, repos]);
@@ -140,7 +164,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
     if (uploading) return setError("Still uploading. It'll be ready in a moment.");
     setBusy(true); setError("");
     try {
-      const attachment = await api<Uploaded>("/api/jira/attach", { key: ticket.key, batch: batch.current });
+      const attachment = await api<Uploaded>(isMaeKey(ticket.key) ? "/api/tickets/attach" : "/api/jira/attach", { key: ticket.key, batch: batch.current });
       storeSet("camp-jira-project", project);
       const r = await api<SendResult>("/api/send", kickoff({ key: ticket.key, brief: brief ?? drafted, who, project, repos: inWorktree ? editable : [], branch, review: reviewPick, attachment,
         extras: ready.map(({ kind, name, path, url }) => ({ kind, name, path, url })) }));
@@ -181,11 +205,20 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
             <section aria-label="Choose a ticket">
               <label className="fly-search wizard-search">
                 <Icon name="search" />
-                <input autoFocus aria-label="Find a ticket" placeholder="A key like APP-123, or words… (empty: the tickets your filter pulls in)" value={query} autoComplete="off" spellCheck={false} onChange={(ev) => setQuery(ev.target.value)} />
+                <input autoFocus aria-label="Find a ticket" placeholder={jiraOn ? "A key like MAE-3 or APP-123, or words…" : "A key like MAE-3, or words…"} value={query} autoComplete="off" spellCheck={false} onChange={(ev) => setQuery(ev.target.value)} />
               </label>
               <div className="wizard-list" role="listbox" aria-label="Tickets">
-                {issues === null && !error && <div className="meta">Asking Jira…</div>}
-                {issues?.length === 0 && !error && <div className="meta">{query.trim() ? "No tickets match." : "Your filter matches nothing right now. Type a key or some words."}</div>}
+                {jiraOn && <div className="section-label wizard-whose">Mae</div>}
+                {!maeShown.length && <div className="meta">{query.trim() ? "No Mae tickets match." : "No Mae tickets waiting. Make one on the Tickets page, or turn a note or a plan into some."}</div>}
+                {maeShown.map((t) => (
+                  <button key={t.key} type="button" role="option" aria-selected={ticket?.key === t.key} className={cx("jira-item", ticket?.key === t.key && "on")}
+                    onClick={() => { setTicket({ key: t.key, summary: t.title }); go(1); }}>
+                    <span className="jira-key">{t.key}</span><span className="jira-summary">{t.title}</span><small>{[STATUS_NAMES[t.status], t.priority].filter(Boolean).join(" · ")}</small>
+                  </button>
+                ))}
+                {jiraOn && <div className="section-label wizard-whose">Jira</div>}
+                {jiraOn && issues === null && !error && <div className="meta">Asking Jira…</div>}
+                {jiraOn && issues?.length === 0 && !error && <div className="meta">{query.trim() ? "No Jira tickets match." : "Your filter matches nothing right now. Type a key or some words."}</div>}
                 {issues?.map((i) => (
                   <button key={i.key} type="button" role="option" aria-selected={ticket?.key === i.key} className={cx("jira-item", ticket?.key === i.key && "on")}
                     onClick={() => { setTicket({ key: i.key, summary: i.summary }); go(1); }}>
@@ -200,7 +233,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
             <section aria-label="The ticket's details">
               {!detail ? <div className="meta">{error ? "" : "Reading the ticket…"}</div> : (
                 <>
-                  <div className="meta">{[detail.type, detail.status, detail.priority, detail.assignee ?? "Unassigned"].filter(Boolean).join(" · ")}{detail.epic ? ` · in ${detail.epic.key} ${detail.epic.summary}` : ""}</div>
+                  <div className="meta">{[detail.type, detail.status, detail.priority, mine ? null : detail.assignee ?? "Unassigned"].filter(Boolean).join(" · ")}{detail.epic ? ` · in ${detail.epic.key} ${detail.epic.summary}` : ""}</div>
                   <details className="wizard-desc"><summary>What the ticket says</summary>{detail.description ? <Markdown text={detail.description} /> : <div className="meta">It has no description.</div>}</details>
                   <h3>What "done" means</h3>
                   <div className="meta">{detail.criteria.length ? "From the ticket's acceptance criteria. Untick, reword or add to them: the crew is asked to go through these one by one at the end." : "The ticket lists no acceptance criteria. Add your own, or leave it and the crew is asked to say what it takes \"done\" to mean before changing anything."}</div>
@@ -280,7 +313,8 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
                 <div><dt>Done means</dt><dd>{included ? `${included} ${plural(included, "criterion").replace("criterions", "criteria")}` : "the crew says what it takes \"done\" to mean first"}</dd></div>
                 <div><dt>Where</dt><dd>{chosen?.name ?? "General"}{inWorktree ? <> · a new worktree on <code>{branch}</code></> : editable.length ? " · your own checkout" : ""}</dd></div>
                 <div><dt>Who</dt><dd>{member ? `${member.emoji} ${member.name}` : who}{who === "quartermaster" ? (review ? " · the Warden reviews the changes before it reports" : " · no review before it reports") : ""}</dd></div>
-                {S.settings?.jiraWrite?.on && <div><dt>Jira</dt><dd>a comment says work has started{S.settings.jiraWrite.startStatus ? `, and the ticket moves to ${S.settings.jiraWrite.startStatus}` : ""}</dd></div>}
+                {mine && <div><dt>Ticket</dt><dd>moves to In progress as the work starts, and to Done when its pull request merges</dd></div>}
+                {!mine && S.settings?.jiraWrite?.on && <div><dt>Jira</dt><dd>a comment says work has started{S.settings.jiraWrite.startStatus ? `, and the ticket moves to ${S.settings.jiraWrite.startStatus}` : ""}</dd></div>}
               </dl>
               <label className="field">The brief
                 <textarea className="wizard-brief" aria-label="The brief" rows={11} value={brief ?? drafted} spellCheck={false} onChange={(ev) => setBrief(ev.target.value)} />

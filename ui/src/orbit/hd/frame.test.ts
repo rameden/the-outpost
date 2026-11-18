@@ -4,7 +4,7 @@ import { orbitOf } from "../scene.ts";
 import { HD_PLANET, HD_SUN, hdFrame, type HdBody, type HdInput } from "./frame.ts";
 import { MINE, STATION, WORLD, asKind, worldsFor } from "./worlds.ts";
 
-const IDS = ["scout", "artificer", "scribe", "warden", "hacker"];
+const IDS = ["scout", "artificer", "scribe", "warden", "wizard"];
 // (The camp's own worlds, unless a test says otherwise: every one the usual size. Their own moons are left off here,
 // so the moons a test counts are the quests'; one test below puts them back.)
 const OWN = worldsFor(0, IDS.map((id) => ({ id, color: [0.5, 0.5, 0.5] }))).map((w) => ({ ...w, moons: [] }));
@@ -29,7 +29,7 @@ test("each of the crew is a world on its own orbit, flat on the table; the Artif
   expect(frame.planets.map((p) => p.kind)).toEqual([WORLD, STATION, WORLD, WORLD, WORLD]);
   expect(frame.sun.radius).toBe(HD_SUN);
   // Where each is on the screen: the sun first (in the middle, where the camera looks), then the planets in order.
-  expect(spots.map((s) => s.id)).toEqual(["quartermaster", "scout", "artificer", "scribe", "warden", "hacker"]);
+  expect(spots.map((s) => s.id)).toEqual(["quartermaster", "scout", "artificer", "scribe", "warden", "wizard"]);
   expect(spots[0].x).toBeCloseTo(720, 0);
   expect(spots[0].y).toBeCloseTo(430, 0);
   expect(spots[0].r).toBeGreaterThan(spots[1].r * 1.3); // the sun is the biggest thing there

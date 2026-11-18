@@ -6,10 +6,15 @@
 export type Ask =
   | { do: "open-file"; path: string; line?: number }        // a path as the crew wrote it (links/…, or inside an attached folder)
   | { do: "compose"; text: string; replyTo?: string; task?: string } // put this in the message box (as a reply to a run, named by its request)
+  | { do: "send"; text: string; sent?: (how: Sent) => void } // send this for you, past the message box: to the working run now, else as a reply
   | { do: "open-conversation"; id: string }                 // go to a conversation (a memory line's origin, say)
   | { do: "command"; name: string; arg?: string }           // /new, /focus, /good…
   | { do: "note"; text: string; fresh?: boolean }           // keep this in a note: the one that's open, or (fresh) a new one
   | { do: "tell"; text: string; error?: boolean };          // a line back to you, shown by the message box (StatusLine)
+
+// How a message sent for you went: "now" told the working run (the crew reads it on their next step),
+// "sent" went as a new request (no run was working), null didn't go (the message box says why).
+export type Sent = "now" | "sent" | null;
 
 const NAME = "camp:ask";
 export const say = (ask: Ask) => window.dispatchEvent(new CustomEvent<Ask>(NAME, { detail: ask }));

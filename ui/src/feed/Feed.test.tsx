@@ -141,8 +141,38 @@ test("an approval card answers with its id and closes when the camp confirms", a
   expect(posts).toEqual([{ path: "/api/answer", body: { id: "ask-1", answer: "y" } }]);
 
   send(store, { type: "answered", id: "ask-1", answer: "y" });
-  expect(a.getByText("✓ Command allowed")).toBeTruthy();
   expect(a.queryByRole("button", { name: "Run command" })).toBeNull();
+  // Answered, it's behind-the-scenes work: folded into the condensed line until you open it.
+  expect(a.getByText("1 approved")).toBeTruthy();
+  fireEvent.click(a.getByRole("button", { name: /Approvals/ }));
+  expect(a.getByText("✓ Command allowed")).toBeTruthy();
+});
+
+test("condensed (the default) folds tool calls into one line that opens to every call; detailed shows them all", () => {
+  const calls = (store: ReturnType<typeof createFeedStore>) => send(store,
+    { type: "expedition_start", id: "exp-c", task: "Dig in", source: "user" },
+    { type: "tool", ...qm, tool: "read_file", input: '{"path":"a.ts"}', expeditionId: "exp-c" },
+    { type: "tool", ...qm, tool: "read_file", input: '{"path":"b.ts"}', expeditionId: "exp-c" },
+    { type: "tool", ...qm, tool: "grep", input: '{"pattern":"x"}', expeditionId: "exp-c" },
+    { type: "tool", ...qm, tool: "bash", input: '{"command":"ls"}', expeditionId: "exp-c" },
+  );
+  const store = createFeedStore();
+  const { unmount } = render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  calls(store);
+  const head = screen.getByRole("button", { name: /Read 2 files, 1 search, ran 1 command/ });
+  expect(head.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.queryByText('{"path":"a.ts"}')).toBeNull();
+  // Still running: the line says what it's on now.
+  expect(screen.getByText('bash {"command":"ls"}')).toBeTruthy();
+  fireEvent.click(head);
+  expect(screen.getByText('{"path":"a.ts"}')).toBeTruthy();
+  unmount();
+
+  const shown = createFeedStore();
+  render(<Feed store={shown} onReply={() => {}} onExample={() => {}} detail="detailed" />);
+  calls(shown);
+  expect(screen.queryByRole("button", { name: /Read 2 files/ })).toBeNull();
+  expect(screen.getByText('{"path":"b.ts"}')).toBeTruthy();
 });
 
 test("what you said to a run shows in it, and Resume and a worktree's Commit each post to the right place", async () => {

@@ -20,7 +20,9 @@ import { Presence } from "./motion.tsx";
 import { hear, COMMANDS } from "./bus.ts";
 import { Palette, type PaletteItem } from "./components/Palette.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
-import { JiraPage, JiraTicket, type TicketStart } from "./components/JiraPage.tsx";
+import { JiraTicket, type TicketStart } from "./components/JiraPage.tsx";
+import { DraftTicketsDialog, MaeTicketDialog, TicketsPage } from "./components/TicketsPage.tsx";
+import { closeDrafting, closeTicket as closeMaeTicket, loadTickets, showTicket, useTickets } from "./tickets.ts";
 import { TicketWizard } from "./components/TicketWizard.tsx";
 import { WikiHome } from "./components/Wiki.tsx";
 import { treeQuery } from "./api.ts";
@@ -40,7 +42,8 @@ import { OverlayBoundary, ZoneBoundary } from "./components/ErrorBoundary.tsx";
 import { StatusLine, tell } from "./components/StatusLine.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
 import { Feed } from "./feed/Feed.tsx";
-import { NextStep } from "./feed/NextStep.tsx";
+import { DETAIL_KEY, parseDetail, type FeedDetail } from "./feed/condense.ts";
+import { NextStep, WorkStrip, type Place } from "./feed/NextStep.tsx";
 import { Waiting } from "./components/Waiting.tsx";
 import { loadSeen, markSeen, needsOf, seenAll, type Need } from "./needs.ts";
 import { activityOf } from "./feed/conversation.ts";
@@ -112,13 +115,21 @@ export function App({ store }: { store: FeedStore }) {
   // (From Today, what you send starts in the project you last worked in.)
   const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : view.kind === "home" ? homeProject(S?.history) : view.kind === "project" ? view.id : conversation?.project));
   // A project's page, or the list of them (also where a deleted project's page lands).
-  const page = view.kind === "wiki" ? "wiki" : view.kind === "jira" ? (S?.jira?.connected ? "jira" : "projects") // unlinked since: there's nothing to show
+  const page = view.kind === "wiki" ? "wiki" : view.kind === "tickets" ? "tickets"
     : view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
   // The ticket kickoff stepper: open, and on which ticket if one was already picked.
   const [wizard, setWizard] = useState<{ ticket?: TicketStart } | null>(null);
   const closeWizard = useCallback(() => setWizard(null), []);
   const [ticketOpen, setTicketOpen] = useState<string | null>(null); // a conversation's ticket, opened over it
   const closeTicket = useCallback(() => setTicketOpen(null), []);
+  // Mae's own tickets (tickets.ts): read on arriving and on coming back to the window; the camp's change events keep them current between.
+  const tickets = useTickets();
+  useEffect(() => {
+    void loadTickets();
+    const again = () => void loadTickets();
+    addEventListener("focus", again);
+    return () => removeEventListener("focus", again);
+  }, []);
   // What you send follows the conversation you're in; on a new page it starts one (in that project).
   const context = useMemo<SendContext | undefined>(() => {
     if (view.kind === "conversation") return { replyTo: liveRun ?? conversation?.expeditions.at(-1), live: liveRun, placeholder: "Reply in this conversation…", // In a project: its folders, and any others this conversation was given along the way.
@@ -144,6 +155,9 @@ export function App({ store }: { store: FeedStore }) {
   const plainPage = view.kind === "new" && !(project && view.project && project.id !== "general");
 
   // The terminal pane along the bottom: shown or hidden (remembered), toggled with Ctrl+`.
+  // The feed condensed (behind-the-scenes work folded, the default) or detailed (every line).
+  const [detail, setDetailState] = useState<FeedDetail>(() => parseDetail(storeGet(DETAIL_KEY)));
+  const setDetail = useCallback((d: FeedDetail) => { setDetailState(d); storeSet(DETAIL_KEY, d); }, []);
   const [terminal, setTerminal] = useState(() => storeGet("camp-term-open") === "1");
   const toggleTerminal = useCallback(() => setTerminal((on) => { storeSet("camp-term-open", on ? "0" : "1"); return !on; }), []);
   useEffect(() => {
@@ -242,6 +256,22 @@ export function App({ store }: { store: FeedStore }) {
 
   // Everything that needs you, wherever it is (needs.ts). Having a conversation open marks what's in it as seen.
   const activity = useFeed(store, activityOf);
+
+  // A conversation's worktrees, and where each stands: one strip under its title (WorkStrip) and,
+  // with more than one repository, each one's own on its row in Files. A click in either looks again at both.
+  const worktrees = useMemo<Place[]>(() => Object.entries(conversation?.workspaces ?? {}).map(([link, w]) => ({ link, ...w })), [conversation?.workspaces]);
+  const [stepLooks, setStepLooks] = useState(0);
+  const stepChanged = useCallback(() => setStepLooks((n) => n + 1), []);
+  const showFiles = useCallback(() => setFiles(() => { storeSet("camp-files-open-pane", "1"); return true; }), []);
+  const convRunning = !!(conversation && activity[conversation.id]?.running);
+  const worktreeStep = useMemo(() => {
+    if (!conversation || worktrees.length < 2) return undefined;
+    return (root: FileRoot) => {
+      const w = worktrees.find((x) => x.link === root.link && x.path === root.path);
+      return w ? <NextStep key={w.path} compact ws={w} pr={(S?.prs ?? []).find((p) => p.path === w.path)} running={convRunning} status={conversation.status}
+        title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)} refresh={stepLooks} onChanged={stepChanged} /> : null;
+    };
+  }, [conversation, worktrees, S?.prs, convRunning, stepLooks, stepChanged]);
   const [seen, setSeen] = useState(loadSeen);
   useEffect(() => {
     if (!conversation) return;
@@ -343,7 +373,7 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
     else if (name === "wiki") setView({ kind: "wiki" });
-    else if (name === "ticket") { if (S?.jira?.connected) setWizard({}); else { tell(store, "Link your Jira account first (Settings → Connectors)."); openSettings("connectors"); } }
+    else if (name === "ticket") setWizard({});
   };
   // The newest of each, for the listeners and the handlers below that are set up once.
   const act = useRef({ command, openPath, toggleFocus, goToNeed, noteIt });
@@ -354,6 +384,7 @@ export function App({ store }: { store: FeedStore }) {
     else if (ask.do === "open-conversation") { setSettings(null); setView({ kind: "conversation", id: ask.id }); }
     else if (ask.do === "note") act.current.noteIt(ask.text, ask.fresh);
     else if (ask.do === "compose") { if (ask.replyTo) composer.current?.setReply(ask.replyTo, ask.task ?? ""); composer.current?.setText(ask.text); }
+    else if (ask.do === "send") void (composer.current?.send(ask.text) ?? Promise.resolve(null)).then((how) => ask.sent?.(how));
   }), []);
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
@@ -486,8 +517,8 @@ export function App({ store }: { store: FeedStore }) {
                   <ZoneBoundary name={page ? "This page" : "This conversation"} resetKey={draftKey}>
                   {page === "project" && S && project ? (
                     <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
-                  ) : page === "jira" && S ? (
-                    <JiraPage S={S} onAttach={attachTicket} onFilter={() => openSettings("connectors")} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
+                  ) : page === "tickets" && S ? (
+                    <TicketsPage S={S} onAttach={attachTicket} onFilter={() => openSettings("connectors")} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
                   ) : page === "wiki" && S ? (
                     <WikiHome S={S} open={view.kind === "wiki" ? view.page : undefined} onOpen={(path) => setView(path ? { kind: "wiki", page: path } : { kind: "wiki" })} refresh={refresh} />
                   ) : page === "projects" && S ? (
@@ -507,20 +538,29 @@ export function App({ store }: { store: FeedStore }) {
                         {conversation?.jira && (S?.jira?.connected
                           ? <button type="button" className="pill pill-link jira-key" title={`This conversation is working on ${conversation.jira}. Open the ticket.`} onClick={() => setTicketOpen(conversation.jira!)}>{conversation.jira}</button>
                           : <span className="pill jira-key" title={`This conversation is working on ${conversation.jira}`}>{conversation.jira}</span>)}
+                        {conversation?.ticket && (
+                          <button type="button" className="pill pill-link jira-key" title={`This conversation is working on ${conversation.ticket}. Open the ticket.`} onClick={() => showTicket(conversation.ticket!)}>{conversation.ticket}</button>
+                        )}
+                        {conversation && (
+                          <span className="detail-switch" role="group" aria-label="How much of the work to show">
+                            <button type="button" aria-pressed={detail === "condensed"} title="Fold tool calls and answered commands into one line each" onClick={() => setDetail("condensed")}>Condensed</button>
+                            <button type="button" aria-pressed={detail === "detailed"} title="Show every tool call, command and approval" onClick={() => setDetail("detailed")}>Detailed</button>
+                          </span>
+                        )}
                         {conversation?.suggest && suggested && (
                           <span className="conv-suggest">It used {suggested.name}'s folder.
                             <button type="button" className="linkish" onClick={() => moveTo(conversation.id, suggested.id)}>Move it to {suggested.name}</button>
                           </span>
                         )}
                       </div>
-                      {/* Where its branch stands and the next step (one strip per worktree; none while it has nothing to step through). */}
-                      {conversation && (Object.keys(conversation.workspaces ?? {}).length
-                        ? Object.entries(conversation.workspaces!).map(([link, w]) => (
-                            <NextStep key={w.path} ws={{ link, ...w }} pr={(S?.prs ?? []).find((p) => p.path === w.path)} running={!!activity[conversation.id]?.running} status={conversation.status}
-                              title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)} />
-                          ))
-                        : <NextStep running={!!activity[conversation.id]?.running} status={conversation.status} title={conversation.title} lastRun={conversation.expeditions.at(-1)} />)}
-                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} />
+                      {/* Where its branch stands and the next step: one strip, however many repositories it worked in
+                          (each repository's own is on its row in Files); none while it has nothing to step through. */}
+                      {conversation && (
+                        <WorkStrip worktrees={worktrees} prs={S?.prs ?? []} running={!!activity[conversation.id]?.running} status={conversation.status}
+                          title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)}
+                          refresh={stepLooks} onChanged={stepChanged} onShowRepos={showFiles} />
+                      )}
+                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} detail={detail} />
                     </>
                   )}
                   </ZoneBoundary>
@@ -542,7 +582,7 @@ export function App({ store }: { store: FeedStore }) {
                 : <ZoneBoundary name="Files">
                     {/* On a narrow page the panel sits over everything: the rest is dimmed, and a press there closes it (styles.css). */}
                     <button type="button" className="files-scrim" aria-label="Hide the files" tabIndex={-1} onClick={toggleFiles} />
-                    <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} />
+                    <FilesPanel roots={fileRoots} refreshKey={running} onHide={toggleFiles} onMention={onMention} rootExtra={worktreeStep} />
                   </ZoneBoundary>;
               case "notes": return state === "collapsed"
                 ? <NotesRail onShow={toggleNotes} />
@@ -602,6 +642,19 @@ export function App({ store }: { store: FeedStore }) {
       <Presence>{ticketOpen && S && (
         <OverlayBoundary key={ticketOpen} name="This ticket" onClose={closeTicket}>
           <JiraTicket id={ticketOpen} summary="" onClose={closeTicket} onOpen={setTicketOpen} />
+        </OverlayBoundary>
+      )}</Presence>
+      {/* A Mae ticket, and turning a note or a plan into tickets: opened from the Tickets page, a note, a plan card or a conversation. */}
+      <Presence>{tickets.showing && S && (
+        <OverlayBoundary key={"key" in tickets.showing ? tickets.showing.key : "new"} name="This ticket" onClose={closeMaeTicket}>
+          <MaeTicketDialog S={S} onAttach={attachTicket} onStart={(t) => setWizard({ ticket: t })} onOpenConversation={openConversation} />
+        </OverlayBoundary>
+      )}</Presence>
+      <Presence>{tickets.drafting && S && (
+        <OverlayBoundary key={tickets.drafting.text.slice(0, 40)} name="Turning it into tickets" onClose={closeDrafting}>
+          <DraftTicketsDialog S={S} ask={tickets.drafting.from || tickets.drafting.kind === "note" || !conversation ? tickets.drafting
+            : { ...tickets.drafting, from: { kind: "plan", id: conversation.id, title: conversation.title }, project: tickets.drafting.project ?? conversation.project }}
+            onFiled={(made) => tell(store, made.length === 1 ? `Filed ${made[0].key}: ${made[0].title}` : `Filed ${made.length} tickets: ${made[0].key} to ${made.at(-1)!.key}`)} />
         </OverlayBoundary>
       )}</Presence>
       <Presence>{wizard && S && (

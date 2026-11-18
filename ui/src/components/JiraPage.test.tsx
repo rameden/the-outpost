@@ -1,10 +1,11 @@
-// The Jira page: the tickets the filter pulls in as cards, trying and keeping a filter,
-// narrowing what's on the page, and one ticket opened in full.
+// The Tickets page's Jira side: the tickets the filter pulls in as cards, following the camp's
+// filter, narrowing what's on the page, and one ticket opened in full. (Mae's own: TicketsPage.test.tsx.)
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { JIRA_PRESETS } from "./Jira.tsx";
-import { JiraPage, JiraTicket, startBrief, ticketBranch } from "./JiraPage.tsx";
+import { JiraTicket, startBrief, ticketBranch } from "./JiraPage.tsx";
+import { TicketsPage as JiraPage } from "./TicketsPage.tsx";
 
 const MINE = JIRA_PRESETS[0].jql;
 const card = (key: string, summary: string, group: string, status: string, more: object = {}) =>
@@ -25,6 +26,7 @@ beforeEach(() => {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     calls.push({ url, body });
     const u = new URL(url, "http://camp");
+    if (u.pathname === "/api/tickets") return new Response(JSON.stringify({ tickets: [] })); // no Mae tickets here
     if (u.pathname === "/api/jira/ticket") return new Response(JSON.stringify(u.searchParams.get("key") === "MP-500" ? EPIC : DETAIL));
     const jql = body?.jql ?? u.searchParams.get("jql") ?? saved;
     if (jql.includes("BROKEN")) return new Response(JSON.stringify({ error: "Jira refused the request. Error in the JQL Query." }), { status: 400 });
@@ -44,7 +46,7 @@ const cards = () => [...document.querySelectorAll(".jira-card")].map((c) => c.qu
 test("the tickets the filter pulls in are cards, each with what you need at a glance", async () => {
   show();
   await waitFor(() => expect(cards()).toEqual(["MP-544", "MP-601", "MP-590"]));
-  expect(calls[0].url).toBe("/api/jira/tickets");
+  expect(calls.filter((c) => c.url.startsWith("/api/jira")).map((c) => c.url)).toEqual(["/api/jira/tickets"]);
   const first = screen.getByRole("button", { name: "MP-544: Open button on file citations" });
   expect(first.textContent).toContain("Story");
   expect(first.textContent).toContain("In Progress");
@@ -53,7 +55,8 @@ test("the tickets the filter pulls in are cards, each with what you need at a gl
   expect(first.querySelector(".pill")?.className).toBe("pill live");
   expect(screen.getByRole("button", { name: /^MP-601/ }).textContent).toContain("Unassigned");
   expect(screen.getByText("3 tickets")).toBeTruthy();
-  expect(screen.getByText(/team\.atlassian\.net · Ryley A · read-only/)).toBeTruthy();
+  expect(screen.getByText(/Jira: team\.atlassian\.net · Ryley A · read-only/)).toBeTruthy();
+  expect(first.querySelector(".mae-mark")).toBeNull(); // Mae's mark is for Mae's tickets
 });
 
 test("what's on the page can be narrowed by words, status and type, without asking Jira again", async () => {
@@ -79,7 +82,7 @@ test("what's on the page can be narrowed by words, status and type, without aski
 test("which tickets are pulled in is the camp's one filter: the page says which, links to Settings, and follows a change", async () => {
   const { onFilter, rerender } = show();
   await waitFor(() => expect(cards().length).toBe(3));
-  expect(document.querySelector(".jira-using")!.textContent).toContain("Showing Assigned to me, not done");
+  expect(document.querySelector(".jira-using")!.textContent).toContain("Jira shows Assigned to me, not done");
   expect(screen.queryByLabelText("Filter (JQL)")).toBeNull(); // no filter of its own here
   fireEvent.click(screen.getByRole("button", { name: "Change the filter in Settings" }));
   expect(onFilter).toHaveBeenCalled();
@@ -101,7 +104,7 @@ test("a card opens the whole ticket: its facts, description and comments, to att
   fireEvent.click(await screen.findByRole("button", { name: "MP-544: Open button on file citations" }));
   const dialog = await screen.findByRole("dialog", { name: "MP-544: Open button on file citations" });
   await waitFor(() => expect(within(dialog).getByText("Reporter")).toBeTruthy());
-  expect(calls.at(-1)!.url).toBe("/api/jira/ticket?key=MP-544");
+  expect(calls.filter((c) => c.url.startsWith("/api/jira/")).at(-1)!.url).toBe("/api/jira/ticket?key=MP-544");
   expect([...dialog.querySelectorAll(".jira-facts dd")].map((d) => d.textContent).slice(0, 6)).toEqual(["In Progress", "Story", "High", "Ryley", "Sam", "MP"]);
   expect(within(dialog).getByRole("heading", { name: "Acceptance criteria" })).toBeTruthy(); // the description, formatted
   expect(dialog.querySelector("strong")?.textContent).toBe("Open");
@@ -191,4 +194,26 @@ test("an open ticket asks Jira once, however often the page behind it is redrawn
   rerender(ticket(onClose));
   fireEvent.keyDown(document, { key: "Escape" });
   expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test("a Jira ticket the crew worked on shows how they did; one they never touched shows nothing", async () => {
+  const debrief = { key: "MP-544", written: "2026-11-12T09:02:00.000Z", conversations: 1, runs: 2, asks: 1, quests: 3, cost: 1.5,
+    well: ["The button landed in one quest."], better: [], proposed: [] };
+  const base = fetch;
+  let answer: object = { debrief: null, worked: false };
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => (url.startsWith("/api/debrief") ? new Response(JSON.stringify(answer)) : base(url, init))));
+  const ticket = <JiraTicket id="MP-544" summary="Open button on file citations" onClose={() => {}} onOpen={() => {}} />;
+  const first = render(ticket);
+  await screen.findByText("Reporter");
+  await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+  expect(screen.queryByText("How the crew did")).toBeNull();
+  first.unmount();
+  answer = { debrief: null, worked: true };
+  const second = render(ticket);
+  expect(await screen.findByText(/within a couple of minutes of the ticket's pull request merging/)).toBeTruthy();
+  second.unmount();
+  answer = { debrief, worked: true };
+  render(ticket);
+  expect(await screen.findByText("The button landed in one quest.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Debrief again" })).toBeTruthy();
 });

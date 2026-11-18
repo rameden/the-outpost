@@ -30,6 +30,10 @@ export function took(seconds: number) {
 }
 export function kTok(n: number) { return n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n); }
 export const money = (n: number | undefined | null) => (!n ? "$0" : n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`);
+// An amount in a given currency (credit from your plan): "$12.40", "€8.00".
+export const cash = (n: number, currency = "USD") => {
+  try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n); } catch { return `${n.toFixed(2)} ${currency}`; }
+};
 export const plural = (n: number, one: string, many = one + "s") => (n === 1 ? one : many);
 export const spaced = (status: string) => status.replace(/_/g, " ");
 // Auto ("auto", "auto:economy"…) reads as what it is: Auto, and the preference it was given.

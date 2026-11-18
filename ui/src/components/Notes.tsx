@@ -15,12 +15,17 @@
 // acceptance criteria, a description in fixed sections); it's kept beside the note, and "Start
 // work" puts it in your message. "Suggest ideas" asks what the project's record points at next:
 // what comes back sits in the list marked as suggested, until you keep it or delete it.
+//
+// And two that make Mae tickets of it (tickets.ts): "Turn into tickets" splits the note into
+// pieces of work for you to choose from, and a ticket written up here can be added to them as it is.
+// A note that's been filed says so, and opens its tickets.
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cx, plural, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import { editNote, isWriting, keepIdea, loadNotes, newNote, openNote, removeNote, suggestIdeas, ticketBrief, ticketText, titleOf, useNotes, writeTicket } from "../notes.ts";
 import type { Note } from "../types.ts";
+import { createTicket, filedFrom, showTicket as openTicket, turnIntoTickets, useTickets } from "../tickets.ts";
 import { Drawer, Icon } from "./bits.tsx";
 import { ask } from "./Confirm.tsx";
 
@@ -143,6 +148,18 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
   const empty = !note.text.trim();
   const blank = empty && !note.title.trim();
   const noBox = "Open a conversation first: this page has no message box.";
+  // Mae tickets made from this note, and making them.
+  const filed = filedFrom(useTickets().tickets, note.id);
+  const from = { kind: "note" as const, id: note.id, title: titleOf(note) };
+  const [filing, setFiling] = useState(false);
+  const turn = () => turnIntoTickets({ text: [note.title.trim(), note.text.trim()].filter(Boolean).join("\n\n"), kind: "note", title: titleOf(note), project: project?.id, from });
+  async function addTicket() {
+    if (!ticket || filing) return;
+    setFiling(true);
+    try { openTicket((await createTicket({ title: ticket.title, criteria: ticket.criteria, description: ticket.description, project: project?.id, from })).key); }
+    catch { /* the ticket store says why */ }
+    setFiling(false);
+  }
 
   // What goes in the message: the part of the note you've selected, or all of it.
   const picked = () => {
@@ -201,6 +218,11 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
         {note.from && (onOpenConversation
           ? <button type="button" className="linkish note-from" title="Go to the conversation this note was started from" onClick={() => onOpenConversation(note.from!.conversation)}>From {note.from.title || "a conversation"}</button>
           : <span className="note-from">From {note.from.title || "a conversation"}</span>)}
+        {filed.length > 0 && (
+          <span className="note-filed">Filed as {filed.slice(0, 3).map((t, i) => (
+            <span key={t.key}>{i > 0 && ", "}<button type="button" className="linkish jira-key" title={`Open ${t.key}: ${t.title}`} onClick={() => openTicket(t.key)}>{t.key}</button></span>
+          ))}{filed.length > 3 && ` and ${filed.length - 3} more`}</span>
+        )}
       </div>
       {writing && (
         <div className="note-writing" role="status">
@@ -212,6 +234,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
         <div className="note-actions">
           <button type="button" className="btn small primary" disabled={!onInsert || !onAttach} title={onInsert ? "Put the brief in your message, with the ticket attached. Nothing is sent until you send it." : noBox} onClick={start}>Start work</button>
           <button type="button" className="btn small" disabled={writing || blank} title="Have it written again from the note as it stands now" onClick={write}>Write it again</button>
+          <button type="button" className="btn small" disabled={filing} title="File this as a Mae ticket, to track on the Tickets page" onClick={addTicket}>{filing ? "Adding…" : "Add to tickets"}</button>
           {ticket!.conversation && onOpenConversation && <button type="button" className="linkish" title="The conversation in which the Scout read the code and wrote this" onClick={() => onOpenConversation(ticket!.conversation!)}>How it was written</button>}
         </div>
       ) : (
@@ -223,6 +246,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
           {!ticket && <button type="button" className="btn small" disabled={blank || writing || unsaved && failed}
             title={project ? `Have the Scout read ${project.name}'s code and write this up as a ticket the crew can work from: a title, acceptance criteria, and where it goes` : "Have the Scout write this up as a ticket the crew can work from. Outside a project it can't read any code, so its technical notes will be guesses: open a project first for a grounded one."}
             onClick={write}>Write up as a ticket</button>}
+          <button type="button" className="btn small" disabled={empty} title="Split this note into Mae tickets, one per piece of work: you choose which to file" onClick={turn}>Turn into tickets</button>
         </div>
       )}
     </div>

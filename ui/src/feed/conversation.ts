@@ -13,7 +13,7 @@ import { applyEvent, emptyFeed, type ExpNode, type FeedNode, type FeedState } fr
 // blank page for a new conversation (optionally filed under a project), one conversation, one
 // project's page, or all your projects.
 export type View = { kind: "home" } | { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string }
-  | { kind: "project"; id: string } | { kind: "projects" } | { kind: "jira" } | { kind: "wiki"; page?: string }; // wiki: every page, or one being read
+  | { kind: "project"; id: string } | { kind: "projects" } | { kind: "tickets" } | { kind: "wiki"; page?: string }; // wiki: every page, or one being read
 
 // Where a message sent from Today starts: the project you last worked in (the latest
 // conversation's), or outside any project if that was General or there's nothing yet.
@@ -29,7 +29,7 @@ export function parseView(saved: string | null): View {
     if (v?.kind === "new") return { kind: "new" };
     if (v?.kind === "home") return { kind: "home" };
     if (v?.kind === "projects") return { kind: "projects" };
-    if (v?.kind === "jira") return { kind: "jira" };
+    if (v?.kind === "tickets" || (v?.kind as string) === "jira") return { kind: "tickets" }; // "jira": the page before it held Mae's tickets too
     if (v?.kind === "wiki") return { kind: "wiki", ...(typeof v.page === "string" ? { page: v.page } : {}) };
     if ((v?.kind === "conversation" || v?.kind === "project") && typeof v.id === "string") return { kind: v.kind, id: v.id };
   } catch { /* nothing saved */ }

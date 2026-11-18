@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import type { Vec3 } from "./math.ts";
 import { KINDS, LIMITS, MINE, SORT_NAMES, STATION, WORLD, anotherMoon, asKind, customised, laidOut, middle, newSeed, shifted, sortOf, worldsFor } from "./worlds.ts";
 
-const crew = ["scout", "artificer", "scribe", "warden", "hacker", "cook", "smith"].map((id, i) => ({ id, color: [0.3 + i * 0.08, 0.6, 0.9 - i * 0.08] as Vec3 }));
+const crew = ["scout", "artificer", "scribe", "warden", "wizard", "cook", "smith"].map((id, i) => ({ id, color: [0.3 + i * 0.08, 0.6, 0.9 - i * 0.08] as Vec3 }));
 
 test("the same number makes the same worlds, and another number makes others", () => {
   expect(worldsFor(42, crew)).toEqual(worldsFor(42, crew));

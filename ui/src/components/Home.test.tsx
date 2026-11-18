@@ -25,7 +25,7 @@ const page = (over: Partial<HomePage> = {}): HomePage => ({
   name: "Ryley", today: "2026-11-13", brief, days: ["2026-11-13", "2026-11-12"], board: { weeks: [] },
   offers: [{ key: "github-pr:web", what: "Watch your pull requests in links/web", why: "In the last two weeks: 3 times you brought a pull request's review comments to the crew yourself.",
     trigger: { name: "my-pull-requests-web", kind: "github-pr", link: "web", describe: false, project: "p1" } }],
-  held: [], retros: [], drive: { brief: true, briefAt: "08:00", retro: true }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
+  held: [], retros: [], drive: { brief: true, briefAt: "08:00", retro: true, debrief: true }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
 });
 const S = {
   history: { projects: [{ id: "general", name: "General" }, { id: "p1", name: "web" }],

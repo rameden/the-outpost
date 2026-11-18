@@ -168,6 +168,37 @@ test("plan limits: a used-up window pauses only the subscription runtime until i
   limits.resetLimitsForTests();
 });
 
+test("plan limits: running on extra-usage credit shows, with what's left", () => {
+  limits.resetLimitsForTests();
+  assert.equal(limits.creditState(), null, "nothing known: no credit row");
+  // The plan's figures: $50 cap, $12.40 used (in cents, as Claude Code gives them).
+  limits.noteCredit({ is_enabled: true, monthly_limit: 5000, used_credits: 1240, currency: "USD" }, 1_000);
+  let c = limits.creditState()!;
+  assert.deepEqual([c.inUse, c.limit, c.used, c.left, c.currency, c.measured], [false, 50, 12.4, 37.6, "USD", 1_000]);
+  // A run hits the weekly limit and carries on with credit until the window resets.
+  const reset = Date.now() + 3_600_000;
+  limits.noteRateLimit({ status: "rejected", rateLimitType: "seven_day", isUsingOverage: true, resetsAt: Math.floor(reset / 1000) });
+  c = limits.creditState()!;
+  assert.equal(c.inUse, true);
+  assert.equal(c.until, Math.floor(reset / 1000) * 1000);
+  assert.equal(limits.pausedUntil(), null, "on credit isn't a pause");
+  assert.equal(limits.creditState(reset + 1)!.inUse, false, "once the window resets it's back on the plan");
+  // The plan's figures say no window is full: not on credit any more.
+  limits.noteUsage([{ type: "seven_day", utilization: 0.4, resetsAt: reset }]);
+  assert.equal(limits.creditState()!.inUse, false);
+  // …and a full window with credit on means it is.
+  limits.noteUsage([{ type: "five_hour", utilization: 1, resetsAt: reset }]);
+  assert.deepEqual([limits.creditState()!.inUse, limits.creditState()!.until], [true, reset]);
+  // Credit ran out.
+  limits.noteRateLimit({ status: "rejected", rateLimitType: "five_hour", isUsingOverage: false, overageStatus: "rejected", overageDisabledReason: "out_of_credits", resetsAt: Math.floor(reset / 1000) });
+  assert.deepEqual([limits.creditState()!.inUse, limits.creditState()!.out], [false, true]);
+  // No extra usage on the plan, and none in use: no row.
+  limits.resetLimitsForTests();
+  limits.noteCredit({ is_enabled: false, monthly_limit: null, used_credits: null });
+  assert.equal(limits.creditState(), null);
+  limits.resetLimitsForTests();
+});
+
 test("plan limits: a window that reset isn't shown as still full, and the plan's own figures are what the meter shows", async () => {
   limits.resetLimitsForTests();
   const five = () => limits.planLimits().find((l) => l.type === "five_hour")!;

@@ -10,7 +10,7 @@
 // While anything has changed, the foot of the drawer lists every changed file in one place
 // (Changes.tsx): a section you can size, or fold down to a rail.
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { api, errorText, storeGet, storeSet, treeQuery } from "../api.ts";
 import { cx } from "../format.ts";
 import type { Listing, TreeEntry } from "../types.ts";
@@ -81,8 +81,9 @@ export function FilesRail({ onShow }: { onShow: () => void }) {
 }
 
 // refreshKey: changes when the crew starts or finishes a run, so the tree is read again.
-export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention }: {
-  roots: FileRoot[]; refreshKey?: number; onHide: () => void; onMention: (path: string) => void;
+// rootExtra: something to show under a root's row (where a worktree's branch stands, from App).
+export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 0, onHide, onMention, rootExtra }: {
+  roots: FileRoot[]; refreshKey?: number; onHide: () => void; onMention: (path: string) => void; rootExtra?: (root: FileRoot) => ReactNode;
 }) {
   const [dirs, setDirs] = useState<Record<string, Folder>>({});
   const [changed, setChanged] = useState<Record<string, Record<string, string>>>({});
@@ -227,7 +228,8 @@ export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 
               : row.kind === "root" ? `${row.root.path ?? ref}${row.root.branch ? ` (worktree on ${row.root.branch})` : ""}`
               : `${ref}${e?.size != null ? ` · ${sizeText(e.size)}` : ""}`;
             return (
-              <div key={row.key} role="treeitem" aria-level={row.depth + 1}
+              <Fragment key={row.key}>
+              <div role="treeitem" aria-level={row.depth + 1}
                 className={cx("ft-row", row.kind === "root" && "ft-root", locked && "locked", row.mark && row.mark !== "•" && `ft-${row.mark}`, `fk-${row.kind === "root" ? "root" : kindOf(row.name, folder)}`)} style={indent}>
                 <button type="button" className="ft-open" data-depth={row.depth} aria-expanded={folder && !locked ? !!row.open : undefined} aria-disabled={locked || undefined} title={title}
                   onClick={() => { if (locked) return; if (row.kind === "file") setViewing({ root: row.root, rel: row.rel }); else toggle(row); }}>
@@ -241,6 +243,8 @@ export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 
                   <button type="button" className="ft-at" aria-label={`Mention ${row.name} in your message`} title={`Put ${ref} in your message`} onClick={() => onMention(ref)}>@</button>
                 )}
               </div>
+              {row.kind === "root" && rootExtra && <div className="ft-stage" role="none">{rootExtra(row.root)}</div>}
+              </Fragment>
             );
           })}
         </div>

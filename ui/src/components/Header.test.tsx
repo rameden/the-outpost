@@ -213,3 +213,28 @@ test("the logo is the way home: it opens Today", () => {
   fireEvent.click(screen.getByRole("button", { name: "Mae" }));
   expect(onHome).toHaveBeenCalled();
 });
+
+test("on extra-usage credit: the header says so with what's left, and Quests shows the credit row", () => {
+  const until = Date.now() + 2 * 3_600_000;
+  const S = camp({
+    runtime: "claude-code",
+    login: { ok: true, plan: "max" },
+    limits: [{ type: "seven_day", label: "weekly limit", status: "allowed_warning", utilization: 1, resetsAt: until, seen: Date.now() }],
+    skills: [],
+    credit: { inUse: true, until, out: false, limit: 50, used: 12.4, left: 37.6, currency: "USD", measured: Date.now() },
+  } as Partial<CampState>);
+  const opened: string[] = [];
+  render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onOpenSettings={(s) => opened.push(String(s))} />);
+  fireEvent.click(screen.getByRole("button", { name: "💳 On credit · $37.60 left" }));
+  expect(opened).toEqual(["usage"]);
+  cleanup();
+  render(<Quests S={S} refresh={() => {}} />);
+  expect(screen.getByText("Extra usage (credit)")).toBeTruthy();
+  expect(screen.getByText("$37.60 left of $50.00")).toBeTruthy();
+  expect(screen.getByText(/carrying on with credit until it resets in/)).toBeTruthy();
+  // Not on credit: no chip, but the row still says what's left.
+  cleanup();
+  const idle = { ...S, credit: { ...S.credit!, inUse: false, until: null } } as CampState;
+  render(<Header S={idle} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  expect(screen.queryByText(/On credit/)).toBeNull();
+});

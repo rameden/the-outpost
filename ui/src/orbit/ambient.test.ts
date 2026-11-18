@@ -29,8 +29,8 @@ test("a decision for you doesn't wait its turn", () => {
 test("the latest one waiting is the one cut to", () => {
   let cut: Cut = { on: "Scout", since: 0, heard: 0 };
   cut = direct(cut, 100, { who: "Scribe" });
-  cut = direct(cut, 200, { who: "Hacker" });
-  expect(direct(cut, DWELL_MS, undefined).on).toBe("Hacker");
+  cut = direct(cut, 200, { who: "Wizard" });
+  expect(direct(cut, DWELL_MS, undefined).on).toBe("Wizard");
 });
 
 test("after twenty quiet seconds it steps back to the whole system, and stays there", () => {

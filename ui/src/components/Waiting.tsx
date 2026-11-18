@@ -20,7 +20,7 @@ export function Waiting({ S, onOpen, refresh }: { S: CampState; onOpen: (id: str
     setBusy("");
   };
   return (
-    <div className="waiting" role="group" aria-label="Waiting to start">
+    <div className="waiting-list" role="group" aria-label="Waiting to start">
       {chained.map((q) => {
         const before = all.find((w) => w.id === q.after);
         return (

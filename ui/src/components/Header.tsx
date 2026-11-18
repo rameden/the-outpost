@@ -8,7 +8,7 @@ import { toggleMode } from "../themes.ts";
 import type { Connection } from "../camp.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
-import { cx, money, resetIn } from "../format.ts";
+import { cash, cx, money, resetIn } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
 import { MaeLogo } from "./MaeLogo.tsx";
 import { needsDoing, needsLabel, type Need } from "../needs.ts";
@@ -257,6 +257,11 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         {S?.pausedUntil && (
           <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={() => onOpenSettings?.("usage")}>
             ⏸ Plan limit · resets in {resetIn(S.pausedUntil)}
+          </button>
+        )}
+        {S?.credit?.inUse && !S.pausedUntil && (
+          <button className="chip credit" type="button" title="Your plan's usage limit is used up, so the crew is running on extra-usage credit, which is charged. Click for details." onClick={() => onOpenSettings?.("usage")}>
+            💳 On credit{S.credit.left != null ? ` · ${cash(S.credit.left, S.credit.currency)} left` : ""}
           </button>
         )}
         {/* Only a problem with what runs the crew or with GitHub is out here; otherwise they're in the status menu. */}

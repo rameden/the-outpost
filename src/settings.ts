@@ -46,7 +46,7 @@ type Settings = {
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
-  drive?: { brief?: boolean; briefAt?: string; retro?: boolean }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts)
+  drive?: { brief?: boolean; briefAt?: string; retro?: boolean; debrief?: boolean }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts), a debrief when a ticket is done (debrief.ts)
   autoExclude?: string[];  // models (or id prefixes, like "openrouter:") Auto never picks (routing.ts); a hand-edited policy
 };
 // Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
@@ -165,18 +165,21 @@ export function setReviewChanges(on: boolean) {
 // is called, so it's on unless you turn it off. retro: once a week the smallest model reads the
 // week's requests and what reviewers said, and proposes things worth keeping, for you to approve.
 // That one is a model call, so it follows "suggestions" (memoryCare) unless you set it yourself.
-export type Drive = { brief: boolean; briefAt: string; retro: boolean };
+// debrief: when a ticket is done (a Mae ticket reaching Done, a Jira ticket's pull request merging), the smallest model reads how the crew did on it and proposes
+// lessons for the Quartermaster, the crew and the project (debrief.ts). The same kind of call, the same default.
+export type Drive = { brief: boolean; briefAt: string; retro: boolean; debrief: boolean };
 const CLOCK = /^([01]?\d|2[0-3]):[0-5]\d$/;
 export function drive(): Drive {
   const d = load().drive ?? {};
-  return { brief: d.brief !== false, briefAt: typeof d.briefAt === "string" && CLOCK.test(d.briefAt) ? d.briefAt.padStart(5, "0") : "08:00", retro: typeof d.retro === "boolean" ? d.retro : memoryCare().suggest };
+  return { brief: d.brief !== false, briefAt: typeof d.briefAt === "string" && CLOCK.test(d.briefAt) ? d.briefAt.padStart(5, "0") : "08:00", retro: typeof d.retro === "boolean" ? d.retro : memoryCare().suggest, debrief: typeof d.debrief === "boolean" ? d.debrief : memoryCare().suggest };
 }
-export function setDrive(c: { brief?: unknown; briefAt?: unknown; retro?: unknown }) {
+export function setDrive(c: { brief?: unknown; briefAt?: unknown; retro?: unknown; debrief?: unknown }) {
   const s = load();
   const next = { ...(s.drive ?? {}) };
   if (typeof c.brief === "boolean") { if (c.brief) delete next.brief; else next.brief = false; }
   if (typeof c.briefAt === "string" && CLOCK.test(c.briefAt)) next.briefAt = c.briefAt.padStart(5, "0");
   if (typeof c.retro === "boolean") next.retro = c.retro;
+  if (typeof c.debrief === "boolean") next.debrief = c.debrief;
   if (Object.keys(next).length) s.drive = next; else delete s.drive;
   save(s);
 }

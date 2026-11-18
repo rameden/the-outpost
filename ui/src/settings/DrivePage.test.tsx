@@ -18,7 +18,7 @@ const page = (over: Partial<HomePage> = {}): HomePage => ({
   offers: [{ key: "github-pr:web", what: "Watch your pull requests in links/web", why: "In the last two weeks: 3 times you brought a pull request's review comments to the crew yourself.",
     trigger: { name: "my-pull-requests-web", kind: "github-pr", link: "web", describe: false, project: "p1" } }],
   held: [], retros: [{ project: "p1", name: "web", week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", written: "2026-11-13T20:00:00.000Z", requests: 12, heard: 4, proposed: ["Sign every commit."] }],
-  drive: { brief: true, briefAt: "08:00", retro: false }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
+  drive: { brief: true, briefAt: "08:00", retro: false, debrief: false }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
 });
 const S = (over: Record<string, unknown> = {}) => ({
   history: { projects: [{ id: "general", name: "General" }, { id: "p1", name: "web" }], conversations: [] },
@@ -88,6 +88,10 @@ test("What Mae does unasked: the brief and its time, the retro, the watch on you
   await waitFor(() => expect(asked).toContain('POST /api/drive {"retro":true}'));
   fireEvent.click(within(retro).getByRole("button", { name: "Hold web's now" }));
   await waitFor(() => expect(asked).toContain('POST /api/retro {"id":"p1"}'));
+
+  const debrief = await row("Ticket debrief");
+  fireEvent.click(within(debrief).getByRole("checkbox"));
+  await waitFor(() => expect(asked).toContain('POST /api/drive {"debrief":true}'));
 
   const watch = await row("Your pull requests");
   expect(watch.textContent).toMatch(/2 open\./);

@@ -39,6 +39,7 @@ import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTrigg
 import { checkPulls, freshPulls, pulls as knownPulls } from "./pulls.js";
 import { briefDays, briefDue, dayOf, readBrief, writeBrief } from "./brief.js";
 import { readRetro, retrosDue, runRetro, type Retro } from "./retro.js";
+import { debriefsDue, readDebrief, runDebrief, workedOn } from "./debrief.js";
 import { offers, scoreboard } from "./scoreboard.js";
 import { drive, setDrive } from "./settings.js";
 import { recentQuests, questCost } from "./questlog.js";
@@ -51,7 +52,7 @@ import { feedEventsOf, feedSince, keepInFeed, loadFeed, saveToFeed, trimFeed } f
 import { accessFrom, addressOf, hostAllowed, isLocal } from "./access.js";
 import { hostname, networkInterfaces } from "node:os";
 import { writeAtomic } from "./atomic.js";
-import { planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
+import { creditState, planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { allTurns, latestDirect, setPlanAside, threadFor } from "./threads.js";
 import { chainNote, chainReady } from "./chains.js";
@@ -62,6 +63,7 @@ import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Att
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadNotes, saveNote, removeNote, patchNote } from "./notes.js";
 import { noteName, parseTicket, ticketRequest } from "./ticket.js";
+import { advanceTicket, createTicket, createTickets, draftTickets, getTicket, loadTickets, MAE_KEY, MAE_NOTE, maeTicketMarkdown, removeTicket, updateTicket } from "./tickets.js";
 import { passIdea, suggestIdeas } from "./ideas.js";
 import { loadLinks, addLink, removeLink, setLinkVerify, setLinkSetup } from "./links.js";
 import { githubStatus, switchGithub } from "./github.js";
@@ -332,6 +334,10 @@ function startFromPull(t: Trigger, item: TriggerItem, brief: string, by = `trigg
 const isRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
 const waitingOnYou = () => { try { return { memory: proposals().length, skills: pendingDetails().length }; } catch { return { memory: 0, skills: 0 }; } };
 let retroing = false;
+// A ticket's debrief (debrief.ts): one small call when it's done, which only proposes too.
+let debriefing = false;
+const debriefFailed = new Map<string, number>(); // one that couldn't be written is tried again in an hour, not every minute
+const lessonsLine = (n: number) => (n ? ` ${n} ${n === 1 ? "lesson is" : "lessons are"} waiting for your say in Settings, Memory.` : "");
 setInterval(() => {
   try {
     if (briefDue()) void writeBrief({ running: isRunning, waiting: waitingOnYou(), announce: true }).catch((e) => console.error(`💥 morning brief: ${e?.message ?? e}`));
@@ -340,6 +346,20 @@ setInterval(() => {
       if (due.length) {
         retroing = true;
         void (async () => { for (const r of due) await runRetro(r.id, r.week).catch((e) => console.error(`💥 retro: ${e?.message ?? e}`)); })().finally(() => { retroing = false; });
+      }
+    }
+    if (!debriefing && !pausedUntil()) {
+      const due = debriefsDue().filter((key) => Date.now() - (debriefFailed.get(key) ?? 0) > 3_600_000);
+      if (due.length) {
+        debriefing = true;
+        void (async () => {
+          for (const key of due) {
+            try {
+              const d = await runDebrief(key);
+              emit({ type: "notice", who: "Tickets", emoji: "🎫", depth: 0, text: `${key} is debriefed: how the crew did on it is on the ticket.${lessonsLine(d.proposed.length)}` });
+            } catch (e: any) { debriefFailed.set(key, Date.now()); console.error(`💥 debrief ${key}: ${e?.message ?? e}`); }
+          }
+        })().finally(() => { debriefing = false; });
       }
     }
   } catch (e: any) {
@@ -563,6 +583,7 @@ async function fullState(full: boolean, historySeen?: string) {
     },
     installedSkills: none(() => installedSkills()),
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
+    credit: campRuntime() === "claude-code" ? creditState() : null, // extra usage: running on credit, and how much is left
     limitsMeasured: usageMeasuredAt() || null, // when the plan's own usage figures were last read
     pausedUntil: pausedUntil(),
     pauseMessage: pausedUntil() ? pauseMessage(pausedUntil()!) : null,
@@ -868,6 +889,17 @@ const server = http.createServer(async (req, res) => {
 
     // Your notes (notes.ts): all of them. The Notes panel asks when it opens, and when you come back to the window.
     if (req.method === "GET" && url.pathname === "/api/notes") return send(res, 200, { notes: loadNotes() });
+    if (req.method === "GET" && url.pathname === "/api/tickets") return send(res, 200, { tickets: loadTickets() });
+    // How the crew did on a ticket that's done (?key=): nothing until it's been debriefed (debrief.ts).
+    if (req.method === "GET" && url.pathname === "/api/debrief") {
+      const key = String(url.searchParams.get("key") ?? "").trim().toUpperCase();
+      return send(res, 200, { debrief: readDebrief(key), worked: workedOn(key) });
+    }
+    // What a new ticket can start from: the plans approved and waiting to start (Ready to start), each with its conversation.
+    if (req.method === "GET" && url.pathname === "/api/tickets/plans") {
+      const plans = heldPlans().map((h) => ({ id: h.ask, body: h.plan.trim(), time: h.held, conversation: h.conversation, conversationTitle: h.title, ...(h.project !== GENERAL ? { project: h.project } : {}) }));
+      return send(res, 200, { plans });
+    }
 
     // Project files for @ autocomplete.
     if (req.method === "GET" && url.pathname === "/api/files") {
@@ -972,6 +1004,10 @@ const server = http.createServer(async (req, res) => {
       if (!thread || (who && who.id !== thread.agent && !aside)) replyTo = undefined; // addressed to someone else: a fresh start
       // { jira: "APP-123" }: the ticket a new conversation is working on; a reply keeps its conversation's.
       const jira = replyTo ? thread?.jira : (typeof body.jira === "string" && JIRA_KEY.test(body.jira.toUpperCase()) ? body.jira.toUpperCase() : undefined);
+      // { ticket: "MAE-3" }: the same for a Mae ticket (tickets.ts). It has to be one that's there.
+      const maeKey = typeof body.ticket === "string" ? body.ticket.trim().toUpperCase() : "";
+      if (!replyTo && maeKey && !(MAE_KEY.test(maeKey) && getTicket(maeKey))) return send(res, 400, { error: `There's no ticket ${maeKey} any more.` });
+      const ticket = replyTo ? thread?.ticket : maeKey || undefined;
       const target = who ?? (replyTo && thread?.direct ? findCrew(thread.agent) : undefined);
       // { workspaces: { <link>: { mode: "new", branch? } | { mode: "existing", path } } }: work in a
       // worktree of that linked repo instead of the linked checkout. A reply without it stays
@@ -1023,7 +1059,7 @@ const server = http.createServer(async (req, res) => {
         model = body.model;
       }
       if (aside) model = undefined;
-      const where = { project: project.id, links, ...(without.length ? { without } : {}), ...(jira ? { jira } : {}), ...(model ? { model } : {}) };
+      const where = { project: project.id, links, ...(without.length ? { without } : {}), ...(jira ? { jira } : {}), ...(ticket ? { ticket } : {}), ...(model ? { model } : {}) };
       const isNew = !replyTo;
       const task = (direct ? direct[2] ?? text : text).replace(/\s+/g, " ").slice(0, 90);
       // Worked out when it starts, not now: a chained request follows what its predecessor ended up doing.
@@ -1039,7 +1075,7 @@ const server = http.createServer(async (req, res) => {
       // A plain chat: outside any project, a message with no @ goes to a model and nobody else (no
       // Quartermaster, no plan, no quests). A reply in one stays one. Asking for a worktree, or
       // starting from a ticket, is asking for work to be done, so that still goes to the crew.
-      const plain = !who && !aside && !jira && !workspaces && (replyTo ? thread?.agent === CHAT : project.id === GENERAL);
+      const plain = !who && !aside && !jira && !ticket && !workspaces && (replyTo ? thread?.agent === CHAT : project.id === GENERAL);
       const w = plain
         ? enqueue({ label: "chat", task, after, run: async (signal, id, steering) => {
             const c = chained();
@@ -1072,6 +1108,8 @@ const server = http.createServer(async (req, res) => {
       if (isNew) fileConversation(conversation, project.id);
       // Started from a ticket, with write-back on: say so on the ticket (and move it, if you named a status).
       if (isNew && jira) void writeBack("start", jira, { branch: Object.values(workspaces ?? {})[0]?.branch }).then((note) => { if (note) emit({ type: "notice", who: "Jira", emoji: "🔖", depth: 0, text: note, expeditionId: w.id }); });
+      // Started from a Mae ticket: it's in progress now (unless it was already further along).
+      if (isNew && ticket && advanceTicket(ticket, "doing")) emit({ type: "changed", what: "tickets" });
       return send(res, 200, { ok: true, id: w.id, position, attached: attached.length, thread: conversation, ...(after ? { after } : {}) });
     }
 
@@ -1465,6 +1503,46 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
     }
 
+    // Mae tickets (tickets.ts). { action: "create", title, criteria, description, status?, labels?, priority?, project?, from? },
+    // { action: "createMany", tickets: [...], project?, from? } (drafts you chose to keep, filed together),
+    // { action: "update", key, ...fields }, { action: "remove", key }.
+    if (url.pathname === "/api/tickets") {
+      try {
+        const done = (status: number, out: object) => { emit({ type: "changed", what: "tickets" }); return send(res, status, { ...out, tickets: loadTickets() }); };
+        if (body.action === "create") return done(200, { ok: true, ticket: createTicket(body) });
+        if (body.action === "createMany") {
+          const list = Array.isArray(body.tickets) ? body.tickets.slice(0, 20) : [];
+          if (!list.length) return send(res, 400, { error: "Choose at least one ticket to file." });
+          return done(200, { ok: true, made: createTickets(list.map((t: any) => ({ ...t, project: body.project, from: body.from }))) });
+        }
+        const key = String(body.key ?? "").trim().toUpperCase();
+        if (body.action === "update") {
+          const t = updateTicket(key, body);
+          return t ? done(200, { ok: true, ticket: t }) : send(res, 404, { error: "That ticket isn't there any more." });
+        }
+        if (body.action === "remove") return done(200, { ok: removeTicket(key) });
+        return send(res, 400, { error: "Unknown action" });
+      } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+    }
+    // Draft tickets from a note or a plan ({ text, kind: "note" | "plan", title?, project? }): the
+    // smallest model splits it into pieces of work. Nothing is filed: the page shows them to choose from.
+    if (url.pathname === "/api/tickets/draft") {
+      const p = getProject(String(body.project ?? ""));
+      try {
+        const drafts = await draftTickets(String(body.text ?? ""), { kind: body.kind === "plan" ? "plan" : "note", title: typeof body.title === "string" ? body.title : undefined, one: body.one === true,
+          ...(p && p.id !== "general" ? { project: p.id, projectName: p.name } : {}) });
+        return send(res, 200, { ok: true, drafts });
+      } catch (e: any) { return send(res, e.fixable ? 400 : 502, { error: e.message }); }
+    }
+    // Attach a Mae ticket to the message being written ({ key, batch? }), as it stands now.
+    if (url.pathname === "/api/tickets/attach") {
+      const t = getTicket(String(body.key ?? ""));
+      if (!t) return send(res, 404, { error: "That ticket isn't there any more." });
+      const projectName = t.project ? getProject(t.project)?.name : undefined;
+      const saved = saveUpload({ name: `${t.key}.md`, data: Buffer.from(`${MAE_NOTE}\n\n${maeTicketMarkdown(t, projectName)}`).toString("base64"), batch: body.batch });
+      return send(res, 200, { ...saved, key: t.key, summary: t.title });
+    }
+
     // Write a note up as a ticket ({ id, project? }): the Scout reads the project's code and writes
     // it, as a conversation you can open, and the ticket is kept on the note (ticket.ts).
     if (url.pathname === "/api/notes/ticket") {
@@ -1664,6 +1742,11 @@ const server = http.createServer(async (req, res) => {
     // Hold a project's retro for a week now ({ id, week? }).
     if (url.pathname === "/api/retro") {
       try { return send(res, 200, await runRetro(String(body.id ?? ""), typeof body.week === "string" ? body.week : undefined)); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+    // Debrief a ticket now ({ key }): again, if it has been already.
+    if (url.pathname === "/api/debrief") {
+      try { return send(res, 200, { debrief: await runDebrief(String(body.key ?? "").trim().toUpperCase()) }); }
       catch (e: any) { return send(res, 400, { error: e.message }); }
     }
     // Bring one of your pull requests' feedback to the crew ({ url }): what the pull-request

@@ -65,6 +65,7 @@ const PRIVATE_CAMP_FILES = new Set([
   // agents' private work included), what was kept in memory, and how you rated it.
   "feed.jsonl", "threads.jsonl", "quest-log.jsonl", "conversations.json", "memory-log.jsonl", "feedback.jsonl", "limits.json",
   "notes.json", // your own notes (notes.ts): the crew sees one only when you put it in a message
+  "tickets.json", // Mae tickets (tickets.ts): the crew reads and files them through its `tickets` tool, which checks what it writes
 ]);
 // And whole folders: checkpoints/ keeps copies of files as they were before each change, from every
 // conversation and project, whatever this one may see.

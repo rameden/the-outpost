@@ -12,7 +12,7 @@
 // map. Then the next one, and round again.
 //
 // Who is in the rotation is the camp's own crew (everyone but the Quartermaster, who is the sun),
-// so someone you add, like the Hacker, gets an orbit too: the next one out, in the colour you gave
+// so someone you add, like the Wizard, gets an orbit too: the next one out, in the colour you gave
 // them. With nobody (`crew` empty: outside a project there is no crew until you call one in) the
 // lines are empty and the sun just sends a ring out now and then.
 //
@@ -36,7 +36,7 @@ export const MARKS: Record<string, ReactNode> = {
   artificer: <g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5" /><path d="M12 10 V21.5" /></g>,
   scribe: <><path d="M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z" /><path d="M3.8 20.2 L13 11" /></>,
   warden: <><path d="M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z" /><path d="M8.8 11.9 L11.2 14.3 L15.4 9.9" /></>,
-  hacker: <path d="M13.5 2.5 L5.5 13.5 H11.5 L10.5 21.5 L18.5 10.5 H12.5 Z" />,
+  wizard: <><path d="M4 20 L14.5 9.5" /><path d="M17.5 3 V8 M15 5.5 H20" /><path d="M19.5 11.5 V13.5 M18.5 12.5 H20.5" /></>,
 };
 
 // Where things are, in the drawing's own units. The stylesheet has a pace and a reach for each orbit
