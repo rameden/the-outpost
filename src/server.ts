@@ -26,13 +26,13 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT, heldPlans } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, uploadKeepDays, setUploadKeepDays } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, autoExcluded, setAutoExcluded, uploadKeepDays, setUploadKeepDays } from "./settings.js";
 import { pruneUploads, uploadsUsage } from "./uploads.js";
 import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
-import { CREW, CREW_IDS, findCrew, addMember, updateMember, removeMember, type CrewId } from "./crew.js";
+import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, type CrewId } from "./crew.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
@@ -578,6 +578,7 @@ async function fullState(full: boolean, historySeen?: string) {
       termActions: termActions(),
       memoryCare: memoryCare(),
       smallModel: smallModel(),
+      autoExclude: autoExcluded(), // models Auto never picks
       jiraWrite: writeBackSettings(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
@@ -998,7 +999,7 @@ const server = http.createServer(async (req, res) => {
       if (!text && attachments.length === 0) return send(res, 400, { error: "Empty request" });
       if (!text) text = "Take a look at what I attached.";
       const direct = text.match(/^@(\w+)\s+([\s\S]+)$/) ?? (attachments.length ? text.match(/^@(\w+)$/) : null);
-      const who = direct ? findCrew(direct[1]) : undefined;
+      let who = direct ? findCrew(direct[1]) : undefined;
       if (direct && !who) return send(res, 400, { error: `No crew member named "${direct[1]}"` });
       const { content, attached } = buildRequest(direct ? direct[2] ?? "Take a look at what I attached." : text, attachments);
       // A follow-up: { replyTo: <expedition id> } continues that conversation with whoever it was
@@ -1008,9 +1009,14 @@ const server = http.createServer(async (req, res) => {
       if (!replyTo && body.chat && who && who.id !== "quartermaster") replyTo = latestDirect(who.id);
       const stillRunning = (id: string) => running.has(id) || queue.some((q) => q.id === id);
       const thread = threadFor(replyTo, stillRunning);
+      // In a plain chat (which has no crew), "@scribe" anywhere in the message hands it to them,
+      // not only at the start. In a chat that's going, they step in for the turn and read it.
+      const inChat = thread ? thread.agent === CHAT : projectOf(undefined, body.project).id === GENERAL;
+      const handOff = !direct && inChat ? mentionedCrew(text) : undefined;
+      if (handOff) who = handOff;
       // { aside: true }: someone else steps into the conversation for this one turn (a second
       // opinion, a review): it reads the conversation, and the conversation stays who it was with.
-      const aside = body.aside === true && !!thread && !!who && who.id !== "quartermaster";
+      const aside = (body.aside === true || !!handOff) && !!thread && !!who && who.id !== "quartermaster";
       if (!thread || (who && who.id !== thread.agent && !aside)) replyTo = undefined; // addressed to someone else: a fresh start
       // { jira: "APP-123" }: the ticket a new conversation is working on; a reply keeps its conversation's.
       const jira = replyTo ? thread?.jira : (typeof body.jira === "string" && JIRA_KEY.test(body.jira.toUpperCase()) ? body.jira.toUpperCase() : undefined);
@@ -1650,6 +1656,14 @@ const server = http.createServer(async (req, res) => {
           setSmallModel(model);
           emit({ type: "changed", what: "settings" });
           return send(res, 200, { ok: true, smallModel: smallModel() });
+        }
+        if (url.pathname === "/api/providers/auto-exclude") {
+          // on: true lets Auto pick the model again; false takes it out of Auto's choices (routing.ts).
+          const model = String(body.model ?? "");
+          if (!model) return send(res, 400, { error: "No model given" });
+          setAutoExcluded(model, body.on === true);
+          emit({ type: "changed", what: "settings" });
+          return send(res, 200, { ok: true, autoExclude: autoExcluded() });
         }
       } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
     }

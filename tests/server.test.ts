@@ -170,6 +170,25 @@ test("a plan held for later starts from its card once, and only a plan that's th
   assert.equal(await stop(c), 0);
 });
 
+test("in a plain chat, a crew member @mentioned anywhere in the message steps in; an email address isn't a mention", async () => {
+  const turn = { thread: "chat-1", expedition: "chat-1", agent: "chat", direct: false, time: new Date().toISOString(), task: "Drone rules for Punta Cana?", reply: "Under 250 g you still register.", status: "done" };
+  writeFileSync(join(camp, "camp", "threads.jsonl"), JSON.stringify(turn) + "\n");
+  const c = await start();
+  const post = (body: object) => fetch(`http://127.0.0.1:${c.port}/api/send`, { method: "POST", headers: { "x-camp-token": c.token, "content-type": "application/json" }, body: JSON.stringify(body) });
+  const turns = () => readFileSync(join(camp, "camp", "threads.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const until = async (ok: () => boolean) => { for (let i = 0; i < 100 && !ok(); i++) await new Promise((r) => setTimeout(r, 50)); };
+  const r = await post({ text: "Can you have @scribe write a short email to dtac@idac.gov.do about it?", replyTo: "chat-1" });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json() as any).thread, "chat-1", "they step into this conversation, and it stays a chat");
+  await until(() => turns().some((t) => t.agent === "scribe"));
+  assert.ok(turns().some((t) => t.agent === "scribe" && t.aside && t.thread === "chat-1"), "the Scribe took the turn");
+  const mail = await post({ text: "Write to scribe@example.com for me", replyTo: "chat-1" });
+  assert.equal(mail.status, 200);
+  await until(() => turns().filter((t) => t.agent === "chat").length > 1);
+  assert.equal(turns().filter((t) => t.agent === "scribe").length, 1, "an email address goes to the chat, not the Scribe");
+  assert.equal(await stop(c), 0);
+});
+
 // ---------- LAN mode ----------
 import http from "node:http";
 import { networkInterfaces } from "node:os";
