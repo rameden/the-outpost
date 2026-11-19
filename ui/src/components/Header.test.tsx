@@ -7,6 +7,7 @@ import { Quests } from "../panels/Quests.tsx";
 import type { CampEvent, CampState } from "../types.ts";
 import { Header } from "./Header.tsx";
 import type { Need } from "../needs.ts";
+import { readAloud } from "../readaloud.ts";
 
 const posts: { path: string; body: unknown }[] = [];
 beforeEach(() => {
@@ -237,4 +238,20 @@ test("on extra-usage credit: the header says so with what's left, and Quests sho
   const idle = { ...S, credit: { ...S.credit!, inUse: false, until: null } } as CampState;
   render(<Header S={idle} store={createFeedStore()} conn="live" refresh={() => {}} />);
   expect(screen.queryByText(/On credit/)).toBeNull();
+});
+
+test("what's being read aloud has its controls in the bar, just before the status chip", async () => {
+  vi.stubGlobal("Audio", class { src = ""; playbackRate = 1; onended = null; onerror = null; play() { return Promise.resolve(); } pause() {} removeAttribute() {} });
+  URL.createObjectURL = vi.fn(() => "blob:speech");
+  URL.revokeObjectURL = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(new Blob(["mp3"]))));
+  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  expect(screen.queryByRole("region", { name: "Reading aloud" })).toBeNull();
+  act(() => readAloud("Three runs, two quests.", { what: "Debrief" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  const bar = screen.getByRole("region", { name: "Reading aloud" });
+  expect(bar.textContent).toContain("Debrief");
+  expect(bar.nextElementSibling?.querySelector(".chip-status")).toBeTruthy();
+  fireEvent.click(within(bar).getByRole("button", { name: "Stop reading" }));
+  expect(screen.queryByRole("region", { name: "Reading aloud" })).toBeNull();
 });

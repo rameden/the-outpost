@@ -540,7 +540,20 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .jira-body { padding: 14px 18px 18px; background: var(--surface); }
 .jira-body h3 { margin: 18px 0 6px; font: 600 13px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
 .ticket-debrief h4 { margin: 12px 0 4px; font: 600 13px var(--sans); }
-.ticket-debrief .btn { margin-top: 12px; }
+.ticket-debrief .debrief-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+/* The player: what's being read aloud, in the top bar beside the status chip. */
+.player { display: inline-flex; align-items: center; gap: 1px; flex: none; min-width: 0; height: 30px; margin-right: 6px; padding: 0 2px 0 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+.player-what { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; max-width: 300px; margin-right: 6px; white-space: nowrap; }
+.player-what > b { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.player-what > span { flex: none; color: var(--muted); font-size: 12px; }
+.player .form-error { margin: 0 6px 0 0; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-btn { display: inline-grid; place-items: center; flex: none; min-width: 26px; height: 24px; padding: 0 4px; border: 0; border-radius: 6px; background: none; color: inherit; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.player-btn:hover:not(:disabled) { background: var(--surface-2); }
+.player-btn:disabled { opacity: .4; }
+.player-btn .icon { width: 15px; height: 15px; }
+.player-btn.speed { min-width: 40px; }
+@media (max-width: 1100px) { .player-what > b { display: none; } }
+@media (max-width: 720px) { .player-what { display: none; } .player { padding-left: 2px; } }
 .jira-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; margin: 0 0 10px; }
 .jira-facts dt { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
 .jira-facts dd { margin: 1px 0 0; font-size: 14px; overflow-wrap: anywhere; }

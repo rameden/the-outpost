@@ -60,7 +60,9 @@ export class ProviderError extends Error {
 }
 
 // ---------- Keys ----------
-type Saved = Partial<Record<ProviderId | "anthropic", { key: string; connected: string }>>;
+// A key for something that isn't a model (ElevenLabs, which reads aloud: voice.ts), kept in the same file under the same care.
+export type SideKey = "elevenlabs";
+type Saved = Partial<Record<ProviderId | "anthropic" | SideKey, { key: string; connected: string }>>;
 function load(): Saved {
   try { return existsSync(PROVIDERS_PATH) ? (JSON.parse(readFileSync(PROVIDERS_PATH, "utf8")) as Saved) : {}; } catch { return {}; }
 }
@@ -73,6 +75,14 @@ function keyOf(p: Preset): { key: string; from: "env" | "camp" } | null {
   if (env) return { key: env, from: "env" };
   const kept = load()[p.id]?.key;
   return kept ? { key: kept, from: "camp" } : null;
+}
+
+export const sideKey = (id: SideKey): string | undefined => load()[id]?.key || undefined;
+export function keepSideKey(id: SideKey, key: string | null) {
+  const saved = load();
+  if (key === null) delete saved[id];
+  else saved[id] = { key, connected: new Date().toISOString() };
+  save(saved);
 }
 
 export const anthropicKey = (): string | undefined => load().anthropic?.key || process.env.ANTHROPIC_API_KEY?.trim() || undefined;

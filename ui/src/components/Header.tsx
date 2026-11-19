@@ -10,6 +10,7 @@ import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cash, cx, money, resetIn } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
+import { ReadingPlayer } from "./ReadAloud.tsx";
 import { MaeLogo } from "./MaeLogo.tsx";
 import { needsDoing, needsLabel, type Need } from "../needs.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
@@ -288,6 +289,8 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         )}
         </div>
         <div className="top-tools">
+        {/* Whatever is being read aloud, wherever it was started: its controls sit here while it reads. */}
+        <ReadingPlayer />
         {/* With the icons, so it sits as close to them as they do to each other. */}
         <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} gh={gh} running={running} questsOut={questsOut} queued={queued} />
         {/* The two toys keep their own buttons; the page's occasional switches are behind ···. */}

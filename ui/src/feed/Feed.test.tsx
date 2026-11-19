@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampEvent } from "../types.ts";
 import { Feed } from "./Feed.tsx";
 import { createFeedStore } from "./store.ts";
+import { player, reading } from "../readaloud.ts";
 
 const posts: { path: string; body: unknown }[] = [];
 beforeEach(() => {
@@ -414,4 +415,26 @@ test("Note under a finished answer asks for the answer itself to be kept in a no
   fireEvent.click(within(card("How do I rebase?")).getByRole("button", { name: "Note" }));
   window.removeEventListener("camp:ask", on);
   expect(heard).toEqual([{ do: "note", text: "Run `git rebase main`, then force-push." }]);
+});
+
+test("Read aloud under a finished answer reads the answer, said without its Markdown", async () => {
+  const asked: string[] = [];
+  vi.stubGlobal("Audio", class { src = ""; playbackRate = 1; onended = null; onerror = null; play() { return Promise.resolve(); } pause() {} removeAttribute() {} });
+  URL.createObjectURL = vi.fn(() => "blob:speech");
+  URL.revokeObjectURL = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, init?: RequestInit) => { asked.push(JSON.parse(String(init?.body)).text); return new Response(new Blob(["mp3"])); }));
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  send(store,
+    { type: "expedition_start", id: "r1", task: "How do I rebase?", source: "user" },
+    { type: "text", ...qm, text: "Run `git rebase main`, then **force-push**.", expeditionId: "r1" },
+  );
+  expect(within(card("How do I rebase?")).queryByRole("button", { name: "Read aloud" })).toBeNull(); // not while it's still being written
+  send(store, { type: "expedition_end", id: "r1", status: "done", text: "done" });
+  fireEvent.click(within(card("How do I rebase?")).getByRole("button", { name: "Read aloud" }));
+  expect(asked).toEqual(["Run git rebase main, then force-push."]);
+  expect(reading().what).toBe("Quartermaster's answer");
+  expect(within(card("How do I rebase?")).getByRole("button", { name: "Stop reading" })).toBeTruthy();
+  player.stop();
+  vi.unstubAllGlobals();
 });

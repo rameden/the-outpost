@@ -2,6 +2,21 @@ import { useEffect, useState } from "react";
 import { errorText } from "../api.ts";
 import { when } from "../format.ts";
 import { holdDebrief, loadDebrief, type Debrief } from "../tickets.ts";
+import { ReadAloud } from "./ReadAloud.tsx";
+
+const n = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+// The debrief as it's read aloud: the same things in the same order as the page, in sentences.
+export function debriefSpeech(d: Debrief): string {
+  const say = (x: string) => (/[.!?]$/.test(x.trim()) ? x.trim() : `${x.trim()}.`);
+  const list = (title: string, items: string[]) => (items.length ? [`${title}:`, ...items.map(say)] : []);
+  return [
+    `How the crew did. ${n(d.runs, "run")} and ${n(d.quests, "quest")}, costing $${d.cost.toFixed(2)}.`,
+    ...list("Went well", d.well),
+    ...list("Could have gone better", d.better),
+    ...(!d.well.length && !d.better.length ? ["Nothing stood out either way."] : []),
+    ...list("Lessons proposed", d.proposed.map((l) => `${l.name}: ${l.text}`)),
+  ].join(" ");
+}
 
 // How the crew did on a ticket that's done: what the camp's debrief found, and the lessons it
 // put in front of you. stamp: changes when the tickets are read again (a debrief just written says so).
@@ -22,7 +37,6 @@ export function TicketDebrief({ ticketKey, stamp, jira }: { ticketKey: string; s
     try { setD(await holdDebrief(ticketKey)); } catch (e) { setError(errorText(e)); }
     setBusy(false);
   }
-  const n = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
   if (jira && !d && !worked) return null;
   return (
     <section className="ticket-debrief" aria-label="How the crew did">
@@ -43,7 +57,10 @@ export function TicketDebrief({ ticketKey, stamp, jira }: { ticketKey: string; s
           )}
         </>
       )}
-      <button type="button" className="btn small" disabled={busy} onClick={hold}>{busy ? "Reading the work…" : d ? "Debrief again" : "Debrief now"}</button>
+      <div className="debrief-actions">
+        <button type="button" className="btn small" disabled={busy} onClick={hold}>{busy ? "Reading the work…" : d ? "Debrief again" : "Debrief now"}</button>
+        {d && <ReadAloud text={debriefSpeech(d)} what="Debrief" />}
+      </div>
     </section>
   );
 }

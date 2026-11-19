@@ -73,6 +73,7 @@ import { titleConversation } from "./titles.js";
 import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
 import { logKept, writeAbout } from "./memlog.js";
 import { anthropicKeyState, setAnthropicKey, approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
+import { connectVoice, disconnectVoice, listVoices, setVoice, speak, voiceState } from "./voice.js";
 import { writeModelGuide } from "./modelguide.js";
 import { isAutoChoice, POLICY } from "./routing.js";
 import { routingReport } from "./autoroute.js";
@@ -542,6 +543,8 @@ async function fullState(full: boolean, historySeen?: string) {
     // Other models you've connected (DeepSeek, Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
     providers: none(() => providersState()),
     anthropic: anthropicKeyState(),
+    // Reading aloud (voice.ts): whether ElevenLabs is connected, and which voice and model read. Never the key.
+    voice: voiceState(),
     // What's remembered, line by line, and what's waiting for your say (keeping.ts).
     memory: none(() => memoryOverview()),
     memoryProposals: none(() => proposals()),
@@ -1162,6 +1165,24 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : "Couldn't update the Anthropic key." });
       }
+    }
+
+    // Reading aloud (voice.ts). connect: keep your ElevenLabs key ({ key }) once ElevenLabs has accepted
+    // it. disconnect: forget it. voices: what there is to choose from. set: which voice and model read
+    // ({ voice, voiceName, model }). speak: one part of a read ({ text }), answered as MP3.
+    if (url.pathname.startsWith("/api/voice/")) {
+      try {
+        if (url.pathname === "/api/voice/connect") return send(res, 200, { ok: true, voice: await connectVoice(body.key) });
+        if (url.pathname === "/api/voice/disconnect") return send(res, 200, { ok: true, voice: disconnectVoice() });
+        if (url.pathname === "/api/voice/voices") return send(res, 200, await listVoices());
+        if (url.pathname === "/api/voice/set") return send(res, 200, { ok: true, voice: setVoice(body) });
+        if (url.pathname === "/api/voice/speak") {
+          const { audio, cached } = await speak(body.text);
+          res.writeHead(200, { "content-type": "audio/mpeg", "content-length": audio.length, "cache-control": "no-store", "x-content-type-options": "nosniff", "x-voice-cached": cached ? "1" : "0" });
+          return res.end(audio);
+        }
+      } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
+      return send(res, 404, { error: "Not found" });
     }
 
     if (url.pathname === "/api/runtime") {

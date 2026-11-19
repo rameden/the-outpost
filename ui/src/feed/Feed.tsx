@@ -9,6 +9,7 @@ import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
 import { autoName, cClass, clock, crewNow, cx, plural, shortModel, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
+import { ReadAloud } from "../components/ReadAloud.tsx";
 import { MaeSystem } from "../components/MaeSystem.tsx";
 import { Markdown } from "../markdown.tsx";
 import { AskCard } from "./AskCard.tsx";
@@ -293,6 +294,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
               {answer?.kind === "msg" && answer.text.trim() && (
                 <button type="button" className="btn small" title="Keep this answer in a note: the one you have open, or a new one" onClick={() => say({ do: "note", text: answer.text })}>Note</button>
               )}
+              {answer?.kind === "msg" && answer.text.trim() && <ReadAloud text={answer.text} markdown what={exp.source === "job" ? `Job report · ${exp.job}` : `${answer.who}'s answer`} />}
               {exp.source !== "job" && <ForkButton expId={exp.expId} />}
               {exp.source !== "job" && (
                 <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>

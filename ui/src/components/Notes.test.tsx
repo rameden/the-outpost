@@ -4,6 +4,8 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { notesNow, resetNotes, flushNotes } from "../notes.ts";
 import { ConfirmHost } from "./Confirm.tsx";
 import { NotesPanel, NotesRail, PickToNote } from "./Notes.tsx";
+import { VoiceOn } from "./ReadAloud.tsx";
+import { player, reading } from "../readaloud.ts";
 
 const NOTES = [
   { id: "aaaaaa111111", title: "Release steps", text: "1. Tag\n2. Deploy", created: "2026-11-10T09:00:00.000Z", updated: "2026-11-12T09:00:00.000Z" },
@@ -126,6 +128,34 @@ test("text selected in the thread can be kept in a note: the open one, or a new 
   up();
   fireEvent.click(screen.getByRole("button", { name: "Add to “Release steps”" }));
   expect(onAdd).toHaveBeenLastCalledWith("Rebase before the PR.", false);
+  vi.useRealTimers();
+});
+
+test("text selected in the thread can be read aloud, when a voice is connected", async () => {
+  vi.useFakeTimers();
+  const asked: string[] = [];
+  const realFetch = globalThis.fetch;
+  vi.stubGlobal("Audio", class { src = ""; playbackRate = 1; onended = null; onerror = null; play() { return Promise.resolve(); } pause() {} removeAttribute() {} });
+  URL.createObjectURL = vi.fn(() => "blob:speech");
+  URL.revokeObjectURL = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    if (path !== "/api/voice/speak") return realFetch(path, init);
+    asked.push(JSON.parse(String(init?.body)).text);
+    return new Response(new Blob(["mp3"]));
+  }));
+  const up = () => { fireEvent.pointerUp(document); act(() => { vi.advanceTimersByTime(1); }); };
+  const { rerender } = render(<VoiceOn.Provider value={false}><div id="feed"><p>Rebase before the PR</p></div><PickToNote active={false} onAdd={() => {}} /></VoiceOn.Provider>);
+  select(document.querySelector("#feed p")!);
+  up();
+  expect(screen.getByRole("toolbar")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Read aloud" })).toBeNull(); // no voice, no offer
+
+  rerender(<VoiceOn.Provider value><div id="feed"><p>Rebase before the PR</p></div><PickToNote active={false} onAdd={() => {}} /></VoiceOn.Provider>);
+  fireEvent.click(screen.getByRole("button", { name: "Read aloud" }));
+  expect(asked).toEqual(["Rebase before the PR."]);
+  expect(reading().what).toBe("Selected text");
+  expect(screen.queryByRole("toolbar")).toBeNull();
+  player.stop();
   vi.useRealTimers();
 });
 
