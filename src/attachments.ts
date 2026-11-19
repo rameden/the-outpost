@@ -10,6 +10,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { campPath, CAMP_ROOT, displayPath, type Tool } from "./tools.js";
 import { loadLinks } from "./links.js";
 import { slash } from "./platform.js";
+import { readArchive, type ArchiveLimits } from "./zip.js";
 
 export const UPLOADS_DIR = join("camp", "uploads");
 export type Attachment = { kind: "file" | "folder" | "url"; name: string; path?: string; url?: string };
@@ -51,6 +52,40 @@ export function saveUpload(u: { name: string; data: string; batch?: string; relP
   const bytes = Buffer.from(u.data, "base64");
   writeFileSync(path, bytes);
   return { path: slash(path), name: segments[segments.length - 1], size: bytes.length, batch, image: !!imageType(path) };
+}
+
+// A folder sent as a .zip: unpacked into the message's upload folder, as if picked with Folder….
+// The archive is read entry by entry (zip.ts), never by an unzip program, and every path is
+// rebuilt here from cleaned segments, so nothing in it can climb out of the folder or plant a link.
+export const MAX_ZIP_FILES = 200; // the same as Folder… takes
+const ZIP_LIMITS: ArchiveLimits = {
+  archive: 25 * 1024 * 1024, entries: 5000, file: 25 * 1024 * 1024, total: 200 * 1024 * 1024,
+  what: "a folder", notOne: "That isn't a .zip file.",
+};
+const SKIP_IN_ZIP = /(^|\/)(node_modules|\.git)(\/|$)/;
+const fixable = (message: string) => Object.assign(new Error(message), { fixable: true });
+
+export function saveZipFolder(u: { name: string; data: string; batch?: string }) {
+  const entries = readArchive(Buffer.from(u.data, "base64"), ZIP_LIMITS)
+    .filter((e) => !SKIP_IN_ZIP.test(e.path.replace(/\\/g, "/")))
+    .map((e) => ({ segments: e.path.split(/[\\/]+/).map(cleanSegment).filter(Boolean), data: e.data }))
+    .filter((e) => e.segments.length);
+  if (!entries.length) throw fixable("That zip has no files in it.");
+  if (entries.length > MAX_ZIP_FILES) throw fixable(`That zip has ${entries.length} files. Attach one with up to ${MAX_ZIP_FILES}.`);
+  // Zipping a folder puts everything under that folder's name: then that's the folder. Otherwise
+  // the files sit loose in the zip, and the folder is named after the zip.
+  const tops = new Set(entries.map((e) => e.segments[0]));
+  const wrapped = tops.size === 1 && entries.every((e) => e.segments.length > 1);
+  const root = wrapped ? [...tops][0] : cleanSegment(u.name.replace(/\.zip$/i, "")) || "folder";
+  const batch = u.batch && /^[\w-]{6,40}$/.test(u.batch) ? u.batch : newBatch();
+  const dir = join(UPLOADS_DIR, batch, root);
+  let count = 0;
+  for (const e of entries) {
+    const path = join(dir, ...(wrapped ? e.segments.slice(1) : e.segments));
+    try { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, e.data); count++; }
+    catch { /* a name that's both a file and a folder in the zip: the first one wins */ }
+  }
+  return { path: slash(dir), name: root, count, batch };
 }
 
 // ---------- Finding project files (for @ autocomplete) ----------

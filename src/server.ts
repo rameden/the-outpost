@@ -59,7 +59,7 @@ import { chainNote, chainReady } from "./chains.js";
 import { ASIDE_BRIEFS, isAsideBrief } from "./review.js";
 import { projectPayoff } from "./payoff.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
-import { buildRequest, imageType, saveUpload, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
+import { buildRequest, imageType, saveUpload, saveZipFolder, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
 import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadNotes, saveNote, removeNote, patchNote } from "./notes.js";
 import { noteName, parseTicket, ticketRequest } from "./ticket.js";
@@ -912,6 +912,13 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req, MAX_UPLOAD_BODY);
       if (typeof body.data !== "string" || typeof body.name !== "string") return send(res, 400, { error: "Missing file" });
       return send(res, 200, saveUpload({ name: body.name, data: body.data, batch: body.batch, relPath: body.relPath }));
+    }
+    // A folder sent as a .zip ({ name, data, batch }): unpacked into the batch, and attached as a folder.
+    if (url.pathname === "/api/upload/zip") {
+      const body = await readJson(req, MAX_UPLOAD_BODY);
+      if (typeof body.data !== "string" || typeof body.name !== "string") return send(res, 400, { error: "Missing file" });
+      try { return send(res, 200, saveZipFolder({ name: body.name, data: body.data, batch: body.batch })); }
+      catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
     }
 
     // A packaged skill ({ name, data }: the .skill file, base64): opened in memory and described.

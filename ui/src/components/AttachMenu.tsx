@@ -37,7 +37,7 @@ export function AttachMenu({ S, view, setView, repos, work, workLocked, workOpti
   onConnectJira?: () => void;                 // open Settings to link Jira
   onClose: () => void;
   onTalkTo: (id: string | null) => void;          // send straight to this crew member; null is the Quartermaster, as usual
-  onPick: (what: "files" | "folder" | "images") => void;
+  onPick: (what: "files" | "folder" | "zip" | "images") => void;
   onPaste: () => void;
   onUrl: (url: string) => void;
   onNote?: (note: Note) => void;                  // one of your notes, picked to attach as a file
@@ -123,6 +123,7 @@ export function AttachMenu({ S, view, setView, repos, work, workLocked, workOpti
         <div className="menu-label">Attach</div>
         <button type="button" className="menu-item" role="menuitem" onClick={() => onPick("files")}><Icon d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"><path d="M14 3v5h5M9 13h6M9 17h6" /></Icon>Files…</button>
         <button type="button" className="menu-item" role="menuitem" onClick={() => onPick("folder")}><Icon d={FOLDER} />Folder…</button>
+        <button type="button" className="menu-item" role="menuitem" onClick={() => onPick("zip")}><Icon d={FOLDER}><path d="M12 10v2M12 14v2" /></Icon>Folder from .zip…</button>
         <button type="button" className="menu-item" role="menuitem" onClick={() => onPick("images")}><Icon><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-9 9" /></Icon>Images…</button>
         <button type="button" className="menu-item" role="menuitem" onClick={onPaste}><Icon><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4h6v3H9z" /></Icon>Paste image</button>
         <button type="button" {...flyRow("url")}><Icon d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" /></Icon>URL<LineIcon name="chevronRight" /></button>

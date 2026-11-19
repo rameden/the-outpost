@@ -14,7 +14,7 @@ import { Icon } from "./bits.tsx";
 import { cx } from "../format.ts";
 import { ChatModel } from "./ChatModel.tsx";
 import { tell } from "./StatusLine.tsx";
-import { uploadFile as sendFile } from "../upload.ts";
+import { isZip, uploadFile as sendFile, uploadZip } from "../upload.ts";
 import { noteFile } from "../notes.ts";
 import { isMaeKey } from "../tickets.ts";
 
@@ -177,6 +177,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   const mentionBox = useRef<HTMLDivElement>(null);
   const pickFiles = useRef<HTMLInputElement>(null);
   const pickFolder = useRef<HTMLInputElement>(null);
+  const pickZip = useRef<HTMLInputElement>(null); // the folder picker can't pick a file, so a zipped folder has its own
   const pickImages = useRef<HTMLInputElement>(null);
   const batch = useRef<string | undefined>(undefined); // one upload folder per message
   const nextKey = useRef(0);
@@ -206,6 +207,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   async function addFiles(files: File[]) {
     setError("");
     for (const f of files) {
+      if (isZip(f)) { await addZip(f); continue; } // a zip goes in as the folder it holds
       const key = add({ kind: "file", name: f.name, status: "uploading", image: (f.type || "").startsWith("image/") });
       try { const r = await uploadFile(f); update(key, { path: r.path, name: r.name, status: "ready" }); }
       catch (e) { update(key, { status: "error" }); setError(errorText(e)); }
@@ -222,6 +224,16 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       const first = await uploadFile(files[0], files[0].webkitRelativePath); // sets the batch folder
       for (const f of files.slice(1)) await uploadFile(f, f.webkitRelativePath);
       update(key, { path: first.path.split("/").slice(0, 4).join("/"), status: "ready" }); // camp/uploads/<batch>/<folder>
+    } catch (e) { update(key, { status: "error" }); setError(errorText(e)); }
+  }
+
+  // A folder sent as a .zip: the camp unpacks it, and it's attached as that folder.
+  async function addZip(file: File) {
+    const key = add({ kind: "folder", name: file.name.replace(/\.zip$/i, ""), status: "uploading" });
+    try {
+      const r = await uploadZip(file, batch.current);
+      batch.current = r.batch;
+      update(key, { path: r.path, name: r.name, count: r.count, status: "ready" });
     } catch (e) { update(key, { status: "error" }); setError(errorText(e)); }
   }
 
@@ -288,7 +300,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   function onDrop(ev: DragEvent) {
     ev.preventDefault();
     setDragging(false);
-    const files = [...ev.dataTransfer.files].filter((f) => f.type || f.size > 0); // dropped folders show up empty; use Folder… for those
+    const files = [...ev.dataTransfer.files].filter((f) => f.type || f.size > 0); // dropped folders show up empty; use Folder… for those (a .zip goes in as its folder)
     if (files.length) void addFiles(files);
   }
 
@@ -329,9 +341,9 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     return () => document.removeEventListener("keydown", onKey);
   }, [menu]);
 
-  function pick(what: "files" | "folder" | "images") {
+  function pick(what: "files" | "folder" | "zip" | "images") {
     closeMenu();
-    ({ files: pickFiles, folder: pickFolder, images: pickImages })[what].current?.click();
+    ({ files: pickFiles, folder: pickFolder, zip: pickZip, images: pickImages })[what].current?.click();
   }
 
 
@@ -634,6 +646,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       {error && <div className="form-error">{error}</div>}
       <input type="file" multiple hidden ref={pickFiles} onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
       <input type="file" multiple hidden ref={pickFolder} {...{ webkitdirectory: "" }} onChange={(ev) => { if (ev.target.files) void addFolder(ev.target.files); ev.target.value = ""; }} />
+      <input type="file" accept=".zip,application/zip" multiple hidden ref={pickZip} onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
       <input type="file" accept="image/*" multiple hidden ref={pickImages} onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
     </div>
   );
