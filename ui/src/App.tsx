@@ -31,7 +31,7 @@ import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
 import { setCrewColors } from "./format.ts";
-import { wearPack } from "./themes.ts";
+import { useSeason, wearPack } from "./themes.ts";
 import { setWords } from "./words.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { Home } from "./components/Home.tsx";
@@ -41,7 +41,7 @@ import { homeProject, latestLiveRun, parseView, usePast, type View } from "./fee
 import { useFeed } from "./feed/store.ts";
 import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
-import { OverlayBoundary, ZoneBoundary } from "./components/ErrorBoundary.tsx";
+import { ErrorBoundary, OverlayBoundary, ZoneBoundary } from "./components/ErrorBoundary.tsx";
 import { StatusLine, tell } from "./components/StatusLine.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
 import { Feed } from "./feed/Feed.tsx";
@@ -63,6 +63,13 @@ const TerminalPanel = lazy(() => import("./components/Terminal.tsx").then((m) =>
 const Orbit = lazy(() => import("./orbit/Orbit.tsx").then((m) => ({ default: m.Orbit })));
 const Settings = lazy(() => import("./settings/Settings.tsx").then((m) => ({ default: m.Settings })));
 const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ default: m.Barnstorm })));
+// Decorations (Settings → General): only for looks, and loaded only while one is on. If one ever
+// fails to draw, the page simply goes without it.
+const Decor = lazy(() => import("./components/Decor.tsx").then((m) => ({ default: m.Decor })));
+function Decorations() {
+  const season = useSeason();
+  return season ? <ErrorBoundary fallback={() => null}><Suspense fallback={null}><Decor season={season} /></Suspense></ErrorBoundary> : null;
+}
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -685,6 +692,7 @@ export function App({ store }: { store: FeedStore }) {
       {!page && <PickToNote active={hasNotes && notesOpen} onAdd={onPickToNote} />}
       {/* "Are you sure?", asked from anywhere on the page (ask() in Confirm.tsx). */}
       <ConfirmHost />
+      <Decorations />
       {barnstorm !== "off" && (
         <OverlayBoundary name="Barnstorm" onClose={endBarnstorm}>
           <Suspense fallback={null}><Barnstorm paused={barnstorm === "paused"} onPause={pauseBarnstorm} onResume={resumeBarnstorm} onClose={endBarnstorm} /></Suspense>

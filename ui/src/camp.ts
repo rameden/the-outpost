@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, eventsUrl } from "./api.ts";
+import { RUN_DONE } from "./bus.ts";
 import { ASK_NOTIFY_TITLES } from "./feed/asks.ts";
 import type { FeedStore } from "./feed/store.ts";
 import { spaced } from "./format.ts";
@@ -67,6 +68,7 @@ export function handleEvent(store: FeedStore, e: CampEvent, opts: { replaying: b
   if (e.type === "expedition_end") {
     const started = before.open[e.id]?.started;
     if (started && Date.now() - started > 60_000 && !opts.replaying) notify(`Mae: expedition ${e.status === "done" ? "finished" : spaced(e.status)}`, e.text);
+    if (e.status === "done" && !opts.replaying) window.dispatchEvent(new Event(RUN_DONE));
   }
   // "changed" includes the queue: something started, finished, or was stopped.
   if (e.type === "expedition_end" || e.type === "job" || e.type === "changed") opts.refresh();
