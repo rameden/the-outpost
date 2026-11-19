@@ -20,6 +20,13 @@
 // first asked innermost, its steps waypoints on the ring with the crew sent on each as moons. The
 // runs of one conversation start on one bearing and are joined ring to ring, so a conversation
 // reaches further out the longer it went. Tree or rings is yours to pick, and is remembered.
+//
+// The map moves as the plans do, live or in a replay (styles.css, under reduced motion's "no
+// preference"): a plan that joins grows in (a ring opens out from the one inside it and its
+// waypoints land round it one by one; a bough grows from the trunk and its steps come out along
+// it), the plans already there glide to make room, and one that goes (the day wound back) fades
+// where it stood first. Changing how you look at the map (one plan or all, tree or rings, bigger or
+// smaller, into or out of a replay) moves nothing: that view is simply there.
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
@@ -31,6 +38,7 @@ import { cClass, clock, cx } from "../format.ts";
 import { reelOf, type Reel } from "../orbit/replay.ts";
 import { Timeline, type Time } from "../orbit/Timeline.tsx";
 import type { CampEvent, CampState } from "../types.ts";
+import { motionOK, useLingering } from "../motion.tsx";
 import { layoutOf, PAD, STEP_H, STEP_W } from "./layout.ts";
 import { DISC, MOON, moonsOf, ringsOf } from "./rings.ts";
 
@@ -75,6 +83,59 @@ const ZOOMS = [1, 0.8, 0.65, 0.5];
 // How the whole map is drawn, and where that's remembered.
 type Draw = "tree" | "rings";
 const DRAW_KEY = "camp-trail-whole";
+// How long a plan that has gone stays on the whole map while it fades (styles.css has the same).
+const GO_MS = 260;
+
+// In a replay, when a plan joins a list or goes from it, the ones already there glide to where they
+// now sit instead of jumping. list: its rows, each marked with its plan (data-exp). zoom: how big
+// the list is drawn. Places are read from the layout, not from the screen, so a row that's still
+// gliding is read as where it will end up.
+// Have `el` glide to where it now is from (dx, dy) back, in its own px; or, if an earlier glide of
+// it is still going, from wherever that had got it to.
+const gliding = new WeakMap<HTMLElement, Animation>();
+function glideFrom(el: HTMLElement, dx: number, dy: number) {
+  if (typeof el.animate !== "function") return;
+  const going = gliding.get(el);
+  if (going?.playState === "running") {
+    const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    dx += m.m41; dy += m.m42;
+    going.cancel();
+  }
+  gliding.set(el, el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 320, easing: "cubic-bezier(.22, 1, .36, 1)" }));
+}
+
+function useSettle(list: RefObject<HTMLElement | null>, zoom = 1) {
+  const tops = useRef(new Map<string, number>());
+  useLayoutEffect(() => {
+    const now = new Map<string, number>(), was = tops.current;
+    if (list.current && motionOK()) {
+      for (const row of Array.from(list.current.children) as HTMLElement[]) {
+        const id = row.dataset.exp;
+        if (!id || !row.offsetHeight) continue;
+        // (Browsers differ on whether offsetTop counts the zoom: the row's own two heights say which.)
+        const top = (row.offsetTop * row.getBoundingClientRect().height) / row.offsetHeight / zoom, from = was.get(id);
+        now.set(id, top);
+        if (from !== undefined && Math.abs(from - top) > 1) glideFrom(row, 0, from - top);
+      }
+    }
+    tops.current = now;
+  });
+}
+
+// The same for the one thing a box holds in its middle, as the ring map is: it grows as rings join,
+// and once it's bigger than its box its middle moves, and every ring with it.
+function useMiddle(el: RefObject<HTMLElement | null>, zoom: number) {
+  const at = useRef<{ x: number; y: number; zoom: number; w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const it = el.current, box = it?.parentElement, was = at.current;
+    at.current = null;
+    if (!it || !box || !it.offsetHeight || !motionOK()) return;
+    const k = it.getBoundingClientRect().height / it.offsetHeight / zoom; // (as above)
+    const now = at.current = { x: (it.offsetLeft + it.offsetWidth / 2) * k, y: (it.offsetTop + it.offsetHeight / 2) * k, zoom, w: box.clientWidth, h: box.clientHeight };
+    // Not when the zoom or the box itself has changed: then it hasn't moved, the room has.
+    if (was && was.zoom === zoom && was.w === now.w && was.h === now.h && Math.hypot(was.x - now.x, was.y - now.y) > 1) glideFrom(it, was.x - now.x, was.y - now.y);
+  });
+}
 
 // One of the crew on a step: one chip a quest, so two quests by the same crew member are two chips,
 // each going to its own block in the conversation. crewId: who they are whatever they're called
@@ -116,7 +177,7 @@ const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, lab
       <svg className="trail-lines" width={lay.width} height={lay.height} viewBox={`0 0 ${lay.width} ${lay.height}`} aria-hidden="true">
         {tree && firsts.map((s) => {
           const y = s.y + STEP_H / 2;
-          return <path key={s.n} className="trail-bough" d={`M${-BOUGH} ${knot}C${-BOUGH + 12} ${knot - (knot - y) * 0.7} ${PAD - 36} ${y} ${PAD} ${y}`} />;
+          return <path key={s.n} className="trail-bough" pathLength={1} d={`M${-BOUGH} ${knot}C${-BOUGH + 12} ${knot - (knot - y) * 0.7} ${PAD - 36} ${y} ${PAD} ${y}`} />;
         })}
         {tree && firsts.length > 0 && <circle className="trail-knot" cx={-BOUGH} cy={knot} r={6} />}
         {lay.edges.map((e) => (
@@ -130,7 +191,7 @@ const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, lab
           const step = byN.get(spot.n)!, state = states.get(spot.n)!;
           return (
             <li key={spot.n} className={cx("trail-step", state)} data-n={spot.n} data-col={spot.col} data-row={spot.row} data-state={state} tabIndex={0}
-              style={{ left: spot.x, top: spot.y }} aria-label={stepSays(spot.n, state, step.text, spot.after)}>
+              style={{ left: spot.x, top: spot.y, "--col": spot.col } as CSSProperties} aria-label={stepSays(spot.n, state, step.text, spot.after)}>
               <div className="trail-step-head">
                 <span className="trail-n">{spot.n}</span>
                 <span className={pillOf(state)}><i aria-hidden="true">{STEP_MARK[state]}</i> {STEP_SAYS[state]}</span>
@@ -177,9 +238,14 @@ function Moon({ q, at, ended, expId, crewId, onOpen }: { q: PlanQuest; at: { dx:
 // small to say: when it was asked, how it stands, the quests sent without a step, and the way back
 // to that plan on its own. Beside it the rings themselves, and under them what the waypoint you're
 // pointing at (or have tabbed to) says in full. sky: the drawing, for the map to be fitted to the window.
-function TrailRings({ plans, crewId, onOpen, onOnly, zoom, sky }: {
-  plans: Trailhead[]; crewId: CrewId; onOpen?: Open; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
+// going: the plans that have just gone, still drawn while they fade. The plans by name, and the
+// map itself, glide to make room when one joins or goes.
+function TrailRings({ plans, going, crewId, onOpen, onOnly, zoom, sky }: {
+  plans: Trailhead[]; going: Set<string>; crewId: CrewId; onOpen?: Open; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
 }) {
+  const runs = useRef<HTMLOListElement>(null);
+  useSettle(runs);
+  useMiddle(sky, zoom);
   // Laid out again only when a plan's shape changes or one joins, not each time a quest moves.
   const shape = JSON.stringify(plans.map((p) => [p.expId, p.thread, p.plan.steps.map((s) => [s.n, s.after])]));
   const map = useMemo(() => ringsOf(plans.map((p) => ({ expId: p.expId, thread: p.thread, steps: p.plan.steps }))), [shape]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -191,12 +257,13 @@ function TrailRings({ plans, crewId, onOpen, onOnly, zoom, sky }: {
   const { c, size } = map, far = c - 14; // far: the rim
   return (
     <div className="trail-map whole rings">
-      <ol className="trail-runs" aria-label="Every plan, newest first">
+      <ol className="trail-runs" ref={runs} aria-label="Every plan, newest first">
         {map.rings.toReversed().map((ring) => {
           const p = by.get(ring.expId);
           if (!p) return null;
           return (
-            <li key={p.expId} className={cx("trail-run", p.running && "running", hot?.expId === p.expId && "hot")} data-exp={p.expId} data-ring={ring.ring} {...over(p.expId)}>
+            <li key={p.expId} className={cx("trail-run", p.running && "running", hot?.expId === p.expId && "hot", going.has(p.expId) && "leaving")} data-exp={p.expId} data-ring={ring.ring}
+              inert={going.has(p.expId) || undefined} {...over(p.expId)}>
               <div className="trail-run-head">
                 <span className="trail-ring-no"><span className="sr-only">Ring </span>{ring.ring}</span>
                 <time dateTime={p.time}>{clock(p.time)}</time>
@@ -225,13 +292,13 @@ function TrailRings({ plans, crewId, onOpen, onOnly, zoom, sky }: {
               <circle className="trail-sun-dial" cx={c} cy={c} r={31} strokeDasharray="14 5 2 5" />
               <circle className="trail-sun-dial inner" cx={c} cy={c} r={23} strokeDasharray="2 4.5" />
               <circle className="trail-sun" cx={c} cy={c} r={14} />
-              {map.links.map((l) => <path key={l.to} className={cx("trail-link", hot && (hot.expId === l.from || hot.expId === l.to) && "hot")} data-join={`${l.from}>${l.to}`} d={l.d} />)}
+              {map.links.map((l) => <path key={l.to} className={cx("trail-link", hot && (hot.expId === l.from || hot.expId === l.to) && "hot", (going.has(l.from) || going.has(l.to)) && "leaving")} data-join={`${l.from}>${l.to}`} d={l.d} />)}
               {map.rings.map((ring) => {
                 const p = by.get(ring.expId);
                 if (!p) return null;
                 const state = new Map(p.plan.steps.map((s) => [s.n, stepState(s, p.plan.ended)]));
                 return (
-                  <g key={ring.expId} className={cx("trail-ring", p.running && "running", hot?.expId === ring.expId && "hot")} data-exp={ring.expId}>
+                  <g key={ring.expId} className={cx("trail-ring", p.running && "running", hot?.expId === ring.expId && "hot", going.has(ring.expId) && "leaving")} data-exp={ring.expId}>
                     <circle className="trail-orbit" cx={c} cy={c} r={ring.r} />
                     {ring.edges.map((e) => (
                       <g key={`${e.from}-${e.to}`} data-line={`${e.from}-${e.to}`} data-lane={e.lane} className={cx("trail-edge", state.get(e.from) === "done" && "walked", state.get(e.from) === "done" && state.get(e.to) === "out" && "live")}>
@@ -248,14 +315,15 @@ function TrailRings({ plans, crewId, onOpen, onOnly, zoom, sky }: {
                 if (!p) return null;
                 const stepOf = new Map(p.plan.steps.map((s) => [s.n, s]));
                 return (
-                  <li key={ring.expId} className={cx("trail-ring-run", p.running && "running", hot?.expId === ring.expId && "hot")} data-exp={ring.expId}>
+                  <li key={ring.expId} className={cx("trail-ring-run", p.running && "running", hot?.expId === ring.expId && "hot", going.has(ring.expId) && "leaving")} data-exp={ring.expId}
+                    inert={going.has(ring.expId) || undefined}>
                     <span className="trail-ring-no" style={{ left: ring.gate.x, top: ring.gate.y }} aria-hidden="true">{ring.ring}</span>
                     {ring.ways.length === 0 ? <span className="sr-only">Ring {ring.ring}, no steps: {brief(p.task)}</span> : (
                       <ol className="trail-ways" aria-label={`Ring ${ring.ring}, the steps of: ${brief(p.task)}`}>
                         {ring.ways.map((w) => {
                           const step = stepOf.get(w.n)!, state = stepState(step, p.plan.ended), moons = moonsOf(w.a, step.quests.length);
                           return (
-                            <li key={w.n} className={cx("trail-way", state)} data-n={w.n} data-slot={w.slot} data-state={state} tabIndex={0} style={{ left: w.x, top: w.y }}
+                            <li key={w.n} className={cx("trail-way", state)} data-n={w.n} data-slot={w.slot} data-state={state} tabIndex={0} style={{ left: w.x, top: w.y, "--slot": w.slot } as CSSProperties}
                               title={`${w.n}. ${step.text}`} aria-label={stepSays(w.n, state, step.text, w.after)} {...over(ring.expId, w.n)}>
                               <b>{w.n}</b>{state !== "todo" && <i aria-hidden="true">{STEP_MARK[state]}</i>}
                               {step.quests.map((q, i) => <Moon key={q.node} q={q} at={moons[i]} ended={p.plan.ended} expId={ring.expId} crewId={crewId} onOpen={onOpen} />)}
@@ -300,9 +368,26 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
   const root = useRef<HTMLDivElement>(null), all = useRef<HTMLOListElement>(null), sky = useRef<HTMLDivElement>(null);
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
 
-  const items = useFeed(replay?.store ?? store, (s) => s.items);
+  const feed = replay?.store ?? store;
+  const items = useFeed(feed, (s) => s.items);
   const plans = useMemo(() => plansOf(items), [items]);
   const shown = plans.find((p) => p.expId === picked) ?? plans.at(-1);
+  // On the whole map, a plan that goes (the day wound back, in a replay) is drawn while it fades.
+  // Not across the change from today to a replay or back: those are different days' plans.
+  const lingering = useLingering(plans, (p) => p.expId, feed, GO_MS);
+  const drawn = lingering.map((x) => x.item), going = new Set(lingering.filter((x) => x.leaving).map((x) => x.item.expId));
+  useSettle(all, zoom);
+  // The map moves when the plans do, not when you change how you're looking at them: whatever a
+  // new view would play as it's first drawn (this one included, as the map opens) is skipped to
+  // its end. The map's own fade as it opens is left to play, and so is anything that never ends.
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (typeof el?.getAnimations !== "function") return;
+    for (const a of el.getAnimations({ subtree: true })) {
+      const fx = a.effect;
+      if (fx instanceof KeyframeEffect && fx.target !== el && Number.isFinite(fx.getComputedTiming().endTime as number)) a.finish();
+    }
+  }, [whole, draw, zoom, picked, feed]);
 
   const crew = S?.characters;
   const crewId = useCallback((who: string) => crew?.find((c) => c.name === who)?.id, [crew]);
@@ -386,17 +471,17 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
           <button type="button" className="icon-btn" aria-label="Leave the trail map" title="Back to the page (Esc)" onClick={onClose}><Icon name="x" /></button>
         </div>
       </header>
-      {shown && whole ? (
+      {whole && drawn.length ? (
         <>
           <div className="trail-ask">
-            <b>{plans.length === 1 ? "The one plan so far" : draw === "rings" ? `All ${plans.length} plans, a ring each: the first asked innermost` : `All ${plans.length} plans, newest first`}</b>
+            <b>{plans.length === 0 ? "No plan at this point in the day" : plans.length === 1 ? "The one plan so far" : draw === "rings" ? `All ${plans.length} plans, a ring each: the first asked innermost` : `All ${plans.length} plans, newest first`}</b>
             <span className="trail-count" role="status">{tally(plans.flatMap((p) => statesOf(p.plan)), " steps")}</span>
           </div>
-          {draw === "rings" ? <TrailRings plans={plans} crewId={crewId} onOpen={open} onOnly={only} zoom={zoom} sky={sky} /> : (
+          {draw === "rings" ? <TrailRings plans={drawn} going={going} crewId={crewId} onOpen={open} onOnly={only} zoom={zoom} sky={sky} /> : (
           <div className="trail-map whole">
             <ol className="trail-all" ref={all} style={{ zoom }} aria-label="Every plan, newest first">
-              {plans.toReversed().map((p) => (
-                <li key={p.expId} className={cx("trail-branch", p.running && "running")} data-exp={p.expId}>
+              {drawn.toReversed().map((p) => (
+                <li key={p.expId} className={cx("trail-branch", p.running && "running", going.has(p.expId) && "leaving")} data-exp={p.expId} inert={going.has(p.expId) || undefined}>
                   <div className="trail-branch-head">
                     <time dateTime={p.time}>{clock(p.time)}</time>
                     <b title={p.task}>{p.task}</b>
@@ -418,7 +503,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
             <span className="trail-count" role="status">{tally(statesOf(shown.plan))}</span>
           </div>
           <div className="trail-map">
-            <TrailGround plan={shown.plan} expId={shown.expId} crewId={crewId} onOpen={open} label="The plan's steps" />
+            <TrailGround key={shown.expId} plan={shown.plan} expId={shown.expId} crewId={crewId} onOpen={open} label="The plan's steps" />
             <Loose at={shown} crewId={crewId} onOpen={open} />
           </div>
         </>
