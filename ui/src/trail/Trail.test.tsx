@@ -441,7 +441,6 @@ describe("the whole map as rings", () => {
     const dialog = screen.getByRole("dialog");
     fireEvent.keyDown(dialog, { key: "m" });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Replay" })); await vi.advanceTimersByTimeAsync(20); });
-    expect(dialog.classList.contains("replaying")).toBe(true); // (what the motion in styles.css hangs on)
     const line = screen.getByRole("slider", { name: "Where in the day" }) as HTMLInputElement;
     const seek = (to: string) => act(() => { fireEvent.change(line, { target: { value: to } }); vi.advanceTimersByTime(20); });
     const rings = () => [...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => `${g.dataset.exp}${g.classList.contains("leaving") ? " leaving" : ""}`);
@@ -483,5 +482,52 @@ describe("the whole map as rings", () => {
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(boughs()).toEqual(["B", "A"]);
     vi.unstubAllGlobals();
+  });
+
+  test("live too: a plan that joins is simply drawn, and plans that go (the camp restarted) fade where they stood", () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q }));
+    const { container, store } = mount(two());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+    const rings = () => [...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => `${g.dataset.exp}${g.classList.contains("leaving") ? " leaving" : ""}`);
+    expect(rings()).toEqual(["A", "B"]);
+    send(store, begin("C", "A third ask"), planned([{ n: 1, text: "x" }], "C"));
+    expect(rings()).toEqual(["A", "B", "C"]);
+    act(() => { store.reset(); vi.advanceTimersByTime(20); });
+    expect(rings()).toEqual(["A leaving", "B leaving", "C leaving"]);
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(rings()).toEqual([]);
+    expect(screen.getByText("No plan yet")).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
+  test("changing how you look at the map plays nothing: what a new view would play is skipped to its end", () => {
+    // jsdom has no animations, so stand in for the browser: one entrance, one that never ends, and the map's own fade.
+    class Effect { constructor(public target: Element | null, private end: number) {} getComputedTiming() { return { endTime: this.end }; } }
+    vi.stubGlobal("KeyframeEffect", Effect);
+    const entrance = vi.fn(), endless = vi.fn(), own = vi.fn();
+    const proto = HTMLElement.prototype as unknown as { getAnimations?: unknown };
+    proto.getAnimations = function (this: HTMLElement) {
+      return [{ effect: new Effect(this.firstElementChild, 420), finish: entrance }, { effect: new Effect(this.firstElementChild, Infinity), finish: endless }, { effect: new Effect(this, 220), finish: own }];
+    };
+    try {
+      const { store } = mount(two());
+      const dialog = screen.getByRole("dialog");
+      expect(entrance).toHaveBeenCalledTimes(1); // as the map opens
+      fireEvent.keyDown(dialog, { key: "m" }); // every plan
+      fireEvent.keyDown(dialog, { key: "r" }); // the other drawing
+      expect(entrance).toHaveBeenCalledTimes(3);
+      // A plan joining, or a step moving on, is the plans changing, not the view: it plays.
+      send(store, begin("C", "A third ask"), planned([{ n: 1, text: "x" }], "C"));
+      expect(entrance).toHaveBeenCalledTimes(3);
+      fireEvent.keyDown(dialog, { key: "m" }); // back to one plan
+      expect(entrance).toHaveBeenCalledTimes(4);
+      fireEvent.change(screen.getByRole("combobox", { name: "Which plan" }), { target: { value: "A" } }); // another plan
+      expect(entrance).toHaveBeenCalledTimes(5);
+      expect(endless).not.toHaveBeenCalled();
+      expect(own).not.toHaveBeenCalled();
+    } finally {
+      delete proto.getAnimations;
+      vi.unstubAllGlobals();
+    }
   });
 });

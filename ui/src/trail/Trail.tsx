@@ -21,10 +21,12 @@
 // runs of one conversation start on one bearing and are joined ring to ring, so a conversation
 // reaches further out the longer it went. Tree or rings is yours to pick, and is remembered.
 //
-// In a replay the map moves as the day does (styles.css, under reduced motion's "no preference"):
-// a plan that joins grows in (a ring opens out from the one inside it and its waypoints land round
-// it one by one; a bough grows from the trunk and its steps come out along it), the plans already
-// there glide to make room, and one that goes as the day is wound back fades where it stood first.
+// The map moves as the plans do, live or in a replay (styles.css, under reduced motion's "no
+// preference"): a plan that joins grows in (a ring opens out from the one inside it and its
+// waypoints land round it one by one; a bough grows from the trunk and its steps come out along
+// it), the plans already there glide to make room, and one that goes (the day wound back) fades
+// where it stood first. Changing how you look at the map (one plan or all, tree or rings, bigger or
+// smaller, into or out of a replay) moves nothing: that view is simply there.
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
@@ -81,7 +83,7 @@ const ZOOMS = [1, 0.8, 0.65, 0.5];
 // How the whole map is drawn, and where that's remembered.
 type Draw = "tree" | "rings";
 const DRAW_KEY = "camp-trail-whole";
-// In a replay, how long a plan that has gone stays on the whole map while it fades (styles.css has the same).
+// How long a plan that has gone stays on the whole map while it fades (styles.css has the same).
 const GO_MS = 260;
 
 // In a replay, when a plan joins a list or goes from it, the ones already there glide to where they
@@ -102,11 +104,11 @@ function glideFrom(el: HTMLElement, dx: number, dy: number) {
   gliding.set(el, el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 320, easing: "cubic-bezier(.22, 1, .36, 1)" }));
 }
 
-function useSettle(list: RefObject<HTMLElement | null>, on: boolean, zoom = 1) {
+function useSettle(list: RefObject<HTMLElement | null>, zoom = 1) {
   const tops = useRef(new Map<string, number>());
   useLayoutEffect(() => {
     const now = new Map<string, number>(), was = tops.current;
-    if (on && list.current && motionOK()) {
+    if (list.current && motionOK()) {
       for (const row of Array.from(list.current.children) as HTMLElement[]) {
         const id = row.dataset.exp;
         if (!id || !row.offsetHeight) continue;
@@ -122,12 +124,12 @@ function useSettle(list: RefObject<HTMLElement | null>, on: boolean, zoom = 1) {
 
 // The same for the one thing a box holds in its middle, as the ring map is: it grows as rings join,
 // and once it's bigger than its box its middle moves, and every ring with it.
-function useMiddle(el: RefObject<HTMLElement | null>, on: boolean, zoom: number) {
+function useMiddle(el: RefObject<HTMLElement | null>, zoom: number) {
   const at = useRef<{ x: number; y: number; zoom: number; w: number; h: number } | null>(null);
   useLayoutEffect(() => {
     const it = el.current, box = it?.parentElement, was = at.current;
     at.current = null;
-    if (!on || !it || !box || !it.offsetHeight || !motionOK()) return;
+    if (!it || !box || !it.offsetHeight || !motionOK()) return;
     const k = it.getBoundingClientRect().height / it.offsetHeight / zoom; // (as above)
     const now = at.current = { x: (it.offsetLeft + it.offsetWidth / 2) * k, y: (it.offsetTop + it.offsetHeight / 2) * k, zoom, w: box.clientWidth, h: box.clientHeight };
     // Not when the zoom or the box itself has changed: then it hasn't moved, the room has.
@@ -236,14 +238,14 @@ function Moon({ q, at, ended, expId, crewId, onOpen }: { q: PlanQuest; at: { dx:
 // small to say: when it was asked, how it stands, the quests sent without a step, and the way back
 // to that plan on its own. Beside it the rings themselves, and under them what the waypoint you're
 // pointing at (or have tabbed to) says in full. sky: the drawing, for the map to be fitted to the window.
-// going: the plans that have just gone in a replay, still drawn while they fade. settle: the plans
-// by name, and the map itself, glide to make room when one joins or goes.
-function TrailRings({ plans, going, settle, crewId, onOpen, onOnly, zoom, sky }: {
-  plans: Trailhead[]; going: Set<string>; settle: boolean; crewId: CrewId; onOpen?: Open; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
+// going: the plans that have just gone, still drawn while they fade. The plans by name, and the
+// map itself, glide to make room when one joins or goes.
+function TrailRings({ plans, going, crewId, onOpen, onOnly, zoom, sky }: {
+  plans: Trailhead[]; going: Set<string>; crewId: CrewId; onOpen?: Open; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
 }) {
   const runs = useRef<HTMLOListElement>(null);
-  useSettle(runs, settle);
-  useMiddle(sky, settle, zoom);
+  useSettle(runs);
+  useMiddle(sky, zoom);
   // Laid out again only when a plan's shape changes or one joins, not each time a quest moves.
   const shape = JSON.stringify(plans.map((p) => [p.expId, p.thread, p.plan.steps.map((s) => [s.n, s.after])]));
   const map = useMemo(() => ringsOf(plans.map((p) => ({ expId: p.expId, thread: p.thread, steps: p.plan.steps }))), [shape]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -366,13 +368,26 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
   const root = useRef<HTMLDivElement>(null), all = useRef<HTMLOListElement>(null), sky = useRef<HTMLDivElement>(null);
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
 
-  const items = useFeed(replay?.store ?? store, (s) => s.items);
+  const feed = replay?.store ?? store;
+  const items = useFeed(feed, (s) => s.items);
   const plans = useMemo(() => plansOf(items), [items]);
   const shown = plans.find((p) => p.expId === picked) ?? plans.at(-1);
-  // On the whole map in a replay, a plan that goes as the day is wound back is drawn while it fades.
-  const lingering = useLingering(plans, (p) => p.expId, !!replay, GO_MS);
+  // On the whole map, a plan that goes (the day wound back, in a replay) is drawn while it fades.
+  // Not across the change from today to a replay or back: those are different days' plans.
+  const lingering = useLingering(plans, (p) => p.expId, feed, GO_MS);
   const drawn = lingering.map((x) => x.item), going = new Set(lingering.filter((x) => x.leaving).map((x) => x.item.expId));
-  useSettle(all, !!replay, zoom);
+  useSettle(all, zoom);
+  // The map moves when the plans do, not when you change how you're looking at them: whatever a
+  // new view would play as it's first drawn (this one included, as the map opens) is skipped to
+  // its end. The map's own fade as it opens is left to play, and so is anything that never ends.
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (typeof el?.getAnimations !== "function") return;
+    for (const a of el.getAnimations({ subtree: true })) {
+      const fx = a.effect;
+      if (fx instanceof KeyframeEffect && fx.target !== el && Number.isFinite(fx.getComputedTiming().endTime as number)) a.finish();
+    }
+  }, [whole, draw, zoom, picked, feed]);
 
   const crew = S?.characters;
   const crewId = useCallback((who: string) => crew?.find((c) => c.name === who)?.id, [crew]);
@@ -462,7 +477,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
             <b>{plans.length === 0 ? "No plan at this point in the day" : plans.length === 1 ? "The one plan so far" : draw === "rings" ? `All ${plans.length} plans, a ring each: the first asked innermost` : `All ${plans.length} plans, newest first`}</b>
             <span className="trail-count" role="status">{tally(plans.flatMap((p) => statesOf(p.plan)), " steps")}</span>
           </div>
-          {draw === "rings" ? <TrailRings plans={drawn} going={going} settle={!!replay} crewId={crewId} onOpen={open} onOnly={only} zoom={zoom} sky={sky} /> : (
+          {draw === "rings" ? <TrailRings plans={drawn} going={going} crewId={crewId} onOpen={open} onOnly={only} zoom={zoom} sky={sky} /> : (
           <div className="trail-map whole">
             <ol className="trail-all" ref={all} style={{ zoom }} aria-label="Every plan, newest first">
               {drawn.toReversed().map((p) => (
@@ -488,7 +503,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
             <span className="trail-count" role="status">{tally(statesOf(shown.plan))}</span>
           </div>
           <div className="trail-map">
-            <TrailGround plan={shown.plan} expId={shown.expId} crewId={crewId} onOpen={open} label="The plan's steps" />
+            <TrailGround key={shown.expId} plan={shown.plan} expId={shown.expId} crewId={crewId} onOpen={open} label="The plan's steps" />
             <Loose at={shown} crewId={crewId} onOpen={open} />
           </div>
         </>

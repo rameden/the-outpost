@@ -54,17 +54,19 @@ export function Presence({ children, ms = LEAVE_MS }: { children: ReactNode; ms?
 }
 
 // Presence, for a list: what has just left the list stays in it for a moment, marked as leaving
-// and in the place it had, so it can fade away where it stood. Only while `on` (and nothing is
-// held from before it was on); and as with Presence, nothing waits where motion is off or can't
-// be told. One that comes back before it has gone is simply there again.
-export function useLingering<T>(list: T[], keyOf: (x: T) => string, on = true, ms = LEAVE_MS): { item: T; leaving: boolean }[] {
+// and in the place it had, so it can fade away where it stood. Only while `on`, and nothing is
+// held from before it was on. Give `on` something other than true (which list this is, say) and
+// nothing is held from before that changed either: a different list is swapped in whole. As with
+// Presence, nothing waits where motion is off or can't be told. One that comes back before it has
+// gone is simply there again.
+export function useLingering<T>(list: T[], keyOf: (x: T) => string, on: unknown = true, ms = LEAVE_MS): { item: T; leaving: boolean }[] {
   type Held = { key: string; item: T; until?: number }; // until: when one that's leaving goes for good
   const held = useRef<Held[]>([]); // what was drawn last time, in the order it was drawn
-  const wasOn = useRef(false);
+  const wasOn = useRef<unknown>(false);
   const [, redraw] = useState(0);
   const now = Date.now(), here = new Set(list.map(keyOf));
   const out: Held[] = list.map((item) => ({ key: keyOf(item), item }));
-  if (on && wasOn.current && motionOK()) {
+  if (on && wasOn.current === on && motionOK()) {
     held.current.forEach((h, i) => {
       if (here.has(h.key)) return;
       const until = h.until ?? now + ms;

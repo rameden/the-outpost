@@ -130,7 +130,7 @@ test("gliding: the change is made either way, and what moved slides from where i
 });
 
 // A list drawn through useLingering: each thing by name, the ones on their way out marked.
-function Row({ list, on = true }: { list: string[]; on?: boolean }) {
+function Row({ list, on = true }: { list: string[]; on?: unknown }) {
   return <ul>{useLingering(list, (x) => x, on, 200).map(({ item, leaving }) => <li key={item}>{leaving ? `(${item})` : item}</li>)}</ul>;
 }
 const rows = () => screen.getAllByRole("listitem").map((li) => li.textContent).join(" ");
@@ -178,4 +178,10 @@ test("nothing lingers without motion, while it's off, or from before it was swit
   // And switched off, what was leaving is gone at once.
   off.rerender(<Row list={["x"]} on={false} />);
   expect(rows()).toBe("x");
+  // On for one list, then for another (today's plans, then a replay's): nothing is held across the change.
+  off.rerender(<Row list={["x", "y"]} on="today" />);
+  off.rerender(<Row list={["p"]} on="replay" />);
+  expect(rows()).toBe("p");
+  off.rerender(<Row list={[]} on="replay" />);
+  expect(rows()).toBe("(p)");
 });
