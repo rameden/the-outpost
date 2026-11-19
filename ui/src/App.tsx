@@ -440,7 +440,7 @@ export function App({ store }: { store: FeedStore }) {
   const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
   const closeCrewDialog = useCallback(() => setCrewDialog(null), []);
   // Colours of crew members you added, for their cards and messages anywhere on the page.
-  useMemo(() => { setCrewColors(S?.characters ?? [], S?.packs); setWords(S?.pack, S?.packs); if (S) wearPack(S.pack, S.packs); }, [S?.characters, S?.pack, S?.packs]);
+  useMemo(() => { setCrewColors(S?.characters ?? [], S?.packs, S?.packNamesBefore); setWords(S?.pack, S?.packs); if (S) wearPack(S.pack, S.packs); }, [S?.characters, S?.pack, S?.packs, S?.packNamesBefore]);
 
   // The project dialog: a new project, or one being edited.
   const [dialog, setDialog] = useState<{ project: Project | null } | null>(null);

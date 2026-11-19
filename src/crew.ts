@@ -5,7 +5,7 @@
 // No tool imports here, so anything can read the crew without import cycles.
 
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
-import { PACKS, nameAliases, packAliases, packById, type Pack } from "./packs.js";
+import { DEFAULT_PACK, PACKS, RETIRED, customPacks, isPack, nameAliases, packAliases, packById, packFrom, retiredAliases, setCustomPacks, setRetired, type Pack, type PackInput, type Taken } from "./packs.js";
 import { packId, setPackId } from "./settings.js";
 
 export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
@@ -134,7 +134,7 @@ function dress() {
   watchNames();
   for (const id of BUILT_IN) {
     const g = GUILD[id], name = worn[id].name;
-    const others = PACKS.flatMap((p) => packAliases(id, p)).filter((a) => a !== id && a !== name.toLowerCase() && !yours.has(a));
+    const others = [...PACKS.flatMap((p) => packAliases(id, p)), ...retiredAliases(id)].filter((a) => a !== id && a !== name.toLowerCase() && !yours.has(a));
     Object.assign(CREW[id], {
       name, emoji: worn[id].emoji,
       role: inPack(g.role), personality: inPack(g.personality), handles: inPack(g.handles), notFor: inPack(g.notFor),
@@ -156,7 +156,7 @@ function dressYours() {
     const free = (a: string) => !taken.has(a);
     const w = pack.extras?.[own.id];
     if (w && w.name !== own.name && free(w.name.toLowerCase()) && free(oneWord(w.name))) { c.name = w.name; c.emoji = w.emoji; renamed.set(own.name, w.name); }
-    const theirs = PACKS.flatMap((p) => (p.extras?.[own.id] ? nameAliases(p.extras[own.id]) : []));
+    const theirs = [...PACKS.flatMap((p) => (p.extras?.[own.id] ? nameAliases(p.extras[own.id]) : [])), ...retiredAliases(own.id)];
     c.aliases = [...new Set([...own.aliases, ...theirs.filter((a) => a !== own.id && a !== c.name.toLowerCase() && free(a))])];
   }
   watchNames();
@@ -179,6 +179,87 @@ export function setPack(id: string): Pack {
   return pack;
 }
 
+// ---------- Packs of your own ----------
+// Made in Settings → General (or written by hand), kept in camp/packs.json beside the crew you
+// added, and joined on after the five packs the camp comes with. Each is checked as it's read and
+// as it's saved (packs.ts, packFrom): one that doesn't pass is left out, with the reason logged
+// and shown in Settings, and stays in the file as you wrote it.
+export const PACKS_PATH = "camp/packs.json";
+const RESERVED = ["shared", "all", "everyone", "you", "me", "links", "camp"];
+let leftOut: { id: string; why: string; raw: unknown }[] = [];
+export const packsLeftOut = () => leftOut.map(({ id, why }) => ({ id, why }));
+const logged = new Set<string>();
+
+// The names no pack may give away: the five's own handles, anyone you added (theirs wins), and
+// the words that mean something else after @.
+function spokenFor(members: Identity[]): Taken[] {
+  return [
+    ...BUILT_IN.map((id) => ({ id, forms: [id, ...GUILD[id].aliases], why: (f: string) => `@${f} already finds the ${GUILD[id].name}` })),
+    ...members.map((c) => ({ id: c.id, forms: [c.id, c.name.toLowerCase(), oneWord(c.name), ...c.aliases], why: () => `you have a crew member called ${c.name} (@${c.id}), and they keep the name` })),
+    { id: "", forms: RESERVED, why: (f: string) => `@${f} is reserved` },
+  ];
+}
+
+function readPacks(members: Identity[]) {
+  const file = readJsonFile(PACKS_PATH, {}) as { packs?: unknown; retired?: unknown } | null;
+  const taken = spokenFor(members);
+  const good: Pack[] = [];
+  leftOut = [];
+  for (const raw of Array.isArray(file?.packs) ? file.packs : []) {
+    try { good.push(packFrom(raw as PackInput, { packs: [...PACKS.filter((p) => !p.custom), ...good], taken })); }
+    catch (e) {
+      const r = (raw ?? {}) as { id?: unknown; name?: unknown };
+      const id = String(r.id ?? r.name ?? "(no name)").slice(0, 40), why = (e as Error).message;
+      leftOut.push({ id, why, raw });
+      const said = `⚠️  ${PACKS_PATH}: the pack "${id}" was left out. ${why}`;
+      if (!logged.has(said)) { logged.add(said); console.error(said); }
+    }
+  }
+  setCustomPacks(good);
+  setRetired(file?.retired, [], taken);
+}
+
+// was: the pack as it stood before this change, whose names history may still use.
+function savePacks(was: Pack[] = []) {
+  setRetired(RETIRED, was, spokenFor(customMembers()));
+  writeJsonAtomic(PACKS_PATH, {
+    packs: [...customPacks().map(({ custom: _, ...p }) => p), ...leftOut.map((x) => x.raw)],
+    ...(Object.keys(RETIRED).length ? { retired: RETIRED } : {}),
+  });
+  pack = packById(packId());
+  dress();
+  dressYours();
+  for (const fn of listeners) fn();
+}
+
+export function addPack(input: PackInput): Pack {
+  if (customPacks().length >= 12) throw new Error("That's 12 packs of your own already. Delete one first.");
+  const p = packFrom(input, { packs: PACKS, taken: spokenFor(customMembers()) });
+  setCustomPacks([...customPacks(), p]);
+  savePacks();
+  return p;
+}
+
+// Change a pack of yours. Its id stays (the camp's settings name the pack that's on by it).
+export function updatePack(id: string, input: PackInput): Pack {
+  const was = customPacks().find((p) => p.id === id);
+  if (!was) throw new Error(isPack(id) ? "The packs the camp comes with are part of its code and can't be changed here. Start a new pack from it instead." : `No theme pack called "${id}".`);
+  const p = packFrom(input, { packs: PACKS, taken: spokenFor(customMembers()), editing: id });
+  setCustomPacks(customPacks().map((x) => (x.id === id ? p : x)));
+  savePacks([was]);
+  return p;
+}
+
+// Delete a pack of yours. If it's the one that's on, the camp goes back to the Guild.
+export function removePack(id: string): boolean {
+  const was = customPacks().find((p) => p.id === id);
+  if (!was) return false;
+  if (packId() === id) setPackId(DEFAULT_PACK);
+  setCustomPacks(customPacks().filter((p) => p.id !== id));
+  savePacks([was]);
+  return true;
+}
+
 // What someone is called now, from any name they've gone by (the quest log keeps the name of the day).
 export const currentName = (name: string): string => findCrew(name)?.name ?? name;
 
@@ -199,7 +280,10 @@ export function memberFrom(input: NewMember, editing?: string): Identity {
   if (!name) throw new Error("Give the crew member a name.");
   const id = editing ?? (line(input.id, 20) || name).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
   if (!/^[a-z][a-z0-9]{1,19}$/.test(id)) throw new Error("The handle is what you type after @: 2 to 20 letters or digits, starting with a letter.");
-  const taken = (c: Identity) => c.id !== editing && (c.id === id || c.aliases.includes(id) || c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase() === id);
+  // (A name a pack of yours used to give is free to take: it only finds its old owner until someone has it again.)
+  const old = new Set(Object.keys(RETIRED).flatMap(retiredAliases));
+  const answers = (c: Identity, a: string) => c.aliases.includes(a) && !old.has(a);
+  const taken = (c: Identity) => c.id !== editing && (c.id === id || answers(c, id) || c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase() === id);
   if (Object.values(CREW).some(taken)) throw new Error(`There's already a crew member called "${name}" or answering to @${id}. Pick another name or handle.`);
   if (["shared", "all", "everyone", "you", "me", "links", "camp"].includes(id)) throw new Error(`@${id} is reserved. Pick another handle.`);
   const role = line(input.role, 160);
@@ -214,7 +298,7 @@ export function memberFrom(input: NewMember, editing?: string): Identity {
   const emoji = [...String(input.emoji ?? "").trim()].slice(0, 4).join("") || "✦";
   const aliases = (Array.isArray(input.aliases) ? input.aliases : String(input.aliases ?? "").split(/[,\s]+/))
     .map((x) => String(x).toLowerCase().replace(/[^a-z0-9]/g, "")).filter((x) => x && x !== id).slice(0, 6)
-    .filter((x) => !Object.values(CREW).some((c) => c.id !== editing && (c.id === x || c.aliases.includes(x))));
+    .filter((x) => !Object.values(CREW).some((c) => c.id !== editing && (c.id === x || answers(c, x))));
   return {
     id, name, emoji, role,
     personality: line(input.personality, 240) || "Focused and plain-spoken.",
@@ -235,6 +319,7 @@ function apply(members: Identity[]) {
   OWN.clear();
   for (const m of members) if (!isBuiltIn(m.id)) { OWN.set(m.id, m); CREW[m.id] = { ...m }; }
   CREW_IDS.splice(0, CREW_IDS.length, ...Object.keys(CREW));
+  setRetired(RETIRED, [], spokenFor(customMembers())); // a name someone has now is no longer an old name of someone else's
   dress();
   dressYours();
   for (const fn of listeners) fn();
@@ -249,7 +334,6 @@ export function loadCrew() {
   let saved: unknown[] = [];
   // Unreadable: just the built-in crew, with the damaged file kept aside (atomic.ts).
   saved = (readJsonFile(CREW_PATH, {}) as { crew?: unknown[] } | null)?.crew ?? [];
-  pack = packById(packId());
   undress();
   OWN.clear();
   for (const id of Object.keys(CREW)) if (!isBuiltIn(id)) delete CREW[id];
@@ -257,6 +341,10 @@ export function loadCrew() {
   for (const raw of Array.isArray(saved) ? saved : []) {
     try { const m = memberFrom(raw as NewMember); CREW[m.id] = m; members.push(m); } catch { /* skip an entry that no longer makes sense */ }
   }
+  // Your own packs are checked against the crew you added (theirs wins), so they're read after it;
+  // and the pack that's on may be one of them, so it's chosen after that.
+  readPacks(members);
+  pack = packById(packId());
   apply(members);
 }
 

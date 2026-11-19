@@ -1,6 +1,6 @@
 // The Settings page: moving between sections, the approval level, the allow-lists, and the
 // limits that used to live on the Quests card.
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { Settings, type SettingsSection } from "./Settings.tsx";
@@ -213,5 +213,49 @@ test("General has a theme pack row above the colours: it says the crew is rename
   // The one that's on does nothing when clicked again.
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Guild/ })); });
   expect(posts).toHaveLength(1);
+  delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
+});
+
+test("the theme pack row makes packs of your own: New pack… opens the dialog, yours have an edit button, and one that was left out says why", async () => {
+  const { PACKS } = await import("../../../src/packs.ts");
+  const pirates = {
+    id: "pirates", name: "Pirates", about: "A ship and her hands.", custom: true, palette: "moss",
+    crew: { quartermaster: { name: "Captain", emoji: "🦜" }, scout: { name: "Lookout", emoji: "🔭" }, scribe: { name: "Chronicler", emoji: "📜" }, artificer: { name: "Shipwright", emoji: "🪚" }, warden: { name: "Bosun", emoji: "⚓" } },
+    words: { crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "voyage" }, place: "the good ship Mae",
+  };
+  const S = { ...camp(), pack: "guild", packs: [...PACKS, pirates], packsLeftOut: [{ id: "mutiny", why: "The Scout needs a name in this pack." }] } as unknown as CampState;
+  const { refresh } = show("general", S);
+  const group = screen.getByRole("group", { name: "Theme pack" });
+  const row = group.closest(".set-row")!;
+  expect(row.textContent).toMatch(/You can make a pack of your own: it's kept in camp\/packs\.json, and it leaves the orb's colours as they are\./);
+  // Yours sits after the camp's five, with the same kind of button and a pencil beside it; theirs have none.
+  expect([...group.querySelectorAll("button.look")].map((b) => b.textContent)).toEqual(["🧭Guild", "🚀Starship", "📰Newsroom", "🎬Studio", "🧪Lab", "🦜Pirates", "New pack…"]);
+  expect(within(group).getAllByRole("button", { name: /^Edit the / }).map((b) => b.getAttribute("aria-label"))).toEqual(["Edit the Pirates pack"]);
+  expect(screen.getByRole("button", { name: "Pirates" }).title).toBe("A ship and her hands. Captain, Lookout, Shipwright, Chronicler, Bosun.");
+  expect(row.querySelector(".pack-left-out")?.textContent).toBe(`The pack "mutiny" in camp/packs.json was left out. The Scout needs a name in this pack.`);
+
+  // It's put on like any other, and the page takes the colours it suggests.
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Pirates" })); });
+  expect(posts).toEqual([{ path: "/api/pack", body: { id: "pirates" } }]);
+  expect([document.documentElement.dataset.pack, document.documentElement.dataset.palette]).toEqual(["pirates", "moss"]);
+
+  // New pack…: the dialog, empty; saved, it closes and the camp's state is read again.
+  expect(screen.queryByRole("dialog", { name: "New theme pack" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "New pack…" }));
+  const fresh = screen.getByRole("dialog", { name: "New theme pack" });
+  expect(fresh.closest(".set-control")).toBeNull(); // not inside the row, whose styles are for its own controls
+  fireEvent.click(within(fresh).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog", { name: "New theme pack" })).toBeNull();
+
+  // The pencil: the dialog with that pack in it.
+  refresh.mockClear();
+  fireEvent.click(screen.getByRole("button", { name: "Edit the Pirates pack" }));
+  const edit = screen.getByRole("dialog", { name: "Edit the Pirates pack" });
+  expect((within(edit).getByLabelText("Name for the Scout") as HTMLInputElement).value).toBe("Lookout");
+  fireEvent.change(within(edit).getByLabelText("Name for the Scout"), { target: { value: "Spotter" } });
+  await act(async () => { fireEvent.click(within(edit).getByRole("button", { name: "Save" })); });
+  expect(posts.at(-1)).toMatchObject({ path: "/api/packs", body: { action: "update", id: "pirates", pack: { name: "Pirates", crew: { scout: { name: "Spotter", emoji: "🔭" } } } } });
+  expect(screen.queryByRole("dialog", { name: "Edit the Pirates pack" })).toBeNull();
+  expect(refresh).toHaveBeenCalled();
   delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
 });
