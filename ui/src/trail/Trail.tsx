@@ -11,9 +11,10 @@
 // A quest the Quartermaster sent without saying which step it's for belongs to no waypoint: those
 // are listed under the map ("off the trail") rather than guessed onto a step.
 //
-// The whole map: every plan in the feed at once, newest at the top, each a branch off one line down
-// the left (the day), so you can see all of what was asked and how each went without picking
-// through them. It can be drawn smaller, to get more of it on the screen.
+// The whole map: every plan in the feed at once, drawn as a tree. The trunk up the left is the day
+// (oldest at the foot, newest at the tip) and each plan is a bough growing off it, so you can see
+// all of what was asked and how each went without picking through them. It can be drawn smaller,
+// to get more of it on the screen.
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api, errorText } from "../api.ts";
@@ -53,6 +54,10 @@ function tally(states: StepState[], of = "") {
   return `${count("done")} of ${states.length}${of} done${count("out") ? ` · ${count("out")} out` : ""}${count("failed") ? ` · ${count("failed")} didn't finish` : ""}${count("stopped") ? ` · ${count("stopped")} cut short` : ""}`;
 }
 const statesOf = (plan: PlanNode) => plan.steps.map((s) => stepState(s, plan.ended));
+// The whole map's tree. BOUGH: how far left of a plan's ground the trunk's middle is (styles.css
+// leaves that much room). RISE: how far below its first step a bough leaves the trunk.
+const BOUGH = 32, RISE = 44;
+const girth = (col: number) => Math.max(2, 4.5 - col * 0.75); // a line's width, by the column it leaves
 // How small the whole map can be drawn.
 const ZOOMS = [1, 0.8, 0.65, 0.5];
 
@@ -70,10 +75,10 @@ function Chip({ q, ended, expId, crewId, onOpen }: { q: PlanQuest; ended?: strin
   );
 }
 
-// One plan's trail: its waypoints and the lines between them. stem: it's a branch on the whole map,
-// so a short line runs in from the left to each step that waits for nothing.
-const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, label, stem }: {
-  plan: PlanNode; expId: string; crewId: CrewId; onOpen?: Open; label: string; stem?: boolean;
+// One plan's trail: its waypoints and the lines between them. tree: it's a bough on the whole map,
+// so a line grows in from the trunk on the left to each step that waits for nothing.
+const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, label, tree }: {
+  plan: PlanNode; expId: string; crewId: CrewId; onOpen?: Open; label: string; tree?: boolean;
 }) {
   // Laid out again only when the plan's shape changes, not each time one of its quests moves.
   const shape = plan.steps.map((s) => `${s.n}:${s.after?.join(",") ?? ""}`).join("|");
@@ -87,13 +92,21 @@ const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, lab
     if (outNow === undefined) return;
     ground.current?.querySelector<HTMLElement>(`[data-n="${outNow}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [outNow, plan.id]);
+  // On the whole map a plan is a bough of the tree: it leaves the trunk at a knot below its first
+  // steps and grows up and out to each of them, and its lines thin the further out they run.
+  const firsts = lay.spots.filter((s) => s.col === 1), colOf = new Map(lay.spots.map((s) => [s.n, s.col]));
+  const knot = Math.max(0, ...firsts.map((s) => s.y)) + STEP_H / 2 + RISE;
   return (
     <div className="trail-ground" ref={ground} style={{ width: lay.width, height: lay.height, "--step-w": `${STEP_W}px`, "--step-h": `${STEP_H}px` } as CSSProperties}>
       <svg className="trail-lines" width={lay.width} height={lay.height} viewBox={`0 0 ${lay.width} ${lay.height}`} aria-hidden="true">
-        {stem && lay.spots.filter((s) => s.col === 1).map((s) => <path key={s.n} className="trail-stem" d={`M0 ${s.y + STEP_H / 2}L${PAD} ${s.y + STEP_H / 2}`} />)}
+        {tree && firsts.map((s) => {
+          const y = s.y + STEP_H / 2;
+          return <path key={s.n} className="trail-bough" d={`M${-BOUGH} ${knot}C${-BOUGH + 12} ${knot - (knot - y) * 0.7} ${PAD - 36} ${y} ${PAD} ${y}`} />;
+        })}
+        {tree && firsts.length > 0 && <circle className="trail-knot" cx={-BOUGH} cy={knot} r={6} />}
         {lay.edges.map((e) => (
           <g key={`${e.from}-${e.to}`} data-line={`${e.from}-${e.to}`} className={cx("trail-edge", states.get(e.from) === "done" && "walked", states.get(e.from) === "done" && states.get(e.to) === "out" && "live")}>
-            <path d={e.d} /><path className="tip" d={e.tip} />
+            <path d={e.d} style={tree ? { strokeWidth: girth(colOf.get(e.from) ?? 1) } : undefined} /><path className="tip" d={e.tip} />
           </g>
         ))}
       </svg>
@@ -240,7 +253,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
                     <span className="trail-count">{tally(statesOf(p.plan))}</span>
                     <button type="button" className="trail-btn" aria-label={`Just this plan: ${p.task.replace(/\s+/g, " ").slice(0, 60)}`} title="Look at this plan on its own" onClick={() => only(p.expId)}>Just this one</button>
                   </div>
-                  <TrailGround plan={p.plan} expId={p.expId} crewId={crewId} onOpen={open} label={`The steps of: ${p.task.replace(/\s+/g, " ").slice(0, 60)}`} stem />
+                  <TrailGround plan={p.plan} expId={p.expId} crewId={crewId} onOpen={open} label={`The steps of: ${p.task.replace(/\s+/g, " ").slice(0, 60)}`} tree />
                   <Loose at={p} crewId={crewId} onOpen={open} />
                 </li>
               ))}
