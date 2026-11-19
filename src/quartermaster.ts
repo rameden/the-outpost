@@ -4,7 +4,7 @@
 import { crewSetup, runAgent, type AgentFailure, type AgentResult, type AgentSpec } from "./agent.js";
 import { ROSTER } from "./roster.js";
 import { readFileFor, campMode, webSearch, webFetch, type Tool } from "./tools.js";
-import { CREW, findCrew } from "./crew.js";
+import { CREW, findCrew, inPack } from "./crew.js";
 import { rememberTool, type SessionSource } from "./memory.js";
 import { recallTool } from "./recall.js";
 import { listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
@@ -75,7 +75,7 @@ function makeSubmitPlan(exp: Expedition): Tool {
       let askId = "";
       // A plan from this conversation already waiting to start: the card asks if this one replaces it.
       const waiting = exp.thread ? heldPlans().filter((h) => h.conversation === exp.thread).map((h) => ({ ask: h.ask, held: h.held })) : [];
-      const reply = await ask({ kind: "plan", title: "🗺️  The Quartermaster's plan:", body: String(plan), ...(waiting.length ? { waiting } : {}) }, (id) => { askId = id; });
+      const reply = await ask({ kind: "plan", title: inPack("🗺️  The Quartermaster's plan:"), body: String(plan), ...(waiting.length ? { waiting } : {}) }, (id) => { askId = id; });
       const replacing = reply.toLowerCase() === REPLACE_START || reply.toLowerCase() === REPLACE_LATER;
       if (replacing) for (const w of waiting) if (setPlanAside(w.ask)) emit({ type: "plan_aside", ask: w.ask, by: askId });
       const answer = reply.toLowerCase() === REPLACE_LATER ? START_LATER : reply.toLowerCase() === REPLACE_START ? "" : reply;
@@ -111,7 +111,7 @@ const askUser: Tool = {
   },
   run: async ({ question }) => {
     if (campMode.unattended) return "Nobody is here to answer (this is a scheduled job). Make a sensible assumption and say so in your report.";
-    const answer = await ask({ kind: "question", title: "❓ The Quartermaster asks:", body: String(question) });
+    const answer = await ask({ kind: "question", title: inPack("❓ The Quartermaster asks:"), body: String(question) });
     return answer ? `The user answered: "${answer}"` : "The user gave no answer. Make a sensible assumption and say so.";
   },
 };
@@ -180,7 +180,7 @@ function makeDispatch(exp: Expedition): Tool {
       if (exp.parked) return "Blocked: the user approved the plan to start later, not now. Don't start any work; end your turn.";
       if (!exp.planApproved) return "Blocked: submit your plan with submit_plan and get the user's approval first.";
       if (questsRunning >= questLimit()) {
-        emit({ type: "notice", who: "Quartermaster", emoji: "🧭", depth: 0, text: `⏳ ${spec.name}'s quest is waiting for a free slot (${questLimit()} quests run at once).` });
+        emit({ type: "notice", who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0, text: `⏳ ${spec.name}'s quest is waiting for a free slot (${questLimit()} quests run at once).` });
       }
       if (!(await questSlot(currentSignal()))) return "Not sent: the expedition was stopped.";
       // Each quest gets its own id, so parallel quests keep their events and approvals apart.
@@ -413,7 +413,7 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
     name: c.name,
     emoji: c.emoji,
     role: c.role,
-    persona: PERSONA,
+    persona: inPack(PERSONA),
     tools: [
       makeSubmitPlan(exp),
       makeDispatch(exp),
@@ -470,14 +470,14 @@ export async function runExpedition(
   exp.thread = turn.thread;
   exp.project = opts.project;
   exp.shown = shown;
-  emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, attachments: opts.attached,
+  emit({ type: "expedition_start", id, task: shown, source: opts.job ? "job" : "user", job: opts.job, lead: CREW.quartermaster.name, attachments: opts.attached,
     ...(thread ? { replyTo: opts.replyTo } : {}), ...(opts.job ? {} : { thread: turn.thread }) });
   if (!opts.job) recordTurn({ ...turn, reply: "", status: "running" });
   try {
     // One shared spending tally (and the optional budget) for the Quartermaster and every quest it sends.
     const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, unattended: opts.unattended, workspaces, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without, model: opts.model, thread: turn.thread, replyTo: thread ? opts.replyTo : undefined }, async () => {
       // A worktree the camp just made gets its setup (installs…) before anyone works in it.
-      const setup = await setUpWorkspaces(workspaces, { who: "Quartermaster", emoji: "🧭" });
+      const setup = await setUpWorkspaces(workspaces, { who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji });
       // A held plan being started: its steps go out as the list to fill in, as on approval.
       const held = opts.approvedPlan ? planSteps(opts.approvedPlan.text) : [];
       if (held.length >= 2) emit({ type: "plan", steps: held });
@@ -485,20 +485,20 @@ export async function runExpedition(
         source: opts.source ?? (opts.job ? "job" : "user"),
         extraSystem:
           `## Skill catalog (every live skill in camp, by owner)\n${skillCatalog()}` +
-          ((opts.review ?? reviewsHere(where.project)) && !opts.job ? `\n\n${REVIEW_RULE}` : "") +
+          ((opts.review ?? reviewsHere(where.project)) && !opts.job ? `\n\n${inPack(REVIEW_RULE)}` : "") +
           (setup ? `\n\n${setup}\nMention a failed setup in your briefs: the crew's checks and tests may fail because of it.` : "") +
           (opts.extraSystem ? `\n\n${opts.extraSystem}` : "") +
           (opts.approvedPlan ? `\n\n${heldPlanNote(opts.approvedPlan.text, held.length >= 2)}` : "") +
           (thread ? `\n\n${thread.history}` : ""),
       });
     });
-    logQuest(opts.job ? "job" : "expedition", "Quartermaster", shown, started, result, opts.job, where.project);
+    logQuest(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, result, opts.job, where.project);
     if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status, ...(exp.parked ? { parked: exp.parked } : {}) });
     await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     return result;
   } catch (err: any) {
-    logFailure(opts.job ? "job" : "expedition", "Quartermaster", shown, started, err, opts.job, where.project);
+    logFailure(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, err, opts.job, where.project);
     if (!opts.job) recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
     await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
@@ -595,7 +595,7 @@ export async function runDirect(
   recordTurn({ ...turn, reply: "", status: "running" });
   const questId = randomUUID();
   emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, expeditionId: id });
-  const note = "(Sent directly by the user, not the Quartermaster.)\n\n";
+  const note = inPack("(Sent directly by the user, not the Quartermaster.)\n\n");
   const content: RequestContent = typeof task === "string"
     ? note + task
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));

@@ -158,3 +158,25 @@ test("today's cost can be taken out of the top bar's status menu, at once, and s
   expect(spend()).toBeTruthy();
   localStorage.clear();
 });
+
+test("General has a theme pack row above the colours: it says the crew is renamed for the crew too, and the camp keeps the choice", async () => {
+  const { PACKS } = await import("../../../src/packs.ts");
+  const { refresh } = show("general", { ...camp(), pack: "guild", packs: PACKS } as CampState);
+  const group = screen.getByRole("group", { name: "Theme pack" });
+  expect(group.compareDocumentPosition(screen.getByRole("group", { name: "Colours" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(group.closest(".set-row")?.textContent).toMatch(/and for the crew too/);
+  expect((screen.getByRole("button", { name: /Guild/ }) as HTMLButtonElement).getAttribute("aria-pressed")).toBe("true");
+  const starship = screen.getByRole("button", { name: /Starship/ });
+  expect(starship.getAttribute("aria-pressed")).toBe("false");
+  expect(starship.title).toMatch(/Commander, Navigator, Engineer, Comms Officer, Security Chief/);
+  await act(async () => { fireEvent.click(starship); });
+  expect(posts).toEqual([{ path: "/api/pack", body: { id: "starship" } }]);
+  expect(refresh).toHaveBeenCalled();
+  // The page wears it at once: the pack's attribute, and the colours it suggests (none were chosen).
+  expect([document.documentElement.dataset.pack, document.documentElement.dataset.palette]).toEqual(["starship", "harbor"]);
+  expect(screen.getByRole("button", { name: "Harbor" }).getAttribute("aria-pressed")).toBe("true");
+  // The one that's on does nothing when clicked again.
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Guild/ })); });
+  expect(posts).toHaveLength(1);
+  delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
+});

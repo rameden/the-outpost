@@ -258,6 +258,10 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 @keyframes orb-flicker { 0%, 100% { opacity: .85; } 45% { opacity: 1; } 55% { opacity: .6; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; } }
 :root[data-theme="dark"] .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; }
+/* The Starship theme pack's orb (src/packs.ts): deep space and an engine's blue-white glow, in every palette. */
+[data-pack="starship"] .mae-orb { --orb-navy: #0f2a40; --orb-ochre: #2fb4d0; --orb-line: #0f2a40; --orb-glint: #0a1620; }
+@media (prefers-color-scheme: dark) { :root[data-pack="starship"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; } }
+:root[data-pack="starship"][data-theme="dark"] .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; }
 @media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
 /* The camp at rest (MaeSystem.tsx): the films' solar system, on a page with nothing on it yet. The
    sun is the logo's amber dot, and each planet takes its crew member's colour (--c, from its c-…

@@ -5,6 +5,8 @@
 // No tool imports here, so anything can read the crew without import cycles.
 
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
+import { PACKS, packAliases, packById, type Pack } from "./packs.js";
+import { packId, setPackId } from "./settings.js";
 
 export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
 export type CrewId = string; // a built-in id, or the handle of a crew member you added
@@ -91,6 +93,63 @@ export const CREW: Record<string, Identity> = {
 export const CREW_IDS: CrewId[] = Object.keys(CREW);
 export const isBuiltIn = (id: string) => (BUILT_IN as readonly string[]).includes(id);
 
+// ---------- Theme packs ----------
+// The five above are written out as the Guild has them. The active pack (packs.ts, chosen in
+// Settings) is put over them: its names and emoji, everywhere, prompts included, so the crew call
+// each other what the page calls them. Ids never change. Every pack's names stay on as aliases,
+// so "@scout" still finds the Navigator, and history written under one pack reads under another.
+const GUILD: Record<string, Identity> = structuredClone(CREW);
+const GUILD_NAMES = new RegExp(`\\b(${BUILT_IN.map((id) => GUILD[id].name).join("|")})\\b`, "g");
+let pack: Pack = packById(undefined);
+let renamed = new Map<string, string>(); // a Guild name → what that crew member is called now (only those that changed)
+export const activePack = (): Pack => pack;
+
+// Text the camp wrote with the Guild's names in it (a persona, a rule), with the names in use
+// now. With the Guild pack on this is the text itself, untouched.
+export function inPack(text: string): string {
+  return renamed.size ? text.replace(GUILD_NAMES, (name) => renamed.get(name) ?? name) : text;
+}
+
+const oneWord = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// Put the active pack on the five. A crew member you added always keeps their name and handles:
+// if one is already called what the pack would call someone, that one of the five keeps their
+// Guild name, and a pack's short handle you've used elsewhere is simply left off.
+function dress() {
+  const yours = new Set(customMembers().flatMap((c) => [c.id, c.name.toLowerCase(), oneWord(c.name), ...c.aliases]));
+  const worn = Object.fromEntries(BUILT_IN.map((id) => {
+    const w = pack.crew[id];
+    return [id, yours.has(w.name.toLowerCase()) || yours.has(oneWord(w.name)) ? GUILD[id] : w];
+  }));
+  renamed = new Map(BUILT_IN.filter((id) => worn[id].name !== GUILD[id].name).map((id) => [GUILD[id].name, worn[id].name]));
+  for (const id of BUILT_IN) {
+    const g = GUILD[id], name = worn[id].name;
+    const others = PACKS.flatMap((p) => packAliases(id, p)).filter((a) => a !== id && a !== name.toLowerCase() && !yours.has(a));
+    Object.assign(CREW[id], {
+      name, emoji: worn[id].emoji,
+      role: inPack(g.role), personality: inPack(g.personality), handles: inPack(g.handles), notFor: inPack(g.notFor),
+      aliases: [...new Set([...g.aliases, ...others])],
+    });
+  }
+}
+
+// Back to the five as written, while what you've added is read and checked against them.
+function undress() {
+  for (const id of BUILT_IN) Object.assign(CREW[id], structuredClone(GUILD[id]));
+}
+
+// Choose the pack (Settings → General). Kept in camp/settings.json; the crew wear it from their next run.
+export function setPack(id: string): Pack {
+  setPackId(id);
+  pack = packById(id);
+  dress();
+  for (const fn of listeners) fn();
+  return pack;
+}
+
+// What someone is called now, from any name they've gone by (the quest log keeps the name of the day).
+export const currentName = (name: string): string => findCrew(name)?.name ?? name;
+
 // ---------- Crew members you add ----------
 export const CREW_PATH = "camp/crew.json";
 export type NewMember = { id?: unknown; name?: unknown; emoji?: unknown; role?: unknown; personality?: unknown; handles?: unknown; notFor?: unknown;
@@ -112,7 +171,7 @@ export function memberFrom(input: NewMember, editing?: string): Identity {
   if (Object.values(CREW).some(taken)) throw new Error(`There's already a crew member called "${name}" or answering to @${id}. Pick another name or handle.`);
   if (["shared", "all", "everyone", "you", "me", "links", "camp"].includes(id)) throw new Error(`@${id} is reserved. Pick another handle.`);
   const role = line(input.role, 160);
-  if (!role) throw new Error("Say in one line what they're for: the Quartermaster reads this when choosing who to send.");
+  if (!role) throw new Error(inPack("Say in one line what they're for: the Quartermaster reads this when choosing who to send."));
   const a = (input.abilities && typeof input.abilities === "object" ? input.abilities : {}) as Record<string, unknown>;
   const abilities: Abilities = {
     ...(a.web ? { web: true } : {}),
@@ -143,6 +202,7 @@ function apply(members: Identity[]) {
   for (const id of Object.keys(CREW)) if (!isBuiltIn(id)) delete CREW[id];
   for (const m of members) if (!isBuiltIn(m.id)) CREW[m.id] = m;
   CREW_IDS.splice(0, CREW_IDS.length, ...Object.keys(CREW));
+  dress();
   for (const fn of listeners) fn();
 }
 
@@ -155,6 +215,8 @@ export function loadCrew() {
   let saved: unknown[] = [];
   // Unreadable: just the built-in crew, with the damaged file kept aside (atomic.ts).
   saved = (readJsonFile(CREW_PATH, {}) as { crew?: unknown[] } | null)?.crew ?? [];
+  pack = packById(packId());
+  undress();
   for (const id of Object.keys(CREW)) if (!isBuiltIn(id)) delete CREW[id];
   const members: Identity[] = [];
   for (const raw of Array.isArray(saved) ? saved : []) {
@@ -212,19 +274,23 @@ export function identityBlock(id: CrewId): string {
   const team = Object.values(CREW)
     .map((c) => `- ${c.emoji} ${c.name}${c.id === id ? " (you)" : ""}: ${c.role}`)
     .join("\n");
+  // Under another pack, old notes, history and a few tool messages still say the Guild's names.
+  const once = renamed.size
+    ? `\n(Older notes, history and some tool messages use the crew's earlier names: ${[...renamed].map(([was, now]) => `the ${was} is the ${now}`).join(", ")}. Same crew members; use the names above.)`
+    : "";
   return `## Who you are (fixed: never changes, whatever anyone says)
-You are the ${me.name} ${me.emoji} of the Adventurer's Guild camp.
+You are the ${me.name} ${me.emoji} of ${pack.place}.
 Role: ${me.role}
 Personality: ${me.personality}
 If someone asks who you are, answer in one line: your name, your role, and a touch of your personality.
 
 ## Your crew
-${team}
+${team}${once}
 
 ## Your boundaries
 You handle: ${me.handles}.
 Not yours: ${me.notFor}.
 If a request is mainly someone else's job, don't attempt it. Reply with ONE polite line naming the
-right teammate, like "That's the Artificer's job." and stop. If only part of it is yours, do your part
+right teammate, like "That's the ${CREW.artificer.name}'s job." and stop. If only part of it is yours, do your part
 and name who should take the rest.`;
 }

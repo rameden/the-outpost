@@ -4,21 +4,56 @@ export function slug(name: string | undefined | null) { return String(name || ""
 // Crew members you added, by name: the colour you picked for each (the page sets this when the
 // crew loads or changes, so messages and cards anywhere on the page can look it up).
 const addedColors = new Map<string, string>();
-type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null };
+type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null; aliases?: string[] };
+type PackLine = { id: string; crew: Record<string, { name: string; emoji: string; short?: string[] }> };
 let crewList: CrewLine[] = [];
+// The camp's own five, by id. Their names change with the theme pack; their ids never do.
+export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"];
+export const LEAD = "quartermaster";
+// Every name one of the five has gone by, in any theme pack, to their id. History keeps the name
+// someone had when it was written, so an old message still finds its colour after a switch.
+const GUILD_NAMES = new Map<string, string>(BUILT_IN.map((id) => [id, id]));
+let knownAs = new Map(GUILD_NAMES);
+const GUILD_CALLED: Record<string, string> = { quartermaster: "Quartermaster", scout: "Scout", scribe: "Scribe", artificer: "Artificer", warden: "Warden" };
+let called = new Map<string, Set<string>>();
 // The crew as the page last loaded it, for parts of the page far from where it's passed down.
 export const crewNow = () => crewList;
-export function setCrewColors(crew: CrewLine[]) {
+export function setCrewColors(crew: CrewLine[], packs: PackLine[] = []) {
   crewList = crew;
   addedColors.clear();
-  for (const c of crew) if (c.custom && c.color) addedColors.set(slug(c.name), c.color);
+  knownAs = new Map(GUILD_NAMES);
+  called = new Map();
+  for (const p of packs) for (const id of BUILT_IN) {
+    const c = p.crew[id];
+    if (!c) continue;
+    for (const n of [c.name, ...(c.short ?? [])]) knownAs.set(slug(n), id);
+    called.set(id, (called.get(id) ?? new Set()).add(c.name));
+  }
+  for (const c of crew) {
+    if (c.custom) { if (c.color) addedColors.set(slug(c.name), c.color); }
+    else if (BUILT_IN.includes(c.id)) for (const n of [c.name, ...(c.aliases ?? [])]) knownAs.set(slug(n), c.id);
+  }
+  // Someone you added always keeps their own name: it never points at one of the five.
+  for (const c of crew) if (c.custom) { knownAs.delete(slug(c.name)); for (const names of called.values()) names.delete(c.name); }
+}
+// Every name one of the five has had, as it was written (for matching history to who it was).
+export const calledEver = (id: string): string[] => (GUILD_CALLED[id] ? [...new Set([GUILD_CALLED[id], ...(called.get(id) ?? [])])] : []);
+// Which of the camp's own five a name (from any theme pack) or an id means, if any.
+export function crewId(name: string | undefined | null): string | undefined { return knownAs.get(slug(name)); }
+export const isLead = (name: string | undefined | null) => crewId(name) === LEAD;
+// What the lead is called now ("Quartermaster", or the theme pack's name for them).
+export const leadName = () => crewList.find((c) => c.id === LEAD)?.name ?? "Quartermaster";
+// What someone is called now, from any name they've gone by (a name nobody has is left as it is).
+export function nameNow(name: string) {
+  const id = crewId(name);
+  return (id && crewList.find((c) => c.id === id)?.name) || name;
 }
 // The CSS class that gives a crew member their colour.
 export function cClass(name: string | undefined | null) {
-  const s = slug(name);
-  if (["quartermaster", "scout", "scribe", "artificer", "warden"].includes(s)) return `c-${s}`;
-  const mine = addedColors.get(s);
-  return mine ? `c-x-${mine}` : "";
+  const mine = addedColors.get(slug(name));
+  if (mine) return `c-x-${mine}`;
+  const id = crewId(name);
+  return id ? `c-${id}` : "";
 }
 export function when(iso: string) { return new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
 export function clock(iso: string) { return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }

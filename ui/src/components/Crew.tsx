@@ -22,6 +22,7 @@ import { glide } from "../motion.tsx";
 import { Icon } from "./bits.tsx";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, shortModel, took } from "../format.ts";
+import { w } from "../words.ts";
 import type { CampState, Character } from "../types.ts";
 import { statusLine, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 
@@ -49,9 +50,9 @@ function QuestsOut({ quests, onOpen, onHide }: { quests: QuestOut[]; onOpen?: (q
   }, [out]);
   const waiting = quests.filter((q) => q.waiting).length;
   const hide = <button type="button" className="hist-icon half-hide" aria-label="Hide who's running" title="Fold this half away to a rail, and give the crew the room" onClick={onHide}><Icon name="chevronRight" /></button>;
-  if (!quests.length) return <div className="crew-out idle" role="group" aria-label="Quests out now"><span className="co-none">No agents running</span>{hide}</div>;
+  if (!quests.length) return <div className="crew-out idle" role="group" aria-label={`${w("Quests")} out now`}><span className="co-none">No agents running</span>{hide}</div>;
   return (
-    <div className="crew-out" role="group" aria-label="Quests out now">
+    <div className="crew-out" role="group" aria-label={`${w("Quests")} out now`}>
       <span className="co-head"><b>{quests.length} out</b>{waiting > 0 && <span>· {waiting} {waiting === 1 ? "needs" : "need"} your OK</span>}</span>
       {/* One name width for every row (emoji + space + name, in ch), so the columns line up. */}
       <ul style={{ "--co-who": `${Math.max(...quests.map((q) => q.who.length)) + 4}ch` } as CSSProperties}>
@@ -181,12 +182,12 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
     </div>
     {S && fold === "crew" ? (
       <button type="button" className="zone-rail crew-rail" aria-expanded="false" aria-label="Show the crew" title="Show the crew" onClick={toggle}>
-        <Icon name="users" /><span>Crew</span><Icon name="chevronRight" />
+        <Icon name="users" /><span>{w("Crew")}</span><Icon name="chevronRight" />
       </button>
     ) : S && (
       <button type="button" className="zone-rail crew-rail" aria-expanded={!slim} aria-label={slim ? "Show more about the crew" : "Show less about the crew"}
         title={slim ? "Open the crew up into cards: level, model, and what each is doing" : "Fold the crew down to a slim strip"} onClick={toggle}>
-        <Icon name="users" /><span>Crew</span><Icon name={slim ? "chevron" : "chevronUp"} />
+        <Icon name="users" /><span>{w("Crew")}</span><Icon name={slim ? "chevron" : "chevronUp"} />
       </button>
     )}
     </div>

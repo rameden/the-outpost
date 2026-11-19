@@ -3,6 +3,7 @@
 // working on that isn't a quest (the Quartermaster's own part of an expedition, or a crew member
 // you messaged yourself). Pure: (the feed, a name) → what to show.
 
+import { isLead } from "../format.ts";
 import { findNodes, stepState, type FeedNode, type FeedState, type QuestOut, type StepState } from "../feed/reducer.ts";
 
 // One step, as a line: what it was (said, a tool, a file, a question, a notice, something you said to it) and its words.
@@ -54,7 +55,7 @@ export function questsOf(s: Pick<FeedState, "items" | "open" | "quests">, name: 
 // The running expeditions they have a hand in outside a quest. For the Quartermaster that is every
 // expedition the crew is on (it plans them all); for anyone else, only where they've said or done something.
 export function runsOf(s: Pick<FeedState, "items" | "open">, name: string): RunDoing[] {
-  const lead = name === "Quartermaster";
+  const lead = isLead(name);
   return Object.entries(s.open).flatMap(([expId, o]) => {
     const exp = expOf(s.items, o.node);
     if (!exp || !o.members.includes(name)) return [];

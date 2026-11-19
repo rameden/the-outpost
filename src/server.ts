@@ -32,7 +32,8 @@ import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
-import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, type CrewId } from "./crew.js";
+import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, activePack, setPack, currentName, type CrewId } from "./crew.js";
+import { PACKS } from "./packs.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
@@ -418,7 +419,7 @@ function spending(all: ReturnType<typeof recentQuests>) {
     const c = questCost(q);
     total += c;
     const t = new Date(q.time).getTime();
-    if (t >= day.getTime()) { today += c; if (q.character) byAgent[q.character] = (byAgent[q.character] ?? 0) + c; }
+    if (t >= day.getTime()) { today += c; if (q.character) { const who = currentName(q.character); byAgent[who] = (byAgent[who] ?? 0) + c; } }
     if (now - t < 7 * 86_400_000) week += c;
   }
   return { today, week, total, byAgent };
@@ -463,7 +464,7 @@ async function agentDetail(id: CrewId) {
   const c = CREW[id];
   const spec = id === "quartermaster" ? quartermasterSpec() : ROSTER[id];
   const { model, effort } = resolveModel({ id, model: spec.model, effort: spec.effort });
-  const runs = recentQuests(Number.MAX_SAFE_INTEGER).filter((q) => q.character === c.name).reverse();
+  const runs = recentQuests(Number.MAX_SAFE_INTEGER).filter((q) => currentName(q.character) === c.name).reverse();
   const done = runs.filter((r) => r.status === "done").length;
   const costs = runs.map((r) => questCost(r));
   ensureWorkspace(id);
@@ -521,7 +522,7 @@ async function fullState(full: boolean, historySeen?: string) {
   const all = recentQuests(Number.MAX_SAFE_INTEGER);
   const none = <T,>(make: () => T): T => (full ? make() : (undefined as T)); // not sent: the page keeps what it had
   const xp: Record<string, number> = {};
-  for (const q of all) if (q.status === "done") xp[q.character] = (xp[q.character] ?? 0) + 10;
+  for (const q of all) if (q.status === "done") { const who = currentName(q.character); xp[who] = (xp[who] ?? 0) + 10; }
   return {
     bootId: BOOT_ID,
     characters: CREW_IDS.map((id) => {
@@ -540,6 +541,10 @@ async function fullState(full: boolean, historySeen?: string) {
         overridden: !!(override.model || override.effort || override.maxTurns),
       };
     }),
+    // The theme pack that's on, and every pack there is: the page needs the others' names for the
+    // five too, to know whose an old name in the history is.
+    pack: activePack().id,
+    packs: PACKS,
     // Other models you've connected (DeepSeek, Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
     providers: none(() => providersState()),
     anthropic: anthropicKeyState(),
@@ -1459,6 +1464,11 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, fixAttempts: fixAttempts(), reviewChanges: reviewChangesOn() });
     }
 
+    // The theme pack ({ id }): what the five are called, on the page and in their own prompts.
+    if (url.pathname === "/api/pack") {
+      setPack(String(body.id ?? ""));
+      return send(res, 200, { ok: true, pack: activePack().id });
+    }
     if (url.pathname === "/api/auto-titles") {
       setAutoTitles(!!body.on);
       return send(res, 200, { ok: true, autoTitles: autoTitlesOn() });

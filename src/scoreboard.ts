@@ -22,6 +22,7 @@ import { allFeedback } from "./feedback.js";
 import { spentOn } from "./payoff.js";
 import { conversationOf, pulls as knownPulls, type Pull } from "./pulls.js";
 import { questCost, recentQuests } from "./questlog.js";
+import { currentName } from "./crew.js";
 import { allTurns } from "./threads.js";
 import { loadTriggers, type Trigger } from "./triggers.js";
 
@@ -106,7 +107,7 @@ export function scoreboard(o: { project?: string; weeks?: number; now?: Date; pu
     for (const t of typed) { const key = ticket.get(t.thread); if (key) perTicket.set(key, (perTicket.get(key) ?? 0) + 1); }
     const ran = quests.filter((q) => inWeek(q.time));
     const crew = new Map<string, { runs: number; seconds: number }>();
-    for (const q of ran) { const c = crew.get(q.character) ?? { runs: 0, seconds: 0 }; c.runs++; c.seconds += q.seconds; crew.set(q.character, c); }
+    for (const q of ran) { const who = currentName(q.character), c = crew.get(who) ?? { runs: 0, seconds: 0 }; c.runs++; c.seconds += q.seconds; crew.set(who, c); }
     const merged = prs.filter((p) => inWeek(p.merged));
     const runs = new Set(here.map((t) => t.expedition));
     const rated = ratings.filter((f) => runs.has(f.expedition));

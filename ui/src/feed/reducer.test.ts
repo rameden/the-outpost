@@ -467,3 +467,18 @@ describe("approvals in plain words", () => {
     expect(findNodes(s.items, "ask").map((a) => a.plain)).toEqual(["Does: Reads an alert.", undefined]);
   });
 });
+
+describe("a theme pack's name for the lead", () => {
+  test("a run and its plan belong to whoever the events say leads, and to the Quartermaster when they don't say", () => {
+    const s = feedOf([
+      { type: "expedition_start", id: "A", task: "Chart a course", source: "user", lead: "Commander" },
+      { type: "ask", id: "ask_1", kind: "plan", title: "The plan", body: "1. Look", expeditionId: "A", lead: "Commander" },
+      start("B", "An older run"),
+    ]);
+    expect(s.open.A.members).toEqual(["Commander"]);
+    expect(s.crew.Commander.status).toBe("waiting");
+    expect(s.asks[0].who).toBe("Commander");
+    expect(s.open.B.members).toEqual(["Quartermaster"]);
+    expect(s.crew.Quartermaster).toEqual({ status: "active", line: "Planning the expedition" });
+  });
+});
