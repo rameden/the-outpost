@@ -51,3 +51,7 @@ export function parseCommand(text: string): { name: string; arg: string } | null
   const m = text.trim().match(/^\/([a-z]+)(?:\s+([\s\S]*))?$/);
   return m && COMMANDS.some((c) => c.name === m[1]) ? { name: m[1], arg: (m[2] ?? "").trim() } : null;
 }
+
+// An expedition just finished well (said by camp.ts as the event arrives, not for old ones played
+// back). Decorations listen for it: New Year's confetti.
+export const RUN_DONE = "camp:run-done";

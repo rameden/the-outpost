@@ -263,6 +263,55 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 @media (prefers-color-scheme: dark) { :root[data-pack="starship"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; } }
 :root[data-pack="starship"][data-theme="dark"] .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; }
 @media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
+
+/* ---------- Decorations ----------
+   Holiday dressing (ui/src/seasons.ts; Settings → General → Decorations), shown as data-season on
+   <html>. Only for looks, and on top of everything else: any palette, light or dark, either pack.
+   Each one names its colours here as --decor-… (an orb, an ink for what falls, a small mark by
+   Today's date); the rules below the three put them to work. A decoration's orb wins over the
+   pack's. Everything is flat, nothing here changes a size or a text colour, and the lights' wire
+   runs straight along the top bar's straight edge. What falls is drawn by components/Decor.tsx. */
+:root[data-season="winter"] { --decor-navy: #1d3f63; --decor-ochre: #9fd8ee; --decor-line: #24527c; --decor-glint: #0f2438;
+  --decor-ink: color-mix(in srgb, var(--c-warden) 55%, var(--surface)); --decor-mark-ink: var(--c-warden);
+  --decor-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1v14M1.9 4.5l12.2 7M1.9 11.5l12.2-7' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3C/svg%3E"); }
+:root[data-season="halloween"] { --decor-navy: #33194a; --decor-ochre: #f08a1c; --decor-line: #4a2a6b; --decor-glint: #1c0f29;
+  --decor-ink: color-mix(in srgb, var(--text) 70%, var(--c-scribe)); --decor-mark-ink: var(--c-artificer);
+  --decor-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cellipse cx='8' cy='9.6' rx='6.6' ry='5'/%3E%3Cpath d='M7 2h2.2v3H7z'/%3E%3C/svg%3E"); }
+:root[data-season="newyear"] { --decor-navy: #171a33; --decor-ochre: #f1c84b; --decor-line: #6b5410; --decor-glint: #1a1506;
+  --decor-ink: var(--muted); --decor-mark-ink: var(--c-quartermaster);
+  --decor-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 .5l1.8 5.7 5.7 1.8-5.7 1.8L8 15.5 6.2 9.8.5 8l5.7-1.8z'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) {
+  :root[data-season="winter"]:not([data-theme="light"]) { --decor-ochre: #c9ecf8; --decor-line: #a7d2ee; --decor-glint: #f1fbff; --decor-ink: color-mix(in srgb, var(--text) 82%, var(--c-warden)); }
+  :root[data-season="halloween"]:not([data-theme="light"]) { --decor-ochre: #ff9f3f; --decor-line: #c8a5ec; --decor-glint: #fff1df; }
+  :root[data-season="newyear"]:not([data-theme="light"]) { --decor-ochre: #f8dc7a; --decor-line: #ead28a; --decor-glint: #fffbe6; }
+}
+:root[data-season="winter"][data-theme="dark"] { --decor-ochre: #c9ecf8; --decor-line: #a7d2ee; --decor-glint: #f1fbff; --decor-ink: color-mix(in srgb, var(--text) 82%, var(--c-warden)); }
+:root[data-season="halloween"][data-theme="dark"] { --decor-ochre: #ff9f3f; --decor-line: #c8a5ec; --decor-glint: #fff1df; }
+:root[data-season="newyear"][data-theme="dark"] { --decor-ochre: #f8dc7a; --decor-line: #ead28a; --decor-glint: #fffbe6; }
+/* (Said twice over so it outranks a pack's orb in light and in dark.) */
+:root[data-season]:not([data-season=""]) .mae-orb { --orb-navy: var(--decor-navy); --orb-ochre: var(--decor-ochre); --orb-line: var(--decor-line); --orb-glint: var(--decor-glint); }
+/* What falls: one canvas over the window, under every menu and dialog, that takes no clicks. */
+.decor-fall { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; color: var(--decor-ink, var(--muted)); }
+/* The lights: hung from the top bar's bottom edge, out of the flow, so the bar keeps its height.
+   (:where, so a narrow window's sticky top bar, further down, still wins.) */
+:where([data-season]) .top { position: relative; }
+.decor-lights { position: absolute; left: 0; right: 0; top: 100%; height: 12px; overflow: hidden; pointer-events: none; z-index: 2; }
+.decor-lights svg { display: block; }
+.decor-wire { stroke: var(--border-strong); stroke-width: 1; }
+.decor-cap { fill: var(--border-strong); }
+.decor-bulb ellipse { animation: decor-twinkle 3.8s ease-in-out infinite; }
+.decor-bulb.b0 ellipse { fill: var(--c-quartermaster); }
+.decor-bulb.b1 ellipse { fill: var(--c-scout); animation-delay: -1.5s; }
+.decor-bulb.b2 ellipse { fill: var(--c-scribe); animation-delay: -3s; }
+.decor-bulb.b3 ellipse { fill: var(--c-artificer); animation-delay: -.8s; }
+.decor-bulb.b4 ellipse { fill: var(--c-warden); animation-delay: -2.3s; }
+@keyframes decor-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .decor-bulb ellipse { animation: none; } }
+/* A small flat mark after Today's date: a snowflake, a pumpkin, a star. */
+[data-season] .home-date::after { content: ""; display: inline-block; width: 13px; height: 13px; margin-left: 8px; vertical-align: -2px; background: var(--decor-mark-ink);
+  -webkit-mask: var(--decor-mark) center / contain no-repeat; mask: var(--decor-mark) center / contain no-repeat; }
+/* The choices in Settings have no swatch before their name. */
+.look.decor { padding: 6px 12px; }
 /* The camp at rest (MaeSystem.tsx): the films' solar system, on a page with nothing on it yet. The
    sun is the logo's amber dot, and each planet takes its crew member's colour (--c, from its c-…
    class). It is drawn about its own centre, so everything turns and grows about that, and in its own

@@ -159,6 +159,32 @@ test("today's cost can be taken out of the top bar's status menu, at once, and s
   localStorage.clear();
 });
 
+test("General has a Decorations row right under the colours: only for looks, kept in this browser, and nothing is sent to the camp", () => {
+  localStorage.clear();
+  show("general");
+  const group = screen.getByRole("group", { name: "Decorations" });
+  const row = group.closest(".set-row")!;
+  expect(screen.getByRole("group", { name: "Colours" }).closest(".set-row")!.nextElementSibling).toBe(row);
+  expect(row.textContent).toMatch(/Only for looks/);
+  expect(row.textContent).toMatch(/Nothing the crew reads or writes changes/);
+  expect(row.textContent).toMatch(/kept in this browser/);
+  const pressed = () => Array.from(group.querySelectorAll("button")).map((b) => `${b.textContent}:${b.getAttribute("aria-pressed")}`);
+  expect(pressed()).toEqual(["Off:true", "Follow the calendar:false", "Winter:false", "Halloween:false", "New Year:false"]);
+  expect(document.documentElement.dataset.season).toBeUndefined();
+  fireEvent.click(screen.getByRole("button", { name: "Winter" }));
+  expect(pressed()).toEqual(["Off:false", "Follow the calendar:false", "Winter:true", "Halloween:false", "New Year:false"]);
+  expect([document.documentElement.dataset.season, localStorage.getItem("camp-season")]).toEqual(["winter", "winter"]);
+  expect(row.textContent).toMatch(/Snow, a string of lights/);
+  // Following the calendar says what that means today.
+  fireEvent.click(screen.getByRole("button", { name: "Follow the calendar" }));
+  expect(localStorage.getItem("camp-season")).toBe("auto");
+  expect(row.textContent).toMatch(/Today that's (Winter|Halloween|New Year)\.|Nothing is in season today\./);
+  fireEvent.click(screen.getByRole("button", { name: "Off" }));
+  expect([document.documentElement.dataset.season, localStorage.getItem("camp-season")]).toEqual([undefined, ""]);
+  expect(posts).toEqual([]); // the camp is never told: it's this browser's own
+  localStorage.clear();
+});
+
 test("General has a theme pack row above the colours: it says the crew is renamed for the crew too, and the camp keeps the choice", async () => {
   const { PACKS } = await import("../../../src/packs.ts");
   const { refresh } = show("general", { ...camp(), pack: "guild", packs: PACKS } as CampState);
