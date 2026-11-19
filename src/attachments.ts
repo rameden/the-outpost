@@ -8,6 +8,7 @@ import { dirname, extname, join, relative, sep } from "node:path";
 import { randomBytes } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import { campPath, CAMP_ROOT, displayPath, type Tool } from "./tools.js";
+import { CREW } from "./crew.js";
 import { loadLinks } from "./links.js";
 import { slash } from "./platform.js";
 import { readArchive, type ArchiveLimits } from "./zip.js";
@@ -211,7 +212,7 @@ export function buildRequest(text: string, attachments: Attachment[] = []): { co
   for (const a of unique) {
     if (a.kind === "url") {
       if (!a.url || !/^https?:\/\//i.test(a.url)) continue;
-      lines.push(`- Link: ${a.url} (the Scout can fetch it with web_fetch)`);
+      lines.push(`- Link: ${a.url} (the ${CREW.scout.name} can fetch it with web_fetch)`);
       attached.push(a);
       continue;
     }

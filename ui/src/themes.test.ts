@@ -1,9 +1,9 @@
 // Light or dark, and which colours: two choices, kept in this browser and shared with the tour.
 import { beforeEach, expect, test } from "vitest";
-import { MODE_KEY, PALETTE_KEY, PALETTES, modeNow, paletteNow, setMode, setPalette, startThemes, toggleMode } from "./themes.ts";
+import { MODE_KEY, PACK_KEY, PALETTE_KEY, PALETTES, modeNow, packNow, paletteNow, setMode, setPalette, startThemes, toggleMode, wearPack } from "./themes.ts";
 
 const root = document.documentElement;
-beforeEach(() => { localStorage.clear(); delete root.dataset.theme; delete root.dataset.palette; });
+beforeEach(() => { localStorage.clear(); wearPack(undefined); localStorage.clear(); delete root.dataset.theme; delete root.dataset.palette; });
 
 test("a palette and a mode are separate: changing one leaves the other", () => {
   expect([modeNow(), paletteNow()]).toEqual(["system", "camp"]);
@@ -41,4 +41,38 @@ test("as the page opens it wears what was chosen last time, and follows a change
 test("every palette is named and described, and the first is the camp's own", () => {
   expect(PALETTES.map((p) => p.id)).toEqual(["camp", "harbor", "moss", "heather", "ochre"]);
   for (const p of PALETTES) expect(p.name.length > 0 && p.about.length > 0).toBe(true);
+});
+
+const PACKS = [{ id: "guild" }, { id: "starship", palette: "harbor" }];
+
+test("a theme pack shows on the page and suggests colours, until you choose your own", () => {
+  wearPack("starship", PACKS);
+  expect([root.dataset.pack, root.dataset.palette, packNow(), paletteNow()]).toEqual(["starship", "harbor", "starship", "harbor"]);
+  expect(localStorage.getItem(PALETTE_KEY)).toBeNull(); // a suggestion isn't a choice
+  setPalette("moss");
+  expect([root.dataset.pack, root.dataset.palette]).toEqual(["starship", "moss"]);
+  // The camp's own colours, chosen on purpose, win too.
+  setPalette("camp");
+  expect([root.dataset.pack, root.dataset.palette, paletteNow()]).toEqual(["starship", undefined, "camp"]);
+  // Back to the Guild: no attribute, and the colours you chose stay.
+  setPalette("heather");
+  wearPack("guild", PACKS);
+  expect([root.dataset.pack, root.dataset.palette, packNow()]).toEqual([undefined, "heather", "guild"]);
+});
+
+test("with no colours chosen, leaving a pack gives back the camp's own", () => {
+  wearPack("starship", PACKS);
+  wearPack("guild", PACKS);
+  expect([root.dataset.pack, root.dataset.palette, paletteNow(), localStorage.getItem(PACK_KEY)]).toEqual([undefined, undefined, "camp", ""]);
+});
+
+test("the page opens wearing the pack it wore last time, before the camp has said anything", () => {
+  wearPack("starship", PACKS);
+  expect(localStorage.getItem(PACK_KEY)).toBe("starship harbor");
+  delete root.dataset.pack; delete root.dataset.palette;
+  startThemes();
+  expect([root.dataset.pack, root.dataset.palette]).toEqual(["starship", "harbor"]);
+  // A pack nobody knows is no pack.
+  wearPack("nonesuch", PACKS);
+  expect(root.dataset.pack).toBeUndefined();
 });

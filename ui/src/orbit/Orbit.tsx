@@ -52,7 +52,8 @@ import { contour, contourPoints, LAP, MARKS, stretch, TAIL } from "../components
 import { Icon } from "../components/bits.tsx";
 import { runningCount, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
-import { cClass, cx, money } from "../format.ts";
+import { calledEver, cClass, cx, money } from "../format.ts";
+import { w } from "../words.ts";
 import { motionOK } from "../motion.tsx";
 import type { CampEvent, CampState } from "../types.ts";
 import { direct, type Cut } from "./ambient.ts";
@@ -220,7 +221,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const grid = useMemo(() => SPOKES.map((a) => `M${((SUN_R + 26) * Math.cos(a)).toFixed(1)} ${((SUN_R + 26) * Math.sin(a)).toFixed(1)}L${(reach * Math.cos(a)).toFixed(1)} ${(reach * Math.sin(a)).toFixed(1)}`).join(""), [reach]);
   // What the drawing needs to know, wherever it's called from.
   const sceneNow = {
-    ids: planets.map((p) => p.id), names: new Map(bodies.map((b) => [b.name, b.id])), lines, reach, running,
+    ids: planets.map((p) => p.id), names: new Map(bodies.flatMap((b) => [...calledEver(b.id), b.name].map((n) => [n, b.id]))), lines, reach, running,
     busy: new Set(planets.filter((p) => crew[p.name]?.status === "active").map((p) => p.id)), leading: crew[bodies[0].name]?.status === "active",
     waiting: new Set(bodies.filter((b) => crew[b.name]?.status === "waiting").map((b) => b.id)),            // (HD draws from these two as well)
     quiet: new Set(planets.filter((p) => says.get(p.id)?.quiet).map((p) => p.id)),                          // at work, but all they have out has gone quiet
@@ -730,7 +731,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const ticks = (every: number, long: number) => { const gap = (2 * Math.PI * (reach + 6)) / (360 / every); return `${long} ${(gap - long).toFixed(3)}`; };
 
   return (
-    <div className={cx("orbit", focus && "looking", hd && "hd", ambient && "ambient", need > 0 && "needs")} ref={root} role="dialog" aria-modal="true" aria-label="Orbit: the crew at work" tabIndex={-1} onKeyDown={onKey}>
+    <div className={cx("orbit", focus && "looking", hd && "hd", ambient && "ambient", need > 0 && "needs")} ref={root} role="dialog" aria-modal="true" aria-label={`Orbit: the ${w("crew")} at work`} tabIndex={-1} onKeyDown={onKey}>
       {STARS.map((_, j) => <div key={j} className={`orb-stars s${j + 1}`} ref={(el) => { sheets[j] = el; }} aria-hidden="true" />)}
       {hd && <canvas className="orb-hd" ref={canvas} aria-hidden="true" />}
       <svg className={cx("orb-sky", over && "over")} aria-hidden="true" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { press.current = null; v.turning = false; }} onPointerLeave={() => { v.over = null; setOver(null); }}>
@@ -842,13 +843,13 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       <div className="orb-frame" aria-hidden="true"><i /><i /><i /><i /></div>
 
       <header className="orb-top">
-        <div className="orb-title"><h2>Orbit</h2>{demo ? <span className="orb-pretend" role="status">Demo: a pretend camp. None of this is really happening.</span>
+        <div className="orb-title"><h2>Orbit</h2>{demo ? <span className="orb-pretend" role="status">Demo: a pretend {w("camp")}. None of this is really happening.</span>
           : replay ? <span className="orb-pretend" role="status">Replay: the last day, played back. None of this is happening now.</span>
           : told ? <span className="orb-pretend" role="status">{told}</span>
           : <span>The crew at work, as it happens</span>}</div>
         <dl className="orb-read">
           <div><dt>Expeditions</dt><dd>{running}</dd></div>
-          <div><dt>Quests out</dt><dd>{quests.length}</dd></div>
+          <div><dt>{w("Quests")} out</dt><dd>{quests.length}</dd></div>
           {waiting > 0 && <div className="warn"><dt>Waiting on you</dt><dd>{waiting}</dd></div>}
           {spend && <div><dt>Spent today</dt><dd>{money(dayCost)}</dd></div>}
           <div><dt>Zoom</dt><dd ref={zoomRead}>×1.0</dd></div>

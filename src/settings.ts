@@ -6,6 +6,7 @@
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { emit } from "./events.js";
 import type { CrewId } from "./crew.js";
+import { DEFAULT_PACK, isPack } from "./packs.js";
 
 export const SETTINGS_PATH = "camp/settings.json";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
@@ -34,6 +35,7 @@ type Settings = {
   questsAtOnce?: number;  // how many dispatched quests run at once, across every expedition
   selfEdit?: boolean;     // let agents edit the camp's own source (src/, tests/, evals/, package.json)
   autoTitles?: boolean;   // name new conversations with the smallest model (titles.ts)
+  pack?: string;          // the theme pack: what the crew are called, in the page and in their own prompts (packs.ts)
   phone?: PhoneSettings;
   jiraFilter?: string;    // which Jira tickets are pulled in (JQL); see jira.ts
   fixAttempts?: number;   // how many times a quest is sent back to fix its own failing checks (0 = never)
@@ -105,6 +107,16 @@ export function setUploadKeepDays(days: number | null) {
 // When a model declines a request (its safety checks, not an error), let another Claude model
 // carry on instead of ending the run (agent.ts). On unless you set "refusalFallback": false.
 export const refusalFallbackOn = () => load().refusalFallback !== false;
+
+// The theme pack (packs.ts). Anything unknown, or nothing, is the Guild. crew.ts puts it on the
+// crew (setPack there is what the page calls): this only keeps the choice.
+export const packId = (): string => { const id = load().pack; return isPack(id) ? id : DEFAULT_PACK; };
+export function setPackId(id: string) {
+  if (!isPack(id)) throw new Error(`No theme pack called "${id}".`);
+  const s = load();
+  if (id === DEFAULT_PACK) delete s.pack; else s.pack = id;
+  save(s);
+}
 
 // "Always allow" on a shell approval: that exact command runs without asking from now on.
 export function allowShellCommand(command: string) {

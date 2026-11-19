@@ -7,7 +7,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
 import { posix, resolve, sep } from "node:path";
-import { CREW, type CrewId } from "./crew.js";
+import { CREW, inPack, type CrewId } from "./crew.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
 import { addAbout, logKept, type KeptHow } from "./memlog.js";
@@ -287,7 +287,7 @@ export function continuityBlock(id: CrewId, task = ""): string {
     .map((s, i) => {
       const recent = i >= sessions.length - 3;
       const when = new Date(s.time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-      return `- ${when}, ${SOURCE_LABEL[s.source] ?? s.source}: "${clip(s.task, recent ? 400 : 140)}"\n  You replied (${s.status}): ${clip(s.result, recent ? 1200 : 200)}`;
+      return `- ${when}, ${inPack(SOURCE_LABEL[s.source] ?? s.source)}: "${clip(s.task, recent ? 400 : 140)}"\n  You replied (${s.status}): ${clip(s.result, recent ? 1200 : 200)}`;
     })
     .join("\n");
   return (

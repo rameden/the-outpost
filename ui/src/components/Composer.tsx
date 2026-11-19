@@ -11,7 +11,8 @@ import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { LEFT_OUT, USED, WorkIn, chosenWorkspaces, leftOut, outsideChoice, outsidePick, replyPick, useRepos, usedIn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
-import { cx } from "../format.ts";
+import { cx, leadName } from "../format.ts";
+import { w } from "../words.ts";
 import { ChatModel } from "./ChatModel.tsx";
 import { tell } from "./StatusLine.tsx";
 import { isZip, uploadFile as sendFile, uploadZip } from "../upload.ts";
@@ -576,7 +577,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
           onNote={(note) => { void addFiles([noteFile(note)]); closeMenu(); focus(); }} />
       )}
       <form className="composer-box" onSubmit={submit}>
-        <MessageInput ref={input} placeholder={live ? "Queue a message for when they're done…" : context?.placeholder ?? "Ask the Quartermaster…"} label="Request for the camp" value={text}
+        <MessageInput ref={input} placeholder={live ? "Queue a message for when they're done…" : context?.placeholder ?? `Ask the ${leadName()}…`} label={`Request for the ${w("camp")}`} value={text}
           onChange={(t) => { setText(t); updateMention(); }} onClick={updateMention} onKeyDown={onKeyDown} onPaste={onPaste} />
         {/* One row under the text: the + menu, the branch the request will work on (click for the menu's Work in panel), send. */}
         <div className="composer-bar">

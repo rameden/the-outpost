@@ -28,6 +28,7 @@ import { execFile } from "node:child_process";
 import { statSync } from "node:fs";
 import { ask } from "./ask.js";
 import { currentSignal } from "./context.js";
+import { CREW } from "./crew.js";
 import { SECRET_NAME } from "./links.js";
 import { campMode, campPath, clipOutput, type Tool } from "./tools.js";
 
@@ -278,7 +279,7 @@ export function postReviewFor(self: string, name = "Warden"): Tool {
 
       const answer = await ask({
         kind: "post",
-        title: `🛡️ The ${name} wants to post this on pull request #${found.number}${login ? `, as ${login}` : ""}:`,
+        title: `🛡️ The ${CREW[self]?.name ?? name} wants to post this on pull request #${found.number}${login ? `, as ${login}` : ""}:`,
         body: postCard({ number: found.number, title: String(found.title ?? ""), url: String(found.url ?? "") }, draft),
       });
       const a = answer.toLowerCase();
@@ -370,7 +371,7 @@ export function describePrFor(self: string, name = "Scribe"): Tool {
 
       const answer = await ask({
         kind: "describe",
-        title: `🪶 The ${name} wants to replace the description${retitled ? " and title" : ""} of pull request #${found.number}${login ? `, as ${login}` : ""}:`,
+        title: `🪶 The ${CREW[self]?.name ?? name} wants to replace the description${retitled ? " and title" : ""} of pull request #${found.number}${login ? `, as ${login}` : ""}:`,
         body: describeCard(current, next),
       });
       const a = answer.toLowerCase();

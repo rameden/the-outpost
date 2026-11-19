@@ -4,7 +4,7 @@
 // mission control (camp/crew.json) get their kit built from the abilities you ticked.
 
 import type { AgentSpec } from "./agent.js";
-import { CREW, isBuiltIn, onCrewChange, type CrewId, type Identity } from "./crew.js";
+import { CREW, inPack, isBuiltIn, onCrewChange, type CrewId, type Identity } from "./crew.js";
 import { readFileFor, writeFileFor, bash, bashFor, webSearch, webFetch } from "./tools.js";
 import { wikiWrite } from "./wiki.js";
 import { rememberTool } from "./memory.js";
@@ -39,9 +39,12 @@ const NOTES_RULE = `
 - If you learn something the whole crew would want (a finding, how a codebase works), save it
   with wiki_write to notes/, with its sources. Claims from the web stay claims: say who claims it.`;
 
+// As written here, with the Guild's names: syncRoster puts the active theme pack's names in.
+const WRITTEN = new Map<string, string>();
 function adventurer(id: CrewId, persona: string, extra: Omit<AgentSpec, "id" | "name" | "emoji" | "role" | "persona">): AgentSpec {
   const c = CREW[id];
-  return { id, name: c.name, emoji: c.emoji, role: c.role, persona: persona + QUEST_RULES, ...extra };
+  WRITTEN.set(id, persona + QUEST_RULES);
+  return { id, name: c.name, emoji: c.emoji, role: c.role, persona: inPack(persona + QUEST_RULES), ...extra };
 }
 
 // The Warden reviews the way a senior engineer does on a good day: the whole change first, then
@@ -148,7 +151,7 @@ function addedMember(m: Identity): AgentSpec {
   const a = m.abilities ?? {};
   return {
     id: m.id, name: m.name, emoji: m.emoji, role: m.role,
-    persona: (m.persona ?? "") + (a.wiki ? NOTES_RULE : "") + QUEST_RULES,
+    persona: (m.persona ?? "") + (a.wiki ? NOTES_RULE : "") + inPack(QUEST_RULES),
     tools: [
       ...(a.web ? [webSearch, webFetch] : []),
       readFileFor(m.id), viewFileFor(m.id), ...search(m.id),
@@ -163,9 +166,13 @@ function addedMember(m: Identity): AgentSpec {
   };
 }
 
-// Keep the roster in step with the crew: called now, and whenever a crew member is added, changed, or removed.
+// Keep the roster in step with the crew: called now, and whenever a crew member is added, changed, or removed,
+// or the theme pack changes (the five keep their kit; their name, emoji and the names in their persona follow the pack).
 function syncRoster() {
-  for (const id of Object.keys(ROSTER)) if (!isBuiltIn(id)) delete ROSTER[id];
+  for (const id of Object.keys(ROSTER)) {
+    if (!isBuiltIn(id)) delete ROSTER[id];
+    else Object.assign(ROSTER[id], { name: CREW[id].name, emoji: CREW[id].emoji, role: CREW[id].role, persona: inPack(WRITTEN.get(id) ?? ROSTER[id].persona) });
+  }
   for (const m of Object.values(CREW)) if (m.custom) ROSTER[m.id] = addedMember(m);
 }
 onCrewChange(syncRoster);

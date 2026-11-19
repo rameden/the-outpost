@@ -18,6 +18,9 @@
   try {
     var t = localStorage.getItem('camp-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
     var p = localStorage.getItem('camp-palette'); if (p === 'harbor' || p === 'moss' || p === 'heather' || p === 'ochre') document.documentElement.dataset.palette = p;
+    // The theme pack mission control is wearing ("camp-pack": its id, then the colours it suggests): its orb, and its colours if you've chosen none.
+    var k = (localStorage.getItem('camp-pack') || '').split(' '); if (/^[a-z0-9-]+$/.test(k[0])) document.documentElement.dataset.pack = k[0];
+    if (p === null && (k[1] === 'harbor' || k[1] === 'moss' || k[1] === 'heather' || k[1] === 'ochre')) document.documentElement.dataset.palette = k[1];
   } catch (e) { /* no storage: the system's theme, the camp's colours */ }
 })();
 </script>
@@ -222,6 +225,10 @@ section { padding-block: 88px 0; }
 @keyframes orb-flicker { 0%, 100% { opacity: .85; } 45% { opacity: 1; } 55% { opacity: .6; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; } }
 :root[data-theme="dark"] .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; }
+/* The Starship theme pack's orb, as in mission control (ui/src/styles.css): keep them in step. */
+[data-pack="starship"] .mae-orb { --orb-navy: #0f2a40; --orb-ochre: #2fb4d0; --orb-line: #0f2a40; --orb-glint: #0a1620; }
+@media (prefers-color-scheme: dark) { :root[data-pack="starship"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; } }
+:root[data-pack="starship"][data-theme="dark"] .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; }
 @media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
 .top nav { display: flex; gap: 22px; font-size: 14px; font-weight: 600; flex-wrap: wrap; }
 .top nav a { color: var(--muted); text-decoration: none; padding-bottom: 2px; border-bottom: 2px solid transparent; }
@@ -501,7 +508,7 @@ footer .mae-word { height: 16px; }
     <div class="sec-head">
       <div class="eyebrow">The crew</div>
       <h2>Five specialists who know their trade, and stay in it.</h2>
-      <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
+      <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate. Not a guild person? A theme pack (Settings → General) renames the five, for you and for them: Starship makes them a Commander, Navigator, Comms Officer, Engineer and Security Chief, on a ship flying missions. Who they are and what they remember stays the same.</p>
     </div>
     <div class="crew">
       <article class="member qm">
@@ -598,6 +605,7 @@ footer .mae-word { height: 16px; }
       <div class="word"><h3>Watch</h3><p>Click a planet and the camera flies to it and stays there. Its panel shows each quest, how long it has been out, its last few steps, and a reply as it's written. The sun's panel shows the running expeditions and where each plan stands.</p></div>
       <div class="word"><h3>Act</h3><p>Answer a question, steer a quest, stop one or send new work from the panel, without leaving the view. Stopping a whole expedition asks you once first.</p></div>
       <div class="word"><h3>Replay</h3><p>Scrub back through the day on a timeline. Demo plays a pretend camp, so you can see it busy without sending anyone anywhere. HD draws the system in three dimensions, as worlds you can make your own.</p></div>
+      <div class="word"><h3>Trail map</h3><p>The plan has a full-screen view of its own, beside Orbit in the top bar or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the crew works, and replays the day the same way.</p></div>
     </div>
   </div>
 </section>
@@ -636,7 +644,7 @@ footer .mae-word { height: 16px; }
         <span class="tag">While you're away</span>
         <h3>It keeps an eye on the work</h3>
         <p>Each part has its own switch under Settings, and nothing it starts goes ahead without your OK.</p>
-        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections. Nothing is kept until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
+        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections, and drafts a how-to for work you keep asking for. Nothing is kept until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
       </div>
       <div class="item">
         <span class="tag">Projects &amp; Jira</span>
