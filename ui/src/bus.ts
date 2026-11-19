@@ -42,6 +42,7 @@ export const COMMANDS: { name: string; arg?: string; does: string }[] = [
   { name: "bad", arg: "note", does: "Rate the last answer 👎, with an optional note" },
   { name: "ticket", does: "Start a ticket: pick it, check it, say where and who" },
   { name: "wiki", does: "Open the camp's wiki" },
+  { name: "constellation", does: "See everything the crew remembers as a map of stars, full screen" },
   { name: "layout", does: "Arrange the page's zones" },
   { name: "settings", does: "Open Settings" },
 ];

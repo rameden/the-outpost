@@ -15,6 +15,7 @@ import type { Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
 import { PIN, alike, fitMemory, parseEntry } from "./memfit.js";
 import { norm } from "./memlog.js";
+import { logRelevant } from "./recalllog.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -78,7 +79,9 @@ export function readMemory(id: CrewId, task = ""): string {
   if (!existsSync(ws.memory)) return "(empty)";
   const text = readFileSync(ws.memory, "utf8").replace(/^# .*\n+/, "").trim();
   if (!text) return "(empty)";
-  return fitMemory(text, MEMORY_MAX_CHARS, task).text;
+  const fit = fitMemory(text, MEMORY_MAX_CHARS, task);
+  logRelevant(`agent:${id}`, text, fit, currentExpeditionId()); // which lines bore on this request (recalllog.ts)
+  return fit.text;
 }
 
 // The memory tool, bound to one agent. It can only ever touch that agent's memory.md.

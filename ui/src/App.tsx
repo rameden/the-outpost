@@ -64,6 +64,7 @@ const Orbit = lazy(() => import("./orbit/Orbit.tsx").then((m) => ({ default: m.O
 const Trail = lazy(() => import("./trail/Trail.tsx").then((m) => ({ default: m.Trail })));
 const Settings = lazy(() => import("./settings/Settings.tsx").then((m) => ({ default: m.Settings })));
 const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ default: m.Barnstorm })));
+const Constellation = lazy(() => import("./constellation/Constellation.tsx").then((m) => ({ default: m.Constellation })));
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -110,10 +111,14 @@ export function App({ store }: { store: FeedStore }) {
   const closeOrbit = useCallback(() => setOrbit(false), []);
   const toggleTrail = useCallback(() => { setOrbit(false); setTrail((on) => !on); }, []);
   const closeTrail = useCallback(() => setTrail(false), []);
+  // The memory map (constellation/Constellation.tsx): every remembered line a star, over the whole page. /constellation opens it.
+  const [constellation, setConstellation] = useState(false);
+  const closeConstellation = useCallback(() => setConstellation(false), []);
 
   const setView = useCallback((v: View) => {
     setOrbit(false);
     setTrail(false);
+    setConstellation(false);
     setViewState(v);
     storeSet("camp-view", JSON.stringify(v));
     composer.current?.focus();
@@ -367,8 +372,8 @@ export function App({ store }: { store: FeedStore }) {
   // One place for everything a typed /command, the palette, or a shortcut can ask for.
   const command = (name: string, arg?: string) => {
     if (name === "today") goHome();
-    else if (name === "orbit") { setTrail(false); setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live"); }
-    else if (name === "trail") { setOrbit(false); setTrail(true); }
+    else if (name === "orbit") { setTrail(false); setConstellation(false); setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live"); }
+    else if (name === "trail") { setOrbit(false); setConstellation(false); setTrail(true); }
     else if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
     else if (name === "focus") toggleFocus();
     else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
@@ -384,6 +389,7 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
     else if (name === "wiki") setView({ kind: "wiki" });
+    else if (name === "constellation") { setSettings(null); setOrbit(false); setTrail(false); setConstellation(true); }
     else if (name === "ticket") setWizard({});
   };
   // The newest of each, for the listeners and the handlers below that are set up once.
@@ -626,6 +632,13 @@ export function App({ store }: { store: FeedStore }) {
       <Presence>{trail && (
         <OverlayBoundary name="The trail map" onClose={closeTrail}>
           <Suspense fallback={null}><Trail S={S} store={store} onClose={closeTrail} onOpenQuest={(q) => { setTrail(false); openQuest(q); }} /></Suspense>
+        </OverlayBoundary>
+      )}</Presence>
+      {/* The memory map takes the whole page too. A conversation it opens closes it; a merge it drafts is reviewed on the Memory page. */}
+      <Presence>{constellation && (
+        <OverlayBoundary name="The memory map" onClose={closeConstellation}>
+          <Suspense fallback={null}><Constellation onClose={closeConstellation} onOpenConversation={openConversation}
+            onOpenMemory={() => { setConstellation(false); openSettings("memory"); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}

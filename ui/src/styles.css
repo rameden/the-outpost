@@ -2316,6 +2316,89 @@ button.trail-chip:hover { border-color: var(--c, var(--c-other)); background: co
 }
 @keyframes trail-walk { to { stroke-dashoffset: -13; } }
 
+/* ---------- The memory map (ui/src/constellation) ---------- */
+/* Every remembered line a star, over the whole page. It wears the page's own colours, so it follows
+   light, dark and the palettes. What's picked or focused gets a solid 2px ring; nothing here moves
+   on its own. */
+.constellation { position: fixed; inset: 0; z-index: 44; overflow: hidden; background: var(--bg); color: var(--text); outline: none; }
+.con-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.con-sky:active { cursor: grabbing; }
+.con-place circle { fill: var(--surface); stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.con-place text { fill: var(--muted); font: 600 13px var(--sans); }
+.con-edge { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.con-edge.together { stroke-dasharray: 4 4; }
+.con-edge.on { stroke: var(--text); stroke-width: 2; }
+.con-star { cursor: pointer; outline: none; }
+.con-hit { fill: transparent; }
+.con-body { fill: var(--c, var(--c-other)); fill-opacity: .5; stroke: var(--c, var(--c-other)); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.con-star.used .con-body, .con-key .con-body { fill-opacity: 1; }
+.con-pin { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.con-ring { fill: none; stroke: transparent; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.con-star.near .con-ring { stroke: var(--border-strong); }
+.con-star:hover .con-ring { stroke: var(--muted); }
+.con-star.sel .con-ring, .con-star:focus-visible .con-ring { stroke: var(--text); }
+.constellation.picking .con-star.off { opacity: .22; cursor: default; }
+.constellation.picking .con-star.can .con-ring { stroke: var(--accent); }
+.con-about { --c: var(--accent); }
+.con-project { --c: var(--c-other); }
+.con-top { position: absolute; inset: 0 0 auto 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px; pointer-events: none; }
+.con-top > * { pointer-events: auto; }
+.con-title h2 { margin: 0; font: 600 20px/1.2 var(--serif); }
+.con-title p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.con-tools { display: flex; gap: 6px; }
+.con-tool { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 17px; line-height: 1; cursor: pointer; }
+.con-tool.worded { width: auto; padding: 0 11px; font-size: 13px; font-weight: 600; }
+.con-tool:hover { background: var(--surface-2); border-color: var(--muted); }
+.con-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 40px)); margin: 0; display: grid; gap: 8px; justify-items: center; text-align: center; font-size: 14px; color: var(--muted); }
+.con-empty b { font: 600 18px/1.3 var(--serif); color: var(--text); }
+.con-empty p { margin: 0; }
+.con-foot { position: absolute; left: 16px; bottom: 12px; right: 16px; display: grid; gap: 5px; justify-items: start; pointer-events: none; font-size: 12px; color: var(--muted); }
+.con-foot p { margin: 0; max-width: 560px; }
+.con-hint { color: var(--faint); }
+.con-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; }
+.con-key li { display: inline-flex; align-items: center; gap: 6px; }
+.con-key svg { flex: none; height: 16px; width: auto; overflow: visible; }
+.con-panel { position: absolute; top: 60px; right: 14px; bottom: 14px; width: 372px; max-width: calc(100% - 28px); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-lg); }
+.con-panel > header { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--border); }
+.con-panel > header h3 { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.con-emoji { margin-right: 7px; }
+.con-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--c-other)); }
+.con-panel-body { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 12px; align-content: start; padding: 14px 16px; }
+.con-text { margin: 0; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.con-pinned { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 18px; color: var(--muted); vertical-align: 2px; }
+.con-pinned svg { width: 11px; height: 11px; }
+.con-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+.con-facts dt { color: var(--faint); }
+.con-facts dd { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.con-panel .linkish { font-size: inherit; text-align: left; }
+.con-panel h4 { margin: 4px 0 -4px; font-size: 12px; font-weight: 600; color: var(--faint); }
+.con-quiet { margin: 0; font-size: 13px; color: var(--faint); }
+.con-history { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.con-history li { display: grid; gap: 1px; justify-items: start; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--muted); }
+.con-history li:last-child { border-bottom: 0; }
+.con-history time, .con-history small { font-size: 12px; color: var(--faint); }
+.con-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.con-list button { display: grid; gap: 2px; width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.4; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.con-list button:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.con-list small { font-size: 11px; color: var(--faint); }
+.con-list small:empty { display: none; }
+.con-merge { display: grid; gap: 8px; justify-items: start; margin: 0; padding: 10px 12px; border: 2px solid var(--accent); border-radius: 10px; font-size: 13px; }
+.con-merge p { margin: 0; }
+.con-merge .con-list { width: 100%; max-height: 260px; overflow-y: auto; }
+.con-draft { box-sizing: border-box; width: 100%; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); overflow-wrap: anywhere; }
+.con-error { margin: 0; font-size: 13px; color: var(--bad); }
+.con-panel > footer { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
+.con-panel > footer .btn.danger { margin-left: auto; }
+.con-panel > footer .btn[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px 13px; }
+@media (max-width: 760px) {
+  .con-panel { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-width: none; height: 56%; }
+  .con-hint { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .constellation { animation: fade-in 240ms ease-out; }
+  .presence.leaving .constellation { animation: fade-out var(--leave) ease-in forwards; }
+}
+
 /* ---------- Orbit: the crew at work, full screen (ui/src/orbit) ----------
    The camp at rest (.mae-system, above) grown to fill the screen and wired to what the crew is
    doing. Everything in the sky that moves is moved by Orbit.tsx, a frame at a time off one clock:
