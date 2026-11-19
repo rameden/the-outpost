@@ -3,9 +3,10 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, realpathSync, statSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, realpathSync, statSync, lstatSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { ask } from "./ask.js";
 import { currentQuestId, currentSignal, isUnattended } from "./context.js";
@@ -331,6 +332,19 @@ export function shellDir(cwd: unknown, self?: string): string {
   return abs;
 }
 
+// "cd <folder> && …": the folder a command goes to first is the one it works in. The crew often
+// writes that instead of giving cwd, and the sandbox would then let it write only where it started
+// (so tests and type checks in a linked project failed there and came back asking to run outside
+// it). Counts only for a folder cwd could have named: inside the camp or a folder linked to this
+// conversation, by the same rules. Anything else, and the sandbox is planned for `dir` as before.
+export function shellStartDir(command: string, dir: string, self?: string): string {
+  const m = command.match(/^\s*cd\s+(?:"([^"$`\\]+)"|'([^']+)'|([^\s;&|"'$`\\*?()<>]+))\s*(?:&&|;|\n)/);
+  if (!m) return dir;
+  const to = (m[1] ?? m[2] ?? m[3]).replace(/^~(?=\/|$)/, homedir());
+  // From the camp folder a relative path is a camp path (links/<name> is a linked folder).
+  try { return shellDir(isAbsolute(to) || dir !== CAMP_ROOT ? resolve(dir, to) : to, self); } catch { return dir; }
+}
+
 // What a sandboxed command may write: the project it runs in (the git repository around `dir`,
 // else `dir`), minus the parts the file tools protect too.
 //
@@ -339,7 +353,10 @@ export function shellDir(cwd: unknown, self?: string): string {
 // project". So git's answer counts only when it stays inside a folder the camp was given (the camp
 // itself, a linked folder, this expedition's worktree of one) and `dir` is inside it. Otherwise
 // `dir` is the project, and a `dir` outside every such folder gets no writable folder at all.
-export function sandboxPlanFor(dir: string): SandboxPlan {
+//
+// self: the agent whose command it is. Its own outputs folder stays writable though the rest of
+// camp/ is read-only, as it is for its file tools.
+export function sandboxPlanFor(dir: string, self?: string): SandboxPlan {
   const gitAt = (args: string[]) => {
     try { return execFileSync("git", args, { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], env: gitSafeEnv() }).trim(); } catch { return ""; }
   };
@@ -362,24 +379,43 @@ export function sandboxPlanFor(dir: string): SandboxPlan {
     readOnly.push(resolve(camp, "camp"), resolve(camp, "skills"), resolve(camp, "plugins"));
     if (!selfEditAllowed()) readOnly.push(...HARNESS_DIRS.map((d) => resolve(HARNESS_ROOT, d)), ...HARNESS_FILES.map((f) => resolve(HARNESS_ROOT, f)));
   }
-  return { writable, readOnly: readOnly.filter((p) => existsSync(dirname(p))), unreadable: sandboxUnreadable() };
+  // (A real folder only: a link put there would name somewhere else.)
+  const outputs = self ? resolve(camp, "camp", "agents", self, "outputs") : "";
+  let ownOutputs = false;
+  try { ownOutputs = !!outputs && lstatSync(outputs).isDirectory(); } catch { /* not made yet */ }
+  const writableAgain = ownOutputs ? [outputs] : [];
+  return { writable, readOnly: readOnly.filter((p) => existsSync(dirname(p))), ...(writableAgain.length ? { writableAgain } : {}), unreadable: sandboxUnreadable(self) };
 }
 
 // For the simple read-only commands that run without asking (ls, git status…): nothing is
 // writable but temp folders, and the same private files can't be read. So if a repository's
 // config makes "git diff" run a program, that program runs in here and can't change anything.
-export function readOnlyPlanFor(dir: string): SandboxPlan {
-  return { writable: [], unreadable: sandboxUnreadable(), envRoots: [realOf(dir)] };
+export function readOnlyPlanFor(dir: string, self?: string): SandboxPlan {
+  return { writable: [], unreadable: sandboxUnreadable(self), envRoots: [realOf(dir)] };
 }
 
 // The camp files no sandboxed command reads: the same ones the file tools refuse (PRIVATE_CAMP_FILES
-// and PRIVATE_CAMP_DIRS above), and every agent's workspace.
-function sandboxUnreadable(): string[] {
+// and PRIVATE_CAMP_DIRS above), and the agents' workspaces. A command an agent runs (`self`) reads
+// what that agent's file tools read there: all of its own workspace, and the others' outputs.
+// Their memory, sessions and anything else of theirs stay hidden. With no agent, all of it is.
+function sandboxUnreadable(self?: string): string[] {
   const camp = realCamp();
   // (Their set-aside and half-written forms too: the ones there now. A sandbox names paths, not patterns.)
   let others: string[] = [];
   try { others = readdirSync(resolve(camp, "camp")).filter((name) => !PRIVATE_CAMP_FILES.has(name) && privateName(name)); } catch { /* no camp folder yet */ }
-  return [...PRIVATE_CAMP_FILES, ...PRIVATE_CAMP_DIRS, "agents", ...others].map((name) => resolve(camp, "camp", name));
+  const hidden = [...PRIVATE_CAMP_FILES, ...PRIVATE_CAMP_DIRS, ...others].map((name) => resolve(camp, "camp", name));
+  const agents = resolve(camp, "camp", "agents");
+  const list = (dir: string) => { try { return readdirSync(dir); } catch { return []; } };
+  if (!self || !list(agents).includes(self)) return [...hidden, agents];
+  for (const owner of list(agents)) {
+    if (owner === self) continue;
+    const theirs = resolve(agents, owner);
+    let isDir = false;
+    try { isDir = lstatSync(theirs).isDirectory(); } catch { /* gone */ }
+    if (!isDir) hidden.push(theirs);
+    else hidden.push(...list(theirs).filter((area) => area !== "outputs").map((area) => resolve(theirs, area)));
+  }
+  return hidden;
 }
 // Whether a repository's .git folder has `top` on its list of worktrees (.git/worktrees/<name>/gitdir).
 function listsWorktree(common: string, top: string): boolean {
@@ -390,14 +426,18 @@ function listsWorktree(common: string, top: string): boolean {
   } catch { return false; }
 }
 
-export const sandboxOn = () => approvalNow() === "sandbox" && sandboxAvailable();
+// God mode is for when you're here. A scheduled job has nobody watching and can be working from
+// what it read somewhere (a ticket, a page), so there it gets the sandbox instead.
+export const sandboxOn = () => { const level = approvalNow(); return (level === "sandbox" || (level === "god" && campMode.unattended)) && sandboxAvailable(); };
+const godOn = () => approvalNow() === "god" && !campMode.unattended;
 const READ_ONLY_HINT = "\n\n[Ran in a read-only sandbox, as simple read-only commands do: no network (beyond any hosts the user allowed) and nothing writable. " +
   "If that is why it failed, call bash again with unsandboxed: true and the user will be asked.]";
 // How a command says the sandbox stopped it (a write, a private file, the network). A read-only
 // command that just exits non-zero (git diff --quiet, which nothing) doesn't get the hint.
 const SANDBOX_STOPPED = /Operation not permitted|Read-only file system|Permission denied|EPERM|EACCES|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ETIMEDOUT|Could not resolve|network/i;
 const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network (beyond any hosts the user allowed), and writes only inside this project. If that is why it failed " +
-  "(an install, a download, a push), call bash again with unsandboxed: true and the user will be asked.]";
+  "(an install, a download, a push), call bash again with unsandboxed: true and the user will be asked. Only that command: " +
+  "a test or check that simply fails doesn't need it, and your next commands go through the sandbox as usual.]";
 
 // Commands don't see the camp's secrets: API keys, tokens and passwords in its environment are
 // left out (childEnv in sandbox.ts). The owner can let a name through on purpose with
@@ -410,8 +450,8 @@ export function bashFor(self: string, name = "Artificer"): Tool {
         "Run a shell command and get its output. It runs in the camp folder unless you give cwd: use cwd \"links/<name>\" " +
         "(or a folder inside it) to run in a linked project, e.g. its tests or git commands. Simple read-only commands " +
         "(ls, git status, git diff, git log…) run right away. Other commands either run in a sandbox without asking " +
-        "(no network; writes only inside that project) when the user has turned the sandbox on, or wait for the user's " +
-        "approval. Commands stop after 2 minutes." + shellNote(),
+        "(no network; writes only inside that project and your own outputs folder) when the user has turned the sandbox on, " +
+        "or wait for the user's approval. Commands stop after 2 minutes." + shellNote(),
       input_schema: {
         type: "object",
         properties: {
@@ -442,12 +482,14 @@ export function bashFor(self: string, name = "Artificer"): Tool {
       // not to take its optional locks, since it can't write the index here. With unsandboxed: true
       // the command is treated like any other and waits for the user.
       if (auto === "builtin" && !unsandboxed) {
-        const out = await runShell(String(command), { signal, cwd: dir, sandbox: readOnlyPlanFor(dir), env: { GIT_OPTIONAL_LOCKS: "0" } });
+        const out = await runShell(String(command), { signal, cwd: dir, sandbox: readOnlyPlanFor(dir, self), env: { GIT_OPTIONAL_LOCKS: "0" } });
         return /^(Exit code|Couldn't run)/.test(out) && SANDBOX_STOPPED.test(out) ? out + READ_ONLY_HINT : out;
       }
+      // God mode: everything else runs as it is, without asking. (Your "always ask" rules still ask.)
+      if (godOn() && !rule) return runShell(String(command), { signal, cwd: dir });
       if (sandboxOn() && !unsandboxed && !rule) {
         const from = Date.now();
-        const out = await runShell(String(command), { signal, cwd: dir, sandbox: sandboxPlanFor(dir) });
+        const out = await runShell(String(command), { signal, cwd: dir, sandbox: sandboxPlanFor(shellStartDir(String(command), dir, self), self) });
         if (!/^(Exit code|Couldn't run)/.test(out)) return out;
         const hosts = refusedSince(from);
         return out + (hosts.length ? `\n\n[Ran in the sandbox, where only the user's allowed hosts can be reached. It tried: ${hosts.join(", ")}.]` : "") + SANDBOX_HINT;

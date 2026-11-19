@@ -297,6 +297,21 @@ test("the sandbox profile: git's config and hooks can't be written in any reposi
   assert.ok(has("--ro-bind", "/dev/null", join(site, ".env")));
 });
 
+test("the sandbox profile: an agent's own outputs are writable inside the read-only camp, and git's config and hooks there still aren't", () => {
+  const plan = { writable: ["/work/camp"], readOnly: ["/work/camp/camp"], writableAgain: ["/work/camp/camp/agents/scout/outputs"] };
+  const profile = sandboxProfile(plan).split("\n");
+  const again = profile.findIndex((l) => l.startsWith("(allow file-write*") && l.includes("/agents/scout/outputs"));
+  assert.ok(again > profile.findIndex((l) => l.startsWith("(deny file-write*") && l.includes("/work/camp/camp")), "after the read-only rule, so it wins");
+  assert.ok(profile.findIndex((l) => l.startsWith("(deny file-write* (require-all (regex")) > again, "and git's config and hooks are refused after that");
+  assert.doesNotMatch(sandboxProfile({ writable: ["/work/camp"], readOnly: ["/work/camp/camp"] }), /agents\/scout\/outputs/);
+  // Linux: the outputs folder is bound writable after the read-only camp folder.
+  const outputs = join(camp, "camp", "agents", "scout", "outputs");
+  mkdirSync(outputs, { recursive: true });
+  const args = bwrapArgs({ writable: [camp], readOnly: [join(camp, "camp")], writableAgain: [outputs] }, "true");
+  const at = (...seq: string[]) => args.findIndex((_, i) => seq.every((s, j) => args[i + j] === s));
+  assert.ok(at("--bind", outputs, outputs) > at("--ro-bind", join(camp, "camp"), join(camp, "camp")));
+});
+
 test("live: a sandboxed command can't plant git config or hooks in the project, in any repository", { skip: !live }, async () => {
   const proj = newRepo(join(probe, "plant"));
   addLink(proj, "write");

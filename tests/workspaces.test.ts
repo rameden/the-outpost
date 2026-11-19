@@ -26,12 +26,12 @@ const { addLink, linksBlock, projectInstructions, setLinkVerify, setLinkSetup, f
 const { setUpWorkspaces } = await import("../src/setup.ts");
 const { changedFiles, checkpointDiff, sealSnapshots, undoCheckpoint } = await import("../src/checkpoints.ts");
 const { withExpedition, withQuest, newSteering, steer } = await import("../src/context.ts");
-const { bashFor, readFileFor, writeFileFor, sandboxPlanFor, runShell, shellDir, wrapUpNote, rl } = await import("../src/tools.ts");
+const { bashFor, readFileFor, writeFileFor, sandboxPlanFor, runShell, shellDir, shellStartDir, wrapUpNote, rl } = await import("../src/tools.ts");
 const { editFileFor } = await import("../src/codetools.ts");
 const repos = await import("../src/repos.ts");
 const { runChecks } = await import("../src/verify.ts");
 const { sandboxAvailable } = await import("../src/sandbox.ts");
-const { setShellSandbox } = await import("../src/settings.ts");
+const { setShellSandbox, setShellLists, approvalLevel, setApprovalLevel } = await import("../src/settings.ts");
 const { setAsker } = await import("../src/ask.ts");
 const { recordTurn, threadFor } = await import("../src/threads.ts");
 const { saveToFeed } = await import("../src/feed.ts");
@@ -231,6 +231,77 @@ test("the camp's own rules hold inside the sandbox when it runs in the camp fold
   assert.equal(existsSync("camp/settings.json") ? readFileSync("camp/settings.json", "utf8") : null, settingsBefore);
   refused(await runShell("mkdir -p skills/shared/evil", { sandbox }));
   assert.ok(!existsSync("skills/shared/evil"));
+});
+
+test("in the sandbox an agent's command reads its own workspace and writes its own outputs, as its file tools do; the others' stay private", { skip: !sandboxAvailable() }, async () => {
+  mkdirSync("camp/agents/artificer/outputs", { recursive: true });
+  mkdirSync("camp/agents/scout/outputs", { recursive: true });
+  writeFileSync("camp/agents/artificer/memory.md", "my own notes\n");
+  writeFileSync("camp/agents/scout/memory.md", "private\n");
+  writeFileSync("camp/agents/scout/outputs/report.md", "shared report\n");
+  const sandbox = sandboxPlanFor(process.cwd(), "artificer");
+  assert.equal(await runShell("cat camp/agents/artificer/memory.md", { sandbox }), "my own notes");
+  assert.equal(await runShell("echo draft > camp/agents/artificer/outputs/note.txt && cat camp/agents/artificer/outputs/note.txt", { sandbox }), "draft");
+  assert.equal(await runShell("cat camp/agents/scout/outputs/report.md", { sandbox }), "shared report");
+  kept(await runShell("cat camp/agents/scout/memory.md", { sandbox }), /private/);
+  refused(await runShell("echo x >> camp/agents/artificer/memory.md", { sandbox }));
+  assert.equal(readFileSync("camp/agents/artificer/memory.md", "utf8"), "my own notes\n", "its memory is still written only through its own tool");
+  refused(await runShell("echo x > camp/agents/scout/outputs/report.md", { sandbox }));
+  assert.equal(readFileSync("camp/agents/scout/outputs/report.md", "utf8"), "shared report\n");
+  // Working in a linked project, it can still leave a file in its outputs.
+  const out = join(process.cwd(), "camp/agents/artificer/outputs/from-repo.txt");
+  assert.equal(await runShell(`echo built > ${out} && cat ${out}`, { cwd: repo, sandbox: sandboxPlanFor(repo, "artificer") }), "built");
+});
+
+test("a command that starts with cd into a linked folder gets the sandbox for that folder", { skip: !sandboxAvailable() }, async () => {
+  const here = process.cwd();
+  const real = (p: string) => realpathSync.native(p);
+  assert.equal(real(shellStartDir(`cd ${repo} && npm test`, here, "artificer")), repo);
+  assert.equal(real(shellStartDir(`cd "${L}" && npm test`, here, "artificer")), repo);
+  assert.equal(real(shellStartDir(`cd '${repo}'; npm test`, here, "artificer")), repo);
+  // Anything that isn't plainly a folder the camp was given: planned for where it started.
+  for (const cmd of ["npm test", "cd /etc && ls", "cd ~ && ls", "cd .. && ls", 'cd "$HOME" && ls', "cd $(pwd)/x && ls", `cd ${repo}/* && ls`, `cd ${repo}`]) {
+    assert.equal(shellStartDir(cmd, here, "artificer"), here, cmd);
+  }
+  setShellSandbox(true);
+  asked.length = 0;
+  try {
+    assert.equal(await bashFor("artificer").run!({ command: `cd ${repo} && echo ok > started.txt && cat started.txt` }), "ok");
+    assert.equal(asked.length, 0, "it didn't have to ask to run outside the sandbox");
+  } finally { setShellSandbox(false); }
+});
+
+test("god mode: commands run as they are without asking; your rules still hold, and a scheduled job gets the sandbox", async () => {
+  setApprovalLevel("god");
+  asked.length = 0;
+  try {
+    assert.equal(approvalLevel(), "god");
+    const bash = bashFor("artificer").run!;
+    assert.equal(await bash({ command: "echo hi | tr a-z A-Z", cwd: L }), "HI");
+    const failed = String(await bash({ command: "false", cwd: L }));
+    assert.match(failed, /^Exit code/);
+    assert.doesNotMatch(failed, /sandbox/, "it wasn't in the sandbox");
+    assert.equal(asked.length, 0, "nothing asked");
+    setShellLists({ deny: ["git push*"], ask: ["npm install*"] });
+    assert.match(String(await bash({ command: "cd . && git push origin main", cwd: L })), /Not run: the user's rules/);
+    assert.equal(asked.length, 0);
+    assert.match(String(await bash({ command: "npm install left-pad", cwd: L })), /declined/);
+    assert.equal(asked.length, 1, "an always-ask rule still asks");
+    assert.match(asked[0], /always ask/);
+    // Nobody is there to watch a scheduled job: the sandbox where there is one, else it isn't run.
+    const job = String(await withExpedition({ id: "exp-god-job", unattended: true } as any, () => bash({ command: "false", cwd: L })));
+    assert.match(job, sandboxAvailable() ? /Ran in the sandbox/ : /scheduled job with nobody here/);
+    assert.equal(asked.length, 1);
+  } finally {
+    setShellLists({ deny: [], ask: [] });
+    setApprovalLevel("safe");
+  }
+  assert.equal(approvalLevel(), "safe");
+  setApprovalLevel("god");
+  setShellSandbox(true);
+  assert.equal(approvalLevel(), "sandbox", "choosing the sandbox leaves god mode");
+  setShellSandbox(false);
+  assert.equal(approvalLevel(), "safe");
 });
 
 test("near the turn limit the agent is told to land the work", () => {

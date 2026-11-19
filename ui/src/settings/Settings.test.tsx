@@ -81,6 +81,15 @@ test("the sandbox level is off where the sandbox isn't available", () => {
   expect((screen.getByRole("radio", { name: /Sandbox the rest/ }) as HTMLInputElement).disabled).toBe(true);
 });
 
+test("god mode is a level of its own, there with or without a sandbox", async () => {
+  const S = { ...camp(), sandbox: { on: false, available: false } } as CampState;
+  show("approvals", S);
+  const god = screen.getByRole("radio", { name: /God mode/ }) as HTMLInputElement;
+  expect(god.disabled).toBe(false);
+  await act(async () => { fireEvent.click(god); });
+  expect(posts).toEqual([{ path: "/api/approvals", body: { level: "god" } }]);
+});
+
 test("limits: budget, expeditions at once, and quests at once", async () => {
   const { container } = render(<Settings S={camp()} section="limits" setSection={() => {}} refresh={() => {}} onAttachLink={() => {}} onClose={() => {}} />);
   fireEvent.change(screen.getByLabelText("Budget per expedition"), { target: { value: "2.5" } });

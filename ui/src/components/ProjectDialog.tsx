@@ -193,6 +193,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
               <option value="ask">Ask about every command</option>
               <option value="safe">Run simple read-only commands; ask about the rest</option>
               {S?.sandbox?.available && <option value="sandbox">Run the rest in the sandbox without asking</option>}
+              <option value="god">God mode: run everything without asking, unsandboxed</option>
             </select>
           </label>
           <label className="field">Review changes before reporting
