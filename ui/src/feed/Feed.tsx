@@ -111,8 +111,8 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
 // The plan you approved, as a list that fills in while the run goes: each step says whether it's
 // not started, out (and with whom), done, or didn't make it. A step with a quest goes to that
 // quest's block when clicked. Steps nobody was sent on are the Quartermaster's own.
-const STEP_SAYS: Record<StepState, string> = { todo: "Not started", out: "Out", done: "Done", failed: "Didn't finish", stopped: "Cut short" };
-const STEP_MARK: Record<StepState, string> = { todo: "○", out: "●", done: "✓", failed: "!", stopped: "–" };
+export const STEP_SAYS: Record<StepState, string> = { todo: "Not started", out: "Out", done: "Done", failed: "Didn't finish", stopped: "Cut short" };
+export const STEP_MARK: Record<StepState, string> = { todo: "○", out: "●", done: "✓", failed: "!", stopped: "–" };
 function PlanList({ plan }: { plan: PlanNode }) {
   const states = plan.steps.map((s) => stepState(s, plan.ended));
   const count = (st: StepState) => states.filter((x) => x === st).length;

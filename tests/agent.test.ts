@@ -258,6 +258,16 @@ test("an approved plan goes out as its numbered steps, and each dispatch says wh
   assert.deepEqual(planSteps("Here's the plan:\n1. Artificer, backend: add thread links\n   Done = specs and build.\n2) Artificer, Studio UI\n\n3. I read the diffs\n\nAssumptions you can correct now:\n- Expiry is 30 days\n3. a repeat is ignored"), [
     { n: 1, text: "Artificer, backend: add thread links Done = specs and build." }, { n: 2, text: "Artificer, Studio UI" }, { n: 3, text: "I read the diffs" }]);
   assert.deepEqual(planSteps("Just ask the Scout and report back."), []);
+  // A step says what it waits for with "(after …)", at the start of its line or the end of it. The marker comes off the text.
+  assert.deepEqual(planSteps("1. Scout reads the code\n2. Artificer builds it\n3. (after 1, 2) Scribe writes the summary\n4. (After step 3): Warden reviews\n5. I wrap up (after steps 3 and 4)."), [
+    { n: 1, text: "Scout reads the code" }, { n: 2, text: "Artificer builds it" }, { n: 3, text: "Scribe writes the summary", after: [1, 2] },
+    { n: 4, text: "Warden reviews", after: [3] }, { n: 5, text: "I wrap up", after: [3, 4] }]);
+  // Only steps listed above it count: not itself, not a later step, not one that isn't there. One named twice counts once.
+  assert.deepEqual(planSteps("1. (after 1) First\n2. (after 3, 9) Second\n3. (after 2, 1, 2) Third\n   and its second line"), [
+    { n: 1, text: "First" }, { n: 2, text: "Second" }, { n: 3, text: "Third and its second line", after: [1, 2] }]);
+  // "after" in the middle of a step is just a word, and a line that is nothing but a marker keeps it as its text.
+  assert.deepEqual(planSteps("1. Read it\n2. Tidy up (after 1) the notes\n3. (after 1)"), [
+    { n: 1, text: "Read it" }, { n: 2, text: "Tidy up (after 1) the notes" }, { n: 3, text: "(after 1)" }]);
 
   script = (b) => {
     const who = whoAsks(b), res = lastToolResults(b);

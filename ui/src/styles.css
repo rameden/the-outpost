@@ -2231,6 +2231,87 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .trigger-form textarea { min-height: 64px; resize: vertical; }
 .trigger-form input:focus-visible, .trigger-form select:focus-visible, .trigger-form textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
+/* ---------- The trail map (ui/src/trail): the plan as a trail of steps, over the whole page ---------- */
+/* It wears the page's own colours, so it follows light, dark and the palettes. The --o-* names are
+   for the replay's timeline, which is Orbit's own (orbit/Timeline.tsx) and is drawn in them. */
+.trail {
+  --o-panel: var(--surface); --o-line-2: var(--border-strong); --o-warn: var(--accent); --o-dim: var(--faint); --o-ink: var(--text);
+  position: fixed; inset: 0; z-index: 44; display: flex; flex-direction: column; outline: none; background: var(--bg); color: var(--text);
+}
+.trail i { font-style: normal; }
+.trail-top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.trail.replaying .trail-top { border-bottom: 2px solid var(--accent); padding-bottom: 9px; }
+.trail-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 12px; }
+.trail-title h2 { margin: 0; font: 600 19px var(--serif); white-space: nowrap; }
+.trail-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--muted); }
+.trail-title .trail-note { color: var(--accent-deep); font-weight: 600; }
+.trail-tools { display: flex; align-items: center; gap: 8px; }
+.trail-pick { max-width: 320px; padding: 5px 8px; border: 1px solid var(--field); border-radius: 8px; background: var(--bg); color: var(--text); font: 13px var(--sans); text-overflow: ellipsis; }
+.trail-btn { padding: 5px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: 600 12px var(--sans); }
+.trail-btn:hover { background: var(--surface-2); }
+.trail-btn[aria-pressed="true"] { padding: 4px 11px; border: 2px solid var(--accent); color: var(--accent-deep); }
+.trail-ask { display: flex; align-items: baseline; gap: 14px; padding: 14px 28px 0; }
+.trail-ask b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 16px var(--serif); }
+.trail-count { font-size: 13px; color: var(--muted); white-space: nowrap; }
+/* The map scrolls both ways when the trail is bigger than the screen, and sits in the middle when it isn't. */
+.trail-map { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.trail-ground { position: relative; flex: none; margin: auto; }
+.trail-lines { position: absolute; inset: 0; pointer-events: none; }
+.trail-edge path { fill: none; stroke: var(--border-strong); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.trail-edge.walked path { stroke: var(--good); }
+.trail-edge.live path { stroke: var(--accent); }
+.trail-steps { list-style: none; margin: 0; padding: 0; }
+/* A waypoint. How it stands is its whole border (and its pill, in words): dashed until someone sets out on it. */
+.trail-step { position: absolute; box-sizing: border-box; width: var(--step-w); height: var(--step-h); display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; overflow: hidden;
+  border: 2px dashed var(--border-strong); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
+.trail-step.out { border: 2px solid var(--accent); }
+.trail-step.done { border: 2px solid var(--good); }
+.trail-step:is(.failed, .stopped) { border: 2px solid var(--bad); }
+.trail-step:focus-visible { border-radius: 10px; }
+/* Under the pointer or the keyboard, a waypoint grows to show all of its text and everyone on it. */
+.trail-step:is(:hover, :focus, :has(:focus-visible)) { height: auto; min-height: var(--step-h); z-index: 2; box-shadow: var(--shadow-lg); }
+.trail-step:is(:hover, :focus, :has(:focus-visible)) .trail-text { display: block; }
+.trail-step:is(:hover, :focus, :has(:focus-visible)) .trail-crew { max-height: none; }
+.trail-step-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.trail-n { min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 11px; background: var(--surface-2); color: var(--text); font: 700 12px var(--mono); }
+.trail-step.out .trail-n { background: var(--accent-soft); color: var(--accent-deep); }
+.trail-step.done .trail-n { background: var(--good-soft); color: var(--good); }
+.trail-step:is(.failed, .stopped) .trail-n { background: var(--bad-soft); color: var(--bad); }
+.trail-text { margin: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.trail-crew { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-height: 24px; overflow: hidden; margin-top: auto; }
+.trail-nobody { font-size: 12px; color: var(--faint); }
+/* One of the crew, in their own colour. A chip that goes somewhere is a button. */
+.trail-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; box-sizing: border-box; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--c, var(--c-other)) 45%, var(--surface)); border-radius: 12px;
+  background: color-mix(in srgb, var(--c, var(--c-other)) 9%, var(--surface)); color: var(--c, var(--c-other)); font: 12px var(--sans); white-space: nowrap; }
+.trail-chip b { font-weight: 600; }
+.trail-chip i { font-size: 11px; color: var(--muted); }
+.trail-chip.q-done i { color: var(--good); } .trail-chip:is(.q-failed, .q-stopped) i { color: var(--bad); } .trail-chip.q-out i { color: var(--accent); }
+button.trail-chip:hover { border-color: var(--c, var(--c-other)); background: color-mix(in srgb, var(--c, var(--c-other)) 16%, var(--surface)); }
+.trail-chip:focus-visible { border-radius: 12px; }
+.trail-loose { position: sticky; left: 0; bottom: 0; flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 28px; border-top: 1px solid var(--border); background: var(--bg); font-size: 12px; color: var(--muted); }
+.trail-loose > span:first-child { margin-right: 4px; }
+.trail-empty { flex: 1; display: grid; place-content: center; justify-items: center; gap: 6px; padding: 24px; text-align: center; color: var(--muted); }
+.trail-empty .icon { width: 36px; height: 36px; color: var(--faint); }
+.trail-empty b { font: 600 17px var(--serif); color: var(--text); }
+.trail-empty p { max-width: 46ch; margin: 0; font-size: 13px; }
+/* The replay's timeline, along the bottom (Orbit lays it over its sky; here it takes its own row). */
+.trail .orb-reel { position: static; flex: none; margin: 0 16px 16px; font: 12px/1.45 var(--mono); }
+.trail .orb-reel :focus-visible { border-radius: 0; }
+@media (max-width: 640px) {
+  .trail-title span:not(.trail-note), .trail .orb-reel-speed { display: none; }
+  .trail-pick { max-width: 132px; }
+  .trail-ask { flex-wrap: wrap; gap: 2px 14px; padding: 10px 16px 0; }
+  .trail-ask b { flex-basis: 100%; }
+  .trail-loose { padding: 8px 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .trail { animation: fade-in 220ms ease-out; }
+  .presence.leaving .trail { animation: fade-out var(--leave) ease-in forwards; }
+  /* The line into the step that's out now moves along, the way the crew is going. */
+  .trail-edge.live path:not(.tip) { stroke-dasharray: 7 6; animation: trail-walk 900ms linear infinite; }
+}
+@keyframes trail-walk { to { stroke-dashoffset: -13; } }
+
 /* ---------- Orbit: the crew at work, full screen (ui/src/orbit) ----------
    The camp at rest (.mae-system, above) grown to fill the screen and wired to what the crew is
    doing. Everything in the sky that moves is moved by Orbit.tsx, a frame at a time off one clock:
