@@ -1,10 +1,11 @@
 // The camp's records: each crew member's memory, scheduled jobs, the wiki, proposed skills,
 // connectors and linked folders, and the inbox.
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { JiraConnection } from "../components/Jira.tsx";
 import { api, errorText } from "../api.ts";
 import { Empty, Icon } from "../components/bits.tsx";
+import { ReadAloud, VoiceOn } from "../components/ReadAloud.tsx";
 import { cClass, cx, stripFrontmatter, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Link } from "../types.ts";
@@ -55,7 +56,7 @@ export function Jobs({ S, refresh }: Panel) {
               <div className="card-top"><span className="who">⏰ {j.name}</span><time>{j.schedule}</time></div>
               <div className="meta">{j.lastRun ? `Last ran ${when(j.lastRun)}` : "Hasn't run yet"}</div>
               <div className="clamp open">{j.task}</div>
-              {j.lastReport && <details><summary>Last report</summary><Markdown text={j.lastReport} style={{ marginTop: 6, fontSize: 13.5 }} /></details>}
+              {j.lastReport && <details><summary>Last report</summary><Markdown text={j.lastReport} style={{ marginTop: 6, fontSize: 13.5 }} /><div className="card-actions"><ReadAloud text={j.lastReport} markdown what={`Job report · ${j.name}`} /></div></details>}
               <div className="card-actions">
                 <label className="switch"><input type="checkbox" checked={j.enabled} onChange={(ev) => act(j.name, ev.target.checked ? "enable" : "disable")} /> {j.enabled ? "On" : "Off"}</label>
                 <button className="btn small" type="button" onClick={() => act(j.name, "run")}>Run now</button>
@@ -274,6 +275,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
 // ---------- Inbox ----------
 // Unread entries count on the badge in Settings' menu. Marking one as read keeps it here, quieter.
 export function Inbox({ S, refresh }: Panel) {
+  const voice = useContext(VoiceOn);
   if (!S.inbox.length) return <Empty title="Inbox is empty">Reports from scheduled jobs land here, newest first. Runs that find nothing new stay quiet.</Empty>;
   const unread = S.inbox.filter((m) => !m.seen).length;
   const markRead = (which: { heading: string } | { all: true }) => api("/api/inbox/seen", which).then(refresh, (e) => alert(errorText(e)));
@@ -291,7 +293,12 @@ export function Inbox({ S, refresh }: Panel) {
               <time>{m.heading.split(" · ")[0]}</time>
             </div>
             <Markdown text={m.body} style={{ marginTop: 6, fontSize: 13.5 }} />
-            {!m.seen && <div className="card-actions"><button className="btn small" type="button" onClick={() => markRead({ heading: m.heading })}>Mark as read</button></div>}
+            {(!m.seen || voice) && (
+              <div className="card-actions">
+                {!m.seen && <button className="btn small" type="button" onClick={() => markRead({ heading: m.heading })}>Mark as read</button>}
+                <ReadAloud text={m.body} markdown what={`Inbox · ${m.heading.split(" · ").pop()}`} />
+              </div>
+            )}
           </li>
         ))}
       </ul>

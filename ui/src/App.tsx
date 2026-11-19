@@ -19,6 +19,7 @@ import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Pa
 import { Presence } from "./motion.tsx";
 import { hear, COMMANDS } from "./bus.ts";
 import { Palette, type PaletteItem } from "./components/Palette.tsx";
+import { VoiceOn } from "./components/ReadAloud.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
 import { JiraTicket, type TicketStart } from "./components/JiraPage.tsx";
 import { DraftTicketsDialog, MaeTicketDialog, TicketsPage } from "./components/TicketsPage.tsx";
@@ -488,7 +489,7 @@ export function App({ store }: { store: FeedStore }) {
   const onSent = useCallback((r: SendResult) => { if (!inAll) setView({ kind: "conversation", id: r.thread }); }, [inAll, setView]);
 
   return (
-    <>
+    <VoiceOn.Provider value={!!S?.voice?.connected}>
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
@@ -678,7 +679,7 @@ export function App({ store }: { store: FeedStore }) {
           <ModelPicker c={picking} runtime={S.runtime} at={picker} onClose={closePicker} onSaved={() => { closePicker(); refresh(); }} />
         </OverlayBoundary>
       )}
-      {/* Text selected in the thread: a small button beside it, to keep it in a note. */}
+      {/* Text selected in the thread: a small bar beside it, to keep it in a note or have it read aloud. */}
       {!page && <PickToNote active={hasNotes && notesOpen} onAdd={onPickToNote} />}
       {/* "Are you sure?", asked from anywhere on the page (ask() in Confirm.tsx). */}
       <ConfirmHost />
@@ -687,6 +688,6 @@ export function App({ store }: { store: FeedStore }) {
           <Suspense fallback={null}><Barnstorm paused={barnstorm === "paused"} onPause={pauseBarnstorm} onResume={resumeBarnstorm} onClose={endBarnstorm} /></Suspense>
         </OverlayBoundary>
       )}
-    </>
+    </VoiceOn.Provider>
   );
 }

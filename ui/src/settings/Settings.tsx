@@ -11,6 +11,7 @@ import { Quests } from "../panels/Quests.tsx";
 import { Connectors, Inbox, Jobs, Skills } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
+import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
 import { PALETTES, modeNow, paletteNow, setMode, setPalette, type Mode, type PaletteId } from "../themes.ts";
@@ -28,7 +29,7 @@ import type { SettingsSection } from "./sections.ts";
 export { isSettingsSection, type SettingsSection } from "./sections.ts";
 const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] = [
   { title: "Camp", items: [
-    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["models", "Models", "spark"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
+    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["models", "Models", "spark"], ["voice", "Voice", "speaker"],["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
   ] },
   { title: "Activity", items: [["unasked", "What Mae does unasked", "spark"], ["stats", "Stats", "gauge"], ["usage", "Usage & quests", "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
   { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
@@ -576,6 +577,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "limits" ? <Limits S={S} refresh={refresh} />
             : section === "terminal" ? <TerminalActions S={S} refresh={refresh} />
             : section === "models" ? <ModelsPage S={S} refresh={refresh} />
+            : section === "voice" ? <VoicePage S={S} refresh={refresh} />
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
             : section === "stats" ? <StatsPage S={S} />
             : section === "unasked" ? <UnaskedPage S={S} refresh={refresh} onOpenSection={setSection} />

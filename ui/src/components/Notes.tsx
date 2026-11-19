@@ -20,13 +20,15 @@
 // pieces of work for you to choose from, and a ticket written up here can be added to them as it is.
 // A note that's been filed says so, and opens its tickets.
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { cx, plural, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import { editNote, isWriting, keepIdea, loadNotes, newNote, openNote, removeNote, suggestIdeas, ticketBrief, ticketText, titleOf, useNotes, writeTicket } from "../notes.ts";
 import type { Note } from "../types.ts";
 import { createTicket, filedFrom, showTicket as openTicket, turnIntoTickets, useTickets } from "../tickets.ts";
 import { Drawer, Icon } from "./bits.tsx";
+import { VoiceOn } from "./ReadAloud.tsx";
+import { readAloud, spokenLines } from "../readaloud.ts";
 import { ask } from "./Confirm.tsx";
 
 // The slim tab down the edge that brings the panel back.
@@ -253,12 +255,13 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
   );
 }
 
-// Text selected in the thread gets a small button beside it: add it to the note you have open,
-// or start a new note with it. within: the id of the element whose text can be picked.
+// Text selected in the thread gets a small bar beside it: add it to the note you have open,
+// start a new note with it, or (with a voice connected) have it read aloud. within: the id of the element whose text can be picked.
 // target: the note open in the panel right now (nothing, when the panel is closed or on its list).
 export function PickToNote({ within = "feed", active, onAdd }: { within?: string; active: boolean; onAdd: (text: string, fresh: boolean) => void }) {
   const { notes, open } = useNotes();
   const target = active ? notes.find((n) => n.id === open) : undefined;
+  const voice = useContext(VoiceOn);
   const [at, setAt] = useState<{ text: string; left: number; top: number } | null>(null);
   useEffect(() => {
     const look = () => {
@@ -287,11 +290,14 @@ export function PickToNote({ within = "feed", active, onAdd }: { within?: string
   }, [within]);
   if (!at) return null;
   const add = (fresh: boolean) => { onAdd(at.text, fresh); document.getSelection()?.removeAllRanges(); setAt(null); };
+  // (The selection stays, so you can see what's being read.)
+  const read = () => { readAloud(spokenLines(at.text), { what: "Selected text" }); setAt(null); };
   return (
     // (mousedown is kept from taking the selection away before the click lands)
-    <div className="note-pick" role="toolbar" aria-label="Add the selected text to a note" style={{ left: at.left, top: at.top }} onMouseDown={(ev) => ev.preventDefault()}>
+    <div className="note-pick" role="toolbar" aria-label="For the selected text" style={{ left: at.left, top: at.top }} onMouseDown={(ev) => ev.preventDefault()}>
       {target && <button type="button" title={`Add the selected text to the end of “${titleOf(target)}”`} onClick={() => add(false)}><Icon name="note" /><span>Add to “{titleOf(target)}”</span></button>}
       <button type="button" title="Start a new note with the selected text" onClick={() => add(true)}>{!target && <Icon name="note" />}<span>{target ? "New note" : "Add to a note"}</span></button>
+      {voice && <button type="button" title="Read the selected text aloud. It goes to ElevenLabs to be spoken." onClick={read}><Icon name="speaker" /><span>Read aloud</span></button>}
     </div>
   );
 }
