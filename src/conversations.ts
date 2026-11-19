@@ -34,7 +34,7 @@ export type ProjectSettings = {
   workIn?: "worktree";                 // start each new conversation in its own worktree and branch of the project's repos
   web?: "careful" | "off";             // careful: keep the project's names and code out of searches. off: no web tools at all
   budgetUsd?: number;                  // per-expedition budget, instead of the camp's
-  approval?: "ask" | "safe" | "sandbox"; // how shell commands are approved here (see settings.ts)
+  approval?: "ask" | "safe" | "sandbox" | "god"; // how shell commands are approved here (see settings.ts)
   review?: "on" | "off";               // have changes reviewed before the Quartermaster reports, here, whatever the camp's setting
   agents?: Record<string, { model?: string; effort?: string }>; // per crew member
 };
@@ -181,7 +181,7 @@ export function cleanSettings(raw: unknown): ProjectSettings | undefined {
   if (r.web === "careful" || r.web === "off") out.web = r.web;
   const budget = Number(r.budgetUsd);
   if (r.budgetUsd !== "" && r.budgetUsd != null && Number.isFinite(budget) && budget > 0) out.budgetUsd = Math.round(budget * 100) / 100;
-  if (r.approval === "ask" || r.approval === "safe" || r.approval === "sandbox") out.approval = r.approval;
+  if (r.approval === "ask" || r.approval === "safe" || r.approval === "sandbox" || r.approval === "god") out.approval = r.approval;
   if (r.review === "on" || r.review === "off") out.review = r.review;
   if (r.agents && typeof r.agents === "object") {
     const agents: NonNullable<ProjectSettings["agents"]> = {};

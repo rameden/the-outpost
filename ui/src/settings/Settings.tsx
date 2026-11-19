@@ -358,7 +358,8 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
         <Choices name="Approval level" value={st.approval} onChange={(level) => tryIt(() => api("/api/approvals", { level }), refresh)} options={[
           { id: "ask", label: "Ask every time", help: "Every command waits for your OK, even ls and git status. Your allow-lists below are ignored." },
           { id: "safe", label: "Allow safe commands (default)", help: "Simple read-only commands (ls, git status, git diff…) and your allow-lists run; everything else asks." },
-          { id: "sandbox", label: "Sandbox the rest", help: "Everything else runs without asking, with no network and writes only inside the project. Installs and pushes still ask.", disabled: noSandbox },
+          { id: "sandbox", label: "Sandbox the rest", help: "Everything else runs without asking, with no network and writes only inside the project and the agent’s own outputs. Installs and pushes still ask.", disabled: noSandbox },
+          { id: "god", label: "God mode", help: "Every command runs without asking, outside the sandbox: installs, pushes, the network, and changes to any file you can change. Nothing stands between the crew and your computer except your “Never run” and “Always ask” rules below. Scheduled jobs still run in the sandbox." },
         ]} />
       </Row>
       <Row label="Hosts the sandbox can reach" help={S.sandbox.kind === "bwrap"

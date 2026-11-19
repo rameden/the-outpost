@@ -22,7 +22,7 @@ import { getProject } from "./conversations.js";
 
 // How shell commands are approved for the run that's asking: its project's own level if it set
 // one, else the camp's. ("ask": everything waits for you. "safe": simple read-only commands
-// run. "sandbox": the rest run in the sandbox without asking.)
+// run. "sandbox": the rest run in the sandbox without asking. "god": the rest run as they are.)
 export function approvalNow(): ApprovalLevel {
   return getProject(currentProjectId())?.settings?.approval ?? approvalLevel();
 }

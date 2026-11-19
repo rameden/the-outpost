@@ -21,7 +21,8 @@ export const TURNS_MAX = 200;
 // a denied one never runs, whatever else would allow it; an "ask" one always waits for you, even
 // in the sandbox. reviewer: the smallest model clears routine commands before you're asked (reviewer.ts).
 // allowHosts: hosts a sandboxed command may reach, through the camp's proxy (netproxy.ts; macOS).
-export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[]; sandbox?: boolean; deny?: string[]; ask?: string[]; reviewer?: boolean; explain?: boolean; allowHosts?: string[] };
+// god: every command runs without asking, outside the sandbox (your deny and ask rules still hold).
+export type ShellSettings = { autoApprove?: boolean; allow?: string[]; exact?: string[]; sandbox?: boolean; god?: boolean; deny?: string[]; ask?: string[]; reviewer?: boolean; explain?: boolean; allowHosts?: string[] };
 // Phone notifications through an ntfy server (see phone.ts). Off unless a topic is set.
 export type PhoneSettings = { server?: string; topic?: string; approve?: string[] };
 type Settings = {
@@ -130,6 +131,7 @@ export function allowShellCommand(command: string) {
 export function setShellSandbox(on: boolean) {
   const s = load();
   s.shell = { ...(s.shell ?? {}), sandbox: on };
+  delete s.shell.god; // the sandbox switch chooses between the sandbox and asking
   save(s);
 }
 
@@ -356,18 +358,24 @@ export function setPhoneSettings(p: PhoneSettings) {
 // The approval level for shell commands, as the settings page shows it:
 //   "ask"     every command waits for you (even ls)
 //   "safe"    simple read-only commands run; the rest ask (the default)
-//   "sandbox" read-only commands run; the rest run in the sandbox without asking (macOS)
-export type ApprovalLevel = "ask" | "safe" | "sandbox";
+//   "sandbox" read-only commands run; the rest run in the sandbox without asking (macOS, Linux)
+//   "god"     every command runs without asking, outside the sandbox: the network, installs,
+//             pushes, writes anywhere you can write. Your "never run" rules still stop a command
+//             and your "always ask" rules still ask. Scheduled jobs, which run with nobody here,
+//             get the sandbox instead (see sandboxOn in tools.ts).
+export type ApprovalLevel = "ask" | "safe" | "sandbox" | "god";
 export function approvalLevel(): ApprovalLevel {
   const sh = shellSettings();
   if (sh.autoApprove === false) return "ask";
+  if (sh.god === true) return "god";
   return sh.sandbox ? "sandbox" : "safe";
 }
 export function setApprovalLevel(level: ApprovalLevel) {
   const s = load();
   const sh: ShellSettings = { ...(s.shell ?? {}) };
+  delete sh.god;
   if (level === "ask") { sh.autoApprove = false; sh.sandbox = false; }
-  else { delete sh.autoApprove; sh.sandbox = level === "sandbox"; }
+  else { delete sh.autoApprove; sh.sandbox = level === "sandbox"; if (level === "god") sh.god = true; }
   s.shell = sh;
   save(s);
 }

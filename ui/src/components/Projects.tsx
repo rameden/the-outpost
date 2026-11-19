@@ -30,7 +30,7 @@ function defaultsOf(p: Project): string[] {
   return [
     s.workIn === "worktree" ? "New worktree per conversation" : "",
     s.web === "careful" ? "Confidential web searches" : s.web === "off" ? "Web off" : "",
-    s.approval ? `Shell: ${s.approval === "ask" ? "ask every time" : s.approval === "sandbox" ? "sandboxed" : "read-only runs"}` : "",
+    s.approval ? `Shell: ${s.approval === "ask" ? "ask every time" : s.approval === "sandbox" ? "sandboxed" : s.approval === "god" ? "god mode" : "read-only runs"}` : "",
     s.budgetUsd ? `Budget ${money(s.budgetUsd)} per expedition` : "",
     s.review ? `Changes reviewed before reporting: ${s.review === "on" ? "always" : "never"}` : "",
     ...Object.entries(s.agents ?? {}).map(([id, a]) => `${id}: ${shortModel(a.model ?? "")}${a.effort ? ` · ${a.effort}` : ""}`),

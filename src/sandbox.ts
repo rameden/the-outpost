@@ -80,6 +80,7 @@ const PRIVATE_HOME = [".ssh", ".aws", ".gnupg", ".kube", ".docker", ".netrc", ".
 export type SandboxPlan = {
   writable: string[];      // folders the command may write in (real paths)
   readOnly?: string[];     // inside those, paths that stay read-only
+  writableAgain?: string[]; // inside the read-only ones, folders that are writable after all (an agent's own outputs)
   unreadable?: string[];   // extra paths the command can't read
   envRoots?: string[];     // Linux: folders whose .env files are covered over (default: the writable ones)
 };
@@ -176,6 +177,7 @@ export function sandboxProfile(plan: SandboxPlan): string {
     "(deny file-write*)",
     `(allow file-write* ${sub([...plan.writable, ...TEMP_DIRS, "/dev"])})`,
     plan.readOnly?.length ? `(deny file-write* ${sub(plan.readOnly)})` : "",
+    plan.writableAgain?.length ? `(allow file-write* ${sub(plan.writableAgain)})` : "",
     // Not git's config or hooks, wherever a repository is (after the allow, so it wins). Temp
     // folders are left alone: test suites make repositories there, and the camp never runs git there.
     `(deny file-write* (require-all (regex #"${GIT_RUNS}") ${TEMP_DIRS.map((t) => `(require-not (subpath ${q(t)}))`).join(" ")}))`,
@@ -193,8 +195,12 @@ export function bwrapArgs(plan: SandboxPlan, command: string): string[] {
   // Git's config, hooks and submodule repositories: the ones named in the plan, and those of any
   // repository found a few levels down in the writable folders. (bubblewrap can only cover what is
   // already there, so a repository made inside the sandbox isn't covered until the next command.)
-  const gitParts = plan.writable.flatMap((root) => gitDirsIn(root)).flatMap((g) => [join(g, "config"), join(g, "hooks"), join(g, "modules")]);
-  for (const r of new Set([...(plan.readOnly ?? []), ...gitParts])) if (existsSync(r)) args.push("--ro-bind", r, r);
+  const gitParts = [...plan.writable, ...(plan.writableAgain ?? [])].flatMap((root) => gitDirsIn(root)).flatMap((g) => [join(g, "config"), join(g, "hooks"), join(g, "modules")]);
+  // In this order, since a later bind covers an earlier one: read-only parts, the folders inside
+  // them that are writable after all, then git's own files wherever they are.
+  for (const r of new Set(plan.readOnly ?? [])) if (existsSync(r)) args.push("--ro-bind", r, r);
+  for (const w of plan.writableAgain ?? []) if (existsSync(w)) args.push("--bind", w, w);
+  for (const r of new Set(gitParts)) if (existsSync(r)) args.push("--ro-bind", r, r);
   const hide = (p: string) => {
     if (!existsSync(p)) return;
     if (statSync(p).isDirectory()) args.push("--tmpfs", p);

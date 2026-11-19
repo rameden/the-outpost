@@ -1417,10 +1417,10 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, on: !!body.on });
     }
 
-    // The approval level for shell commands ({ level: "ask" | "safe" | "sandbox" }); see settings.ts.
+    // The approval level for shell commands ({ level: "ask" | "safe" | "sandbox" | "god" }); see settings.ts.
     if (url.pathname === "/api/approvals") {
       const level = body.level;
-      if (level !== "ask" && level !== "safe" && level !== "sandbox") return send(res, 400, { error: "level must be ask, safe or sandbox" });
+      if (level !== "ask" && level !== "safe" && level !== "sandbox" && level !== "god") return send(res, 400, { error: "level must be ask, safe, sandbox or god" });
       if (level === "sandbox" && !sandboxAvailable()) return send(res, 400, { error: SANDBOX_NEEDS });
       setApprovalLevel(level);
       return send(res, 200, { ok: true, level: approvalLevel() });
