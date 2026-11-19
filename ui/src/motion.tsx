@@ -53,6 +53,38 @@ export function Presence({ children, ms = LEAVE_MS }: { children: ReactNode; ms?
   return <div className={going ? "presence leaving" : "presence"} inert={going || undefined}>{shown ? children : last.current}</div>;
 }
 
+// Presence, for a list: what has just left the list stays in it for a moment, marked as leaving
+// and in the place it had, so it can fade away where it stood. Only while `on` (and nothing is
+// held from before it was on); and as with Presence, nothing waits where motion is off or can't
+// be told. One that comes back before it has gone is simply there again.
+export function useLingering<T>(list: T[], keyOf: (x: T) => string, on = true, ms = LEAVE_MS): { item: T; leaving: boolean }[] {
+  type Held = { key: string; item: T; until?: number }; // until: when one that's leaving goes for good
+  const held = useRef<Held[]>([]); // what was drawn last time, in the order it was drawn
+  const wasOn = useRef(false);
+  const [, redraw] = useState(0);
+  const now = Date.now(), here = new Set(list.map(keyOf));
+  const out: Held[] = list.map((item) => ({ key: keyOf(item), item }));
+  if (on && wasOn.current && motionOK()) {
+    held.current.forEach((h, i) => {
+      if (here.has(h.key)) return;
+      const until = h.until ?? now + ms;
+      if (until <= now) return;
+      // It goes after the nearest thing before it that's still drawn, or first if there's none.
+      const before = held.current.slice(0, i).findLast((p) => out.some((o) => o.key === p.key));
+      out.splice(before ? out.findIndex((o) => o.key === before.key) + 1 : 0, 0, { ...h, until });
+    });
+  }
+  held.current = out;
+  wasOn.current = on;
+  const next = Math.min(...out.flatMap((o) => (o.until === undefined ? [] : [o.until])));
+  useEffect(() => {
+    if (!Number.isFinite(next)) return;
+    const t = setTimeout(() => redraw((n) => n + 1), Math.max(0, next - Date.now()) + 1);
+    return () => clearTimeout(t);
+  }, [next]);
+  return out.map(({ item, until }) => ({ item, leaving: until !== undefined }));
+}
+
 const EASE = "cubic-bezier(.22, 1, .36, 1)";
 
 // Make a change that moves things about, and have each thing that moved glide from where it was

@@ -2479,8 +2479,46 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
   .presence.leaving .trail { animation: fade-out var(--leave) ease-in forwards; }
   /* The line into the step that's out now moves along, the way the crew is going. */
   .trail-edge.live path:not(.tip) { stroke-dasharray: 7 6; animation: trail-walk 900ms linear infinite; }
+
+  /* In a replay the map moves as the day does. A plan that joins grows in; one that goes as the day
+     is wound back fades where it stood (Trail.tsx keeps it drawn for these 260ms, and glides the
+     plans already there to make room). How a step stands changes colour rather than snapping. */
+  .trail.replaying :is(.trail-step, .trail-n, .trail-way, .trail-chip i, .trail-moon i) { transition: background-color 260ms ease-out, border-color 260ms ease-out, color 260ms ease-out; }
+  .trail.replaying :is(.trail-orbit, .trail-edge path, .trail-knot) { transition: stroke 260ms ease-out, fill 260ms ease-out; }
+  /* The tree: a bough grows from the trunk, then its steps come out along it, nearest the trunk first. */
+  .trail.replaying .trail-branch-head { animation: fade-in 320ms ease-out; }
+  .trail.replaying .trail-bough { animation: trail-grow 420ms var(--ease) backwards; }
+  .trail.replaying .trail-knot { animation: fade-in 200ms ease-out; }
+  .trail.replaying .trail-step { animation: trail-leaf-in 320ms var(--ease) backwards; animation-delay: calc(160ms + (var(--col, 1) - 1) * 90ms); }
+  .trail.replaying .trail-ground .trail-edge { animation: fade-in 320ms ease-out backwards; animation-delay: 300ms; }
+  .trail.replaying .trail-chip { animation: trail-pop 260ms var(--ease); }
+  .trail.replaying .trail-loose { animation: fade-in 320ms ease-out; }
+  .trail.replaying .trail-branch.leaving { animation: fade-out 260ms ease-in forwards; }
+  .trail.replaying .trail-branch.leaving .trail-step { animation: trail-leaf-out 260ms ease-in forwards; }
+  .trail.replaying .trail-branch.leaving .trail-bough { animation: trail-shrink 260ms ease-in forwards; }
+  /* The rings: a ring opens out from the one inside it, then its waypoints land round it in turn. */
+  .trail.replaying .trail-ring { transform-box: view-box; transform-origin: 50% 50%; animation: trail-ring-in 420ms var(--ease); }
+  .trail.replaying .trail-link { animation: fade-in 360ms ease-out backwards; animation-delay: 200ms; }
+  .trail.replaying .trail-sky .trail-ring-no { animation: trail-way-in 260ms var(--ease) backwards; animation-delay: 80ms; }
+  .trail.replaying .trail-way { animation: trail-way-in 280ms var(--ease) backwards; animation-delay: calc(140ms + var(--slot, 0) * 45ms); }
+  .trail.replaying .trail-moon { animation: trail-way-in 260ms var(--ease); }
+  .trail.replaying .trail-run { animation: trail-run-in 320ms var(--ease); }
+  .trail.replaying .trail-ring.leaving { animation: trail-ring-out 260ms ease-in forwards; }
+  .trail.replaying .trail-link.leaving { animation: fade-out 260ms ease-in forwards; }
+  .trail.replaying .trail-ring-run.leaving :is(.trail-way, .trail-ring-no) { animation: trail-way-out 260ms ease-in forwards; }
+  .trail.replaying .trail-run.leaving { animation: fade-out 260ms ease-in forwards; }
 }
 @keyframes trail-walk { to { stroke-dashoffset: -13; } }
+@keyframes trail-grow { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
+@keyframes trail-shrink { from { stroke-dasharray: 1; stroke-dashoffset: 0; } to { stroke-dasharray: 1; stroke-dashoffset: 1; } }
+@keyframes trail-leaf-in { from { opacity: 0; transform: translateX(-12px) scale(.96); } }
+@keyframes trail-leaf-out { to { opacity: 0; transform: translateY(10px); } }
+@keyframes trail-pop { from { opacity: 0; transform: scale(.7); } }
+@keyframes trail-ring-in { from { opacity: 0; transform: scale(.88); } }
+@keyframes trail-ring-out { to { opacity: 0; transform: scale(.92); } }
+@keyframes trail-way-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.3); } }
+@keyframes trail-way-out { to { opacity: 0; transform: translate(-50%, -50%) scale(.3); } }
+@keyframes trail-run-in { from { opacity: 0; transform: translateY(-8px); } }
 
 /* ---------- The memory map (ui/src/constellation) ---------- */
 /* Every remembered line a star, over the whole page. It wears the page's own colours, so it follows

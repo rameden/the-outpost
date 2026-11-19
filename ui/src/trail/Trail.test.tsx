@@ -430,4 +430,58 @@ describe("the whole map as rings", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect([...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => g.dataset.exp)).toEqual(["A", "B"]);
   });
+
+  test("wound back in a replay, a plan that goes stays drawn while it fades: a ring, and a bough of the tree", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q })); // (someone who hasn't asked for less motion)
+    const day = [inThread("Y", "Y", "Yesterday's first"), planned([{ n: 1, text: "Scout reads" }, { n: 2, text: "Scribe writes" }], "Y"),
+      begin("Z", "Yesterday's second"), inThread("Y2", "Y", "More of the first"), planned([{ n: 1, text: "x" }], "Y2")];
+    vi.mocked(api).mockResolvedValue({ events: day });
+    seq = 100;
+    const { container } = mount(two());
+    const dialog = screen.getByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "m" });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Replay" })); await vi.advanceTimersByTimeAsync(20); });
+    expect(dialog.classList.contains("replaying")).toBe(true); // (what the motion in styles.css hangs on)
+    const line = screen.getByRole("slider", { name: "Where in the day" }) as HTMLInputElement;
+    const seek = (to: string) => act(() => { fireEvent.change(line, { target: { value: to } }); vi.advanceTimersByTime(20); });
+    const rings = () => [...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => `${g.dataset.exp}${g.classList.contains("leaving") ? " leaving" : ""}`);
+    seek(line.max);
+    expect(rings()).toEqual(["Y", "Y2"]); // (today's rings, gone as the replay began, were not kept)
+    expect(container.querySelector<SVGPathElement>(".trail-link")!.dataset.join).toBe("Y>Y2");
+    // Each waypoint knows its place round the ring, for landing in turn.
+    expect(way(container, "Y", 2).style.getPropertyValue("--slot")).toBe("1");
+
+    // Back to the start of the day: both go, but stay where they were, marked and out of reach, while they fade.
+    seek("0");
+    expect(rings()).toEqual(["Y leaving", "Y2 leaving"]);
+    expect(container.querySelector(".trail-link")!.classList.contains("leaving")).toBe(true);
+    expect([...container.querySelectorAll<HTMLElement>(".trail-run")].map((li) => [li.dataset.exp, li.classList.contains("leaving"), li.hasAttribute("inert")])).toEqual([["Y2", true, true], ["Y", true, true]]);
+    expect([...container.querySelectorAll<HTMLElement>(".trail-ring-run")].every((li) => li.classList.contains("leaving") && li.hasAttribute("inert"))).toBe(true);
+    expect(container.querySelector(".trail-ask b")!.textContent).toBe("No plan at this point in the day");
+    // Then they're gone, and the map says there's nothing yet.
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(rings()).toEqual([]);
+    expect(screen.getByText("No plan yet at this point in the day")).toBeTruthy();
+
+    // Forward again, then back while it's drawn as a tree.
+    seek(line.max);
+    expect(rings()).toEqual(["Y", "Y2"]);
+    fireEvent.keyDown(dialog, { key: "r" });
+    const boughs = () => [...container.querySelectorAll<HTMLElement>(".trail-branch")].map((li) => `${li.dataset.exp}${li.classList.contains("leaving") ? " leaving" : ""}`);
+    expect(boughs()).toEqual(["Y2", "Y"]);
+    expect(container.querySelector<HTMLElement>('.trail-branch[data-exp="Y"] .trail-step[data-n="2"]')!.style.getPropertyValue("--col")).toBe("2");
+    expect(container.querySelector(".trail-bough")!.getAttribute("pathLength")).toBe("1"); // (so it can be drawn growing)
+    seek("0");
+    expect(boughs()).toEqual(["Y2 leaving", "Y leaving"]);
+    expect(container.querySelector<HTMLElement>(".trail-branch")!.hasAttribute("inert")).toBe(true);
+    // Played on before they've gone, they're simply there again.
+    seek(line.max);
+    expect(boughs()).toEqual(["Y2", "Y"]);
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(boughs()).toEqual(["Y2", "Y"]);
+    // Out of the replay nothing lingers: today's plans are there at once.
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(boughs()).toEqual(["B", "A"]);
+    vi.unstubAllGlobals();
+  });
 });

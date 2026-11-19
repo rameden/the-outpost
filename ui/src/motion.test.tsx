@@ -5,7 +5,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { defaultLayout } from "./layout.ts";
 import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
-import { glide, LEAVE_MS, motionOK, Presence } from "./motion.tsx";
+import { glide, LEAVE_MS, motionOK, Presence, useLingering } from "./motion.tsx";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -127,4 +127,55 @@ test("gliding: the change is made either way, and what moved slides from where i
   expect(within.style.overflow).toBe("hidden");        // nothing spills out while they glide
   act(() => { vi.advanceTimersByTime(300); });
   expect(within.style.overflow).toBe("");
+});
+
+// A list drawn through useLingering: each thing by name, the ones on their way out marked.
+function Row({ list, on = true }: { list: string[]; on?: boolean }) {
+  return <ul>{useLingering(list, (x) => x, on, 200).map(({ item, leaving }) => <li key={item}>{leaving ? `(${item})` : item}</li>)}</ul>;
+}
+const rows = () => screen.getAllByRole("listitem").map((li) => li.textContent).join(" ");
+
+test("what leaves a list stays where it was for a moment, marked as leaving, then goes", () => {
+  motion(false);
+  const { rerender } = render(<Row list={["a", "b", "c", "d"]} />);
+  expect(rows()).toBe("a b c d");
+  rerender(<Row list={["a", "c"]} />);
+  expect(rows()).toBe("a (b) c (d)"); // each in the place it had
+  // Something new joins meanwhile, and one that was leaving comes back: it's simply there again.
+  act(() => { vi.advanceTimersByTime(100); });
+  rerender(<Row list={["a", "c", "d", "e"]} />);
+  expect(rows()).toBe("a (b) c d e");
+  rerender(<Row list={["a", "c", "e"]} />);
+  expect(rows()).toBe("a (b) c (d) e");
+  // b's moment is up first; d left later, so it has longer.
+  act(() => { vi.advanceTimersByTime(110); });
+  expect(rows()).toBe("a c (d) e");
+  act(() => { vi.advanceTimersByTime(100); });
+  expect(rows()).toBe("a c e");
+  // All of it can go, the first in the list included.
+  rerender(<Row list={[]} />);
+  expect(rows()).toBe("(a) (c) (e)");
+  act(() => { vi.advanceTimersByTime(210); });
+  expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+});
+
+test("nothing lingers without motion, while it's off, or from before it was switched on", () => {
+  const { rerender, unmount } = render(<Row list={["a", "b"]} />); // (the page can't tell here: no motion)
+  rerender(<Row list={["a"]} />);
+  expect(rows()).toBe("a");
+  unmount();
+
+  motion(false);
+  const off = render(<Row list={["a", "b"]} on={false} />);
+  off.rerender(<Row list={["a"]} on={false} />);
+  expect(rows()).toBe("a");
+  // Switched on as the list changes under it (a replay starting): what was there before isn't held.
+  off.rerender(<Row list={[]} on />);
+  expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  off.rerender(<Row list={["x", "y"]} on />);
+  off.rerender(<Row list={["x"]} on />);
+  expect(rows()).toBe("x (y)");
+  // And switched off, what was leaving is gone at once.
+  off.rerender(<Row list={["x"]} on={false} />);
+  expect(rows()).toBe("x");
 });
