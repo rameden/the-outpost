@@ -74,6 +74,18 @@ test("today's page, a brief on request, and a pull request's feedback brought to
   assert.deepEqual([home.brief.day, home.pulls.count, home.board.project], [brief.day, 1, project.id]);
   assert.equal((await call("/api/brief?day=1999-01-01")).status, 404);
 
+  // The night shift: off until you switch it on. Run on request it writes its record and changes nothing; Dismiss marks it seen.
+  assert.deepEqual([empty.drive.night, empty.drive.nightFrom, empty.drive.nightTo, empty.night, empty.lastNight], [false, "01:00", "05:00", undefined, undefined]);
+  const night = (await call("/api/night", {})).json;
+  assert.deepEqual([night.ok, night.night.tidied, night.night.stale, night.night.calls], [true, [], [], 0]);
+  assert.ok(existsSync(join(camp, "camp", "night", `${night.night.day}.json`)));
+  assert.equal(existsSync(join(camp, "camp", "memory-proposals.json")), false, "an empty camp has nothing to draft");
+  assert.equal((await call("/api/home")).json.lastNight.day, night.night.day);
+  assert.equal((await call("/api/night/seen", {})).json.ok, true);
+  assert.equal((await call("/api/home")).json.night, undefined);
+  assert.deepEqual((({ night, nightFrom, nightTo }) => [night, nightFrom, nightTo])((await call("/api/drive", { night: true, nightFrom: "23:00", nightTo: "6:15" })).json.drive), [true, "23:00", "06:15"]);
+  assert.equal((await call("/api/drive", { night: false })).json.drive.night, false);
+
   // One click: the feedback goes to the conversation that did the work, and what follows is ordinary work.
   const started = await call("/api/pulls/address", { url: "https://github.com/acme/web/pull/7" });
   assert.deepEqual([started.status, started.json.thread], [200, "open-button"]);

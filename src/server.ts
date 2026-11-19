@@ -40,6 +40,7 @@ import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTrigg
 import { checkPulls, freshPulls, pulls as knownPulls } from "./pulls.js";
 import { briefDays, briefDue, dayOf, readBrief, writeBrief } from "./brief.js";
 import { readRetro, retrosDue, runRetro, type Retro } from "./retro.js";
+import { markNightSeen, nightDue, nightPage, noteAsked, runNight } from "./nightshift.js";
 import { debriefsDue, readDebrief, runDebrief, workedOn } from "./debrief.js";
 import { offers, scoreboard } from "./scoreboard.js";
 import { drive, setDrive } from "./settings.js";
@@ -340,6 +341,7 @@ let retroing = false;
 let debriefing = false;
 const debriefFailed = new Map<string, number>(); // one that couldn't be written is tried again in an hour, not every minute
 const lessonsLine = (n: number) => (n ? ` ${n} ${n === 1 ? "lesson is" : "lessons are"} waiting for your say in Settings, Memory.` : "");
+let nighting = false;
 setInterval(() => {
   try {
     if (briefDue()) void writeBrief({ running: isRunning, waiting: waitingOnYou(), announce: true }).catch((e) => console.error(`💥 morning brief: ${e?.message ?? e}`));
@@ -363,6 +365,11 @@ setInterval(() => {
           }
         })().finally(() => { debriefing = false; });
       }
+    }
+    // The night shift (nightshift.ts): off unless switched on, and only when nothing else is going on.
+    if (!nighting && nightDue(new Date(), { busy: running.size > 0 || queue.length > 0 || retroing || debriefing })) {
+      nighting = true;
+      void runNight().catch((e) => console.error(`💥 night shift: ${e?.message ?? e}`)).finally(() => { nighting = false; });
     }
   } catch (e: any) {
     console.error(`💥 brief and retro: ${e?.message ?? e}`);
@@ -391,7 +398,8 @@ function homePage(project?: string) {
   // held: plans approved to start later, waiting for you (read live, not from the morning's brief).
   const held = heldPlans().filter((h) => !project || h.project === project);
   return { name: yourName, today: dayOf(new Date()), brief: days.length ? readBrief(days[0]) : null, days, board, offers: offers(board), retros, drive: drive(), held,
-    pulls: { fetched: known.fetched, count: known.pulls.filter((p) => p.state === "OPEN").length, ...(known.error ? { error: known.error } : {}) } };
+    pulls: { fetched: known.fetched, count: known.pulls.filter((p) => p.state === "OPEN").length, ...(known.error ? { error: known.error } : {}) },
+    ...nightPage() }; // night: what the night shift left that you haven't seen; lastNight: a line on the latest one
 }
 export type HomePage = ReturnType<typeof homePage>;
 let polling = false;
@@ -981,6 +989,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/send") {
+      noteAsked(); // the night shift waits until you've been quiet a while
       let text = String(body.text ?? "").trim();
       const attachments: Attachment[] = Array.isArray(body.attachments) ? body.attachments.slice(0, 30) : [];
       // { resume: <expedition id> }: pick up a run that was cut off or stopped, from what it had done.
@@ -1768,6 +1777,7 @@ const server = http.createServer(async (req, res) => {
       const pending = pendingAsks.get(String(body.id));
       if (!pending) return send(res, 404, { error: "That question was already answered" });
       pendingAsks.delete(String(body.id));
+      noteAsked();
       pending.resolve(String(body.answer ?? ""));
       return send(res, 200, { ok: true });
     }
@@ -1801,10 +1811,18 @@ const server = http.createServer(async (req, res) => {
       try { return send(res, 200, { debrief: await runDebrief(String(body.key ?? "").trim().toUpperCase()) }); }
       catch (e: any) { return send(res, 400, { error: e.message }); }
     }
+    // The night shift, now (nightshift.ts): it drafts and reports, and changes nothing itself.
+    if (url.pathname === "/api/night") {
+      try { return send(res, 200, { ok: true, night: await runNight(), ...nightPage() }); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+    // You've read the "While you were away" card.
+    if (url.pathname === "/api/night/seen") return send(res, 200, { ok: true, seen: markNightSeen() });
     // Bring one of your pull requests' feedback to the crew ({ url }): what the pull-request
     // trigger does by itself, as one click from the brief. Triggers watching that repository are
     // told it's been dealt with, so the same comments don't start work twice.
     if (url.pathname === "/api/pulls/address") {
+      noteAsked();
       const read = await checkPulls();
       const p = read.pulls.find((x) => x.url === body.url);
       if (!p) return send(res, 404, { error: read.error ?? "That pull request isn't one the camp knows of any more." });
