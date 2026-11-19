@@ -280,17 +280,34 @@ export function placeOf(opts: { project?: string; links?: string[]; without?: st
 
 // A plan as its numbered steps ("1. …", "2) …"). A line under a step that isn't numbered belongs to
 // it; anything after a blank line that isn't a step (assumptions, a closing note) is left out.
-export function planSteps(plan: string): { n: number; text: string }[] {
-  const steps: { n: number; text: string }[] = [];
+// after: the steps that must finish before this one starts, when its line says so with "(after 1, 2)"
+// at its start or end (the marker is taken out of the text). Only steps listed above it count: one
+// that isn't in the plan, itself, or a later step is ignored, so the steps can never wait in a circle.
+export type PlanStepLine = { n: number; text: string; after?: number[] };
+const AFTER = /\(\s*after\s+(?:steps?\s+)?(\d{1,2}(?:\s*(?:,|&|and)\s*(?:steps?\s+)?\d{1,2})*)\s*\)/i;
+const AFTER_FIRST = new RegExp(`^${AFTER.source}\\s*[:,–-]?\\s*`, "i"), AFTER_LAST = new RegExp(`\\s*${AFTER.source}\\s*[.:]?$`, "i");
+export function planSteps(plan: string): PlanStepLine[] {
+  const steps: { n: number; text: string; after: number[] }[] = [];
   let open = false;
   for (const raw of String(plan).split("\n")) {
     const m = raw.match(/^\s*(\d{1,2})[.)]\s+(.+)$/);
-    if (m) { steps.push({ n: Number(m[1]), text: m[2].trim() }); open = true; }
+    if (m) {
+      const line = m[2].trim(), marked = line.match(AFTER_FIRST) ?? line.match(AFTER_LAST);
+      // (A line that is nothing but its marker keeps it as its text: there'd be nothing left to show.)
+      const text = marked ? line.replace(marked[0], "").trim() : line;
+      steps.push({ n: Number(m[1]), text: text || line, after: marked && text ? (marked[1].match(/\d+/g) ?? []).map(Number) : [] });
+      open = true;
+    }
     else if (!raw.trim()) open = false;
     else if (open && steps.length) steps[steps.length - 1].text += " " + raw.trim();
   }
   const seen = new Set<number>();
-  return steps.filter((s) => !seen.has(s.n) && !!seen.add(s.n)).map((s) => ({ n: s.n, text: s.text.replace(/\s+/g, " ").slice(0, 400) })).slice(0, 30);
+  const kept = steps.filter((s) => !seen.has(s.n) && !!seen.add(s.n)).slice(0, 30);
+  return kept.map((s, i) => {
+    const earlier = new Set(kept.slice(0, i).map((x) => x.n));
+    const after = [...new Set(s.after)].filter((n) => earlier.has(n)).sort((a, b) => a - b);
+    return { n: s.n, text: s.text.replace(/\s+/g, " ").slice(0, 400), ...(after.length ? { after } : {}) };
+  });
 }
 
 // Plans you approved to start later and haven't started yet, newest first: the conversation each
@@ -331,6 +348,7 @@ How you work:
 3. Plan. Break the request into quests. Decide who handles each and in what order
    (e.g. Scout researches before the Scribe writes about it; the Warden reviews a pull request or a finished change). Show the plan with submit_plan
    before your first dispatch, and follow the user's changes if they ask for any.
+   When a step can only start once others have finished, begin it with "(after 1, 2)" naming them (e.g. "3. (after 1, 2) Scribe writes the summary"); a step that can start right away has no marker.
 4. Dispatch with excellent briefs. Adventurers know nothing except what you write.
    Independent quests (research while the Artificer builds) go out together in one turn.
    Give each dispatch the number of the plan step it carries out (step): the user watches the plan fill in.

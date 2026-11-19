@@ -214,7 +214,7 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail }: {
   onHome?: () => void; // the logo takes you to Today
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
@@ -225,6 +225,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   // The easter egg (egg/Barnstorm.tsx): fly a plane over the page. Its button starts it, then is play and pause.
   barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
   orbit?: boolean; onOrbit?: () => void; // the crew at work as a solar system, full screen (orbit/Orbit.tsx)
+  trail?: boolean; onTrail?: () => void; // the plan as a trail of steps, full screen (trail/Trail.tsx)
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
@@ -293,10 +294,14 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <ReadingPlayer />
         {/* With the icons, so it sits as close to them as they do to each other. */}
         <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} gh={gh} running={running} questsOut={questsOut} queued={queued} />
-        {/* The two toys keep their own buttons; the page's occasional switches are behind ···. */}
+        {/* Orbit, the trail map and Barnstorm keep their own buttons; the page's occasional switches are behind ···. */}
         {onOrbit && (
           <button className={cx("icon-btn", orbit && "on")} type="button" aria-pressed={!!orbit} aria-label={orbit ? "Leave Orbit" : "Orbit"}
             title="Orbit: watch the crew at work as a solar system, full screen" onClick={onOrbit}><Icon name="orbit" /></button>
+        )}
+        {onTrail && (
+          <button className={cx("icon-btn", trail && "on")} type="button" aria-pressed={!!trail} aria-label={trail ? "Leave the trail map" : "Trail map"}
+            title="Trail map: the plan step by step, and who's on each, full screen" onClick={onTrail}><Icon name="trail" /></button>
         )}
         {onBarnstorm && (
           <button className={cx("icon-btn", "wide-only", barnstorm === "on" && "on", barnstorm === "paused" && "egg-paused")} type="button" aria-pressed={barnstorm === "on"}

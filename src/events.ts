@@ -31,7 +31,8 @@ export type CampEventBody =
   // step: the numbered step of the approved plan this quest carries out, when the Quartermaster said
   | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string; step?: number }
   // The plan you approved, as its numbered steps: the feed keeps them as a list that fills in as quests go out and come back.
-  | { type: "plan"; steps: { n: number; text: string }[] }
+  // after: the steps a step waits for, when the plan said so ("(after 1, 2)"); the trail map draws them as its edges.
+  | { type: "plan"; steps: { n: number; text: string; after?: number[] }[] }
   | { type: "return"; who: string; emoji: string; status: string; questId?: string }
   // waiting: on a plan, the plans from its conversation already waiting to start (it asks if it replaces them)
   | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string; waiting?: { ask: string; held: string }[] }

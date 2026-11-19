@@ -382,6 +382,22 @@ describe("the plan as a list", () => {
     { type: "plan", steps, expeditionId: "A" },
   ];
 
+  test("what a step waits for comes through with it, and a plan sent again keeps who was on each step", () => {
+    const waits = (s: FeedState) => plan(s).steps.map((st) => st.after ?? null);
+    const ordered = [{ n: 1, text: "Backend" }, { n: 2, text: "Studio UI" }, { n: 3, text: "I read the diffs", after: [1, 2] }];
+    let s = feedOf([...approved.slice(0, 3), { type: "plan", steps: ordered, expeditionId: "A" }]);
+    expect(waits(s)).toEqual([null, null, [1, 2]]);
+    // A step that waits for nothing has no list at all (an empty one would say the same in a second way).
+    expect(feedOf([...approved.slice(0, 3), { type: "plan", steps: [{ n: 1, text: "Backend", after: [] }], expeditionId: "A" }]).items).toSatisfy(
+      (items: FeedState["items"]) => !("after" in (findNodes(items, "plan")[0] as PlanNode).steps[0]));
+    s = feedOf([
+      { type: "dispatch", ...smith, questId: "q1", expeditionId: "A", brief: "Backend", step: 1 },
+      { type: "plan", steps: [ordered[0], { ...ordered[1], after: [1] }, ordered[2]], expeditionId: "A" },
+    ], s);
+    expect(waits(s)).toEqual([null, [1], [1, 2]]);
+    expect(says(s)[0]).toBe("1 out (Artificer)");
+  });
+
   test("it fills in as quests go out and come back; a step nobody is sent on is the Quartermaster's", () => {
     let s = feedOf(approved);
     expect(says(s)).toEqual(["1 todo", "2 todo", "3 todo"]);

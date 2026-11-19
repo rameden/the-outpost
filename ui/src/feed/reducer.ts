@@ -29,7 +29,8 @@ export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind
 // The plan you approved, as a list that fills in: each numbered step, and the quests carrying it out.
 // ended: how the run finished, once it has (a step still out then was cut short).
 export type PlanQuest = { node: string; who: string; emoji: string; status: string | null };
-export type PlanStep = { n: number; text: string; quests: PlanQuest[] };
+// after: the steps this one waits for, when the plan said so (the trail map, trail/Trail.tsx, draws them as its edges).
+export type PlanStep = { n: number; text: string; after?: number[]; quests: PlanQuest[] };
 export type PlanNode = { kind: "plan"; id: string; steps: PlanStep[]; ended?: string };
 export type StepState = "todo" | "out" | "done" | "failed" | "stopped";
 // How a step stands. With no quest of its own it's the Quartermaster's to do: done when the run finishes well.
@@ -262,7 +263,7 @@ function addPlan(s: FeedState, e: EventOf<"plan">) {
     if (x.kind !== "exp") return x;
     const old = x.nodes.find((n): n is PlanNode => n.kind === "plan");
     before = old?.steps ?? [];
-    const node: PlanNode = { kind: "plan", id: `p${e.seq}`, steps: e.steps.map((st) => ({ n: st.n, text: st.text, quests: before.find((b) => b.n === st.n)?.quests ?? [] })) };
+    const node: PlanNode = { kind: "plan", id: `p${e.seq}`, steps: e.steps.map((st) => ({ n: st.n, text: st.text, ...(st.after?.length ? { after: st.after } : {}), quests: before.find((b) => b.n === st.n)?.quests ?? [] })) };
     // The card it was approved on folds its text away: the list says it now. (The newest approved plan card.)
     const card = x.nodes.findLastIndex((n) => n.kind === "ask" && n.askKind === "plan" && n.outcome !== null);
     const approved = card >= 0 ? x.nodes[card] : null;
