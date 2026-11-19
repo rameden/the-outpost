@@ -43,6 +43,8 @@ const S = {
   jira: { connected: true },
 } as unknown as CampState;
 const next = (name: string) => fireEvent.click(screen.getByRole("button", { name: `Next: ${name}` }));
+// What each chip under "Extra context" reads. One still on its way up reads "name · uploading…", so a bare name means it's attached.
+const chipsIn = (dialog: HTMLElement) => [...within(dialog).getByLabelText("Attached for context").querySelectorAll(".chip-att")].map((c) => c.textContent!.replace("×", ""));
 
 test("Next, Next, Next, Start: every step is filled in, and what's sent is what the last step shows", async () => {
   const onStarted = vi.fn();
@@ -190,7 +192,7 @@ test("extra context: files, images and links added on the details step go with t
   const design = new File(["png"], "open-button.png", { type: "image/png" }), spec = new File(["# Spec"], "spec.md", { type: "text/markdown" });
   fireEvent.change(within(dialog).getByLabelText("Files to attach"), { target: { files: [design, spec] } });
   await waitFor(() => expect(calls.filter((c) => c.url === "/api/upload").map((c) => [c.body.name, c.body.batch])).toEqual([["open-button.png", undefined], ["spec.md", "b7"]]));
-  const chips = () => [...within(dialog).getByLabelText("Attached for context").querySelectorAll(".chip-att")].map((c) => c.textContent!.replace("×", ""));
+  const chips = () => chipsIn(dialog);
   await waitFor(() => expect(chips()).toEqual(["open-button.png", "spec.md"]));
   // A link: https:// is assumed; something that isn't a link is refused; the same one isn't added twice.
   const link = within(dialog).getByLabelText("A link to attach") as HTMLInputElement;
@@ -230,10 +232,12 @@ test("dropping files on the details step, or pasting an image there, attaches th
   const dialog = screen.getByRole("dialog", { name: "Start a ticket" });
   await within(dialog).findByLabelText("Criterion 1");
   const shot = new File(["png"], "screenshot.png", { type: "image/png" });
+  // Wait for each upload to finish, not just for its chip: the chip is there (as "uploading…") from the
+  // moment of the drop, and the brief only speaks of what has arrived.
   fireEvent.drop(dialog, { dataTransfer: { files: [shot], types: ["Files"] } });
-  await waitFor(() => expect(within(dialog).getByLabelText("Attached for context").textContent).toContain("screenshot.png"));
+  await waitFor(() => expect(chipsIn(dialog)).toEqual(["screenshot.png"]));
   fireEvent.paste(dialog, { clipboardData: { files: [new File(["png"], "pasted.png", { type: "image/png" })] } });
-  await waitFor(() => expect(within(dialog).getByLabelText("Attached for context").textContent).toContain("pasted.png"));
+  await waitFor(() => expect(chipsIn(dialog)).toEqual(["screenshot.png", "pasted.png"]));
   // One attached: the brief speaks of "this", not "these".
   fireEvent.click(within(dialog).getByRole("button", { name: "Remove pasted.png" }));
   next("Where"); next("Who"); next("Start");
