@@ -7,7 +7,7 @@ import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
-import { autoName, cClass, clock, crewNow, cx, plural, shortModel, spaced } from "../format.ts";
+import { autoName, cClass, clock, crewNow, cx, leadName, plural, shortModel, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
 import { ReadAloud } from "../components/ReadAloud.tsx";
 import { MaeSystem } from "../components/MaeSystem.tsx";
@@ -380,7 +380,7 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
           {/* The camp at rest: the camp's crew circling the Quartermaster, taking turns with a quest. Outside a project, the orbits are empty. */}
           <MaeSystem crew={plain ? [] : inRotation()} />
           <h2>{plain ? "Ask anything" : view.kind === "new" ? "A new conversation" : "The camp is quiet"}</h2>
-          <div>{waiting ?? "Send the Quartermaster on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here."}</div>
+          <div>{waiting ?? `Send the ${leadName()} on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here.`}</div>
           <div className="examples">
             {(plain ? PLAIN_EXAMPLES : EXAMPLES).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>

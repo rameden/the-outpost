@@ -163,8 +163,8 @@ function startExpedition(s: FeedState, e: EventOf<"expedition_start">) {
   s.items = [...s.items, node];
   // A plain chat has nobody from the crew in it: the Quartermaster isn't planning anything.
   const crewless = e.source === "direct" || !!e.chat;
-  s.open = { ...s.open, [e.id]: { node: node.id, started: new Date(e.time).getTime(), members: crewless ? [] : ["Quartermaster"], quests: {} } };
-  if (!crewless) setCrew(s, "Quartermaster", "active", "Planning the expedition");
+  s.open = { ...s.open, [e.id]: { node: node.id, started: new Date(e.time).getTime(), members: crewless ? [] : [e.lead ?? "Quartermaster"], quests: {} } };
+  if (!crewless) setCrew(s, e.lead ?? "Quartermaster", "active", "Planning the expedition");
 }
 
 function endExpedition(s: FeedState, e: EventOf<"expedition_end">) {
@@ -275,7 +275,8 @@ function addPlan(s: FeedState, e: EventOf<"plan">) {
 function addAsk(s: FeedState, e: EventOf<"ask">) {
   // Whoever is asking: the Quartermaster for plans and jobs, otherwise the quest's adventurer.
   const questOwner = e.expeditionId && e.questId ? s.open[e.expeditionId]?.quests[e.questId]?.who : undefined;
-  const who = e.kind === "plan" || e.kind === "job" ? "Quartermaster" : questOwner ?? "Quartermaster";
+  const lead = e.lead ?? "Quartermaster"; // what the lead was called when it asked (theme packs rename them)
+  const who = e.kind === "plan" || e.kind === "job" ? lead : questOwner ?? lead;
   const node: AskNode = { kind: "ask", id: `a${e.seq}`, askId: e.id, askKind: e.kind, title: e.title, body: e.body, who, outcome: null, ...(e.waiting?.length ? { waiting: e.waiting } : {}) };
   place(s, node, e.questId, e.expeditionId);
   s.asks = [...s.asks, { id: e.id, node: node.id, who, expId: e.expeditionId, questId: e.questId }];

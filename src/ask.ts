@@ -4,6 +4,7 @@
 import { emit, type AskKind } from "./events.js";
 import { rl } from "./terminal.js";
 import { currentQuestId } from "./context.js";
+import { CREW } from "./crew.js";
 import { explainAsk } from "./explain.js";
 
 // waiting: on a plan, the plans from its conversation already waiting to start.
@@ -42,7 +43,7 @@ let nextId = Date.now();
 export async function ask(q: Question, asked?: (id: string) => void): Promise<string> {
   const id = `ask_${++nextId}`;
   asked?.(id);
-  emit({ type: "ask", id, ...q, questId: currentQuestId() });
+  emit({ type: "ask", id, ...q, questId: currentQuestId(), lead: CREW.quartermaster.name });
   explainAsk(id, q); // in plain words, if you turned that on: it joins the card when it's ready
   const answer = (await asker({ ...q, id })).trim();
   emit({ type: "answered", id, answer });

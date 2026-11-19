@@ -10,7 +10,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { posix } from "node:path";
-import { CREW } from "./crew.js";
+import { CREW, currentName } from "./crew.js";
 import { getProject, history, type Project } from "./conversations.js";
 import { emit } from "./events.js";
 import { allFeedback } from "./feedback.js";
@@ -73,7 +73,7 @@ export function weekFacts(project: Project, week = weekOf()): { week: string; co
     const rated = all.map((t) => ratings.get(t.expedition)).filter(Boolean).map((f) => `${f!.rating === "up" ? "good" : "not what was wanted"}${f!.note ? ` ("${flat(f!.note, 160)}")` : ""}`);
     const asides = all.filter((t) => t.aside).map((t) => name(t.agent));
     blocks.push([
-      `${blocks.length + 1}. "${c.title}" — with ${c.direct ? name(c.agent) : "the Quartermaster"}; ${runs.length} ${runs.length === 1 ? "run" : "runs"} this week; the last one ended: ${last.status === "running" ? "still running or cut off" : last.status}` +
+      `${blocks.length + 1}. "${c.title}" — with ${c.direct ? name(c.agent) : `the ${CREW.quartermaster.name}`}; ${runs.length} ${runs.length === 1 ? "run" : "runs"} this week; the last one ended: ${last.status === "running" ? "still running or cut off" : last.status}` +
         (c.jira ? `; ticket ${c.jira}` : "") + (where.length ? `; ${where.join(", ")}` : "") + (pr.length ? `; ${pr.join(", ")}` : ""),
       `   Asked: ${flat(runs[0].task, 320)}`,
       runs.length > 1 ? `   Latest request: ${flat(last.task, 240)}` : "",
@@ -85,7 +85,7 @@ export function weekFacts(project: Project, week = weekOf()): { week: string; co
   if (!blocks.length) return { week, conversations: 0, facts: "" };
   const quests = recentQuests(Number.MAX_SAFE_INTEGER).filter((q) => q.project === project.id && inWeek(q.time));
   const by = new Map<string, { n: number; ok: number }>();
-  for (const q of quests) { const b = by.get(q.character) ?? { n: 0, ok: 0 }; b.n++; if (q.status === "done") b.ok++; by.set(q.character, b); }
+  for (const q of quests) { const who = currentName(q.character), b = by.get(who) ?? { n: 0, ok: 0 }; b.n++; if (q.status === "done") b.ok++; by.set(who, b); }
   const cost = quests.reduce((s, q) => s + questCost(q), 0);
   const facts = [
     `Project: ${project.name}`,

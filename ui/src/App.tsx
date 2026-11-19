@@ -31,6 +31,8 @@ import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
 import { setCrewColors } from "./format.ts";
+import { wearPack } from "./themes.ts";
+import { setWords } from "./words.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { Home } from "./components/Home.tsx";
 import { api, errorText } from "./api.ts";
@@ -417,7 +419,7 @@ export function App({ store }: { store: FeedStore }) {
   const [crewDialog, setCrewDialog] = useState<{ member: Character | null } | null>(null);
   const closeCrewDialog = useCallback(() => setCrewDialog(null), []);
   // Colours of crew members you added, for their cards and messages anywhere on the page.
-  useMemo(() => setCrewColors(S?.characters ?? []), [S?.characters]);
+  useMemo(() => { setCrewColors(S?.characters ?? [], S?.packs); setWords(S?.pack, S?.packs); if (S) wearPack(S.pack, S.packs); }, [S?.characters, S?.pack, S?.packs]);
 
   // The project dialog: a new project, or one being edited.
   const [dialog, setDialog] = useState<{ project: Project | null } | null>(null);

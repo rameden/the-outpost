@@ -77,7 +77,7 @@ export function Stop({ expId }: { expId: string }) {
 // Send a request: to the Quartermaster (an expedition), or straight to one of the crew.
 export function Dispatch({ id, name, lead, onSent }: { id: string; name: string; lead: boolean; onSent: () => void }) {
   return (
-    <Say label={lead ? "Send the Quartermaster on an expedition" : `Ask ${name} for something`}
+    <Say label={lead ? `Send the ${name} on an expedition` : `Ask ${name} for something`}
       placeholder={lead ? "Send the crew on an expedition…" : `Ask ${name} directly…`}
       onSay={async (text) => {
         const sent = await api<SendResult>("/api/send", { text: lead ? text : `@${id} ${text}`, chat: !lead });

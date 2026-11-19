@@ -10,6 +10,7 @@ type Who = { who: string; emoji: string; depth: number; questId?: string };
 export type CampEventBody =
   // chat: a plain chat with a model, outside any project: nobody from the crew is in it.
   | { type: "expedition_start"; id: string; task: string; source: "user" | "direct" | "job"; job?: string; replyTo?: string; chat?: boolean;
+      lead?: string; // what whoever plans it is called (the theme pack's name for the Quartermaster)
       thread?: string; // the conversation it belongs to (its first run's id); jobs have none
       attachments?: { kind: string; name: string; path?: string; url?: string }[] }
   // changed: files its file tools changed. workspaces: the worktrees it worked in, and where each stands.
@@ -34,7 +35,7 @@ export type CampEventBody =
   | { type: "plan"; steps: { n: number; text: string }[] }
   | { type: "return"; who: string; emoji: string; status: string; questId?: string }
   // waiting: on a plan, the plans from its conversation already waiting to start (it asks if it replaces them)
-  | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string; waiting?: { ask: string; held: string }[] }
+  | { type: "ask"; id: string; kind: AskKind; title: string; body: string; questId?: string; waiting?: { ask: string; held: string }[]; lead?: string } // lead: as on expedition_start
   | { type: "explained"; id: string; text: string } // an approval, in plain words (explain.ts)
   | { type: "answered"; id: string; answer: string; lapsed?: boolean } // lapsed: the camp restarted before you answered
   | { type: "plan_started"; ask: string; run: string } // a plan held for later was started (from its card), as that run
