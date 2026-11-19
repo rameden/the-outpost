@@ -181,6 +181,65 @@ describe("the trail map", () => {
     expect(pick.options).toHaveLength(3);
   });
 
+  test("the whole map shows every plan at once, newest first, each chip going to its own run's quest", () => {
+    const { container, store, onOpenQuest } = mount([begin("A", "The first ask"), planned([{ n: 1, text: "Only step" }], "A")]);
+    const sent = ev({ type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "Read", step: 1 });
+    // With one plan there's nothing more to show, so it isn't offered.
+    expect(screen.queryByRole("button", { name: "Whole map" })).toBeNull();
+    send(store, sent, begin("B", "The second ask"), planned(diamond, "B"));
+    expect(screen.queryByRole("group", { name: "How big the map is drawn" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Whole map" }));
+    const branches = () => [...container.querySelectorAll<HTMLElement>(".trail-branch")];
+    expect(branches().map((b) => b.dataset.exp)).toEqual(["B", "A"]);
+    expect(branches().map((b) => b.querySelectorAll(".trail-step").length)).toEqual([4, 1]);
+    expect(branches().map((b) => b.querySelector(".trail-branch-head b")!.textContent)).toEqual(["The second ask", "The first ask"]);
+    expect(branches().map((b) => b.querySelector(".trail-count")!.textContent)).toEqual(["0 of 4 done", "0 of 1 done · 1 out"]);
+    // Each branch leaves the line at the steps that wait for nothing.
+    expect(branches().map((b) => b.querySelectorAll(".trail-stem").length)).toEqual([1, 1]);
+    expect(container.querySelector(".trail-ask b")!.textContent).toBe("All 2 plans, newest first");
+    expect(container.querySelector(".trail-ask .trail-count")!.textContent).toBe("0 of 5 steps done · 1 out");
+    expect(screen.queryByLabelText("Which plan")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Scout, out now: go to this quest" }));
+    expect(onOpenQuest).toHaveBeenCalledWith({ expId: "A", node: `q${sent.seq}` });
+    // A plan that arrives joins at the top, and a quest off its trail is listed with it.
+    send(store, begin("C", "The third ask"), planned([{ n: 1, text: "x" }], "C"), ev({ type: "dispatch", ...smith, questId: "q2", expeditionId: "C", brief: "Fix" }));
+    expect(branches().map((b) => b.dataset.exp)).toEqual(["C", "B", "A"]);
+    expect(branches()[0].querySelector(".trail-loose")!.textContent).toContain("Artificer");
+    expect(branches()[1].querySelector(".trail-loose")).toBeNull();
+    // From a branch, back to that plan on its own.
+    fireEvent.click(screen.getByRole("button", { name: "Just this plan: The first ask" }));
+    expect(branches()).toHaveLength(0);
+    expect(container.querySelector(".trail-ask b")!.textContent).toBe("The first ask");
+    expect((screen.getByLabelText("Which plan") as HTMLSelectElement).value).toBe("A");
+    expect(screen.getByRole("button", { name: "Whole map" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  test("the whole map can be drawn smaller and bigger, as far as it goes, and M goes in and out of it", () => {
+    const { container } = mount([begin("A", "The first ask"), planned([{ n: 1, text: "Only step" }], "A"), begin("B", "The second ask"), planned(diamond, "B")]);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "m" });
+    const size = () => container.querySelector(".trail-zoom output")!.textContent;
+    const smaller = screen.getByRole("button", { name: "Draw the map smaller" }) as HTMLButtonElement, bigger = screen.getByRole("button", { name: "Draw the map bigger" }) as HTMLButtonElement;
+    expect(size()).toBe("100%");
+    expect(bigger.disabled).toBe(true);
+    fireEvent.click(smaller);
+    expect(size()).toBe("80%");
+    expect(container.querySelector<HTMLElement>(".trail-all")!.style.zoom).toBe("0.8");
+    fireEvent.click(smaller); fireEvent.click(smaller); fireEvent.click(smaller);
+    expect(size()).toBe("50%");
+    expect(smaller.disabled).toBe(true);
+    fireEvent.keyDown(dialog, { key: "+" });
+    expect(size()).toBe("65%");
+    fireEvent.keyDown(dialog, { key: "-" });
+    expect(size()).toBe("50%");
+    // Out, and back in at full size.
+    fireEvent.keyDown(dialog, { key: "m" });
+    expect(container.querySelector(".trail-all")).toBeNull();
+    expect(stands(container)).toHaveLength(4);
+    fireEvent.keyDown(dialog, { key: "m" });
+    expect(size()).toBe("100%");
+  });
+
   test("Replay plays the last day into a feed of its own, where nothing can be opened", async () => {
     const day = [begin("Z", "Yesterday's ask"), planned([{ n: 1, text: "Scout reads" }, { n: 2, text: "Scribe writes" }], "Z"),
       ev({ type: "dispatch", ...scout, questId: "q1", expeditionId: "Z", brief: "Read", step: 1 }), ev({ type: "return", ...scout, status: "done", questId: "q1", expeditionId: "Z" })];
