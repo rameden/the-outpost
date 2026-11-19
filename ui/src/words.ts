@@ -13,7 +13,8 @@ const GUILD: Words = { crew: "crew", quest: "quest", quests: "quests", camp: "ca
 let now: Words = GUILD;
 
 export const cap = (word: string) => (word ? word[0].toUpperCase() + word.slice(1) : word);
-const many = (word: string) => (/[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : /(s|x|ch|sh)$/.test(word) ? `${word}es` : `${word}s`);
+// More than one of a word, as English usually has it: "voyage" → "voyages", "story" → "stories".
+export const many = (word: string) => (/[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : /(s|x|ch|sh)$/.test(word) ? `${word}es` : `${word}s`);
 
 // The active pack, from the camp's state. An id the page doesn't know leaves the Guild's words.
 export function setWords(pack: string | undefined, packs: PackLine[] = []) {

@@ -21,6 +21,7 @@ import { w } from "../words.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
 import { ask, Confirm } from "../components/Confirm.tsx";
+import { PackDialog, type PackLine } from "../components/PackDialog.tsx";
 import { Presence } from "../motion.tsx";
 import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
@@ -195,6 +196,12 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
     wearPack(id, packs);
     setPaletteShown(paletteNow());
   }, refresh);
+  // A pack of your own: the dialog that makes or changes one. The page wears what comes back (App
+  // does, when the camp's state changes); the colours shown here follow it.
+  const [packDialog, setPackDialog] = useState<{ pack: PackLine | null } | null>(null);
+  const closePack = useCallback(() => setPackDialog(null), []);
+  useEffect(() => { setPaletteShown(paletteNow()); }, [S.pack, S.packs]);
+  const renamed = S.characters.filter((c) => c.custom && (c.own?.name ?? c.name) === packs[0]?.extras?.[c.id]?.name);
   return (
     <>
       <Row label="What runs the crew" help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
@@ -208,14 +215,29 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
       </Row>
-      <Row label="Theme pack" wide help={<>Renames the camp's own five (and the Wizard, if you've added one), for you <b>and for the crew too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with.</>}>
+      <Row label="Theme pack" wide help={<>Renames the camp's own five (and the Wizard, if you've added one), for you <b>and for the crew too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with. You can make a pack of your own: it's kept in <code>camp/packs.json</code>, and it leaves the orb's colours as they are.</>}>
         <div className="looks" role="group" aria-label="Theme pack">
-          {packs.map((p) => (
-            <button key={p.id} type="button" className="look pack" aria-pressed={S.pack === p.id} title={`${p.about} ${[...PACK_CREW.map((id) => p.crew[id]?.name), ...S.characters.filter((c) => c.custom && (c.own?.name ?? c.name) === packs[0]?.extras?.[c.id]?.name).map((c) => p.extras?.[c.id]?.name)].filter(Boolean).join(", ")}.`}
-              onClick={() => { if (p.id !== S.pack) void setPack(p.id); }}><span aria-hidden="true">{p.crew.quartermaster?.emoji}</span>{p.name}</button>
-          ))}
+          {packs.map((p) => {
+            const button = (
+              <button key={p.id} type="button" className="look pack" aria-pressed={S.pack === p.id} title={`${p.about} ${[...PACK_CREW.map((id) => p.crew[id]?.name), ...renamed.map((c) => p.extras?.[c.id]?.name)].filter(Boolean).join(", ")}.`}
+                onClick={() => { if (p.id !== S.pack) void setPack(p.id); }}><span aria-hidden="true">{p.crew.quartermaster?.emoji}</span>{p.name}</button>
+            );
+            return p.custom ? (
+              <span key={p.id} className="look-pair">{button}
+                <button type="button" className="icon-btn look-edit" aria-label={`Edit the ${p.name} pack`} title={`Edit the ${p.name} pack`} onClick={() => setPackDialog({ pack: p })}>✎</button>
+              </span>
+            ) : button;
+          })}
+          <button type="button" className="look pack-new" onClick={() => setPackDialog({ pack: null })}>New pack…</button>
         </div>
+        {(S.packsLeftOut ?? []).map((p) => (
+          <p key={p.id} className="field-hint pack-left-out" role="note">The pack "{p.id}" in <code>camp/packs.json</code> was left out. {p.why}</p>
+        ))}
       </Row>
+      {packDialog && (
+        <PackDialog pack={packDialog.pack} packs={packs} extras={renamed.map((c) => c.id)} on={packDialog.pack?.id === S.pack}
+          onClose={closePack} onSaved={() => { closePack(); refresh(); }} />
+      )}
       <Row label="Colours" help={`${PALETTES.find((p) => p.id === palette)?.about ?? ""} Each has a light and a dark side, and the tour wears it too.`} wide>
         <div className="looks" role="group" aria-label="Colours">
           {PALETTES.map((p) => (

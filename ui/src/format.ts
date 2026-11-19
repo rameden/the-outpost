@@ -22,7 +22,9 @@ let called = new Map<string, Set<string>>();
 let addedAs = new Map<string, string>();
 // The crew as the page last loaded it, for parts of the page far from where it's passed down.
 export const crewNow = () => crewList;
-export function setCrewColors(crew: CrewLine[], packs: PackLine[] = []) {
+// retired: names a pack of your own gave before it was changed or deleted, by who had them. Nobody
+// is called them now, but history written under them still finds its colour and who it was.
+export function setCrewColors(crew: CrewLine[], packs: PackLine[] = [], retired: Record<string, string[]> = {}) {
   crewList = crew;
   addedColors.clear();
   knownAs = new Map(GUILD_NAMES);
@@ -52,6 +54,17 @@ export function setCrewColors(crew: CrewLine[], packs: PackLine[] = []) {
       addedAs.set(slug(n), c.id);
       called.set(c.id, (called.get(c.id) ?? new Set()).add(n));
       if (c.color) addedColors.set(slug(n), c.color);
+    }
+  }
+  for (const [who, old] of Object.entries(retired)) {
+    const added = crew.find((c) => c.custom && c.id === who);
+    if (!BUILT_IN.includes(who) && !added) continue;
+    for (const n of old) {
+      const s = slug(n);
+      if (!s || names.has(s) || knownAs.has(s) || addedAs.has(s)) continue;
+      if (added) { addedAs.set(s, who); if (added.color) addedColors.set(s, added.color); }
+      else knownAs.set(s, who);
+      called.set(who, (called.get(who) ?? new Set()).add(n));
     }
   }
 }

@@ -32,8 +32,8 @@ import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
-import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, ownOf, activePack, setPack, currentName, type CrewId } from "./crew.js";
-import { PACKS } from "./packs.js";
+import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, ownOf, activePack, setPack, addPack, updatePack, removePack, packsLeftOut, currentName, type CrewId } from "./crew.js";
+import { PACKS, RETIRED } from "./packs.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
@@ -556,6 +556,10 @@ async function fullState(full: boolean, historySeen?: string) {
     // five too, to know whose an old name in the history is.
     pack: activePack().id,
     packs: PACKS,
+    // Packs of yours in camp/packs.json that didn't pass the check, and why (Settings says so), and
+    // the names your packs used to give, by crew id: old history is still written with them.
+    packsLeftOut: packsLeftOut(),
+    packNamesBefore: RETIRED,
     // Other models you've connected (DeepSeek, Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
     providers: none(() => providersState()),
     anthropic: anthropicKeyState(),
@@ -1487,6 +1491,23 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/pack") {
       setPack(String(body.id ?? ""));
       return send(res, 200, { ok: true, pack: activePack().id });
+    }
+    // Packs of your own: make, change, or delete one ({ action: "add" | "update" | "remove", id, pack }).
+    // They're kept in camp/packs.json. Deleting the one that's on puts the Guild back on.
+    if (url.pathname === "/api/packs") {
+      try {
+        const id = String(body.id ?? "");
+        let made = id;
+        if (body.action === "remove") {
+          if (!removePack(id)) return send(res, 404, { error: "No such pack of yours (the ones the camp comes with can't be deleted)." });
+        } else if (body.action === "update") updatePack(id, body.pack ?? {});
+        else if (body.action === "add") made = addPack(body.pack ?? {}).id;
+        else return send(res, 400, { error: "Unknown action" });
+        emit({ type: "changed", what: "crew" });
+        return send(res, 200, { ok: true, id: made, pack: activePack().id });
+      } catch (e: any) {
+        return send(res, 400, { error: e.message });
+      }
     }
     if (url.pathname === "/api/auto-titles") {
       setAutoTitles(!!body.on);
