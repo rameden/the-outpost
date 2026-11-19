@@ -48,7 +48,7 @@ type Settings = {
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
-  drive?: { brief?: boolean; briefAt?: string; retro?: boolean; debrief?: boolean }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts), a debrief when a ticket is done (debrief.ts)
+  drive?: { brief?: boolean; briefAt?: string; retro?: boolean; debrief?: boolean; night?: boolean; nightFrom?: string; nightTo?: string }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts), a debrief when a ticket is done (debrief.ts)
   autoExclude?: string[];  // models (or id prefixes, like "openrouter:") Auto never picks (routing.ts); set in Settings → Models, or by hand
 };
 // Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
@@ -179,19 +179,28 @@ export function setReviewChanges(on: boolean) {
 // That one is a model call, so it follows "suggestions" (memoryCare) unless you set it yourself.
 // debrief: when a ticket is done (a Mae ticket reaching Done, a Jira ticket's pull request merging), the smallest model reads how the crew did on it and proposes
 // lessons for the Quartermaster, the crew and the project (debrief.ts). The same kind of call, the same default.
-export type Drive = { brief: boolean; briefAt: string; retro: boolean; debrief: boolean };
+// night: the night shift (nightshift.ts). Between nightFrom and nightTo (your local time; the hours may
+// cross midnight), once the camp has been idle a while, it drafts memory tidies and writes a report for
+// the morning. It only drafts and reports, and it's off unless you turn it on. drive() always sets the
+// three; they're optional in the type so a page written before the night shift is still a Drive.
+export type Drive = { brief: boolean; briefAt: string; retro: boolean; debrief: boolean; night?: boolean; nightFrom?: string; nightTo?: string };
 const CLOCK = /^([01]?\d|2[0-3]):[0-5]\d$/;
 export function drive(): Drive {
   const d = load().drive ?? {};
-  return { brief: d.brief !== false, briefAt: typeof d.briefAt === "string" && CLOCK.test(d.briefAt) ? d.briefAt.padStart(5, "0") : "08:00", retro: typeof d.retro === "boolean" ? d.retro : memoryCare().suggest, debrief: typeof d.debrief === "boolean" ? d.debrief : memoryCare().suggest };
+  return { brief: d.brief !== false, briefAt: typeof d.briefAt === "string" && CLOCK.test(d.briefAt) ? d.briefAt.padStart(5, "0") : "08:00", retro: typeof d.retro === "boolean" ? d.retro : memoryCare().suggest, debrief: typeof d.debrief === "boolean" ? d.debrief : memoryCare().suggest,
+    night: d.night === true, nightFrom: clock(d.nightFrom, "01:00"), nightTo: clock(d.nightTo, "05:00") };
 }
-export function setDrive(c: { brief?: unknown; briefAt?: unknown; retro?: unknown; debrief?: unknown }) {
+const clock = (t: unknown, otherwise: string) => (typeof t === "string" && CLOCK.test(t) ? t.padStart(5, "0") : otherwise);
+export function setDrive(c: { brief?: unknown; briefAt?: unknown; retro?: unknown; debrief?: unknown; night?: unknown; nightFrom?: unknown; nightTo?: unknown }) {
   const s = load();
   const next = { ...(s.drive ?? {}) };
   if (typeof c.brief === "boolean") { if (c.brief) delete next.brief; else next.brief = false; }
   if (typeof c.briefAt === "string" && CLOCK.test(c.briefAt)) next.briefAt = c.briefAt.padStart(5, "0");
   if (typeof c.retro === "boolean") next.retro = c.retro;
   if (typeof c.debrief === "boolean") next.debrief = c.debrief;
+  if (typeof c.night === "boolean") { if (c.night) next.night = true; else delete next.night; }
+  if (typeof c.nightFrom === "string" && CLOCK.test(c.nightFrom)) next.nightFrom = c.nightFrom.padStart(5, "0");
+  if (typeof c.nightTo === "string" && CLOCK.test(c.nightTo)) next.nightTo = c.nightTo.padStart(5, "0");
   if (Object.keys(next).length) s.drive = next; else delete s.drive;
   save(s);
 }

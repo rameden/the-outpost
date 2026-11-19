@@ -142,7 +142,7 @@ export function OfferCard({ offer, onDone }: { offer: Offer; onDone: () => void 
   );
 }
 
-export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refresh: () => void; onOpenSection: (s: "memory" | "jobs" | "inbox") => void }) {
+export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refresh: () => void; onOpenSection: (s: "memory" | "jobs" | "inbox" | "skills") => void }) {
   const { home, note, setNote, load } = useHome();
   const [busy, setBusy] = useState<string | null>(null);
   const doing = async (key: string, work: () => Promise<unknown>) => {
@@ -171,10 +171,11 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Weekly retro</b>
-          <p>On Friday afternoon the smallest model reads what you asked for that week and what reviewers said on your pull requests, and proposes up to five things worth keeping. One small call per project per week; nothing is kept until you approve it under Memory.</p>
+          <p>On Friday afternoon the smallest model reads what you asked for that week and what reviewers said on your pull requests, and proposes up to five things worth keeping. If you asked for the same kind of work three times or more in the last four weeks, it also drafts a how-to for it. Two small calls per project per week; nothing is kept until you approve it under Memory or Skills.</p>
           {home.retros.map((r) => (
             <p key={`${r.project}:${r.week}`}>{r.name}, {r.label}: read {r.requests} {plural(r.requests, "request")} and {r.heard} reviewer {plural(r.heard, "comment")}, and proposed {r.proposed.length} {plural(r.proposed.length, "thing")} to keep.
-              {r.proposed.length > 0 && <> <button type="button" className="linkish" onClick={() => onOpenSection("memory")}>Look them over</button></>}</p>
+              {r.proposed.length > 0 && <> <button type="button" className="linkish" onClick={() => onOpenSection("memory")}>Look them over</button></>}
+              {r.skill && <> It drafted a how-to, <code>{r.skill}</code>, for work you kept asking for. <button type="button" className="linkish" onClick={() => onOpenSection("skills")}>Review the draft</button></>}</p>
           ))}
         </div>
         <div className="set-control unasked-control">
@@ -191,6 +192,22 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
         </div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={d.debrief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { debrief: ev.target.checked }))} /> {d.debrief ? "On" : "Off"}</label>
+        </div>
+      </div>
+
+      <div className="set-row">
+        <div className="set-label"><b>Night shift</b>
+          <p>Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts tidies for the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</p>
+          {home.lastNight && <p className="night-last">Last night shift, {when(home.lastNight.finished)}: {home.lastNight.line}</p>}
+        </div>
+        <div className="set-control unasked-control">
+          <label className="switch"><input type="checkbox" checked={d.night === true} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { night: ev.target.checked }))} /> {d.night ? "On, from" : "Off"}</label>
+          {d.night && <>
+            <input type="time" aria-label="When the night shift may start" value={d.nightFrom ?? "01:00"} disabled={busy === "drive"} onChange={(ev) => ev.target.value && doing("drive", () => api("/api/drive", { nightFrom: ev.target.value }))} />
+            <span className="meta">to</span>
+            <input type="time" aria-label="When the night shift stops" value={d.nightTo ?? "05:00"} disabled={busy === "drive"} onChange={(ev) => ev.target.value && doing("drive", () => api("/api/drive", { nightTo: ev.target.value }))} />
+          </>}
+          <button type="button" className="btn small" disabled={busy === "night"} onClick={() => doing("night", () => api("/api/night", {}))}>{busy === "night" ? "Working…" : "Run it now"}</button>
         </div>
       </div>
 

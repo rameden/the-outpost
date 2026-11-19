@@ -61,8 +61,10 @@ import { useKonami } from "./egg/konami.ts";
 // one arrives (a moment, from this machine) nothing shows in its place.
 const TerminalPanel = lazy(() => import("./components/Terminal.tsx").then((m) => ({ default: m.TerminalPanel })));
 const Orbit = lazy(() => import("./orbit/Orbit.tsx").then((m) => ({ default: m.Orbit })));
+const Trail = lazy(() => import("./trail/Trail.tsx").then((m) => ({ default: m.Trail })));
 const Settings = lazy(() => import("./settings/Settings.tsx").then((m) => ({ default: m.Settings })));
 const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ default: m.Barnstorm })));
+const Constellation = lazy(() => import("./constellation/Constellation.tsx").then((m) => ({ default: m.Constellation })));
 // Decorations (Settings → General): only for looks, and loaded only while one is on. If one ever
 // fails to draw, the page simply goes without it.
 const Decor = lazy(() => import("./components/Decor.tsx").then((m) => ({ default: m.Decor })));
@@ -109,11 +111,21 @@ export function App({ store }: { store: FeedStore }) {
   // Orbit (orbit/Orbit.tsx): the crew at work as a solar system, over the whole page. Going anywhere on the page leaves it.
   // "demo": opened on its demo, a pretend camp at work (/orbit demo).
   const [orbit, setOrbit] = useState<false | "live" | "demo">(false);
-  const toggleOrbit = useCallback(() => setOrbit((on) => (on ? false : "live")), []);
+  // The trail map (trail/Trail.tsx): the Quartermaster's plan as a trail, over the whole page. It and Orbit take the same
+  // place, so opening one closes the other.
+  const [trail, setTrail] = useState(false);
+  const toggleOrbit = useCallback(() => { setTrail(false); setOrbit((on) => (on ? false : "live")); }, []);
   const closeOrbit = useCallback(() => setOrbit(false), []);
+  const toggleTrail = useCallback(() => { setOrbit(false); setTrail((on) => !on); }, []);
+  const closeTrail = useCallback(() => setTrail(false), []);
+  // The memory map (constellation/Constellation.tsx): every remembered line a star, over the whole page. /constellation opens it.
+  const [constellation, setConstellation] = useState(false);
+  const closeConstellation = useCallback(() => setConstellation(false), []);
 
   const setView = useCallback((v: View) => {
     setOrbit(false);
+    setTrail(false);
+    setConstellation(false);
     setViewState(v);
     storeSet("camp-view", JSON.stringify(v));
     composer.current?.focus();
@@ -367,7 +379,8 @@ export function App({ store }: { store: FeedStore }) {
   // One place for everything a typed /command, the palette, or a shortcut can ask for.
   const command = (name: string, arg?: string) => {
     if (name === "today") goHome();
-    else if (name === "orbit") setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live");
+    else if (name === "orbit") { setTrail(false); setConstellation(false); setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live"); }
+    else if (name === "trail") { setOrbit(false); setConstellation(false); setTrail(true); }
     else if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
     else if (name === "focus") toggleFocus();
     else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
@@ -383,6 +396,7 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
     else if (name === "wiki") setView({ kind: "wiki" });
+    else if (name === "constellation") { setSettings(null); setOrbit(false); setTrail(false); setConstellation(true); }
     else if (name === "ticket") setWizard({});
   };
   // The newest of each, for the listeners and the handlers below that are set up once.
@@ -408,7 +422,7 @@ export function App({ store }: { store: FeedStore }) {
   }, []);
   const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
     ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
-      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
+      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "trail" ? "trail" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
       label: c.does, hint: `/${c.name}`, run: () => act.current.command(c.name),
     })),
     ...S.history.conversations.map((c): PaletteItem => ({
@@ -502,7 +516,7 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
-            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} />
+            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -620,6 +634,18 @@ export function App({ store }: { store: FeedStore }) {
         <OverlayBoundary name="Orbit" onClose={closeOrbit}>
           <Suspense fallback={null}><Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
             onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} /></Suspense>
+        </OverlayBoundary>
+      )}</Presence>
+      <Presence>{trail && (
+        <OverlayBoundary name="The trail map" onClose={closeTrail}>
+          <Suspense fallback={null}><Trail S={S} store={store} onClose={closeTrail} onOpenQuest={(q) => { setTrail(false); openQuest(q); }} /></Suspense>
+        </OverlayBoundary>
+      )}</Presence>
+      {/* The memory map takes the whole page too. A conversation it opens closes it; a merge it drafts is reviewed on the Memory page. */}
+      <Presence>{constellation && (
+        <OverlayBoundary name="The memory map" onClose={closeConstellation}>
+          <Suspense fallback={null}><Constellation onClose={closeConstellation} onOpenConversation={openConversation}
+            onOpenMemory={() => { setConstellation(false); openSettings("memory"); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}

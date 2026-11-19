@@ -29,6 +29,7 @@ export const COMMANDS: { name: string; arg?: string; does: string }[] = [
   { name: "today", does: "Open Today: your brief, and where things stand (the logo goes there too)" },
   { name: "new", does: "Start a new conversation" },
   { name: "orbit", arg: "demo", does: "Watch the crew at work as a solar system, full screen (/orbit demo plays a pretend camp)" },
+  { name: "trail", does: "See the plan as a trail: each step, who's on it, and what it waits for, full screen" },
   { name: "focus", does: "Close the history, files, notes and terminal (again brings them back)" },
   { name: "files", does: "Show or hide the files" },
   { name: "terminal", does: "Show or hide the terminal" },
@@ -41,6 +42,7 @@ export const COMMANDS: { name: string; arg?: string; does: string }[] = [
   { name: "bad", arg: "note", does: "Rate the last answer 👎, with an optional note" },
   { name: "ticket", does: "Start a ticket: pick it, check it, say where and who" },
   { name: "wiki", does: "Open the camp's wiki" },
+  { name: "constellation", does: "See everything the crew remembers as a map of stars, full screen" },
   { name: "layout", does: "Arrange the page's zones" },
   { name: "settings", does: "Open Settings" },
 ];

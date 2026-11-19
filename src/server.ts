@@ -40,6 +40,7 @@ import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTrigg
 import { checkPulls, freshPulls, pulls as knownPulls } from "./pulls.js";
 import { briefDays, briefDue, dayOf, readBrief, writeBrief } from "./brief.js";
 import { readRetro, retrosDue, runRetro, type Retro } from "./retro.js";
+import { markNightSeen, nightDue, nightPage, noteAsked, runNight } from "./nightshift.js";
 import { debriefsDue, readDebrief, runDebrief, workedOn } from "./debrief.js";
 import { offers, scoreboard } from "./scoreboard.js";
 import { drive, setDrive } from "./settings.js";
@@ -71,7 +72,8 @@ import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, orderProjects, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
-import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
+import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeMerge, proposeTidy, settleProposal } from "./keeping.js";
+import { memoryGraph, memoryWhy } from "./memgraph.js";
 import { logKept, writeAbout } from "./memlog.js";
 import { anthropicKeyState, setAnthropicKey, approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
 import { connectVoice, disconnectVoice, listVoices, setVoice, speak, voiceState } from "./voice.js";
@@ -340,6 +342,7 @@ let retroing = false;
 let debriefing = false;
 const debriefFailed = new Map<string, number>(); // one that couldn't be written is tried again in an hour, not every minute
 const lessonsLine = (n: number) => (n ? ` ${n} ${n === 1 ? "lesson is" : "lessons are"} waiting for your say in Settings, Memory.` : "");
+let nighting = false;
 setInterval(() => {
   try {
     if (briefDue()) void writeBrief({ running: isRunning, waiting: waitingOnYou(), announce: true }).catch((e) => console.error(`💥 morning brief: ${e?.message ?? e}`));
@@ -363,6 +366,11 @@ setInterval(() => {
           }
         })().finally(() => { debriefing = false; });
       }
+    }
+    // The night shift (nightshift.ts): off unless switched on, and only when nothing else is going on.
+    if (!nighting && nightDue(new Date(), { busy: running.size > 0 || queue.length > 0 || retroing || debriefing })) {
+      nighting = true;
+      void runNight().catch((e) => console.error(`💥 night shift: ${e?.message ?? e}`)).finally(() => { nighting = false; });
     }
   } catch (e: any) {
     console.error(`💥 brief and retro: ${e?.message ?? e}`);
@@ -391,7 +399,8 @@ function homePage(project?: string) {
   // held: plans approved to start later, waiting for you (read live, not from the morning's brief).
   const held = heldPlans().filter((h) => !project || h.project === project);
   return { name: yourName, today: dayOf(new Date()), brief: days.length ? readBrief(days[0]) : null, days, board, offers: offers(board), retros, drive: drive(), held,
-    pulls: { fetched: known.fetched, count: known.pulls.filter((p) => p.state === "OPEN").length, ...(known.error ? { error: known.error } : {}) } };
+    pulls: { fetched: known.fetched, count: known.pulls.filter((p) => p.state === "OPEN").length, ...(known.error ? { error: known.error } : {}) },
+    ...nightPage() }; // night: what the night shift left that you haven't seen; lastNight: a line on the latest one
 }
 export type HomePage = ReturnType<typeof homePage>;
 let polling = false;
@@ -810,6 +819,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // The memory as a map (memgraph.ts): every line, what it's like and what it's used with. why: one line's recalls, newest first.
+    if (req.method === "GET" && url.pathname === "/api/memory/graph") return send(res, 200, memoryGraph());
+    if (req.method === "GET" && url.pathname === "/api/memory/why") {
+      try { return send(res, 200, { history: memoryWhy(String(url.searchParams.get("where") ?? ""), String(url.searchParams.get("line") ?? "")) }); }
+      catch (e: any) { return send(res, /no such memory/i.test(e.message) ? 400 : 500, { error: e.message }); }
+    }
+
     // A project's page: its notes and survey, usage, worktrees, recently changed files, and jobs.
     if (req.method === "GET" && url.pathname === "/api/project") {
       const page = projectPage(String(url.searchParams.get("id") ?? ""));
@@ -981,6 +997,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === "/api/send") {
+      noteAsked(); // the night shift waits until you've been quiet a while
       let text = String(body.text ?? "").trim();
       const attachments: Attachment[] = Array.isArray(body.attachments) ? body.attachments.slice(0, 30) : [];
       // { resume: <expedition id> }: pick up a run that was cut off or stopped, from what it had done.
@@ -1694,6 +1711,8 @@ const server = http.createServer(async (req, res) => {
         // { where, line, on }: keep this line in every prompt (or stop keeping it there).
         if (url.pathname === "/api/memory/pin") return send(res, 200, { ok: pinLine(String(body.where ?? ""), String(body.line ?? ""), body.on !== false) });
         if (url.pathname === "/api/memory/tidy") return send(res, 200, { ok: true, proposal: await proposeTidy(String(body.where ?? "")) });
+        // { where, a, b }: draft one line in place of two of the same place, to approve.
+        if (url.pathname === "/api/memory/merge") return send(res, 200, { ok: true, proposal: await proposeMerge(String(body.where ?? ""), String(body.a ?? ""), String(body.b ?? "")) });
         if (url.pathname === "/api/memory/proposal") return send(res, 200, settleProposal(String(body.id ?? ""), body.action === "approve" ? "approve" : "dismiss", typeof body.text === "string" ? body.text : undefined));
         if (url.pathname === "/api/memory/care") { setMemoryCare({ tidy: body.tidy, suggest: body.suggest }); return send(res, 200, { ok: true, memoryCare: memoryCare() }); }
       } catch (e: any) { return send(res, e.fixable || /no such memory/i.test(e.message) ? 400 : 500, { error: e.message }); }
@@ -1768,6 +1787,7 @@ const server = http.createServer(async (req, res) => {
       const pending = pendingAsks.get(String(body.id));
       if (!pending) return send(res, 404, { error: "That question was already answered" });
       pendingAsks.delete(String(body.id));
+      noteAsked();
       pending.resolve(String(body.answer ?? ""));
       return send(res, 200, { ok: true });
     }
@@ -1801,10 +1821,18 @@ const server = http.createServer(async (req, res) => {
       try { return send(res, 200, { debrief: await runDebrief(String(body.key ?? "").trim().toUpperCase()) }); }
       catch (e: any) { return send(res, 400, { error: e.message }); }
     }
+    // The night shift, now (nightshift.ts): it drafts and reports, and changes nothing itself.
+    if (url.pathname === "/api/night") {
+      try { return send(res, 200, { ok: true, night: await runNight(), ...nightPage() }); }
+      catch (e: any) { return send(res, 400, { error: e.message }); }
+    }
+    // You've read the "While you were away" card.
+    if (url.pathname === "/api/night/seen") return send(res, 200, { ok: true, seen: markNightSeen() });
     // Bring one of your pull requests' feedback to the crew ({ url }): what the pull-request
     // trigger does by itself, as one click from the brief. Triggers watching that repository are
     // told it's been dealt with, so the same comments don't start work twice.
     if (url.pathname === "/api/pulls/address") {
+      noteAsked();
       const read = await checkPulls();
       const p = read.pulls.find((x) => x.url === body.url);
       if (!p) return send(res, 404, { error: read.error ?? "That pull request isn't one the camp knows of any more." });

@@ -277,6 +277,48 @@ test("the retro reads what you typed and what reviewers said, and what it propos
   assert.deepEqual([quiet.requests, quiet.proposed, called], [0, [], false], "a week with nothing asked calls no model");
 });
 
+test("work asked for again and again becomes one draft how-to, and never one that's waiting or was turned down", async () => {
+  const F = await import("../src/forge.ts");
+  const draft = {
+    owner: "scribe", name: "release-notes", description: "When the user asks for release notes.",
+    instructions: "1. Read the pull requests merged since the last tag.\n2. Group them by area.\n3. Write one line for each.",
+    why: "Saves spelling out the format each time.", seen: ["write the release notes", "release notes for 1.4", "release notes again please"],
+  };
+  assert.equal(R.parseRetroSkill("null"), null);
+  assert.equal(R.parseRetroSkill('[{"where":"project","text":"Sign every commit."}]'), null, "the other question's answer isn't a draft");
+  assert.equal(R.parseRetroSkill(JSON.stringify({ ...draft, seen: ["a request", "another one"] })), null, "twice isn't a pattern");
+  assert.equal(R.parseRetroSkill(JSON.stringify({ ...draft, name: "Release Notes!" })), null);
+  assert.equal(R.parseRetroSkill(`Here you go: ${JSON.stringify({ ...draft, owner: "nobody" })}`)?.owner, "shared");
+
+  const prompts: string[] = [];
+  const ask = async (system: string, prompt: string) => { if (!/how-to/.test(system)) return "[]"; prompts.push(prompt); return JSON.stringify(draft); };
+  const retro = await R.runRetro(project.id, "2026-11-09", ask);
+  assert.equal(retro.skill, "scribe/release-notes");
+  assert.equal(R.readRetro(project.id, "2026-11-09")?.skill, "scribe/release-notes");
+  assert.match(prompts[0], /The button should be the neutral color/, "it reads what you asked for");
+  assert.match(prompts[0], /Skills that already exist:/);
+  const waiting = F.pendingDetails();
+  assert.deepEqual(waiting.map((p) => [p.owner, p.name]), [["scribe", "release-notes"]], "it waits for your say like any proposed skill");
+  assert.match(waiting[0].reason, /^Asked for 3 times in the last 4 weeks, for example "write the release notes"\. Saves spelling out/);
+
+  assert.equal((await R.runRetro(project.id, "2026-11-09", ask)).skill, undefined, "what's already waiting isn't drafted again");
+  assert.ok(F.rejectSkill("scribe", "release-notes"));
+  assert.deepEqual(F.passedSkills().map((p) => [p.name, p.description]), [["release-notes", "When the user asks for release notes."]]);
+  assert.equal((await R.runRetro(project.id, "2026-11-09", ask)).skill, undefined, "nor what you turned down");
+  assert.match(prompts.at(-1)!, /Turned down by the user[^\n]*\n- release-notes: When the user asks for release notes\./);
+  assert.deepEqual(F.pendingDetails(), []);
+
+  const failed = await R.runRetro(project.id, "2026-11-09", async (system) => { if (/how-to/.test(system)) throw new Error("no model"); return "[]"; });
+  assert.deepEqual([failed.requests, failed.skill], [12, undefined], "a draft that couldn't be made doesn't cost you the retro");
+
+  // Proposed again by hand and approved: it's a skill now, and no longer one you passed on.
+  assert.deepEqual(F.draftSkill({ owner: "scribe", name: "release-notes", description: draft.description, instructions: draft.instructions, reason: "Asked for." }), { ok: true, replaces: false });
+  assert.ok(F.approveSkill("scribe", "release-notes"));
+  assert.deepEqual(F.passedSkills(), []);
+  assert.equal(F.skillStanding("release-notes"), "live");
+  assert.equal((await R.runRetro(project.id, "2026-11-09", ask)).skill, undefined, "nor over a skill that's live");
+});
+
 test("a retro is due once Friday afternoon has come, for a week that had work and hasn't had one", () => {
   setDrive({ retro: false });
   assert.deepEqual(R.retrosDue(new Date(2026, 10, 20, 16)), []);

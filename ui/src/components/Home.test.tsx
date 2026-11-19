@@ -148,3 +148,46 @@ test("with no brief yet it says so and offers to write one; an earlier day's can
   expect(screen.queryByRole("button", { name: "Address it" })).toBeNull(); // yesterday's next steps aren't today's
   expect(screen.queryByText("Where you left off")).toBeNull();
 });
+
+const night = (over: Partial<NonNullable<HomePage["night"]>> = {}): NonNullable<HomePage["night"]> => ({
+  day: "2026-11-12", finished: "2026-11-13T02:10:00.000Z", nights: 1,
+  tidied: [{ where: "agent:scout", name: "Scout's memory" }, { where: "agent:scribe", name: "Scribe's memory" }],
+  stale: [{ where: "agent:warden", name: "Warden's memory", text: "Review checklist lives in the wiki", date: "2026-01-09" }, { where: "agent:scout", name: "Scout's memory", text: "The staging host moved to eu-west", date: "2026-05-02" }],
+  housekeeping: [{ step: "uploads", title: "delete 3 uploaded files nothing uses any more", count: 3, bytes: 4096 }], frees: "4 KB", notes: [], ...over,
+});
+
+test("While you were away: what the night shift drafted and found, with the way to Memory, and Dismiss marks it seen", async () => {
+  const asked = camp({ "/api/home": page({ night: night() }), "/api/night/seen": { ok: true, seen: 1 } });
+  const props = show();
+  const card = await screen.findByRole("region", { name: "While you were away" });
+  expect(card.textContent).toMatch(/Drafted tidies for 2 memories \(Scout's memory, Scribe's memory\)/);
+  fireEvent.click(within(card).getByRole("button", { name: "Look them over" }));
+  expect(props.onOpenMemory).toHaveBeenCalledTimes(1);
+  // The old lines are folded away until you ask, each with where it is and when it was written.
+  const old = within(card).getByText("2 old lines worth a look").closest("details") as HTMLDetailsElement;
+  expect(old.open).toBe(false);
+  expect(within(old).getAllByRole("listitem", { hidden: true }).map((l) => l.textContent)).toEqual(["Review checklist lives in the wikiWarden's memory · 2026-01-09", "The staging host moved to eu-westScout's memory · 2026-05-02"]);
+  fireEvent.click(within(old).getByRole("button", { name: "Memory", hidden: true }));
+  expect(props.onOpenMemory).toHaveBeenCalledTimes(2);
+  expect(card.textContent).toMatch(/Housekeeping could delete 3 uploaded files nothing uses any more \(about 4 KB\)\. Nothing was cleared/);
+  expect(card.textContent).toMatch(/It only drafted and reported\. Nothing was applied or deleted\./);
+  fireEvent.click(within(card).getByRole("button", { name: "Dismiss" }));
+  await waitFor(() => expect(asked).toContain("POST /api/night/seen {}"));
+  expect(asked.filter((a) => a.startsWith("GET /api/home")).length).toBeGreaterThan(1); // and the page is read again
+});
+
+test("While you were away: one tidy reads as one, what couldn't be done is said, and a night that did nothing shows no card", async () => {
+  camp({ "/api/home": page({ night: night({ tidied: [{ where: "agent:scout", name: "Scout's memory" }], stale: [], housekeeping: [], frees: "", notes: ["No tidy was drafted for Scribe's memory: the model is unreachable"] }) }) });
+  show();
+  const card = await screen.findByRole("region", { name: "While you were away" });
+  expect(card.textContent).toMatch(/Drafted a tidy for 1 memory \(Scout's memory\)/);
+  expect(within(card).getByRole("button", { name: "Look it over" })).toBeTruthy();
+  expect(card.textContent).toMatch(/No tidy was drafted for Scribe's memory: the model is unreachable/);
+  expect(card.textContent).not.toMatch(/old line|Housekeeping could/);
+  cleanup();
+
+  camp({ "/api/home": page() });
+  show();
+  await screen.findByText(/Good (morning|afternoon|evening)/);
+  expect(screen.queryByRole("region", { name: "While you were away" })).toBeNull();
+});
