@@ -104,16 +104,19 @@ function glideFrom(el: HTMLElement, dx: number, dy: number) {
   gliding.set(el, el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 320, easing: "cubic-bezier(.22, 1, .36, 1)" }));
 }
 
-function useSettle(list: RefObject<HTMLElement | null>, zoom = 1) {
+// foot: the list stands on its last row (the tree, which grows upward), so a row has moved when it's
+// a different height above that, not when rows joining overhead have pushed the list's top up.
+function useSettle(list: RefObject<HTMLElement | null>, zoom = 1, foot = false) {
   const tops = useRef(new Map<string, number>());
   useLayoutEffect(() => {
     const now = new Map<string, number>(), was = tops.current;
     if (list.current && motionOK()) {
-      for (const row of Array.from(list.current.children) as HTMLElement[]) {
-        const id = row.dataset.exp;
-        if (!id || !row.offsetHeight) continue;
+      const rows = (Array.from(list.current.children) as HTMLElement[]).filter((row) => row.dataset.exp && row.offsetHeight);
+      const last = rows.at(-1), ground = foot && last ? last.offsetTop + last.offsetHeight : 0;
+      for (const row of rows) {
+        const id = row.dataset.exp!;
         // (Browsers differ on whether offsetTop counts the zoom: the row's own two heights say which.)
-        const top = (row.offsetTop * row.getBoundingClientRect().height) / row.offsetHeight / zoom, from = was.get(id);
+        const top = ((row.offsetTop - ground) * row.getBoundingClientRect().height) / row.offsetHeight / zoom, from = was.get(id);
         now.set(id, top);
         if (from !== undefined && Math.abs(from - top) > 1) glideFrom(row, 0, from - top);
       }
@@ -240,8 +243,8 @@ function Moon({ q, at, ended, expId, crewId, onOpen }: { q: PlanQuest; at: { dx:
 // pointing at (or have tabbed to) says in full. sky: the drawing, for the map to be fitted to the window.
 // going: the plans that have just gone, still drawn while they fade. The plans by name, and the
 // map itself, glide to make room when one joins or goes.
-function TrailRings({ plans, going, crewId, onOpen, onOnly, zoom, sky }: {
-  plans: Trailhead[]; going: Set<string>; crewId: CrewId; onOpen?: Open; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
+function TrailRings({ plans, going, crewId, openIn, onOnly, zoom, sky }: {
+  plans: Trailhead[]; going: Set<string>; crewId: CrewId; openIn: (p: Trailhead) => Open | undefined; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
 }) {
   const runs = useRef<HTMLOListElement>(null);
   useSettle(runs);
@@ -274,7 +277,7 @@ function TrailRings({ plans, going, crewId, onOpen, onOnly, zoom, sky }: {
                 {ring.follows && <span className="trail-follows">Follows ring {ringNo.get(ring.follows)}</span>}
                 <button type="button" className="trail-btn" aria-label={`Just this plan: ${brief(p.task)}`} title="Look at this plan on its own" onClick={() => onOnly(p.expId)}>Just this one</button>
               </div>
-              <Loose at={p} crewId={crewId} onOpen={onOpen} />
+              <Loose at={p} crewId={crewId} onOpen={openIn(p)} />
             </li>
           );
         })}
@@ -326,7 +329,7 @@ function TrailRings({ plans, going, crewId, onOpen, onOnly, zoom, sky }: {
                             <li key={w.n} className={cx("trail-way", state)} data-n={w.n} data-slot={w.slot} data-state={state} tabIndex={0} style={{ left: w.x, top: w.y, "--slot": w.slot } as CSSProperties}
                               title={`${w.n}. ${step.text}`} aria-label={stepSays(w.n, state, step.text, w.after)} {...over(ring.expId, w.n)}>
                               <b>{w.n}</b>{state !== "todo" && <i aria-hidden="true">{STEP_MARK[state]}</i>}
-                              {step.quests.map((q, i) => <Moon key={q.node} q={q} at={moons[i]} ended={p.plan.ended} expId={ring.expId} crewId={crewId} onOpen={onOpen} />)}
+                              {step.quests.map((q, i) => <Moon key={q.node} q={q} at={moons[i]} ended={p.plan.ended} expId={ring.expId} crewId={crewId} onOpen={openIn(p)} />)}
                             </li>
                           );
                         })}
@@ -366,22 +369,60 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
   const [zoom, setZoom] = useState(1); // how big the whole map is drawn (one of ZOOMS)
   const [draw, setDraw] = useState<Draw>(() => (storeGet(DRAW_KEY) === "tree" ? "tree" : "rings")); // how the whole map is drawn
   const root = useRef<HTMLDivElement>(null), all = useRef<HTMLOListElement>(null), sky = useRef<HTMLDivElement>(null);
+  const byHand = useRef(false), fitted = useRef(""), grew = useRef(false); // the size: yours? fitted for which view? just refitted as a plan joined?
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
 
   const feed = replay?.store ?? store;
   const items = useFeed(feed, (s) => s.items);
-  const plans = useMemo(() => plansOf(items), [items]);
+  // The page's own feed holds only the newest stretch of events, so on a busy day the morning's
+  // plans have scrolled out of it. The day's are fetched as the map opens (the same day a replay
+  // plays, read the same way) and stand before the page's own. Where both have a plan the page's
+  // is drawn: it's the one still hearing what happens.
+  const [day, setDay] = useState<Trailhead[]>([]);
+  useEffect(() => {
+    let gone = false;
+    void (async () => {
+      try {
+        const earlier = createFeedStore();
+        for (const e of reelOf((await api<{ events: CampEvent[] }>("/api/feed/day")).events).events) earlier.apply(e);
+        if (!gone) setDay(plansOf(earlier.getState().items));
+      } catch { /* the map shows what the page has */ }
+    })();
+    return () => { gone = true; };
+  }, []);
+  const [plans, old] = useMemo(() => {
+    const here = plansOf(items), have = new Set(here.map((p) => p.expId));
+    const before = replay ? [] : day.filter((p) => !have.has(p.expId));
+    return [before.length ? [...before, ...here] : here, new Set(before.map((p) => p.expId))] as const;
+  }, [items, day, replay]);
   const shown = plans.find((p) => p.expId === picked) ?? plans.at(-1);
   // On the whole map, a plan that goes (the day wound back, in a replay) is drawn while it fades.
   // Not across the change from today to a replay or back: those are different days' plans.
   const lingering = useLingering(plans, (p) => p.expId, feed, GO_MS);
   const drawn = lingering.map((x) => x.item), going = new Set(lingering.filter((x) => x.leaving).map((x) => x.item.expId));
-  useSettle(all, zoom);
+  useSettle(all, zoom, true);
+  // The tree stands on the foot of the window and opens there, at the day's first plans. When a new
+  // plan joins at its tip, the map climbs to it.
+  const tip = plans.at(-1)?.expId, tipWas = useRef<{ feed: FeedStore; tip?: string } | null>(null);
+  useEffect(() => {
+    const was = tipWas.current;
+    tipWas.current = { feed, tip };
+    if (!whole || draw !== "tree" || !tip || !was || was.feed !== feed || was.tip === tip) return;
+    const list = all.current, box = list?.parentElement, row = (Array.from(list?.children ?? []) as HTMLElement[]).find((r) => r.dataset.exp === tip);
+    if (!list || !box || !row) return;
+    // (Moved at once and then glided from where it was: the browser's own smooth scroll is dropped
+    // when the map is redrawn under it, as it is all through a replay.)
+    const x = box.scrollLeft, y = box.scrollTop;
+    row.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    const dx = box.scrollLeft - x, dy = box.scrollTop - y;
+    if ((dx || dy) && motionOK()) glideFrom(list, dx / zoom, dy / zoom);
+  }, [tip, feed, whole, draw, zoom]);
   // The map moves when the plans do, not when you change how you're looking at them: whatever a
   // new view would play as it's first drawn (this one included, as the map opens) is skipped to
   // its end. The map's own fade as it opens is left to play, and so is anything that never ends.
   useLayoutEffect(() => {
     const el = root.current;
+    if (grew.current) { grew.current = false; return; } // (resized because a plan joined: that's the plans moving)
     if (typeof el?.getAnimations !== "function") return;
     for (const a of el.getAnimations({ subtree: true })) {
       const fx = a.effect;
@@ -392,22 +433,37 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
   const crew = S?.characters;
   const crewId = useCallback((who: string) => crew?.find((c) => c.name === who)?.id, [crew]);
   const live = !replay;
-  const open = useMemo<Open | undefined>(() => (live && onOpenQuest ? (expId, node) => onOpenQuest({ expId, node }) : undefined), [live, onOpenQuest]);
+  // A quest opens on the page underneath, so only where the page has it: not in a replay, and not
+  // in a plan from earlier in the day than the page's feed goes back.
+  const opens = useMemo<Open | undefined>(() => (live && onOpenQuest ? (expId, node) => onOpenQuest({ expId, node }) : undefined), [live, onOpenQuest]);
+  const openIn = (p: Trailhead) => (old.has(p.expId) ? undefined : opens);
 
-  // The whole map opens as big as it can be with all of it in sight; failing that, with its width
-  // in sight (it scrolls down); failing that, as small as it goes. After that the size is yours.
-  const toggleWhole = () => { setZoom(1); setWhole((on) => !on); };
+  // The whole map is drawn as big as it can be with all of it in sight; failing that, with its width
+  // in sight (it scrolls down); failing that, as small as it goes. It's fitted again whenever a plan
+  // joins or goes, so a map that grew a plan at a time (a replay, or the day arriving) ends the size
+  // it would have opened at. Once you've set the size yourself it's yours, until the map is opened
+  // or redrawn afresh.
+  const toggleWhole = () => { byHand.current = false; setZoom(1); setWhole((on) => !on); };
   useLayoutEffect(() => {
     const list = draw === "rings" ? sky.current : all.current, box = list?.parentElement;
-    if (!whole || !list || !box?.clientWidth) return;
+    const view = `${whole} ${draw}`, same = fitted.current === view;
+    fitted.current = view;
+    if (!whole || byHand.current || !list || !box?.clientWidth) return;
     const pad = getComputedStyle(box), px = (v: string) => parseFloat(v) || 0;
     const wide = box.clientWidth - px(pad.paddingLeft) - px(pad.paddingRight), tall = box.clientHeight - px(pad.paddingTop) - px(pad.paddingBottom);
-    const fits = (z: number, down: boolean) => list.scrollWidth * z <= wide && (!down || list.scrollHeight * z <= tall);
-    setZoom(ZOOMS.find((z) => fits(z, true)) ?? ZOOMS.find((z) => fits(z, false)) ?? ZOOMS.at(-1)!);
-  }, [whole, draw]);
+    // (Measured at full size, whatever size it's drawn at now.)
+    const drawnAt = list.style.zoom;
+    list.style.zoom = "1";
+    const w = list.scrollWidth, h = list.scrollHeight;
+    list.style.zoom = drawnAt;
+    const fits = (z: number, down: boolean) => w * z <= wide && (!down || h * z <= tall);
+    const best = ZOOMS.find((z) => fits(z, true)) ?? ZOOMS.find((z) => fits(z, false)) ?? ZOOMS.at(-1)!;
+    if (same && best !== zoom) grew.current = true;
+    setZoom(best);
+  }, [whole, draw, drawn.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Tree or rings: remembered for next time, and fitted to the window afresh.
-  const drawAs = (d: Draw) => { if (d === draw) return; setZoom(1); setDraw(d); storeSet(DRAW_KEY, d); };
-  const zoomBy = (d: 1 | -1) => setZoom((z) => ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, ZOOMS.indexOf(z) - d))]);
+  const drawAs = (d: Draw) => { if (d === draw) return; byHand.current = false; setZoom(1); setDraw(d); storeSet(DRAW_KEY, d); };
+  const zoomBy = (d: 1 | -1) => { byHand.current = true; setZoom((z) => ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, ZOOMS.indexOf(z) - d))]); };
   const only = (expId: string) => { setPicked(expId === plans.at(-1)?.expId ? null : expId); setWhole(false); };
 
   const startReplay = useCallback(async () => {
@@ -477,7 +533,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
             <b>{plans.length === 0 ? "No plan at this point in the day" : plans.length === 1 ? "The one plan so far" : draw === "rings" ? `All ${plans.length} plans, a ring each: the first asked innermost` : `All ${plans.length} plans, newest first`}</b>
             <span className="trail-count" role="status">{tally(plans.flatMap((p) => statesOf(p.plan)), " steps")}</span>
           </div>
-          {draw === "rings" ? <TrailRings plans={drawn} going={going} crewId={crewId} onOpen={open} onOnly={only} zoom={zoom} sky={sky} /> : (
+          {draw === "rings" ? <TrailRings plans={drawn} going={going} crewId={crewId} openIn={openIn} onOnly={only} zoom={zoom} sky={sky} /> : (
           <div className="trail-map whole">
             <ol className="trail-all" ref={all} style={{ zoom }} aria-label="Every plan, newest first">
               {drawn.toReversed().map((p) => (
@@ -488,8 +544,8 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
                     <span className="trail-count">{tally(statesOf(p.plan))}</span>
                     <button type="button" className="trail-btn" aria-label={`Just this plan: ${brief(p.task)}`} title="Look at this plan on its own" onClick={() => only(p.expId)}>Just this one</button>
                   </div>
-                  <TrailGround plan={p.plan} expId={p.expId} crewId={crewId} onOpen={open} label={`The steps of: ${brief(p.task)}`} tree />
-                  <Loose at={p} crewId={crewId} onOpen={open} />
+                  <TrailGround plan={p.plan} expId={p.expId} crewId={crewId} onOpen={openIn(p)} label={`The steps of: ${brief(p.task)}`} tree />
+                  <Loose at={p} crewId={crewId} onOpen={openIn(p)} />
                 </li>
               ))}
             </ol>
@@ -503,8 +559,8 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
             <span className="trail-count" role="status">{tally(statesOf(shown.plan))}</span>
           </div>
           <div className="trail-map">
-            <TrailGround key={shown.expId} plan={shown.plan} expId={shown.expId} crewId={crewId} onOpen={open} label="The plan's steps" />
-            <Loose at={shown} crewId={crewId} onOpen={open} />
+            <TrailGround key={shown.expId} plan={shown.plan} expId={shown.expId} crewId={crewId} onOpen={openIn(shown)} label="The plan's steps" />
+            <Loose at={shown} crewId={crewId} onOpen={openIn(shown)} />
           </div>
         </>
       ) : (

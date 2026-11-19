@@ -2367,13 +2367,15 @@ button.trail-chip:hover { border-color: var(--c, var(--c-other)); background: co
 .trail-loose { position: sticky; left: 0; bottom: 0; flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 28px; border-top: 1px solid var(--border); background: var(--bg); font-size: 12px; color: var(--muted); }
 .trail-loose > span:first-child { margin-right: 4px; }
 /* The whole map: every plan at once, as a tree. One trunk up the left (the day: oldest at the foot and thickest there,
-   newest at the tip), and each plan a bough that leaves it at a knot and grows up and out to its first steps. */
+   newest at the tip), and each plan a bough that leaves it at a knot and grows up and out to its first steps.
+   It stands on the foot of the window and grows upward: the box is filled from its bottom edge (column-reverse),
+   so it opens at the ground, and a plan that joins is added overhead without moving the ones below. */
 .trail-zoom { display: inline-flex; align-items: center; gap: 4px; }
 .trail-zoom .trail-btn { width: 28px; padding: 5px 0; }
 .trail-zoom output { min-width: 38px; text-align: center; font: 12px var(--mono); color: var(--muted); }
 .trail-btn:disabled { color: var(--faint); border-color: var(--border); background: var(--surface); }
-.trail-map.whole { --bark: color-mix(in srgb, var(--border-strong) 55%, var(--faint)); display: block; padding: 16px 28px 28px; }
-.trail-all { position: relative; list-style: none; width: max-content; min-width: 100%; box-sizing: border-box; margin: 0; padding: 0 0 20px; }
+.trail-map.whole { --bark: color-mix(in srgb, var(--border-strong) 55%, var(--faint)); display: flex; flex-direction: column-reverse; padding: 16px 28px 28px; }
+.trail-all { position: relative; flex: none; align-self: flex-start; list-style: none; width: max-content; min-width: 100%; box-sizing: border-box; margin: 0; padding: 0 0 20px; }
 .trail-all::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: var(--bark); clip-path: polygon(5.5px 0, 8.5px 0, 14px 100%, 0 100%); }
 /* The ground it stands on. */
 .trail-all::after { content: ""; position: absolute; left: -16px; bottom: 0; width: 46px; height: 2px; background: var(--bark); }
