@@ -14,7 +14,8 @@ import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
-import { PALETTES, modeNow, paletteNow, setMode, setPalette, wearPack, type Mode, type PaletteId } from "../themes.ts";
+import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
+import { SEASONS, seasonById } from "../seasons.ts";
 import { autoName, cClass, cx, isAuto, money } from "../format.ts";
 import { w } from "../words.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
@@ -161,9 +162,20 @@ function OtherDevices({ S }: { S: CampState }) {
   );
 }
 
+// Decorations (seasons.ts): off, whatever the calendar says, or one by name.
+const monthDay = (mmdd: string) => { const [m, d] = mmdd.split("-").map(Number); return new Date(2024, m - 1, d).toLocaleDateString([], { month: "short", day: "numeric" }); };
+const DECOR_CHOICES: { id: SeasonChoice; name: string; about: string }[] = [
+  { id: "", name: "Off", about: "No decorations." },
+  { id: "auto", name: "Follow the calendar", about: `${SEASONS.map((s) => `${s.name} from ${monthDay(s.from)} to ${monthDay(s.to)}`).join("; ")}. Nothing the rest of the year.` },
+  ...SEASONS,
+];
+
 function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   const [theme, setTheme] = useState<Mode>(modeNow);
   const [palette, setPaletteShown] = useState<PaletteId>(paletteNow);
+  const [season, setSeasonShown] = useState<SeasonChoice>(seasonChoice);
+  const inSeason = seasonById(seasonNow())?.name;
+  const decorNow = season === "auto" ? (inSeason ? `Today that's ${inSeason}.` : "Nothing is in season today.") : season ? seasonById(season)?.about ?? "" : "";
   const costShown = showCost.use();
   const [, redraw] = useState(0);
   const locked = S.settings.runtimeLocked;
@@ -209,6 +221,14 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           {PALETTES.map((p) => (
             <button key={p.id} type="button" className={`look p-${p.id}`} aria-pressed={palette === p.id}
               onClick={() => { setPaletteShown(p.id); setPalette(p.id); }}><i aria-hidden="true" />{p.name}</button>
+          ))}
+        </div>
+      </Row>
+      <Row label="Decorations" wide help={<>Only for looks: snow, bats or confetti, a string of lights and a tint on the orb, on top of any theme pack and colours. Nothing the crew reads or writes changes, and the choice is kept in this browser. {decorNow} If your system asks for less motion, nothing moves.</>}>
+        <div className="looks" role="group" aria-label="Decorations">
+          {DECOR_CHOICES.map((d) => (
+            <button key={d.id || "off"} type="button" className="look decor" aria-pressed={season === d.id} title={d.about}
+              onClick={() => { setSeasonShown(d.id); setSeason(d.id); }}>{d.name}</button>
           ))}
         </div>
       </Row>
