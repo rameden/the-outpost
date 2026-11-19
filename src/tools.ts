@@ -15,6 +15,7 @@ import { autoApproval, approvalNow, shellRule } from "./shell.js";
 import { reviewCommand, reviewerOn } from "./reviewer.js";
 import { resolveLinked, linkedDisplayPath, SECRET_NAME, inside, isSymlink, realTarget, loadLinks, linkRoot } from "./links.js";
 import { allowShellCommand, selfEditAllowed, shellSettings } from "./settings.js";
+import { CREW, inPack } from "./crew.js";
 import { childEnv, gitSafeEnv, sandboxAvailable, sandboxKind, sandboxed, type SandboxPlan } from "./sandbox.js";
 import { allowedHosts, ensureProxy, proxyEnv, refusedSince } from "./netproxy.js";
 import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell } from "./checkpoints.js";
@@ -179,7 +180,7 @@ function campRules(abs: string, path: string, mode: "read" | "write", self?: str
   if (mode === "write" && READ_ONLY.has(top)) {
     throw new Error(
       top === "skills"
-        ? "skills/ is read-only. New skills are proposed by the Quartermaster and approved by the user."
+        ? inPack("skills/ is read-only. New skills are proposed by the Quartermaster and approved by the user.")
         : `${top}/ is read-only for file tools.` + (self ? ` Save your work to camp/agents/${self}/outputs/.` : "")
     );
   }
@@ -442,7 +443,8 @@ const SANDBOX_HINT = "\n\n[Ran in the sandbox: no network (beyond any hosts the 
 // Commands don't see the camp's secrets: API keys, tokens and passwords in its environment are
 // left out (childEnv in sandbox.ts). The owner can let a name through on purpose with
 // CAMP_SHELL_ENV_ALLOW=GH_TOKEN,NPM_TOKEN in the camp's environment.
-export function bashFor(self: string, name = "Artificer"): Tool {
+export function bashFor(self: string, was = "Artificer"): Tool {
+  const called = () => CREW[self]?.name ?? was; // what they're called now (the theme pack can change it)
   return {
     def: {
       name: "bash",
@@ -501,15 +503,15 @@ export function bashFor(self: string, name = "Artificer"): Tool {
       // The reviewer (if you turned it on) may clear a routine command; otherwise it says why you're being asked.
       let note = "";
       if (reviewerOn() && !rule) {
-        const review = await reviewCommand(String(command), where.replace(/^\n\(in |\)$/g, ""), name);
+        const review = await reviewCommand(String(command), where.replace(/^\n\(in |\)$/g, ""), called());
         if (review.cleared) {
-          emit({ type: "notice", who: name, emoji: "🛡️", depth: 1, questId: currentQuestId(), text: `Reviewer cleared: ${String(command).split("\n")[0].slice(0, 120)} (${review.reason})` });
+          emit({ type: "notice", who: called(), emoji: "🛡️", depth: 1, questId: currentQuestId(), text: `Reviewer cleared: ${String(command).split("\n")[0].slice(0, 120)} (${review.reason})` });
           return runShell(String(command), { signal, cwd: dir });
         }
         note = `\n\nReviewer: ${review.reason}`;
       }
       if (rule) note = `\n\nYour rule "${rule.rule}" says to always ask about this.`;
-      const ok = (await ask({ kind: "shell", title: `⚔️  The ${name} wants to run a shell command:`, body: command + where + note })).toLowerCase();
+      const ok = (await ask({ kind: "shell", title: `⚔️  The ${called()} wants to run a shell command:`, body: command + where + note })).toLowerCase();
       // "always": run it, and stop asking about this exact command.
       if (ok === "a" || ok === "always") allowShellCommand(String(command));
       else if (ok !== "y") return "The user declined to run this command.";

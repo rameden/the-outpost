@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, type ReactNode, type RefObject } from "re
 import { Icon } from "../components/bits.tsx";
 import type { CrewStatus, QuestOut } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
-import { cClass, cx, shortModel, took } from "../format.ts";
+import { cClass, cx, leadName, shortModel, took } from "../format.ts";
 import { Decisions, Dispatch, Steer, Stop } from "./Act.tsx";
 import { asksOf, questsOf, runsOf, type Line } from "./doing.ts";
 import { levelOf, questsDone, type KitItem } from "./kit.ts";
@@ -139,8 +139,8 @@ export function Panel({ body, lead, nth, xp, store, st, bearing, make, live, clo
         ))}
         {!out.length && !runs.length && !asks.length && (
           <p className="orb-quiet">{lead
-            ? "No expedition is under way. When you send the Quartermaster on one, its plan and its progress show here as they happen."
-            : `At camp, with nothing out. When the Quartermaster sends ${body.name} on a quest, it shows here as it happens.`}</p>
+            ? `No expedition is under way. When you send the ${body.name} on one, its plan and its progress show here as they happen.`
+            : `At camp, with nothing out. When the ${leadName()} sends ${body.name} on a quest, it shows here as it happens.`}</p>
         )}
         <Kit name={body.name} kit={kit} picked={picked} onPick={onPick} />
       </div>

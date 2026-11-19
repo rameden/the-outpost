@@ -258,7 +258,60 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 @keyframes orb-flicker { 0%, 100% { opacity: .85; } 45% { opacity: 1; } 55% { opacity: .6; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; } }
 :root[data-theme="dark"] .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; }
+/* The Starship theme pack's orb (src/packs.ts): deep space and an engine's blue-white glow, in every palette. */
+[data-pack="starship"] .mae-orb { --orb-navy: #0f2a40; --orb-ochre: #2fb4d0; --orb-line: #0f2a40; --orb-glint: #0a1620; }
+@media (prefers-color-scheme: dark) { :root[data-pack="starship"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; } }
+:root[data-pack="starship"][data-theme="dark"] .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; }
 @media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
+
+/* ---------- Decorations ----------
+   Holiday dressing (ui/src/seasons.ts; Settings → General → Decorations), shown as data-season on
+   <html>. Only for looks, and on top of everything else: any palette, light or dark, either pack.
+   Each one names its colours here as --decor-… (an orb, an ink for what falls, a small mark by
+   Today's date); the rules below the three put them to work. A decoration's orb wins over the
+   pack's. Everything is flat, nothing here changes a size or a text colour, and the lights' wire
+   runs straight along the top bar's straight edge. What falls is drawn by components/Decor.tsx. */
+:root[data-season="winter"] { --decor-navy: #1d3f63; --decor-ochre: #9fd8ee; --decor-line: #24527c; --decor-glint: #0f2438;
+  --decor-ink: color-mix(in srgb, var(--c-warden) 55%, var(--surface)); --decor-mark-ink: var(--c-warden);
+  --decor-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1v14M1.9 4.5l12.2 7M1.9 11.5l12.2-7' fill='none' stroke='%23000' stroke-width='1.7'/%3E%3C/svg%3E"); }
+:root[data-season="halloween"] { --decor-navy: #33194a; --decor-ochre: #f08a1c; --decor-line: #4a2a6b; --decor-glint: #1c0f29;
+  --decor-ink: color-mix(in srgb, var(--text) 70%, var(--c-scribe)); --decor-mark-ink: var(--c-artificer);
+  --decor-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cellipse cx='8' cy='9.6' rx='6.6' ry='5'/%3E%3Cpath d='M7 2h2.2v3H7z'/%3E%3C/svg%3E"); }
+:root[data-season="newyear"] { --decor-navy: #171a33; --decor-ochre: #f1c84b; --decor-line: #6b5410; --decor-glint: #1a1506;
+  --decor-ink: var(--muted); --decor-mark-ink: var(--c-quartermaster);
+  --decor-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 .5l1.8 5.7 5.7 1.8-5.7 1.8L8 15.5 6.2 9.8.5 8l5.7-1.8z'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) {
+  :root[data-season="winter"]:not([data-theme="light"]) { --decor-ochre: #c9ecf8; --decor-line: #a7d2ee; --decor-glint: #f1fbff; --decor-ink: color-mix(in srgb, var(--text) 82%, var(--c-warden)); }
+  :root[data-season="halloween"]:not([data-theme="light"]) { --decor-ochre: #ff9f3f; --decor-line: #c8a5ec; --decor-glint: #fff1df; }
+  :root[data-season="newyear"]:not([data-theme="light"]) { --decor-ochre: #f8dc7a; --decor-line: #ead28a; --decor-glint: #fffbe6; }
+}
+:root[data-season="winter"][data-theme="dark"] { --decor-ochre: #c9ecf8; --decor-line: #a7d2ee; --decor-glint: #f1fbff; --decor-ink: color-mix(in srgb, var(--text) 82%, var(--c-warden)); }
+:root[data-season="halloween"][data-theme="dark"] { --decor-ochre: #ff9f3f; --decor-line: #c8a5ec; --decor-glint: #fff1df; }
+:root[data-season="newyear"][data-theme="dark"] { --decor-ochre: #f8dc7a; --decor-line: #ead28a; --decor-glint: #fffbe6; }
+/* (Said twice over so it outranks a pack's orb in light and in dark.) */
+:root[data-season]:not([data-season=""]) .mae-orb { --orb-navy: var(--decor-navy); --orb-ochre: var(--decor-ochre); --orb-line: var(--decor-line); --orb-glint: var(--decor-glint); }
+/* What falls: one canvas over the window, under every menu and dialog, that takes no clicks. */
+.decor-fall { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; color: var(--decor-ink, var(--muted)); }
+/* The lights: hung from the top bar's bottom edge, out of the flow, so the bar keeps its height.
+   (:where, so a narrow window's sticky top bar, further down, still wins.) */
+:where([data-season]) .top { position: relative; }
+.decor-lights { position: absolute; left: 0; right: 0; top: 100%; height: 12px; overflow: hidden; pointer-events: none; z-index: 2; }
+.decor-lights svg { display: block; }
+.decor-wire { stroke: var(--border-strong); stroke-width: 1; }
+.decor-cap { fill: var(--border-strong); }
+.decor-bulb ellipse { animation: decor-twinkle 3.8s ease-in-out infinite; }
+.decor-bulb.b0 ellipse { fill: var(--c-quartermaster); }
+.decor-bulb.b1 ellipse { fill: var(--c-scout); animation-delay: -1.5s; }
+.decor-bulb.b2 ellipse { fill: var(--c-scribe); animation-delay: -3s; }
+.decor-bulb.b3 ellipse { fill: var(--c-artificer); animation-delay: -.8s; }
+.decor-bulb.b4 ellipse { fill: var(--c-warden); animation-delay: -2.3s; }
+@keyframes decor-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .decor-bulb ellipse { animation: none; } }
+/* A small flat mark after Today's date: a snowflake, a pumpkin, a star. */
+[data-season] .home-date::after { content: ""; display: inline-block; width: 13px; height: 13px; margin-left: 8px; vertical-align: -2px; background: var(--decor-mark-ink);
+  -webkit-mask: var(--decor-mark) center / contain no-repeat; mask: var(--decor-mark) center / contain no-repeat; }
+/* The choices in Settings have no swatch before their name. */
+.look.decor { padding: 6px 12px; }
 /* The camp at rest (MaeSystem.tsx): the films' solar system, on a page with nothing on it yet. The
    sun is the logo's amber dot, and each planet takes its crew member's colour (--c, from its c-…
    class). It is drawn about its own centre, so everything turns and grows about that, and in its own
@@ -2231,6 +2284,170 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
 .trigger-form textarea { min-height: 64px; resize: vertical; }
 .trigger-form input:focus-visible, .trigger-form select:focus-visible, .trigger-form textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
+/* ---------- The trail map (ui/src/trail): the plan as a trail of steps, over the whole page ---------- */
+/* It wears the page's own colours, so it follows light, dark and the palettes. The --o-* names are
+   for the replay's timeline, which is Orbit's own (orbit/Timeline.tsx) and is drawn in them. */
+.trail {
+  --o-panel: var(--surface); --o-line-2: var(--border-strong); --o-warn: var(--accent); --o-dim: var(--faint); --o-ink: var(--text);
+  position: fixed; inset: 0; z-index: 44; display: flex; flex-direction: column; outline: none; background: var(--bg); color: var(--text);
+}
+.trail i { font-style: normal; }
+.trail-top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.trail.replaying .trail-top { border-bottom: 2px solid var(--accent); padding-bottom: 9px; }
+.trail-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 12px; }
+.trail-title h2 { margin: 0; font: 600 19px var(--serif); white-space: nowrap; }
+.trail-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--muted); }
+.trail-title .trail-note { color: var(--accent-deep); font-weight: 600; }
+.trail-tools { display: flex; align-items: center; gap: 8px; }
+.trail-pick { max-width: 320px; padding: 5px 8px; border: 1px solid var(--field); border-radius: 8px; background: var(--bg); color: var(--text); font: 13px var(--sans); text-overflow: ellipsis; }
+.trail-btn { padding: 5px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: 600 12px var(--sans); }
+.trail-btn:hover { background: var(--surface-2); }
+.trail-btn[aria-pressed="true"] { padding: 4px 11px; border: 2px solid var(--accent); color: var(--accent-deep); }
+.trail-ask { display: flex; align-items: baseline; gap: 14px; padding: 14px 28px 0; }
+.trail-ask b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 16px var(--serif); }
+.trail-count { font-size: 13px; color: var(--muted); white-space: nowrap; }
+/* The map scrolls both ways when the trail is bigger than the screen, and sits in the middle when it isn't. */
+.trail-map { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.trail-ground { position: relative; flex: none; margin: auto; }
+.trail-lines { position: absolute; inset: 0; pointer-events: none; }
+.trail-edge path { fill: none; stroke: var(--border-strong); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.trail-edge.walked path { stroke: var(--good); }
+.trail-edge.live path { stroke: var(--accent); }
+.trail-steps { list-style: none; margin: 0; padding: 0; }
+/* A waypoint. How it stands is its whole border (and its pill, in words): dashed until someone sets out on it. */
+.trail-step { position: absolute; box-sizing: border-box; width: var(--step-w); height: var(--step-h); display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; overflow: hidden;
+  border: 2px dashed var(--border-strong); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
+.trail-step.out { border: 2px solid var(--accent); }
+.trail-step.done { border: 2px solid var(--good); }
+.trail-step:is(.failed, .stopped) { border: 2px solid var(--bad); }
+.trail-step:focus-visible { border-radius: 10px; }
+/* Under the pointer or the keyboard, a waypoint grows to show all of its text and everyone on it. */
+.trail-step:is(:hover, :focus, :has(:focus-visible)) { height: auto; min-height: var(--step-h); z-index: 2; box-shadow: var(--shadow-lg); }
+.trail-step:is(:hover, :focus, :has(:focus-visible)) .trail-text { display: block; }
+.trail-step:is(:hover, :focus, :has(:focus-visible)) .trail-crew { max-height: none; }
+.trail-step-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.trail-n { min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 11px; background: var(--surface-2); color: var(--text); font: 700 12px var(--mono); }
+.trail-step.out .trail-n { background: var(--accent-soft); color: var(--accent-deep); }
+.trail-step.done .trail-n { background: var(--good-soft); color: var(--good); }
+.trail-step:is(.failed, .stopped) .trail-n { background: var(--bad-soft); color: var(--bad); }
+.trail-text { margin: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.trail-crew { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-height: 24px; overflow: hidden; margin-top: auto; }
+.trail-nobody { font-size: 12px; color: var(--faint); }
+/* One of the crew, in their own colour. A chip that goes somewhere is a button. */
+.trail-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; box-sizing: border-box; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--c, var(--c-other)) 45%, var(--surface)); border-radius: 12px;
+  background: color-mix(in srgb, var(--c, var(--c-other)) 9%, var(--surface)); color: var(--c, var(--c-other)); font: 12px var(--sans); white-space: nowrap; }
+.trail-chip b { font-weight: 600; }
+.trail-chip i { font-size: 11px; color: var(--muted); }
+.trail-chip.q-done i { color: var(--good); } .trail-chip:is(.q-failed, .q-stopped) i { color: var(--bad); } .trail-chip.q-out i { color: var(--accent); }
+button.trail-chip:hover { border-color: var(--c, var(--c-other)); background: color-mix(in srgb, var(--c, var(--c-other)) 16%, var(--surface)); }
+.trail-chip:focus-visible { border-radius: 12px; }
+.trail-loose { position: sticky; left: 0; bottom: 0; flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 28px; border-top: 1px solid var(--border); background: var(--bg); font-size: 12px; color: var(--muted); }
+.trail-loose > span:first-child { margin-right: 4px; }
+.trail-empty { flex: 1; display: grid; place-content: center; justify-items: center; gap: 6px; padding: 24px; text-align: center; color: var(--muted); }
+.trail-empty .icon { width: 36px; height: 36px; color: var(--faint); }
+.trail-empty b { font: 600 17px var(--serif); color: var(--text); }
+.trail-empty p { max-width: 46ch; margin: 0; font-size: 13px; }
+/* The replay's timeline, along the bottom (Orbit lays it over its sky; here it takes its own row). */
+.trail .orb-reel { position: static; flex: none; margin: 0 16px 16px; font: 12px/1.45 var(--mono); }
+.trail .orb-reel :focus-visible { border-radius: 0; }
+@media (max-width: 640px) {
+  .trail-title span:not(.trail-note), .trail .orb-reel-speed { display: none; }
+  .trail-pick { max-width: 132px; }
+  .trail-ask { flex-wrap: wrap; gap: 2px 14px; padding: 10px 16px 0; }
+  .trail-ask b { flex-basis: 100%; }
+  .trail-loose { padding: 8px 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .trail { animation: fade-in 220ms ease-out; }
+  .presence.leaving .trail { animation: fade-out var(--leave) ease-in forwards; }
+  /* The line into the step that's out now moves along, the way the crew is going. */
+  .trail-edge.live path:not(.tip) { stroke-dasharray: 7 6; animation: trail-walk 900ms linear infinite; }
+}
+@keyframes trail-walk { to { stroke-dashoffset: -13; } }
+
+/* ---------- The memory map (ui/src/constellation) ---------- */
+/* Every remembered line a star, over the whole page. It wears the page's own colours, so it follows
+   light, dark and the palettes. What's picked or focused gets a solid 2px ring; nothing here moves
+   on its own. */
+.constellation { position: fixed; inset: 0; z-index: 44; overflow: hidden; background: var(--bg); color: var(--text); outline: none; }
+.con-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.con-sky:active { cursor: grabbing; }
+.con-place circle { fill: var(--surface); stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.con-place text { fill: var(--muted); font: 600 13px var(--sans); }
+.con-edge { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.con-edge.together { stroke-dasharray: 4 4; }
+.con-edge.on { stroke: var(--text); stroke-width: 2; }
+.con-star { cursor: pointer; outline: none; }
+.con-hit { fill: transparent; }
+.con-body { fill: var(--c, var(--c-other)); fill-opacity: .5; stroke: var(--c, var(--c-other)); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.con-star.used .con-body, .con-key .con-body { fill-opacity: 1; }
+.con-pin { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.con-ring { fill: none; stroke: transparent; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.con-star.near .con-ring { stroke: var(--border-strong); }
+.con-star:hover .con-ring { stroke: var(--muted); }
+.con-star.sel .con-ring, .con-star:focus-visible .con-ring { stroke: var(--text); }
+.constellation.picking .con-star.off { opacity: .22; cursor: default; }
+.constellation.picking .con-star.can .con-ring { stroke: var(--accent); }
+.con-about { --c: var(--accent); }
+.con-project { --c: var(--c-other); }
+.con-top { position: absolute; inset: 0 0 auto 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px; pointer-events: none; }
+.con-top > * { pointer-events: auto; }
+.con-title h2 { margin: 0; font: 600 20px/1.2 var(--serif); }
+.con-title p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.con-tools { display: flex; gap: 6px; }
+.con-tool { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 17px; line-height: 1; cursor: pointer; }
+.con-tool.worded { width: auto; padding: 0 11px; font-size: 13px; font-weight: 600; }
+.con-tool:hover { background: var(--surface-2); border-color: var(--muted); }
+.con-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 40px)); margin: 0; display: grid; gap: 8px; justify-items: center; text-align: center; font-size: 14px; color: var(--muted); }
+.con-empty b { font: 600 18px/1.3 var(--serif); color: var(--text); }
+.con-empty p { margin: 0; }
+.con-foot { position: absolute; left: 16px; bottom: 12px; right: 16px; display: grid; gap: 5px; justify-items: start; pointer-events: none; font-size: 12px; color: var(--muted); }
+.con-foot p { margin: 0; max-width: 560px; }
+.con-hint { color: var(--faint); }
+.con-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; }
+.con-key li { display: inline-flex; align-items: center; gap: 6px; }
+.con-key svg { flex: none; height: 16px; width: auto; overflow: visible; }
+.con-panel { position: absolute; top: 60px; right: 14px; bottom: 14px; width: 372px; max-width: calc(100% - 28px); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-lg); }
+.con-panel > header { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--border); }
+.con-panel > header h3 { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.con-emoji { margin-right: 7px; }
+.con-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--c-other)); }
+.con-panel-body { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 12px; align-content: start; padding: 14px 16px; }
+.con-text { margin: 0; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.con-pinned { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 18px; color: var(--muted); vertical-align: 2px; }
+.con-pinned svg { width: 11px; height: 11px; }
+.con-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+.con-facts dt { color: var(--faint); }
+.con-facts dd { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.con-panel .linkish { font-size: inherit; text-align: left; }
+.con-panel h4 { margin: 4px 0 -4px; font-size: 12px; font-weight: 600; color: var(--faint); }
+.con-quiet { margin: 0; font-size: 13px; color: var(--faint); }
+.con-history { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.con-history li { display: grid; gap: 1px; justify-items: start; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--muted); }
+.con-history li:last-child { border-bottom: 0; }
+.con-history time, .con-history small { font-size: 12px; color: var(--faint); }
+.con-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.con-list button { display: grid; gap: 2px; width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.4; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.con-list button:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.con-list small { font-size: 11px; color: var(--faint); }
+.con-list small:empty { display: none; }
+.con-merge { display: grid; gap: 8px; justify-items: start; margin: 0; padding: 10px 12px; border: 2px solid var(--accent); border-radius: 10px; font-size: 13px; }
+.con-merge p { margin: 0; }
+.con-merge .con-list { width: 100%; max-height: 260px; overflow-y: auto; }
+.con-draft { box-sizing: border-box; width: 100%; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); overflow-wrap: anywhere; }
+.con-error { margin: 0; font-size: 13px; color: var(--bad); }
+.con-panel > footer { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
+.con-panel > footer .btn.danger { margin-left: auto; }
+.con-panel > footer .btn[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px 13px; }
+@media (max-width: 760px) {
+  .con-panel { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-width: none; height: 56%; }
+  .con-hint { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .constellation { animation: fade-in 240ms ease-out; }
+  .presence.leaving .constellation { animation: fade-out var(--leave) ease-in forwards; }
+}
+
 /* ---------- Orbit: the crew at work, full screen (ui/src/orbit) ----------
    The camp at rest (.mae-system, above) grown to fill the screen and wired to what the crew is
    doing. Everything in the sky that moves is moved by Orbit.tsx, a frame at a time off one clock:
@@ -2628,6 +2845,23 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .home-offer .card-top .pill { margin-left: auto; }
 .home-offer .card-actions { margin-top: 2px; }
 .home-offer .card-actions .meta { margin: 0; }
+/* "While you were away": what the night shift left (NightCard.tsx). A plain card: it's a report, not a call to act. */
+.home-night { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); min-width: 0; }
+.home-night .card-top { flex-wrap: wrap; }
+.home-night .card-top .who { white-space: normal; }
+.home-night .card-top .meta { margin-left: auto; }
+.night-lines, .night-old ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.night-lines > li { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 7px 0; font-size: 14px; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.night-lines > li + li { border-top: 1px solid var(--border); }
+.night-lines .linkish { font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.night-old { flex: 1; min-width: 0; }
+.night-old > summary { cursor: pointer; width: fit-content; }
+.night-old ul { gap: 6px; margin: 8px 0; padding-left: 12px; border-left: 2px solid var(--border); }
+.night-old li { display: grid; gap: 1px; font-size: 13px; color: var(--muted); }
+.night-old p { margin: 0; }
+.home-night .card-actions { margin-top: 0; }
+.home-night .card-actions .meta, .night-old li .meta { margin: 0; }
+.unasked-page .set-label p.night-last { color: var(--text); }
 .home-since { display: flex; flex-wrap: wrap; gap: 6px; }
 .home-since .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
 .home-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }

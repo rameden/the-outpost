@@ -4,7 +4,8 @@
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
-import { autoName, cash, cClass, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
+import { autoName, cash, cClass, crewId, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
+import { w } from "../words.ts";
 import type { CampState } from "../types.ts";
 
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
@@ -100,11 +101,12 @@ function SpendCard({ S, refresh, onOpenSettings }: { S: CampState; refresh: () =
 }
 
 export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: () => void; onOpenSettings?: () => void }) {
-  const emojiFor = (name: string) => S.characters.find((c) => c.name === name)?.emoji ?? "✦";
+  // By who they are, not what they were called then: the log keeps the name each had at the time.
+  const emojiFor = (name: string) => S.characters.find((c) => c.name === name || (!c.custom && c.id === crewId(name)))?.emoji ?? "✦";
   return (
     <>
       <SpendCard S={S} refresh={refresh} onOpenSettings={onOpenSettings} />
-      {!S.quests.length ? <Empty title="No quests yet">Every dispatch, expedition, and job run is logged here with its time and cost.</Empty> : (
+      {!S.quests.length ? <Empty title={`No ${w("quests")} yet`}>Every dispatch, {w("expedition")}, and job run is logged here with its time and cost.</Empty> : (
         <>
           <p className="panel-note">Newest first. Costs are estimates from token counts. Click a line to expand it.</p>
           <ul className="list">

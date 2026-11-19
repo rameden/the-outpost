@@ -111,3 +111,37 @@ test("What Mae does unasked: the brief and its time, the retro, the watch on you
   expect(onOpenSection).toHaveBeenLastCalledWith("jobs");
   expect(refresh).toHaveBeenCalled();
 });
+
+test("Night shift: off until you switch it on, with its hours, a run on request and a line on the last night", async () => {
+  const asked = camp({ "/api/home": page(), "/api/drive": { ok: true }, "/api/night": { ok: true } });
+  render(<UnaskedPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
+  const row = (await screen.findByText("Night shift")).closest(".set-row") as HTMLElement;
+  // It says plainly what it will and won't do.
+  expect(row.textContent).toMatch(/It only drafts and reports: nothing is applied, deleted or changed until you approve it\./);
+  expect(row.textContent).toMatch(/at most three small model calls a night, and waits while your usage limit is used up/);
+  expect((within(row).getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
+  expect(within(row).queryByLabelText("When the night shift may start")).toBeNull(); // no hours to set while it's off
+  expect(row.textContent).not.toMatch(/Last night shift/);
+  fireEvent.click(within(row).getByRole("checkbox"));
+  await waitFor(() => expect(asked).toContain('POST /api/drive {"night":true}'));
+  fireEvent.click(within(row).getByRole("button", { name: "Run it now" }));
+  await waitFor(() => expect(asked).toContain("POST /api/night {}"));
+  // It comes after the ticket debrief, as its own row.
+  const titles = [...document.querySelectorAll(".set-row .set-label > b")].map((b) => b.textContent);
+  expect(titles.indexOf("Night shift")).toBe(titles.indexOf("Ticket debrief") + 1);
+});
+
+test("Night shift, switched on: its two times can be changed, and the last night is summed up in a line", async () => {
+  const on = page();
+  const asked = camp({ "/api/home": { ...on, drive: { ...on.drive, night: true, nightFrom: "23:00", nightTo: "05:30" }, lastNight: { day: "2026-11-12", finished: "2026-11-13T02:10:00.000Z", line: "Drafted 2 memory tidies, listed 5 old lines worth a look." } }, "/api/drive": { ok: true } });
+  render(<UnaskedPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
+  const row = (await screen.findByText("Night shift")).closest(".set-row") as HTMLElement;
+  expect((within(row).getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+  const from = within(row).getByLabelText("When the night shift may start") as HTMLInputElement, to = within(row).getByLabelText("When the night shift stops") as HTMLInputElement;
+  expect([from.value, to.value]).toEqual(["23:00", "05:30"]);
+  fireEvent.change(from, { target: { value: "00:30" } });
+  await waitFor(() => expect(asked).toContain('POST /api/drive {"nightFrom":"00:30"}'));
+  fireEvent.change(to, { target: { value: "04:00" } });
+  await waitFor(() => expect(asked).toContain('POST /api/drive {"nightTo":"04:00"}'));
+  expect(row.textContent).toMatch(/Last night shift, .+: Drafted 2 memory tidies, listed 5 old lines worth a look\./);
+});

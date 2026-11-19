@@ -18,11 +18,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { cx, money, plural, when } from "../format.ts";
+import { w } from "../words.ts";
 import type { View } from "../feed/conversation.ts";
 import { OfferCard } from "../settings/DrivePage.tsx";
 import type { Brief, BriefLine, CampState, HomePage } from "../types.ts";
 import { Icon } from "./bits.tsx";
 import { Confirm } from "./Confirm.tsx";
+import { NightCard } from "./NightCard.tsx";
 
 const ACT: Record<NonNullable<BriefLine["act"]>["do"], string> = { address: "Address it", resume: "Resume", start: "Start…" };
 const said = (status: string) => { const s = status.replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); }; // "Stopped", "Over budget"
@@ -199,6 +201,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
       )}
 
       {!day && home?.offers.map((o) => <OfferCard key={o.key} offer={o} onDone={() => void load()} />)}
+      {!day && home?.night && <NightCard night={home.night} onOpenMemory={onOpenMemory} onDone={() => void load()} />}
 
       {brief && (
         <>
@@ -231,7 +234,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
             </section>
           )}
           {waiting > 0 && !day && (
-            <div className="meta">{waiting} {plural(waiting, "suggestion")} from the crew {waiting === 1 ? "is" : "are"} waiting for your say. <button type="button" className="linkish" onClick={onOpenMemory}>Look them over</button></div>
+            <div className="meta">{waiting} {plural(waiting, "suggestion")} from the {w("crew")} {waiting === 1 ? "is" : "are"} waiting for your say. <button type="button" className="linkish" onClick={onOpenMemory}>Look them over</button></div>
           )}
           {brief.notes.map((n) => <div className="meta bad" key={n}>{n}</div>)}
         </>

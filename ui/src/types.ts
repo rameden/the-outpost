@@ -16,6 +16,7 @@ export type { PrDraft, PrState } from "../../src/prs.ts";
 export type { TerminalInfo } from "../../src/term.ts";
 export type { TermAction } from "../../src/settings.ts";
 export type { MemoryPlace, MemoryLine, Proposal } from "../../src/keeping.ts";
+export type { MemoryGraph, GraphNode, GraphEdge, Why } from "../../src/memgraph.ts";
 export type { ProviderState } from "../../src/providers.ts";
 export type { JiraCard, JiraDetail, JiraPull, JiraRef, JiraStatus } from "../../src/jira.ts";
 export type { TreeEntry, Listing, FilePreview } from "../../src/explorer.ts";

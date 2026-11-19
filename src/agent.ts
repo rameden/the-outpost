@@ -10,6 +10,7 @@ import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
 import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } from "./memory.js";
 import { aboutBlock } from "./memlog.js";
+import { logAboutRelevant } from "./recalllog.js";
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
@@ -439,6 +440,7 @@ export async function runAgent(
         `## How you work\n${spec.persona}`,
         `## Your skills\nWhen a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, always.map((s) => s.dir))}` + alwaysBlock(spec.id, spec.skillDirs),
       ]);
+  logAboutRelevant(requestText(task), currentExpeditionId()); // which lines of the note about you bore on this request
   const movingRest = parts([
     !opts.plain && continuityBlock(spec.id, requestText(task)),
     aboutBlock(),

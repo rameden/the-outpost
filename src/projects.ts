@@ -24,6 +24,7 @@ import { allTurns } from "./threads.js";
 import { campPath, type Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
 import { fitMemory } from "./memfit.js";
+import { logRelevant } from "./recalllog.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -121,6 +122,13 @@ function pinsBlock(project: Project, self: string): string {
     (urls.length ? `\n\n### Pinned links (fetch one when it's relevant)\n${urls.join("\n")}` : "");
 }
 
+// A project's notes as a prompt gets them, writing down which lines bore on the request (recalllog.ts).
+function fitNotes(id: string, notes: string, task: string): string {
+  const fit = fitMemory(notes, NOTES_MAX, task);
+  logRelevant(`project:${id}`, notes, fit, currentExpeditionId());
+  return fit.text;
+}
+
 // Everything about the project the current run belongs to. Empty when there's none.
 // task: the request this run is for, so an older note that bears on it is loaded when the notes have outgrown their room.
 export function projectBlock(self: string, id = currentProjectId(), task = ""): string {
@@ -142,7 +150,7 @@ export function projectBlock(self: string, id = currentProjectId(), task = ""): 
     (p.settings?.web === "off" ? "\nWeb search and fetch are turned off for this project. Work from the files, and say so if something needs looking up." : "") +
     (p.description ? `\n\n### What the user wrote about this project (their own words; keep it in mind for everything here)\n${p.description}` : "") +
     (brief ? `\n\n### Survey of the project (from the crew's own look through its folders; check the files if it matters)\n${cap(brief, BRIEF_MAX)}` : "") +
-    (notes ? `\n\n### What the crew has learned about this project (add to it with project_remember)\n${fitMemory(notes, NOTES_MAX, task).text}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
+    (notes ? `\n\n### What the crew has learned about this project (add to it with project_remember)\n${fitNotes(p.id, notes, task)}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
     pinsBlock(p, self);
 }
 

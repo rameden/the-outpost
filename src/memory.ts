@@ -7,7 +7,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
 import { posix, resolve, sep } from "node:path";
-import { CREW, type CrewId } from "./crew.js";
+import { CREW, inPack, type CrewId } from "./crew.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
 import { addAbout, logKept, type KeptHow } from "./memlog.js";
@@ -15,6 +15,7 @@ import type { Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
 import { PIN, alike, fitMemory, parseEntry } from "./memfit.js";
 import { norm } from "./memlog.js";
+import { logRelevant } from "./recalllog.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -78,7 +79,9 @@ export function readMemory(id: CrewId, task = ""): string {
   if (!existsSync(ws.memory)) return "(empty)";
   const text = readFileSync(ws.memory, "utf8").replace(/^# .*\n+/, "").trim();
   if (!text) return "(empty)";
-  return fitMemory(text, MEMORY_MAX_CHARS, task).text;
+  const fit = fitMemory(text, MEMORY_MAX_CHARS, task);
+  logRelevant(`agent:${id}`, text, fit, currentExpeditionId()); // which lines bore on this request (recalllog.ts)
+  return fit.text;
 }
 
 // The memory tool, bound to one agent. It can only ever touch that agent's memory.md.
@@ -284,7 +287,7 @@ export function continuityBlock(id: CrewId, task = ""): string {
     .map((s, i) => {
       const recent = i >= sessions.length - 3;
       const when = new Date(s.time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-      return `- ${when}, ${SOURCE_LABEL[s.source] ?? s.source}: "${clip(s.task, recent ? 400 : 140)}"\n  You replied (${s.status}): ${clip(s.result, recent ? 1200 : 200)}`;
+      return `- ${when}, ${inPack(SOURCE_LABEL[s.source] ?? s.source)}: "${clip(s.task, recent ? 400 : 140)}"\n  You replied (${s.status}): ${clip(s.result, recent ? 1200 : 200)}`;
     })
     .join("\n");
   return (
