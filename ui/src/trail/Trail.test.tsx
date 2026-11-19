@@ -195,7 +195,8 @@ describe("the trail map", () => {
     expect(branches().map((b) => b.querySelector(".trail-branch-head b")!.textContent)).toEqual(["The second ask", "The first ask"]);
     expect(branches().map((b) => b.querySelector(".trail-count")!.textContent)).toEqual(["0 of 4 done", "0 of 1 done · 1 out"]);
     // Each branch leaves the line at the steps that wait for nothing.
-    expect(branches().map((b) => b.querySelectorAll(".trail-stem").length)).toEqual([1, 1]);
+    // Each plan is a bough off the trunk: one line to each first step, from one knot.
+    expect(branches().map((b) => [b.querySelectorAll(".trail-bough").length, b.querySelectorAll(".trail-knot").length])).toEqual([[1, 1], [1, 1]]);
     expect(container.querySelector(".trail-ask b")!.textContent).toBe("All 2 plans, newest first");
     expect(container.querySelector(".trail-ask .trail-count")!.textContent).toBe("0 of 5 steps done · 1 out");
     expect(screen.queryByLabelText("Which plan")).toBeNull();
