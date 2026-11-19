@@ -630,7 +630,7 @@ footer .mae-word { height: 16px; }
         <span class="tag">Mission control</span>
         <h3>A local dashboard for the whole camp</h3>
         <p><code>npm run ui</code> opens it on <code>127.0.0.1</code>. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
-        <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
+        <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Tool calls fold into one line per stretch ("Read 5 files, ran 2 commands"), and a Condensed/Detailed switch brings back every line</li><li>Attach a file, a folder, or a .zip that arrives as the folder it holds, up to 5,000 files</li><li>Mention <code>@scribe</code> anywhere in a plain chat and the Scribe takes that turn</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
       </div>
       <div class="item">
         <span class="tag">Memory</span>
@@ -647,7 +647,7 @@ footer .mae-word { height: 16px; }
         <span class="tag">Auto, the router</span>
         <h3>A router picks the model for each task</h3>
         <p>Set a crew member, a project or one conversation to Auto: Economy, Balanced or Quality. Right before each dispatch the router sizes up the task (how hard it is, how much is at stake, how big the request is), rules out every model that can't carry it, and picks the cheapest that should finish, or the likeliest to.</p>
-        <ul><li>It keeps a model through routine work, and moves on when one is failing, rate limited or too small for the conversation</li><li>An outage is waited out, not given up on, and a model you pick yourself stays pinned</li><li>It learns from how each run actually went, within a limit, so one good or bad day doesn't decide a model's fate</li><li>Every run says which model it used and why, and Settings → Models shows how Auto's runs have gone</li></ul>
+        <ul><li>It keeps a model through routine work, and moves on when one is failing, rate limited or too small for the conversation</li><li>An outage is waited out, not given up on, and a model you pick yourself stays pinned</li><li>It learns from how each run actually went, within a limit, so one good or bad day doesn't decide a model's fate</li><li>Every run says which model it used and why. Settings → Models shows how Auto's runs have gone, with a switch for each model Auto may pick (you can still pick one it may not)</li></ul>
       </div>
       <div class="item wide">
         <span class="tag">While you're away</span>
@@ -659,6 +659,17 @@ footer .mae-word { height: 16px; }
         <span class="tag">Projects &amp; Jira</span>
         <h3>From a note to a pull request</h3>
         <p>Jot a note and the Scout can write it up as a ticket with acceptance criteria, or ask for ideas and get up to five from the project's record. Start from a Jira ticket, step by step. Pull requests go out with a real description, from your own button, and review comments come back for you to read.</p>
+      </div>
+      <div class="item wide">
+        <span class="tag">Tickets &amp; debriefs</span>
+        <h3>Tickets of its own, and a look back when one's done</h3>
+        <p>No Jira? Mae keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the Quartermaster make them.</p>
+        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, a Mae ticket or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
+      </div>
+      <div class="item">
+        <span class="tag">Voice</span>
+        <h3>Read aloud</h3>
+        <p>Connect an ElevenLabs key under Settings → Voice and Mae reads to you in the voice you choose: an answer, a job's report, an inbox item, a ticket's debrief, or text you select. One player in the top bar pauses, skips and changes speed, and stays as you move around. Each piece is kept, so hearing it again costs nothing.</p>
       </div>
       <div class="item wide">
         <div class="phone">
@@ -703,7 +714,7 @@ footer .mae-word { height: 16px; }
     </div>
     <div class="rules">
       <div class="rule"><b>Secrets stay put</b><p>File tools never read <code>.env</code>, private keys or credentials, at any depth, in a linked folder or through a symlink.</p></div>
-      <div class="rule"><b>Shell asks first</b><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A sandbox is there if you want it, on macOS or Linux.</p></div>
+      <div class="rule"><b>Shell asks first</b><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A sandbox is there if you want it, on macOS or Linux. God mode, for the camp or one project, runs every command without asking, but "Never run" rules still stop one, and a scheduled job gets the sandbox instead.</p></div>
       <div class="rule"><b>Read-only git</b><p>Everyone can run <code>status</code>, <code>diff</code>, <code>log</code> and <code>blame</code>. Nobody pushes on their own.</p></div>
       <div class="rule"><b>No trampling</b><p>Parallel quests can't overwrite each other. A file changed by another quest has to be read again first.</p></div>
       <div class="rule"><b>Pages are information</b><p>Web pages, files and connector results are never treated as instructions, and suspected prompt injection is flagged.</p></div>
@@ -720,7 +731,7 @@ footer .mae-word { height: 16px; }
     <div class="sec-head" style="margin:0">
       <div class="eyebrow">Get started</div>
       <h2>Pitch camp in three commands.</h2>
-      <p class="lede">Needs Node 22.9 or later and either a Claude subscription or an API key. On a subscription, the crew runs through Claude Code with your account, and costs show as estimates.</p>
+      <p class="lede">Needs Node 22.9 or later and either a Claude subscription or an API key. On a subscription, the crew runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
       <div class="try">Try asking:<q>Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.</q></div>
     </div>
     <div class="term" aria-label="Setup commands">
@@ -730,7 +741,7 @@ footer .mae-word { height: 16px; }
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
         <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
         <div class="line"><code id="c3">npm run ui</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
-        <div class="note">Mission control in your browser: open the link it prints, which signs that browser in. Or npm start for the camp in your terminal, and npm run watch for scheduled jobs.</div>
+        <div class="note">Mission control in your browser: open the link it prints, which signs that browser in. Or npm start for the camp in your terminal, npm run watch for scheduled jobs, and npm run prod for a built camp that starts in about half the time.</div>
       </div>
     </div>
   </div>
