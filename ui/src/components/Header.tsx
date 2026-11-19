@@ -9,6 +9,7 @@ import type { Connection } from "../camp.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cash, cx, money, resetIn } from "../format.ts";
+import { w } from "../words.ts";
 import { Icon, type IconName } from "./bits.tsx";
 import { ReadingPlayer } from "./ReadAloud.tsx";
 import { MaeLogo } from "./MaeLogo.tsx";
@@ -120,16 +121,16 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
   const { open, setOpen, box } = usePopover();
   const rt = useRuntime(S, refresh);
   const costShown = showCost.use(); // Settings → General can take it out
-  const says = `${running === 0 ? "Idle" : running === 1 ? "On expedition" : `${running} expeditions running`}${questsOut > 1 ? ` · ${questsOut} quests out` : ""}${queued ? ` · ${queued} queued` : ""}`;
+  const says = `${running === 0 ? "Idle" : running === 1 ? `On ${w("expedition")}` : `${running} ${w("expeditions")} running`}${questsOut > 1 ? ` · ${questsOut} ${w("quests")} out` : ""}${queued ? ` · ${queued} queued` : ""}`;
   const shut = (then: () => void) => () => { setOpen(false); then(); };
   return (
     <span className="top-pick" ref={box}>
       <button className={cx("chip", "chip-status", running > 0 && "busy")} type="button" aria-haspopup="menu" aria-expanded={open}
-        title="How busy the camp is. Click for what runs the crew, your GitHub account and today's spend." onClick={() => setOpen((o) => !o)}>
+        title={`How busy the ${w("camp")} is. Click for what runs the ${w("crew")}, your GitHub account and today's spend.`} onClick={() => setOpen((o) => !o)}>
         <span className={cx("dot", running > 0 && "live")} /><span>{says}</span><Icon name="chevron" />
       </button>
       {open && (
-        <div className="popover top-menu" role="menu" aria-label="The camp">
+        <div className="popover top-menu" role="menu" aria-label={`The ${w("camp")}`}>
           <button type="button" role="menuitem" className="top-item" title={rt.title} onClick={shut(() => void rt.switchRuntime())}>
             <span className={cx("dot", !rt.problem && "live", rt.problem && "warn")} />
             <span><b>{rt.label}</b><small>{rt.problem ? "Sign-in problem: click for what to do" : rt.sub ? "Switch to the API" : "Switch to your Claude subscription"}</small></span>
@@ -146,10 +147,10 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
           {costShown && (
             <button type="button" role="menuitem" className="top-item" onClick={shut(() => onOpenSettings?.("usage"))}
               title={rt.sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}>
-              <Icon name="gauge" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the quest log</small></span>
+              <Icon name="gauge" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the {w("quest")} log</small></span>
             </button>
           )}
-          <div className="top-menu-foot">Up to {S?.parallel ?? 3} expeditions run at once; the rest wait their turn. Change it in Settings.</div>
+          <div className="top-menu-foot">Up to {S?.parallel ?? 3} {w("expeditions")} run at once; the rest wait their turn. Change it in Settings.</div>
         </div>
       )}
     </span>
@@ -214,7 +215,7 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail }: {
   onHome?: () => void; // the logo takes you to Today
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
@@ -225,6 +226,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   // The easter egg (egg/Barnstorm.tsx): fly a plane over the page. Its button starts it, then is play and pause.
   barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
   orbit?: boolean; onOrbit?: () => void; // the crew at work as a solar system, full screen (orbit/Orbit.tsx)
+  trail?: boolean; onTrail?: () => void; // the plan as a trail of steps, full screen (trail/Trail.tsx)
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
@@ -273,7 +275,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
           // Down for a while: most likely the camp was stopped. The page keeps trying by itself.
           <span className="chip offline" role="status" title="The page keeps trying, and picks up by itself once the camp is running again. If it doesn't, open the link the camp prints in the terminal when it starts.">
             <span className="dot warn" />
-            <span>The camp isn't running. Start it again, or reopen the link it prints in the terminal.</span>
+            <span>The {w("camp")} isn't running. Start it again, or reopen the link it prints in the terminal.</span>
           </span>
         ) : conn !== "live" ? (
           <span className="chip" title="Connection to the camp: the page isn't getting updates until it's back" role="status">
@@ -293,10 +295,14 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <ReadingPlayer />
         {/* With the icons, so it sits as close to them as they do to each other. */}
         <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} gh={gh} running={running} questsOut={questsOut} queued={queued} />
-        {/* The two toys keep their own buttons; the page's occasional switches are behind ···. */}
+        {/* Orbit, the trail map and Barnstorm keep their own buttons; the page's occasional switches are behind ···. */}
         {onOrbit && (
           <button className={cx("icon-btn", orbit && "on")} type="button" aria-pressed={!!orbit} aria-label={orbit ? "Leave Orbit" : "Orbit"}
             title="Orbit: watch the crew at work as a solar system, full screen" onClick={onOrbit}><Icon name="orbit" /></button>
+        )}
+        {onTrail && (
+          <button className={cx("icon-btn", trail && "on")} type="button" aria-pressed={!!trail} aria-label={trail ? "Leave the trail map" : "Trail map"}
+            title="Trail map: the plan step by step, and who's on each, full screen" onClick={onTrail}><Icon name="trail" /></button>
         )}
         {onBarnstorm && (
           <button className={cx("icon-btn", "wide-only", barnstorm === "on" && "on", barnstorm === "paused" && "egg-paused")} type="button" aria-pressed={barnstorm === "on"}

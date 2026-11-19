@@ -17,7 +17,7 @@ const page = (over: Partial<HomePage> = {}): HomePage => ({
   board: { weeks: [week({ week: "2026-11-02", label: "Nov 2 to Nov 8, 2026", requests: 20, operating: 70, byMae: 0 }), week()] },
   offers: [{ key: "github-pr:web", what: "Watch your pull requests in links/web", why: "In the last two weeks: 3 times you brought a pull request's review comments to the crew yourself.",
     trigger: { name: "my-pull-requests-web", kind: "github-pr", link: "web", describe: false, project: "p1" } }],
-  held: [], retros: [{ project: "p1", name: "web", week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", written: "2026-11-13T20:00:00.000Z", requests: 12, heard: 4, proposed: ["Sign every commit."] }],
+  held: [], retros: [{ project: "p1", name: "web", week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", written: "2026-11-13T20:00:00.000Z", requests: 12, heard: 4, proposed: ["Sign every commit."], skill: "scribe/release-notes" }],
   drive: { brief: true, briefAt: "08:00", retro: false, debrief: false }, pulls: { fetched: "2026-11-13T12:55:00.000Z", count: 2 }, ...over,
 });
 const S = (over: Record<string, unknown> = {}) => ({
@@ -84,6 +84,9 @@ test("What Mae does unasked: the brief and its time, the retro, the watch on you
   expect(retro.textContent).toMatch(/read 12 requests and 4 reviewer comments, and proposed 1 thing to keep/);
   fireEvent.click(within(retro).getByRole("button", { name: "Look them over" }));
   expect(onOpenSection).toHaveBeenLastCalledWith("memory");
+  expect(retro.textContent).toMatch(/It drafted a how-to, scribe\/release-notes, for work you kept asking for/);
+  fireEvent.click(within(retro).getByRole("button", { name: "Review the draft" }));
+  expect(onOpenSection).toHaveBeenLastCalledWith("skills");
   fireEvent.click(within(retro).getByRole("checkbox"));
   await waitFor(() => expect(asked).toContain('POST /api/drive {"retro":true}'));
   fireEvent.click(within(retro).getByRole("button", { name: "Hold web's now" }));

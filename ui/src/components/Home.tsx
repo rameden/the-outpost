@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { cx, money, plural, when } from "../format.ts";
+import { w } from "../words.ts";
 import type { View } from "../feed/conversation.ts";
 import { OfferCard } from "../settings/DrivePage.tsx";
 import type { Brief, BriefLine, CampState, HomePage } from "../types.ts";
@@ -233,7 +234,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
             </section>
           )}
           {waiting > 0 && !day && (
-            <div className="meta">{waiting} {plural(waiting, "suggestion")} from the crew {waiting === 1 ? "is" : "are"} waiting for your say. <button type="button" className="linkish" onClick={onOpenMemory}>Look them over</button></div>
+            <div className="meta">{waiting} {plural(waiting, "suggestion")} from the {w("crew")} {waiting === 1 ? "is" : "are"} waiting for your say. <button type="button" className="linkish" onClick={onOpenMemory}>Look them over</button></div>
           )}
           {brief.notes.map((n) => <div className="meta bad" key={n}>{n}</div>)}
         </>

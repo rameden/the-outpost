@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { posix } from "node:path";
 import type { Interface } from "node:readline/promises";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { ROSTER } from "./roster.js";
 import type { Tool } from "./tools.js";
 import { emit } from "./events.js";
@@ -16,6 +17,7 @@ const SKILLS_DIR = "skills";
 const PENDING_DIR = join(SKILLS_DIR, "_pending");
 // Who a skill can belong to, as of now (crew members can be added while the camp runs).
 const owners = () => ["shared", "quartermaster", ...Object.keys(ROSTER)];
+export const skillOwners = owners;
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const livePath = (owner: string, name: string) => join(SKILLS_DIR, owner, name, "SKILL.md");
@@ -69,22 +71,53 @@ export const proposeSkill: Tool = {
     },
   }; },
   run: async ({ owner, name, description, instructions, reason }) => {
-    if (!owners().includes(owner)) return `Unknown owner '${owner}'. Use one of: ${owners().join(", ")}.`;
-    if (!NAME_RE.test(name)) return `Skill names must be kebab-case (got '${name}').`;
-    const desc = String(description).replace(/\s+/g, " ").trim();
-    const why = String(reason).replace(/\s+/g, " ").trim();
-    const body =
-      `---\nname: ${name}\ndescription: ${desc}\nproposed: ${new Date().toISOString().slice(0, 10)}\n` +
-      `reason: ${why}\n---\n\n${String(instructions).trim()}\n`;
-    const path = pendingPath(owner, name);
-    mkdirSync(join(PENDING_DIR, owner, name), { recursive: true });
-    writeFileSync(path, body);
-    const replaces = existsSync(livePath(owner, name)) ? " It would replace the current version." : "";
-    emit({ type: "notice", who: "Forge", emoji: "📥", depth: 0, text: `📥 Skill proposed: ${owner}/${name}.${replaces} Review it to approve.` });
-    emit({ type: "changed", what: "skills" });
+    const done = draftSkill({ owner, name, description, instructions, reason });
+    if (!done.ok) return done.error;
+    const replaces = done.replaces ? " It would replace the current version." : "";
     return `Proposed ${owner}/${name}.${replaces} It is NOT active until the user approves it with /review.`;
   },
 };
+
+export type SkillDraft = { owner: string; name: string; description: string; instructions: string; reason: string };
+
+// Put a skill in the waiting pile. The Quartermaster does it through propose_skill; the weekly
+// retro does it when the same kind of work keeps being asked for (retro.ts). Either way it waits
+// for you.
+export function draftSkill({ owner, name, description, instructions, reason }: SkillDraft): { ok: true; replaces: boolean } | { ok: false; error: string } {
+  if (!owners().includes(owner)) return { ok: false, error: `Unknown owner '${owner}'. Use one of: ${owners().join(", ")}.` };
+  if (!NAME_RE.test(name)) return { ok: false, error: `Skill names must be kebab-case (got '${name}').` };
+  const desc = String(description).replace(/\s+/g, " ").trim();
+  const why = String(reason).replace(/\s+/g, " ").trim();
+  const body =
+    `---\nname: ${name}\ndescription: ${desc}\nproposed: ${new Date().toISOString().slice(0, 10)}\n` +
+    `reason: ${why}\n---\n\n${String(instructions).trim()}\n`;
+  mkdirSync(join(PENDING_DIR, owner, name), { recursive: true });
+  writeFileSync(pendingPath(owner, name), body);
+  const replaces = existsSync(livePath(owner, name));
+  emit({ type: "notice", who: "Forge", emoji: "📥", depth: 0, text: `📥 Skill proposed: ${owner}/${name}.${replaces ? " It would replace the current version." : ""} Review it to approve.` });
+  emit({ type: "changed", what: "skills" });
+  return { ok: true, replaces };
+}
+
+// ---------- Skills you turned down ----------
+// Remembered so the retro doesn't draft the same how-to again next week.
+export const PASSED_PATH = "camp/skills-passed.json";
+const MAX_PASSED = 80;
+export type PassedSkill = { owner: string; name: string; description: string; when: string };
+export function passedSkills(): PassedSkill[] {
+  const kept = readJsonFile(PASSED_PATH, []);
+  return Array.isArray(kept) ? kept.filter((p: any) => typeof p?.owner === "string" && typeof p?.name === "string") as PassedSkill[] : [];
+}
+const forgetPassed = (owner: string, name: string) => passedSkills().filter((p) => !(p.owner === owner && p.name === name));
+
+// Where a skill of this name stands, whoever it belongs to: so nothing is drafted over a skill
+// that's live, already waiting, or was turned down.
+export function skillStanding(name: string): "live" | "waiting" | "passed" | null {
+  if (owners().some((o) => existsSync(livePath(o, name)))) return "live";
+  if (pendingSkills().some((p) => p.name === name)) return "waiting";
+  if (passedSkills().some((p) => p.name === name)) return "passed";
+  return null;
+}
 
 type Pending = { owner: string; name: string; path: string };
 
@@ -138,6 +171,7 @@ export function approveSkill(owner: string, name: string): boolean {
   mkdirSync(join(SKILLS_DIR, p.owner, p.name), { recursive: true });
   writeFileSync(livePath(p.owner, p.name), clean);
   clearPending(p);
+  if (passedSkills().some((x) => x.owner === p.owner && x.name === p.name)) writeJsonAtomic(PASSED_PATH, forgetPassed(p.owner, p.name));
   emit({ type: "changed", what: "skills" });
   return true;
 }
@@ -145,6 +179,8 @@ export function approveSkill(owner: string, name: string): boolean {
 export function rejectSkill(owner: string, name: string): boolean {
   const p = findPending(owner, name);
   if (!p) return false;
+  const description = frontmatter(readFileSync(p.path, "utf8"), "description");
+  writeJsonAtomic(PASSED_PATH, [...forgetPassed(p.owner, p.name), { owner: p.owner, name: p.name, description, when: new Date().toISOString() }].slice(-MAX_PASSED));
   clearPending(p);
   emit({ type: "changed", what: "skills" });
   return true;

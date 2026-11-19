@@ -14,8 +14,9 @@ import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
-import { PALETTES, modeNow, paletteNow, setMode, setPalette, type Mode, type PaletteId } from "../themes.ts";
+import { PALETTES, modeNow, paletteNow, setMode, setPalette, wearPack, type Mode, type PaletteId } from "../themes.ts";
 import { autoName, cClass, cx, isAuto, money } from "../format.ts";
+import { w } from "../words.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
 import { ask, Confirm } from "../components/Confirm.tsx";
@@ -36,6 +37,7 @@ const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] 
 ];
 const ALL = GROUPS.flatMap((g) => g.items);
 
+const PACK_CREW = ["quartermaster", "scout", "artificer", "scribe", "warden"] as const; // in the order the crew is listed
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
   try { await work(); then(); } catch (e) { alert(errorText(e)); }
 };
@@ -173,6 +175,14 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
       : { title: "Switch the crew to your Claude subscription (through Claude Code)?", body: "Usage will count against your plan's limits.", action: "Switch to my subscription" };
     if (await ask(question)) await tryIt(() => api("/api/runtime", { runtime: next }), refresh);
   }
+  // The camp keeps the pack (the crew is renamed in what they read and write too); the page wears
+  // it at once, and takes the colours it suggests unless you've chosen your own.
+  const packs = S.packs ?? [];
+  const setPack = (id: string) => tryIt(async () => {
+    await api("/api/pack", { id });
+    wearPack(id, packs);
+    setPaletteShown(paletteNow());
+  }, refresh);
   return (
     <>
       <Row label="What runs the crew" help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
@@ -185,6 +195,14 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
         <select aria-label="Theme" value={theme} onChange={(ev) => { const t = ev.target.value as Mode; setTheme(t); setMode(t); }}>
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
+      </Row>
+      <Row label="Theme pack" wide help={<>Renames the camp's own five, for you <b>and for the crew too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with.</>}>
+        <div className="looks" role="group" aria-label="Theme pack">
+          {packs.map((p) => (
+            <button key={p.id} type="button" className="look pack" aria-pressed={S.pack === p.id} title={`${p.about} ${PACK_CREW.map((id) => p.crew[id]?.name).filter(Boolean).join(", ")}.`}
+              onClick={() => { if (p.id !== S.pack) void setPack(p.id); }}><span aria-hidden="true">{p.crew.quartermaster?.emoji}</span>{p.name}</button>
+          ))}
+        </div>
       </Row>
       <Row label="Colours" help={`${PALETTES.find((p) => p.id === palette)?.about ?? ""} Each has a light and a dark side, and the tour wears it too.`} wide>
         <div className="looks" role="group" aria-label="Colours">
@@ -553,11 +571,11 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
         <div className="set-nav-head">Settings</div>
         {GROUPS.map((g) => (
           <div key={g.title} className="set-group">
-            <div className="set-group-title">{g.title}</div>
+            <div className="set-group-title">{g.title === "Camp" ? w("Camp") : g.title}</div>
             {g.items.map(([id, label, icon]) => (
               <button key={id} type="button" className="set-nav-item" aria-current={section === id ? "page" : undefined}
                 onClick={() => setSection(id)}>
-                <Icon name={icon} />{label}
+                <Icon name={icon} />{id === "usage" ? `Usage & ${w("quests")}` : label}
                 {!!counts[id] && <span className="count needs">{counts[id]}</span>}
               </button>
             ))}
