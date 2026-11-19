@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
-import { cx } from "../format.ts";
+import { cx, nameNow } from "../format.ts";
 import type { Character } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 
@@ -21,8 +21,10 @@ export function CrewDialog({ member, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const a = member?.abilities ?? {};
-  const [name, setName] = useState(member?.name ?? "");
-  const [emoji, setEmoji] = useState(member?.emoji ?? "");
+  // own: the name and icon you gave them, when the theme pack is calling them something else. It's
+  // yours that is edited here, so saving never writes the pack's name over it.
+  const [name, setName] = useState(member?.own?.name ?? member?.name ?? "");
+  const [emoji, setEmoji] = useState(member?.own?.emoji ?? member?.emoji ?? "");
   const [handle, setHandle] = useState(member?.id ?? "");
   const [typedHandle, setTypedHandle] = useState(!!member);
   const [color, setColor] = useState(member?.color ?? CREW_COLORS[0]);
@@ -88,6 +90,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
               onChange={(ev) => { setTypedHandle(true); setHandle(handleFrom(ev.target.value)); }} />
           </label>
         </div>
+        {member?.own ? <div className="field-hint dialog-under">The theme pack calls them {member.emoji} {member.name} for now. Give them another name here and they keep it under every pack.</div> : null}
         <div className="field-hint dialog-under">{member ? `You message them with @${member.id}. The handle can't change: their memory and history are filed under it.` : `You'll message them with @${handle || "handle"}.`}</div>
 
         <div className="field" role="group" aria-label="Colour">Colour
@@ -100,7 +103,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
 
         <label className="field">What they're for
           <input value={role} maxLength={160} placeholder="Testing: writes and runs tests, and reports what fails and why." onChange={(ev) => setRole(ev.target.value)} />
-          <span className="field-hint">One line. The Quartermaster reads this when choosing who to send.</span>
+          <span className="field-hint">One line. The {nameNow("Quartermaster")} reads this when choosing who to send.</span>
         </label>
         <label className="field">How they work
           <textarea value={persona} rows={4} maxLength={4000}
@@ -117,7 +120,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
             <input value={handles} maxLength={300} placeholder="writing tests, running test suites, reproducing bugs" onChange={(ev) => setHandles(ev.target.value)} />
           </label>
           <label className="field">Not theirs
-            <input value={notFor} maxLength={300} placeholder="fixing the code under test (the Artificer), prose (the Scribe)" onChange={(ev) => setNotFor(ev.target.value)} />
+            <input value={notFor} maxLength={300} placeholder={`fixing the code under test (the ${nameNow("Artificer")}), prose (the ${nameNow("Scribe")})`} onChange={(ev) => setNotFor(ev.target.value)} />
             <span className="field-hint">Asked for something outside their job, a crew member declines in one line and names who should take it.</span>
           </label>
         </details>
@@ -132,12 +135,12 @@ export function CrewDialog({ member, onClose, onSaved }: {
               <option value="project">In projects too (create and edit files)</option>
             </select>
           </label>
-          <label className="dialog-check"><input type="checkbox" checked={shell} onChange={(ev) => setShell(ev.target.checked)} /> Run shell commands (they ask you first, as the Artificer does)</label>
+          <label className="dialog-check"><input type="checkbox" checked={shell} onChange={(ev) => setShell(ev.target.checked)} /> Run shell commands (they ask you first, as the {nameNow("Artificer")} does)</label>
           <label className="dialog-check"><input type="checkbox" checked={wiki} onChange={(ev) => setWiki(ev.target.checked)} /> Save findings to the camp wiki's notes</label>
           {risky && (
             <div className="dialog-warn" role="note">
               This crew member reads the web and can also change things. A page they read could try to talk them into a change you didn't ask for.
-              The Scout is limited to its own outputs folder for that reason. If you keep both, read their plans and approvals with that in mind.
+              The {nameNow("Scout")} is limited to its own outputs folder for that reason. If you keep both, read their plans and approvals with that in mind.
             </div>
           )}
         </div>

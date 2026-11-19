@@ -5,7 +5,7 @@
 // No tool imports here, so anything can read the crew without import cycles.
 
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
-import { PACKS, packAliases, packById, type Pack } from "./packs.js";
+import { PACKS, nameAliases, packAliases, packById, type Pack } from "./packs.js";
 import { packId, setPackId } from "./settings.js";
 
 export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
@@ -99,15 +99,24 @@ export const isBuiltIn = (id: string) => (BUILT_IN as readonly string[]).include
 // each other what the page calls them. Ids never change. Every pack's names stay on as aliases,
 // so "@scout" still finds the Navigator, and history written under one pack reads under another.
 const GUILD: Record<string, Identity> = structuredClone(CREW);
-const GUILD_NAMES = new RegExp(`\\b(${BUILT_IN.map((id) => GUILD[id].name).join("|")})\\b`, "g");
 let pack: Pack = packById(undefined);
 let renamed = new Map<string, string>(); // a Guild name → what that crew member is called now (only those that changed)
+let WAS = /$^/g;                          // those Guild names, as whole words
+function watchNames() {
+  const names = [...renamed.keys()].map((n) => n.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&"));
+  WAS = names.length ? new RegExp("\\b(" + names.join("|") + ")\\b", "g") : /$^/g;
+}
 export const activePack = (): Pack => pack;
+
+// Crew members you added, as you wrote them. CREW holds each one as they're called now: the same,
+// unless the pack has a name for them (packs.ts, extras) and they still have the Guild's.
+const OWN = new Map<string, Identity>();
+export const ownOf = (id: string): Identity | undefined => OWN.get(id);
 
 // Text the camp wrote with the Guild's names in it (a persona, a rule), with the names in use
 // now. With the Guild pack on this is the text itself, untouched.
 export function inPack(text: string): string {
-  return renamed.size ? text.replace(GUILD_NAMES, (name) => renamed.get(name) ?? name) : text;
+  return renamed.size ? text.replace(WAS, (name) => renamed.get(name) ?? name) : text;
 }
 
 const oneWord = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -122,6 +131,7 @@ function dress() {
     return [id, yours.has(w.name.toLowerCase()) || yours.has(oneWord(w.name)) ? GUILD[id] : w];
   }));
   renamed = new Map(BUILT_IN.filter((id) => worn[id].name !== GUILD[id].name).map((id) => [GUILD[id].name, worn[id].name]));
+  watchNames();
   for (const id of BUILT_IN) {
     const g = GUILD[id], name = worn[id].name;
     const others = PACKS.flatMap((p) => packAliases(id, p)).filter((a) => a !== id && a !== name.toLowerCase() && !yours.has(a));
@@ -131,6 +141,27 @@ function dress() {
       aliases: [...new Set([...g.aliases, ...others])],
     });
   }
+}
+
+// And on the ones you added that packs have a name for (the Wizard): the pack's name and emoji,
+// with every pack's name for them as a handle. Only while their own name is still the Guild's,
+// and never a name or handle someone else on the crew already has.
+function dressYours() {
+  const guild = PACKS[0].extras ?? {};
+  for (const own of OWN.values()) Object.assign(CREW[own.id], { name: own.name, emoji: own.emoji, aliases: own.aliases, persona: own.persona });
+  for (const own of OWN.values()) {
+    if (guild[own.id]?.name !== own.name) continue;
+    const c = CREW[own.id];
+    const taken = new Set(Object.values(CREW).filter((x) => x.id !== own.id).flatMap((x) => [x.id, x.name.toLowerCase(), oneWord(x.name), ...x.aliases]));
+    const free = (a: string) => !taken.has(a);
+    const w = pack.extras?.[own.id];
+    if (w && w.name !== own.name && free(w.name.toLowerCase()) && free(oneWord(w.name))) { c.name = w.name; c.emoji = w.emoji; renamed.set(own.name, w.name); }
+    const theirs = PACKS.flatMap((p) => (p.extras?.[own.id] ? nameAliases(p.extras[own.id]) : []));
+    c.aliases = [...new Set([...own.aliases, ...theirs.filter((a) => a !== own.id && a !== c.name.toLowerCase() && free(a))])];
+  }
+  watchNames();
+  // Their own words, with the names in use now. (Someone no pack renames keeps theirs to the letter.)
+  for (const own of OWN.values()) if (CREW[own.id].name !== own.name && own.persona) CREW[own.id].persona = inPack(own.persona);
 }
 
 // Back to the five as written, while what you've added is read and checked against them.
@@ -143,6 +174,7 @@ export function setPack(id: string): Pack {
   setPackId(id);
   pack = packById(id);
   dress();
+  dressYours();
   for (const fn of listeners) fn();
   return pack;
 }
@@ -196,13 +228,15 @@ export function memberFrom(input: NewMember, editing?: string): Identity {
   };
 }
 
-const customMembers = () => Object.values(CREW).filter((c) => c.custom);
+const customMembers = () => [...OWN.values()];
 
 function apply(members: Identity[]) {
   for (const id of Object.keys(CREW)) if (!isBuiltIn(id)) delete CREW[id];
-  for (const m of members) if (!isBuiltIn(m.id)) CREW[m.id] = m;
+  OWN.clear();
+  for (const m of members) if (!isBuiltIn(m.id)) { OWN.set(m.id, m); CREW[m.id] = { ...m }; }
   CREW_IDS.splice(0, CREW_IDS.length, ...Object.keys(CREW));
   dress();
+  dressYours();
   for (const fn of listeners) fn();
 }
 
@@ -217,6 +251,7 @@ export function loadCrew() {
   saved = (readJsonFile(CREW_PATH, {}) as { crew?: unknown[] } | null)?.crew ?? [];
   pack = packById(packId());
   undress();
+  OWN.clear();
   for (const id of Object.keys(CREW)) if (!isBuiltIn(id)) delete CREW[id];
   const members: Identity[] = [];
   for (const raw of Array.isArray(saved) ? saved : []) {

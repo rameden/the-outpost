@@ -258,10 +258,21 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 @keyframes orb-flicker { 0%, 100% { opacity: .85; } 45% { opacity: 1; } 55% { opacity: .6; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; } }
 :root[data-theme="dark"] .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; }
-/* The Starship theme pack's orb (src/packs.ts): deep space and an engine's blue-white glow, in every palette. */
+/* Each theme pack's orb (src/packs.ts), in every palette. Starship: deep space and an engine's
+   blue-white glow. Newsroom: ink and a red masthead. Studio: a dark stage and a violet light.
+   Lab: bottle green and a reagent's bright green. */
 [data-pack="starship"] .mae-orb { --orb-navy: #0f2a40; --orb-ochre: #2fb4d0; --orb-line: #0f2a40; --orb-glint: #0a1620; }
 @media (prefers-color-scheme: dark) { :root[data-pack="starship"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; } }
 :root[data-pack="starship"][data-theme="dark"] .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; }
+[data-pack="newsroom"] .mae-orb { --orb-navy: #1b1b1f; --orb-ochre: #c8402f; --orb-line: #1b1b1f; --orb-glint: #0e0e10; }
+@media (prefers-color-scheme: dark) { :root[data-pack="newsroom"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #f07a63; --orb-line: #b9b4aa; --orb-glint: #fbf6ea; } }
+:root[data-pack="newsroom"][data-theme="dark"] .mae-orb { --orb-ochre: #f07a63; --orb-line: #b9b4aa; --orb-glint: #fbf6ea; }
+[data-pack="studio"] .mae-orb { --orb-navy: #2e1838; --orb-ochre: #a44fb4; --orb-line: #2e1838; --orb-glint: #1c0e22; }
+@media (prefers-color-scheme: dark) { :root[data-pack="studio"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #e3a6f0; --orb-line: #c3a3d6; --orb-glint: #fdf3ff; } }
+:root[data-pack="studio"][data-theme="dark"] .mae-orb { --orb-ochre: #e3a6f0; --orb-line: #c3a3d6; --orb-glint: #fdf3ff; }
+[data-pack="lab"] .mae-orb { --orb-navy: #12301f; --orb-ochre: #5ea832; --orb-line: #12301f; --orb-glint: #0b1c12; }
+@media (prefers-color-scheme: dark) { :root[data-pack="lab"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #b4e06a; --orb-line: #9fc9a4; --orb-glint: #f2ffe6; } }
+:root[data-pack="lab"][data-theme="dark"] .mae-orb { --orb-ochre: #b4e06a; --orb-line: #9fc9a4; --orb-glint: #f2ffe6; }
 @media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
 
 /* ---------- Decorations ----------

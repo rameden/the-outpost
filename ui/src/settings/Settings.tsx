@@ -208,10 +208,10 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
       </Row>
-      <Row label="Theme pack" wide help={<>Renames the camp's own five, for you <b>and for the crew too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with.</>}>
+      <Row label="Theme pack" wide help={<>Renames the camp's own five (and the Wizard, if you've added one), for you <b>and for the crew too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with.</>}>
         <div className="looks" role="group" aria-label="Theme pack">
           {packs.map((p) => (
-            <button key={p.id} type="button" className="look pack" aria-pressed={S.pack === p.id} title={`${p.about} ${PACK_CREW.map((id) => p.crew[id]?.name).filter(Boolean).join(", ")}.`}
+            <button key={p.id} type="button" className="look pack" aria-pressed={S.pack === p.id} title={`${p.about} ${[...PACK_CREW.map((id) => p.crew[id]?.name), ...S.characters.filter((c) => c.custom && (c.own?.name ?? c.name) === packs[0]?.extras?.[c.id]?.name).map((c) => p.extras?.[c.id]?.name)].filter(Boolean).join(", ")}.`}
               onClick={() => { if (p.id !== S.pack) void setPack(p.id); }}><span aria-hidden="true">{p.crew.quartermaster?.emoji}</span>{p.name}</button>
           ))}
         </div>

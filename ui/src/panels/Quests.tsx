@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
-import { autoName, cash, cClass, crewId, cx, kTok, money, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
+import { autoName, cash, cClass, cx, kTok, money, nameNow, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
 import { w } from "../words.ts";
 import type { CampState } from "../types.ts";
 
@@ -102,7 +102,7 @@ function SpendCard({ S, refresh, onOpenSettings }: { S: CampState; refresh: () =
 
 export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: () => void; onOpenSettings?: () => void }) {
   // By who they are, not what they were called then: the log keeps the name each had at the time.
-  const emojiFor = (name: string) => S.characters.find((c) => c.name === name || (!c.custom && c.id === crewId(name)))?.emoji ?? "✦";
+  const emojiFor = (name: string) => { const now = nameNow(name); return S.characters.find((c) => c.name === now)?.emoji ?? "✦"; };
   return (
     <>
       <SpendCard S={S} refresh={refresh} onOpenSettings={onOpenSettings} />
