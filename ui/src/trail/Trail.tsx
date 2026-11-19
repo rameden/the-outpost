@@ -15,9 +15,14 @@
 // (oldest at the foot, newest at the tip) and each plan is a bough growing off it, so you can see
 // all of what was asked and how each went without picking through them. It can be drawn smaller,
 // to get more of it on the screen.
+//
+// Or as rings, the way Orbit draws the crew (rings.ts): one centre, each plan a ring round it, the
+// first asked innermost, its steps waypoints on the ring with the crew sent on each as moons. The
+// runs of one conversation start on one bearing and are joined ring to ring, so a conversation
+// reaches further out the longer it went. Tree or rings is yours to pick, and is remembered.
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import { api, errorText } from "../api.ts";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
+import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { Icon } from "../components/bits.tsx";
 import { STEP_MARK, STEP_SAYS } from "../feed/Feed.tsx";
 import { stepState, type FeedNode, type PlanNode, type PlanQuest, type StepState } from "../feed/reducer.ts";
@@ -27,9 +32,11 @@ import { reelOf, type Reel } from "../orbit/replay.ts";
 import { Timeline, type Time } from "../orbit/Timeline.tsx";
 import type { CampEvent, CampState } from "../types.ts";
 import { layoutOf, PAD, STEP_H, STEP_W } from "./layout.ts";
+import { DISC, MOON, moonsOf, ringsOf } from "./rings.ts";
 
-// A plan in the feed: the run it belongs to, and the quests of that run that are on none of its steps.
-export type Trailhead = { expId: string; task: string; time: string; running: boolean; plan: PlanNode; loose: PlanQuest[] };
+// A plan in the feed: the run it belongs to (and the conversation that run is in, if any), and the
+// quests of that run that are on none of its steps.
+export type Trailhead = { expId: string; thread?: string; task: string; time: string; running: boolean; plan: PlanNode; loose: PlanQuest[] };
 export function plansOf(items: FeedNode[]): Trailhead[] {
   const out: Trailhead[] = [];
   for (const x of items) {
@@ -38,7 +45,7 @@ export function plansOf(items: FeedNode[]): Trailhead[] {
     if (!plan) continue;
     const onStep = new Set(plan.steps.flatMap((st) => st.quests.map((q) => q.node)));
     const loose = x.nodes.flatMap((n) => (n.kind === "quest" && !onStep.has(n.id) ? [{ node: n.id, who: n.who, emoji: n.emoji, status: n.status }] : []));
-    out.push({ expId: x.expId, task: x.task, time: x.time, running: x.end === null, plan, loose });
+    out.push({ expId: x.expId, thread: x.thread, task: x.task, time: x.time, running: x.end === null, plan, loose });
   }
   return out;
 }
@@ -54,12 +61,20 @@ function tally(states: StepState[], of = "") {
   return `${count("done")} of ${states.length}${of} done${count("out") ? ` · ${count("out")} out` : ""}${count("failed") ? ` · ${count("failed")} didn't finish` : ""}${count("stopped") ? ` · ${count("stopped")} cut short` : ""}`;
 }
 const statesOf = (plan: PlanNode) => plan.steps.map((s) => stepState(s, plan.ended));
+const brief = (task: string) => task.replace(/\s+/g, " ").slice(0, 60);
+// A step, said aloud: "Step 4, not started: I read the diffs. Waits for steps 2 and 3."
+const stepSays = (n: number, state: StepState, text: string, after: number[]) =>
+  `Step ${n}, ${STEP_SAYS[state].toLowerCase()}: ${text.replace(/\.$/, "")}.${after.length ? ` Waits for step${after.length > 1 ? "s" : ""} ${listed(after)}.` : ""}`;
+const pillOf = (state: StepState) => cx("pill", state === "out" ? "live" : state === "done" ? "done" : state === "todo" ? "" : "bad");
 // The whole map's tree. BOUGH: how far left of a plan's ground the trunk's middle is (styles.css
 // leaves that much room). RISE: how far below its first step a bough leaves the trunk.
 const BOUGH = 32, RISE = 44;
 const girth = (col: number) => Math.max(2, 4.5 - col * 0.75); // a line's width, by the column it leaves
 // How small the whole map can be drawn.
 const ZOOMS = [1, 0.8, 0.65, 0.5];
+// How the whole map is drawn, and where that's remembered.
+type Draw = "tree" | "rings";
+const DRAW_KEY = "camp-trail-whole";
 
 // One of the crew on a step: one chip a quest, so two quests by the same crew member are two chips,
 // each going to its own block in the conversation. crewId: who they are whatever they're called
@@ -113,13 +128,12 @@ const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, lab
       <ol className="trail-steps" aria-label={label}>
         {lay.spots.map((spot) => {
           const step = byN.get(spot.n)!, state = states.get(spot.n)!;
-          const waits = spot.after.length ? ` Waits for step${spot.after.length > 1 ? "s" : ""} ${listed(spot.after)}.` : "";
           return (
             <li key={spot.n} className={cx("trail-step", state)} data-n={spot.n} data-col={spot.col} data-row={spot.row} data-state={state} tabIndex={0}
-              style={{ left: spot.x, top: spot.y }} aria-label={`Step ${spot.n}, ${STEP_SAYS[state].toLowerCase()}: ${step.text.replace(/\.$/, "")}.${waits}`}>
+              style={{ left: spot.x, top: spot.y }} aria-label={stepSays(spot.n, state, step.text, spot.after)}>
               <div className="trail-step-head">
                 <span className="trail-n">{spot.n}</span>
-                <span className={cx("pill", state === "out" ? "live" : state === "done" ? "done" : state === "todo" ? "" : "bad")}><i aria-hidden="true">{STEP_MARK[state]}</i> {STEP_SAYS[state]}</span>
+                <span className={pillOf(state)}><i aria-hidden="true">{STEP_MARK[state]}</i> {STEP_SAYS[state]}</span>
               </div>
               <p className="trail-text" title={step.text}>{step.text}</p>
               <div className="trail-crew">
@@ -146,6 +160,131 @@ function Loose({ at, crewId, onOpen }: { at: Trailhead; crewId: CrewId; onOpen?:
   );
 }
 
+// One of the crew on a step, on the rings: a moon by its waypoint, in their own colour, and (where
+// there's somewhere to go) a button to their quest. at: where it sits, from the waypoint's middle.
+function Moon({ q, at, ended, expId, crewId, onOpen }: { q: PlanQuest; at: { dx: number; dy: number }; ended?: string; expId: string; crewId: CrewId; onOpen?: Open }) {
+  const state = questState(q, ended), id = crewId(q.who);
+  const cls = cx("trail-moon", cClass(id) || cClass(q.who), `q-${state}`), style = { left: `calc(50% + ${at.dx}px)`, top: `calc(50% + ${at.dy}px)` };
+  const inner = <><span aria-hidden="true">{q.emoji}</span><i aria-hidden="true">{STEP_MARK[state]}</i></>;
+  if (!onOpen) return <span className={cls} style={style} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}`}>{inner}<span className="sr-only">{q.who}, {QUEST_SAYS[state]}</span></span>;
+  return (
+    <button type="button" className={cls} style={style} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}. Go to this quest`} aria-label={`${q.who}, ${QUEST_SAYS[state]}: go to this quest`}
+      onClick={() => onOpen(expId, q.node)}>{inner}</button>
+  );
+}
+
+// The whole map as rings. Down the side, every plan by name (newest first), with what a ring is too
+// small to say: when it was asked, how it stands, the quests sent without a step, and the way back
+// to that plan on its own. Beside it the rings themselves, and under them what the waypoint you're
+// pointing at (or have tabbed to) says in full. sky: the drawing, for the map to be fitted to the window.
+function TrailRings({ plans, crewId, onOpen, onOnly, zoom, sky }: {
+  plans: Trailhead[]; crewId: CrewId; onOpen?: Open; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
+}) {
+  // Laid out again only when a plan's shape changes or one joins, not each time a quest moves.
+  const shape = JSON.stringify(plans.map((p) => [p.expId, p.thread, p.plan.steps.map((s) => [s.n, s.after])]));
+  const map = useMemo(() => ringsOf(plans.map((p) => ({ expId: p.expId, thread: p.thread, steps: p.plan.steps }))), [shape]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [hot, setHot] = useState<{ expId: string; n?: number } | null>(null); // the plan (and step) under the pointer or the keyboard
+  const by = new Map(plans.map((p) => [p.expId, p])), ringNo = new Map(map.rings.map((x) => [x.expId, x.ring]));
+  const over = (expId: string, n?: number) => ({ onMouseEnter: () => setHot({ expId, n }), onMouseLeave: () => setHot(null), onFocus: () => setHot({ expId, n }), onBlur: () => setHot(null) });
+  const hotPlan = hot && by.get(hot.expId), hotStep = hotPlan?.plan.steps.find((s) => s.n === hot?.n);
+  const hotState = hotPlan && hotStep ? stepState(hotStep, hotPlan.plan.ended) : undefined;
+  const { c, size } = map, far = c - 14; // far: the rim
+  return (
+    <div className="trail-map whole rings">
+      <ol className="trail-runs" aria-label="Every plan, newest first">
+        {map.rings.toReversed().map((ring) => {
+          const p = by.get(ring.expId);
+          if (!p) return null;
+          return (
+            <li key={p.expId} className={cx("trail-run", p.running && "running", hot?.expId === p.expId && "hot")} data-exp={p.expId} data-ring={ring.ring} {...over(p.expId)}>
+              <div className="trail-run-head">
+                <span className="trail-ring-no"><span className="sr-only">Ring </span>{ring.ring}</span>
+                <time dateTime={p.time}>{clock(p.time)}</time>
+                <b title={p.task}>{p.task}</b>
+              </div>
+              <div className="trail-run-foot">
+                <span className="trail-count">{tally(statesOf(p.plan))}</span>
+                {ring.follows && <span className="trail-follows">Follows ring {ringNo.get(ring.follows)}</span>}
+                <button type="button" className="trail-btn" aria-label={`Just this plan: ${brief(p.task)}`} title="Look at this plan on its own" onClick={() => onOnly(p.expId)}>Just this one</button>
+              </div>
+              <Loose at={p} crewId={crewId} onOpen={onOpen} />
+            </li>
+          );
+        })}
+      </ol>
+      <div className="trail-sky-side">
+        <div className="trail-sky-box">
+          <div className="trail-sky" ref={sky} style={{ width: size, height: size, zoom, "--disc": `${DISC}px`, "--moon": `${MOON}px` } as CSSProperties}>
+            <svg className="trail-lines" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+              {/* The instrument behind it all, as in Orbit: bearings, and a rim with its ticks. */}
+              {[0, 30, 60, 90, 120, 150].map((a) => <line key={a} className="trail-bearing" x1={c - far} y1={c} x2={c + far} y2={c} transform={`rotate(${a} ${c} ${c})`} />)}
+              <circle className="trail-rim" cx={c} cy={c} r={far} />
+              <circle className="trail-ticks" cx={c} cy={c} r={far - 3} pathLength={360} strokeDasharray="0.4 4.6" />
+              <circle className="trail-ticks long" cx={c} cy={c} r={far - 5} pathLength={360} strokeDasharray="0.5 29.5" />
+              {/* The sun: the Quartermaster, whose plans these are. */}
+              <circle className="trail-sun-dial" cx={c} cy={c} r={31} strokeDasharray="14 5 2 5" />
+              <circle className="trail-sun-dial inner" cx={c} cy={c} r={23} strokeDasharray="2 4.5" />
+              <circle className="trail-sun" cx={c} cy={c} r={14} />
+              {map.links.map((l) => <path key={l.to} className={cx("trail-link", hot && (hot.expId === l.from || hot.expId === l.to) && "hot")} data-join={`${l.from}>${l.to}`} d={l.d} />)}
+              {map.rings.map((ring) => {
+                const p = by.get(ring.expId);
+                if (!p) return null;
+                const state = new Map(p.plan.steps.map((s) => [s.n, stepState(s, p.plan.ended)]));
+                return (
+                  <g key={ring.expId} className={cx("trail-ring", p.running && "running", hot?.expId === ring.expId && "hot")} data-exp={ring.expId}>
+                    <circle className="trail-orbit" cx={c} cy={c} r={ring.r} />
+                    {ring.edges.map((e) => (
+                      <g key={`${e.from}-${e.to}`} data-line={`${e.from}-${e.to}`} data-lane={e.lane} className={cx("trail-edge", state.get(e.from) === "done" && "walked", state.get(e.from) === "done" && state.get(e.to) === "out" && "live")}>
+                        <path d={e.d} /><path className="tip" d={e.tip} />
+                      </g>
+                    ))}
+                  </g>
+                );
+              })}
+            </svg>
+            <ol className="trail-ring-list" aria-label="Every plan as a ring, the first asked innermost">
+              {map.rings.map((ring) => {
+                const p = by.get(ring.expId);
+                if (!p) return null;
+                const stepOf = new Map(p.plan.steps.map((s) => [s.n, s]));
+                return (
+                  <li key={ring.expId} className={cx("trail-ring-run", p.running && "running", hot?.expId === ring.expId && "hot")} data-exp={ring.expId}>
+                    <span className="trail-ring-no" style={{ left: ring.gate.x, top: ring.gate.y }} aria-hidden="true">{ring.ring}</span>
+                    {ring.ways.length === 0 ? <span className="sr-only">Ring {ring.ring}, no steps: {brief(p.task)}</span> : (
+                      <ol className="trail-ways" aria-label={`Ring ${ring.ring}, the steps of: ${brief(p.task)}`}>
+                        {ring.ways.map((w) => {
+                          const step = stepOf.get(w.n)!, state = stepState(step, p.plan.ended), moons = moonsOf(w.a, step.quests.length);
+                          return (
+                            <li key={w.n} className={cx("trail-way", state)} data-n={w.n} data-slot={w.slot} data-state={state} tabIndex={0} style={{ left: w.x, top: w.y }}
+                              title={`${w.n}. ${step.text}`} aria-label={stepSays(w.n, state, step.text, w.after)} {...over(ring.expId, w.n)}>
+                              <b>{w.n}</b>{state !== "todo" && <i aria-hidden="true">{STEP_MARK[state]}</i>}
+                              {step.quests.map((q, i) => <Moon key={q.node} q={q} at={moons[i]} ended={p.plan.ended} expId={ring.expId} crewId={crewId} onOpen={onOpen} />)}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </div>
+        {/* What's under the pointer or the keyboard, in full. Not read out: the waypoint itself says all of it. */}
+        <p className="trail-readout" aria-hidden="true">
+          {hotPlan && hotStep && hotState ? (
+            <><b>Ring {ringNo.get(hotPlan.expId)} · Step {hotStep.n}</b><span className={pillOf(hotState)}><i>{STEP_MARK[hotState]}</i> {STEP_SAYS[hotState]}</span>
+              <span className="trail-readout-text">{hotStep.text}</span>
+              <span className="trail-readout-who">{hotStep.quests.length ? [...new Set(hotStep.quests.map((q) => `${q.emoji} ${q.who}`))].join(", ") : hotState === "todo" ? "Nobody sent yet" : "The Quartermaster's own"}</span></>
+          ) : hotPlan ? (
+            <><b>Ring {ringNo.get(hotPlan.expId)}</b><span className="trail-readout-text">{hotPlan.task}</span><span className="trail-readout-who">{tally(statesOf(hotPlan.plan))}</span></>
+          ) : <span className="trail-readout-text hint">Each ring is a plan, the first asked innermost. Point at a waypoint, or Tab to one, to read its step.</span>}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // onOpenQuest: go to a quest's own block, on the page underneath (whoever shows this closes it as they go).
 export function Trail({ S, store, onClose, onOpenQuest }: {
   S: CampState | null; store: FeedStore; onClose: () => void; onOpenQuest?: (q: { expId: string; node: string }) => void;
@@ -157,7 +296,8 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
   const [picked, setPicked] = useState<string | null>(null); // the run whose plan you chose to look at (none: the newest)
   const [whole, setWhole] = useState(false); // every plan at once, on one map
   const [zoom, setZoom] = useState(1); // how big the whole map is drawn (one of ZOOMS)
-  const root = useRef<HTMLDivElement>(null), all = useRef<HTMLOListElement>(null);
+  const [draw, setDraw] = useState<Draw>(() => (storeGet(DRAW_KEY) === "tree" ? "tree" : "rings")); // how the whole map is drawn
+  const root = useRef<HTMLDivElement>(null), all = useRef<HTMLOListElement>(null), sky = useRef<HTMLDivElement>(null);
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
 
   const items = useFeed(replay?.store ?? store, (s) => s.items);
@@ -173,13 +313,15 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
   // in sight (it scrolls down); failing that, as small as it goes. After that the size is yours.
   const toggleWhole = () => { setZoom(1); setWhole((on) => !on); };
   useLayoutEffect(() => {
-    const list = all.current, box = list?.parentElement;
+    const list = draw === "rings" ? sky.current : all.current, box = list?.parentElement;
     if (!whole || !list || !box?.clientWidth) return;
     const pad = getComputedStyle(box), px = (v: string) => parseFloat(v) || 0;
     const wide = box.clientWidth - px(pad.paddingLeft) - px(pad.paddingRight), tall = box.clientHeight - px(pad.paddingTop) - px(pad.paddingBottom);
     const fits = (z: number, down: boolean) => list.scrollWidth * z <= wide && (!down || list.scrollHeight * z <= tall);
     setZoom(ZOOMS.find((z) => fits(z, true)) ?? ZOOMS.find((z) => fits(z, false)) ?? ZOOMS.at(-1)!);
-  }, [whole]);
+  }, [whole, draw]);
+  // Tree or rings: remembered for next time, and fitted to the window afresh.
+  const drawAs = (d: Draw) => { if (d === draw) return; setZoom(1); setDraw(d); storeSet(DRAW_KEY, d); };
   const zoomBy = (d: 1 | -1) => setZoom((z) => ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, ZOOMS.indexOf(z) - d))]);
   const only = (expId: string) => { setPicked(expId === plans.at(-1)?.expId ? null : expId); setWhole(false); };
 
@@ -207,6 +349,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
     else if ((ev.key === "m" || ev.key === "M") && (whole || plans.length > 1)) toggleWhole();
     else if (whole && (ev.key === "-" || ev.key === "_")) zoomBy(-1);
     else if (whole && (ev.key === "+" || ev.key === "=")) zoomBy(1);
+    else if (whole && (ev.key === "r" || ev.key === "R")) drawAs(draw === "rings" ? "tree" : "rings");
   };
 
   return (
@@ -224,10 +367,16 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
               <button type="button" className="trail-btn" aria-label="Draw the map bigger" title="Bigger (+)" disabled={zoom === ZOOMS[0]} onClick={() => zoomBy(1)}>+</button>
             </span>
           )}
+          {whole && (
+            <span className="trail-draw" role="group" aria-label="How the whole map is drawn">
+              <button type="button" className="trail-btn" aria-pressed={draw === "tree"} title="As a tree: the day is the trunk, each plan a bough (R)" onClick={() => drawAs("tree")}>Tree</button>
+              <button type="button" className="trail-btn" aria-pressed={draw === "rings"} title="As rings: each plan a ring, the first asked innermost (R)" onClick={() => drawAs("rings")}>Rings</button>
+            </span>
+          )}
           {plans.length > 1 && shown && !whole && (
             <select className="trail-pick" aria-label="Which plan" title="Look at another plan" value={shown.expId}
               onChange={(ev) => setPicked(ev.target.value === plans.at(-1)!.expId ? null : ev.target.value)}>
-              {plans.toReversed().map((p, i) => <option key={p.expId} value={p.expId}>{clock(p.time)} · {p.task.replace(/\s+/g, " ").slice(0, 60)}{i === 0 ? " (newest)" : ""}</option>)}
+              {plans.toReversed().map((p, i) => <option key={p.expId} value={p.expId}>{clock(p.time)} · {brief(p.task)}{i === 0 ? " (newest)" : ""}</option>)}
             </select>
           )}
           {(whole || plans.length > 1) && (
@@ -240,9 +389,10 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
       {shown && whole ? (
         <>
           <div className="trail-ask">
-            <b>{plans.length === 1 ? "The one plan so far" : `All ${plans.length} plans, newest first`}</b>
+            <b>{plans.length === 1 ? "The one plan so far" : draw === "rings" ? `All ${plans.length} plans, a ring each: the first asked innermost` : `All ${plans.length} plans, newest first`}</b>
             <span className="trail-count" role="status">{tally(plans.flatMap((p) => statesOf(p.plan)), " steps")}</span>
           </div>
+          {draw === "rings" ? <TrailRings plans={plans} crewId={crewId} onOpen={open} onOnly={only} zoom={zoom} sky={sky} /> : (
           <div className="trail-map whole">
             <ol className="trail-all" ref={all} style={{ zoom }} aria-label="Every plan, newest first">
               {plans.toReversed().map((p) => (
@@ -251,14 +401,15 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
                     <time dateTime={p.time}>{clock(p.time)}</time>
                     <b title={p.task}>{p.task}</b>
                     <span className="trail-count">{tally(statesOf(p.plan))}</span>
-                    <button type="button" className="trail-btn" aria-label={`Just this plan: ${p.task.replace(/\s+/g, " ").slice(0, 60)}`} title="Look at this plan on its own" onClick={() => only(p.expId)}>Just this one</button>
+                    <button type="button" className="trail-btn" aria-label={`Just this plan: ${brief(p.task)}`} title="Look at this plan on its own" onClick={() => only(p.expId)}>Just this one</button>
                   </div>
-                  <TrailGround plan={p.plan} expId={p.expId} crewId={crewId} onOpen={open} label={`The steps of: ${p.task.replace(/\s+/g, " ").slice(0, 60)}`} tree />
+                  <TrailGround plan={p.plan} expId={p.expId} crewId={crewId} onOpen={open} label={`The steps of: ${brief(p.task)}`} tree />
                   <Loose at={p} crewId={crewId} onOpen={open} />
                 </li>
               ))}
             </ol>
           </div>
+          )}
         </>
       ) : shown ? (
         <>

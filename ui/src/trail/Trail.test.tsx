@@ -10,7 +10,7 @@ import { Trail } from "./Trail.tsx";
 vi.mock("../api.ts", async (real) => ({ ...(await real<typeof import("../api.ts")>()), api: vi.fn() }));
 
 beforeEach(() => { vi.useFakeTimers(); });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.mocked(api).mockReset(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.mocked(api).mockReset(); localStorage.clear(); });
 
 const where = (steps: { n: number; after?: number[] }[]) => layoutOf(steps).spots.map((s) => `${s.n}@${s.col}.${s.row}`);
 const lines = (steps: { n: number; after?: number[] }[]) => layoutOf(steps).edges.map((e) => `${e.from}>${e.to}`).sort();
@@ -182,6 +182,7 @@ describe("the trail map", () => {
   });
 
   test("the whole map shows every plan at once, newest first, each chip going to its own run's quest", () => {
+    localStorage.setItem("camp-trail-whole", "tree");
     const { container, store, onOpenQuest } = mount([begin("A", "The first ask"), planned([{ n: 1, text: "Only step" }], "A")]);
     const sent = ev({ type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "Read", step: 1 });
     // With one plan there's nothing more to show, so it isn't offered.
@@ -216,6 +217,7 @@ describe("the trail map", () => {
   });
 
   test("the whole map can be drawn smaller and bigger, as far as it goes, and M goes in and out of it", () => {
+    localStorage.setItem("camp-trail-whole", "tree");
     const { container } = mount([begin("A", "The first ask"), planned([{ n: 1, text: "Only step" }], "A"), begin("B", "The second ask"), planned(diamond, "B")]);
     const dialog = screen.getByRole("dialog");
     fireEvent.keyDown(dialog, { key: "m" });
@@ -270,5 +272,162 @@ describe("the trail map", () => {
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Replay" })); await vi.advanceTimersByTimeAsync(20); });
     expect(screen.getByText("Nothing has happened in the last day to replay.")).toBeTruthy();
     expect(screen.queryByRole("slider")).toBeNull();
+  });
+});
+
+// The whole map drawn as rings (rings.ts has where everything sits; this is what's on the page).
+describe("the whole map as rings", () => {
+  const two = () => [begin("A", "The first ask"), planned([{ n: 1, text: "Only step" }], "A"), begin("B", "The second ask"), planned(diamond, "B")];
+  const inThread = (id: string, thread: string, task = `Ask ${id}`) => ev({ type: "expedition_start", id, task, source: "user", thread, ...(id === thread ? {} : { replyTo: thread }) });
+  const runs = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>(".trail-run")];
+  const ringRun = (c: HTMLElement, expId: string) => c.querySelector<HTMLElement>(`.trail-ring-run[data-exp="${expId}"]`)!;
+  const way = (c: HTMLElement, expId: string, n: number) => ringRun(c, expId).querySelector<HTMLElement>(`.trail-way[data-n="${n}"]`)!;
+
+  test("every plan is a ring, the first asked innermost; its steps are waypoints, and a moon goes to its own run's quest", () => {
+    const { container, store, onOpenQuest } = mount(two());
+    const sent = ev({ type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "Read", step: 1 });
+    send(store, sent);
+    fireEvent.click(screen.getByRole("button", { name: "Whole map" }));
+    // Rings unless you've chosen the tree.
+    expect(screen.getByRole("button", { name: "Rings" }).getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector(".trail-all")).toBeNull();
+    expect(container.querySelector(".trail-ask b")!.textContent).toBe("All 2 plans, a ring each: the first asked innermost");
+    expect(container.querySelector(".trail-ask .trail-count")!.textContent).toBe("0 of 5 steps done · 1 out");
+    // The rings, from the middle out; and each by name down the side, newest first.
+    const orbits = [...container.querySelectorAll<SVGGElement>(".trail-ring")];
+    expect(orbits.map((g) => g.dataset.exp)).toEqual(["A", "B"]);
+    const [ra, rb] = orbits.map((g) => Number(g.querySelector(".trail-orbit")!.getAttribute("r")));
+    expect(rb).toBeGreaterThan(ra);
+    expect(runs(container).map((r) => `${r.dataset.exp} ${r.dataset.ring} ${r.querySelector("b")!.textContent} | ${r.querySelector(".trail-count")!.textContent}`))
+      .toEqual(["B 2 The second ask | 0 of 4 done", "A 1 The first ask | 0 of 1 done · 1 out"]);
+    expect(screen.getByRole("list", { name: "Ring 2, the steps of: The second ask" }).querySelectorAll(".trail-way")).toHaveLength(4);
+    // A waypoint says its step in full, and can be tabbed to.
+    const four = way(container, "B", 4);
+    expect(four.getAttribute("aria-label")).toBe("Step 4, not started: I read the diffs. Waits for steps 2 and 3.");
+    expect(four.tabIndex).toBe(0);
+    expect(way(container, "A", 1).dataset.state).toBe("out");
+    // The lines between a ring's steps: the diamond's four.
+    expect([...orbits[1].querySelectorAll<SVGGElement>(".trail-edge")].map((g) => g.dataset.line).sort()).toEqual(["1-2", "1-3", "2-4", "3-4"]);
+    // Whoever was sent is a moon by the step, and goes to that run's quest.
+    const moon = screen.getByRole("button", { name: "Scout, out now: go to this quest" });
+    expect(moon.closest(".trail-way")).toBe(way(container, "A", 1));
+    expect(moon.dataset.who).toBe("scout");
+    expect(moon.classList.contains("c-scout")).toBe(true);
+    fireEvent.click(moon);
+    expect(onOpenQuest).toHaveBeenCalledWith({ expId: "A", node: `q${sent.seq}` });
+    // As a step is walked, its waypoint and the line out of it say so.
+    send(store, ev({ type: "return", ...scout, status: "done", questId: "q1", expeditionId: "A" }));
+    expect(way(container, "A", 1).dataset.state).toBe("done");
+    expect(way(container, "A", 1).getAttribute("aria-label")).toBe("Step 1, done: Only step.");
+  });
+
+  test("a quest sent without a step is listed with its run, on no waypoint; and a run with no steps is still a ring", () => {
+    const { container, store } = mount(two());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+    send(store, begin("C", "The third ask"), planned([{ n: 1, text: "x" }], "C"), ev({ type: "dispatch", ...smith, questId: "q2", expeditionId: "C", brief: "Fix" }),
+      begin("D", "The fourth ask"), planned([], "D"));
+    expect(runs(container).map((r) => r.dataset.exp)).toEqual(["D", "C", "B", "A"]);
+    const c = runs(container)[1];
+    expect(c.querySelector(".trail-loose")!.textContent).toContain("Artificer");
+    expect(c.querySelector(".trail-loose")!.getAttribute("aria-label")).toBe("Quests sent without a step");
+    expect(ringRun(container, "C").querySelectorAll(".trail-moon")).toHaveLength(0);
+    expect(runs(container)[2].querySelector(".trail-loose")).toBeNull();
+    expect(container.querySelectorAll(".trail-ring")).toHaveLength(4);
+    expect(ringRun(container, "D").querySelector(".trail-way")).toBeNull();
+    expect(ringRun(container, "D").textContent).toContain("Ring 4, no steps: The fourth ask");
+    // From its name, back to that plan on its own.
+    fireEvent.click(screen.getByRole("button", { name: "Just this plan: The first ask" }));
+    expect(container.querySelector(".trail-sky")).toBeNull();
+    expect(container.querySelector(".trail-ask b")!.textContent).toBe("The first ask");
+    expect((screen.getByLabelText("Which plan") as HTMLSelectElement).value).toBe("A");
+  });
+
+  test("the runs of one conversation are joined, ring to ring; runs that aren't in one are joined to nothing", () => {
+    const one = [{ n: 1, text: "x" }];
+    const { container } = mount([inThread("A", "A"), planned(one, "A"), inThread("B", "B"), planned(one, "B"), begin("J", "A job"), planned(one, "J"),
+      inThread("A2", "A"), planned(one, "A2"), begin("K", "Another job"), planned(one, "K")]);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+    expect([...container.querySelectorAll<SVGPathElement>(".trail-link")].map((l) => l.dataset.join)).toEqual(["A>A2"]);
+    expect(runs(container).map((r) => `${r.dataset.exp}: ${r.querySelector(".trail-follows")?.textContent ?? "-"}`)).toEqual(["K: -", "A2: Follows ring 1", "J: -", "B: -", "A: -"]);
+    // Pointing at a run (or tabbing into it) picks out its ring and the line to the one it follows.
+    fireEvent.mouseEnter(runs(container)[1]);
+    expect(container.querySelector('.trail-ring[data-exp="A2"]')!.classList.contains("hot")).toBe(true);
+    expect(container.querySelector(".trail-link")!.classList.contains("hot")).toBe(true);
+    expect(container.querySelector('.trail-ring[data-exp="B"]')!.classList.contains("hot")).toBe(false);
+    fireEvent.mouseLeave(runs(container)[1]);
+    expect(container.querySelector(".trail-ring.hot")).toBeNull();
+  });
+
+  test("the waypoint you point at or tab to is read out in full under the rings", () => {
+    const { container, store } = mount(two());
+    send(store, ev({ type: "dispatch", ...smith, questId: "q1", expeditionId: "B", brief: "Build", step: 2 }));
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+    const readout = () => container.querySelector(".trail-readout")!.textContent;
+    expect(readout()).toContain("Each ring is a plan");
+    fireEvent.focus(way(container, "B", 2));
+    expect(readout()).toContain("Ring 2 · Step 2");
+    expect(readout()).toContain("Artificer builds the backend");
+    expect(readout()).toContain("🔨 Artificer");
+    expect(runs(container)[0].classList.contains("hot")).toBe(true);
+    fireEvent.blur(way(container, "B", 2));
+    fireEvent.mouseEnter(way(container, "B", 4));
+    expect(readout()).toContain("Nobody sent yet");
+  });
+
+  test("Tree and Rings swap with the buttons or R, the choice is remembered, and the size buttons work on either", () => {
+    const first = mount(two());
+    const dialog = screen.getByRole("dialog");
+    // The switch belongs to the whole map: outside it there's none, and R does nothing.
+    expect(screen.queryByRole("group", { name: "How the whole map is drawn" })).toBeNull();
+    fireEvent.keyDown(dialog, { key: "r" });
+    expect(localStorage.getItem("camp-trail-whole")).toBeNull();
+    fireEvent.keyDown(dialog, { key: "m" });
+    const group = screen.getByRole("group", { name: "How the whole map is drawn" });
+    const pressed = () => [...group.querySelectorAll("button")].map((b) => `${b.textContent} ${b.getAttribute("aria-pressed")}`);
+    expect(pressed()).toEqual(["Tree false", "Rings true"]);
+    fireEvent.click(screen.getByRole("button", { name: "Draw the map smaller" }));
+    expect(first.container.querySelector<HTMLElement>(".trail-sky")!.style.zoom).toBe("0.8");
+    fireEvent.click(screen.getByRole("button", { name: "Tree" }));
+    expect(pressed()).toEqual(["Tree true", "Rings false"]);
+    expect(first.container.querySelector(".trail-sky")).toBeNull();
+    expect(first.container.querySelectorAll(".trail-branch")).toHaveLength(2);
+    expect(first.container.querySelector(".trail-zoom output")!.textContent).toBe("100%"); // (fitted afresh)
+    expect(localStorage.getItem("camp-trail-whole")).toBe("tree");
+    fireEvent.keyDown(dialog, { key: "R" });
+    expect(first.container.querySelector(".trail-all")).toBeNull();
+    expect(first.container.querySelectorAll(".trail-ring")).toHaveLength(2);
+    expect(localStorage.getItem("camp-trail-whole")).toBe("rings");
+    fireEvent.keyDown(dialog, { key: "r" });
+    expect(localStorage.getItem("camp-trail-whole")).toBe("tree");
+    // Next time, it opens the way you left it.
+    first.unmount();
+    const again = mount(two());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+    expect(again.container.querySelectorAll(".trail-branch")).toHaveLength(2);
+    expect(again.container.querySelector(".trail-sky")).toBeNull();
+  });
+
+  test("Replay with the rings on: the day's plans join as rings, and a moon goes nowhere", async () => {
+    const day = [begin("Y", "Yesterday's first"), planned([{ n: 1, text: "Scout reads" }, { n: 2, text: "Scribe writes" }], "Y"),
+      ev({ type: "dispatch", ...scout, questId: "q1", expeditionId: "Y", brief: "Read", step: 1 }), ev({ type: "return", ...scout, status: "done", questId: "q1", expeditionId: "Y" }),
+      begin("Z", "Yesterday's second"), planned([{ n: 1, text: "x" }], "Z")];
+    vi.mocked(api).mockResolvedValue({ events: day });
+    seq = 100;
+    const { container, onOpenQuest } = mount(two());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+    expect(container.querySelectorAll(".trail-ring")).toHaveLength(2);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Replay" })); await vi.advanceTimersByTimeAsync(20); });
+    const line = screen.getByRole("slider", { name: "Where in the day" }) as HTMLInputElement;
+    act(() => { fireEvent.change(line, { target: { value: line.max } }); vi.advanceTimersByTime(20); });
+    expect([...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => g.dataset.exp)).toEqual(["Y", "Z"]);
+    expect(way(container, "Y", 1).dataset.state).toBe("done");
+    expect(container.querySelector("button.trail-moon")).toBeNull();
+    const moon = container.querySelector<HTMLElement>(".trail-moon")!;
+    expect(moon.textContent).toContain("Scout, back, done");
+    fireEvent.click(moon);
+    expect(onOpenQuest).not.toHaveBeenCalled();
+    // Out of the replay, back to today's rings.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect([...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => g.dataset.exp)).toEqual(["A", "B"]);
   });
 });
