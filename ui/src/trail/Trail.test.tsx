@@ -426,9 +426,94 @@ describe("the whole map as rings", () => {
     expect(moon.textContent).toContain("Scout, back, done");
     fireEvent.click(moon);
     expect(onOpenQuest).not.toHaveBeenCalled();
-    // Out of the replay, back to today's rings.
+    // Out of the replay, back to the map as it is now: the page's own plans, after the day's earlier ones.
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    expect([...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => g.dataset.exp)).toEqual(["A", "B"]);
+    expect([...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => g.dataset.exp)).toEqual(["Y", "Z", "A", "B"]);
+  });
+
+  test("the map shows the whole day, as a replay ends on: plans the page's feed no longer holds are fetched, and can't be opened", async () => {
+    // The day as the server has it: an early plan the page has lost, and the start of one it still has.
+    const day = [begin("Y", "This morning's"), planned([{ n: 1, text: "Scout reads" }], "Y"),
+      ev({ type: "dispatch", ...scout, questId: "q0", expeditionId: "Y", brief: "Read", step: 1 }), ev({ type: "return", ...scout, status: "done", questId: "q0", expeditionId: "Y" }),
+      begin("A"), planned(diamond, "A")];
+    vi.mocked(api).mockResolvedValue({ events: day });
+    seq = 100;
+    const live = [begin("A"), planned(diamond, "A"), ev({ type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "Read", step: 1 }), ev({ type: "return", ...scout, status: "done", questId: "q1", expeditionId: "A" })];
+    const { container, onOpenQuest } = mount(live);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    expect(api).toHaveBeenCalledWith("/api/feed/day");
+    // Both plans can be picked, and the newest is still the page's own.
+    expect([...screen.getByRole("combobox", { name: "Which plan" }).querySelectorAll("option")].map((o) => o.value)).toEqual(["A", "Y"]);
+    expect(container.querySelector(".trail-ask b")!.textContent).toBe("Share a whole thread");
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+    expect([...container.querySelectorAll<SVGGElement>(".trail-ring")].map((g) => g.dataset.exp)).toEqual(["Y", "A"]);
+    // Where both have the plan, the page's is drawn (it knows step 1 is done).
+    expect(way(container, "A", 1).dataset.state).toBe("done");
+    // A quest of the page's own plan opens; one from earlier has no block on the page to go to.
+    const moons = [...container.querySelectorAll<HTMLElement>(".trail-moon")];
+    expect(moons.map((m) => m.tagName)).toEqual(["SPAN", "BUTTON"]);
+    fireEvent.click(moons[0]);
+    expect(onOpenQuest).not.toHaveBeenCalled();
+    fireEvent.click(moons[1]);
+    expect(onOpenQuest).toHaveBeenCalledWith({ expId: "A", node: expect.any(String) });
+  });
+
+  test("the tree climbs to a plan that joins at its tip, and not as it opens (it opens at its foot)", () => {
+    const climbed: (string | undefined)[] = [];
+    Element.prototype.scrollIntoView = function (this: HTMLElement) { climbed.push(this.dataset.exp ?? this.className); };
+    try {
+      localStorage.setItem("camp-trail-whole", "tree");
+      const { container, store } = mount(two());
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+      expect([...container.querySelectorAll<HTMLElement>(".trail-branch")].map((li) => li.dataset.exp)).toEqual(["B", "A"]);
+      expect(climbed).toEqual([]);
+      seq = 200;
+      send(store, begin("C", "A third"), planned(diamond, "C"));
+      expect(climbed).toEqual(["C"]);
+      // As rings there's nothing to climb.
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "r" });
+      send(store, begin("D", "A fourth"), planned(diamond, "D"));
+      expect(climbed).toEqual(["C"]);
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+
+  test("the whole map is fitted again as plans join, so it ends the size it would have opened at; not once you've set the size", () => {
+    // A window with room for exactly the two rings it opens with (the sky says how big it is).
+    let room = 0;
+    const was = ["clientWidth", "clientHeight", "scrollWidth", "scrollHeight"].map((k) => [k, Object.getOwnPropertyDescriptor(Element.prototype, k)!] as const);
+    const skyOr = (el: Element, n: number) => (el.classList.contains("trail-sky") ? parseFloat((el as HTMLElement).style.width) : n);
+    for (const [k] of was) Object.defineProperty(Element.prototype, k, { configurable: true, get(this: Element) { return k.startsWith("scroll") ? skyOr(this, 0) : room; } });
+    try {
+      const probe = mount(two());
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+      room = parseFloat(probe.container.querySelector<HTMLElement>(".trail-sky")!.style.width);
+      cleanup();
+
+      const { container, store } = mount(two());
+      const size = () => container.querySelector(".trail-zoom output")!.textContent;
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+      expect(size()).toBe("100%");
+      seq = 200;
+      send(store, begin("C", "A third"), planned(diamond, "C"));
+      expect(container.querySelectorAll(".trail-ring")).toHaveLength(3);
+      const fitted = size();
+      expect(fitted).not.toBe("100%");
+      // Opened afresh with all three, it's the same size.
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "m" });
+      expect(size()).toBe(fitted);
+      // Set bigger by hand, it stays as set when another joins.
+      fireEvent.click(screen.getByRole("button", { name: "Draw the map bigger" }));
+      const mine = size();
+      expect(mine).not.toBe(fitted);
+      send(store, begin("D", "A fourth"), planned(diamond, "D"));
+      expect(container.querySelectorAll(".trail-ring")).toHaveLength(4);
+      expect(size()).toBe(mine);
+    } finally {
+      for (const [k, d] of was) Object.defineProperty(Element.prototype, k, d);
+    }
   });
 
   test("wound back in a replay, a plan that goes stays drawn while it fades: a ring, and a bough of the tree", async () => {
@@ -478,9 +563,9 @@ describe("the whole map as rings", () => {
     expect(boughs()).toEqual(["Y2", "Y"]);
     act(() => { vi.advanceTimersByTime(300); });
     expect(boughs()).toEqual(["Y2", "Y"]);
-    // Out of the replay nothing lingers: today's plans are there at once.
+    // Out of the replay nothing lingers: the plans as they are now are there at once (the page's own, then the day's earlier ones).
     fireEvent.keyDown(dialog, { key: "Escape" });
-    expect(boughs()).toEqual(["B", "A"]);
+    expect(boughs()).toEqual(["B", "A", "Y2", "Y"]);
     vi.unstubAllGlobals();
   });
 
