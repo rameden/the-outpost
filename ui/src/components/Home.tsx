@@ -23,6 +23,7 @@ import { OfferCard } from "../settings/DrivePage.tsx";
 import type { Brief, BriefLine, CampState, HomePage } from "../types.ts";
 import { Icon } from "./bits.tsx";
 import { Confirm } from "./Confirm.tsx";
+import { NightCard } from "./NightCard.tsx";
 
 const ACT: Record<NonNullable<BriefLine["act"]>["do"], string> = { address: "Address it", resume: "Resume", start: "Start…" };
 const said = (status: string) => { const s = status.replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); }; // "Stopped", "Over budget"
@@ -199,6 +200,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
       )}
 
       {!day && home?.offers.map((o) => <OfferCard key={o.key} offer={o} onDone={() => void load()} />)}
+      {!day && home?.night && <NightCard night={home.night} onOpenMemory={onOpenMemory} onDone={() => void load()} />}
 
       {brief && (
         <>

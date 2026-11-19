@@ -2628,6 +2628,23 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .home-offer .card-top .pill { margin-left: auto; }
 .home-offer .card-actions { margin-top: 2px; }
 .home-offer .card-actions .meta { margin: 0; }
+/* "While you were away": what the night shift left (NightCard.tsx). A plain card: it's a report, not a call to act. */
+.home-night { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); min-width: 0; }
+.home-night .card-top { flex-wrap: wrap; }
+.home-night .card-top .who { white-space: normal; }
+.home-night .card-top .meta { margin-left: auto; }
+.night-lines, .night-old ul { list-style: none; margin: 0; padding: 0; display: grid; }
+.night-lines > li { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 7px 0; font-size: 14px; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.night-lines > li + li { border-top: 1px solid var(--border); }
+.night-lines .linkish { font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.night-old { flex: 1; min-width: 0; }
+.night-old > summary { cursor: pointer; width: fit-content; }
+.night-old ul { gap: 6px; margin: 8px 0; padding-left: 12px; border-left: 2px solid var(--border); }
+.night-old li { display: grid; gap: 1px; font-size: 13px; color: var(--muted); }
+.night-old p { margin: 0; }
+.home-night .card-actions { margin-top: 0; }
+.home-night .card-actions .meta, .night-old li .meta { margin: 0; }
+.unasked-page .set-label p.night-last { color: var(--text); }
 .home-since { display: flex; flex-wrap: wrap; gap: 6px; }
 .home-since .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
 .home-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }

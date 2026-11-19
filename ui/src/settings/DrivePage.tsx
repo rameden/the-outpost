@@ -195,6 +195,22 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
       </div>
 
       <div className="set-row">
+        <div className="set-label"><b>Night shift</b>
+          <p>Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts tidies for the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</p>
+          {home.lastNight && <p className="night-last">Last night shift, {when(home.lastNight.finished)}: {home.lastNight.line}</p>}
+        </div>
+        <div className="set-control unasked-control">
+          <label className="switch"><input type="checkbox" checked={d.night === true} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { night: ev.target.checked }))} /> {d.night ? "On, from" : "Off"}</label>
+          {d.night && <>
+            <input type="time" aria-label="When the night shift may start" value={d.nightFrom ?? "01:00"} disabled={busy === "drive"} onChange={(ev) => ev.target.value && doing("drive", () => api("/api/drive", { nightFrom: ev.target.value }))} />
+            <span className="meta">to</span>
+            <input type="time" aria-label="When the night shift stops" value={d.nightTo ?? "05:00"} disabled={busy === "drive"} onChange={(ev) => ev.target.value && doing("drive", () => api("/api/drive", { nightTo: ev.target.value }))} />
+          </>}
+          <button type="button" className="btn small" disabled={busy === "night"} onClick={() => doing("night", () => api("/api/night", {}))}>{busy === "night" ? "Working…" : "Run it now"}</button>
+        </div>
+      </div>
+
+      <div className="set-row">
         <div className="set-label"><b>Your pull requests</b>
           <p>The camp follows the pull requests you opened in linked repositories, wherever their branches live, reading them again every ten minutes. {home.pulls.error ? `They couldn't be read: ${home.pulls.error}` : home.pulls.fetched ? `Last read ${when(home.pulls.fetched)}: ${home.pulls.count} open.` : "They haven't been read yet."}</p></div>
         <div className="set-control unasked-control">
