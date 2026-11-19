@@ -28,7 +28,7 @@ function Origin({ line }: { line: MemoryLine }) {
 }
 
 function Waiting({ p, refresh }: { p: Proposal; refresh: () => void }) {
-  const [text, setText] = useState(p.kind === "keep" ? p.text : p.after);
+  const [text, setText] = useState(p.kind === "tidy" ? p.after : p.text);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
@@ -46,6 +46,22 @@ function Waiting({ p, refresh }: { p: Proposal; refresh: () => void }) {
         <div className="mem-wait-actions">
           <button type="button" className="btn small primary" disabled={busy || !text.trim()} onClick={() => settle("approve")}>Keep it</button>
           <button type="button" className="btn small" disabled={busy} onClick={() => settle("dismiss")}>Don't keep</button>
+        </div>
+        {error && <div className="form-error" role="alert">{error}</div>}
+      </li>
+    );
+  }
+  // Two lines you asked to merge (on the memory map): the one line drafted to take their place.
+  if (p.kind === "merge") {
+    return (
+      <li className="mem-wait" aria-label={`A merge in ${p.name}`}>
+        <div className="mem-wait-head"><b>Merge these two?</b><span>in {p.name}</span></div>
+        <ul className="mem-left">{p.lines.map((l, i) => <li key={i}>{l}</li>)}</ul>
+        <p className="mem-wait-note">Drafted by the smallest model to say what both say. Approve it and it takes both lines' place; you can edit it here first.</p>
+        <textarea rows={2} value={text} aria-label="The merged line" onChange={(ev) => setText(ev.target.value)} />
+        <div className="mem-wait-actions">
+          <button type="button" className="btn small primary" disabled={busy || !text.trim()} onClick={() => settle("approve")}>Merge them</button>
+          <button type="button" className="btn small" disabled={busy} onClick={() => settle("dismiss")}>Keep both</button>
         </div>
         {error && <div className="form-error" role="alert">{error}</div>}
       </li>
@@ -170,6 +186,7 @@ export function MemoryPage({ S, refresh }: { S: CampState; refresh: () => void }
   return (
     <>
       <p className="set-note">What the crew starts each run knowing. Only the newest part of each memory fits in a prompt; the rest is still on disk, and the crew can search it with <code>recall</code> (along with past sessions, this project's earlier conversations and the wiki).</p>
+      <p className="set-note"><button type="button" className="btn small" onClick={() => say({ do: "command", name: "constellation" })}>Open the map</button> Every line as a star, grouped by where it lives: see what's alike, what gets used, and pin, forget or merge from there.</p>
       {waiting.length > 0 && (
         <section aria-label="Waiting for you">
           <h4 className="set-sub">Waiting for you <span className="count needs">{waiting.length}</span></h4>

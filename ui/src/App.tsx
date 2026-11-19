@@ -61,6 +61,7 @@ const TerminalPanel = lazy(() => import("./components/Terminal.tsx").then((m) =>
 const Orbit = lazy(() => import("./orbit/Orbit.tsx").then((m) => ({ default: m.Orbit })));
 const Settings = lazy(() => import("./settings/Settings.tsx").then((m) => ({ default: m.Settings })));
 const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ default: m.Barnstorm })));
+const Constellation = lazy(() => import("./constellation/Constellation.tsx").then((m) => ({ default: m.Constellation })));
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -102,9 +103,13 @@ export function App({ store }: { store: FeedStore }) {
   const [orbit, setOrbit] = useState<false | "live" | "demo">(false);
   const toggleOrbit = useCallback(() => setOrbit((on) => (on ? false : "live")), []);
   const closeOrbit = useCallback(() => setOrbit(false), []);
+  // The memory map (constellation/Constellation.tsx): every remembered line a star, over the whole page. /constellation opens it.
+  const [constellation, setConstellation] = useState(false);
+  const closeConstellation = useCallback(() => setConstellation(false), []);
 
   const setView = useCallback((v: View) => {
     setOrbit(false);
+    setConstellation(false);
     setViewState(v);
     storeSet("camp-view", JSON.stringify(v));
     composer.current?.focus();
@@ -374,6 +379,7 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
     else if (name === "wiki") setView({ kind: "wiki" });
+    else if (name === "constellation") { setSettings(null); setOrbit(false); setConstellation(true); }
     else if (name === "ticket") setWizard({});
   };
   // The newest of each, for the listeners and the handlers below that are set up once.
@@ -611,6 +617,13 @@ export function App({ store }: { store: FeedStore }) {
         <OverlayBoundary name="Orbit" onClose={closeOrbit}>
           <Suspense fallback={null}><Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
             onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} /></Suspense>
+        </OverlayBoundary>
+      )}</Presence>
+      {/* The memory map takes the whole page too. A conversation it opens closes it; a merge it drafts is reviewed on the Memory page. */}
+      <Presence>{constellation && (
+        <OverlayBoundary name="The memory map" onClose={closeConstellation}>
+          <Suspense fallback={null}><Constellation onClose={closeConstellation} onOpenConversation={openConversation}
+            onOpenMemory={() => { setConstellation(false); openSettings("memory"); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}

@@ -70,7 +70,8 @@ import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, orderProjects, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
 import { titleConversation } from "./titles.js";
-import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeTidy, settleProposal } from "./keeping.js";
+import { afterRun, forgetLine, pinLine, memoryOverview, proposals, proposeMerge, proposeTidy, settleProposal } from "./keeping.js";
+import { memoryGraph, memoryWhy } from "./memgraph.js";
 import { logKept, writeAbout } from "./memlog.js";
 import { anthropicKeyState, setAnthropicKey, approveProvider, connectProvider, disconnectProvider, providersState } from "./providers.js";
 import { connectVoice, disconnectVoice, listVoices, setVoice, speak, voiceState } from "./voice.js";
@@ -803,6 +804,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/term/stream") {
       if (!streamTerminal(String(url.searchParams.get("id") ?? ""), res, (fn) => req.on("close", fn))) return send(res, 404, { error: "No such terminal" });
       return;
+    }
+
+    // The memory as a map (memgraph.ts): every line, what it's like and what it's used with. why: one line's recalls, newest first.
+    if (req.method === "GET" && url.pathname === "/api/memory/graph") return send(res, 200, memoryGraph());
+    if (req.method === "GET" && url.pathname === "/api/memory/why") {
+      try { return send(res, 200, { history: memoryWhy(String(url.searchParams.get("where") ?? ""), String(url.searchParams.get("line") ?? "")) }); }
+      catch (e: any) { return send(res, /no such memory/i.test(e.message) ? 400 : 500, { error: e.message }); }
     }
 
     // A project's page: its notes and survey, usage, worktrees, recently changed files, and jobs.
@@ -1684,6 +1692,8 @@ const server = http.createServer(async (req, res) => {
         // { where, line, on }: keep this line in every prompt (or stop keeping it there).
         if (url.pathname === "/api/memory/pin") return send(res, 200, { ok: pinLine(String(body.where ?? ""), String(body.line ?? ""), body.on !== false) });
         if (url.pathname === "/api/memory/tidy") return send(res, 200, { ok: true, proposal: await proposeTidy(String(body.where ?? "")) });
+        // { where, a, b }: draft one line in place of two of the same place, to approve.
+        if (url.pathname === "/api/memory/merge") return send(res, 200, { ok: true, proposal: await proposeMerge(String(body.where ?? ""), String(body.a ?? ""), String(body.b ?? "")) });
         if (url.pathname === "/api/memory/proposal") return send(res, 200, settleProposal(String(body.id ?? ""), body.action === "approve" ? "approve" : "dismiss", typeof body.text === "string" ? body.text : undefined));
         if (url.pathname === "/api/memory/care") { setMemoryCare({ tidy: body.tidy, suggest: body.suggest }); return send(res, 200, { ok: true, memoryCare: memoryCare() }); }
       } catch (e: any) { return send(res, e.fixable || /no such memory/i.test(e.message) ? 400 : 500, { error: e.message }); }

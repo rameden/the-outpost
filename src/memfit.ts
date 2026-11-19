@@ -72,7 +72,10 @@ export function wordsOf(text: string): Set<string> {
 // How alike two notes are, by the words they share: 0 to 1 (1: one's words are all in the other).
 // Zero unless they share at least two, so one word in common doesn't make a pair.
 export function alike(a: string, b: string): number {
-  const x = wordsOf(a), y = wordsOf(b);
+  return alikeWords(wordsOf(a), wordsOf(b));
+}
+// The same, for words already taken out with wordsOf (comparing every pair of many notes).
+export function alikeWords(x: Set<string>, y: Set<string>): number {
   if (!x.size || !y.size) return 0;
   let shared = 0;
   for (const w of x) if (y.has(w)) shared++;
@@ -90,19 +93,40 @@ export type Fit = {
   shown: Set<number>;    // the lines (by number, from 0, as the text splits on newlines) that were loaded
   always: Set<number>;   // of those, the ones loaded whatever the task: pinned, or among the newest
   left: number;          // how many notes were left out
+  relevant: Map<number, number>; // of the lines loaded, the ones that bear on the task, each with its score (empty when no task was given)
 };
+
+// The lines that bear on a task, each with its score: the words it shares with the request, a word
+// in few lines counting for more. Only scores worth acting on are kept: one word that at most half
+// the lines share, or two commoner ones.
+function bearing(rows: string[], lines: number[], task: string): Map<number, number> {
+  const out = new Map<number, number>();
+  const want = wordsOf(task.slice(0, 6000));
+  if (!want.size) return out;
+  const words = new Map(lines.map((i) => [i, wordsOf(rows[i])]));
+  const seenIn = new Map<string, number>();
+  for (const set of words.values()) for (const w of set) seenIn.set(w, (seenIn.get(w) ?? 0) + 1);
+  const weight = (w: string) => Math.log(1 + lines.length / (seenIn.get(w) ?? 1)); // a word in few lines says more
+  for (const i of lines) {
+    let score = 0;
+    for (const w of words.get(i)!) if (want.has(w)) score += weight(w);
+    if (score >= Math.log(3)) out.set(i, score);
+  }
+  return out;
+}
 
 export function fitMemory(text: string, room: number, task = ""): Fit {
   const rows = text.split("\n");
   const real = rows.map((r, i) => (r.trim() ? i : -1)).filter((i) => i >= 0);
-  if (text.length <= room) return { text, whole: true, shown: new Set(real), always: new Set(real), left: 0 };
+  const isHead = (i: number) => /^#{1,6}\s/.test(rows[i].trim());
+  if (text.length <= room) return { text, whole: true, shown: new Set(real), always: new Set(real), left: 0, relevant: bearing(rows, real.filter((i) => !isHead(i)), task) };
 
   // A heading comes along with the first line kept from under it (and costs its length then).
   const headOf = new Map<number, number>();
   let head = -1;
   const lines: number[] = [];
   for (const i of real) {
-    if (/^#{1,6}\s/.test(rows[i].trim())) { head = i; continue; }
+    if (isHead(i)) { head = i; continue; }
     lines.push(i);
     if (head >= 0) headOf.set(i, head);
   }
@@ -131,20 +155,9 @@ export function fitMemory(text: string, room: number, task = ""): Fit {
     always.add(i);
   }
   // 3. Older lines that bear on the task, best first.
-  const want = wordsOf(task.slice(0, 6000));
-  if (want.size) {
-    const words = new Map(lines.map((i) => [i, wordsOf(rows[i])]));
-    const seenIn = new Map<string, number>();
-    for (const set of words.values()) for (const w of set) seenIn.set(w, (seenIn.get(w) ?? 0) + 1);
-    const weight = (w: string) => Math.log(1 + lines.length / (seenIn.get(w) ?? 1)); // a word in few lines says more
-    const scored = lines.filter((i) => !shown.has(i)).map((i) => {
-      let score = 0;
-      for (const w of words.get(i)!) if (want.has(w)) score += weight(w);
-      return { i, score };
-    }).filter((x) => x.score >= Math.log(3)) // one word that at most half the lines share, or two commoner ones
-      .sort((a, b) => b.score - a.score || b.i - a.i);
-    for (const { i } of scored) take(i, budget);
-  }
+  const bears = bearing(rows, lines, task);
+  const scored = [...bears].filter(([i]) => !shown.has(i)).map(([i, score]) => ({ i, score })).sort((a, b) => b.score - a.score || b.i - a.i);
+  for (const { i } of scored) take(i, budget);
   // 4. Whatever room is left: the next-newest.
   for (let n = lines.length - 1; n >= 0; n--) {
     const i = lines[n];
@@ -154,5 +167,5 @@ export function fitMemory(text: string, room: number, task = ""): Fit {
   const left = lines.filter((i) => !shown.has(i)).length;
   const kept = rows.filter((_, i) => shown.has(i)).join("\n");
   const note = `(${lines.length - left} of ${lines.length} lines are shown: the pinned ones, the newest, and older ones that bear on this request. recall finds the other ${left}.)`;
-  return { text: left ? `${note}\n${kept}` : kept, whole: false, shown, always, left };
+  return { text: left ? `${note}\n${kept}` : kept, whole: false, shown, always, left, relevant: new Map([...bears].filter(([i]) => shown.has(i))) };
 }

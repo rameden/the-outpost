@@ -126,3 +126,20 @@ test("what's waiting: a tidy you can read, edit and approve; a suggestion you ca
   fireEvent.click(t.getByRole("button", { name: "Replace it with this" }));
   expect((await t.findByRole("alert")).textContent).toMatch(/has changed since this was drafted/);
 });
+
+test("a merge asked for on the map waits here: both lines, the one drafted for them, and the way to the map", async () => {
+  const merge: Proposal = { id: "p3", kind: "merge", where: "agent:scribe", name: "Scribe's memory", created: "2026-03-02T12:00:00Z", lines: ["Use British spelling", "Use British spelling in docs"], text: "Use British spelling, in docs too" };
+  render(<MemoryPage S={state([merge])} refresh={() => {}} />);
+  const m = within(screen.getByRole("listitem", { name: "A merge in Scribe's memory" }));
+  expect(m.getByText("Use British spelling in docs")).toBeTruthy();
+  expect((m.getByLabelText("The merged line") as HTMLTextAreaElement).value).toBe("Use British spelling, in docs too");
+  fireEvent.change(m.getByLabelText("The merged line"), { target: { value: "British spelling everywhere" } });
+  fireEvent.click(m.getByRole("button", { name: "Merge them" }));
+  await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/memory/proposal", body: { id: "p3", action: "approve", text: "British spelling everywhere" } }));
+  fireEvent.click(m.getByRole("button", { name: "Keep both" }));
+  await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/memory/proposal", body: { id: "p3", action: "dismiss" } }));
+  // A merge waiting doesn't stop a tidy being asked for.
+  expect((within(screen.getByRole("region", { name: "Scribe's memory" })).getByRole("button", { name: "Tidy…" }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Open the map" }));
+  expect(asked.at(-1)).toEqual({ do: "command", name: "constellation" });
+});
