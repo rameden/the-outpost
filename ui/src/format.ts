@@ -4,8 +4,10 @@ export function slug(name: string | undefined | null) { return String(name || ""
 // Crew members you added, by name: the colour you picked for each (the page sets this when the
 // crew loads or changes, so messages and cards anywhere on the page can look it up).
 const addedColors = new Map<string, string>();
-type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null; aliases?: string[] };
-type PackLine = { id: string; crew: Record<string, { name: string; emoji: string; short?: string[] }> };
+type PackName = { name: string; emoji: string; short?: string[] };
+// own: what you called someone you added, when the theme pack is calling them something else.
+type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null; aliases?: string[]; own?: { name: string; emoji: string } };
+type PackLine = { id: string; crew: Record<string, PackName>; extras?: Record<string, PackName> };
 let crewList: CrewLine[] = [];
 // The camp's own five, by id. Their names change with the theme pack; their ids never do.
 export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"];
@@ -16,6 +18,8 @@ const GUILD_NAMES = new Map<string, string>(BUILT_IN.map((id) => [id, id]));
 let knownAs = new Map(GUILD_NAMES);
 const GUILD_CALLED: Record<string, string> = { quartermaster: "Quartermaster", scout: "Scout", scribe: "Scribe", artificer: "Artificer", warden: "Warden" };
 let called = new Map<string, Set<string>>();
+// Someone you added that the packs have names for too (the Wizard): each of those names, to their id.
+let addedAs = new Map<string, string>();
 // The crew as the page last loaded it, for parts of the page far from where it's passed down.
 export const crewNow = () => crewList;
 export function setCrewColors(crew: CrewLine[], packs: PackLine[] = []) {
@@ -23,6 +27,7 @@ export function setCrewColors(crew: CrewLine[], packs: PackLine[] = []) {
   addedColors.clear();
   knownAs = new Map(GUILD_NAMES);
   called = new Map();
+  addedAs = new Map();
   for (const p of packs) for (const id of BUILT_IN) {
     const c = p.crew[id];
     if (!c) continue;
@@ -35,9 +40,24 @@ export function setCrewColors(crew: CrewLine[], packs: PackLine[] = []) {
   }
   // Someone you added always keeps their own name: it never points at one of the five.
   for (const c of crew) if (c.custom) { knownAs.delete(slug(c.name)); for (const names of called.values()) names.delete(c.name); }
+  // The packs' names for someone you added (the Wizard), while they still have the name they came
+  // with: history written under another pack keeps their colour and finds them.
+  const guild = packs[0]?.extras ?? {};
+  const names = new Set(crew.map((c) => slug(c.name)));
+  for (const c of crew) {
+    if (!c.custom || guild[c.id]?.name !== (c.own?.name ?? c.name)) continue;
+    for (const p of packs) {
+      const n = p.extras?.[c.id]?.name;
+      if (!n || (n !== c.name && names.has(slug(n))) || knownAs.has(slug(n))) continue;
+      addedAs.set(slug(n), c.id);
+      called.set(c.id, (called.get(c.id) ?? new Set()).add(n));
+      if (c.color) addedColors.set(slug(n), c.color);
+    }
+  }
 }
-// Every name one of the five has had, as it was written (for matching history to who it was).
-export const calledEver = (id: string): string[] => (GUILD_CALLED[id] ? [...new Set([GUILD_CALLED[id], ...(called.get(id) ?? [])])] : []);
+// Every name someone has had under any pack, as it was written (for matching history to who it was):
+// one of the five, or someone you added that the packs rename.
+export const calledEver = (id: string): string[] => [...new Set([...(GUILD_CALLED[id] ? [GUILD_CALLED[id]] : []), ...(called.get(id) ?? [])])];
 // Which of the camp's own five a name (from any theme pack) or an id means, if any.
 export function crewId(name: string | undefined | null): string | undefined { return knownAs.get(slug(name)); }
 export const isLead = (name: string | undefined | null) => crewId(name) === LEAD;
@@ -45,7 +65,7 @@ export const isLead = (name: string | undefined | null) => crewId(name) === LEAD
 export const leadName = () => crewList.find((c) => c.id === LEAD)?.name ?? "Quartermaster";
 // What someone is called now, from any name they've gone by (a name nobody has is left as it is).
 export function nameNow(name: string) {
-  const id = crewId(name);
+  const id = crewId(name) ?? addedAs.get(slug(name));
   return (id && crewList.find((c) => c.id === id)?.name) || name;
 }
 // The CSS class that gives a crew member their colour.

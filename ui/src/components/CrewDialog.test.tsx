@@ -107,3 +107,18 @@ test("the camp's objection is shown; editing keeps the handle; removing asks fir
   await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
   expect(posts.at(-1)!.body).toEqual({ action: "remove", id: "testpilot" });
 });
+
+test("editing someone the theme pack has renamed edits the name you gave them, and says what the pack calls them", async () => {
+  const wizard = { ...PILOT, id: "wizard", name: "Test Pilot", emoji: "🛸", own: { name: "Wizard", emoji: "🪄" } } as unknown as Character;
+  render(<CrewDialog member={wizard} onClose={() => {}} onSaved={() => {}} />);
+  const d = screen.getByRole("dialog", { name: "Edit Test Pilot" });
+  expect([(within(d).getByLabelText(/^Name/) as HTMLInputElement).value, (within(d).getByLabelText(/^Icon/) as HTMLInputElement).value]).toEqual(["Wizard", "🪄"]);
+  expect(d.textContent).toMatch(/The theme pack calls them 🛸 Test Pilot for now\. Give them another name here and they keep it under every pack\./);
+  fireEvent.click(within(d).getByRole("button", { name: /^Save/ }));
+  await vi.waitFor(() => expect(posts.length).toBe(1));
+  expect([posts[0].body.action, posts[0].body.id, posts[0].body.member.name, posts[0].body.member.emoji]).toEqual(["update", "wizard", "Wizard", "🪄"]);
+  cleanup();
+  // Someone the pack hasn't renamed gets no such line.
+  render(<CrewDialog member={PILOT} onClose={() => {}} onSaved={() => {}} />);
+  expect(screen.getByRole("dialog").textContent).not.toMatch(/theme pack calls them/);
+});

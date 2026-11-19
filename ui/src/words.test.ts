@@ -19,3 +19,12 @@ test("Starship's words, in each form", () => {
   expect([w("Crew"), w("Quest"), w("Quests"), w("Camp"), w("Expedition"), w("Expeditions")]).toEqual(["Crew", "Mission", "Missions", "Ship", "Voyage", "Voyages"]);
   expect([a("expedition"), a("Quest"), cap("ship")]).toEqual(["a voyage", "a Mission", "Ship"]);
 });
+
+test("Newsroom, Studio and Lab have their own words, with plurals that read right", () => {
+  setWords("newsroom", PACKS);
+  expect([w("crew"), w("quests"), w("Camp"), w("expeditions"), a("expedition"), a("quest")]).toEqual(["staff", "stories", "Newsroom", "assignments", "an assignment", "a story"]);
+  setWords("studio", PACKS);
+  expect([w("crew"), w("quests"), w("camps"), w("Expeditions"), a("expedition")]).toEqual(["crew", "scenes", "studios", "Shoots", "a shoot"]);
+  setWords("lab", PACKS);
+  expect([w("crew"), w("Quests"), w("camps"), w("expeditions"), a("expedition"), a("quest")]).toEqual(["team", "Experiments", "labs", "studies", "a study", "an experiment"]);
+});

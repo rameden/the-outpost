@@ -32,7 +32,7 @@ import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
-import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, activePack, setPack, currentName, type CrewId } from "./crew.js";
+import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, ownOf, activePack, setPack, currentName, type CrewId } from "./crew.js";
 import { PACKS } from "./packs.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
@@ -543,7 +543,9 @@ async function fullState(full: boolean, historySeen?: string) {
         id, name: c.name, emoji: c.emoji, role: c.role, personality: c.personality,
         // A crew member you added: everything the dialog needs to show and edit them.
         custom: !!c.custom, color: c.color ?? null,
-        ...(c.custom ? { handles: c.handles, notFor: c.notFor, persona: c.persona ?? "", abilities: c.abilities ?? {}, aliases: c.aliases } : {}),
+        // (As you wrote them. If the theme pack is calling them something else, own is the name and emoji you gave.)
+        ...(c.custom ? { handles: c.handles, notFor: c.notFor, persona: (ownOf(id) ?? c).persona ?? "", abilities: c.abilities ?? {}, aliases: (ownOf(id) ?? c).aliases } : {}),
+        ...(c.custom && ownOf(id) && ownOf(id)!.name !== c.name ? { own: { name: ownOf(id)!.name, emoji: ownOf(id)!.emoji } } : {}),
         model, effort: effort ?? "default",
         maxTurns: resolveTurns({ id, maxTurns: base?.maxTurns }), defaultMaxTurns: base?.maxTurns ?? DEFAULT_TURNS,
         defaultModel: base?.model ?? DEFAULT_MODEL, defaultEffort: base?.effort ?? "default",
