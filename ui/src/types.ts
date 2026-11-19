@@ -24,7 +24,7 @@ import type { CampEvent } from "../../src/events.ts";
 import type { CampState } from "../../src/server.ts";
 import type { listModels } from "../../src/agent.ts";
 import type { checkpointDiff, undoCheckpoint } from "../../src/checkpoints.ts";
-import type { saveUpload } from "../../src/attachments.ts";
+import type { saveUpload, saveZipFolder } from "../../src/attachments.ts";
 
 export type EventOf<T extends CampEvent["type"]> = Extract<CampEvent, { type: T }>;
 export type Character = CampState["characters"][number];
@@ -33,6 +33,7 @@ export type ModelList = Awaited<ReturnType<typeof listModels>>;
 export type CheckpointDiff = ReturnType<typeof checkpointDiff>;
 export type UndoResult = { ok: true } & ReturnType<typeof undoCheckpoint>;
 export type Uploaded = ReturnType<typeof saveUpload>;
+export type UploadedZip = ReturnType<typeof saveZipFolder>;
 // The worktrees a finished expedition worked in, and where each stood when it ended.
 export type Workspaces = NonNullable<EventOf<"expedition_end">["workspaces"]>;
 // thread: the conversation the request landed in (a new one is named after its first run).

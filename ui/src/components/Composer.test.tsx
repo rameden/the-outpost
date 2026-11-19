@@ -11,16 +11,21 @@ import { StatusLine } from "./StatusLine.tsx";
 
 const sends: any[] = [];
 const steers: any[] = [];
+const zips: any[] = [];
 let landing: ((r: Response) => void)[] = []; // each /api/send waits here until the test lets it land
 let position = 0;
 beforeEach(() => {
-  sends.length = 0; steers.length = 0; landing = []; position = 0;
+  sends.length = 0; steers.length = 0; zips.length = 0; landing = []; position = 0;
   localStorage.clear();
   forgetModelLists();
   vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
     if (url === "/api/send") {
       sends.push(JSON.parse(String(init?.body)));
       return new Promise<Response>((answer) => landing.push(answer));
+    }
+    if (url === "/api/upload/zip") {
+      zips.push(JSON.parse(String(init?.body)));
+      return Promise.resolve(new Response(JSON.stringify({ path: "camp/uploads/b1/site", name: "site", count: 3, batch: "b1" })));
     }
     if (url === "/api/steer" || url === "/api/stop") {
       steers.push({ path: url, ...JSON.parse(String(init?.body)) });
@@ -45,7 +50,7 @@ function setup(context: SendContext = { placeholder: "Ask…" }, draftKey = "new
   const write = (text: string) => act(() => ref.current!.setText(text));
   const submit = () => fireEvent.submit(view.container.querySelector("form.composer-box")!);
   const button = () => screen.getByRole("button", { name: "Send" }) as HTMLButtonElement;
-  return { ref, store, onSent, go, write, submit, button };
+  return { ref, store, onSent, go, write, submit, button, container: view.container };
 }
 
 test("a second Enter while a message is still on its way doesn't send it twice", async () => {
@@ -228,4 +233,18 @@ test("once the run has finished, Send is a plain reply with no Queue menu", () =
   setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a"); // nothing running
   expect(screen.queryByRole("button", { name: "More ways to send" })).toBeNull();
   expect(screen.queryByText("Enter to send")).toBeNull();
+});
+
+test("a .zip dropped on the box goes in as the folder it holds", async () => {
+  const { write, submit, container } = setup();
+  const file = new File(["PK..."], "site.zip", { type: "application/zip" });
+  fireEvent.drop(container.querySelector(".composer")!, { dataTransfer: { files: [file], types: ["Files"] } });
+  await waitFor(() => expect(zips.length).toBe(1));
+  expect(zips[0].name).toBe("site.zip");
+  await screen.findByText(/site/);
+  write("Look at this site");
+  submit();
+  await waitFor(() => expect(sends.length).toBe(1));
+  expect(sends[0].attachments).toEqual([expect.objectContaining({ kind: "folder", name: "site", path: "camp/uploads/b1/site" })]);
+  await land(0);
 });

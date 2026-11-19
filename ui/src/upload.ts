@@ -2,7 +2,7 @@
 // (one message, one kickoff) share a batch: the first upload starts it, the rest name it.
 
 import { api } from "./api.ts";
-import type { Uploaded } from "./types.ts";
+import type { Uploaded, UploadedZip } from "./types.ts";
 
 export const MAX_FILE = 25 * 1024 * 1024;
 
@@ -18,6 +18,13 @@ export function toBase64(file: File) {
 export async function uploadFile(file: File, batch?: string, relPath?: string): Promise<Uploaded> {
   if (file.size > MAX_FILE) throw new Error(`${file.name} is over 25 MB`);
   return api<Uploaded>("/api/upload", { name: file.name, data: await toBase64(file), batch, relPath });
+}
+
+// A folder sent as a .zip: the camp unpacks it into the batch and it's attached as that folder.
+export const isZip = (file: File) => /\.zip$/i.test(file.name);
+export async function uploadZip(file: File, batch?: string): Promise<UploadedZip> {
+  if (file.size > MAX_FILE) throw new Error(`${file.name} is over 25 MB`);
+  return api<UploadedZip>("/api/upload/zip", { name: file.name, data: await toBase64(file), batch });
 }
 
 // A link someone pasted or typed, as an attachment (https:// is assumed). Null if it isn't one.
