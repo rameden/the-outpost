@@ -57,9 +57,13 @@ export function saveUpload(u: { name: string; data: string; batch?: string; relP
 // A folder sent as a .zip: unpacked into the message's upload folder, as if picked with Folder….
 // The archive is read entry by entry (zip.ts), never by an unzip program, and every path is
 // rebuilt here from cleaned segments, so nothing in it can climb out of the folder or plant a link.
-export const MAX_ZIP_FILES = 200; // the same as Folder… takes
+// Folder… sends a request per file, so it stops at 200; a zip comes in one request and is
+// unpacked here, so it can hold a whole site or design system. (A big folder reaches the crew as
+// an overview, not a list of every file: see describeFolder.) Entries count the zip's folders and
+// macOS's __MACOSX copies too, which can double it.
+export const MAX_ZIP_FILES = 5000;
 const ZIP_LIMITS: ArchiveLimits = {
-  archive: 25 * 1024 * 1024, entries: 5000, file: 25 * 1024 * 1024, total: 200 * 1024 * 1024,
+  archive: 25 * 1024 * 1024, entries: 20_000, file: 25 * 1024 * 1024, total: 200 * 1024 * 1024,
   what: "a folder", notOne: "That isn't a .zip file.",
 };
 const SKIP_IN_ZIP = /(^|\/)(node_modules|\.git)(\/|$)/;
