@@ -163,7 +163,9 @@ code, pre { font-family: var(--mono); font-size: .86em; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 [hidden] { display: none !important; }
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
-::selection { background: var(--accent-soft); }
+/* A see-through wash of the accent, not --accent-soft: your own chat bubble (and anything else tinted) is already
+   filled with --accent-soft, so a selection in that colour was invisible there. */
+::selection { background: color-mix(in srgb, var(--accent) 38%, transparent); color: var(--text); }
 .icon { width: 16px; height: 16px; flex: none; vertical-align: -.18em; }
 /* An icon sitting in a line of text takes its size from the text. */
 :is(b, strong, h2, .who, .badge, .hist-project-name, .proj-folder, .dialog-chip, .ws, .reply-bar) > .icon, .hist-project-name span > .icon { width: 1.05em; height: 1.05em; }
@@ -1544,6 +1546,16 @@ a.att-name { color: var(--accent); }
 .prov-key input { flex: 1 1 260px; min-width: 0; font: 13px var(--mono); color: var(--text); padding: 7px 9px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); }
 .prov-key a { font-size: 13px; }
 .prov-small { max-width: 460px; }
+.auto-models { display: grid; max-width: 620px; margin-bottom: 8px; border-top: 1px solid var(--border); }
+.auto-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 4px 12px; min-height: 38px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.auto-row .switch { margin-right: 0; color: var(--text); }
+.auto-row > .btn { justify-self: end; }
+.auto-pick { grid-column: 1 / -1; display: grid; gap: 8px; padding: 4px 0 10px 36px; }
+.auto-search { max-width: 320px; font: 13px var(--sans); color: var(--text); padding: 6px 9px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); }
+.auto-pick-item input { accent-color: var(--accent); margin: 0; }
+.auto-pick-list { max-height: 260px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 2px 16px; }
+.auto-pick-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; min-width: 0; }
+.auto-pick-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prov-notes { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .prov-notes b { color: var(--text); font-weight: 600; }
 /* Settings → Memory */

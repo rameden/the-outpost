@@ -187,3 +187,26 @@ test("Auto, before anything has run on it, says so", async () => {
   expect(done.textContent).toBe("Nothing has run on Auto yet. Policy auto-test.1.");
   expect(screen.queryByText(/Auto sends each small job/)).toBeNull();
 });
+
+test("Claude models switch one by one; another provider switches as a whole or opens to choose its models", async () => {
+  const refresh = vi.fn();
+  const S = { runtime: "claude-code", providers: [], settings: { smallModel: null, autoExclude: ["groq:llama-fast"] } } as unknown as CampState;
+  render(<ModelsPage S={S} refresh={refresh} />);
+  const haiku = await screen.findByLabelText("Auto may use Claude Haiku 5.5") as HTMLInputElement;
+  expect(haiku.checked).toBe(true);
+  fireEvent.click(haiku);
+  await waitFor(() => expect(posts).toContainEqual({ path: "/api/providers/auto-exclude", body: { model: "claude-haiku-5-5", on: false } }));
+  // Groq is on, with one of its models kept out.
+  expect((screen.getByLabelText("Auto may use Groq") as HTMLInputElement).checked).toBe(true);
+  expect(screen.getByText("0 of 1 models")).toBeTruthy();
+  expect(screen.queryByLabelText("Auto may use Llama Fast")).toBeNull(); // closed until you choose
+  fireEvent.click(screen.getAllByRole("button", { name: "Choose…" })[0]);
+  const llama = screen.getByLabelText("Auto may use Llama Fast") as HTMLInputElement;
+  expect(llama.checked).toBe(false);
+  fireEvent.click(llama);
+  await waitFor(() => expect(posts).toContainEqual({ path: "/api/providers/auto-exclude", body: { model: "groq:llama-fast", on: true } }));
+  // The provider's own switch covers all its models.
+  fireEvent.click(screen.getByLabelText("Auto may use OpenRouter"));
+  await waitFor(() => expect(posts).toContainEqual({ path: "/api/providers/auto-exclude", body: { model: "openrouter:", on: false } }));
+  expect(refresh).toHaveBeenCalled();
+});

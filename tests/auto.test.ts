@@ -421,3 +421,23 @@ test("an outcome is graded before it's learned from: a passing check is a succes
     if (before != null) writeFileSync(auto.EVIDENCE_PATH, before);
   }
 });
+
+test("a model taken out of Auto's choices in settings is excluded from its snapshot, and comes back when allowed", async () => {
+  const { setAutoExcluded, autoExcluded } = await import("../src/settings.ts");
+  const { snapshot } = await import("../src/autoroute.ts");
+  const { selectRoute, profileTask } = await import("../src/routing.ts");
+  const models = [
+    { id: "claude-fable-5-2", name: "Claude Fable 5.2", efforts: ["low", "medium", "high"] as any },
+    { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", efforts: [] },
+  ];
+  setAutoExcluded("claude-fable-5-2", false);
+  assert.deepEqual(autoExcluded(), ["claude-fable-5-2"]);
+  const snap = snapshot(models, { confidential: false });
+  assert.deepEqual(snap.workspace.exclude, ["claude-fable-5-2"]);
+  const p = profileTask({ text: "rename a variable", requestTokens: 500 } as any);
+  const d = selectRoute(p, { trigger: "new_task", historyTokens: 0, repeatedFailures: 0 }, snap, undefined, "quality");
+  assert.ok(d.exclusions.some((x) => x.routeId.startsWith("claude-fable-5-2") && x.reason === "excluded by your model policy"));
+  if (d.kind === "selected") assert.ok(!d.primary.model.startsWith("claude-fable"));
+  setAutoExcluded("claude-fable-5-2", true);
+  assert.deepEqual(autoExcluded(), []);
+});

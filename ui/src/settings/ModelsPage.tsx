@@ -12,7 +12,7 @@ import { say } from "../bus.ts";
 import { AUTO_CHOICES, ModelOptions, forgetModelLists, useModelList } from "../components/ModelPicker.tsx";
 import { ask } from "../components/Confirm.tsx";
 import { autoName, money } from "../format.ts";
-import type { CampState, ProviderState } from "../types.ts";
+import type { CampState, ModelList, ProviderState } from "../types.ts";
 
 type ModelProvider = Omit<ProviderState, "id"> & { id: ProviderState["id"] | "anthropic"; environment?: boolean };
 
@@ -107,6 +107,70 @@ function AutoInfo({ models, subscription }: { models?: number; subscription: boo
   );
 }
 
+// Which models Auto may pick. A model switched off here is never chosen by Auto, for crew, conversations
+// or small jobs (settings autoExclude); you can still pick it yourself. Claude's few models are a row
+// each; another provider is one row (its switch covers all its models, as the prefix "<provider>:"),
+// with "Choose…" opening a searchable list of its models.
+type Models = ModelList["models"];
+const providerOf = (m: Models[number]) => m.id.slice(0, m.id.indexOf(":"));
+function AutoModels({ models, excluded, refresh, onError }: { models: Models; excluded: string[]; refresh: () => void; onError: (e: string) => void }) {
+  const [open, setOpen] = useState("");
+  const off = (id: string) => excluded.some((x) => id === x || id.startsWith(x));
+  const set = (model: string, on: boolean) => api("/api/providers/auto-exclude", { model, on }).then(refresh, (e) => onError(errorText(e)));
+  const claude = models.filter((m) => !m.provider);
+  const providers = [...new Set(models.filter((m) => m.provider).map((m) => m.provider!))].map((name) => {
+    const list = models.filter((m) => m.provider === name);
+    return { name, id: providerOf(list[0]), list };
+  });
+  const known = (x: string) => models.some((m) => m.id === x || m.id.startsWith(x));
+  const gone = excluded.filter((x) => !known(x));
+  return (
+    <>
+      <h4 className="set-sub">Models Auto may use</h4>
+      <p className="set-note">Switch a model off to keep Auto from ever choosing it. You can still pick it yourself for a crew member or a conversation.</p>
+      <div className="auto-models" role="list">
+        {claude.map((m) => (
+          <div key={m.id} className="auto-row" role="listitem">
+            <label className="switch"><input type="checkbox" checked={!off(m.id)} aria-label={`Auto may use ${m.name}`} onChange={(ev) => set(m.id, ev.target.checked)} /> {m.name}</label>
+          </div>
+        ))}
+        {providers.map((p) => {
+          const whole = excluded.includes(`${p.id}:`);
+          const allowed = whole ? 0 : p.list.filter((m) => !off(m.id)).length;
+          return (
+            <div key={p.id} className="auto-row" role="listitem">
+              <label className="switch"><input type="checkbox" checked={!whole} aria-label={`Auto may use ${p.name}`} onChange={(ev) => set(`${p.id}:`, ev.target.checked)} /> {p.name}</label>
+              <span className="meta">{whole ? "Off" : allowed === p.list.length ? `All ${p.list.length} models` : `${allowed} of ${p.list.length} models`}</span>
+              <button type="button" className="btn small" disabled={whole} aria-expanded={open === p.id} onClick={() => setOpen(open === p.id ? "" : p.id)}>{open === p.id ? "Done" : "Choose…"}</button>
+              {open === p.id && !whole && <ProviderModels name={p.name} list={p.list} off={off} set={set} />}
+            </div>
+          );
+        })}
+      </div>
+      {gone.length > 0 && <p className="set-note">Also kept out: {gone.map((x, i) => <span key={x}>{i ? ", " : ""}<code>{x}</code> <button type="button" className="btn small" onClick={() => set(x, true)}>Allow</button></span>)}</p>}
+    </>
+  );
+}
+function ProviderModels({ name, list, off, set }: { name: string; list: Models; off: (id: string) => boolean; set: (model: string, on: boolean) => void }) {
+  const [q, setQ] = useState("");
+  const shown = list.filter((m) => `${m.name} ${m.id}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const dupes = new Set(list.filter((m, i) => list.findIndex((n) => n.name === m.name) !== i).map((m) => m.name));
+  return (
+    <div className="auto-pick">
+      {list.length > 8 && <input type="search" className="auto-search" value={q} placeholder={`Search ${list.length} ${name} models`} aria-label={`Search ${name} models`} onChange={(ev) => setQ(ev.target.value)} />}
+      <div className="auto-pick-list">
+        {shown.map((m) => (
+          <label key={m.id} className="auto-pick-item">
+            <input type="checkbox" checked={!off(m.id)} aria-label={`Auto may use ${m.name}${dupes.has(m.name) ? ` (${m.id})` : ""}`} onChange={(ev) => set(m.id, ev.target.checked)} />
+            <span>{m.name}{m.free ? <span className="meta"> · free</span> : null}{dupes.has(m.name) && <span className="meta"> · {m.id.slice(m.id.indexOf(":") + 1)}</span>}</span>
+          </label>
+        ))}
+        {!shown.length && <p className="set-note">No {name} model matches “{q}”.</p>}
+      </div>
+    </div>
+  );
+}
+
 export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }) {
   const providers = S.providers ?? [];
   const connected = [S.anthropic?.connected ? `anthropic:${S.anthropic.from}` : "", ...providers.filter((p) => p.connected).map((p) => p.id)].join(",");
@@ -129,6 +193,7 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
       {providers.map((p) => <Provider key={p.id} p={p} refresh={refresh} />)}
 
       <AutoInfo models={list?.models.length} subscription={S.runtime === "claude-code"} />
+      {list && <AutoModels models={list.models} excluded={S.settings.autoExclude ?? []} refresh={refresh} onError={setError} />}
 
       <h4 className="set-sub">Small jobs</h4>
       <p className="set-note">Naming a conversation, tidying a memory, and suggesting what to keep after a run are done by one small model. They're short and simple, so a free model usually does.</p>

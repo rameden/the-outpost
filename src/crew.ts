@@ -196,6 +196,16 @@ export function findCrew(name: string): Identity | undefined {
   return Object.values(CREW).find((c) => c.id === n || c.name.toLowerCase() === n || c.aliases.includes(n));
 }
 
+// The first crew member @mentioned anywhere in a message ("can you have @scribe draft this?").
+// Not an email address (ana@scribe.io), and not a file (@notes/scribe.md, @scribe.ts).
+export function mentionedCrew(text: string): Identity | undefined {
+  for (const m of text.matchAll(/(?<![\w@.])@(\w+)(?![\w@./-])/g)) {
+    const who = findCrew(m[1]);
+    if (who) return who;
+  }
+  return undefined;
+}
+
 // Who they are, their place on the team, and where their job ends. Goes at the top of every prompt.
 export function identityBlock(id: CrewId): string {
   const me = CREW[id];

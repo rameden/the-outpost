@@ -47,7 +47,7 @@ type Settings = {
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
   drive?: { brief?: boolean; briefAt?: string; retro?: boolean; debrief?: boolean }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts), a debrief when a ticket is done (debrief.ts)
-  autoExclude?: string[];  // models (or id prefixes, like "openrouter:") Auto never picks (routing.ts); a hand-edited policy
+  autoExclude?: string[];  // models (or id prefixes, like "openrouter:") Auto never picks (routing.ts); set in Settings → Models, or by hand
 };
 // Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
 // work starts from it and when its pull request opens, and (if you name a status) moves it.
@@ -218,6 +218,14 @@ export function setProviderApproved(id: string, on: boolean) {
 // go to the smallest Claude model unless you've pointed them somewhere else, such as a free model
 // from a provider you've connected, or "auto" (Auto picks the cheapest model that's up to each one: small.ts). Null: the default.
 export const autoExcluded = (): string[] => (Array.isArray(load().autoExclude) ? load().autoExclude!.filter((x) => typeof x === "string" && x) : []);
+// Take a model out of Auto's choices (on: false), or give it back (on: true).
+export function setAutoExcluded(model: string, on: boolean) {
+  const s = load();
+  const next = new Set(autoExcluded());
+  if (on) next.delete(model); else next.add(model);
+  if (next.size) s.autoExclude = [...next].sort(); else delete s.autoExclude;
+  save(s);
+}
 export const smallModel = (): string | null => load().smallModel ?? null;
 export function setSmallModel(model: string | null) {
   const s = load();
