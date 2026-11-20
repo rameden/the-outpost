@@ -11,7 +11,7 @@ enterSandbox("keeping");
 const { rememberTool, appendMemory, fullMemory, readMemory, writeMemory, recordSession, continuityBlock, MEMORY_MAX_CHARS } = await import("../src/memory.ts");
 const { aboutBlock, readAbout, writeAbout, originsOf, norm } = await import("../src/memlog.ts");
 const k = await import("../src/keeping.ts");
-const { recallTool, recallFor, searchTerms, scoreText, excerptOf } = await import("../src/recall.ts");
+const { recallTool, recallFor, searchTerms, scoreText, excerptOf, bestStretch, NEAR } = await import("../src/recall.ts");
 const c = await import("../src/conversations.ts");
 const { addProjectNote, projectNotes, setProjectNotes, NOTES_MAX } = await import("../src/projects.ts");
 const { recordTurn } = await import("../src/threads.ts");
@@ -370,4 +370,36 @@ test("after an expedition, a lesson goes to the crew member who did the work, re
   assert.equal(direct, 1);
   for (const p of k.proposals()) k.settleProposal(p.id, "dismiss");
   setMemoryCare({ suggest: false });
+});
+
+test("recall: a term is found where a word begins, and a record scores by where its terms sit together", async () => {
+  // "signed" isn't in "designed", nor "turn" in "return"; a root still finds its longer forms.
+  assert.equal(scoreText("We redesigned the return flow", searchTerms("signed turns")), 0);
+  assert.equal(scoreText("Commits are signed; the turn cap is 30", searchTerms("signed turns")), 1);
+  assert.equal(scoreText("We deployed it", searchTerms("deploys")), 1);
+  // A word also begins where a camelCase name turns, and after an underscore.
+  assert.equal(scoreText("Set maxTurns to 30", searchTerms("turns")), 1);
+  assert.equal(scoreText("Set max_turns to 30", searchTerms("turns")), 1);
+  assert.equal(scoreText("the HTTPServer class", searchTerms("server")), 1);
+  assert.equal(scoreText("RETURNS nothing", searchTerms("turns")), 0);
+
+  // The stretch with the most of the terms, and where it starts.
+  const filler = "nothing to see here. ".repeat(40);
+  const text = `the cap ${filler} artificer limit ${filler} the artificer has a turn cap of thirty ${filler}`.toLowerCase();
+  const best = bestStretch(text, ["artificer", "turn", "cap"]);
+  assert.equal(best.found, 3);
+  assert.ok(text.slice(best.at).startsWith("artificer has a turn cap"));
+  assert.ok(filler.length > NEAR, "the filler keeps the scattered ones apart");
+
+  // A long record holding the words far apart doesn't match; one holding them together does.
+  recordSession("scout", { source: "brief", task: "Long notes", result: `The okapi was seen. ${filler.repeat(3)} A wombat too.`, status: "done", messages: [] });
+  recordSession("scout", { source: "brief", task: "Short notes", result: "An okapi and a wombat shared the pen.", status: "done", messages: [] });
+  const found = recallFor("scout", "okapi wombat", ["sessions"]);
+  assert.equal(found.length, 1);
+  assert.match(found[0].text, /okapi and a wombat/);
+
+  // Terms at the far ends of a stretch are both in the excerpt, and one past the first 2,000 places is still found.
+  recordSession("scout", { source: "brief", task: "Far ends", result: `${filler.repeat(2)} quokka ${"x".repeat(NEAR - 30)} numbat arrived. ${filler.repeat(2)}`, status: "done", messages: [] });
+  assert.match(recallFor("scout", "quokka numbat", ["sessions"])[0].text, /quokka.*numbat/);
+  assert.equal(bestStretch(`${"alpha word word word. ".repeat(3000)} alpha beta`, ["alpha", "beta"]).found, 2);
 });
