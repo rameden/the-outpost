@@ -110,13 +110,19 @@ test("your tickets, what's upcoming and your notes are part of it; the numbers a
   camp({ "/api/home": page() });
   const props = show();
   const tickets = (await screen.findByText("Your tickets · 1")).closest("section")!;
-  expect(tickets.textContent).toContain("In Progress · pull request #7 changes requested");
+  // A card, as on the Tickets page: the key and Jira's status on top, the summary, then where it stands here.
+  expect(within(tickets).getByText("MP-544").className).toBe("jira-key");
+  expect(within(tickets).getByText("In Progress").className).toContain("pill");
+  expect(within(tickets).getByText("pull request #7 changes requested")).toBeTruthy();
   fireEvent.click(within(tickets).getByRole("button", { name: "MP-544 Open button" }));
   expect(props.setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "c1" });
   expect(within(tickets).getByRole("link", { name: "Open MP-544 Open button in a new tab" }).getAttribute("title")).toBe("Open the ticket");
 
   const upcoming = screen.getByText("Upcoming · 2").closest("section")!;
-  expect(within(upcoming).getAllByRole("listitem").map((r) => r.textContent)).toEqual(["MP-1 Next upTo Do · HighStart…", "wiki-digestRuns by itself, weekdays 08:00"]);
+  // Cards too: a ticket nothing has picked up, with Jira's status on top, and a scheduled job with when it runs.
+  expect(within(upcoming).getAllByRole("listitem").map((r) => r.textContent)).toEqual(["MP-1HighTo DoNext upStart…", "Scheduledwiki-digestRuns by itself, weekdays 08:00"]);
+  expect(within(upcoming).getByText("MP-1").className).toBe("jira-key");
+  expect(within(upcoming).getByText("To Do").className).toContain("pill");
   fireEvent.click(within(upcoming).getByRole("button", { name: "Start…" }));
   expect(props.onStartTicket).toHaveBeenCalledWith({ key: "MP-1", summary: "Next up" });
 
