@@ -12,6 +12,10 @@ import { LAPS, startOf } from "../components/MaeSystem.tsx";
 export type Point = { x: number; y: number };
 
 export const SUN_R = 16, PLANET_R = 9.5;
+// The stars behind it all: three sheets of them, each a tile repeated (the tile's size, and how far the sheet shifts as the camera
+// moves; the stylesheet's .orb-stars draws them). The memory's map (constellation/) stands on the same sky.
+export const STARS: [number, number][] = [[640, 0.03], [820, 0.065], [1040, 0.11]];
+export const wrap = (n: number, tile: number) => ((n % tile) + tile) % tile;
 const FIRST = 96, APART = 42; // (the first is far enough out that its planet and its name clear the sun's own name)
 export const orbitOf = (i: number) => FIRST + APART * i;
 // A line for each of the crew (four at least, as the small one has), and how far out the drawing goes.

@@ -2530,14 +2530,53 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 /* Every remembered line a star, over the whole page. It wears the page's own colours, so it follows
    light, dark and the palettes. What's picked or focused gets a solid 2px ring; nothing here moves
    on its own. */
-.constellation { position: fixed; inset: 0; z-index: 44; overflow: hidden; background: var(--bg); color: var(--text); outline: none; }
+/* It stands on Orbit's night sky whatever the theme: the page's colours are set here to that sky's, and the crew's to the ones Orbit gives them.
+   The stars are Orbit's own three sheets (.orb-stars), which reach past the screen: that's why this clips what's outside it rather than hiding it. */
+.constellation {
+  --bg: #05070c; --surface: #0a0d15; --surface-2: #141a28; --border: #262e3e; --border-strong: #3d485e;
+  --text: #ece6d9; --muted: #98a0b2; --faint: #7f889b;
+  --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308; --bad: #e88468; --bad-soft: #33201a;
+  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-other: #7cb7c4;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
+  --o-sun: #e6a53a; /* Orbit's sun, for the Quartermaster's place (the orb-sun-* rules read it) */
+  position: fixed; inset: 0; z-index: 44; overflow: clip; color: var(--text); outline: none; color-scheme: dark;
+  background: radial-gradient(120% 95% at 50% 42%, #101627 0%, #090c15 48%, var(--bg) 100%);
+}
 .con-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .con-sky:active { cursor: grabbing; }
-.con-place circle { fill: var(--surface); stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+/* A place: one open contour line, as Orbit's orbits are, and on the line (at the top) whoever it belongs to, drawn with Orbit's own
+   rules (orb-disc, orb-mark, orb-halo, orb-sun-*: see Owner in Constellation.tsx). Only the letter needs a rule here, to outrank the place's name. */
+.con-line { fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: .85; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.con-place text.orb-emoji { fill: var(--c, var(--c-other)); font: 600 10.5px var(--sans); }
 .con-place text { fill: var(--muted); font: 600 13px var(--sans); }
-.con-edge { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.con-edge.together { stroke-dasharray: 4 4; }
-.con-edge.on { stroke: var(--text); stroke-width: 2; }
+.con-place text.con-place-says { fill: var(--faint); font: 400 11px var(--sans); } /* the place at a glance: its lines, pinned and recalled */
+/* A join is a nerve fibre (Synapse.tsx): it bows on its way, stops short of each star and ends there in a bulb, and it glows in the
+   colours of the two places it joins. Its widths are in page pixels whatever the zoom (--k, set on the map: a gradient and a
+   non-scaling stroke don't go together). Lines used together carry beads along it and, now and then, a spark; the picked star's
+   joins are lit and a pulse runs out from it along each. Nothing moves if you've asked for less motion. */
+.con-edge { fill: none; }
+.con-stop { stop-color: var(--c, var(--c-other)); }
+.con-fibre { stroke-width: calc(1.2px / var(--k, 1)); stroke-linecap: round; opacity: .82; }
+.con-glow { stroke-width: calc(7px / var(--k, 1)); stroke-linecap: round; opacity: .16; }
+.con-beads { stroke: var(--text); opacity: .6; stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: .1 8; vector-effect: non-scaling-stroke; }
+.con-bulb { fill: var(--c, var(--c-other)); stroke: none; }
+.con-edge.on .con-fibre { stroke-width: calc(2px / var(--k, 1)); opacity: 1; }
+.con-edge.on .con-glow { opacity: .3; }
+.con-edge.on .con-beads { opacity: .9; }
+.con-spark, .con-pulse { display: none; stroke: var(--text); stroke-linecap: round; }
+.con-spark { stroke-width: calc(2.6px / var(--k, 1)); stroke-dasharray: 3 200; }
+.con-pulse { stroke-width: calc(3.2px / var(--k, 1)); stroke-dasharray: 7 93; }
+@media (prefers-reduced-motion: no-preference) {
+  .con-spark { display: inline; animation: con-spark 7s linear infinite; animation-delay: calc(var(--d, 0) * -1s); }
+  .con-edge.dim .con-spark { display: none; }
+  .con-pulse { display: inline; animation: con-fire 1.5s linear infinite; }
+  .con-pulse.back { animation-direction: reverse; }
+}
+.con-key .con-stop { stop-color: var(--muted); } .con-key .con-bulb { fill: var(--muted); }
+.con-key .con-fibre { opacity: 1; } .con-key .con-spark { display: none; }
+@keyframes con-spark { 0% { stroke-dashoffset: 3; opacity: 0; } 3%, 26% { opacity: .95; } 30%, 100% { stroke-dashoffset: -100; opacity: 0; } }
+@keyframes con-fire { from { stroke-dashoffset: 7; } to { stroke-dashoffset: -93; } }
 .con-star { cursor: pointer; outline: none; }
 .con-hit { fill: transparent; }
 .con-body { fill: var(--c, var(--c-other)); fill-opacity: .5; stroke: var(--c, var(--c-other)); stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -2568,6 +2607,25 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 .con-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; }
 .con-key li { display: inline-flex; align-items: center; gap: 6px; }
 .con-key svg { flex: none; height: 16px; width: auto; overflow: visible; }
+/* The runs that used memory, down the left side: pick one or a few and only their lines stay lit. */
+.con-tool[aria-pressed="true"] { border: 2px solid var(--accent); }
+.con-tool.worded[aria-pressed="true"] { padding: 0 10px; }
+.con-runs { position: absolute; top: 60px; left: 14px; bottom: 14px; width: 264px; max-width: calc(100% - 28px); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-lg); }
+.con-runs > header { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--border); }
+.con-runs > header h3 { flex: 1; margin: 0; font-size: 14px; font-weight: 600; }
+.con-runs-says { margin: 0; padding: 10px 14px 4px; font-size: 12px; line-height: 1.45; color: var(--faint); }
+.con-runs-list { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 4px; align-content: start; margin: 0; padding: 8px; list-style: none; }
+.con-run { display: grid; gap: 3px; width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.35; text-align: left; cursor: pointer; }
+.con-run:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.con-run[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px 9px; }
+.con-run b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.con-run > span { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--faint); white-space: nowrap; }
+.con-dots { display: inline-flex; gap: 3px; margin-left: auto; padding-left: 6px; }
+.con-dots .con-dot { width: 7px; height: 7px; }
+.constellation.runs-open .con-foot { left: 294px; }
+.constellation.isolating .con-star.dim { opacity: .14; }
+.constellation.isolating .con-edge.dim { opacity: .18; }
+.constellation.isolating .con-place.dim { opacity: .45; }
 .con-panel { position: absolute; top: 60px; right: 14px; bottom: 14px; width: 372px; max-width: calc(100% - 28px); display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-lg); }
 .con-panel > header { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--border); }
 .con-panel > header h3 { flex: 1; min-width: 0; margin: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2602,6 +2660,8 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 .con-panel > footer .btn[aria-pressed="true"] { border: 2px solid var(--accent); padding: 6px 13px; }
 @media (max-width: 760px) {
   .con-panel { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-width: none; height: 56%; }
+  .con-runs { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-width: none; height: 44%; }
+  .constellation.runs-open .con-foot { left: 16px; }
   .con-hint { display: none; }
 }
 @media (prefers-reduced-motion: no-preference) {

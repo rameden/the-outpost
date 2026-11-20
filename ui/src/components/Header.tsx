@@ -1,6 +1,7 @@
 // The top bar, kept to what you look at often: what needs you, how busy the camp is (a menu with
-// what runs the crew, GitHub and today's spend), the connection (only when it drops), Orbit and
-// Barnstorm, a ··· menu for the page's occasional switches, and Settings. A problem shows by itself.
+// what runs the crew, GitHub and today's spend), the connection (only when it drops), the Arcade
+// menu (Orbit, the trail map, the constellation and Barnstorm), a ··· menu for the page's occasional
+// switches, and Settings. A problem shows by itself.
 
 import { memo, useEffect, useRef, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
@@ -157,29 +158,34 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
   );
 }
 
-// The page's occasional switches, behind ···: focus, how it's laid out, light or dark, and
-// notifications. Each says what it is in words, which an icon on its own couldn't. (The files and
-// notes are /files and /notes; Orbit and Barnstorm keep their own buttons beside it.)
-type MoreItem = { label: string; icon: IconName; title: string; onClick: () => void; checked?: boolean; wide?: boolean };
-function MoreMenu({ groups }: { groups: (MoreItem | false | undefined)[][] }) {
+// A menu under an icon in the bar: rows with an icon and a name, and a tick on what's on. Two of
+// them use it. ···  holds the page's occasional switches: focus, how it's laid out, light or dark,
+// and notifications. (The files and notes are /files and /notes.) The Arcade holds the camp's
+// full-screen views and its game: Orbit, the trail map, the constellation and Barnstorm.
+type MenuItem = { label: string; icon: IconName; title: string; onClick: () => void; checked?: boolean; wide?: boolean; says?: string; quiet?: boolean };
+function ToolMenu({ name, title, icon, groups, className, waiting }: {
+  name: string; title: string; icon: IconName; groups: (MenuItem | false | undefined)[][];
+  className?: string;
+  waiting?: boolean; // something in here is paused, and there to come back to
+}) {
   const { open, setOpen, box } = usePopover();
-  const shown = groups.map((g) => g.filter((i): i is MoreItem => !!i)).filter((g) => g.length);
+  const shown = groups.map((g) => g.filter((i): i is MenuItem => !!i)).filter((g) => g.length);
   const all = shown.flat();
   if (!all.length) return null;
-  const lit = all.some((i) => i.checked && i.icon !== "bell"); // something in here is on (focus)
+  const lit = all.some((i) => i.checked && !i.quiet); // something in here is on
   return (
     <span className="top-pick" ref={box}>
-      <button className={cx("icon-btn", lit && "on")} type="button" aria-haspopup="menu" aria-expanded={open}
-        aria-label="More" title="More: focus, layout, light or dark, and notifications" onClick={() => setOpen((o) => !o)}>
-        <Icon name="more" />
+      <button className={cx("icon-btn", lit && "on", !lit && waiting && "egg-paused")} type="button" aria-haspopup="menu" aria-expanded={open}
+        aria-label={name} title={title} onClick={() => setOpen((o) => !o)}>
+        <Icon name={icon} />
       </button>
       {open && (
-        <div className="popover top-menu top-more" role="menu" aria-label="More">
+        <div className={cx("popover", "top-menu", className)} role="menu" aria-label={name}>
           {shown.map((g, gi) => g.map((i, ii) => (
-            <button key={i.label} type="button" role={i.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={i.checked}
+            <button key={i.icon} type="button" role={i.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={i.checked} aria-label={i.label}
               className={cx("top-item", "top-tool", i.wide && "wide-only", gi > 0 && ii === 0 && "top-item-sep")} title={i.title}
               onClick={() => { setOpen(false); i.onClick(); }}>
-              <Icon name={i.icon} /><span><b>{i.label}</b></span>{i.checked && <Icon name="check" />}
+              <Icon name={i.icon} /><span><b>{i.label}</b>{i.says && <small>{i.says}</small>}</span>{i.checked && <Icon name="check" />}
             </button>
           )))}
         </div>
@@ -215,7 +221,7 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail, constellation, onConstellation }: {
   onHome?: () => void; // the logo takes you to Today
   needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
@@ -223,10 +229,12 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   // conversation; again brings back the ones it closed.
   focused?: boolean; onToggleFocus?: () => void;
   onOpenLayout?: () => void;
-  // The easter egg (egg/Barnstorm.tsx): fly a plane over the page. Its button starts it, then is play and pause.
-  barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
+  // The Arcade menu's four. Each is left out of the menu when it has no way to be opened.
   orbit?: boolean; onOrbit?: () => void; // the crew at work as a solar system, full screen (orbit/Orbit.tsx)
   trail?: boolean; onTrail?: () => void; // the plan as a trail of steps, full screen (trail/Trail.tsx)
+  constellation?: boolean; onConstellation?: () => void; // the memory as a map of stars, full screen (constellation/Constellation.tsx)
+  // The game (egg/Barnstorm.tsx): fly a plane over the page. Its row starts it, then is play and pause.
+  barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
 }) {
   const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
@@ -295,29 +303,33 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <ReadingPlayer />
         {/* With the icons, so it sits as close to them as they do to each other. */}
         <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} gh={gh} running={running} questsOut={questsOut} queued={queued} />
-        {/* Orbit, the trail map and Barnstorm keep their own buttons; the page's occasional switches are behind ···. */}
-        {onOrbit && (
-          <button className={cx("icon-btn", orbit && "on")} type="button" aria-pressed={!!orbit} aria-label={orbit ? "Leave Orbit" : "Orbit"}
-            title="Orbit: watch the crew at work as a solar system, full screen" onClick={onOrbit}><Icon name="orbit" /></button>
-        )}
-        {onTrail && (
-          <button className={cx("icon-btn", trail && "on")} type="button" aria-pressed={!!trail} aria-label={trail ? "Leave the trail map" : "Trail map"}
-            title="Trail map: the plan step by step, and who's on each, full screen" onClick={onTrail}><Icon name="trail" /></button>
-        )}
-        {onBarnstorm && (
-          <button className={cx("icon-btn", "wide-only", barnstorm === "on" && "on", barnstorm === "paused" && "egg-paused")} type="button" aria-pressed={barnstorm === "on"}
-            aria-label={barnstorm === "on" ? "Pause Barnstorm" : barnstorm === "paused" ? "Resume Barnstorm" : "Barnstorm"}
-            title={barnstorm === "on" ? "Pause: stop the game where it is and get the page back, to carry on later"
-              : barnstorm === "paused" ? "Resume: carry on with the game from where you paused it"
-              : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)"} onClick={onBarnstorm}><Icon name="plane" /></button>
-        )}
-        <MoreMenu groups={[
+        {/* The full-screen views and the game are in the Arcade; the page's occasional switches are behind ···. */}
+        <ToolMenu name="Arcade" icon="arcade" waiting={barnstorm === "paused"}
+          title={barnstorm === "paused" ? "Arcade: Barnstorm is paused, and here to come back to" : "Arcade: Orbit, the trail map, the constellation and Barnstorm"}
+          groups={[
+            [
+              onOrbit && { label: orbit ? "Leave Orbit" : "Orbit", icon: "orbit", checked: !!orbit, onClick: onOrbit, says: "The crew at work, as a solar system",
+                title: "Orbit: watch the crew at work as a solar system, full screen" },
+              onTrail && { label: trail ? "Leave the trail map" : "Trail map", icon: "trail", checked: !!trail, onClick: onTrail, says: "The plan, step by step",
+                title: "Trail map: the plan step by step, and who's on each, full screen" },
+              onConstellation && { label: constellation ? "Leave the constellation" : "Constellation", icon: "spark", checked: !!constellation, onClick: onConstellation, says: "The memory, as a map of stars",
+                title: "Constellation: every line the crew remembers as a star, to pin, forget or merge, full screen" },
+            ],
+            [
+              onBarnstorm && { label: barnstorm === "on" ? "Pause Barnstorm" : barnstorm === "paused" ? "Resume Barnstorm" : "Barnstorm", icon: "plane", checked: barnstorm === "on", wide: true, onClick: onBarnstorm,
+                says: barnstorm === "on" ? "Stop where it is, to carry on later" : barnstorm === "paused" ? "Carry on from where you paused" : "Fly a plane over the page",
+                title: barnstorm === "on" ? "Pause: stop the game where it is and get the page back, to carry on later"
+                  : barnstorm === "paused" ? "Resume: carry on with the game from where you paused it"
+                  : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)" },
+            ],
+          ]} />
+        <ToolMenu name="More" icon="more" className="top-more" title="More: focus, layout, light or dark, and notifications" groups={[
           [
             onToggleFocus && { label: "Focus mode", icon: "focus", checked: !!focused, wide: true, onClick: onToggleFocus,
               title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files, notes and terminal, leaving the conversation" },
             onOpenLayout && { label: "Arrange the layout", icon: "layout", wide: true, onClick: onOpenLayout, title: "Layout: arrange the page's zones and what each shows" },
             { label: "Light or dark", icon: "theme", onClick: toggleMode, title: "Switch between the light and dark theme" },
-            canNotify() && { label: "Notifications", icon: "bell", checked: notificationsOn(), onClick: () => void toggleNotifications(),
+            canNotify() && { label: "Notifications", icon: "bell", checked: notificationsOn(), quiet: true, onClick: () => void toggleNotifications(),
               title: Notification.permission === "denied" ? "Notifications are blocked for this page in your browser's settings"
                 : notificationsOn() ? "On: you're pinged when the camp needs a decision. Click to turn off." : "Get pinged when the camp needs a decision" },
           ],
