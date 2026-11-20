@@ -70,7 +70,7 @@ import { Panel, useNow, type Body } from "./Panel.tsx";
 import { reelOf, type Reel } from "./replay.ts";
 import { Timeline, type Time } from "./Timeline.tsx";
 import {
-  PLANET_R, SUN_R, angleAt, clampZoom, closeZoom, ease, fitZoom, hit, lapOf, linesFor, orbitOf, placeAt, reachOf, toScreen, withinReach, zoomAbout,
+  PLANET_R, STARS, SUN_R, angleAt, clampZoom, closeZoom, ease, fitZoom, hit, lapOf, linesFor, orbitOf, placeAt, reachOf, toScreen, withinReach, wrap, zoomAbout,
   type Camera, type Point, type Spot,
 } from "./scene.ts";
 
@@ -104,9 +104,6 @@ const NO_COLOUR: Vec3 = [0.49, 0.72, 0.77];
 const EASE_S = 0.26;           // how quickly the camera settles on what it's looking at
 const FAR = 0.7;               // below this many screen pixels to one of the drawing's units, the names lose their second line
 const WIDE = 900, PANEL = 380; // from this width the panel sits beside the system, and is this wide
-// The stars: three sheets of them, each a tile repeated (the tile's size, and how far the sheet shifts as the camera moves).
-const STARS: [number, number][] = [[640, 0.03], [820, 0.065], [1040, 0.11]];
-const wrap = (n: number, tile: number) => ((n % tile) + tile) % tile;
 const SPOKES = Array.from({ length: 12 }, (_, i) => (i * Math.PI) / 6);
 const WAY_PX = 7; // as big as a waypoint is drawn, in pixels
 const BEAT_MS = 15_000;        // how often the picture looks again at how long things have been out, or quiet

@@ -10,7 +10,8 @@
 //   - it's among the newest: what was just learned is the likeliest to matter next, and a
 //     follow-up ("make it shorter") says too little to judge relevance by;
 //   - it bears on this task: it shares words with the request, rare words counting for more than
-//     common ones. Older lines compete for the room that's left on that score alone.
+//     common ones, and more of them than the lines around it do (a long brief shares some with
+//     every line). Older lines compete for the room that's left on that score alone.
 //
 // Any room still left goes to the next-newest lines. Lines keep the order they have in the file,
 // and a note at the top says how many were left out (recall still finds those). A memory that
@@ -97,21 +98,34 @@ export type Fit = {
 };
 
 // The lines that bear on a task, each with its score: the words it shares with the request, a word
-// in few lines counting for more. Only scores worth acting on are kept: one word that at most half
-// the lines share, or two commoner ones.
+// in few lines counting for more. A short request shares nothing with most lines, so any score
+// worth acting on says something: one word that at most half the lines share, or two commoner
+// ones. A long brief (the Quartermaster's to a crew member runs to hundreds of words) shares
+// words with every line, and two things keep the score honest then:
+//   - a line longer than the others has its score brought down by as much as it is longer: it
+//     shares more words by its length alone (a short line isn't marked up for being short);
+//   - what half the lines score anyway is taken as the floor, and a line bears on the request
+//     only when it stands clear of that. It's the rule for a word, applied to the whole line:
+//     what most lines share with the request doesn't tell them apart.
+const FLOOR_FROM = 4; // lines there must be before the middle score is a floor (with fewer, the middle one is one of the few)
 function bearing(rows: string[], lines: number[], task: string): Map<number, number> {
   const out = new Map<number, number>();
   const want = wordsOf(task.slice(0, 6000));
-  if (!want.size) return out;
+  if (!want.size || !lines.length) return out;
   const words = new Map(lines.map((i) => [i, wordsOf(rows[i])]));
   const seenIn = new Map<string, number>();
-  for (const set of words.values()) for (const w of set) seenIn.set(w, (seenIn.get(w) ?? 0) + 1);
+  let total = 0;
+  for (const set of words.values()) { total += set.size; for (const w of set) seenIn.set(w, (seenIn.get(w) ?? 0) + 1); }
+  const usual = total / lines.length || 1; // how many words a line of this memory has
   const weight = (w: string) => Math.log(1 + lines.length / (seenIn.get(w) ?? 1)); // a word in few lines says more
-  for (const i of lines) {
+  const scores = lines.map((i) => {
+    const mine = words.get(i)!;
     let score = 0;
-    for (const w of words.get(i)!) if (want.has(w)) score += weight(w);
-    if (score >= Math.log(3)) out.set(i, score);
-  }
+    for (const w of mine) if (want.has(w)) score += weight(w);
+    return score / Math.max(1, mine.size / usual);
+  });
+  const floor = lines.length >= FLOOR_FROM ? [...scores].sort((x, y) => x - y)[Math.floor((lines.length - 1) / 2)] : 0;
+  for (const [n, i] of lines.entries()) if (scores[n] - floor >= Math.log(3)) out.set(i, scores[n]);
   return out;
 }
 

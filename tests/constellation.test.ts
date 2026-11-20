@@ -174,6 +174,22 @@ test("the graph: lines alike are joined, each to its three strongest at most", (
   assert.deepEqual(g.buildGraph([place("agent:warden", "Warden's memory", lines.slice(0, 3)), place("about", "About you", lines.slice(3))], []).edges, graph.edges);
 });
 
+test("the graph: the runs that used a line still on the map, newest first, each with its lines and its conversation", () => {
+  const places = [place("agent:scout", "Scout's memory", ["Alpha note", "Beta note"]), place("about", "About you", ["Delta item"])];
+  const [alpha, beta, delta] = [g.nodeId("agent:scout", "Alpha note"), g.nodeId("agent:scout", "Beta note"), g.nodeId("about", "Delta item")];
+  const recalls = [
+    used("about", "Delta item", 1, "r1"), used("agent:scout", "Alpha note", 1, "r1"), used("agent:scout", "Alpha note", 4, "r1", "recall"), // used twice in one run: one line of it
+    used("agent:scout", "Beta note", 2, "r2"),
+    used("agent:scout", "Gone since", 5, "r3"), // nothing of this run is on the map any more
+    used("agent:scout", "Beta note", 6),         // no run to list it under
+  ];
+  const graph = g.buildGraph(places, recalls, (run) => (run === "r1" ? { id: "t1", title: "Research the market" } : undefined));
+  assert.deepEqual(graph.runs, [{ id: "r1", time: at(4), lines: [alpha, delta], thread: { id: "t1", title: "Research the market" } }, { id: "r2", time: at(2), lines: [beta] }]);
+  assert.equal(g.buildGraph(places, recalls.slice(4)).runs, undefined);
+  const many = Array.from({ length: g.RUNS_MOST + 5 }, (_, i) => used("agent:scout", "Alpha note", 1, `run${String(i).padStart(3, "0")}`));
+  assert.equal(g.buildGraph(places, many).runs!.length, g.RUNS_MOST);
+});
+
 test("the graph: lines used in the same run at least twice are joined as used together", () => {
   const places = [place("agent:scout", "Scout's memory", ["Alpha note", "Beta note", "Gamma thing"]), place("about", "About you", ["Delta item"])];
   const recalls = [

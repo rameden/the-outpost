@@ -4,7 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ConfirmHost } from "../components/Confirm.tsx";
 import type { GraphNode, MemoryGraph, Why } from "../types.ts";
-import { Constellation, placeClass } from "./Constellation.tsx";
+import { Constellation, labelAngle, placeClass, placeSays } from "./Constellation.tsx";
+import { BULB, CLEFT, fibre } from "./Synapse.tsx";
 
 const node = (id: string, where: GraphNode["where"], place: string, text: string, more: Partial<GraphNode> = {}): GraphNode =>
   ({ id, where, place, kind: where === "about" ? "about" : where.startsWith("project:") ? "project" : "agent", text, pinned: false, recalls: 0, ...more });
@@ -60,10 +61,149 @@ test("every line is a star you can reach and read by name, and the map says when
   expect(placeClass("project:atlas")).toBe("con-project");
   expect(placeClass("agent:warden")).toBe("c-warden");
   // The two kinds of join are drawn apart, and a pinned star is ringed.
-  expect(map.querySelectorAll(".con-sky line.con-edge.alike")).toHaveLength(1);
-  expect(map.querySelectorAll(".con-sky line.con-edge.together")).toHaveLength(1);
+  expect(map.querySelectorAll(".con-sky .con-edge.alike")).toHaveLength(1);
+  expect(map.querySelectorAll(".con-sky .con-edge.together")).toHaveLength(1);
   expect(map.querySelectorAll(".con-star.pinned .con-pin")).toHaveLength(1);
   expect(screen.queryByRole("complementary")).toBeNull();
+});
+
+test("each place says, under its name, how many lines it holds, how many are pinned and how often they were used", async () => {
+  open();
+  await star(/^Use British spelling Scribe's memory/);
+  const says = [...document.querySelectorAll(".con-place")].map((g) => [...g.querySelectorAll("text:not(.orb-emoji)")].map((t) => t.textContent));
+  expect(says).toEqual([
+    ["Scribe's memory", "3 lines · 1 pinned · recalled 3 times"],
+    ["Scout's memory", "1 line · recalled 1 time"],
+    ["About you", "1 line · not recalled yet"],
+  ]);
+  expect(placeSays([])).toBe("0 lines · not recalled yet");
+});
+
+test("it stands on Orbit's sky: the same sheets of stars, each place an open contour line with its owner's mark on it", async () => {
+  open();
+  await star(/^Use British spelling Scribe's memory/);
+  expect(document.querySelectorAll(".constellation > .orb-stars")).toHaveLength(3);
+  const places = [...document.querySelectorAll(".con-place")];
+  // No filled disc any more: one line that wanders as Orbit's do.
+  expect(places.map((g) => [g.querySelectorAll(":scope > circle").length, g.querySelectorAll("path.con-line").length])).toEqual([[0, 1], [0, 1], [0, 1]]);
+  expect(places[0].querySelector("path.con-line")!.getAttribute("d")).toMatch(/^M[\d.]+ 0\.0L.+Z$/);
+  // On the line, whoever the place belongs to, as Orbit draws them: a crew member's planet (halo, disc, their mark); the note about you, which Orbit has no mark for, its first letter.
+  expect(places.map((g) => [g.querySelectorAll(".con-badge .orb-halo, .con-badge .orb-disc").length, g.querySelectorAll(".orb-mark path").length, g.querySelector(".orb-emoji")?.textContent ?? ""])).toEqual([[2, 2, ""], [2, 3, ""], [2, 0, "A"]]);
+  expect(places.map((g) => g.classList.contains("c-scribe") || g.classList.contains("c-scout") || g.classList.contains("con-about"))).toEqual([true, true, true]);
+});
+
+test("the Quartermaster's place carries Orbit's sun, and a project (which Orbit has no mark for) its emoji", async () => {
+  graph = { nodes: [node("q1", "agent:quartermaster", "Quartermaster's memory", "Plan before dispatching"), node("p1", "project:atlas", "Atlas", "Ships on Fridays", { emoji: "🗺️" })], edges: [] };
+  open();
+  await star(/^Plan before dispatching/);
+  const [lead, atlas] = [...document.querySelectorAll(".con-place")];
+  expect([lead.querySelectorAll(".con-sun .orb-sun-core").length, lead.querySelectorAll(".con-sun .orb-sun-dial circle").length, lead.querySelectorAll(".orb-disc").length]).toEqual([1, 2, 0]);
+  expect([atlas.querySelectorAll(".orb-disc").length, atlas.querySelector(".orb-emoji")!.textContent]).toEqual([1, "🗺️"]);
+  // The name stands alone above: the icon on the line is the only one.
+  expect([...atlas.querySelectorAll("text:not(.orb-emoji)")].map((t) => t.textContent)).toEqual(["Atlas", "1 line · not recalled yet"]);
+});
+
+test("a join is a nerve fibre: a curve that stops short of each star, with a bulb at each end, and the same every time", () => {
+  const a = { x: 0, y: 0, r: 5 }, b = { x: 100, y: 0, r: 10 };
+  const f = fibre(a, b, "alike m1 m2");
+  expect(f.from).toEqual([5 + CLEFT, 0]);
+  expect(f.to).toEqual([100 - 10 - CLEFT, 0]);
+  expect(f.d).toMatch(/^M8\.0 0\.0C[\d.-]+ [\d.-]+ [\d.-]+ [\d.-]+ 87\.0 0\.0$/);
+  expect(fibre(a, b, "alike m1 m2").d).toBe(f.d);
+  expect(fibre(a, b, "together m1 m4").d).not.toBe(f.d);
+  // It bows off the straight line, but never far.
+  const [, y1, , y2] = f.d.slice(f.d.indexOf("C") + 1).split(" ").map(Number);
+  expect(Math.max(Math.abs(y1), Math.abs(y2))).toBeGreaterThan(0);
+  expect(Math.max(Math.abs(y1), Math.abs(y2))).toBeLessThanOrEqual(26);
+  // Two stars that overlap: there's no room for a gap, so it runs centre to centre.
+  expect(fibre(a, { x: 8, y: 0, r: 10 }, "x").d).toMatch(/^M0\.0 0\.0C.+ 8\.0 0\.0$/);
+  expect(BULB).toBeLessThan(CLEFT);
+});
+
+test("joins on the map: lines used together carry beads, and the picked star's joins fire out from it", async () => {
+  open();
+  const joins = () => [...document.querySelectorAll(".con-sky .con-edge")];
+  await star(/^Use British spelling Scribe's memory/);
+  expect(joins().map((g) => [g.querySelectorAll("path.con-fibre").length, g.querySelectorAll("circle.con-bulb").length, g.querySelectorAll(".con-beads").length, g.querySelectorAll(".con-pulse").length]))
+    .toEqual([[1, 2, 0, 0], [1, 2, 1, 0]]);
+  // The scout's line is the far end of its one join: the pulse runs back along it, away from the picked star.
+  fireEvent.click(await star(/^Cite the source/));
+  expect(joins().map((g) => [g.classList.contains("on"), g.querySelector(".con-pulse")?.classList.contains("back") ?? null])).toEqual([[false, null], [true, true]]);
+  fireEvent.click(await star(/^Use British spelling Scribe's memory/));
+  expect(joins().map((g) => [g.classList.contains("on"), g.querySelector(".con-pulse")?.classList.contains("back") ?? null])).toEqual([[true, false], [true, false]]);
+  // The key at the foot shows the two kinds the same way.
+  expect([...document.querySelectorAll(".con-key .con-edge")].map((g) => g.querySelectorAll(".con-beads").length)).toEqual([0, 1]);
+});
+
+const withRuns: MemoryGraph = { ...full, runs: [
+  { id: "r9", time: "2026-03-04T09:00:00.000Z", lines: ["m1", "m4"], thread: { id: "t7", title: "Fix the docs" } },
+  { id: "r8", time: "2026-03-03T09:00:00.000Z", lines: ["m3"], thread: { id: "t8" } },
+  { id: "r7", time: "2026-03-01T09:00:00.000Z", lines: ["m1", "gone"] },
+] };
+const dimmed = () => [...document.querySelectorAll(".con-star.dim title")].map((t) => t.textContent);
+
+test("the runs that used memory are listed down the side: pick one and only its lines stay lit, pick more and theirs join them", async () => {
+  graph = withRuns;
+  const on = open();
+  const runs = await screen.findByRole("complementary", { name: "Runs that used memory" });
+  const rows = within(runs).getAllByRole("button", { pressed: false });
+  expect(rows.map((b) => b.querySelector("b")!.textContent)).toEqual(["Fix the docs", "An untitled conversation", "A run with no conversation"]);
+  expect(rows.map((b) => b.textContent!.replace(/^.*· /, ""))).toEqual(["2 lines", "1 line", "2 lines"]);
+  expect([...rows[0].querySelectorAll(".con-dot")].map((d) => d.className)).toEqual(["con-dot c-scribe", "con-dot c-scout"]); // a dot for each place its lines live in
+  expect(document.querySelector(".constellation")!.classList.contains("isolating")).toBe(false);
+  expect(dimmed()).toEqual([]);
+
+  fireEvent.click(rows[0]);
+  expect(rows[0].getAttribute("aria-pressed")).toBe("true");
+  expect(document.querySelector(".constellation")!.classList.contains("isolating")).toBe(true);
+  expect(dimmed()).toEqual(["Use British spelling in docs", "No emoji in headings", "Eastern time"]);
+  expect(screen.getByText("2 of 5 lines, used by 1 run")).toBeTruthy();
+  // A join is lit only when both its ends are; a place with none of the run's lines steps back.
+  expect([...document.querySelectorAll(".con-sky .con-edge")].map((e) => e.classList.contains("dim"))).toEqual([true, false]);
+  expect([...document.querySelectorAll(".con-place")].map((g) => g.classList.contains("dim"))).toEqual([false, false, true]);
+
+  fireEvent.click(rows[1]);
+  expect(dimmed()).toEqual(["Use British spelling in docs", "Eastern time"]);
+  expect(screen.getByText("3 of 5 lines, used by 2 runs")).toBeTruthy();
+  fireEvent.click(rows[0]); // let the first go
+  expect(dimmed()).toEqual(["Use British spelling", "Use British spelling in docs", "Cite the source of every figure", "Eastern time"]);
+
+  // Show all, or Esc, brings the whole map back; only then does Esc close it.
+  fireEvent.click(within(runs).getByRole("button", { name: "Show all" }));
+  expect(dimmed()).toEqual([]);
+  expect(within(runs).queryByRole("button", { name: "Show all" })).toBeNull();
+  fireEvent.click(rows[2]);
+  expect(dimmed()).toHaveLength(4); // (a line that's gone since isn't counted)
+  expect(screen.getByText("1 of 5 lines, used by 1 run")).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+  expect(dimmed()).toEqual([]);
+  expect(on.onClose).not.toHaveBeenCalled();
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+  expect(on.onClose).toHaveBeenCalledTimes(1);
+});
+
+test("the runs can be put away and brought back (the Runs button, or R), and say so when no run has used a line", async () => {
+  graph = withRuns;
+  open();
+  const runs = await screen.findByRole("complementary", { name: "Runs that used memory" });
+  const button = screen.getByRole("button", { name: "Runs" });
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(within(runs).getByRole("button", { name: /Fix the docs/ }));
+  fireEvent.click(within(runs).getByRole("button", { name: "Hide the runs" }));
+  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(button.getAttribute("aria-pressed")).toBe("false");
+  expect(dimmed()).toHaveLength(3); // what you picked stays picked while the list is away
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "r" });
+  expect(within(screen.getByRole("complementary")).getByRole("button", { name: /Fix the docs/ }).getAttribute("aria-pressed")).toBe("true");
+  cleanup();
+
+  // With no runs on record the list starts closed, and says why it's empty when it's opened.
+  graph = full;
+  open();
+  await star(/^Use British spelling Scribe's memory/);
+  expect(screen.queryByRole("complementary")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Runs" }));
+  expect(within(screen.getByRole("complementary")).getByText(/No run has used a line that's on the map yet/)).toBeTruthy();
 });
 
 test("a new log says recall history starts filling in from now", async () => {
@@ -232,4 +372,27 @@ test("the tools move the map without moving a star", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Fit" }));
   expect(world()).toBe(before);
   expect(s.getAttribute("transform")).toBe(at);
+});
+
+test("a place's owner and name sit on the side of its line that faces out of the map", () => {
+  const deg = (c: { x: number; y: number }) => Math.round((labelAngle(c, 200) * 180) / Math.PI);
+  expect(deg({ x: 0, y: -200 })).toBe(-90);   // at the top: on top
+  expect(deg({ x: 0, y: 0 })).toBe(-90);      // the only place: on top
+  expect(deg({ x: 120, y: 200 })).toBe(90);   // below the middle: underneath
+  expect(deg({ x: -300, y: 60 })).toBe(90);
+  expect(deg({ x: 100, y: -100 })).toBe(-45); // above it and to the right: leaning right
+  expect(deg({ x: 320, y: 0 })).toBe(-35);    // at the right-hand end: as far round as a name goes
+  expect(deg({ x: -320, y: -10 })).toBe(-145);
+});
+
+test("on the map, a place's line starts where its owner sits, and a name below the middle is under its owner", async () => {
+  const low = [0, 1, 2, 3].flatMap((p) => [0, 1, 2].map((i) => node(`z${p}${i}`, `project:z${p}`, `Project ${p}`, `Line ${p} ${i}`)));
+  graph = { ...full, nodes: low, edges: [], runs: [] };
+  open();
+  await waitFor(() => expect(document.querySelectorAll(".con-place")).toHaveLength(4));
+  const at = (g: Element) => { const [x, y] = g.querySelector(".con-badge")!.getAttribute("transform")!.match(/-?[\d.]+/g)!.map(Number); return { x, y, name: Number(g.querySelector("text:not(.orb-emoji)")!.getAttribute("y")), turn: Number(g.querySelector(".con-line")!.getAttribute("transform")!.match(/rotate\((-?[\d.]+)\)/)![1]) }; };
+  const all = [...document.querySelectorAll(".con-place")].map(at);
+  // Four alike, clockwise from the top: two above the middle (their names over them), two below (their names under them, their lines turned to start at the bottom).
+  expect(all.map((p) => Math.sign(p.name - p.y))).toEqual([-1, 1, 1, -1]);
+  expect(all.map((p) => p.turn === 90)).toEqual([false, true, true, false]);
 });

@@ -132,6 +132,36 @@ test("recall finds what isn't in the prompt any more: old sessions, this project
   });
 });
 
+test("recall: the whole of a session, the word as it was written or by its root, and the rare word of a query first", async () => {
+  // A full stop or a slash that ends a word isn't part of what's looked for.
+  assert.deepEqual(searchTerms("What changed in src/agent.ts. And memfit.ts, also the docs/"), ["changed", "src/agent.ts", "memfit.ts", "docs"]);
+  // A word found only by its root is still where the excerpt is taken from.
+  const long = "x ".repeat(400) + "We deployed the service on Friday after the checks passed. " + "y ".repeat(400);
+  assert.ok(excerptOf(long, searchTerms("deploys")).includes("deployed the service"));
+  // A word whose root isn't spelled inside it is found as written.
+  assert.equal(scoreText("Old entries are pruned weekly", searchTerms("entries")), 1);
+
+  // What a session's index line leaves out (a brief's later paragraphs, the end of a long reply) is searched too.
+  const brief = "GOAL: tidy the importer. " + "Context that goes on for a while. ".repeat(40) + "DONE WHEN: the quokka fixture passes.";
+  const reply = "Tidied. " + "A long account of each step. ".repeat(80) + "One thing left: the wombat migration is still pending.";
+  assert.ok(brief.indexOf("quokka") > 600 && reply.indexOf("wombat") > 1500);
+  recordSession("warden", { source: "brief", task: brief, result: reply, status: "done", messages: [{ role: "user", content: brief }] });
+  const deep = recallFor("warden", "quokka fixture", ["sessions"]);
+  assert.equal(deep.length, 1);
+  assert.match(deep[0].text, /quokka fixture passes/);
+  assert.match(recallFor("warden", "wombat migration", ["sessions"])[0]?.text ?? "", /wombat migration is still pending/);
+
+  // Three words, two of them in every record: the record with the rare one comes first, though each holds two of the three.
+  for (let i = 0; i < 6; i++) recordSession("warden", { source: "brief", task: `Review the release notes, round ${i}`, result: "Looked fine.", status: "done", messages: [] });
+  recordSession("warden", { source: "brief", task: "Review the okapi notes", result: "One typo.", status: "done", messages: [] });
+  for (let i = 6; i < 9; i++) recordSession("warden", { source: "brief", task: `Review the release notes, round ${i}`, result: "Looked fine.", status: "done", messages: [] });
+  const ranked = recallFor("warden", "review okapi release", ["sessions"]);
+  assert.match(ranked[0].text, /okapi/, "newer records that hold only the everyday words don't outrank it");
+  assert.ok(ranked.length > 1 && ranked[0].score > ranked[1].score);
+  // Among records that match equally well, the newest is first.
+  assert.match(recallFor("warden", "release notes", ["sessions"])[0].text, /round 8/);
+});
+
 test("a tidy is drafted, waits for you, and replaces only what it was drafted from", async () => {
   writeMemory("scribe", ["- 2026-01-02 Use British spelling", "- 2026-01-05 Use British spelling in docs", "- 2026-01-09 Headings in sentence case", "- 2026-02-01 Use American spelling now (changed)", "- 2026-02-03 No emoji in headings"].join("\n"));
   const merged = "- 2026-02-01 Use American spelling (changed from British)\n- 2026-01-09 Headings in sentence case\n- 2026-02-03 No emoji in headings";
@@ -282,5 +312,62 @@ test("after a run: suggestions only if you've turned them on; a tidy only when a
   await k.afterRun(run, async () => { throw new Error("the model is down"); });
   assert.ok(existsSync(join("camp", "memory-proposals.json")));
   assert.ok(Array.isArray(JSON.parse(readFileSync(join("camp", "memory-proposals.json"), "utf8"))));
+  setMemoryCare({ suggest: false });
+});
+
+test("after an expedition, a lesson goes to the crew member who did the work, read from their own brief and report", async () => {
+  const { logQuest, questsOf } = await import("../src/questlog.ts");
+  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  // What the dispatch does: the run is recorded as a session of theirs, and logged under the expedition.
+  const quest = (who: "artificer" | "scribe", task: string, text: string) => {
+    const session = recordSession(who, { source: "brief", task, result: text, status: "done", messages: [] });
+    logQuest("quest", who === "artificer" ? "Artificer" : "Scribe", task, new Date(), { text, status: "done", model: "claude-test", turns: 1, usage, session } as any);
+  };
+  const brief = `Add the export button to the history menu. ${"Context for the work. ".repeat(40)}`;
+  const late = "The date helper is shared with the server build, which has no Intl polyfill.";
+  await withExpedition({ id: "x1", project: web.id }, async () => {
+    quest("artificer", brief, `Added the button and its handler. ${"Detail of the change. ".repeat(30)}${late}`);
+    quest("artificer", "A check failed after your change: tsc reports dates.ts(14) Intl.DurationFormat does not exist. Fix it.", "Replaced it with the camp's own formatter and the check passes now.");
+    quest("scribe", "Write the release note for the export button.", "Wrote two lines for the release notes, in the changelog's voice.");
+  });
+  await withExpedition({ id: "x2", project: web.id }, async () => quest("scribe", "Another expedition's work entirely.", "Nothing to do with the export button at all, as it happens."));
+  assert.equal(questsOf("x1").length, 3);
+  assert.ok(questsOf("x1")[0].task.length <= 200, "the log keeps only the opening");
+
+  writeMemory("artificer", "- 2026-03-02 Run the typecheck before reporting");
+  let asked = "";
+  const run = { run: "x1", project: web.id };
+  const added = await k.suggestCrewKeeps(run, async (system, prompt) => { asked = `${system}\n${prompt}`; return JSON.stringify([
+    { who: "artificer", text: "Check a browser API exists in the server build before using it in shared code" },
+    { who: "warden", text: "Never went on this expedition, so nothing is theirs" },
+    { who: "quartermaster", text: "Not one of the crew who were sent out either" },
+    { who: "scribe", text: "short" },
+  ]); });
+  assert.deepEqual(added.map((p) => p.kind === "keep" && [p.where, p.text, p.run]), [["agent:artificer", "Check a browser API exists in the server build before using it in shared code", "x1"]]);
+  assert.ok(asked.includes(late), "the whole report, from the transcript, not the log's first 300 characters");
+  assert.ok(asked.includes("Intl.DurationFormat") && asked.includes("Then was asked"), "being sent back is part of what's read");
+  assert.ok(asked.includes("Scribe (id: scribe)") && asked.includes("Run the typecheck before reporting"));
+  assert.ok(!asked.includes("Another expedition"), "only this expedition's quests");
+  assert.deepEqual(await k.suggestCrewKeeps(run, async () => '[{"who":"artificer","text":"Check a browser API exists in the server build before using it in shared code"}]'), [], "already waiting");
+  assert.deepEqual(await k.suggestCrewKeeps({ run: "nobody-went" }, async () => { throw new Error("not asked when nobody was sent out"); }), []);
+
+  // After the run itself: the Quartermaster's answer and the crew's work are each read once, and
+  // a crew member's memory that's nearly full is offered a tidy like the Quartermaster's own.
+  for (const p of k.proposals()) k.settleProposal(p.id, "dismiss");
+  setMemoryCare({ suggest: true, tidy: true });
+  writeMemory("scribe", Array.from({ length: 50 }, (_, i) => `- 2026-03-01 A long lesson ${i}: ${"y".repeat(80)}`).join("\n"));
+  const systems: string[] = [];
+  await k.afterRun({ run: "x1", who: "quartermaster", project: web.id, task: "Add an export button", reply: "The export button is in the history menu, with a release note written for it." }, async (system) => {
+    systems.push(system);
+    return /tidy/i.test(system) ? "- 2026-04-01 Everything, merged" : /Specialists/.test(system) ? '[{"who":"scribe","text":"Match the changelog\'s voice when writing release notes"}]' : "[]";
+  });
+  assert.equal(systems.filter((s) => /Specialists/.test(s)).length, 1);
+  assert.ok(k.proposals().some((p) => p.kind === "keep" && p.where === "agent:scribe"));
+  assert.ok(k.proposals().some((p) => p.kind === "tidy" && p.where === "agent:scribe"));
+  // A direct run sends nobody out: nothing more is asked than before.
+  let direct = 0;
+  await k.afterRun({ run: "x1-direct", who: "scout", project: "general", task: "Look something up", reply: "Here is a long enough answer about what was found in the sources." }, async () => { direct++; return "[]"; });
+  assert.equal(direct, 1);
+  for (const p of k.proposals()) k.settleProposal(p.id, "dismiss");
   setMemoryCare({ suggest: false });
 });

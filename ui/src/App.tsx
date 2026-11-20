@@ -114,12 +114,14 @@ export function App({ store }: { store: FeedStore }) {
   // The trail map (trail/Trail.tsx): the Quartermaster's plan as a trail, over the whole page. It and Orbit take the same
   // place, so opening one closes the other.
   const [trail, setTrail] = useState(false);
-  const toggleOrbit = useCallback(() => { setTrail(false); setOrbit((on) => (on ? false : "live")); }, []);
-  const closeOrbit = useCallback(() => setOrbit(false), []);
-  const toggleTrail = useCallback(() => { setOrbit(false); setTrail((on) => !on); }, []);
-  const closeTrail = useCallback(() => setTrail(false), []);
   // The memory map (constellation/Constellation.tsx): every remembered line a star, over the whole page. /constellation opens it.
   const [constellation, setConstellation] = useState(false);
+  // All three are in the Arcade menu in the top bar, and one is open at a time.
+  const toggleOrbit = useCallback(() => { setTrail(false); setConstellation(false); setOrbit((on) => (on ? false : "live")); }, []);
+  const closeOrbit = useCallback(() => setOrbit(false), []);
+  const toggleTrail = useCallback(() => { setOrbit(false); setConstellation(false); setTrail((on) => !on); }, []);
+  const closeTrail = useCallback(() => setTrail(false), []);
+  const toggleConstellation = useCallback(() => { setOrbit(false); setTrail(false); setConstellation((on) => !on); }, []);
   const closeConstellation = useCallback(() => setConstellation(false), []);
 
   const setView = useCallback((v: View) => {
@@ -422,7 +424,7 @@ export function App({ store }: { store: FeedStore }) {
   }, []);
   const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
     ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
-      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "trail" ? "trail" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
+      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "trail" ? "trail" : c.name === "constellation" ? "spark" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
       label: c.does, hint: `/${c.name}`, run: () => act.current.command(c.name),
     })),
     ...S.history.conversations.map((c): PaletteItem => ({
@@ -516,7 +518,7 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
-            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} />
+            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={constellation} onConstellation={toggleConstellation} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {

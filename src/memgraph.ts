@@ -9,6 +9,9 @@
 //              Each line keeps its three strongest, so one common subject doesn't tie the map in a knot.
 //   together   two lines were used in the same run, at least twice.
 //
+// It also lists the runs that used a line that's still on the map, newest first, each with the
+// lines it used: the Constellation's sidebar shows the map one run (or a few) at a time from that.
+//
 // buildGraph and whyOf are pure: they're given the places, the recalls and a way to name a run's
 // conversation. memoryGraph and memoryWhy at the bottom hand them the camp's own.
 
@@ -32,8 +35,11 @@ export type GraphNode = {
   lastThread?: { id: string; title?: string };  // the conversation it was last used in, when that's known
 };
 export type GraphEdge = { a: string; b: string; kind: "alike" | "together"; weight: number };
+// A run that used memory: when it last did, the lines it used that are still on the map (their ids), and its conversation when that's known.
+export type GraphRun = { id: string; time: string; lines: string[]; thread?: { id: string; title?: string } };
 // since: when the recall log's oldest entry is from (nothing before that is known).
-export type MemoryGraph = { nodes: GraphNode[]; edges: GraphEdge[]; since?: string };
+// runs: newest first, and left out when no run has used a line that's on the map.
+export type MemoryGraph = { nodes: GraphNode[]; edges: GraphEdge[]; since?: string; runs?: GraphRun[] };
 export type Why = { time: string; how: RecallHow; score?: number; run?: string; thread?: string; title?: string };
 type ThreadOf = (run: string) => { id: string; title?: string } | undefined;
 
@@ -46,6 +52,7 @@ export const ALIKE_AT = 0.3;
 const ALIKE_EACH = 3;      // the strongest alike joins a line keeps
 const TOGETHER_AT = 2;     // runs two lines must share to be joined as used together
 const TOGETHER_EACH = 4;   // the strongest of those a line keeps
+export const RUNS_MOST = 100; // the newest runs that are listed
 const RUN_LINES = 40;      // lines of one run that are paired up (a run that used more says little about any two of them)
 
 export const nodeId = (where: Where, line: string) => "m" + createHash("sha1").update(`${where}\n${norm(line)}`).digest("hex").slice(0, 12);
@@ -68,6 +75,7 @@ export function buildGraph(places: GraphPlace[], recalls: readonly Recall[], thr
   // How often each line was used, when last, and in which conversation (the log is oldest first).
   const used = new Map<string, { n: number; last: string; thread?: { id: string; title?: string } }>();
   const runs = new Map<string, Set<string>>();
+  const ranAt = new Map<string, string>(); // when each run last used a line
   for (const r of recalls) {
     const id = nodeId(r.where, r.key);
     const u = used.get(id) ?? { n: 0, last: r.time };
@@ -76,7 +84,10 @@ export function buildGraph(places: GraphPlace[], recalls: readonly Recall[], thr
     const thread = r.run ? threadOf(r.run) : undefined;
     if (thread) u.thread = thread;
     used.set(id, u);
-    if (r.run) runs.set(r.run, (runs.get(r.run) ?? new Set()).add(id));
+    if (r.run) {
+      runs.set(r.run, (runs.get(r.run) ?? new Set()).add(id));
+      if (r.time >= (ranAt.get(r.run) ?? "")) ranAt.set(r.run, r.time);
+    }
   }
 
   const nodes: GraphNode[] = [];
@@ -106,7 +117,14 @@ export function buildGraph(places: GraphPlace[], recalls: readonly Recall[], thr
   }
   const together: GraphEdge[] = [...shared].filter(([, n]) => n >= TOGETHER_AT).map(([k, n]) => { const [a, b] = k.split(" "); return { a, b, kind: "together", weight: n }; });
 
-  return { nodes, edges: [...strongest(alike, ALIKE_EACH), ...strongest(together, TOGETHER_EACH)], ...(recalls.length ? { since: recalls[0].time } : {}) };
+  // The runs, newest first, each with its lines in the map's own order. A run whose lines have all gone since isn't listed.
+  const order = new Map(nodes.map((n, i) => [n.id, i]));
+  const listed: GraphRun[] = [...runs].map(([id, ids]) => {
+    const thread = threadOf(id);
+    return { id, time: ranAt.get(id)!, lines: [...ids].filter((l) => seen.has(l)).sort((x, y) => order.get(x)! - order.get(y)!), ...(thread ? { thread } : {}) };
+  }).filter((r) => r.lines.length).sort((x, y) => y.time.localeCompare(x.time) || x.id.localeCompare(y.id)).slice(0, RUNS_MOST);
+
+  return { nodes, edges: [...strongest(alike, ALIKE_EACH), ...strongest(together, TOGETHER_EACH)], ...(recalls.length ? { since: recalls[0].time } : {}), ...(listed.length ? { runs: listed } : {}) };
 }
 
 // One line's recalls, newest first: when, how, how well it matched, and in which conversation.

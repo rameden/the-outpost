@@ -10,10 +10,11 @@
 //   - one that started but has no outcome: the tool's own reconcile check settles it if it has one
 //     (an idempotency key, or something it can look at); otherwise it's not run, and the crew is
 //     told to check before trying again (the next identical call then runs).
-// The journal lives in camp/ops/<task>.jsonl.
+// The journal lives in camp/ops/<task>.jsonl. One that nothing can be picked up from any more is
+// removed once it has sat untouched for a week (pruneJournals, below).
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { appendLine } from "./atomic.js";
 import { autoApproval } from "./shell.js";
 import type { Tool, ToolOutput } from "./tools.js";
@@ -56,6 +57,17 @@ export type Reconciled = { state: "done"; result: string } | { state: "not_done"
 
 const live = new Set<string>(); // runs going right now in this process: never someone else's to take over
 
+// A journal as it's on record. A line torn by a crash, or that isn't a record at all, is skipped.
+const readJournal = (path: string): Rec[] => existsSync(path)
+  ? readFileSync(path, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l) as Rec; return r && typeof r === "object" ? [r] : []; } catch { return []; } })
+  : [];
+// The latest run in a journal (other than `not`: the run that's reading it), and whether it ended.
+// It's the only run anything is ever picked up from, and only if it never ended.
+function latestRun(recs: Rec[], not?: string): { run: string; ended: boolean } | null {
+  const run = recs.filter((r) => r.kind === "run_start" && r.run !== not).at(-1)?.run;
+  return run ? { run, ended: recs.some((r) => r.kind === "run_end" && r.run === run) } : null;
+}
+
 // Same input, same text: keys sorted, so {a,b} and {b,a} are one operation.
 export function canonical(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
@@ -73,16 +85,12 @@ export class OpJournal {
   // if it was the latest run of this task and never finished.
   constructor(readonly task: string, readonly run: string, continues?: string) {
     this.path = `${OPS_DIR}/${task.replace(/[^\w.-]+/g, "_").slice(0, 120)}.jsonl`;
-    const recs: Rec[] = existsSync(this.path)
-      ? readFileSync(this.path, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l) as Rec]; } catch { return []; } })
-      : [];
+    const recs = readJournal(this.path);
     // Only the latest run before this one, and only if it never finished: that's the run being continued.
-    const starts = recs.filter((r) => r.kind === "run_start" && r.run !== run).map((r) => r.run);
-    const last = starts.at(-1);
-    const ended = last && recs.some((r) => r.kind === "run_end" && r.run === last);
-    if (last && !ended && !live.has(last) && continues && last.startsWith(`${continues}:`)) {
+    const last = latestRun(recs, run);
+    if (last && !last.ended && !live.has(last.run) && continues && last.run.startsWith(`${continues}:`)) {
       for (const r of recs) {
-        if (r.run !== last || !("op" in r)) continue;
+        if (r.run !== last.run || !("op" in r)) continue;
         const slot = this.prior.get(r.op) ?? {};
         if (r.kind === "started") slot.started = true;
         if (r.kind === "done") slot.done = { result: r.result, ...(r.failed ? { failed: true } : {}) };
@@ -95,7 +103,7 @@ export class OpJournal {
     mkdirSync(OPS_DIR, { recursive: true });
     appendLine(this.path, JSON.stringify(r));
   }
-  begin() { live.add(this.run); this.write({ kind: "run_start", run: this.run, at: Date.now() }); }
+  begin() { live.add(this.run); this.write({ kind: "run_start", run: this.run, at: Date.now() }); sweep(); }
   // A run that ended on its own terms (done, stopped, out of turns…): nothing of it is continued.
   end() { live.delete(this.run); this.write({ kind: "run_end", run: this.run, at: Date.now() }); }
   // A run that failed part-way: left open, so a run that continues it can reuse what it did.
@@ -112,6 +120,52 @@ export class OpJournal {
     this.write({ kind: "done", run: this.run, op, tool, at: Date.now(), result: textOf(out).slice(0, 20_000), ...(failed ? { failed: true } : {}) });
   }
   surfaced(op: string) { this.write({ kind: "surfaced", run: this.run, op, at: Date.now() }); }
+}
+
+// ---------- Old journals ----------
+// There's a journal for every task a crew member is given, and each is read for one thing only:
+// what its latest run did, if that run never ended. So a journal whose latest run ended, or broke
+// off before it had changed anything, holds nothing a later run can use, and it goes once it has
+// sat untouched for JOURNAL_KEEP_DAYS. One whose latest run broke off part-way through its changes
+// is what a reply to that run picks up from, however long after: that one is never removed here.
+export const JOURNAL_KEEP_DAYS = 7;
+const SWEEP_EVERY = 6 * 3_600_000; // how often old journals are looked for (as a run begins)
+const DAY = 86_400_000;
+
+// Whether a later run could still pick something up from this journal.
+function resumable(recs: Rec[]): boolean {
+  const last = latestRun(recs);
+  return !!last && !last.ended && recs.some((r) => r.run === last.run && "op" in r);
+}
+// Remove the journals nothing can be picked up from. Never one that was written to within the
+// keeping time (a run may be going in it, here or in another camp process), nor one of a run going now.
+export function pruneJournals(now = Date.now()): { files: number; bytes: number } {
+  const gone = { files: 0, bytes: 0 };
+  let names: string[];
+  try { names = readdirSync(OPS_DIR); } catch { return gone; } // none yet
+  for (const name of names) {
+    if (!name.endsWith(".jsonl")) continue;
+    const path = `${OPS_DIR}/${name}`;
+    try {
+      const st = statSync(path);
+      if (!st.isFile() || now - st.mtimeMs < JOURNAL_KEEP_DAYS * DAY) continue;
+      const recs = readJournal(path);
+      if (resumable(recs) || recs.some((r) => live.has(r.run))) continue;
+      if (statSync(path).mtimeMs !== st.mtimeMs) continue; // written to while it was being read: in use after all
+      rmSync(path);
+      gone.files++;
+      gone.bytes += st.size;
+    } catch { /* gone meanwhile, or not to be read: left as it is */ }
+  }
+  return gone;
+}
+// Looked for as a run begins, a few times a day at most. Never a reason for the run to fail.
+const swept = new Map<string, number>(); // camp folder → when its old journals were last looked for
+function sweep(now = Date.now()) {
+  const camp = process.cwd();
+  if (now - (swept.get(camp) ?? -Infinity) < SWEEP_EVERY) return;
+  swept.set(camp, now);
+  try { pruneJournals(now); } catch { /* a journal left lying is no loss */ }
 }
 
 // A tool whose every call is journaled. notice: what to tell the feed when a call is reused or held back.

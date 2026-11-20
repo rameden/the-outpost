@@ -1,5 +1,7 @@
 // Where each star goes. Lines that live in the same place (one crew member's memory, one project's
 // notes, the note about you) make one cluster, and the clusters stand in a ring round the centre.
+// The ring is a rounded rectangle, wider than it's tall, as a page is (or, on an upright page,
+// taller than it's wide): the map fills the page, so it can be drawn bigger and still be seen whole.
 //
 // Nothing here moves once it's drawn, and nothing is random: a star starts where its own id puts
 // it, and a fixed number of steps then spread the stars of a cluster apart and draw joined ones
@@ -16,6 +18,30 @@ const STEPS = 90;      // relaxation steps: always this many
 const GAP = 34;        // the room a star likes round itself
 const BETWEEN = 70;    // the room between two clusters
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+const WIDE = 1.6;      // the ring is this many times wider than it's tall (or, upright, taller than it's wide)
+const SQUARE = 2.6;    // how square its corners are: 2 would be an ellipse, more is nearer a rectangle
+const RING_N = 720;    // the points the ring is measured by
+
+// The ring, one unit each way from the middle along its short side: its points, clockwise from the
+// top, and how far round each is. A cluster is put by how far round it is, not by its angle, so the
+// clusters are spread as evenly along the long sides as round the ends.
+type Ring = { at: [number, number][]; far: number[]; round: number };
+function ringOf(upright: boolean): Ring {
+  const bend = (v: number) => Math.sign(v) * Math.abs(v) ** (2 / SQUARE), w = upright ? 1 : WIDE, h = upright ? WIDE : 1;
+  const at = Array.from({ length: RING_N + 1 }, (_, k): [number, number] => { const t = -Math.PI / 2 + (k / RING_N) * 2 * Math.PI; return [w * bend(Math.cos(t)), h * bend(Math.sin(t))]; });
+  const far = [0];
+  for (let k = 1; k <= RING_N; k++) far.push(far[k - 1] + Math.hypot(at[k][0] - at[k - 1][0], at[k][1] - at[k - 1][1]));
+  return { at, far, round: far[RING_N] };
+}
+const RINGS = { wide: ringOf(false), upright: ringOf(true) };
+// The point a share of the way round it (0 and 1 are both the top).
+function onRing(RING: Ring, share: number): [number, number] {
+  const want = (share - Math.floor(share)) * RING.round;
+  let k = 1;
+  while (k < RING_N && RING.far[k] < want) k++;
+  const t = (want - RING.far[k - 1]) / (RING.far[k] - RING.far[k - 1] || 1), [x0, y0] = RING.at[k - 1], [x1, y1] = RING.at[k];
+  return [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t];
+}
 
 // A star is bigger the more often its line was used: 4 for never, growing by the root so that one
 // much-used line doesn't swallow its neighbours.
@@ -30,7 +56,9 @@ export function seeded(text: string): number {
 }
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export function layout(nodes: LayNode[], edges: LayEdge[]): Layout {
+// upright: the page is taller than it's wide, so the ring is too.
+export function layout(nodes: LayNode[], edges: LayEdge[], upright = false): Layout {
+  const RING = upright ? RINGS.upright : RINGS.wide;
   // The places, in the order they first appear; the stars of each, in the order of their ids.
   const groups = new Map<string, LayNode[]>();
   for (const n of nodes) groups.set(n.where, [...(groups.get(n.where) ?? []), n]);
@@ -40,10 +68,10 @@ export function layout(nodes: LayNode[], edges: LayEdge[]): Layout {
   // The ring: each cluster takes a share of it by its size, and the ring grows until none overlap.
   if (clusters.length > 1) {
     const around = clusters.reduce((sum, c) => sum + 2 * c.r + BETWEEN, 0);
-    let ring = around / (2 * Math.PI);
-    let angle = -Math.PI / 2;
-    const angles = clusters.map((c) => { const share = ((2 * c.r + BETWEEN) / around) * 2 * Math.PI; const here = angle + share / 2; angle += share; return here; });
-    const put = () => clusters.forEach((c, i) => { c.x = ring * Math.cos(angles[i]); c.y = ring * Math.sin(angles[i]); });
+    let ring = around / RING.round; // half the ring's short side
+    let gone = 0;
+    const spots = clusters.map((c) => { const share = (2 * c.r + BETWEEN) / around, here = onRing(RING, gone + share / 2); gone += share; return here; });
+    const put = () => clusters.forEach((c, i) => { c.x = ring * spots[i][0]; c.y = ring * spots[i][1]; });
     const overlap = () => clusters.some((p, i) => clusters.some((q, j) => j > i && Math.hypot(p.x - q.x, p.y - q.y) < p.r + q.r + BETWEEN * 0.6));
     put();
     for (let n = 0; n < 60 && overlap(); n++) { ring *= 1.08; put(); }

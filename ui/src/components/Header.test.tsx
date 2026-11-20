@@ -129,6 +129,35 @@ test("focus mode: one button closes the panels, and shows when they're closed", 
   expect(screen.getByRole("menuitemcheckbox", { name: "Focus mode" }).getAttribute("aria-checked")).toBe("true");
 });
 
+test("the Arcade menu holds Orbit, the trail map, the constellation and Barnstorm, and is lit while one is open", () => {
+  const onOrbit = vi.fn(), onTrail = vi.fn(), onConstellation = vi.fn(), onBarnstorm = vi.fn();
+  const on = { onOrbit, onTrail, onConstellation, onBarnstorm };
+  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} />);
+  const arcade = screen.getByRole("button", { name: "Arcade" });
+  expect(arcade.classList.contains("on")).toBe(false);
+  expect(screen.queryByRole("button", { name: "Orbit" })).toBeNull(); // none of them has a button of its own in the bar
+  fireEvent.click(arcade);
+  const menu = screen.getByRole("menu", { name: "Arcade" });
+  expect(within(menu).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit", "Trail map", "Constellation", "Barnstorm"]);
+  fireEvent.click(within(menu).getByRole("menuitemcheckbox", { name: "Constellation" }));
+  expect(onConstellation).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("menu", { name: "Arcade" })).toBeNull(); // picking shuts the menu
+  fireEvent.click(arcade);
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Trail map" }));
+  fireEvent.click(arcade);
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Orbit" }));
+  expect([onOrbit, onTrail, onBarnstorm].map((f) => f.mock.calls.length)).toEqual([1, 1, 0]);
+  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} constellation />);
+  expect(arcade.classList.contains("on")).toBe(true);
+  fireEvent.click(arcade);
+  expect(screen.getByRole("menuitemcheckbox", { name: "Leave the constellation" }).getAttribute("aria-checked")).toBe("true");
+});
+
+test("with nothing to open, there's no Arcade menu", () => {
+  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  expect(screen.queryByRole("button", { name: "Arcade" })).toBeNull();
+});
+
 test("what needs you is one chip: several things open a list, and each row goes to its own", () => {
   const onNeed = vi.fn(), onSeenAll = vi.fn();
   const need = (kind: string, conversation: string, title: string, says: string) => ({ key: `${kind}:${conversation}`, kind, conversation, title, says }) as Need;
