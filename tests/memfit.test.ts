@@ -78,6 +78,58 @@ test("a heading comes along with the lines kept from under it, and only then", (
   assert.ok(!fitMemory(text, 5000, "").text.includes("## Deploys"));
 });
 
+// A crew member's brief from the Quartermaster runs to hundreds of words, and shares a few with
+// every line of a working memory. Being loaded "because it bears on this request" has to mean more
+// than that.
+const NOTES = [
+  "- 2026-02-01 In the billing repo the shell can't see the links folder: use the real path when you run a command there.",
+  "- 2026-02-02 Jest path patterns are regexes: escape the brackets in a folder name or the test run matches no file.",
+  "- 2026-02-03 The bash tool may run bash rather than zsh: check which shell you're in before you use an array.",
+  "- 2026-02-04 Before trusting a lint run that reports nothing, check the formatter really ran on the changed file.",
+  "- 2026-02-05 Signed commits work from the bash tool when the agent socket is exported: check the signature after you commit on a branch.",
+  "- 2026-02-06 After a pull in a pnpm repo, check whether the lockfile changed and install before you run a test.",
+  "- 2026-02-07 Never replace a generic line pattern across a repo with sed: check each file it would change first.",
+  "- 2026-02-08 The outputs folder is read-only: write a deliverable file to your own folder and report the path.",
+  "- 2026-02-09 When you add a block to a big script, check each new name against the ones already in the file, then run it, then check the page it runs on, the path it's loaded from, the branch it ships on and the test that covers it, and report every change you made to the repo so the next run of the tool starts from a file that is known to work.",
+  "- 2026-02-10 Browser checks: launch Chromium headless through playwright, and take a screenshot at the phone viewport as well as the desktop one.",
+  "- 2026-02-11 To measure overflow in the browser, compare scrollWidth with clientWidth on the header at each viewport.",
+  "- 2026-02-12 Starting a second view transition in Chromium before the first one's callback has run skips the animation.",
+];
+const BRIEF =
+  "GOAL: verify, in a real browser, the new toggle on the static site. Open the page in Chromium headless through playwright at the desktop viewport " +
+  "and at the phone viewport, and take a screenshot of each. Check that the header does not overflow at either viewport (measure it: don't judge by eye), " +
+  "that the toggle keeps its state after a reload, and that the view transition plays when it's switched. Then run the test file for the toggle and check it passes. " +
+  "CONTEXT: the repo is on the branch for this change; don't commit, and don't change a file outside the site's folder. The shell you run in is the bash tool. " +
+  "If a check fails, report the path of the file and the line, and what you'd change. If playwright isn't installed in the repo, install it and say so. " +
+  "DONE WHEN: both screenshots are saved to your own folder, the overflow measurement at each viewport is in your report, and the test run is green. " +
+  "REPORT: what you ran, what you saw in the browser at each viewport, the path of each screenshot, and anything in the page that looked wrong.";
+
+test("a long brief: only the lines that stand out from the rest bear on it, and a long line gains nothing by its length", () => {
+  const text = NOTES.join("\n");
+  const everyLine = NOTES.every((n) => [...wordsOf(n)].filter((w) => wordsOf(BRIEF).has(w)).length >= 2);
+  assert.ok(everyLine, "the brief shares words with every line (or this test isn't testing anything)");
+  const fit = fitMemory(text, Infinity, BRIEF);
+  const browser = [9, 10]; // playwright and the viewports, measuring overflow
+  for (const i of browser) assert.ok(fit.relevant.has(i), `the line about the browser is one that bears on it: ${NOTES[i].slice(13, 60)}`);
+  assert.ok(fit.relevant.size <= NOTES.length / 2, `no more than half the lines bear on any one request (${fit.relevant.size} of ${NOTES.length} did)`);
+  assert.ok(!fit.relevant.has(1) && !fit.relevant.has(6), "a line that shares only the brief's everyday words doesn't");
+  // The long line shares more words with the brief than any other but one, and all of them are everyday ones.
+  const shared = (n: string) => [...wordsOf(n)].filter((w) => wordsOf(BRIEF).has(w)).length;
+  assert.ok(shared(NOTES[8]) > shared(NOTES[10]));
+  assert.ok(!fit.relevant.has(8), "its length doesn't make it one that bears on the brief");
+
+  // With room for about half of it, the old lines that are loaded are the ones about the browser:
+  // put them first (the oldest), so they're only there if the brief earned them their place.
+  const turned = [...browser.map((i) => NOTES[i]), ...NOTES.filter((_, i) => !browser.includes(i))].join("\n");
+  const tight = fitMemory(turned, Math.round(turned.length * 0.6), BRIEF);
+  assert.equal(tight.whole, false);
+  for (const i of [0, 1]) assert.ok(tight.shown.has(i) && !tight.always.has(i), "loaded, and for this brief");
+
+  // A short request is judged as it always was: one telling word is enough, and nothing else is pulled in.
+  const short = fitMemory(text, Infinity, "why did the lint run report nothing?");
+  assert.deepEqual([...short.relevant.keys()], [3]);
+});
+
 test("taking a line apart, pinning it, and matching words by their roots", () => {
   assert.deepEqual(parseEntry(`- 2026-01-02 ${PIN} Keep it short`), { date: "2026-01-02", pinned: true, text: "Keep it short" });
   assert.deepEqual(parseEntry("- No date"), { pinned: false, text: "No date" });

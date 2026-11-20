@@ -3,6 +3,7 @@
 // that agent's next quest without restarting anything. Anything not set falls back to the
 // defaults in code (roster.ts / quartermaster.ts).
 
+import { statSync } from "node:fs";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { emit } from "./events.js";
 import type { CrewId } from "./crew.js";
@@ -60,21 +61,49 @@ export type JiraWrite = { on?: boolean; startStatus?: string; reviewStatus?: str
 // script that has changed since asks again). Otherwise just a command prefix, like "pnpm add".
 export type SkillCommand = { prefix: string; file?: string; sha256?: string };
 
-function load(): Settings {
+// The file is parsed once and kept until it changes: one refresh of the page asks for a setting
+// dozens of times, every command asks again, and the file holds every "always allow" you've given.
+// The file's stamp is taken on every call (before it's read, so a change in between is caught the
+// next time), which is how an edit by hand or by another camp process is picked up. The folder is
+// in the stamp too, so a camp somewhere else (each test file has its own) never sees this one's.
+// A write that replaces the file (atomic.ts) is a new file, which is what the inode is there to tell.
+let cache: { stamp: string; s: Settings } | null = null;
+function stampOf(): string {
+  let st;
+  try { st = statSync(SETTINGS_PATH, { throwIfNoEntry: false }); } catch { /* can't be looked at: as good as missing */ }
+  return `${process.cwd()}|${st ? `${st.mtimeMs}:${st.size}:${st.ino}` : "none"}`;
+}
+// What's kept is frozen all the way down, so nothing given it can change what the next caller reads.
+function frozen<T>(v: T): T {
+  if (v && typeof v === "object" && !Object.isFrozen(v)) { Object.freeze(v); for (const x of Object.values(v)) frozen(x); }
+  return v;
+}
+// A part of the settings that's the caller's own, to keep or change as it likes.
+const own = <T>(v: T): T => structuredClone(v);
+
+// The settings as they are, to look at: shared, and frozen. Anything handed on from here that
+// isn't a plain value goes through own().
+function read(): Settings {
+  const stamp = stampOf();
+  if (cache?.stamp === stamp) return cache.s;
   // A settings file that can't be parsed is kept aside before the defaults take over (atomic.ts),
   // so a hand-edit typo never costs you your rules. The defaults ask before any command that isn't
   // plainly read-only, so losing the file never loosens what runs without you.
   const s = readJsonFile(SETTINGS_PATH, null) as Settings | null;
-  if (!s || typeof s !== "object" || Array.isArray(s)) return { agents: {} };
-  return { ...s, agents: s.agents ?? {} };
+  const usable = !!s && typeof s === "object" && !Array.isArray(s);
+  cache = { stamp, s: frozen(usable ? { ...s!, agents: s!.agents ?? {} } : { agents: {} }) };
+  return cache.s;
 }
+// The settings to change and save: a copy, so a change that's never saved (or a save that fails) leaves no trace.
+const load = (): Settings => own(read());
 
 function save(s: Settings) {
   writeJsonAtomic(SETTINGS_PATH, s, { mode: 0o600 }); // it can hold your phone topic: yours to read, nobody else's
+  cache = null; // read back from the file, so what's kept is always what's on disk
   emit({ type: "changed", what: "settings" });
 }
 
-export const budgetUsd = () => load().budgetUsd;
+export const budgetUsd = () => read().budgetUsd;
 export function setBudgetUsd(value: number | null) {
   const s = load();
   if (value && value > 0) s.budgetUsd = Math.round(value * 100) / 100;
@@ -86,18 +115,18 @@ export function setBudgetUsd(value: number | null) {
 // More at once uses up a subscription's limits (or API spend) faster.
 export const PARALLEL_DEFAULT = 3;
 export const PARALLEL_MAX = 8;
-export const parallelLimit = () => Math.min(PARALLEL_MAX, Math.max(1, Math.round(load().parallel ?? PARALLEL_DEFAULT)));
+export const parallelLimit = () => Math.min(PARALLEL_MAX, Math.max(1, Math.round(read().parallel ?? PARALLEL_DEFAULT)));
 export function setParallelLimit(n: number) {
   const s = load();
   s.parallel = Math.min(PARALLEL_MAX, Math.max(1, Math.round(n)));
   save(s);
 }
 
-export const shellSettings = (): ShellSettings => load().shell ?? {};
+export const shellSettings = (): ShellSettings => own(read().shell ?? {});
 
 // How long an upload nothing uses any more is kept, in days. Null: for good (the default).
 export const UPLOAD_DAYS_MAX = 3650;
-export const uploadKeepDays = (): number | null => { const d = load().uploads?.keepDays; return typeof d === "number" && d >= 1 ? Math.min(UPLOAD_DAYS_MAX, Math.round(d)) : null; };
+export const uploadKeepDays = (): number | null => { const d = read().uploads?.keepDays; return typeof d === "number" && d >= 1 ? Math.min(UPLOAD_DAYS_MAX, Math.round(d)) : null; };
 export function setUploadKeepDays(days: number | null) {
   const s = load();
   if (days && days >= 1) s.uploads = { keepDays: Math.min(UPLOAD_DAYS_MAX, Math.round(days)) };
@@ -107,11 +136,11 @@ export function setUploadKeepDays(days: number | null) {
 
 // When a model declines a request (its safety checks, not an error), let another Claude model
 // carry on instead of ending the run (agent.ts). On unless you set "refusalFallback": false.
-export const refusalFallbackOn = () => load().refusalFallback !== false;
+export const refusalFallbackOn = () => read().refusalFallback !== false;
 
 // The theme pack (packs.ts). Anything unknown, or nothing, is the Guild. crew.ts puts it on the
 // crew (setPack there is what the page calls): this only keeps the choice.
-export const packId = (): string => { const id = load().pack; return isPack(id) ? id : DEFAULT_PACK; };
+export const packId = (): string => { const id = read().pack; return isPack(id) ? id : DEFAULT_PACK; };
 export function setPackId(id: string) {
   if (!isPack(id)) throw new Error(`No theme pack called "${id}".`);
   const s = load();
@@ -138,7 +167,7 @@ export function setShellSandbox(on: boolean) {
 // Dispatched quests running at once, camp-wide. One Quartermaster can send several adventurers
 // in a turn, and several expeditions can run side by side; this caps the total.
 export const QUESTS_DEFAULT = 4;
-export const questLimit = () => Math.min(16, Math.max(1, Math.round(load().questsAtOnce ?? QUESTS_DEFAULT)));
+export const questLimit = () => Math.min(16, Math.max(1, Math.round(read().questsAtOnce ?? QUESTS_DEFAULT)));
 
 export const QUESTS_MAX = 16;
 export function setQuestLimit(n: number) {
@@ -149,7 +178,7 @@ export function setQuestLimit(n: number) {
 
 // The Jira tickets the camp pulls in (the Jira page, and the attach menu's first list), as JQL.
 export const JIRA_FILTER_DEFAULT = "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC";
-export const jiraFilter = () => load().jiraFilter?.trim() || JIRA_FILTER_DEFAULT;
+export const jiraFilter = () => read().jiraFilter?.trim() || JIRA_FILTER_DEFAULT;
 export function setJiraFilter(jql: string) {
   const s = load();
   const clean = jql.trim();
@@ -160,14 +189,14 @@ export function setJiraFilter(jql: string) {
 // When your checks fail after a quest, the same adventurer is sent back to fix them, this many times at most.
 export const FIX_ATTEMPTS_DEFAULT = 1;
 export const FIX_ATTEMPTS_MAX = 3;
-export const fixAttempts = () => Math.min(FIX_ATTEMPTS_MAX, Math.max(0, Math.round(load().fixAttempts ?? FIX_ATTEMPTS_DEFAULT)));
+export const fixAttempts = () => Math.min(FIX_ATTEMPTS_MAX, Math.max(0, Math.round(read().fixAttempts ?? FIX_ATTEMPTS_DEFAULT)));
 export function setFixAttempts(n: number) {
   const s = load();
   s.fixAttempts = Math.min(FIX_ATTEMPTS_MAX, Math.max(0, Math.round(n)));
   save(s);
 }
 // A second pair of eyes on changes before they're reported. Off unless you turn it on: it's another quest's worth of usage.
-export const reviewChangesOn = () => load().reviewChanges === true;
+export const reviewChangesOn = () => read().reviewChanges === true;
 export function setReviewChanges(on: boolean) {
   const s = load();
   if (on) s.reviewChanges = true; else delete s.reviewChanges;
@@ -188,7 +217,7 @@ export function setReviewChanges(on: boolean) {
 export type Drive = { brief: boolean; briefAt: string; retro: boolean; debrief: boolean; night?: boolean; nightFrom?: string; nightTo?: string };
 const CLOCK = /^([01]?\d|2[0-3]):[0-5]\d$/;
 export function drive(): Drive {
-  const d = load().drive ?? {};
+  const d = read().drive ?? {};
   return { brief: d.brief !== false, briefAt: typeof d.briefAt === "string" && CLOCK.test(d.briefAt) ? d.briefAt.padStart(5, "0") : "08:00", retro: typeof d.retro === "boolean" ? d.retro : memoryCare().suggest, debrief: typeof d.debrief === "boolean" ? d.debrief : memoryCare().suggest,
     night: d.night === true, nightFrom: clock(d.nightFrom, "01:00"), nightTo: clock(d.nightTo, "05:00") };
 }
@@ -207,14 +236,14 @@ export function setDrive(c: { brief?: unknown; briefAt?: unknown; retro?: unknow
   save(s);
 }
 
-export const prWatchOn = () => load().prWatch !== false;
+export const prWatchOn = () => read().prWatch !== false;
 export function setPrWatch(on: boolean) {
   const s = load();
   if (on) delete s.prWatch; else s.prWatch = false;
   save(s);
 }
 
-export const jiraWrite = (): JiraWrite => load().jiraWrite ?? {};
+export const jiraWrite = (): JiraWrite => own(read().jiraWrite ?? {});
 export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; reviewStatus?: unknown; prStatus?: unknown; doneStatus?: unknown }) {
   const s = load();
   const name = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
@@ -227,7 +256,7 @@ export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; reviewSta
 // Other providers you've cleared for confidential work. By default a project marked confidential
 // (web: careful, or off) is never sent to another provider; one you've approved here is the exception.
 // It's your statement about your own agreement with that provider: the camp can't check it.
-export const providersApproved = (): string[] => load().providersApproved ?? [];
+export const providersApproved = (): string[] => own(read().providersApproved ?? []);
 export const providerApproved = (id: string) => providersApproved().includes(id);
 export function setProviderApproved(id: string, on: boolean) {
   const s = load();
@@ -240,7 +269,7 @@ export function setProviderApproved(id: string, on: boolean) {
 // The camp's own small jobs (naming a conversation, tidying a memory, suggesting what to keep)
 // go to the smallest Claude model unless you've pointed them somewhere else, such as a free model
 // from a provider you've connected, or "auto" (Auto picks the cheapest model that's up to each one: small.ts). Null: the default.
-export const autoExcluded = (): string[] => (Array.isArray(load().autoExclude) ? load().autoExclude!.filter((x) => typeof x === "string" && x) : []);
+export const autoExcluded = (): string[] => (Array.isArray(read().autoExclude) ? read().autoExclude!.filter((x) => typeof x === "string" && x) : []);
 // Take a model out of Auto's choices (on: false), or give it back (on: true).
 export function setAutoExcluded(model: string, on: boolean) {
   const s = load();
@@ -249,7 +278,7 @@ export function setAutoExcluded(model: string, on: boolean) {
   if (next.size) s.autoExclude = [...next].sort(); else delete s.autoExclude;
   save(s);
 }
-export const smallModel = (): string | null => load().smallModel ?? null;
+export const smallModel = (): string | null => read().smallModel ?? null;
 export function setSmallModel(model: string | null) {
   const s = load();
   if (model) s.smallModel = model; else delete s.smallModel;
@@ -260,7 +289,7 @@ export function setSmallModel(model: string | null) {
 // have the smallest model draft a merged version for you to approve (on unless you turn it off;
 // it runs rarely). suggest: after each run, have it propose up to three things worth keeping
 // (off unless you turn it on: it's a small call on every run).
-export const memoryCare = (): { tidy: boolean; suggest: boolean } => ({ tidy: load().memoryCare?.tidy !== false, suggest: load().memoryCare?.suggest === true });
+export const memoryCare = (): { tidy: boolean; suggest: boolean } => ({ tidy: read().memoryCare?.tidy !== false, suggest: read().memoryCare?.suggest === true });
 export function setMemoryCare(c: { tidy?: unknown; suggest?: unknown }) {
   const s = load();
   const now = memoryCare();
@@ -303,7 +332,7 @@ export function cleanTermActions(raw: unknown): TermAction[] {
     return { label, commands: lines, where, ...(folder ? { folder } : {}), ...(sub ? { sub } : {}), ...(a?.ask ? { ask: true } : {}) };
   });
 }
-export const termActions = (): TermAction[] => { try { return cleanTermActions(load().termActions ?? []); } catch { return []; } };
+export const termActions = (): TermAction[] => { try { return cleanTermActions(read().termActions ?? []); } catch { return []; } };
 export function setTermActions(raw: unknown): TermAction[] {
   const list = cleanTermActions(raw);
   const s = load();
@@ -314,7 +343,7 @@ export function setTermActions(raw: unknown): TermAction[] {
 
 // Skills a crew member always follows: their instructions go into every prompt in full, instead
 // of waiting to be opened when a task seems to match.
-export const alwaysSkills = (): Record<string, string[]> => load().alwaysSkills ?? {};
+export const alwaysSkills = (): Record<string, string[]> => own(read().alwaysSkills ?? {});
 export function setAlwaysSkills(all: Record<string, string[]>) {
   const s = load();
   const clean: Record<string, string[]> = {};
@@ -323,7 +352,7 @@ export function setAlwaysSkills(all: Record<string, string[]>) {
   save(s);
 }
 
-export const skillCommands = (): Record<string, SkillCommand[]> => load().skillCommands ?? {};
+export const skillCommands = (): Record<string, SkillCommand[]> => own(read().skillCommands ?? {});
 export function setSkillCommands(skill: string, commands: SkillCommand[] | null) {
   const s = load();
   const all = { ...(s.skillCommands ?? {}) };
@@ -332,14 +361,14 @@ export function setSkillCommands(skill: string, commands: SkillCommand[] | null)
   save(s);
 }
 
-export const autoTitlesOn = () => load().autoTitles === true;
+export const autoTitlesOn = () => read().autoTitles === true;
 export function setAutoTitles(on: boolean) {
   const s = load();
   if (on) s.autoTitles = true;
   else delete s.autoTitles;
   save(s);
 }
-export const selfEditAllowed = () => load().selfEdit === true;
+export const selfEditAllowed = () => read().selfEdit === true;
 export function setSelfEdit(on: boolean) {
   const s = load();
   if (on) s.selfEdit = true;
@@ -347,7 +376,7 @@ export function setSelfEdit(on: boolean) {
   save(s);
 }
 
-export const phoneSettings = (): PhoneSettings => load().phone ?? {};
+export const phoneSettings = (): PhoneSettings => own(read().phone ?? {});
 export function setPhoneSettings(p: PhoneSettings) {
   const s = load();
   if (p.topic || p.server || p.approve) s.phone = p;
@@ -415,7 +444,7 @@ export type Runtime = "claude-code" | "api";
 export function campRuntime(): Runtime {
   const env = process.env.CAMP_RUNTIME;
   if (env === "api" || env === "claude-code") return env;
-  return load().runtime ?? "claude-code";
+  return read().runtime ?? "claude-code";
 }
 export function setRuntime(runtime: Runtime) {
   const s = load();
@@ -424,7 +453,7 @@ export function setRuntime(runtime: Runtime) {
 }
 
 export function agentSettings(id: CrewId): AgentSettings {
-  return load().agents[id] ?? {};
+  return own(read().agents[id] ?? {});
 }
 
 // Set (or with an empty value, clear) an agent's model/effort/turn-limit override.

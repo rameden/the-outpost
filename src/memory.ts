@@ -5,7 +5,7 @@
 //   outputs/      their files and deliverables (only they write here)
 // Agents can read each other's outputs, but never each other's memory or sessions.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
 import { posix, resolve, sep } from "node:path";
 import { CREW, inPack, type CrewId } from "./crew.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
@@ -270,6 +270,44 @@ export function recentSessions(id: CrewId, n = 8): SessionLine[] {
   return hit.lines.slice(-n);
 }
 
+// The sessions a run may look back on, newest last: the ones recorded in the project it belongs
+// to, and the ones recorded with no project at all (from before sessions carried one, and from
+// jobs that belong to none). Another project's stay out, as they do everywhere else in the camp:
+// the digest in a prompt and recall both go by this.
+const GENERAL = "general"; // where a run with no project is filed (conversations.ts)
+export function sessionsHere(id: CrewId, n = 8): SessionLine[] {
+  const project = currentProjectId() ?? GENERAL;
+  return recentSessions(id, Infinity).filter((s) => !s.project || s.project === project).slice(-n);
+}
+
+// What was asked and answered in a session, in full. The index keeps the first 600 and 1500
+// characters, which is the opening of a brief and of a long reply; the transcript has the rest
+// while it's kept (TRANSCRIPTS_KEPT), and recall searches that. A transcript is written once and
+// never changed, so what's read from it is kept; only its head is read (the messages come after).
+const HEAD_BYTES = 96 * 1024;
+const fullText = new Map<string, { task: string; result: string } | null>();
+export function sessionText(s: Pick<SessionLine, "file" | "task" | "result">): { task: string; result: string } {
+  const at = `${process.cwd()}|${s.file}`;
+  let hit = fullText.get(at);
+  if (hit === undefined) {
+    hit = null;
+    try {
+      const fd = openSync(s.file, "r");
+      try {
+        const buf = Buffer.alloc(HEAD_BYTES);
+        const head = buf.toString("utf8", 0, readSync(fd, buf, 0, HEAD_BYTES, 0));
+        // Inside a JSON string a quote is escaped, so this can only be the key itself.
+        const cut = head.indexOf(',"messages":');
+        const t = cut >= 0 ? JSON.parse(head.slice(0, cut) + "}") : JSON.parse(readFileSync(s.file, "utf8"));
+        if (typeof t.task === "string" && typeof t.result === "string") hit = { task: t.task, result: t.result };
+      } finally { closeSync(fd); }
+    } catch { /* pruned, or not a transcript: the index line is what there is */ }
+    if (fullText.size > 4000) fullText.clear();
+    fullText.set(at, hit);
+  }
+  return hit ?? { task: s.task, result: s.result };
+}
+
 const SOURCE_LABEL: Record<SessionSource, string> = {
   user: "the user asked",
   direct: "the user messaged you directly",
@@ -281,8 +319,9 @@ const SOURCE_LABEL: Record<SessionSource, string> = {
 // What goes in the prompt: memory plus a digest of recent sessions, newest last.
 // The last three get more room, so follow-ups ("make it shorter") have the context they need.
 // task: the request this run is for, so an older memory line that bears on it is loaded too.
+// The sessions are this project's (sessionsHere): work in one project isn't carried into another's prompts.
 export function continuityBlock(id: CrewId, task = ""): string {
-  const sessions = recentSessions(id);
+  const sessions = sessionsHere(id);
   const digest = sessions
     .map((s, i) => {
       const recent = i >= sessions.length - 3;
@@ -293,7 +332,7 @@ export function continuityBlock(id: CrewId, task = ""): string {
   return (
     `## Your memory (camp/agents/${id}/memory.md; save to it with remember)\n${readMemory(id, task)}\n\n` +
     `## Your recent sessions (build on these; full transcripts are in camp/agents/${id}/sessions/)\n` +
-    (digest || "(none yet: this is your first session)") +
+    (digest || (recentSessions(id, 1).length ? "(none yet in this project)" : "(none yet: this is your first session)")) +
     `\nAnything older (earlier sessions, earlier conversations in this project, the wiki's text, memory that no longer fits above) can be searched with recall.` +
     `\n\n## Your workspace\nSave your own files to camp/agents/${id}/outputs/ unless you're given another path. ` +
     `You can read teammates' outputs (camp/agents/<name>/outputs/), but not their memory or sessions.`

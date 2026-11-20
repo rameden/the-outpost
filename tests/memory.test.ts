@@ -49,6 +49,28 @@ test("sessions: recorded per agent and carried into the next prompt", () => {
   assert.match(block, /March 3/);
 });
 
+test("sessions: a prompt's digest is of the run's own project, never another's", async () => {
+  const { withExpedition } = await import("../src/context.ts");
+  const record = (project: string | undefined, task: string) => withExpedition({ project }, async () => { recordSession("warden", { source: "brief", task, result: `Done: ${task}`, status: "done", messages: [] }); });
+  await record(undefined, "An old review from before projects");
+  await record("alpha", "Review the alpha importer");
+  for (let i = 1; i <= 9; i++) await record("beta", `Review beta change ${i}`);
+  // Nine newer sessions in another project don't push this project's out of its digest, or get into it.
+  const alpha = await withExpedition({ project: "alpha" }, async () => continuityBlock("warden"));
+  assert.match(alpha, /Review the alpha importer/);
+  assert.match(alpha, /An old review from before projects/, "a session recorded with no project is anyone's to look back on");
+  assert.doesNotMatch(alpha, /Review beta change/);
+  const beta = await withExpedition({ project: "beta" }, async () => continuityBlock("warden"));
+  assert.match(beta, /Review beta change 9/);
+  assert.doesNotMatch(beta, /alpha importer/);
+  assert.equal(beta.match(/Review beta change \d"/g)?.length, 8, "the newest eight");
+  // Somewhere the agent has never worked: nothing to build on here, and it's told that's what it is.
+  await withExpedition({ project: "alpha" }, async () => { recordSession("scribe", { source: "brief", task: "Write the alpha notes", result: "Written.", status: "done", messages: [] }); });
+  const fresh = await withExpedition({ project: "gamma" }, async () => continuityBlock("scribe"));
+  assert.doesNotMatch(fresh, /alpha notes/);
+  assert.match(fresh, /\(none yet in this project\)/);
+});
+
 test("transcripts: readable from the agent's own folder only, with image data left out", () => {
   const file = recordSession("scribe", {
     source: "direct", task: "Describe this", result: "A dot.", status: "done",
