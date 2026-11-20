@@ -3027,7 +3027,7 @@ a.orb-btn { display: inline-block; text-decoration: none; }
     radial-gradient(60% 50% at 8% 10%, color-mix(in srgb, var(--c-warden) 7%, transparent), transparent 70%);
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, rgba(0, 0, 0, .35) 80%, rgba(0, 0, 0, .2) 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, rgba(0, 0, 0, .35) 80%, rgba(0, 0, 0, .2) 100%); }
-.home-sky > div { transition: transform 120ms linear; filter: invert(1) hue-rotate(180deg) saturate(.6); opacity: .45; } /* a light page: the stars in ink */
+.home-sky > div { transition: transform 120ms linear; filter: invert(1) hue-rotate(180deg) saturate(.6); opacity: .45; } /* a light page: the stars in ink. (Orbit's sheets, styled as "> div": the class names are Orbit's own, and the figure beside them is an svg) */
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .home-sky > div { filter: none; opacity: .9; } }
 :root[data-theme="dark"] .home-sky > div { filter: none; opacity: .9; }
 .home-figure { position: absolute; top: 18px; right: max(24px, calc(50% - 560px)); width: min(420px, 42vw); height: auto; overflow: visible; }
