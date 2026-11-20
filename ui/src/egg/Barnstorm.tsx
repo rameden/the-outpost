@@ -32,6 +32,8 @@ import { Wreckage, type Hit, type Wreck } from "./targets.ts";
 import { cx } from "../format.ts";
 import { EggBar, PausedPill, usePause, type GameProps, type Mode } from "./Bar.tsx";
 import { Sortie } from "./Sortie.tsx";
+import { skinFor } from "./skins.ts";
+import { packNow } from "../themes.ts";
 
 const BEST = "camp-barnstorm-best";
 const FLY: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -97,6 +99,7 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
     let stopped = false; // paused: nothing moves, and the keys are the page's
     let sky = { width: innerWidth, height: innerHeight };
     let plane: Plane = newPlane(sky);
+    let facing = 1; // which way an upright craft (a kid on a bike, say) is looking: 1 right, -1 left
     let bullets: Bullet[] = [], bits: Bit[] = [], tallies: Tally[] = [];
     let gremlins: Gremlin<Wreck>[] = [];
     let points = 0, top = Number(storeGet(BEST)) || 0;
@@ -191,10 +194,10 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
     const swat = (g: Gremlin<Wreck>) => {
       dropJob(g);
       gremlins = gremlins.filter((other) => other !== g);
-      debris({ left: g.x - 10, top: g.y - 12, width: 20, height: 24 }, GREMLIN_PAINT.B);
+      debris({ left: g.x - 10, top: g.y - 12, width: 20, height: 24 }, builderPaint().B);
       award(GREMLIN_POINTS, g.x, g.y - 16);
       // Its hard hat goes up in the air and comes down on its own.
-      bits.push({ x: g.x, y: g.y - 16, vx: (Math.random() - 0.5) * 180, vy: -320, size: PIXEL, color: GREMLIN_PAINT.H, age: 0, life: 1, falls: true, hat: true });
+      bits.push({ x: g.x, y: g.y - 16, vx: (Math.random() - 0.5) * 180, vy: -320, size: PIXEL, color: builderPaint().H, age: 0, life: 1, falls: true, hat: true });
       yell(nearest(g.x, g.y), "mate", true); // whoever's nearest has something to say about it
       // Now and then it leaves a crate behind.
       if (Math.random() < DROP_CHANCE) crates.push({ kind: pickKind(), x: g.x, y: g.y, age: 0 });
@@ -360,14 +363,18 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
       tallies = tallies.filter((t) => { t.age += dt; t.y -= 40 * dt; return t.age < 0.7; });
     };
 
+    // What the builders wear: the theme pack's colours, if it has a look of its own (skins.ts).
+    const builderPaint = () => skinFor(packNow())?.builder ?? GREMLIN_PAINT;
+    // The plane, or whatever the theme pack flies instead.
     const drawPlane = (g: CanvasRenderingContext2D, silhouette?: string) => {
-      const w = SPRITE[0].length, h = SPRITE.length;
-      const spin = Math.floor(clock * 24) % 2 === 0; // the propeller, flickering
+      const me = skinFor(packNow())?.player, rows = me?.rows ?? SPRITE, paint = me?.paint ?? PAINT;
+      const w = rows[0].length, h = rows.length;
+      const spin = Math.floor(clock * 24) % 2 === 0; // the propeller (or an engine's flame), flickering
       for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
-        const ch = SPRITE[r][c];
+        const ch = rows[r][c];
         if (ch === ".") continue;
-        if (ch === "Y" && spin && (c < 6 || c > 10)) continue;
-        g.fillStyle = silhouette ?? PAINT[ch];
+        if (spin && (me ? ch === me.flicker : ch === "Y" && (c < 6 || c > 10))) continue;
+        g.fillStyle = silhouette ?? paint[ch];
         g.fillRect((c - w / 2) * PIXEL, (r - h / 2) * PIXEL, PIXEL, PIXEL);
       }
     };
@@ -406,7 +413,7 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
       const up = atJob && ladder ? ladderPhase(it) : null;
       const working = busy && atJob && (!up || up.working);
       const rows = ducking ? GREMLIN_DUCK : GREMLIN_FRAMES[walking || (busy && up && !up.working && !up.lean) ? Math.floor(it.clock * 10) % 2 : 0];
-      const px = PIXEL, top = (FEET - rows.length) * px;
+      const px = PIXEL, top = (FEET - rows.length) * px, wear = builderPaint();
       const climb = up ? up.rung * px : 0;
       const hop = it.hop > 0 ? Math.sin(Math.PI * (1 - it.hop / HOP)) * 9 : 0; // job done: a little jump
       const box = (c: number, r: number, w: number, h: number, color: string) => { g.fillStyle = color; g.fillRect(c * px, r * px, w * px, h * px); };
@@ -434,7 +441,7 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
       for (let r = 0; r < rows.length; r++) for (let c = 0; c < rows[r].length; c++) {
         const ch = rows[r][c];
         if (ch === ".") continue;
-        g.fillStyle = GREMLIN_PAINT[ch];
+        g.fillStyle = wear[ch];
         g.fillRect((c - rows[r].length / 2) * px, top + r * px, px, px);
       }
       if (ladder && !atJob) {
@@ -445,8 +452,8 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
         const at = FEET - (ducking ? 3 : 4) + bounce; // the row its top rail is at: just under the shoulder
         for (let c = -5; c <= 7; c += 3) box(c, at, 1, 3, RUNG);
         box(-7, at, 16, 1, WOOD); box(-7, at + 2, 16, 1, WOOD);
-        box(2, at - 1, 2, 2, GREMLIN_PAINT.T); // the arm over it
-        box(2, at + 1, 2, 1, GREMLIN_PAINT.S); // and the hand
+        box(2, at - 1, 2, 2, wear.T); // the arm over it
+        box(2, at + 1, 2, 1, wear.S); // and the hand
       }
       if (working && tool === "hammer") {
         // Its hammer: up, then down on the job.
@@ -501,7 +508,7 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
           // A builder's hard hat, on its own.
           g.fillRect(Math.round(p.x) - 1.5 * PIXEL, Math.round(p.y), 3 * PIXEL, PIXEL);
           g.fillRect(Math.round(p.x) - 2.5 * PIXEL, Math.round(p.y) + PIXEL, 5 * PIXEL, PIXEL);
-          g.fillStyle = GREMLIN_PAINT.D; g.fillRect(Math.round(p.x) - 3.5 * PIXEL, Math.round(p.y) + 2 * PIXEL, 7 * PIXEL, PIXEL);
+          g.fillStyle = builderPaint().D; g.fillRect(Math.round(p.x) - 3.5 * PIXEL, Math.round(p.y) + 2 * PIXEL, 7 * PIXEL, PIXEL);
           continue;
         }
         g.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
@@ -521,9 +528,24 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
         }
       }
 
+      const skin = skinFor(packNow());
       for (const b of bullets) {
         g.save();
         g.translate(b.x, b.y);
+        if (skin) {
+          // The pack's own shot (a bolt, a rolled paper, a star), some of them turning over as they go.
+          const shot = skin.shot, w = shot.rows[0].length, h = shot.rows.length;
+          g.rotate(shot.spin ? (Math.floor(clock * 14 + b.x / 9) % 4) * (Math.PI / 2) : Math.atan2(b.vy, b.vx) - UP);
+          if (b.big) g.scale(2, 2);
+          for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+            const ch = shot.rows[r][c];
+            if (ch === ".") continue;
+            g.fillStyle = b.boom && r < 2 && ch !== "D" ? "#ffffff" : shot.paint[ch]; // (an exploding one has a hot tip)
+            g.fillRect((c - w / 2) * 2, (r - h / 2) * 2, 2, 2);
+          }
+          g.restore();
+          continue;
+        }
         g.rotate(Math.atan2(b.vy, b.vx) - UP);
         if (b.big) g.scale(3, 2); // a big shot: fat, and a bit longer
         g.fillStyle = PAINT.D; g.fillRect(-2.5, -6, 5, 12);
@@ -534,8 +556,11 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
 
       // The plane turns in sixteenths of a half-turn, so its pixels stay pixels; and it narrows as it rolls.
       const notch = Math.PI / 16;
-      const angle = Math.round((plane.heading - UP) / notch) * notch;
-      const roll = 1 - 0.32 * Math.abs(plane.bank);
+      // (Someone on foot, or a ship, stays the right way up, and looks the way they're going.)
+      const upright = !!skin?.player.upright;
+      if (Math.abs(Math.cos(plane.heading)) > 0.25) facing = Math.cos(plane.heading) < 0 ? -1 : 1;
+      const angle = upright ? 0 : Math.round((plane.heading - UP) / notch) * notch;
+      const roll = upright ? facing : 1 - 0.32 * Math.abs(plane.bank);
       // Its shadow on the page below is what says it's flying.
       g.save(); g.translate(plane.x + 9, plane.y + 12); g.rotate(angle); g.scale(roll * 0.9, 0.9); drawPlane(g, "rgba(0, 0, 0, .22)"); g.restore();
       g.save(); g.translate(plane.x, plane.y); g.rotate(angle); g.scale(roll, 1); drawPlane(g); g.restore();

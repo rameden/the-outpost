@@ -260,7 +260,7 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 :root[data-theme="dark"] .mae-orb { --orb-line: #8ea0d6; --orb-glint: #f3efe6; }
 /* Each theme pack's orb (src/packs.ts), in every palette. Starship: deep space and an engine's
    blue-white glow. Newsroom: ink and a red masthead. Studio: a dark stage and a violet light.
-   Lab: bottle green and a reagent's bright green. */
+   Lab: bottle green and a reagent's bright green. Pirate: ship's timber and a gold doubloon. */
 [data-pack="starship"] .mae-orb { --orb-navy: #0f2a40; --orb-ochre: #2fb4d0; --orb-line: #0f2a40; --orb-glint: #0a1620; }
 @media (prefers-color-scheme: dark) { :root[data-pack="starship"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; } }
 :root[data-pack="starship"][data-theme="dark"] .mae-orb { --orb-ochre: #6fdcf0; --orb-line: #8fc6de; --orb-glint: #eafaff; }
@@ -273,6 +273,9 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 [data-pack="lab"] .mae-orb { --orb-navy: #12301f; --orb-ochre: #5ea832; --orb-line: #12301f; --orb-glint: #0b1c12; }
 @media (prefers-color-scheme: dark) { :root[data-pack="lab"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #b4e06a; --orb-line: #9fc9a4; --orb-glint: #f2ffe6; } }
 :root[data-pack="lab"][data-theme="dark"] .mae-orb { --orb-ochre: #b4e06a; --orb-line: #9fc9a4; --orb-glint: #f2ffe6; }
+[data-pack="pirate"] .mae-orb { --orb-navy: #2a1608; --orb-ochre: #d99a1c; --orb-line: #2a1608; --orb-glint: #160b04; }
+@media (prefers-color-scheme: dark) { :root[data-pack="pirate"]:not([data-theme="light"]) .mae-orb { --orb-ochre: #ffd060; --orb-line: #d6b98f; --orb-glint: #fff6e0; } }
+:root[data-pack="pirate"][data-theme="dark"] .mae-orb { --orb-ochre: #ffd060; --orb-line: #d6b98f; --orb-glint: #fff6e0; }
 @media (prefers-reduced-motion: reduce) { .mae-orb span, .mae-orb i { animation: none; } .orb-ripple { display: none; } }
 
 /* ---------- Decorations ----------
