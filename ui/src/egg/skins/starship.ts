@@ -2,20 +2,25 @@
 // wingtip, firing red bolts; what comes at you is an empire's fleet, all of it grey: fighters
 // that are a round pod slung between two flat panels, a bomber with two pods, a rock with
 // something glowing in it, a star destroyer for the carrier and a corvette for the missile
-// boat, and a great wedge of a dreadnought at the end. Its troopers mend the page in the Wreck.
+// boat, and a great wedge of a dreadnought at the end. Its troopers mend the page in the Wreck,
+// with a Mandalorian or two among them.
 
 import type { Skin } from "../skins.ts";
 
-// A trooper, from the helmet to the hips (its legs are the frames' last two rows).
+// A trooper, from the helmet to the belt (its legs are the frames' last two rows): a white dome
+// with two black teardrop lenses, their tails running down and out, and a grey breather on
+// its chin; a white chest plate and shoulders with the black undersuit showing
+// between them, black gloves, and a black belt. (Solid all through: gaps read as bones.)
 const TROOPER = [
   "..HHHHH..",
   ".HHHHHHH.",
-  ".HKKHKKH.", // the lenses
-  ".DHHKHHD.",
-  "..DNDND..", // the grille
+  ".HKKHKKH.", // the lenses, and their tails
+  ".KKHHHKK.",
+  "..DNNND..", // the breather, the chin narrowing to the neck
   "TTBBBBBTT", // shoulders and chest plate
-  "STBKKKBTS", // gloves, and the belt
-  "..BBBBB..",
+  "TSBBBBBST", // the undersuit, between arm and plate
+  "STKKKKKTS", // gloves, and the belt
+  ".TTTTTTT.", // hip armour
 ];
 
 // The carrier, as a star destroyer (bow up, like the game's carrier, and the same 17 by 41 so its
@@ -39,6 +44,20 @@ function destroyerRows(): string[] {
     }).join("");
   });
 }
+
+// A Mandalorian, the same height: a silver helmet with its T of a black visor, silver
+// pauldrons and chest plate over a dark flight suit, a brown belt, dark gloves and boots.
+const MANDO = [
+  "..HHHHH..",
+  ".HHHHHHH.",
+  ".HKKKKKH.", // the visor's bar
+  ".DHHKHHD.", // and its stem
+  "..DHKHD..",
+  "BBTTTTTBB", // pauldrons
+  "TTBBBBBTT", // the chest plate
+  "STNNNNNTS", // gloves, and the belt
+  ".TTTTTTT.",
+];
 
 const STEEL = { D: "#10141c", G: "#8a93a3", K: "#4a5262", R: "#ff3b30", E: "#7dffb0" };
 
@@ -291,15 +310,34 @@ export const starship: Skin = {
   },
   // Troopers in white armour: a helmet with two black lenses and a grille, a black belt and
   // gloves, and white boots. (The helmet's what flies off when one's shot.)
-  builder: { H: "#f4f6f9", D: "#9aa3b2", K: "#14181f", N: "#5d6675", B: "#e6eaf0", T: "#cfd6df", S: "#1b1e24", F: "#b4bcc8" },
+  builder: { H: "#f4f6f9", D: "#8a93a3", K: "#14181f", N: "#6a7384", B: "#e9edf2", T: "#d2d8e0", S: "#23272f", F: "#f4f6f9" },
   crew: {
     frames: [
       [...TROOPER, ".TT...TT.", ".FF...FF."],
       [...TROOPER, "..TT.TT..", "..FF.FF.."],
     ],
     // Ducking: down on its heels, helmet tucked into its shoulders.
-    duck: ["..HHHHH..", ".HHHHHHH.", ".HKKHKKH.", "TDNDNDNDT", "TTBBBBBTT", "STBKKKBTS", ".FF...FF."],
+    duck: ["..HHHHH..", ".HHHHHHH.", ".HKKHKKH.", "TKKHHHKKT", "TSBBBBBST", "STKKKKKTS", ".FF...FF."],
   },
+  // Now and then, a Mandalorian, here for the job.
+  guests: [{
+    share: 0.25,
+    paint: { H: "#cfd4dc", D: "#7d8592", K: "#101318", N: "#8a5a2b", B: "#aab2be", T: "#5a5048", S: "#2a2420", F: "#3a3028" },
+    frames: [
+      [...MANDO, ".TT...TT.", ".FF...FF."],
+      [...MANDO, "..TT.TT..", "..FF.FF.."],
+    ],
+    duck: ["..HHHHH..", ".HHHHHHH.", ".HKKKKKH.", "BBDHKHDBB", "TTBBBBBTT", "STNNNNNTS", ".FF...FF."],
+    quotes: {
+      wrecked: ["This is not the way.", "That was beskar-grade work!", "I'm adding this to your bounty.", "Now it's personal.", "I can bring you in warm, or cold."],
+      miss: ["Beskar. Nice try.", "That bounced off.", "Is that all you've got?", "Didn't even scratch it."],
+      mate: ["He knew the risks.", "More of the bounty for me.", "I'll finish his shift.", "We'll get you back for that."],
+      arrive: ["This is the way.", "I'm here for the job.", "I work alone.", "Point me at the broken bit."],
+      done: ["This is the way.", "Job's done.", "Built to last. Like beskar.", "I have spoken."],
+      leave: ["Back to the ship.", "Off to collect.", "This is the way.", "Don't follow me."],
+      tea: ["I don't take the helmet off.", "I'll drink it later.", "Not in front of anyone.", "Through the visor? No."],
+    },
+  }],
   // What they shout: by the book, and not very good shots either.
   quotes: {
     wrecked: ["Halt! Rebel scum!", "That was Imperial property!", "Sound the alarm!", "I just requisitioned that!", "Report this to the commander!",

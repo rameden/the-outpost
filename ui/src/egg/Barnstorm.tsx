@@ -32,7 +32,7 @@ import { Wreckage, type Hit, type Wreck } from "./targets.ts";
 import { cx } from "../format.ts";
 import { EggBar, PausedPill, usePause, type GameProps, type Mode } from "./Bar.tsx";
 import { Sortie } from "./Sortie.tsx";
-import { skinFor } from "./skins.ts";
+import { lookOf, skinFor, type Look } from "./skins.ts";
 import { packNow } from "../themes.ts";
 
 const BEST = "camp-barnstorm-best";
@@ -46,7 +46,7 @@ export { useKonami } from "./konami.ts";
 type Bullet = { x: number; y: number; vx: number; vy: number; big: boolean; boom: boolean; hops: number; over?: Element | null };
 const LOOK_EVERY = 3; // px of a bullet's flight between looks at what's under it
 const CLEARED_EVERY = 0.4; // seconds between checks that there's still something left to shoot
-type Bit = { x: number; y: number; vx: number; vy: number; size: number; color: string; age: number; life: number; falls: boolean; hat?: boolean };
+type Bit = { x: number; y: number; vx: number; vy: number; size: number; color: string; age: number; life: number; falls: boolean; hat?: boolean; brim?: string }; // (a hat's brim: its own colour)
 const WET_PAINT = "#e85d9a"; // what the builders repaint the letters with, whatever colour they were
 const SAWDUST = "#c9a36b";
 type Tally = { x: number; y: number; text: string; age: number };
@@ -176,7 +176,7 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
     // nobody talking over themselves. (always: this one's worth breaking the quiet for.)
     const yell = (who: Gremlin<Wreck> | undefined, kind: QuoteKind, always = false) => {
       if (!who || Math.random() > CHATTER[kind] || (hush > 0 && !always) || bubbles.length >= BUBBLES_MAX || bubbles.some((b) => b.who === who)) return;
-      lastLine = pickLine(kind, lastLine, Math.random, skinFor(packNow())?.quotes?.[kind]);
+      lastLine = pickLine(kind, lastLine, Math.random, lookFor(who).quotes?.[kind]);
       bubbles.push({ who, text: lastLine, age: 0 });
       hush = HUSH;
     };
@@ -194,10 +194,11 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
     const swat = (g: Gremlin<Wreck>) => {
       dropJob(g);
       gremlins = gremlins.filter((other) => other !== g);
-      debris({ left: g.x - 10, top: g.y - 12, width: 20, height: 24 }, builderPaint().B);
+      const wear = lookFor(g).paint;
+      debris({ left: g.x - 10, top: g.y - 12, width: 20, height: 24 }, wear.B);
       award(GREMLIN_POINTS, g.x, g.y - 16);
       // Its hard hat goes up in the air and comes down on its own.
-      bits.push({ x: g.x, y: g.y - 16, vx: (Math.random() - 0.5) * 180, vy: -320, size: PIXEL, color: builderPaint().H, age: 0, life: 1, falls: true, hat: true });
+      bits.push({ x: g.x, y: g.y - 16, vx: (Math.random() - 0.5) * 180, vy: -320, size: PIXEL, color: wear.H, brim: wear.D, age: 0, life: 1, falls: true, hat: true });
       yell(nearest(g.x, g.y), "mate", true); // whoever's nearest has something to say about it
       // Now and then it leaves a crate behind.
       if (Math.random() < DROP_CHANCE) crates.push({ kind: pickKind(), x: g.x, y: g.y, age: 0 });
@@ -364,7 +365,16 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
     };
 
     // What the builders wear: the theme pack's colours, if it has a look of its own (skins.ts).
-    const builderPaint = () => skinFor(packNow())?.builder ?? GREMLIN_PAINT;
+    // ...and which of them each one is (some packs bring a guest or two: skins.ts), by a roll it
+    // makes the first time it's looked at and keeps.
+    const rolls = new WeakMap<Gremlin, number>();
+    const lookFor = (it: Gremlin): Look => {
+      const skin = skinFor(packNow());
+      if (!skin) return { paint: GREMLIN_PAINT };
+      let roll = rolls.get(it);
+      if (roll === undefined) rolls.set(it, roll = Math.random());
+      return lookOf(skin, roll);
+    };
     // The plane, or whatever the theme pack flies instead.
     const drawPlane = (g: CanvasRenderingContext2D, silhouette?: string) => {
       const me = skinFor(packNow())?.player, rows = me?.rows ?? SPRITE, paint = me?.paint ?? PAINT;
@@ -412,9 +422,9 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
       // A job from a ladder: stand it up, climb, work at the top, climb down. (Even its tea is had up there.)
       const up = atJob && ladder ? ladderPhase(it) : null;
       const working = busy && atJob && (!up || up.working);
-      const crew = skinFor(packNow())?.crew;
+      const { paint: wear, crew } = lookFor(it);
       const rows = ducking ? crew?.duck ?? GREMLIN_DUCK : (crew?.frames ?? GREMLIN_FRAMES)[walking || (busy && up && !up.working && !up.lean) ? Math.floor(it.clock * 10) % 2 : 0];
-      const px = PIXEL, top = (FEET - rows.length) * px, wear = builderPaint();
+      const px = PIXEL, top = (FEET - rows.length) * px;
       const climb = up ? up.rung * px : 0;
       const hop = it.hop > 0 ? Math.sin(Math.PI * (1 - it.hop / HOP)) * 9 : 0; // job done: a little jump
       const box = (c: number, r: number, w: number, h: number, color: string) => { g.fillStyle = color; g.fillRect(c * px, r * px, w * px, h * px); };
@@ -509,7 +519,7 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
           // A builder's hard hat, on its own.
           g.fillRect(Math.round(p.x) - 1.5 * PIXEL, Math.round(p.y), 3 * PIXEL, PIXEL);
           g.fillRect(Math.round(p.x) - 2.5 * PIXEL, Math.round(p.y) + PIXEL, 5 * PIXEL, PIXEL);
-          g.fillStyle = builderPaint().D; g.fillRect(Math.round(p.x) - 3.5 * PIXEL, Math.round(p.y) + 2 * PIXEL, 7 * PIXEL, PIXEL);
+          g.fillStyle = p.brim ?? p.color; g.fillRect(Math.round(p.x) - 3.5 * PIXEL, Math.round(p.y) + 2 * PIXEL, 7 * PIXEL, PIXEL);
           continue;
         }
         g.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
