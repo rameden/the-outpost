@@ -1,6 +1,7 @@
 // Browser notifications: a ping when the camp needs you and this tab isn't in front.
 
 import { storeGet, storeSet } from "./api.ts";
+import { chimeOn, playChime, type ChimeKind } from "./chime.ts";
 
 export const canNotify = () => typeof window !== "undefined" && "Notification" in window;
 export const notificationsOn = () => canNotify() && Notification.permission === "granted" && storeGet("camp-notify") !== "off";
@@ -12,11 +13,15 @@ export async function toggleNotifications() {
   else if (Notification.permission !== "denied") { await Notification.requestPermission(); storeSet("camp-notify", "on"); }
 }
 
-export function notify(title: string, body: string) {
+// `sound` picks the chime that goes with it (see chime.ts). The notification itself is asked to be
+// silent so the system's own sound doesn't play on top of the chime (not every browser obeys).
+export function notify(title: string, body: string, sound: ChimeKind = "ask") {
   if (!notificationsOn()) return;
   if (!document.hidden && document.hasFocus()) return;
+  const chime = chimeOn();
   try {
-    const n = new Notification(title, { body: String(body).slice(0, 220), tag: title });
+    const n = new Notification(title, { body: String(body).slice(0, 220), tag: title, silent: chime });
     n.onclick = () => { window.focus(); n.close(); };
   } catch { /* some browsers only allow notifications from a service worker */ }
+  if (chime) playChime(sound);
 }

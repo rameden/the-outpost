@@ -1,0 +1,78 @@
+// The notification chime: which notes play for what, and when it stays quiet.
+import { beforeEach, expect, test, vi } from "vitest";
+
+// jsdom has no Web Audio or Notification: small fakes that record what was played and shown.
+let played: number[] = [];
+let shown: { title: string; silent?: boolean }[] = [];
+class FakeAudio {
+  state = "running";
+  currentTime = 0;
+  destination = {};
+  resume = vi.fn(async () => {});
+  createOscillator() {
+    const osc = { type: "", frequency: { value: 0 }, connect: (g: unknown) => g, start: () => played.push(osc.frequency.value), stop: () => {} };
+    return osc;
+  }
+  createGain() {
+    return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
+  }
+}
+class FakeNotification {
+  static permission = "granted";
+  onclick: (() => void) | null = null;
+  constructor(title: string, opts: { silent?: boolean }) { shown.push({ title, silent: opts.silent }); }
+  close() {}
+}
+vi.stubGlobal("AudioContext", FakeAudio);
+vi.stubGlobal("Notification", FakeNotification);
+
+const { CHIME_NOTES, playChime, setChime, chimeOn } = await import("./chime.ts");
+const { notify } = await import("./notifications.ts");
+
+// The tab is in the background, which is the only time a notification shows.
+const background = (hidden: boolean) => {
+  Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+  vi.spyOn(document, "hasFocus").mockReturnValue(!hidden);
+};
+const fundamentals = () => played.filter((_, i) => i % 2 === 0); // each note also plays a quiet octave
+
+beforeEach(() => { localStorage.clear(); played = []; shown = []; background(true); });
+
+test("each kind has its own shape: rising for a decision, falling for a failure", () => {
+  const [a1, a2] = CHIME_NOTES.ask;
+  const [f1, f2] = CHIME_NOTES.fail;
+  expect(a2).toBeGreaterThan(a1);
+  expect(f2).toBeLessThan(f1);
+  playChime("done");
+  expect(fundamentals()).toEqual(CHIME_NOTES.done);
+  expect(played.filter((_, i) => i % 2 === 1)).toEqual(CHIME_NOTES.done.map((f) => f * 2));
+});
+
+test("a notification plays its chime and asks the browser to keep its own sound quiet", () => {
+  notify("Mae: expedition finished", "All done", "done");
+  expect(shown).toEqual([{ title: "Mae: expedition finished", silent: true }]);
+  expect(fundamentals()).toEqual(CHIME_NOTES.done);
+});
+
+test("a decision is the default chime", () => {
+  notify("Mae: Decision needed", "Which way?");
+  expect(fundamentals()).toEqual(CHIME_NOTES.ask);
+});
+
+test("with the sound off, the notification shows with the browser's own sound and no chime", () => {
+  setChime(false);
+  expect(chimeOn()).toBe(false);
+  notify("Mae: expedition error", "It broke", "fail");
+  expect(shown).toEqual([{ title: "Mae: expedition error", silent: false }]);
+  expect(played).toEqual([]);
+});
+
+test("no chime when the tab is in front, or when notifications are switched off", () => {
+  background(false);
+  notify("Mae: Decision needed", "Which way?");
+  background(true);
+  localStorage.setItem("camp-notify", "off");
+  notify("Mae: Decision needed", "Which way?");
+  expect(shown).toEqual([]);
+  expect(played).toEqual([]);
+});
