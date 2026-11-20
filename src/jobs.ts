@@ -118,8 +118,7 @@ export const scheduleJob: Tool = {
     if (!parseSchedule(schedule)) {
       return `Can't read schedule '${schedule}'. Use 'every 30m', 'every 2h', 'daily 08:00', or 'weekdays 08:00'.`;
     }
-    const jobs = loadJobs();
-    const existing = jobs.find((j) => j.name === name);
+    const existing = loadJobs().some((j) => j.name === name);
     const ok = await ask({
       kind: "job",
       title: `⏰ ${existing ? "Replace" : "New"} scheduled job "${name}" (${schedule}):`,
@@ -128,7 +127,11 @@ export const scheduleJob: Tool = {
     if (ok.toLowerCase() !== "y") return "The user declined this job.";
     const project = currentProjectId();
     const job: Job = { name, schedule, task, created: new Date().toISOString(), enabled: true, ...(project && project !== "general" ? { project } : {}) };
-    saveJobs(existing ? jobs.map((j) => (j.name === name ? job : j)) : [...jobs, job]);
+    // Read again: the answer can be minutes in coming, and meanwhile the watcher has marked runs
+    // and other jobs may have been added or cancelled. What was approved is this job under this
+    // name, so it takes that name's place if one is there now, and is added if not.
+    const jobs = loadJobs();
+    saveJobs(jobs.some((j) => j.name === name) ? jobs.map((j) => (j.name === name ? job : j)) : [...jobs, job]);
     return `Scheduled "${name}" (${schedule}). It runs while \`npm run watch\` is going.`;
   },
 };

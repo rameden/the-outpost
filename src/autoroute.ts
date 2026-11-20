@@ -4,10 +4,10 @@
 //
 // The routing log (camp/routing.jsonl) holds decisions and outcomes: task, trigger, candidates,
 // exclusions, the route chosen, the policy version, estimates, usage, latency, switches and how it
-// ended. Never a prompt, never a key.
+// ended. Never a prompt, never a key. It keeps its newest ROUTING_MAX records.
 
-import { existsSync, readFileSync } from "node:fs";
-import { appendLine, readJsonFile, writeJsonAtomic } from "./atomic.js";
+import { readFileSync, statSync } from "node:fs";
+import { appendLine, readJsonFile, writeAtomic, writeJsonAtomic } from "./atomic.js";
 import { rateOf } from "./costs.js";
 import { anthropicKey, providersState } from "./providers.js";
 import { autoExcluded, campRuntime, type Effort } from "./settings.js";
@@ -176,19 +176,62 @@ export function logDecision(d: Decision, ctx: { task: string; run: string; agent
           estimates: d.estimates.map((e) => ({ routeId: e.routeId, attemptSuccess: e.attemptSuccess, completion: e.completion, expectedUsd: e.expectedUsd, expectedSeconds: e.expectedSeconds, priceKnown: e.priceKnown, samples: e.samples })) }
       : { unavailable: d.reason }),
   };
-  try { appendLine(ROUTING_LOG, JSON.stringify(rec)); } catch { /* the log is a record, never a reason to fail a run */ }
+  record(rec);
 }
 export function logOutcome(rec: Omit<OutcomeRecord, "kind" | "at">) {
-  try { appendLine(ROUTING_LOG, JSON.stringify({ kind: "outcome", at: new Date(clock()).toISOString(), ...rec })); } catch { /* as above */ }
+  record({ kind: "outcome", at: new Date(clock()).toISOString(), ...rec });
 }
-export function routingLog(): (DecisionRecord | OutcomeRecord)[] {
-  if (!existsSync(ROUTING_LOG)) return [];
-  return readFileSync(ROUTING_LOG, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+
+// Both readers go through the whole log (the comparison adds up every outcome; a task picked up
+// again wants its last decision, however far back), so what's kept is generous: a run writes two
+// to four records, which makes this a thousand runs and more.
+export const ROUTING_MAX = 5000;  // records kept: the oldest make way
+const ROUTING_SLACK = 500;        // how far past that the file may grow before it's cut back (so it isn't rewritten on every run)
+
+// Parsed once and kept until the file changes: it's read as every Auto-routed run begins, and it
+// only changes when a run is written down. (The folder is in the stamp: each test file has its own camp.)
+type Logged = DecisionRecord | OutcomeRecord;
+let logCache: { stamp: string; size: number; list: Logged[] } | null = null;
+function loadLog(): NonNullable<typeof logCache> {
+  const st = statSync(ROUTING_LOG, { throwIfNoEntry: false });
+  const stamp = `${process.cwd()}|${st ? `${st.mtimeMs}:${st.size}` : "none"}`;
+  if (logCache?.stamp === stamp) return logCache;
+  const list: Logged[] = st
+    ? readFileSync(ROUTING_LOG, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return r && typeof r === "object" ? [r] : []; } catch { return []; } })
+    : [];
+  return (logCache = { stamp, size: st?.size ?? 0, list });
+}
+function record(rec: Logged) {
+  try {
+    const have = loadLog(); // as the file is now: another camp process may have written to it since
+    const line = JSON.stringify(rec);
+    if (have.list.length + 1 > ROUTING_MAX + ROUTING_SLACK) {
+      writeAtomic(ROUTING_LOG, [...have.list, rec].slice(-ROUTING_MAX).map((r) => JSON.stringify(r)).join("\n") + "\n");
+      logCache = null;
+      return;
+    }
+    appendLine(ROUTING_LOG, line);
+    // What's kept stays good only if the file grew by exactly this line. Otherwise (someone else
+    // wrote in between, or a torn last line was closed off first) it's read again next time.
+    const st = statSync(ROUTING_LOG);
+    if (st.size !== have.size + Buffer.byteLength(line) + 1) { logCache = null; return; }
+    have.list.push(rec);
+    logCache = { stamp: `${process.cwd()}|${st.mtimeMs}:${st.size}`, size: st.size, list: have.list };
+  } catch { logCache = null; /* the log is a record, never a reason to fail a run */ }
+}
+// Every record kept, oldest first (the caller's own list). Empty if there's no log, or it can't be read.
+export function routingLog(): Logged[] {
+  try { return [...loadLog().list]; } catch { return []; }
 }
 // The route a task was last on (so a resumed task carries on where it was, unless there's reason to change).
 export function lastRouteOf(task: string, agent: string): string | undefined {
-  const recs = routingLog().filter((r): r is DecisionRecord => r.kind === "decision" && r.task === task && r.agent === agent && !!r.selected);
-  return recs.at(-1)?.selected;
+  let list: Logged[] = [];
+  try { list = loadLog().list; } catch { /* no log to go by: a fresh start */ }
+  for (let i = list.length - 1; i >= 0; i--) {
+    const r = list[i];
+    if (r.kind === "decision" && r.task === task && r.agent === agent && r.selected) return r.selected;
+  }
+  return undefined;
 }
 
 // ---------- Auto against fixed models ----------
