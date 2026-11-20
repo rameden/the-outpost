@@ -314,3 +314,60 @@ test("after a run: suggestions only if you've turned them on; a tidy only when a
   assert.ok(Array.isArray(JSON.parse(readFileSync(join("camp", "memory-proposals.json"), "utf8"))));
   setMemoryCare({ suggest: false });
 });
+
+test("after an expedition, a lesson goes to the crew member who did the work, read from their own brief and report", async () => {
+  const { logQuest, questsOf } = await import("../src/questlog.ts");
+  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  // What the dispatch does: the run is recorded as a session of theirs, and logged under the expedition.
+  const quest = (who: "artificer" | "scribe", task: string, text: string) => {
+    const session = recordSession(who, { source: "brief", task, result: text, status: "done", messages: [] });
+    logQuest("quest", who === "artificer" ? "Artificer" : "Scribe", task, new Date(), { text, status: "done", model: "claude-test", turns: 1, usage, session } as any);
+  };
+  const brief = `Add the export button to the history menu. ${"Context for the work. ".repeat(40)}`;
+  const late = "The date helper is shared with the server build, which has no Intl polyfill.";
+  await withExpedition({ id: "x1", project: web.id }, async () => {
+    quest("artificer", brief, `Added the button and its handler. ${"Detail of the change. ".repeat(30)}${late}`);
+    quest("artificer", "A check failed after your change: tsc reports dates.ts(14) Intl.DurationFormat does not exist. Fix it.", "Replaced it with the camp's own formatter and the check passes now.");
+    quest("scribe", "Write the release note for the export button.", "Wrote two lines for the release notes, in the changelog's voice.");
+  });
+  await withExpedition({ id: "x2", project: web.id }, async () => quest("scribe", "Another expedition's work entirely.", "Nothing to do with the export button at all, as it happens."));
+  assert.equal(questsOf("x1").length, 3);
+  assert.ok(questsOf("x1")[0].task.length <= 200, "the log keeps only the opening");
+
+  writeMemory("artificer", "- 2026-03-02 Run the typecheck before reporting");
+  let asked = "";
+  const run = { run: "x1", project: web.id };
+  const added = await k.suggestCrewKeeps(run, async (system, prompt) => { asked = `${system}\n${prompt}`; return JSON.stringify([
+    { who: "artificer", text: "Check a browser API exists in the server build before using it in shared code" },
+    { who: "warden", text: "Never went on this expedition, so nothing is theirs" },
+    { who: "quartermaster", text: "Not one of the crew who were sent out either" },
+    { who: "scribe", text: "short" },
+  ]); });
+  assert.deepEqual(added.map((p) => p.kind === "keep" && [p.where, p.text, p.run]), [["agent:artificer", "Check a browser API exists in the server build before using it in shared code", "x1"]]);
+  assert.ok(asked.includes(late), "the whole report, from the transcript, not the log's first 300 characters");
+  assert.ok(asked.includes("Intl.DurationFormat") && asked.includes("Then was asked"), "being sent back is part of what's read");
+  assert.ok(asked.includes("Scribe (id: scribe)") && asked.includes("Run the typecheck before reporting"));
+  assert.ok(!asked.includes("Another expedition"), "only this expedition's quests");
+  assert.deepEqual(await k.suggestCrewKeeps(run, async () => '[{"who":"artificer","text":"Check a browser API exists in the server build before using it in shared code"}]'), [], "already waiting");
+  assert.deepEqual(await k.suggestCrewKeeps({ run: "nobody-went" }, async () => { throw new Error("not asked when nobody was sent out"); }), []);
+
+  // After the run itself: the Quartermaster's answer and the crew's work are each read once, and
+  // a crew member's memory that's nearly full is offered a tidy like the Quartermaster's own.
+  for (const p of k.proposals()) k.settleProposal(p.id, "dismiss");
+  setMemoryCare({ suggest: true, tidy: true });
+  writeMemory("scribe", Array.from({ length: 50 }, (_, i) => `- 2026-03-01 A long lesson ${i}: ${"y".repeat(80)}`).join("\n"));
+  const systems: string[] = [];
+  await k.afterRun({ run: "x1", who: "quartermaster", project: web.id, task: "Add an export button", reply: "The export button is in the history menu, with a release note written for it." }, async (system) => {
+    systems.push(system);
+    return /tidy/i.test(system) ? "- 2026-04-01 Everything, merged" : /Specialists/.test(system) ? '[{"who":"scribe","text":"Match the changelog\'s voice when writing release notes"}]' : "[]";
+  });
+  assert.equal(systems.filter((s) => /Specialists/.test(s)).length, 1);
+  assert.ok(k.proposals().some((p) => p.kind === "keep" && p.where === "agent:scribe"));
+  assert.ok(k.proposals().some((p) => p.kind === "tidy" && p.where === "agent:scribe"));
+  // A direct run sends nobody out: nothing more is asked than before.
+  let direct = 0;
+  await k.afterRun({ run: "x1-direct", who: "scout", project: "general", task: "Look something up", reply: "Here is a long enough answer about what was found in the sources." }, async () => { direct++; return "[]"; });
+  assert.equal(direct, 1);
+  for (const p of k.proposals()) k.settleProposal(p.id, "dismiss");
+  setMemoryCare({ suggest: false });
+});

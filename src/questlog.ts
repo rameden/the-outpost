@@ -115,7 +115,8 @@ export function formatQuests(entries = recentQuests()): string {
     .join("\n");
 }
 
+// The quests an expedition sent out, in the order they set out (one sent back to fix a failed check is a line of its own).
+export const questsOf = (expedition: string) => allQuests().filter((q) => q.expedition === expedition && q.kind === "quest");
 // What an expedition's quests cost, from their log lines (the Quartermaster's own run is logged
 // outside the expedition, so whoever has its result adds that).
-export const questsCostOf = (expedition: string) =>
-  allQuests().filter((q) => q.expedition === expedition && q.kind === "quest").reduce((sum, q) => sum + questCost(q), 0);
+export const questsCostOf = (expedition: string) => questsOf(expedition).reduce((sum, q) => sum + questCost(q), 0);
