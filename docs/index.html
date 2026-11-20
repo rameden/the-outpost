@@ -184,7 +184,7 @@ section { padding-block: 88px 0; }
 
 /* Ochre's blocks of navy (the camp rules, the commands) are dark on both its sides, where its light
    side's navy accent wouldn't show: there, ochre leads. */
-:root[data-palette="ochre"] :is(.rules-band, .cmd, .term) { --accent: #e9b44c; }
+:root[data-palette="ochre"] :is(.rules-band, #orbit, .cmd, .term) { --accent: #e9b44c; }
 
 /* Top bar */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; }
@@ -384,6 +384,101 @@ footer .brand { gap: 8px; }
 footer .mae-mark { height: 26px; width: 26px; }
 footer .mae-word { height: 16px; }
 
+/* The sky, the stars and the system: the page's moving parts. Each layer with data-speed is moved
+   by the script (--py) so it lags behind the page; with reduced motion nothing moves. */
+:root { --star: color-mix(in oklab, var(--faint) 50%, transparent); --ring: color-mix(in oklab, var(--border-strong) 85%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --star: color-mix(in oklab, var(--text) 70%, transparent); --ring: color-mix(in oklab, var(--text) 13%, transparent); } }
+:root[data-theme="dark"] { --star: color-mix(in oklab, var(--text) 70%, transparent); --ring: color-mix(in oklab, var(--text) 13%, transparent); }
+.sky { position: relative; overflow: clip; isolation: isolate; }
+.sky > .wrap { position: relative; z-index: 1; }
+.sky .hero { min-height: calc(100svh - 170px); padding-block: 40px 120px; }
+.hero h1 { font-size: clamp(48px, 7vw, 92px); letter-spacing: -.02em; }
+.sky-layer { position: absolute; inset: -40% 0; pointer-events: none; transform: translate3d(0, var(--py, 0px), 0); }
+.sky > .sky-layer { -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 85%); mask-image: linear-gradient(to bottom, #000 55%, transparent 85%); }
+.stars { background-image:
+  radial-gradient(circle at 18px 34px, var(--star) 0 1px, transparent 1.6px),
+  radial-gradient(circle at 132px 88px, var(--star) 0 .8px, transparent 1.4px),
+  radial-gradient(circle at 210px 170px, var(--star) 0 1.1px, transparent 1.7px),
+  radial-gradient(circle at 74px 214px, var(--star) 0 .7px, transparent 1.3px),
+  radial-gradient(circle at 176px 22px, var(--star) 0 .9px, transparent 1.5px);
+  background-size: 250px 250px; opacity: .8; }
+.stars.near { background-size: 430px 390px; opacity: 1; filter: drop-shadow(0 0 2px var(--star)); }
+.system { position: absolute; left: 76%; top: 52%; width: 0; height: 0; pointer-events: none; transform: translate3d(0, var(--py, 0px), 0); }
+.sun { position: absolute; width: 360px; height: 360px; left: -180px; top: -180px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent) 60%, transparent) 0%, color-mix(in oklab, var(--accent) 20%, transparent) 32%, transparent 68%);
+  animation: sun-pulse 7s ease-in-out infinite; }
+.ring { position: absolute; width: var(--d); height: var(--d); left: calc(var(--d) / -2); top: calc(var(--d) / -2); border-radius: 50%; border: 1px solid var(--ring); box-sizing: border-box; transform: rotate(var(--a, 0deg)); animation: orbit var(--t) linear infinite; }
+.ring.faint { border-style: dashed; }
+.ring i { position: absolute; top: -7px; left: calc(50% - 7px); width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 5px color-mix(in oklab, var(--c) 18%, transparent), 0 0 22px var(--c); }
+@keyframes orbit { to { transform: rotate(calc(var(--a, 0deg) + 360deg)); } }
+@keyframes sun-pulse { 0%, 100% { opacity: .75; scale: 1; } 50% { opacity: 1; scale: 1.08; } }
+
+/* The hero comes in: the words rise one after another, then the expedition. */
+.hero-copy { transform: translate3d(0, var(--py, 0px), 0); }
+.hero-copy > * { animation: rise .9s cubic-bezier(.2, .7, .2, 1) backwards; }
+.hero-copy > :nth-child(2) { animation-delay: .12s; }
+.hero-copy > :nth-child(3) { animation-delay: .26s; }
+.hero-copy > :nth-child(4) { animation-delay: .4s; }
+.hero-copy > :nth-child(5) { animation-delay: .52s; }
+.sky .feed { animation: rise-in 1.1s .3s cubic-bezier(.2, .7, .2, 1) backwards; transition: transform .4s ease-out; box-shadow: var(--shadow), 0 40px 90px -30px color-mix(in oklab, var(--accent) 45%, transparent); }
+@keyframes rise { from { opacity: 0; transform: translateY(28px); } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(48px) scale(.96); } }
+.scroll-cue { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 1; display: grid; justify-items: center; gap: 8px; font: 500 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); text-decoration: none; }
+.scroll-cue i { width: 1px; height: 44px; background: linear-gradient(var(--faint), transparent); transform-origin: top; animation: cue 2.2s ease-in-out infinite; }
+@keyframes cue { 0% { transform: scaleY(0); opacity: 1; } 55% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+
+/* Four numbers under the hero. */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--border); }
+.stat { padding: 30px 24px 30px 0; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.stat + .stat { padding-left: 24px; border-left: 1px solid var(--border); }
+.stat b { font: 400 clamp(48px, 6vw, 76px)/1 var(--display); color: var(--accent); }
+.stat span { color: var(--muted); font-size: 15px; max-width: 24ch; }
+
+/* A section head with a lede uses the width: the heading on the left, the lede beside it. */
+@media (min-width: 961px) {
+  .wrap:not(.pitch) > .sec-head:has(> .lede) { max-width: none; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 64px; align-items: end; }
+  .wrap:not(.pitch) > .sec-head:has(> .lede) > :not(.lede) { grid-column: 1; }
+  .wrap:not(.pitch) > .sec-head:has(> .lede) > .lede { grid-column: 2; grid-row: 1 / span 2; max-width: none; }
+}
+
+/* Cards lift a little under the pointer. */
+.member, .item { transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease; }
+.member:hover, .item:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: var(--border-strong); }
+
+/* Theme packs: the costumes, then what they change, across the width. */
+.packs { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; display: grid; gap: 22px; }
+.packs-head { display: grid; gap: 10px; }
+.pack-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.pack-list li { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; background: var(--bg); min-width: 0; transition: transform .25s ease, border-color .25s ease; }
+.pack-list li:hover { transform: translateY(-3px); border-color: var(--accent); }
+.pack-list li.new { border-style: dashed; border-color: var(--border-strong); }
+.pack-list i { font-style: normal; font-size: 22px; line-height: 1.3; }
+.pack-list b { font-size: 14px; }
+.pack-list span { font-size: 12px; color: var(--faint); }
+.packs-body { columns: 2 320px; column-gap: 44px; color: var(--muted); font-size: 15px; }
+.packs-body p + p { margin-top: 12px; }
+.packs-body b { color: var(--text); font-weight: 600; }
+
+/* Orbit as a night band, with the system turning in its corner. */
+#orbit { position: relative; overflow: clip; isolation: isolate; background: var(--night); color: var(--night-text); margin-top: 88px; padding-block: 104px; --star: color-mix(in oklab, var(--night-text) 70%, transparent); --ring: color-mix(in oklab, var(--night-text) 13%, transparent); }
+#orbit > .wrap { position: relative; z-index: 1; }
+#orbit h2, #orbit h3 { color: var(--night-text); }
+#orbit .lede, #orbit .word p, #orbit .feature p { color: var(--night-muted); }
+#orbit .word { border-top-color: var(--night-line); }
+#orbit .tag { color: var(--night-muted); }
+#orbit code { background: var(--night-line); color: var(--night-text); }
+.band-system { left: 94%; top: 18%; }
+.feature { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--night-line); display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 40px; }
+.feature-head { display: grid; gap: 8px; align-content: start; }
+.feature-head h3 { font-size: 30px; }
+.feature p { columns: 2 280px; column-gap: 44px; font-size: 15px; }
+.rules-band { position: relative; overflow: clip; isolation: isolate; --star: color-mix(in oklab, var(--night-text) 55%, transparent); }
+.rules-band > .wrap { position: relative; z-index: 1; }
+
+/* Things come into view as you reach them (the script adds .reveal, so without it all is shown). */
+.reveal { opacity: 0; transform: translate3d(0, 32px, 0); transition: opacity .8s ease, transform .9s cubic-bezier(.2, .7, .2, 1); transition-delay: calc(var(--i, 0) * 80ms); }
+.reveal.in { opacity: 1; transform: none; }
+
 /* films:start */
 /* The films: two tabs over one stage. The tab that's showing has a solid 2px line under it. */
 .film-tabs { display: flex; flex-wrap: wrap; gap: 0 28px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
@@ -409,6 +504,17 @@ footer .mae-word { height: 16px; }
   .stop:nth-child(2) .pin::after { border-top-color: transparent; }
   .alter { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .alter .mae-orb { --orb: 112px; margin: 34px; }
+  .crew > :last-child { grid-column: 1 / -1; }
+  .rules > :last-child { grid-column: 1 / -1; }
+  .sky .hero { min-height: 0; padding-block: 24px 72px; }
+  .scroll-cue { display: none; }
+  .hero-system { left: 50%; top: 74%; scale: .8; }
+  .band-system { left: 100%; top: 8%; scale: .7; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { border-left: 0; padding-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .pack-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .feature { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 @media (max-width: 600px) {
   section { padding-block: 64px 0; }
@@ -419,10 +525,21 @@ footer .mae-word { height: 16px; }
   .stop .pin::after { border-top-color: transparent; }
   .top nav { display: none; }
   .rule { padding-right: 0; }
+  .crew > :last-child, .rules > :last-child { grid-column: auto; }
+  .hero-system { scale: .55; top: 80%; }
+  .stat { padding: 22px 12px 22px 0; }
+  .stat + .stat { padding-left: 0; border-left: 0; }
+  .stat:nth-child(even) { padding-left: 16px; border-left: 1px solid var(--border); }
+  .pack-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .packs { padding: 20px; }
+  #orbit { padding-block: 72px; margin-top: 64px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .msg { transition: none; }
   .feed.running .quest .bar b { animation: none; }
+  .ring, .sun, .scroll-cue i, .hero-copy > *, .sky .feed { animation: none; }
+  .member, .item, .pack-list li { transition: none; }
+  .member:hover, .item:hover, .pack-list li:hover { transform: none; }
 }
 </style>
 </head>
@@ -434,6 +551,19 @@ footer .mae-word { height: 16px; }
   <symbol id="mae-mark" viewBox="0 0 200 200"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z"/><g fill="none" stroke="currentColor" stroke-width="8"><path d="M100 48 A52 52 0 0 1 100 152"/><path d="M100 14 A86 86 0 0 1 100 186"/></g><circle class="logo-dot" cx="100" cy="100" r="20"/></symbol>
 </svg>
 
+<!-- The sky: the page opens on the camp's own picture of the work, a sun with the crew round it, in
+     layers that move at their own pace as you scroll (data-speed: how far behind the page a layer lags). -->
+<div class="sky" id="sky">
+<div class="sky-layer stars far" data-speed="0.18" aria-hidden="true"></div>
+<div class="sky-layer stars near" data-speed="0.36" aria-hidden="true"></div>
+<div class="system hero-system" data-speed="0.5" aria-hidden="true">
+  <div class="sun"></div>
+  <div class="ring" style="--d:300px;--t:26s"><i style="--c:var(--c-scout)"></i></div>
+  <div class="ring" style="--d:440px;--t:38s;--a:140deg"><i style="--c:var(--c-scribe)"></i></div>
+  <div class="ring" style="--d:590px;--t:52s;--a:250deg"><i style="--c:var(--c-art)"></i></div>
+  <div class="ring" style="--d:750px;--t:70s;--a:40deg"><i style="--c:var(--c-warden)"></i></div>
+  <div class="ring faint" style="--d:930px;--t:96s;--a:300deg"><i style="--c:var(--c-qm)"></i></div>
+</div>
 <div class="wrap">
   <header class="top">
     <span class="brand"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><svg class="mae-word" viewBox="0 0 295.5 114" role="img" aria-label="Mae"><use href="#mae-word"/></svg></span>
@@ -461,7 +591,7 @@ footer .mae-word { height: 16px; }
   </header>
 
   <div class="hero">
-    <div>
+    <div class="hero-copy" data-speed="0.12" data-fade>
       <div class="eyebrow">Mae, My Alter Ego</div>
       <h1>Your alter ego <em>has a crew.</em></h1>
       <p class="lede">Mae is a small guild of agents that takes on your work the way you'd want it done. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
@@ -489,6 +619,17 @@ footer .mae-word { height: 16px; }
         <div class="msg"><div class="av">🧭</div><div><div class="who qm">Quartermaster</div><div class="bubble">Reviewed both reports. The doc compares three memory designs and links every claim.</div><span class="doc">outputs/memory-survey.md</span></div></div>
       </div>
     </div>
+  </div>
+</div>
+<a class="scroll-cue" href="#name" aria-label="Scroll to the next section"><span>Scroll</span><i aria-hidden="true"></i></a>
+</div>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><b>5</b><span>specialists, each in its own trade</span></div>
+    <div class="stat"><b>4</b><span>quests out at once, each from a clean brief</span></div>
+    <div class="stat"><b>1</b><span>plan to approve before anyone sets out</span></div>
+    <div class="stat"><b>0</b><span>pushes the crew makes on its own</span></div>
   </div>
 </div>
 
@@ -520,7 +661,7 @@ footer .mae-word { height: 16px; }
     <div class="sec-head">
       <div class="eyebrow">The crew</div>
       <h2>Five specialists who know their trade, and stay in it.</h2>
-      <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate. Not a guild person? A theme pack (Settings → General) renames the five, for you and for them: Starship makes them a Commander, Navigator, Comms Officer, Engineer and Security Chief, on a ship flying missions. Newsroom is an Editor and staff filing stories, Studio a Director and a film crew shooting scenes, Lab a Lab Lead and a team running experiments, Pirate a Commodore and a crew out on raids. The plane game in the top bar dresses to match: a starfighter against an empire's grey fleet, a kid on a bike throwing papers with the whole street after them, a star throwing stars, a mech dog with lasers for eyes, a pirate ship firing cannonballs. A Wizard you've added is renamed with them (a Test Pilot, on the ship). None of them fit? New pack… on the same page makes one of your own, with your names, icons and words for the five; it's kept in camp/packs.json, and it's there after a restart. Who they are and what they remember stays the same. Decorations, on the same page, are only for looks: snow in winter, bats at Halloween, confetti at New Year, with a string of lights under the top bar. They're off until you turn one on, and they change nothing the crew reads.</p>
+      <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
     </div>
     <div class="crew">
       <article class="member qm">
@@ -563,6 +704,25 @@ footer .mae-word { height: 16px; }
         <button class="wrong" type="button" data-say="Fixing it is the Artificer's job. I'll tell you what needs fixing.">Ask it to fix what it found</button>
         <p class="decline" aria-live="polite"></p>
       </article>
+    </div>
+    <div class="packs">
+      <div class="packs-head">
+        <span class="tag">Make it yours</span>
+        <h3>Not a guild person? Change the costumes.</h3>
+        <ul class="pack-list" aria-label="Theme packs">
+          <li><i aria-hidden="true">🧭</i><b>Guild</b><span>Quartermaster</span></li>
+          <li><i aria-hidden="true">🚀</i><b>Starship</b><span>Commander</span></li>
+          <li><i aria-hidden="true">📰</i><b>Newsroom</b><span>Editor</span></li>
+          <li><i aria-hidden="true">🎬</i><b>Studio</b><span>Director</span></li>
+          <li><i aria-hidden="true">🧪</i><b>Lab</b><span>Lab Lead</span></li>
+          <li><i aria-hidden="true">🏴‍☠️</i><b>Pirate</b><span>Commodore</span></li>
+          <li class="new"><i aria-hidden="true">✚</i><b>New pack…</b><span>your own names</span></li>
+        </ul>
+      </div>
+      <div class="packs-body">
+        <p>A theme pack (Settings → General) renames the five, for you and for them: Starship makes them a Commander, Navigator, Comms Officer, Engineer and Security Chief, on a ship flying missions. Newsroom is an Editor and staff filing stories, Studio a Director and a film crew shooting scenes, Lab a Lab Lead and a team running experiments, Pirate a Commodore and a crew out on raids. The plane game in the top bar dresses to match: a starfighter against an empire's grey fleet, a kid on a bike throwing papers with the whole street after them, a star throwing stars, a mech dog with lasers for eyes, a pirate ship firing cannonballs. A Wizard you've added is renamed with them (a Test Pilot, on the ship). None of them fit? New pack… on the same page makes one of your own, with your names, icons and words for the five; it's kept in camp/packs.json, and it's there after a restart. Who they are and what they remember stays the same.</p>
+        <p class="deco"><b>Decorations</b>, on the same page, are only for looks: snow in winter, bats at Halloween, confetti at New Year, with a string of lights under the top bar. They're off until you turn one on, and they change nothing the crew reads.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -607,6 +767,15 @@ footer .mae-word { height: 16px; }
 <!-- films:end -->
 
 <section id="orbit">
+  <div class="sky-layer stars far" data-speed="0.2" aria-hidden="true"></div>
+  <div class="sky-layer stars near" data-speed="0.4" aria-hidden="true"></div>
+  <div class="system band-system" data-speed="0.3" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="ring" style="--d:260px;--t:24s"><i style="--c:var(--c-scout)"></i></div>
+    <div class="ring" style="--d:400px;--t:36s;--a:120deg"><i style="--c:var(--c-scribe)"></i></div>
+    <div class="ring" style="--d:560px;--t:50s;--a:230deg"><i style="--c:var(--c-art)"></i></div>
+    <div class="ring" style="--d:740px;--t:68s;--a:330deg"><i style="--c:var(--c-warden)"></i></div>
+  </div>
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow">Orbit</div>
@@ -617,7 +786,10 @@ footer .mae-word { height: 16px; }
       <div class="word"><h3>Watch</h3><p>Click a planet and the camera flies to it and stays there. Its panel shows each quest, how long it has been out, its last few steps, and a reply as it's written. The sun's panel shows the running expeditions and where each plan stands.</p></div>
       <div class="word"><h3>Act</h3><p>Answer a question, steer a quest, stop one or send new work from the panel, without leaving the view. Stopping a whole expedition asks you once first.</p></div>
       <div class="word"><h3>Replay</h3><p>Scrub back through the day on a timeline. Demo plays a pretend camp, so you can see it busy without sending anyone anywhere. HD draws the system in three dimensions, as worlds you can make your own.</p></div>
-      <div class="word"><h3>Trail map</h3><p>The plan has a full-screen view of its own, beside Orbit in the top bar or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the crew works, and replays the day the same way. <b>Whole map</b> (or M) puts every plan on one map, drawn one of two ways, and <b>Tree</b> and <b>Rings</b> (or R) swap between them. As rings, the way Orbit draws the crew: each plan is a ring round one centre, the first asked innermost, so the map grows outward as the day goes on. Its steps are waypoints on the ring, with whoever was sent on one beside it, and the plans of one conversation start on the same bearing and are joined, ring to ring. As a tree: one trunk for the day, standing on the foot of the window and growing upward, the first plan at the bottom and the newest at the tip, each plan a bough growing off it. Either way it holds the whole last day (the same day a replay plays, so a replay ends on the map you started from), it's drawn as small as it takes to fit, and fitted again as plans join, and the way you chose is remembered. A plan that joins while you watch, live or in a replay, is drawn in (a ring opens out, a bough grows) while the rest move over for it, and one that goes when you wind a replay back fades where it stood.</p></div>
+    </div>
+    <div class="feature">
+      <div class="feature-head"><span class="tag">Beside Orbit</span><h3>Trail map</h3></div>
+      <p>The plan has a full-screen view of its own, beside Orbit in the top bar or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the crew works, and replays the day the same way. <b>Whole map</b> (or M) puts every plan on one map, drawn one of two ways, and <b>Tree</b> and <b>Rings</b> (or R) swap between them. As rings, the way Orbit draws the crew: each plan is a ring round one centre, the first asked innermost, so the map grows outward as the day goes on. Its steps are waypoints on the ring, with whoever was sent on one beside it, and the plans of one conversation start on the same bearing and are joined, ring to ring. As a tree: one trunk for the day, standing on the foot of the window and growing upward, the first plan at the bottom and the newest at the tip, each plan a bough growing off it. Either way it holds the whole last day (the same day a replay plays, so a replay ends on the map you started from), it's drawn as small as it takes to fit, and fitted again as plans join, and the way you chose is remembered. A plan that joins while you watch, live or in a replay, is drawn in (a ring opens out, a bough grows) while the rest move over for it, and one that goes when you wind a replay back fades where it stood.</p>
     </div>
   </div>
 </section>
@@ -709,6 +881,7 @@ footer .mae-word { height: 16px; }
 </section>
 
 <div class="rules-band" id="rules">
+  <div class="sky-layer stars far" data-speed="0.22" aria-hidden="true"></div>
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow">Camp rules</div>
@@ -849,6 +1022,68 @@ footer .mae-word { height: 16px; }
     });
   }
   document.getElementById('replay').addEventListener('click', play);
+})();
+
+// Motion: layers that lag behind the scroll, things that rise into view, an expedition that leans
+// toward the pointer. None of it runs with reduced motion, and without the script everything just shows.
+(function () {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  // Parallax: each [data-speed] layer moves by --py as its box passes through the viewport.
+  var layers = [].slice.call(document.querySelectorAll('[data-speed]')).map(function (el) {
+    return { el: el, box: el.closest('.sky, section, .rules-band') || el.parentElement,
+             speed: parseFloat(el.getAttribute('data-speed')) || 0, fade: el.hasAttribute('data-fade') };
+  });
+  var ticking = false;
+  function frame() {
+    ticking = false;
+    var vh = innerHeight;
+    layers.forEach(function (l) {
+      var r = l.box.getBoundingClientRect();
+      if (r.bottom < -200 || r.top > vh + 200) return;
+      // The hero starts at the top of the page; a band is centred when its middle meets the viewport's.
+      var off = l.box.classList.contains('sky') ? r.top : (r.top + r.height / 2 - vh / 2);
+      var lim = r.height * 0.35;
+      var py = Math.max(-lim, Math.min(lim, -off * l.speed));
+      l.el.style.setProperty('--py', py.toFixed(1) + 'px');
+      if (l.fade) l.el.style.opacity = Math.max(0, Math.min(1, 1 + r.top / (vh * 0.75))).toFixed(3);
+    });
+  }
+  function ask() { if (!ticking) { ticking = true; requestAnimationFrame(frame); } }
+  addEventListener('scroll', ask, { passive: true });
+  addEventListener('resize', ask, { passive: true });
+  frame();
+
+  // Reveal: groups come in one after another as they reach the viewport.
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    var groups = ['.sec-head', '.stats > *', '.crew > *', '.packs', '.route > *', '.kit > *', '.words > *',
+                  '.feature', '.rules > *', '.term', '.try'];
+    groups.forEach(function (sel) {
+      var seen = new Map();
+      document.querySelectorAll(sel).forEach(function (el) {
+        if (el.closest('.sky, #films')) return;
+        var n = seen.get(el.parentElement) || 0;
+        seen.set(el.parentElement, n + 1);
+        el.style.setProperty('--i', Math.min(n, 8));
+        el.classList.add('reveal');
+        io.observe(el);
+      });
+    });
+  }
+
+  // Tilt: the expedition leans a little toward a fine pointer over the hero.
+  var sky = document.getElementById('sky'), feed = document.getElementById('feed');
+  if (sky && feed && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    sky.addEventListener('pointermove', function (ev) {
+      var r = feed.getBoundingClientRect();
+      var x = (ev.clientX - (r.left + r.width / 2)) / innerWidth, y = (ev.clientY - (r.top + r.height / 2)) / innerHeight;
+      feed.style.transform = 'perspective(1200px) rotateY(' + (x * 7).toFixed(2) + 'deg) rotateX(' + (-y * 7).toFixed(2) + 'deg)';
+    });
+    sky.addEventListener('pointerleave', function () { feed.style.transform = ''; });
+  }
 })();
 </script>
 <!-- films-code:start -->
