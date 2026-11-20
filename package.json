@@ -22,7 +22,8 @@
     "tour:films": "tsx scripts/tour-films.ts",
     "test": "tsx --test --test-reporter=spec tests/*.test.ts && vitest run --config ui/vite.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui && tsc --noEmit -p extension",
-    "eval": "tsx --import ./scripts/env.mjs evals/run.ts"
+    "eval": "tsx --import ./scripts/env.mjs evals/run.ts",
+    "recall:report": "tsx scripts/recall-report.ts"
   },
   "keywords": [],
   "author": "",
