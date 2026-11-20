@@ -26,6 +26,8 @@ import { storeGet, storeSet } from "../api.ts";
 import { cx } from "../format.ts";
 import { EggBar, PausedPill, usePause, type GameProps } from "./Bar.tsx";
 import { PAINT, PIXEL, SPRITE, UP, scoreText } from "./flight.ts";
+import { bareOf, quiet, skinFor } from "./skins.ts";
+import { packNow } from "../themes.ts";
 import {
   CABLE, CHASE_WARN, ENEMY, FLAK_FUSE, FLAK_RADIUS, INTRO, LEVELS, LEVEL_ORDER, LOOP_LASTS, PERKS, SHIPS, TWISTS,
   chainTimes, dailySeed, liningUp, loopPose, newGame, shielded, step, wingAt,
@@ -429,7 +431,7 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
         else if (e.type === "lost") burst(e.x, e.y, 44, ["#ffffff", PAINT.G, "#ff8a3a", "#ffd84a"], 340);
         else if (e.type === "points") popups.push({ x: e.x, y: e.y - 14, text: e.times > 1 ? `+${e.n} ×${e.times}` : `+${e.n}`, age: 0 });
         else if (e.type === "flight") popups.push({ x: e.x, y: e.y - 34, text: `FLIGHT DOWN +${e.n}`, age: -0.6 });
-        else if (e.type === "extra") popups.push({ x: e.x, y: e.y - 40, text: "EXTRA PLANE", age: -0.9 });
+        else if (e.type === "extra") popups.push({ x: e.x, y: e.y - 40, text: `EXTRA ${skinFor(packNow())?.craft ?? "PLANE"}`, age: -0.9 });
         else if (e.type === "warning") warned = 2.2;
         else if (e.type === "pickup") { popups.push({ x: e.x, y: e.y - 18, text: CRATES[e.what].says, age: -0.5 }); burst(e.x, e.y, 12, ["#ffffff", CRATES[e.what].color], 150); }
         else if (e.type === "block") burst(e.x, e.y, 3, ["#c9d3e0", "#8a93a3"], 90);
@@ -444,7 +446,7 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
       const w = rows[0].length, h = rows.length;
       for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
         const ch = rows[r][c];
-        if (ch === ".") continue;
+        if (ch === "." || !paint[ch]) continue; // (a letter with no paint isn't drawn: a flame, flickering)
         g.fillStyle = flat ?? paint[ch];
         g.fillRect((c - w / 2) * px, (r - h / 2) * px, px, px);
       }
@@ -492,6 +494,7 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
 
     const draw = (g: CanvasRenderingContext2D) => {
       g.clearRect(0, 0, sky.width, sky.height);
+      const skin = skinFor(packNow()); // the theme pack's look for all of it, if it has one (looked up every frame: change the pack and the game changes under you)
       g.imageSmoothingEnabled = false;
       g.save();
       g.beginPath(); g.rect(0, 0, field.width, field.height); g.clip(); // (the bar is below)
@@ -516,12 +519,14 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
       for (const e of game.enemies) {
         if (!SHIPS.has(e.kind) || e.age < 0) continue;
         g.save(); g.translate(Math.round(e.x), Math.round(e.y)); g.rotate(Math.PI); // (bow towards you)
-        sprite(g, ART[e.kind].rows, ART[e.kind].paint, PIXEL, e.hurt > 0 ? "#ffffff" : undefined);
+        sprite(g, ART[e.kind].rows, skin?.enemies[e.kind].paint ?? ART[e.kind].paint, PIXEL, e.hurt > 0 ? "#ffffff" : undefined);
         g.restore();
       }
       for (const e of game.enemies) {
         if (e.age < 0 || SHIPS.has(e.kind)) continue;
-        const art = ART[e.kind];
+        // What it looks like: the theme pack's version of it, if the pack has one.
+        const look = skin?.enemies[e.kind];
+        const art = { rows: look?.rows ?? ART[e.kind].rows, paint: look?.paint ?? ART[e.kind].paint };
         // A chaser waiting under the bottom of the screen: an arrow there, flashing, under the column it's coming up.
         if (e.kind === "chaser" && e.age < CHASE_WARN) {
           if (Math.floor(clock * 8) % 2 === 0) { g.save(); g.translate(Math.round(e.x), field.height - 20); sprite(g, ARROW.rows, ARROW.paint, PIXEL); g.restore(); }
@@ -535,7 +540,7 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
           g.fillStyle = "#c3cad4"; g.fillRect(x, top, 1, CABLE);
         }
         if (e.kind === "balloon") { flying(g, e.x, e.y, 0, art.rows, art.paint, PIXEL, { high: 0.3 }); continue; }
-        const paint = e.kind === "gunship" && !shielded(e) ? BARE : art.paint;
+        const paint = e.kind === "gunship" && !shielded(e) ? (look ? bareOf(look.paint, look.bare) : BARE) : art.paint;
         // A dart lining up: a broken line from it to you, flickering, so you know to move.
         if (liningUp(e) && p.alive && Math.floor(clock * 14) % 2 === 0) {
           const far = Math.hypot(p.x - e.x, p.y - e.y), ux = (p.x - e.x) / far, uy = (p.y - e.y) / far;
@@ -543,7 +548,7 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
           for (let d = 26; d < far - 20; d += 16) g.fillRect(Math.round(e.x + ux * d) - 2, Math.round(e.y + uy * d) - 2, 4, 4);
         }
         const high = e.kind === "heavy" || e.kind === "flagship" || e.kind === "gunship" ? 0.15 : 0;
-        flying(g, e.x, e.y, e.heading - UP, art.rows, paint, PIXEL, { flat: e.hurt > 0 ? "#ffffff" : undefined, high });
+        flying(g, e.x, e.y, look?.upright ? 0 : e.heading - UP, art.rows, paint, PIXEL, { flat: e.hurt > 0 ? "#ffffff" : undefined, high }); // (a person stays the right way up)
       }
 
       // The clouds, over the aircraft (they're high), their shadows faint on the page below.
@@ -579,6 +584,12 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
       }
       for (const m of game.missiles) if (!m.gone) flying(g, m.x, m.y, m.heading - UP, MISSILE.rows, MISSILE.paint, 2);
       for (const s of game.shots) {
+        if (skin) {
+          // The pack's own shot (a bolt, a rolled paper, a star), some of them turning over as they go.
+          const turns = skin.shot.spin ? (Math.floor(clock * 14 + s.x / 9) % 4) * (Math.PI / 2) : 0;
+          g.save(); g.translate(Math.round(s.x), Math.round(s.y)); g.rotate(turns); sprite(g, skin.shot.rows, skin.shot.paint, 2); g.restore();
+          continue;
+        }
         g.fillStyle = INK; g.fillRect(Math.round(s.x) - 2.5, Math.round(s.y) - 8, 5, 16);
         g.fillStyle = "#c8f6ff"; g.fillRect(Math.round(s.x) - 1.5, Math.round(s.y) - 7, 3, 14);
       }
@@ -591,8 +602,11 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
         const pose = p.loop > 0 ? loopPose(1 - p.loop / LOOP_LASTS) : { ahead: 0, height: 0, pitch: 1 };
         const sy = pose.pitch < 0 ? Math.min(-0.14, pose.pitch) : Math.max(0.14, pose.pitch);
         const o = { sx: 1 - 0.25 * Math.abs(p.lean), sy, grow: 1 + 0.55 * pose.height, high: pose.height };
-        game.wingmen.forEach((there, i) => { if (there) { const w = wingAt(game, i); flying(g, w.x, w.y - pose.ahead, 0, SPRITE, PAINT, 2, o); } });
-        flying(g, p.x, p.y - pose.ahead, 0, SPRITE, PAINT, PIXEL, o);
+        // (The pack's craft, if it has one, its flame flickering.)
+        const me = skin?.player, rows = me?.rows ?? SPRITE;
+        const paint = !me ? PAINT : me.flicker && Math.floor(clock * 24) % 2 === 0 ? quiet(me.paint, me.flicker) : me.paint;
+        game.wingmen.forEach((there, i) => { if (there) { const w = wingAt(game, i); flying(g, w.x, w.y - pose.ahead, 0, rows, paint, 2, o); } });
+        flying(g, p.x, p.y - pose.ahead, 0, rows, paint, PIXEL, o);
       }
       g.globalAlpha = 1;
 
@@ -617,9 +631,9 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
         g.fillStyle = INK; g.fillRect(x - 3, 9, wide + 6, 14);
         g.fillStyle = "#3a0c10"; g.fillRect(x, 12, wide, 8);
         g.fillStyle = left <= 0.5 ? "#ff8a3a" : "#e2463c"; g.fillRect(x, 12, Math.round(wide * left), 8);
-        label(g, "FLAGSHIP", cx, 38, 11);
+        label(g, skin?.boss ?? "FLAGSHIP", cx, 38, 11);
       }
-      if (warned > 0 && Math.floor(clock * 5) % 2 === 0) label(g, "FLAGSHIP INBOUND", cx, cy, 24, "#ff8a3a");
+      if (warned > 0 && Math.floor(clock * 5) % 2 === 0) label(g, `${skin?.boss ?? "FLAGSHIP"} INBOUND`, cx, cy, 24, "#ff8a3a");
 
       // What the game has to say: the stage coming up, how the last one went, or that it's over.
       const switchHint = game.daily ? "D: BACK TO A RANDOM RUN" : "D: TODAY'S DAILY RUN";

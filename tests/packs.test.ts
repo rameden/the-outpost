@@ -165,7 +165,7 @@ test("the choice is kept in camp/settings.json, and going back to the Guild rest
 });
 
 test("packs say what the page needs: names for all five, the nouns, and a palette that exists", () => {
-  assert.deepEqual(PACKS.map((p) => p.id), ["guild", "starship", "newsroom", "studio", "lab"]);
+  assert.deepEqual(PACKS.map((p) => p.id), ["guild", "starship", "newsroom", "studio", "lab", "pirate"]);
   for (const p of PACKS) {
     assert.deepEqual(Object.keys(p.crew), [...crew.BUILT_IN], p.id);
     for (const w of ["crew", "quest", "quests", "camp", "expedition"] as const) assert.ok(p.words[w], `${p.id} has a word for ${w}`);
@@ -192,6 +192,7 @@ test("no two crew members share a name or a handle in any pack, and every pack's
     assert.deepEqual(everyone.map((id) => crew.CREW[id].name), everyone.map((id) => said(id, on)[0]), on.id);
     for (const id of crew.BUILT_IN) assert.doesNotMatch(crew.identityBlock(id).split("(Older notes")[0], on.id === "guild" ? /$^/ : /\b(Quartermaster|Scribe|Artificer|Warden|Wizard)\b/, `${on.id}: ${id}`);
   }
+  crew.setPack("lab");
   assert.match(crew.identityBlock("scout"), /^You are the Peer Reviewer|^- 🧐 Peer Reviewer: Review/m);
   assert.match(crew.identityBlock("warden"), /You are the Peer Reviewer 🧐 of the Mae research lab\./);
   crew.setPack("studio");
@@ -217,7 +218,7 @@ test("a pack renames the Wizard too, while they still have the name they came wi
   assert.match(crew.identityBlock("scout"), /the Wizard is the Test Pilot/, "and know who old notes mean");
   assert.match(ROSTER.wizard.persona, /^You are the Test Pilot\. Hand anything slow to the Engineer\./, "their own words use the names in use");
   assert.equal(ROSTER.wizard.name, "Test Pilot");
-  assert.deepEqual(["@wizard", "Wizard", "hacker", "Test Pilot", "@pilot", "Stringer", "stunt", "Tinkerer"].map((n) => crew.findCrew(n)?.id), Array(8).fill("wizard"));
+  assert.deepEqual(["@wizard", "Wizard", "hacker", "Test Pilot", "@pilot", "Stringer", "stunt", "Tinkerer", "Powder Monkey", "@monkey"].map((n) => crew.findCrew(n)?.id), Array(10).fill("wizard"));
   assert.equal(crew.currentName("Wizard"), "Test Pilot");
 
   // What you wrote is what's kept: the file still says Wizard, whatever is saved while a pack is on.
@@ -229,7 +230,7 @@ test("a pack renames the Wizard too, while they still have the name they came wi
   assert.equal(crew.CREW.wizard.name, "Test Pilot", "read again from the file, they wear the pack again");
 
   // Each pack has its own name for them.
-  assert.deepEqual(["newsroom", "studio", "lab", "guild"].map((id) => { crew.setPack(id); return `${crew.CREW.wizard.emoji} ${crew.CREW.wizard.name}`; }), ["⚡ Stringer", "🤸 Stunt Double", "⚗️ Tinkerer", "🧙 Wizard"]);
+  assert.deepEqual(["newsroom", "studio", "lab", "pirate", "guild"].map((id) => { crew.setPack(id); return `${crew.CREW.wizard.emoji} ${crew.CREW.wizard.name}`; }), ["⚡ Stringer", "🤸 Stunt Double", "⚗️ Tinkerer", "🧨 Powder Monkey", "🧙 Wizard"]);
   assert.equal(crew.currentName("Stunt Double"), "Wizard");
 
   // Give them a name of your own and packs leave them be.
@@ -268,7 +269,7 @@ const pirates = (names: Record<string, string | { name: string; short?: string[]
   ...PIRATES, ...more,
   crew: { ...PIRATES.crew, ...Object.fromEntries(Object.entries(names).map(([who, n]) => [who, { emoji: (PIRATES.crew as Record<string, { emoji: string }>)[who].emoji, ...(typeof n === "string" ? { name: n } : n) }])) },
 });
-const BUILT_IN_PACKS = ["guild", "starship", "newsroom", "studio", "lab"];
+const BUILT_IN_PACKS = ["guild", "starship", "newsroom", "studio", "lab", "pirate"];
 const packsFile = () => JSON.parse(readFileSync(crew.PACKS_PATH, "utf8")) as { packs: any[]; retired?: Record<string, string[]> };
 // A camp with nobody added, no packs of its own, wearing the Guild's.
 function fresh(file?: unknown) {
@@ -497,7 +498,7 @@ test("the page reads the pack from /api/state and sets it with POST /api/pack", 
 
   const before = await state();
   assert.equal(before.pack, "guild");
-  assert.deepEqual(before.packs.map((p: any) => p.id), ["guild", "starship", "newsroom", "studio", "lab"]);
+  assert.deepEqual(before.packs.map((p: any) => p.id), ["guild", "starship", "newsroom", "studio", "lab", "pirate"]);
   assert.equal(before.characters.find((c: any) => c.id === "scout").name, "Scout");
   const wizard = (s: any) => { const c = s.characters.find((c: any) => c.id === "wizard"); return [c.name, c.emoji, c.own, c.persona, c.aliases]; };
   assert.deepEqual(wizard(before), ["Wizard", "🧙", undefined, "You are the Wizard.", []]);
@@ -570,7 +571,7 @@ test("POST /api/packs makes, changes and deletes a pack of your own, and it's st
   assert.deepEqual(await c.post("/api/packs", { action: "rename", id: "pirates" }), [400, { error: "Unknown action" }]);
   assert.deepEqual(await c.post("/api/packs", { action: "update", id: "starship", pack: PIRATES }).then(([code]) => code), 400);
   assert.deepEqual(await c.post("/api/packs", { action: "remove", id: "starship" }).then(([code]) => code), 404);
-  assert.equal((await c.state()).packs.length, 6);
+  assert.equal((await c.state()).packs.length, 7);
 
   // Put on like any pack: the crew bar's names, and the Wizard's too.
   assert.deepEqual(await c.post("/api/pack", { id: "pirates" }), [200, { ok: true, pack: "pirates" }]);

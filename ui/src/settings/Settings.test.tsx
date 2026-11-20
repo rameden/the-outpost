@@ -228,8 +228,8 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
   const group = screen.getByRole("group", { name: "Theme pack" });
   const row = group.closest(".set-row")!;
   expect(row.textContent).toMatch(/You can make a pack of your own: it's kept in camp\/packs\.json, and it leaves the orb's colours as they are\./);
-  // Yours sits after the camp's five, with the same kind of button and a pencil beside it; theirs have none.
-  expect([...group.querySelectorAll("button.look")].map((b) => b.textContent)).toEqual(["🧭Guild", "🚀Starship", "📰Newsroom", "🎬Studio", "🧪Lab", "🦜Pirates", "New pack…"]);
+  // Yours sits after the camp's six, with the same kind of button and a pencil beside it; theirs have none.
+  expect([...group.querySelectorAll("button.look")].map((b) => b.textContent)).toEqual(["🧭Guild", "🚀Starship", "📰Newsroom", "🎬Studio", "🧪Lab", "🏴‍☠️Pirate", "🦜Pirates", "New pack…"]);
   expect(within(group).getAllByRole("button", { name: /^Edit the / }).map((b) => b.getAttribute("aria-label"))).toEqual(["Edit the Pirates pack"]);
   expect(screen.getByRole("button", { name: "Pirates" }).title).toBe("A ship and her hands. Captain, Lookout, Shipwright, Chronicler, Bosun.");
   expect(row.querySelector(".pack-left-out")?.textContent).toBe(`The pack "mutiny" in camp/packs.json was left out. The Scout needs a name in this pack.`);

@@ -90,7 +90,7 @@ test("Start from another pack fills in its names, words, place and colours, and 
   type(d, "Pack name", "My Ship");
   expect(field(d, "Name for the Wizard").value).toBe("");
   const from = field(d, "Start from") as unknown as HTMLSelectElement;
-  expect([...from.options].map((o) => o.textContent).slice(1)).toEqual(["Guild", "Starship", "Newsroom", "Studio", "Lab"]);
+  expect([...from.options].map((o) => o.textContent).slice(1)).toEqual(["Guild", "Starship", "Newsroom", "Studio", "Lab", "Pirate"]);
   fireEvent.change(from, { target: { value: "starship" } });
   expect(["Quartermaster", "Scout", "Artificer", "Scribe", "Warden", "Wizard"].map((who) => [field(d, `Name for the ${who}`).value, field(d, `Icon for the ${who}`).value]))
     .toEqual([["Commander", "🚀"], ["Navigator", "🔭"], ["Engineer", "🔧"], ["Comms Officer", "📡"], ["Security Chief", "🛡️"], ["Test Pilot", "🛸"]]);

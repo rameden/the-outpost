@@ -127,9 +127,26 @@ export const PACKS: Pack[] = [
     palette: "moss",
     orb: true,
   },
+  {
+    id: "pirate",
+    name: "Pirate",
+    about: "A pirate ship and her crew.",
+    crew: {
+      quartermaster: { name: "Commodore", emoji: "🏴‍☠️" },
+      scout: { name: "Spyglass", emoji: "🔭" },
+      scribe: { name: "Logkeeper", emoji: "📜" },
+      artificer: { name: "Rigger", emoji: "🪢" },
+      warden: { name: "First Mate", emoji: "⚓", short: ["mate"] },
+    },
+    extras: { wizard: { name: "Powder Monkey", emoji: "🧨", short: ["monkey"] } },
+    words: { crew: "crew", quest: "raid", quests: "raids", camp: "ship", expedition: "voyage" },
+    place: "the pirate ship Mae",
+    palette: "harbor",
+    orb: true,
+  },
 ];
 
-// The five above, whatever has been joined on since.
+// The six above, whatever has been joined on since.
 const BUILT_IN_PACKS: readonly Pack[] = [...PACKS];
 export const isBuiltInPack = (id: unknown) => BUILT_IN_PACKS.some((p) => p.id === id);
 // Yours (camp/packs.json), after the camp's own. PACKS is the same array throughout, so everyone
