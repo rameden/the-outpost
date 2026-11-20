@@ -126,7 +126,7 @@ test("the tour's films are drawn by the page itself, so its policy needs nothing
     assert.match(page, new RegExp(`<section id="${id}">`));
     assert.match(page, new RegExp(`<a href="#${id}">`), "the top bar links to them");
   }
-  for (const key of ["sky", "ticket", "audit", "trail", "stars", "night"]) {
+  for (const key of ["sky", "whole", "ticket", "audit", "trail", "stars", "night"]) {
     assert.match(page, new RegExp(`<template id="film-${key}-stage">`), `the ${key} film's stage is in the page`);
     assert.match(page, new RegExp(`id="film-tab-${key}" aria-controls="film-${key}"`), `the ${key} film has its tab`);
   }

@@ -3028,9 +3028,9 @@ a.orb-btn { display: inline-block; text-decoration: none; }
     radial-gradient(60% 50% at 8% 10%, color-mix(in srgb, var(--c-warden) 7%, transparent), transparent 70%);
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, rgba(0, 0, 0, .35) 80%, rgba(0, 0, 0, .2) 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, rgba(0, 0, 0, .35) 80%, rgba(0, 0, 0, .2) 100%); }
-.home-sky .orb-stars { transition: transform 120ms linear; filter: invert(1) hue-rotate(180deg) saturate(.6); opacity: .45; } /* a light page: the stars in ink */
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .home-sky .orb-stars { filter: none; opacity: .9; } }
-:root[data-theme="dark"] .home-sky .orb-stars { filter: none; opacity: .9; }
+.home-sky > div { transition: transform 120ms linear; filter: invert(1) hue-rotate(180deg) saturate(.6); opacity: .45; } /* a light page: the stars in ink. (Orbit's sheets, styled as "> div": the class names are Orbit's own, and the figure beside them is an svg) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .home-sky > div { filter: none; opacity: .9; } }
+:root[data-theme="dark"] .home-sky > div { filter: none; opacity: .9; }
 .home-figure { position: absolute; top: 18px; right: max(24px, calc(50% - 560px)); width: min(420px, 42vw); height: auto; overflow: visible; }
 .home-figure line { stroke-width: .8; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .home-figure-faint line { stroke: var(--faint); opacity: .35; }
@@ -3039,7 +3039,7 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 .home-figure-star { fill: var(--c); animation: home-twinkle 5s ease-in-out infinite; }
 .home-figure-glow { fill: var(--c); opacity: .14; }
 @keyframes home-twinkle { 0%, 100% { opacity: .95; } 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .home-figure * { animation: none; } .home-sky .orb-stars { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .home-figure * { animation: none; } .home-sky > div { transition: none; } }
 @media (max-width: 1360px) { .home-figure { opacity: .6; } } /* (narrower, it can reach behind the greeting: quieter there) */
 @media (max-width: 1100px) { .home-figure { opacity: .35; } }
 @media (max-width: 760px) { .home-figure { width: 70vw; } }
