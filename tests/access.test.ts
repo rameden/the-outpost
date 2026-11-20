@@ -1,7 +1,7 @@
 // Who can reach mission control: this machine only, or (LAN mode) your other machines at home.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accessFrom, addressOf, hostAllowed, isLocal } from "../src/access.ts";
+import { accessFrom, addressOf, hostAllowed, isLocal, relayed } from "../src/access.ts";
 
 const nics = {
   lo0: [{ address: "127.0.0.1", family: "IPv4", internal: true }, { address: "::1", family: "IPv6", internal: true }],
@@ -41,4 +41,12 @@ test("your own names come first, one address can be chosen, and odd input is dro
 test("whether a connection came from the camp's own machine", () => {
   for (const a of ["127.0.0.1", "127.0.0.53", "::1", "::ffff:127.0.0.1"]) assert.equal(isLocal(a), true, a);
   for (const a of ["192.168.1.30", "::ffff:192.168.1.30", "10.0.0.2", "fe80::1", "", undefined]) assert.equal(isLocal(a), false, String(a));
+});
+
+test("a request a proxy passed on is not from this machine, whatever the connection says", () => {
+  for (const h of ["cf-connecting-ip", "cf-ray", "x-forwarded-for", "x-forwarded-host", "x-real-ip", "forwarded"]) {
+    assert.equal(relayed({ host: "127.0.0.1:4747", [h]: "203.0.113.9" }), true, h);
+  }
+  assert.equal(relayed({ host: "127.0.0.1:4747", "user-agent": "x" }), false);
+  assert.equal(relayed({}), false);
 });

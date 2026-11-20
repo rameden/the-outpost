@@ -51,7 +51,7 @@ import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, save
 import { skillCommands } from "./settings.js";
 import { dueJobs, runJob, inboxEntries, inboxUnread, markInboxSeen, claimScheduler, schedulerOwner } from "./scheduler.js";
 import { feedEventsOf, feedSince, keepInFeed, loadFeed, saveToFeed, trimFeed } from "./feed.js";
-import { accessFrom, addressOf, hostAllowed, isLocal } from "./access.js";
+import { accessFrom, addressOf, hostAllowed, isLocal, relayed } from "./access.js";
 import { hostname, networkInterfaces } from "node:os";
 import { writeAtomic } from "./atomic.js";
 import { creditState, planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
@@ -668,8 +668,9 @@ async function readJson(req: http.IncomingMessage, limit = MAX_BODY): Promise<an
 function hostOk(req: http.IncomingMessage) {
   return hostAllowed(req.headers.host, PORT, ACCESS);
 }
-// Did this request come from the camp's own machine? (Asked of the connection, never of a header.)
-const fromHere = (req: http.IncomingMessage) => isLocal(req.socket.remoteAddress);
+// Did this request come from the camp's own machine? Asked of the connection; a proxy's headers
+// (a Cloudflare Tunnel's, say) can only say no, since the tunnel itself connects from here.
+const fromHere = (req: http.IncomingMessage) => isLocal(req.socket.remoteAddress) && !relayed(req.headers);
 const NOT_FROM_HERE = "The terminal is a shell on the camp's own machine, so it only opens in a browser on that machine. Everything else works from here.";
 
 const server = http.createServer(async (req, res) => {
