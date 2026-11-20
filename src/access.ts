@@ -67,5 +67,14 @@ export function isLocal(remoteAddress: string | undefined): boolean {
   return a === "::1" || a.startsWith("127.") || a.startsWith("::ffff:127.");
 }
 
+// Did a proxy on this machine pass the request on from somewhere else? A Cloudflare Tunnel (or
+// any reverse proxy) connects from 127.0.0.1, so the connection alone would call a visitor from
+// the internet local. These headers mark a relayed request. A header can only ever take "local"
+// away here, never grant it, so a forged one costs the sender, not the camp.
+const RELAY_HEADERS = ["cf-connecting-ip", "cf-ray", "x-forwarded-for", "x-forwarded-host", "x-real-ip", "forwarded"];
+export function relayed(headers: Record<string, string | string[] | undefined>): boolean {
+  return RELAY_HEADERS.some((h) => headers[h] !== undefined);
+}
+
 // Where to open it, for the terminal and the page: the address to use from another machine.
 export const addressOf = (name: string, port: number) => `http://${name}:${port}/`;
