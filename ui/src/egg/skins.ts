@@ -32,9 +32,23 @@ export type Skin = {
   builder: Paint; // the Wreck's builders, in other clothes (the letters of GREMLIN_PAINT)
   // ...and, if they aren't dwarves under there, their own shape: two walking frames and a duck,
   // in the same letters (gremlins.ts has the dwarf's). The ladder arm is still T and the hand S.
-  crew?: { frames: string[][]; duck: string[] };
-  quotes?: Partial<Record<QuoteKind, readonly string[]>>; // ...and their own lines, for any kind of moment (gremlins.ts has the dwarves')
+  crew?: Crew;
+  quotes?: Quotes; // ...and their own lines, for any kind of moment (gremlins.ts has the dwarves')
+  guests?: Guest[]; // ...and now and then someone else turns up to help
 };
+export type Crew = { frames: string[][]; duck: string[] };
+export type Quotes = Partial<Record<QuoteKind, readonly string[]>>;
+// Someone else in the crew: a share of the builders (0 to 1) in clothes, a shape and a voice of their own.
+export type Guest = Crew & { share: number; paint: Paint; quotes?: Quotes };
+export type Look = { paint: Paint; crew?: Crew; quotes?: Quotes };
+
+// Which of a skin's crew a builder is, by a roll (0 to 1) it made when it turned up: a guest if
+// the roll falls in that guest's share, or else the skin's own.
+export function lookOf(skin: Skin, roll: number): Look {
+  let at = 0;
+  for (const guest of skin.guests ?? []) if (roll < (at += guest.share)) return { paint: guest.paint, crew: guest, quotes: guest.quotes };
+  return { paint: skin.builder, crew: skin.crew, quotes: skin.quotes };
+}
 
 export const SKINS: Record<string, Skin> = { starship, newsroom, studio, lab, pirate };
 
