@@ -1387,6 +1387,10 @@ footer .mae-word { height: 16px; }
 .nstar { fill: var(--night-text); }
 .sunb { fill: var(--accent); }
 .moonb { fill: var(--night-text); }
+.sun-q * { fill: none; stroke: var(--accent-ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.topo-n { stroke: var(--night-text); }
+.hill { fill: var(--surface-2); }
+.hill-n { fill: var(--sky); }
 .winframe { fill: none; stroke: var(--border-strong); stroke-width: 1; }
 .tent { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .tent-door { fill: var(--border-strong); }
@@ -4059,29 +4063,79 @@ for (let i = 0; i < 54; i++) NSTARS.push({ ph: rnd(i + 300) * 6.28, sp: 1.2 + rn
   n: el('circle', { cx: (WX + 14 + rnd(i) * (WIDE - 28)).toFixed(1), cy: (WY + 12 + rnd(i + 100) * 300).toFixed(1), r: (.9 + rnd(i + 200) * 1.3).toFixed(2), class: 'nstar' }, gWin) });
 // the land moves across as the window narrows, so the camp is always in the middle of it
 const gLand = el('g', null, gWin);
-const gSun = el('g', null, gLand);
-el('circle', { r: 74, fill: 'url(#glow)', opacity: .7 }, gSun); el('circle', { r: 24, class: 'sunb' }, gSun);
+// a map line is drawn twice, for the day and for the night, and the two are cross-faded
+const TOPO = [];
+const topo = (d, parent) => { el('path', { d, class: 'contour' }, parent); TOPO.push(el('path', { d, class: 'contour topo-n' }, parent)); };
+// the sky: the Quartermaster is the sun and the crew are its planets, on orbits drawn as map contours and seen from the camp at a tilt
+const SYS = [370, 398], TILT = .45, NORB = 6, orbR = i => 64 + i * 36;
+const gSys = el('g', { transform: `translate(${SYS[0]} ${SYS[1]})` }, gLand);
+const ORBS = Array.from({ length: NORB }, () => ({ day: el('path', { class: 'contour' }, gSys), night: el('path', { class: 'contour topo-n' }, gSys), lit: el('path', { class: 'contour lit' }, gSys) }));
+// a point on orbit i: the ring wanders in and out a little as it goes round, and drifts once round per loop
+const orbAt = (i, a, ph) => {
+  const w = Math.min(1, .2 + i * .2), r = orbR(i) * (1 + w * (.045 * Math.sin(3 * a + i * 1.3 + ph) + .03 * Math.sin(5 * a - i * .7 - 2 * ph)));
+  return [r * Math.cos(a), TILT * r * Math.sin(a)];
+};
+function orbPath(i, ph) {
+  let d = '';
+  for (let k = 0; k < 120; k++) { const [x, y] = orbAt(i, k / 120 * 2 * PI, ph); d += (k ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1); }
+  return d + 'Z';
+}
+const gSunQ = el('g', null, gSys), sunHalo = el('circle', { r: 72, fill: 'url(#glow)' }, gSunQ);
+el('circle', { r: 19, class: 'sunb' }, gSunQ);
+GLYPH.qm(el('g', { class: 'sun-q', transform: 'translate(-14.4 -14.4) scale(1.2)' }, gSunQ));
+const sunZ = tx(gSys, 0, 0, 'm zz', 'z');
+// each planet: its orbit, where it comes to rest for the night, and how fast it goes round by day
+const PLANETS = [['scout', 1, 205, .94], ['scribe', 2, 318, .74], ['art', 3, 128, .46], ['warden', 4, 28, .32]].map(([key, orb, rest, sp], i) =>
+  ({ orb, rest: rest * PI / 180, sp, i: i + 1, g: badge(key, gSys, .46), z: tx(gSys, 0, 0, 'm zz', 'z') }));
+// how far the system has turned: it slows to a stop as night falls, and starts again in the morning
+const ramp = (t, a, b) => t < a ? 0 : t > b ? (b - a) / 2 + t - b : (t - a) ** 2 / (2 * (b - a));
+const turned = t => t - ramp(t, T.dusk + 1.1, T.dusk + 3.1) + ramp(t, T.dawn + .4, T.dawn + 2) - (T.dusk + 2.1);
 const gMoon = el('g', null, gLand);
 el('path', { d: 'M6 -21 A22 22 0 1 0 6 21 A24 24 0 0 1 6 -21 Z', class: 'moonb', transform: 'rotate(-24)' }, gMoon);
+// the hills on the skyline, each drawn by its contour lines
+const HILLS = [];
+[[-330, 210, 52, 14], [60, 250, 62, -18], [720, 300, 84, 22], [1150, 280, 60, -16]].forEach(([cx, w, h, lean], n) => {
+  const arch = j => {
+    const s = 1 - j * .24, x0 = cx + j * lean - w * s; let d = '';
+    for (let k = 0; k <= 48; k++) { const u = k / 48; d += (k ? 'L' : 'M') + (x0 + 2 * w * s * u).toFixed(1) + ' ' + (554 - h * s * Math.sin(PI * u) ** 2 * (1 + .1 * Math.sin(7 * u + n + j))).toFixed(1); }
+    return d;
+  };
+  el('path', { d: arch(0) + 'Z', class: 'hill' }, gLand); HILLS.push(el('path', { d: arch(0) + 'Z', class: 'hill-n' }, gLand));
+  for (let j = 0; j < 4; j++) topo(arch(j), gLand);
+});
 const GROUND = 'M-260 560 C-60 548 60 556 190 542 S460 540 640 548 S1000 526 1240 546 S1440 552 1540 544 V640 H-260 Z';
 el('path', { d: GROUND, class: 'gnd' }, gLand);
 const gndN = el('path', { d: GROUND, class: 'gnd-n' }, gLand);
+// the ground is a map too: its lines run under the camp
+for (let j = 0; j < 3; j++) {
+  let d = '';
+  for (let x = -260; x <= 1540; x += 20) d += (x > -260 ? 'L' : 'M') + x + ' ' + (571 + j * 23 + (7 - j) * Math.sin(x * .011 + j * 1.9) + 3 * Math.sin(x * .029 - j)).toFixed(1);
+  topo(d, gLand);
+}
+// what stands in the camp is drawn for the day, with a dark copy over it that comes up with the night
+const DARK = [];
+const stand = (d, parent) => { el('path', { d, class: 'tent' }, parent); DARK.push(el('path', { d, class: 'tent-n' }, parent)); };
+[[-150, 572, 1], [-96, 566, .78], [96, 572, .82], [548, 568, 1], [590, 562, .74], [770, 566, .9], [836, 572, 1.1]].forEach(([x, y, s]) => {
+  const g = el('g', { transform: `translate(${x} ${y})` }, gLand), q = v => (v * s).toFixed(1);
+  el('path', { d: `M0 0 V${q(-12)}`, class: 'log' }, g);
+  stand(`M${q(-17)} ${q(-10)} L0 ${q(-38)} L${q(17)} ${q(-10)} Z M${q(-13)} ${q(-29)} L0 ${q(-54)} L${q(13)} ${q(-29)} Z M${q(-9)} ${q(-46)} L0 ${q(-68)} L${q(9)} ${q(-46)} Z`, g);
+});
 // the tent, and the lamp in it while the shift is on
 const TENT = [190, 566], gTent = el('g', { transform: `translate(${TENT[0]} ${TENT[1]})` }, gLand);
 el('path', { d: 'M-7 -104 L0 -92 L7 -104', class: 'tent', fill: 'none' }, gTent);
-el('path', { d: 'M-74 0 L0 -92 L74 0 Z', class: 'tent' }, gTent);
-const tentN = el('path', { d: 'M-74 0 L0 -92 L74 0 Z', class: 'tent-n' }, gTent);
+stand('M-74 0 L0 -92 L74 0 Z', gTent);
 el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'tent-door' }, gTent);
 const lampHalo = el('circle', { cy: -22, r: 54, fill: 'url(#glow)' }, gTent), lamp = el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'lamp' }, gTent);
-// the fire, and the crew round it
+// a second, smaller tent
+const gTent2 = el('g', { transform: 'translate(452 573)' }, gLand);
+el('path', { d: 'M-4 -62 L0 -54 L4 -62', class: 'tent', fill: 'none' }, gTent2);
+stand('M-44 0 L0 -54 L44 0 Z', gTent2);
+el('path', { d: 'M-11 0 L0 -30 L11 0 Z', class: 'tent-door' }, gTent2);
+// the fire, and the logs to sit on
 const gFire = el('g', { transform: 'translate(318 578)' }, gLand);
 const fireHalo = el('circle', { cy: -12, r: 44, fill: 'url(#glow)' }, gFire);
-el('path', { d: 'M-15 0 L15 -7 M-15 -7 L15 0', class: 'log' }, gFire);
+el('path', { d: 'M-15 0 L15 -7 M-15 -7 L15 0 M-56 7 H-32 M34 9 H58', class: 'log' }, gFire);
 const flame = el('path', { d: 'M0 0 C-13 -8 -9 -22 0 -34 C9 -22 13 -8 0 0 Z', class: 'flame' }, gFire);
-const SLEEPERS = [['qm', 376, 580], ['scout', 424, 573], ['scribe', 472, 582], ['art', 520, 574], ['warden', 568, 579]].map(([key, x, y], i) => {
-  const g = badge(key, gLand, .56); g.setAttribute('transform', `translate(${x} ${y})`);
-  return { g, x, y, i, z: tx(gLand, x, y, 'm zz', 'z') };
-});
 const winFrame = el('rect', { x: WX, y: WY, height: WH, rx: 14, class: 'winframe' }, gCamp);
 // the clock in the corner of the window, and what the camp is doing
 const gClock = el('g', null, gCamp);
@@ -4166,22 +4220,31 @@ function render(t) {
   put(clip, { width: ww }); put(winFrame, { width: ww });
   gLand.setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
   const night = seg(t, T.dusk + 1.1, T.dusk + 3.1) * (1 - seg(t, T.dawn, T.dawn + 2));
-  O(sky, night); O(gndN, night); O(tentN, night * .62);
+  O(sky, night); O(gndN, night);
+  HILLS.forEach(n => O(n, night)); TOPO.forEach(n => O(n, night * .22)); DARK.forEach(n => O(n, night * .62));
   NSTARS.forEach(s => O(s.n, night * (.4 + .6 * Math.sin(t * s.sp + s.ph) ** 2)));
   const first = t < (T.shift + T.dawn) / 2;
-  TR(gSun, 440, first ? lerp(318, 650, seg(t, T.dusk + .2, T.dusk + 2.2)) : lerp(650, 318, seg(t, T.dawn + .1, T.dawn + 2.3, ease.out)));
-  TR(gMoon, 500, first ? lerp(650, 286, seg(t, T.dusk + 2, T.dusk + 4, ease.out)) : lerp(286, 650, seg(t, T.dawn - .1, T.dawn + 1.6, ease.in)));
+  TR(gMoon, 548, lerp(274, 250, night)); O(gMoon, night);
+  // the sky: the crew go round the Quartermaster by day, and come to rest and sleep at night
+  const ph = t / DUR * 2 * PI, wake = lerp(0, 330, seg(t, T.dawn + .7, T.dawn + 2.3, ease.lin));
+  ORBS.forEach((o, i) => {
+    const d = orbPath(i, ph); o.day.setAttribute('d', d); o.night.setAttribute('d', d); o.lit.setAttribute('d', d);
+    O(o.night, night * .22); O(o.lit, wake > 0 && wake < 330 ? clamp(1 - Math.abs(orbR(i) - wake) / 46) * .9 : 0);
+  });
+  O(sunHalo, .8 * (1 - night)); O(gSunQ, lerp(1, .7, night));
+  const zs = (z, x, y, i) => { const k = (t * .42 + i * .27) % 1; put(z, { x: x + 8 + k * 9, y: y - 13 - k * 24 }); O(z, night > .95 ? Math.sin(k * PI) * .9 : 0); };
+  zs(sunZ, 12, -8, 0);
+  const turn = turned(t);
+  PLANETS.forEach(p => {
+    const [x, y] = orbAt(p.orb, p.rest + p.sp * turn, ph);
+    TR(p.g, x, y); O(p.g, lerp(1, .78, night)); zs(p.z, x, y, p.i);
+  });
   // the fire burns down for the night; the lamp in the tent is the shift at work
   const fire = first ? lerp(1, .38, seg(t, T.dusk + 2, T.dusk + 4)) : lerp(.38, 1, seg(t, T.dawn + .8, T.dawn + 2.2));
   flame.setAttribute('transform', `scale(${(fire * (1 + .07 * Math.sin(t * 13))).toFixed(3)} ${(fire * (1 + .14 * Math.sin(t * 9.1 + 1))).toFixed(3)})`);
   O(fireHalo, fire * .75);
   const work = span(t, T.shift + .3, T.done + .5, .4) * (.8 + .2 * Math.sin(t * 10) ** 2);
   O(lamp, work); O(lampHalo, work * .9);
-  SLEEPERS.forEach(s => {
-    O(s.g, lerp(1, .5, night));
-    const k = (t * .42 + s.i * .27) % 1;
-    put(s.z, { x: s.x + 9 + k * 9, y: s.y - 14 - k * 24 }); O(s.z, night > .95 ? Math.sin(k * PI) * .9 : 0);
-  });
   // the clock, and what the camp is doing
   const mins = t < T.shift ? lerp(10, 240, seg(t, T.dusk + .4, T.shift - 1.6)) : t < T.dawn ? lerp(240, 244, seg(t, T.shift + .6, T.done, ease.lin)) : lerp(245, 630, seg(t, T.dawn, T.dawn + 2.2));
   const q = t >= T.shift && t < T.dawn ? 1 : 5, m = Math.round(mins / q) * q + 21 * 60;
