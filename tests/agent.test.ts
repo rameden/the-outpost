@@ -42,9 +42,25 @@ test("plan gate: nothing is dispatched until you approve the plan", async () => 
 });
 
 test("parallel: two dispatches in one turn run at the same time", async () => {
-  script = (b) => {
+  // Proved by the order things happen in, not by the clock: a slow CI runner stretches any
+  // number of milliseconds. Neither adventurer is answered until both are waiting on a reply.
+  // Side by side, the second asks while the first is still out, and that lets both replies go.
+  // One after the other, the second can't set out until the first is back, so nothing lets the
+  // first reply go: the hold gives up after a long wait, the run finishes, and the test fails.
+  const out = new Set<string>(); // who has asked and not been answered yet
+  let sideBySide = false;
+  let letGo!: () => void;
+  const held = new Promise<void>((ok) => (letGo = ok));
+  const giveUp = setTimeout(letGo, 10_000);
+  script = async (b) => {
     const who = whoAsks(b), res = lastToolResults(b);
-    if (who === "Scout" || who === "Scribe") return { text: `${who} report`, delayMs: 300 };
+    if (who === "Scout" || who === "Scribe") {
+      out.add(who);
+      if (out.size === 2) { sideBySide = true; letGo(); }
+      await held;
+      out.delete(who);
+      return { text: `${who} report` };
+    }
     if (isFirstTurn(b)) return { tools: [{ name: "submit_plan", input: { plan: "both at once" } }] };
     if (res.includes("approved the plan")) return { tools: [
       { name: "dispatch", input: { adventurer: "scout", brief: "a" } },
@@ -52,18 +68,11 @@ test("parallel: two dispatches in one turn run at the same time", async () => {
     ] };
     return { text: "Both back." };
   };
-  const r = await runExpedition("Do two things");
+  const r = await runExpedition("Do two things").finally(() => { clearTimeout(giveUp); letGo(); });
   assert.equal(r.status, "done");
   const crew = api.seen.filter((s) => s.who === "Scout" || s.who === "Scribe");
-  const starts = crew.map((s) => s.at);
-  assert.equal(starts.length, 2);
-  assert.ok(Math.abs(starts[0] - starts[1]) < 150, `started ${Math.abs(starts[0] - starts[1])}ms apart`);
-  // Time only the quests, not the planning turns around them (a slow CI runner made those
-  // count): the Quartermaster hears back ~300ms after the first start if they overlapped,
-  // and no sooner than 600ms if they ran one after the other.
-  const firstStart = Math.min(...starts);
-  const backAt = api.seen.find((s) => s.at > firstStart && !crew.includes(s))?.at ?? Infinity;
-  assert.ok(backAt - firstStart < 600, `the two 300ms quests took ${backAt - firstStart}ms, so they didn't overlap`);
+  assert.deepEqual(crew.map((s) => s.who).sort(), ["Scout", "Scribe"], "each went once");
+  assert.ok(sideBySide, "the second quest set out only after the first was back: they ran one after the other");
   const questIds = new Set(events.filter((e) => e.type === "dispatch").map((e) => e.questId));
   assert.equal(questIds.size, 2, "each quest has its own id");
 });
