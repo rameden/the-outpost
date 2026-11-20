@@ -5,6 +5,7 @@
 // twenty sessions ago, an earlier conversation in the project, the body of a wiki page, a memory
 // line that dropped out of the prompt when the memory grew. recall searches those by words and
 // hands back short excerpts, on demand, so none of it has to be loaded into every prompt.
+// A session is searched in full (what was asked and all of the answer), not just how it began.
 //
 // It stays inside the lines the camp already draws: an agent's own sessions and memory (never a
 // teammate's), the conversations and notes of the project the run belongs to (never another
@@ -14,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { CREW, type CrewId } from "./crew.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
 import { GENERAL, history } from "./conversations.js";
-import { fullMemory, recentSessions } from "./memory.js";
+import { fullMemory, sessionText, sessionsHere } from "./memory.js";
 import { readAbout, type Where } from "./memlog.js";
 import { logRecalls } from "./recalllog.js";
 import { projectNotes } from "./projects.js";
@@ -31,44 +32,57 @@ const SHOWN = 6, EXCERPT = 420, MAX_OUT = 4500;
 const STOP = new Set("the and for with that this from have has was were are not but you your our they them their what when where which who how why can could should would will did does into about over than then there here also just any all one two get got use used using".split(" "));
 
 // The words worth searching for: three letters or more, not the common ones. At most eight.
+// A full stop or a slash that only ends the word ("in src/agent.ts.") isn't part of it.
 export function searchTerms(query: string): string[] {
-  const words = String(query).toLowerCase().match(/[a-z0-9][a-z0-9_.\-/]{2,}/g) ?? [];
-  return [...new Set(words.filter((w) => !STOP.has(w)))].slice(0, 8);
+  const words = (String(query).toLowerCase().match(/[a-z0-9][a-z0-9_.\-/]{2,}/g) ?? []).map((w) => w.replace(/[_.\-/]+$/, ""));
+  return [...new Set(words.filter((w) => w.length >= 3 && !STOP.has(w)))].slice(0, 8);
 }
 
-// How well a text answers the terms: the share of them it holds. Zero unless enough are there
-// (all of one or two; at least half of more), so one common word doesn't make a hit.
+// Where a term is in a text (lower case), or -1. As written, or by its root (memfit.ts), so
+// "deploys" finds "deployed" and "tests" finds "test".
+function placeOf(lower: string, term: string): number {
+  const at = lower.indexOf(term);
+  if (at >= 0) return at;
+  const root = stem(term);
+  return root.length >= 4 && root !== term ? lower.indexOf(root) : -1;
+}
+// Enough of the terms to be a hit: all of one or two; at least half of more. So one common word doesn't make one.
+const enough = (found: number, of: number) => found >= (of <= 2 ? of : Math.ceil(of / 2));
+
+// How well a text answers the terms: the share of them it holds. Zero unless enough are there.
 export function scoreText(text: string, terms: string[]): number {
   if (!terms.length) return 0;
   const lower = text.toLowerCase();
-  // A term also counts by its root (memfit.ts), so "deploys" finds "deployed" and "tests" finds "test".
-  const found = terms.filter((t) => { const root = stem(t); return lower.includes(root.length >= 4 ? root : t); }).length;
-  const needed = terms.length <= 2 ? terms.length : Math.ceil(terms.length / 2);
-  return found >= needed ? found / terms.length : 0;
+  const found = terms.filter((t) => placeOf(lower, t) >= 0).length;
+  return enough(found, terms.length) ? found / terms.length : 0;
 }
 
 // A stretch of the text around the first term it holds, on one line.
 export function excerptOf(text: string, terms: string[], size = EXCERPT): string {
   const lower = text.toLowerCase();
-  const at = Math.min(...terms.map((t) => lower.indexOf(t)).filter((i) => i >= 0), text.length);
+  const at = Math.min(...terms.map((t) => placeOf(lower, t)).filter((i) => i >= 0), text.length);
   const from = Math.max(0, at - Math.floor(size / 3));
   const cut = text.slice(from, from + size).replace(/\s+/g, " ").trim();
   return (from > 0 ? "…" : "") + cut + (from + size < text.length ? "…" : "");
 }
 
 const day = (iso: string) => (iso || "").slice(0, 10);
+const FRESH = 0.1;         // the most being new adds to a score: enough to settle near-equals, never to beat a better match
+const FRESH_HALF_DAYS = 30; // how long until half of that is gone
+const freshness = (when: string, now: number) => { const t = Date.parse(when); return isFinite(t) ? 0.5 ** (Math.max(0, now - t) / 86_400_000 / FRESH_HALF_DAYS) : 0; };
 
 // Everything one agent may look back through, in the project the run belongs to.
 export function recallFor(id: CrewId, query: string, where: Source[] = SOURCES): Recalled[] {
   const terms = searchTerms(query);
   if (!terms.length) return [];
   const project = currentProjectId() ?? GENERAL;
-  const out: Recalled[] = [];
-  const add = (from: string, when: string, text: string, line?: Recalled["line"]) => { const score = scoreText(text, terms); if (score) out.push({ from, when, text: excerptOf(text, terms), score, ...(line ? { line } : {}) }); };
+  const docs: { from: string; when: string; text: string; line?: Recalled["line"] }[] = [];
+  const add = (from: string, when: string, text: string, line?: Recalled["line"]) => { docs.push({ from, when, text, ...(line ? { line } : {}) }); };
 
   if (where.includes("sessions")) {
     // Your own sessions: the ones recorded in this project, and older ones recorded before sessions carried a project.
-    for (const s of recentSessions(id, 100_000)) if (!s.project || s.project === project) add("one of your sessions", s.time, `${s.task}\n${s.result}`);
+    // All of what was asked and answered, while the transcript is kept: the index has only how each began.
+    for (const s of sessionsHere(id, Infinity)) { const full = sessionText(s); add("one of your sessions", s.time, `${full.task}\n${full.result}`); }
   }
   if (where.includes("conversations")) {
     const listed = new Map(history().conversations.map((c) => [c.id, c]));
@@ -89,8 +103,23 @@ export function recallFor(id: CrewId, query: string, where: Source[] = SOURCES):
     if (project !== GENERAL) lines(projectNotes(project), "this project's notes", `project:${project}`);
     lines(readAbout(), "the note about the user", "about");
   }
-  // The best matches first; among equals, the newest.
-  return out.sort((a, b) => b.score - a.score || b.when.localeCompare(a.when));
+
+  // A term found in few of the records says more than one found in most of them: a match on the
+  // rare word of a query outranks a match on its everyday ones. The score is the share of the
+  // terms' weight a record holds (all of them: 1), and nothing unless enough of them are there.
+  const has = docs.map((d) => { const lower = d.text.toLowerCase(); return terms.map((t) => placeOf(lower, t) >= 0); });
+  const weight = terms.map((_, k) => Math.log(1 + docs.length / Math.max(1, has.reduce((n, h) => n + (h[k] ? 1 : 0), 0))));
+  const whole = weight.reduce((n, w) => n + w, 0) || 1;
+  const now = Date.now();
+  const out: (Recalled & { rank: number; at: number })[] = [];
+  for (const [n, d] of docs.entries()) {
+    if (!enough(has[n].filter(Boolean).length, terms.length)) continue;
+    const score = weight.reduce((sum, w, k) => sum + (has[n][k] ? w : 0), 0) / whole;
+    out.push({ from: d.from, when: d.when, text: excerptOf(d.text, terms), score, rank: score + FRESH * freshness(d.when, now), at: n, ...(d.line ? { line: d.line } : {}) });
+  }
+  // The best matches first, a newer record ahead of an older one that matches about as well. Two
+  // written in the same moment: the one gathered later, since each place is read oldest first.
+  return out.sort((a, b) => b.rank - a.rank || b.when.localeCompare(a.when) || b.at - a.at).map(({ rank: _rank, at: _at, ...r }) => r);
 }
 
 export function recallTool(id: CrewId): Tool {

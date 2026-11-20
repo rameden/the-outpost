@@ -132,6 +132,36 @@ test("recall finds what isn't in the prompt any more: old sessions, this project
   });
 });
 
+test("recall: the whole of a session, the word as it was written or by its root, and the rare word of a query first", async () => {
+  // A full stop or a slash that ends a word isn't part of what's looked for.
+  assert.deepEqual(searchTerms("What changed in src/agent.ts. And memfit.ts, also the docs/"), ["changed", "src/agent.ts", "memfit.ts", "docs"]);
+  // A word found only by its root is still where the excerpt is taken from.
+  const long = "x ".repeat(400) + "We deployed the service on Friday after the checks passed. " + "y ".repeat(400);
+  assert.ok(excerptOf(long, searchTerms("deploys")).includes("deployed the service"));
+  // A word whose root isn't spelled inside it is found as written.
+  assert.equal(scoreText("Old entries are pruned weekly", searchTerms("entries")), 1);
+
+  // What a session's index line leaves out (a brief's later paragraphs, the end of a long reply) is searched too.
+  const brief = "GOAL: tidy the importer. " + "Context that goes on for a while. ".repeat(40) + "DONE WHEN: the quokka fixture passes.";
+  const reply = "Tidied. " + "A long account of each step. ".repeat(80) + "One thing left: the wombat migration is still pending.";
+  assert.ok(brief.indexOf("quokka") > 600 && reply.indexOf("wombat") > 1500);
+  recordSession("warden", { source: "brief", task: brief, result: reply, status: "done", messages: [{ role: "user", content: brief }] });
+  const deep = recallFor("warden", "quokka fixture", ["sessions"]);
+  assert.equal(deep.length, 1);
+  assert.match(deep[0].text, /quokka fixture passes/);
+  assert.match(recallFor("warden", "wombat migration", ["sessions"])[0]?.text ?? "", /wombat migration is still pending/);
+
+  // Three words, two of them in every record: the record with the rare one comes first, though each holds two of the three.
+  for (let i = 0; i < 6; i++) recordSession("warden", { source: "brief", task: `Review the release notes, round ${i}`, result: "Looked fine.", status: "done", messages: [] });
+  recordSession("warden", { source: "brief", task: "Review the okapi notes", result: "One typo.", status: "done", messages: [] });
+  for (let i = 6; i < 9; i++) recordSession("warden", { source: "brief", task: `Review the release notes, round ${i}`, result: "Looked fine.", status: "done", messages: [] });
+  const ranked = recallFor("warden", "review okapi release", ["sessions"]);
+  assert.match(ranked[0].text, /okapi/, "newer records that hold only the everyday words don't outrank it");
+  assert.ok(ranked.length > 1 && ranked[0].score > ranked[1].score);
+  // Among records that match equally well, the newest is first.
+  assert.match(recallFor("warden", "release notes", ["sessions"])[0].text, /round 8/);
+});
+
 test("a tidy is drafted, waits for you, and replaces only what it was drafted from", async () => {
   writeMemory("scribe", ["- 2026-01-02 Use British spelling", "- 2026-01-05 Use British spelling in docs", "- 2026-01-09 Headings in sentence case", "- 2026-02-01 Use American spelling now (changed)", "- 2026-02-03 No emoji in headings"].join("\n"));
   const merged = "- 2026-02-01 Use American spelling (changed from British)\n- 2026-01-09 Headings in sentence case\n- 2026-02-03 No emoji in headings";
