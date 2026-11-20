@@ -164,7 +164,7 @@ async function shift(o: NightOptions): Promise<NightRecord> {
     const full = memoryOverview()
       .filter((p) => p.size > p.limit * TIDY_AT && p.lines.length >= 4 && !waiting.has(p.where) && lastTried(p.where) !== p.size)
       .sort((a, b) => b.size / b.limit - a.size / a.limit).slice(0, MAX_TIDIES);
-    if (full.length && paused) notes.push(`Your usage limit was used up, so no tidy was drafted for ${full.map((p) => p.name).join(", ")}.`);
+    if (full.length && paused) notes.push(`Your usage limit was used up, so no shorter version was drafted for ${full.map((p) => p.name).join(", ")}.`);
     else for (const p of full) {
       if (calls >= MAX_CALLS) { notes.push(`${p.name} wasn't looked at: the night's ${MAX_CALLS} model calls were used up. It comes up again another night.`); continue; }
       tried[p.where] = p.size;
@@ -172,7 +172,7 @@ async function shift(o: NightOptions): Promise<NightRecord> {
       try {
         await proposeTidy(p.where, counted(o.ask ?? ((s, q, max = 1500) => askSmall(s, q, max, { project }))));
         tidied.push(p.where);
-      } catch (e) { notes.push(`No tidy was drafted for ${p.name}: ${said(e)}`); }
+      } catch (e) { notes.push(`No shorter version was drafted for ${p.name}: ${said(e)}`); }
     }
   } catch (e) { notes.push(`The memories couldn't be read for tidying: ${said(e)}`); }
 
@@ -205,7 +205,7 @@ async function shift(o: NightOptions): Promise<NightRecord> {
 export function nightLine(r: NightRecord): string {
   const found = r.housekeeping ?? [];
   const did = [
-    r.tidied.length ? `drafted ${many(r.tidied.length, "memory tidy", "memory tidies")}` : "",
+    r.tidied.length ? `drafted ${r.tidied.length === 1 ? "a shorter version of 1 memory" : `shorter versions of ${r.tidied.length} memories`}` : "",
     r.stale.length ? `listed ${many(r.stale.length, "old line")} worth a look` : "",
     found.length ? `found ${many(found.length, "thing")} housekeeping could clear` : "",
   ].filter(Boolean);

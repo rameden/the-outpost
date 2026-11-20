@@ -29,7 +29,7 @@ export function NightCard({ night, onOpenMemory, onDone }: { night: Night; onOpe
       <ul className="night-lines">
         {tidied.length > 0 && (
           <li>
-            <span>Drafted {plural(tidied.length, "a tidy for 1 memory", `tidies for ${tidied.length} memories`)} <span className="meta">({names(tidied)})</span></span>
+            <span>Drafted {plural(tidied.length, "a shorter version of 1 memory", `shorter versions of ${tidied.length} memories`)} <span className="meta">({names(tidied)})</span></span>
             <button type="button" className="linkish" onClick={onOpenMemory}>Look {tidied.length === 1 ? "it" : "them"} over</button>
           </li>
         )}

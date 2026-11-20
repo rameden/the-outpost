@@ -122,7 +122,7 @@ test("it drafts tidies for the fullest memories, and nothing in memory changes u
 
   // The morning card names them; a draft you've settled drops off it.
   assert.deepEqual(N.nightPage().night?.tidied.map((t) => t.name), ["Scribe's memory", "Warden's memory", "Scout's memory"]);
-  assert.match(N.nightPage().lastNight!.line, /^Drafted 3 memory tidies\.$/);
+  assert.match(N.nightPage().lastNight!.line, /^Drafted shorter versions of 3 memories\.$/);
   const scribe = k.proposals().find((p) => p.where === "agent:scribe")!;
   k.settleProposal(scribe.id, "approve");
   assert.notEqual(everything(), before, "approving is what changes it");
@@ -168,7 +168,7 @@ test("a memory that came back no shorter isn't sent again until it changes", asy
   const same = async (_s: string, prompt: string) => prompt.slice(prompt.indexOf("\n\n") + 2);
   const first = await N.runNight({ now: at(14, 2), ask: same, report: async () => [], paused: null });
   assert.deepEqual([first.tidied, first.calls], [[], 1]);
-  assert.match(first.notes[0], /^No tidy was drafted for Scout's memory: It came back no shorter/);
+  assert.match(first.notes[0], /^No shorter version was drafted for Scout's memory: It came back no shorter/);
   const seen: string[] = [];
   const second = await N.runNight({ now: at(15, 2), ask: tenthOff(seen), report: async () => [], paused: null });
   assert.deepEqual([second.tidied, second.calls, seen.length], [[], 0, 0], "the same text isn't worth another call");
@@ -227,10 +227,10 @@ test("one chore failing doesn't stop the others, and the record says what couldn
   assert.deepEqual(record.tidied, ["agent:scout"], "the memory after the one that failed was still drafted");
   assert.deepEqual(record.stale.map((s) => s.where), ["agent:warden"], "and the old lines were still listed");
   assert.equal(record.housekeeping, null);
-  assert.deepEqual(record.notes, ["No tidy was drafted for Scribe's memory: the model is unreachable", "The housekeeping report couldn't be made: git isn't installed"]);
+  assert.deepEqual(record.notes, ["No shorter version was drafted for Scribe's memory: the model is unreachable", "The housekeeping report couldn't be made: git isn't installed"]);
   assert.equal(everything(), before);
   assert.deepEqual(N.nightPage().night!.notes, record.notes);
-  assert.match(N.nightPage().lastNight!.line, /^Drafted 1 memory tidy, listed 1 old line worth a look\. 2 things couldn't be done\.$/);
+  assert.match(N.nightPage().lastNight!.line, /^Drafted a shorter version of 1 memory, listed 1 old line worth a look\. 2 things couldn't be done\.$/);
 });
 
 test("with your usage limit used up it calls no model, and still reports", async () => {
@@ -239,7 +239,7 @@ test("with your usage limit used up it calls no model, and still reports", async
   const seen: string[] = [];
   const record = await N.runNight({ now: at(14, 2), ask: tenthOff(seen), report: async () => [], paused: Date.now() + 3_600_000 });
   assert.deepEqual([record.tidied, record.calls, seen.length], [[], 0, 0]);
-  assert.deepEqual(record.notes, ["Your usage limit was used up, so no tidy was drafted for Scout's memory."]);
+  assert.deepEqual(record.notes, ["Your usage limit was used up, so no shorter version was drafted for Scout's memory."]);
   // Not marked as tried: the night after, it gets its draft.
   const next = await N.runNight({ now: at(15, 2), ask: tenthOff(seen), report: async () => [], paused: null });
   assert.deepEqual(next.tidied, ["agent:scout"]);
