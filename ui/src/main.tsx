@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { signIn } from "./api.ts";
 import { startThemes } from "./themes.ts";
+import { readyChimeOnFirstGesture } from "./chime.ts";
 import { SignIn } from "./components/SignIn.tsx";
 import { App } from "./App.tsx";
 import { PageBoundary } from "./components/ErrorBoundary.tsx";
@@ -11,6 +12,8 @@ import "./styles.css";
 // Your saved light/dark choice and palette, before anything is drawn; and from then on, whatever
 // another tab changes (Settings in another window, or the tour's own switches).
 startThemes();
+// The notification chime can only sound after a click, so it's set up on the first one.
+readyChimeOnFirstGesture();
 
 // The feed lives outside React, so it carries on across reconnects and hot reloads.
 const store = createFeedStore();
