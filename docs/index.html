@@ -875,13 +875,13 @@ footer .mae-word { height: 16px; }
       <p class="lede">Three short films, drawn live in this page. The Quartermaster is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Films">
-      <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">The whole sky <span>1:06</span></button>
+      <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">The whole sky <span>1:17</span></button>
       <button type="button" role="tab" id="film-tab-ticket" aria-controls="film-ticket" aria-selected="false" data-film="ticket">One ticket, start to finish <span>0:54</span></button>
       <button type="button" role="tab" id="film-tab-audit" aria-controls="film-audit" aria-selected="false" data-film="audit">Three audit findings <span>1:03</span></button>
     </div>
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">All of Mae in one loop. A request comes in and goes round the crew as comets, the work becomes a trail you approve, what was learned settles as stars, and the night shift drafts while the camp is idle. It loops. Click the stage to pause.</p>
+      <p class="film-note">All of Mae in one loop. A request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the camp is idle. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -1502,7 +1502,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 .f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); } .f-accent { fill: var(--accent); }
 .f-tone { fill: var(--tone); } .f-ink { fill: var(--accent-ink); } .f-good { fill: var(--good); }
 .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); }
-.c-night { --tone: var(--c-night); } .c-qm { --tone: var(--accent); }
+.c-night { --tone: var(--c-night); } .c-qm { --tone: var(--accent); } .c-wiz { --tone: var(--c-wiz); }
 .bgfill { fill: var(--bg); } .dusk { fill: var(--dusk); }
 .star { fill: var(--faint); } .star.n { fill: var(--star-night); }
 .halo { paint-order: stroke; stroke: var(--bg); stroke-linejoin: round; }
@@ -1521,16 +1521,17 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 .btn { fill: var(--accent); } .btn.ok { fill: var(--good); } .btn-o { fill: none; stroke: var(--border-strong); }
 .trail { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 7; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .join { fill: none; stroke: var(--accent); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
-.cursor { fill: var(--text); stroke: var(--bg); stroke-width: 1.5; stroke-linejoin: round; }
+.screen { fill: var(--surface-2); } .notch { fill: var(--text); opacity: .85; } .track { fill: var(--border); }
+.touch { fill: var(--text); fill-opacity: .2; stroke: var(--text); stroke-opacity: .65; stroke-width: 1.5; }
 </style></template>
 <template id="film-sky-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Mae. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part; the steps join into a trail you approve; what was learned becomes stars; and the night shift drafts while the camp sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Mae. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the camp sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
-    <input type="range" id="scrub" min="0" max="66" step="0.01" value="0" aria-label="Scrub through the film">
-    <output id="clock" for="scrub">0:00 / 1:06</output>
+    <input type="range" id="scrub" min="0" max="77" step="0.01" value="0" aria-label="Scrub through the film">
+    <output id="clock" for="scrub">0:00 / 1:17</output>
   </div>
 </template>
 <template id="film-ticket-stage">
@@ -1757,7 +1758,7 @@ const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
 const rng = (seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; })(7);
 
-const DUR = 66;
+const DUR = 77;
 const SUN = { x: 640, y: 360 };
 const K = 1.1;                                   // lockup scale
 const LOCK = { x: 640 - 271 * K, y: 360 - 100 * K };
@@ -1767,6 +1768,7 @@ const GLYPH = {
   scout: '<path d="M7 3.5 C16.5 6.5 16.5 17.5 7 20.5"/><path d="M7 3.5 V20.5"/><path d="M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15"/>',
   art: '<g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5"/><path d="M12 10 V21.5"/></g>',
   scribe: '<path d="M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z"/><path d="M3.8 20.2 L13 11"/>',
+  wiz: '<path d="M4 20.5 L14.2 10.3"/><path d="M17 2.8 L18.1 5.6 L21 5.9 L18.8 7.8 L19.5 10.7 L17 9.2 L14.5 10.7 L15.2 7.8 L13 5.9 L15.9 5.6 Z"/><path d="M5.5 4 V8 M3.5 6 H7.5"/>',
   warden: '<path d="M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z"/><path d="M8.8 11.9 L11.2 14.3 L15.4 9.9"/>',
 };
 
@@ -1776,7 +1778,11 @@ const CREW = [
   { id: 'scribe', name: 'Scribe', cls: 'c-scribe', R: 172, start: -30, period: 200, ph: 2.1, r0: 57 },
   { id: 'art', name: 'Artificer', cls: 'c-art', R: 236, start: 70, period: 260, ph: 3.7, r0: 81 },
   { id: 'warden', name: 'Warden', cls: 'c-warden', R: 300, start: 160, period: 330, ph: 5.0, r0: 95 },
+  // The Wizard: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
+  { id: 'wiz', name: 'Wizard', cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
 ];
+const WZ = 4;
+const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Wizard, Warden
 const OW = .045;
 const KNOTS = [[0, 0], [112, .6], [172, 2.1], [236, 3.7], [300, 5.0], [480, 7.4]];
 const phaseAt = R => { for (let k = 1; k < KNOTS.length; k++) if (R <= KNOTS[k][0]) { const [r0, p0] = KNOTS[k - 1], [r1, p1] = KNOTS[k]; return lerp(p0, p1, (R - r0) / (r1 - r0)); } return KNOTS[KNOTS.length - 1][1]; };
@@ -1864,6 +1870,9 @@ const oldEls = OLD.map(([x, y]) => el('circle', { class: 'star', cx: x, cy: y, r
 // Orbits: drawn full size, scaled down to the mark's radii while the mark opens.
 const gOrbits = el('g', {}, gWorld);
 const orbitEls = CREW.map(c => el('path', { class: 'sorbit', d: dOf(ringPts(SUN.x, SUN.y, c.R, c.ph, 220), true) }, gOrbits));
+// The Wizard's orbit draws itself from where it arrives.
+orbitEls[WZ].setAttribute('d', (() => { const c = CREW[WZ], a0 = 20 * DEG, p = []; for (let k = 0; k <= 240; k++) { const a = a0 + k / 240 * TAU, r = shapeR(c.R, c.ph, a); p.push([SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]); } return dOf(p, false); })());
+drawable(orbitEls[WZ]);
 const ptrails = CREW.map(c => el('path', { class: 'ptrail ' + c.cls, d: 'M0 0' }, gOrbits));
 
 // The trail (waypoints) and memory joins sit under the planets.
@@ -1873,7 +1882,7 @@ const WAY = CREW.map((c, i) => {
   const ring = el('circle', { class: 'ring-t', r: 15, 'stroke-width': 2 }, g);
   const badge = el('g', { transform: 'translate(13 -13)' }, g);
   el('circle', { class: 'tone-f', r: 7 }, badge);
-  const num = el('text', { class: 'm f-ink', 'font-size': 9, 'text-anchor': 'middle', y: 3.2 }, badge); num.textContent = String(i + 1);
+  const num = el('text', { class: 'm f-ink', 'font-size': 9, 'text-anchor': 'middle', y: 3.2 }, badge); num.textContent = String(ORDER.indexOf(i) + 1);
   const tick = el('path', { class: 'glyph', d: 'M-3 0 L-1 2.2 L3.2 -2.2', style: 'fill:none;stroke:var(--accent-ink);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round' }, badge);
   return { g, ring, num, tick };
 });
@@ -1885,7 +1894,7 @@ const MEM = [
   { x: 650, y: 120, from: 1, label: 'you like small pull requests' },
   { x: 812, y: 76, from: 1 },
   { x: 968, y: 164, from: 2, label: 'the flag is search_v2' },
-  { x: 1052, y: 300, from: 2 },
+  { x: 1052, y: 300, from: WZ, label: 'two searches can race' },
   { x: 250, y: 330, from: 3 },
   { x: 198, y: 486, from: 3, label: 'empty states need words' },
 ];
@@ -2027,18 +2036,54 @@ const VIG = [];
     el('circle', { class: 'tone-s', r: 2.6, 'stroke-width': .45 }, rg);
     const tick = drawable(el('path', { class: 'tone-s', 'stroke-width': .7, d: 'M-1.3 .1 L-.3 1.1 L1.4 -1' }, rg));
     const tx = el('text', { class: 'b f-text halo', 'font-size': 3.8, 'stroke-width': 1.2, x: 5, y: 1.3 }, rg); tx.textContent = s;
-    return { rg, tick, tx, a: 36.9 + k * .8 };
+    return { rg, tick, tx, a: 45.9 + k * .8 };
   });
   const stamp = el('g', { transform: 'translate(33.4 20)' }, g);
   el('rect', { class: 'tone-f', x: 0, y: -4.2, width: 37, height: 8.4, rx: 4.2 }, stamp);
   const st = el('text', { class: 'm f-ink', 'font-size': 3.4, x: 18.5, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'ready for review';
-  VIG.push({ i: 3, a: 35.8, b: 40.4, g, update(t) {
-    sp.forEach((p, k) => drawTo(p, ease.inOut(prog(t, 36 + k * .5, 37.3 + k * .5))));
-    const a = (t - 36) * 200 * DEG, r = 22.5;
+  VIG.push({ i: 3, a: 44.8, b: 49.4, g, update(t) {
+    sp.forEach((p, k) => drawTo(p, ease.inOut(prog(t, 45 + k * .5, 46.3 + k * .5))));
+    const a = (t - 45) * 200 * DEG, r = 22.5;
     scan.setAttribute('d', `M${f2(r * Math.cos(a))} ${f2(r * Math.sin(a))}A${r} ${r} 0 0 1 ${f2(r * Math.cos(a + 1.4))} ${f2(r * Math.sin(a + 1.4))}`);
-    O(scan, win(t, 36, 39.3, .4, .5) * .9);
+    O(scan, win(t, 45, 48.3, .4, .5) * .9);
     rows.forEach(rw => { O(rw.rg, prog(t, rw.a - .35, rw.a)); drawTo(rw.tick, ease.out(prog(t, rw.a, rw.a + .4))); });
-    const sv = prog(t, 39.1, 39.4); O(stamp, sv); stamp.setAttribute('transform', `translate(33.4 20) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
+    const sv = prog(t, 48.1, 48.4); O(stamp, sv); stamp.setAttribute('transform', `translate(33.4 20) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
+  } });
+})();
+
+// Wizard: a knot of crossed contour lines, taken apart by the wand into clean rings.
+(() => {
+  const g = el('g', { class: 'c-wiz' }, gWorld), CX = 52, CY = 0, N = 84;
+  const loops = [0, 1, 2, 3, 4].map(k => {
+    const from = blob(CX + [6, -7, 5, -5, 8][k], CY + [-5, 5, 6, -7, 2][k], 8 + k * 3.4, .36, k * 1.9 + .7, .85, N);
+    const to = blob(CX, CY, 5 + k * 4.6, .05, 1.3, .9, N);
+    const path = drawable(el('path', { class: 'tone-s', 'stroke-width': k === 2 ? .6 : .38, d: dOf(from, true, f2) }, g));
+    return { from, to, path, s: 41.3 + k * .34 };
+  });
+  const tailEl = el('path', { class: 'tone-s', 'stroke-width': .55, opacity: .6, d: 'M0 0' }, g);
+  const SPK = [0, 1, 2, 3, 4, 5].map(k => { const n = el('path', { class: 'tone-f', d: 'M0 -2.2 L.5 -.5 L2.2 0 L.5 .5 L0 2.2 L-.5 .5 L-2.2 0 L-.5 -.5 Z' }, g); return { n, u: .1 + k * .15 }; });
+  const wand = el('g', { class: 'glyph toned' }, g); wand.innerHTML = GLYPH.wiz;
+  wand.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.2'; });
+  const before = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); before.textContent = 'two searches racing';
+  const after = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); after.textContent = 'in order, every time';
+  const stamp = el('g', {}, g);
+  el('rect', { class: 'tone-f', x: -23, y: -4.2, width: 46, height: 8.4, rx: 4.2 }, stamp);
+  const st = el('text', { class: 'm f-ink', 'font-size': 3.4, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'untangled · 2 files';
+  const wandAt = u => { const a = lerp(-400, -40, u) * DEG, r = 32; return [CX + r * Math.cos(a), CY + r * Math.sin(a) * .9]; };
+  VIG.push({ i: WZ, a: 39.5, b: 44.4, g, update(t) {
+    loops.forEach((l, k) => {
+      drawTo(l.path, ease.out(prog(t, 39.7 + k * .12, 40.6 + k * .12)));
+      const u = ease.inOut(prog(t, l.s, l.s + .9));
+      l.path.setAttribute('d', u <= 0 ? dOf(l.from, true, f2) : dOf(l.from.map((p, j) => [lerp(p[0], l.to[j][0], u), lerp(p[1], l.to[j][1], u)]), true, f2));
+    });
+    const wu = ease.inOut(prog(t, 40.9, 43.2)), [wx, wy] = wandAt(wu);
+    wand.setAttribute('transform', `translate(${f2(wx)} ${f2(wy)}) scale(.62) translate(-17 -6.4)`);
+    O(wand, win(t, 40.7, 43.6, .3, .4));
+    const pts = []; for (let k = 0; k < 12; k++) { const v = wu - k * .012; if (v < 0) break; pts.push(wandAt(v)); }
+    tailEl.setAttribute('d', pts.length > 1 ? dOf(pts, false, f2) : 'M0 0'); O(tailEl, wu > 0 && wu < 1 ? .6 : 0);
+    SPK.forEach(p => { const v = (wu - p.u) / .16; if (v > 0 && v < 1) { const [x, y] = wandAt(p.u); p.n.setAttribute('transform', `translate(${f2(x)} ${f2(y)}) scale(${f2(Math.sin(Math.PI * v) * 1.2)})`); O(p.n, 1 - v * .5); } else O(p.n, 0); });
+    O(before, win(t, 40.1, 42.0, .4, .4)); O(after, prog(t, 42.9, 43.3));
+    const sv = prog(t, 43.2, 43.5); O(stamp, sv); stamp.setAttribute('transform', `translate(${CX} ${CY + 34}) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
   } });
 })();
 
@@ -2068,28 +2113,53 @@ el('path', { d: 'M8 -19 A20 20 0 1 0 8 19 A15 15 0 1 1 8 -19 Z', style: 'fill:va
 function card(x, y, w, h) { const g = el('g', { transform: `translate(${x} ${y})` }, gHud); el('rect', { class: 'card', width: w, height: h, rx: 14 }, g); return g; }
 const T = (g, cls, size, x, y, s, extra = {}) => { const n = el('text', Object.assign({ class: cls, 'font-size': size, x, y }, extra), g); n.textContent = s; return n; };
 // Plan card
-const plan = card(868, 96, 352, 218);
+const plan = card(868, 96, 352, 244);
 T(plan, 'm f-accent', 11, 24, 32, 'THE QUARTERMASTER · PLAN', { 'letter-spacing': '1.5' });
 T(plan, 'd f-text', 22, 24, 62, 'Four quests');
-const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it']].map(([n, s], k) => {
-  const g = el('g', { class: CREW[k].cls, transform: `translate(24 ${98 + k * 28})` }, plan);
+const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it'], ['Wizard', 'on call for the hard part']].map(([n, s], k) => {
+  const c = CREW[k], g = el('g', { class: c.cls, transform: `translate(24 ${98 + k * 28})` }, plan);
   el('circle', { class: 'tone-f', cx: 7, cy: -5, r: 7 }, g);
-  const gl = el('g', { class: 'glyph', transform: 'translate(2.2 -9.8) scale(.4)' }, g); gl.innerHTML = GLYPH[CREW[k].id];
-  T(g, 'b f-tone', 14.5, 24, 0, n, { 'font-weight': 600 }); T(g, 'b f-text', 14.5, 104, 0, s);
+  const gl = el('g', { class: 'glyph', transform: 'translate(2.2 -9.8) scale(.4)' }, g); gl.innerHTML = GLYPH[c.id];
+  T(g, 'b f-tone', 14.5, 24, 0, n, { 'font-weight': 600 }); T(g, k === 4 ? 'b f-muted' : 'b f-text', 14.5, 104, 0, s);
   return g;
 });
-// Review card
-const review = card(868, 118, 352, 176);
-T(review, 'm f-accent', 11, 24, 32, 'READY FOR YOUR REVIEW', { 'letter-spacing': '1.5' });
-T(review, 'd f-text', 21, 24, 61, 'The new search page');
-T(review, 'b f-muted', 13.5, 24, 84, '4 of 4 steps · checked by Warden · +182 −40');
-const okBtn = el('g', { transform: 'translate(24 106)' }, review);
-const okRect = el('rect', { class: 'btn', width: 132, height: 44, rx: 10 }, okBtn);
-const okText = T(okBtn, 'b f-ink', 15, 66, 27.5, 'Approve', { 'font-weight': 600, 'text-anchor': 'middle' });
-const noBtn = el('g', { transform: 'translate(170 106)' }, review);
-el('rect', { class: 'btn-o', width: 158, height: 44, rx: 10 }, noBtn);
-T(noBtn, 'b f-text', 15, 79, 27.5, 'Ask for changes', { 'font-weight': 500, 'text-anchor': 'middle' });
-const cursor = el('path', { class: 'cursor', d: 'M0 0 L0 19 L5 14.5 L8.4 22 L11.3 20.8 L8 13.4 L14.6 13.4 Z' }, gHud);
+// Auto, the router, sizing up the hard part
+const router = card(868, 96, 352, 222);
+T(router, 'm f-accent', 11, 24, 32, 'AUTO · THE ROUTER', { 'letter-spacing': '1.5' });
+T(router, 'd f-text', 22, 24, 62, 'A hard one');
+const bars = [['How hard', .94], ['What’s at stake', .8], ['How big', .52]].map(([n, v], k) => {
+  const g = el('g', { transform: `translate(24 ${98 + k * 26})` }, router);
+  T(g, 'b f-muted', 13.5, 0, 0, n);
+  el('rect', { class: 'track', x: 128, y: -8, width: 176, height: 6, rx: 3 }, g);
+  const fill = el('rect', { class: 'tone-f c-wiz', x: 128, y: -8, width: 0, height: 6, rx: 3 }, g);
+  return { fill, v };
+});
+const pick = el('g', { class: 'c-wiz', transform: 'translate(24 164)' }, router);
+el('rect', { class: 'tone-f', width: 304, height: 36, rx: 18 }, pick);
+const pgl = el('g', { class: 'glyph', transform: 'translate(12 6) scale(1)' }, pick); pgl.innerHTML = GLYPH.wiz;
+T(pick, 'b f-ink', 14, 44, 23, 'Quality · the strongest model', { 'font-weight': 600 });
+// Approvals from your phone
+const phone = el('g', { transform: 'translate(944 126)' }, gHud);
+el('rect', { class: 'card', width: 216, height: 392, rx: 32, style: 'stroke:var(--border-strong);stroke-width:1.5' }, phone);
+el('rect', { class: 'screen', x: 8, y: 8, width: 200, height: 376, rx: 25 }, phone);
+el('rect', { class: 'notch', x: 80, y: 18, width: 56, height: 16, rx: 8 }, phone);
+T(phone, 'd f-text', 46, 108, 100, '9:41', { 'text-anchor': 'middle' });
+T(phone, 'b f-muted', 13, 108, 124, 'Friday 20 November', { 'text-anchor': 'middle' });
+const banner = el('g', {}, phone);
+el('rect', { class: 'card', x: 18, y: 146, width: 180, height: 152, rx: 16 }, banner);
+el('circle', { class: 'dot-f', cx: 36, cy: 167, r: 6 }, banner);
+T(banner, 'm f-muted', 10, 48, 170.5, 'MAE · now', { 'letter-spacing': '1' });
+T(banner, 'b f-text', 13.5, 32, 196, 'Ready for your review', { 'font-weight': 600 });
+T(banner, 'b f-muted', 12, 32, 215, 'The new search page');
+T(banner, 'b f-muted', 12, 32, 232, '5 of 5 steps, all checked');
+const okBtn = el('g', { transform: 'translate(32 248)' }, banner);
+const okRect = el('rect', { class: 'btn', width: 76, height: 34, rx: 9 }, okBtn);
+const okText = T(okBtn, 'b f-ink', 12.5, 38, 21.5, 'Approve', { 'font-weight': 600, 'text-anchor': 'middle' });
+const noBtn = el('g', { transform: 'translate(114 248)' }, banner);
+el('rect', { class: 'btn-o', width: 70, height: 34, rx: 9 }, noBtn);
+T(noBtn, 'b f-text', 12.5, 35, 21.5, 'Decline', { 'font-weight': 500, 'text-anchor': 'middle' });
+const touch = el('circle', { class: 'touch', r: 15 }, gHud);
+const tapRing = el('circle', { class: 'ring-t c-qm', r: 10, 'stroke-width': 2 }, gHud);
 // Night card
 const night = card(868, 118, 352, 150);
 T(night, 'm f-muted', 11, 24, 32, 'NIGHT SHIFT · 2:14 AM', { 'letter-spacing': '1.5' });
@@ -2100,19 +2170,22 @@ T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
 // ---- timeline ----
 const CAPS = [
   [6.0, 13.3, 'The Quartermaster is the sun.', 'Scout, Scribe, Artificer and Warden each keep an orbit round it.'],
-  [13.9, 19.9, 'You ask. The sun makes a plan.', 'One request becomes four quests, one for each of the crew.'],
+  [13.9, 19.9, 'You ask. The Quartermaster makes a plan.', 'One request becomes four quests, one for each of the crew.'],
   [20.7, 25.3, 'Scout reads the ground.', 'It maps the code before anyone touches it.'],
   [25.7, 30.3, 'Scribe writes it down.', 'The spec, line by line, along the contours.'],
   [30.7, 35.3, 'Artificer builds it.', 'Each layer set down and struck into the one below.'],
-  [35.7, 40.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
-  [41.0, 47.9, 'Every step is a waypoint.', 'And nothing ships until you say so.'],
-  [48.6, 55.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
-  [56.5, 60.5, 'At night, the night shift.', 'It drafts while the camp is idle, and changes nothing without you.'],
+  [35.5, 39.4, 'For the hardest part, the Wizard.', 'Auto sizes up the task and picks the strongest model there is.'],
+  [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
+  [44.7, 49.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
+  [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
+  [54.1, 58.9, 'Say yes from anywhere.', 'The review pings your phone. Nothing ships until you approve.'],
+  [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
+  [67.5, 71.5, 'At night, the night shift.', 'It drafts while the camp is idle, and changes nothing without you.'],
 ];
-const CHAPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'Warden'], [40.2, 'The trail'], [48, 'Memory'], [56, 'Night shift'], [60.6, 'Home']];
-const CHIPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [40.2, 'The trail'], [48, 'Memory'], [56, 'Night shift'], [60.6, 'Home']];
-const PINGS = [{ t: 16.25, d: 3.4 }, { t: 46.5, d: 3.0 }, { t: 65.0, d: 3.0 }];
-const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0]];
+const CHAPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
+const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
 const ZOOM = 5.2;
 const planetCam = i => t => { const p = ppos(i, t); return { x: p.x + OFFS[i][0], y: p.y + OFFS[i][1], z: ZOOM }; };
 const fixed = (x, y, z) => () => ({ x, y, z });
@@ -2122,10 +2195,12 @@ const SHOTS = [
   { t: 19.9, tr: 1.8, f: planetCam(0) },
   { t: 24.9, tr: 1.7, f: planetCam(1) },
   { t: 29.9, tr: 1.7, f: planetCam(2) },
-  { t: 34.9, tr: 1.7, f: planetCam(3) },
-  { t: 40.2, tr: 2.5, f: fixed(640, 360, 1) },
-  { t: 47.8, tr: 3.2, f: fixed(640, 330, .95) },
-  { t: 56.4, tr: 3.6, f: fixed(640, 360, 1) },
+  { t: 34.9, tr: 2.4, f: fixed(640, 360, 1) },
+  { t: 38.6, tr: 1.9, f: planetCam(WZ) },
+  { t: 43.9, tr: 1.7, f: planetCam(3) },
+  { t: 49.2, tr: 2.5, f: fixed(640, 360, 1) },
+  { t: 58.8, tr: 3.2, f: fixed(640, 330, .95) },
+  { t: 67.4, tr: 3.6, f: fixed(640, 360, 1) },
 ];
 function camera(t) {
   let i = 0; while (i + 1 < SHOTS.length && SHOTS[i + 1].t <= t) i++;
@@ -2136,7 +2211,7 @@ function camera(t) {
   if (prev.z > 2 && cur.z > 2) z *= 1 - .52 * Math.sin(Math.PI * u);
   return { x: lerp(prev.x, cur.x, u), y: lerp(prev.y, cur.y, u), z };
 }
-const logoM = t => t < 2.2 ? 0 : t < 5.6 ? ease.inOut(prog(t, 2.2, 5.6)) : t < 61.2 ? 1 : 1 - ease.inOut(prog(t, 61.2, 65.4));
+const logoM = t => t < 2.2 ? 0 : t < 5.6 ? ease.inOut(prog(t, 2.2, 5.6)) : t < 72.2 ? 1 : 1 - ease.inOut(prog(t, 72.2, 76.4));
 const comet = (c, a, b, from, to, bend, t, step = .032, n = 13) => {
   const raw = (t - a) / (b - a);
   if (raw <= 0 || raw >= 1) { O(c.g, 0); return false; }
@@ -2160,7 +2235,7 @@ function render(t) {
   const toScreen = (x, y) => [640 + (x - cam.x) * z, 360 + (y - cam.y) * z];
 
   // night
-  const nightA = ease.inOut(win(t, 55.9, 61, 1.1, 1.3));
+  const nightA = ease.inOut(win(t, 66.9, 72, 1.1, 1.3));
   dusk.style.opacity = nightA * duskA;
   O(starsNight, nightA); starsDay.style.opacity = 1 - nightA * .7;
   for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(t * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
@@ -2168,7 +2243,7 @@ function render(t) {
 
   // sun and logo
   const sp = { x: lerp(DOT0.x, SUN.x, ease.inOut(s)), y: 360 };
-  const flare = Math.exp(-Math.pow((t - 16.3) / .3, 2)) + .6 * Math.exp(-Math.pow((t - 46.5) / .3, 2));
+  const flare = Math.exp(-Math.pow((t - 16.3) / .3, 2)) + .6 * Math.exp(-Math.pow((t - 57.5) / .3, 2));
   put(sunCore, { cx: f1(sp.x), r: f2(22 * (1 + .3 * flare + .03 * Math.sin(t * 2.2) * e)) });
   put(sunGlow, { cx: f1(sp.x), r: f1(120 * (1 + .5 * flare)) });
   sunGlow.style.opacity = (.25 + .75 * e) * (1 - nightA * .3);
@@ -2180,12 +2255,13 @@ function render(t) {
   O(tagline, 1 - clamp(m / .18));
 
   // orbits
-  const dim = 1 - .5 * win(t, 48.2, 61, 1, 1);
+  const dim = 1 - .5 * win(t, 59.2, 72, 1, 1);
   CREW.forEach((c, i) => {
     const k = lerp(c.r0 / c.R, 1, ease.out(e));
     orbitEls[i].setAttribute('transform', `translate(640 360) scale(${k.toFixed(4)}) translate(-640 -360)`);
   });
   O(gOrbits, clamp(e * 3) * dim);
+  drawTo(orbitEls[WZ], ease.inOut(prog(t, 37.7, 39.4))); O(orbitEls[WZ], 1 - prog(t, 71.0, 72.0));
 
   // pings light the ground as they pass
   let pr = null;
@@ -2197,7 +2273,7 @@ function render(t) {
   const pos = CREW.map((c, i) => ppos(i, t));
   const labelA = clamp((1.8 - z) / .5);
   CREW.forEach((c, i) => {
-    const appear = ease.back(prog(t, 5.6 + i * .6, 6.4 + i * .6)), gone = prog(t, 60.6 + i * .2, 61.4 + i * .2);
+    const appear = i === WZ ? ease.back(prog(t, 38.1, 38.9)) : ease.back(prog(t, 5.6 + i * .6, 6.4 + i * .6)), gone = prog(t, 71.6 + i * .2, 72.4 + i * .2);
     const pa = Math.max(0, appear) * (1 - ease.inOut(gone));
     const P = PL[i];
     O(P.g, Math.min(1, pa * 1.5) * lerp(1, .75, 1 - dim));
@@ -2223,9 +2299,10 @@ function render(t) {
     put(reqTag, { x: f1(sx + 18), y: f1(sy - 12) }); O(reqTag, win(t, 13.8, 16.6, .4, .5));
   } else O(reqTag, 0);
   CREW.forEach((c, i) => {
-    const a = 19.5 + i * 5;
-    comet(outC[i], a, a + 1.5, sp, pos[i], .22, t);
-    comet(homeC[i], 40.7 + i * .32, 42.4 + i * .32, pos[i], sp, -.2, t);
+    const a = i === 3 ? 43.5 : 19.5 + i * 5, o = ORDER.indexOf(i);
+    if (i === WZ) comet(outC[i], 36.6, 38.3, { x: 1380, y: 860 }, pos[i], -.18, t, .03, 15);   // the Wizard arrives from outside
+    else comet(outC[i], a, a + 1.5, sp, pos[i], .22, t);
+    comet(homeC[i], 49.7 + o * .3, 51.4 + o * .3, pos[i], sp, -.2, t);
   });
 
   // vignettes
@@ -2236,51 +2313,58 @@ function render(t) {
   });
 
   // the trail and its waypoints
-  const tA = win(t, 41.4, 48.6, .4, .9);
+  const tA = win(t, 50.4, 59.6, .4, .9);
   if (tA > 0) {
-    const knots = [[sp.x, sp.y], ...pos.map(p => [p.x, p.y]), [sp.x, sp.y]], pts = catmull(knots, 16), cum = measure(pts);
-    const u = ease.inOut(prog(t, 41.7, 44.5));
+    const knots = [[sp.x, sp.y], ...ORDER.map(i => [pos[i].x, pos[i].y]), [sp.x, sp.y]], pts = catmull(knots, 16), cum = measure(pts);
+    const u = ease.inOut(prog(t, 50.7, 53.5));
     put(trailEl, { d: partial(pts, cum, u), 'stroke-dashoffset': f1(-t * 22) }); O(trailEl, tA * .9);
     WAY.forEach((w, i) => {
-      const at = cum[16 * (i + 1)] / cum[cum.length - 1], pop = clamp((u - at) / .06 + .001);
+      const o = ORDER.indexOf(i), at = cum[16 * (o + 1)] / cum[cum.length - 1], pop = clamp((u - at) / .06 + .001);
       O(w.g, pop * tA); w.g.setAttribute('transform', `translate(${f2(pos[i].x)} ${f2(pos[i].y)}) scale(${f2(ease.back(clamp(pop)))})`);
-      const done = prog(t, 44.7 + i * .25, 44.95 + i * .25);
+      const done = prog(t, 53.7 + o * .25, 53.95 + o * .25);
       O(w.num, 1 - done); O(w.tick, done);
     });
   } else { O(trailEl, 0); WAY.forEach(w => O(w.g, 0)); }
 
-  // review card and your click
-  const rv = win(t, 44.5, 48.3, .45, .6);
-  O(review, rv); review.setAttribute('transform', `translate(868 ${f1(118 + (1 - ease.out(prog(t, 44.5, 45.1))) * 14)})`);
-  const clicked = t >= 46.15;
+  // the review pings your phone, and you approve it there
+  const pv = win(t, 53.5, 59.3, .5, .6);
+  O(phone, pv); phone.setAttribute('transform', `translate(944 ${f1(126 + (1 - ease.out(prog(t, 53.5, 54.2))) * 30)})`);
+  const bv = prog(t, 54.1, 54.5); O(banner, bv); banner.setAttribute('transform', `translate(0 ${f1(-(1 - ease.out(bv)) * 12)})`);
+  const clicked = t >= 57.15;
   okRect.setAttribute('class', clicked ? 'btn ok' : 'btn'); txt(okText, clicked ? 'Approved' : 'Approve');
-  const press = Math.exp(-Math.pow((t - 46.1) / .07, 2));
-  okBtn.setAttribute('transform', `translate(${f2(24 + 66 * press * .04)} ${f2(106 + 22 * press * .04)}) scale(${f2(1 - press * .04)})`);
-  const cv = win(t, 45.0, 47.4, .3, .5);
-  if (cv > 0) { const u = ease.inOut(prog(t, 45.0, 45.95)); put(cursor, { transform: `translate(${f1(lerp(1060, 868 + 24 + 82, u))} ${f1(lerp(420, 118 + 106 + 30, u))}) scale(${f2(1 - press * .12)})` }); O(cursor, cv); } else O(cursor, 0);
+  const press = Math.exp(-Math.pow((t - 57.1) / .07, 2));
+  okBtn.setAttribute('transform', `translate(${f2(32 + 38 * press * .05)} ${f2(248 + 17 * press * .05)}) scale(${f2(1 - press * .05)})`);
+  const TX = 944 + 32 + 38, TY = 126 + 248 + 17, tv = win(t, 56.2, 57.6, .3, .4);
+  if (tv > 0) { const u = ease.inOut(prog(t, 56.2, 57.0)); put(touch, { cx: f1(lerp(TX + 40, TX, u)), cy: f1(lerp(TY + 190, TY, u)), r: f2(15 * (1 - press * .15)) }); O(touch, tv); } else O(touch, 0);
+  const rg = prog(t, 57.12, 57.8); if (rg > 0 && rg < 1) { put(tapRing, { cx: TX, cy: TY, r: f1(10 + rg * 34) }); O(tapRing, (1 - rg) * .9); } else O(tapRing, 0);
+
+  // Auto sizes up the hard part
+  O(router, win(t, 35.2, 38.8, .5, .6)); router.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 35.2, 35.8))) * 14)})`);
+  bars.forEach((b, k) => b.fill.setAttribute('width', f1(176 * b.v * ease.out(prog(t, 35.8 + k * .3, 36.5 + k * .3)))));
+  const pk = prog(t, 36.9, 37.3); O(pick, pk); pick.setAttribute('transform', `translate(24 164) translate(152 18) scale(${f2(lerp(.9, 1, ease.back(pk)))}) translate(-152 -18)`);
 
   // memory: motes rise and settle as stars
-  const memA = 1 - prog(t, 60.6, 61.8);
-  oldEls.forEach((o, k) => { o.style.opacity = (.45 + .45 * win(t, 51.4, 61.4, .8, 1) + .1 * Math.sin(t * 1.3 + k)).toFixed(2); });
+  const memA = 1 - prog(t, 71.6, 72.8);
+  oldEls.forEach((o, k) => { o.style.opacity = (.45 + .45 * win(t, 62.4, 72.4, .8, 1) + .1 * Math.sin(t * 1.3 + k)).toFixed(2); });
   MEM.forEach((mm, k) => {
-    const E = memEls[k], L = 48.6 + k * .28, src = ppos(mm.from, L);
+    const E = memEls[k], L = 59.6 + k * .28, src = ppos(mm.from, L);
     comet(E.mote, L, L + 1.6, src, mm, -.35, t, .03, 10);
     const born = prog(t, L + 1.5, L + 1.9) * memA;
     O(E.core, born); O(E.glow, born * (.7 + .3 * Math.sin(t * 2 + k)));
     E.core.setAttribute('r', f2(3 * (1 + .6 * Math.exp(-Math.pow((t - L - 1.6) / .18, 2)))));
     O(E.g, 1);
-    if (E.label) { const j = [0, 2, 4, 7].indexOf(k); O(E.label, win(t, 52.4 + j * .45, 56.4, .45, .7)); }
+    if (E.label) { const j = [0, 2, 4, 5, 7].indexOf(k); O(E.label, win(t, 63.4 + j * .45, 67.4, .45, .7)); }
   });
   JOINS.forEach((j, k) => {
-    const a = P(j[0]), b = P(j[1]), u = ease.inOut(prog(t, 51.3 + k * .14, 51.9 + k * .14));
+    const a = P(j[0]), b = P(j[1]), u = ease.inOut(prog(t, 62.3 + k * .14, 62.9 + k * .14));
     joinEls[k].setAttribute('d', `M${f1(a.x)} ${f1(a.y)}L${f1(lerp(a.x, b.x, u))} ${f1(lerp(a.y, b.y, u))}`);
     O(joinEls[k], (u > 0 ? .55 : 0) * memA);
   });
 
   // the night shift's lap
-  const nl = prog(t, 56.9, 60.2);
-  if (nl > 0 && nl < 1 || win(t, 57, 60.9, .3, .5) > 0) {
-    O(gNight, win(t, 56.9, 60.9, .3, .6));
+  const nl = prog(t, 67.9, 71.2);
+  if (nl > 0 && nl < 1 || win(t, 68, 71.9, .3, .5) > 0) {
+    O(gNight, win(t, 67.9, 71.9, .3, .6));
     const u = ease.inOut(nl), R = 204, at = v => { const a = (-90 + 360 * v) * DEG, r = shapeR(R, phaseAt(R), a); return [SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]; };
     const pts = []; for (let k = 0; k < 22; k++) { const v = u - k * .012; if (v < 0) break; pts.push(at(v)); }
     nTail.setAttribute('d', dOf(pts, false)); put(nHead, { cx: f1(pts[0][0]), cy: f1(pts[0][1]) }); O(nHead, nl < 1 ? 1 : 0); O(nTail, nl < 1 ? .7 : 0);
@@ -2290,7 +2374,7 @@ function render(t) {
   // cards
   O(plan, win(t, 16.6, 20.3, .5, .6)); plan.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 16.6, 17.2))) * 14)})`);
   planRows.forEach((r, k) => O(r, prog(t, 17.0 + k * .35, 17.35 + k * .35)));
-  O(night, win(t, 57.4, 60.7, .5, .6)); night.setAttribute('transform', `translate(868 ${f1(118 + (1 - ease.out(prog(t, 57.4, 58))) * 14)})`);
+  O(night, win(t, 68.4, 71.7, .5, .6)); night.setAttribute('transform', `translate(868 ${f1(118 + (1 - ease.out(prog(t, 68.4, 69))) * 14)})`);
 
   // captions and chapter
   let ci = -1, cv2 = 0;
