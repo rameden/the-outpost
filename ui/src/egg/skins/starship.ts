@@ -1,26 +1,14 @@
-// Starship: you fly a small white ship with a blue canopy and fire green bolts; what comes at
-// you is out of the dark: saucers, an alien cruiser, a rock with something glowing in it, and
-// a mothership at the end.
+// Starship: you fly a white fighter with four wings, a long nose and a cannon out at each
+// wingtip, firing red bolts; what comes at you is a grey armada: interceptors with one red
+// eye, a cruiser, a rock with something glowing in it, and a dreadnought at the end.
 
 import type { Skin } from "../skins.ts";
 
-const SAUCER = [
-  "...DDDDD...",
-  "..DGGGGGD..",
-  ".DGGGGGGGD.",
-  "DGRGDDDGRGD",
-  "DGGDCCCDGGD",
-  "DGGDCLCDGGD",
-  "DGGDCCCDGGD",
-  "DGRGDDDGRGD",
-  ".DGGGGGGGD.",
-  "..DGGGGGD..",
-  "...DDDDD...",
-];
+const STEEL = { D: "#10141c", G: "#8a93a3", K: "#4a5262", R: "#ff3b30", E: "#7dffb0" };
 
 export const starship: Skin = {
-  craft: "SHIP",
-  boss: "MOTHERSHIP",
+  craft: "FIGHTER",
+  boss: "DREADNOUGHT",
   player: {
     flicker: "F",
     paint: { D: "#10182c", H: "#eef2f8", G: "#9aa7ba", C: "#4fd8f0", R: "#e2463c", B: "#2f7fd0", F: "#ffb020" },
@@ -28,40 +16,55 @@ export const starship: Skin = {
       "........D........",
       ".......DHD.......",
       ".......DHD.......",
-      "......DHCHD......",
-      "......DHCHD......",
-      ".....DHHCHHD.....",
-      ".....DHGHGHD.....",
-      "..D..DHGHGHD..D..",
-      ".DRD.DHGHGHD.DRD.",
-      ".DGDDDHHHHHDDDGD.",
-      "DGGGGGHHHHHGGGGGD",
-      "DGGRGGGHHHGGGRGGD",
-      ".DDDDDGBDBGDDDDD.",
-      ".....DDFDFDD.....",
-      ".......F.F.......",
+      ".......DHD.......",
+      "R......DHD......R",
+      "G.....DHCHD.....G",
+      "G.....DHCHD.....G",
+      "G.....DHBHD.....G",
+      "DD...DDHHHDD...DD",
+      "DHDDDGGHHHGGDDDHD",
+      "DHRRHGGHHHGGHRRHD",
+      "DHHHHGGHHHGGHHHHD",
+      "DDDDDDGHHHGDDDDDD",
+      ".....DFDDDFD.....",
+      "......F...F......",
     ],
   },
-  // A bolt of green light.
-  shot: { paint: { D: "#0b2a1c", G: "#7dffb0", W: "#eafff2" }, rows: [".D.", "DWD", "DGD", "DGD", "DGD", "DGD", "DGD", ".D."] },
+  // A bolt of red light.
+  shot: { paint: { D: "#3a0a0a", G: "#ff4a3c", W: "#ffe0d8" }, rows: [".D.", "DWD", "DGD", "DGD", "DGD", "DGD", "DGD", ".D."] },
   enemies: {
-    // A saucer: green, a pale dome, a red light at each corner.
-    scout: { paint: { D: "#12301f", G: "#4fc47a", C: "#bff5e0", L: "#ffffff", R: "#ff5a3c" }, rows: SAUCER },
-    // The same, a size up, with a gold rim.
-    leader: {
-      paint: { D: "#12301f", G: "#4fc47a", C: "#bff5e0", L: "#ffffff", Y: "#ffd84a" },
+    // An interceptor: a steel arrowhead with one red eye.
+    scout: {
+      paint: STEEL,
       rows: [
-        "....DDDDD....",
-        "..DDYYYYYDD..",
-        ".DYGGGGGGGYD.",
+        ".....D.....",
+        "....DGD....",
+        "....DGD....",
+        "...DGRGD...",
+        "D..DGGGD..D",
+        "DD.DGKGD.DD",
+        "DGDDGGGDDGD",
+        "DGGGGKGGGGD",
+        "DKGGDDDGGKD",
+        ".DDD.E.DDD.",
+        ".....E.....",
+      ],
+    },
+    // The squadron leader's: a size up, with gold on its nose and wingtips.
+    leader: {
+      paint: { ...STEEL, Y: "#ffd84a" },
+      rows: [
+        "......D......",
+        ".....DGD.....",
+        ".....DYD.....",
+        "....DGRGD....",
+        "D...DGGGD...D",
+        "DD.DGGKGGD.DD",
+        "DGDDGGGGGDDGD",
+        "DGGGGGKGGGGGD",
         "DYGGGDDDGGGYD",
-        "DYGGDCCCDGGYD",
-        "DYGGDCLCDGGYD",
-        "DYGGDCCCDGGYD",
-        "DYGGGDDDGGGYD",
-        ".DYGGGGGGGYD.",
-        "..DDYYYYYDD..",
-        "....DDDDD....",
+        ".DDDD.E.DDDD.",
+        "......E......",
       ],
     },
     // A fighter with its wings swept forward: purple, with gold on it.
@@ -193,27 +196,27 @@ export const starship: Skin = {
         ".......D.......",
       ],
     },
-    // The mothership: a great saucer, all dome, with lights round its rim.
+    // The dreadnought: grey and broad, a lit spine, a bridge amidships and three engines.
     flagship: {
-      paint: { D: "#1a0b2e", R: "#a02c5a", C: "#7de0d0", L: "#eafff8", Y: "#ffd84a" },
+      paint: { ...STEEL, L: "#9ff0ff", C: "#ffdf5a", Y: "#ffd84a" },
       rows: [
-        ".........DDDDDDD.........",
-        ".......DDRRRRRRRDD.......",
-        ".....DDRRRRRRRRRRRDD.....",
-        "...DDRRRRRDDDDDRRRRRDD...",
-        "..DRRRRRDDCCCCCDDRRRRRD..",
-        ".DRRYRRDCCCLLCCCCDRRYRRD.",
-        ".DRRRRDCCCLLCCCCCCDRRRRD.",
-        "DRRRRRDCCCCCCCCCCCDRRRRRD",
-        "DRYRRRDCCCCCCCCCCCDRRRYRD",
-        "DRRRRRDCCCCCCCCCCCDRRRRRD",
-        ".DRRRRDCCCCCCCCCCCDRRRRD.",
-        ".DRRYRRDCCCCCCCCCDRRYRRD.",
-        "..DRRRRRDDCCCCCDDRRRRRD..",
-        "...DDRRRRRDDDDDRRRRRDD...",
-        ".....DDRRRYRRRYRRRDD.....",
-        ".......DDRRRRRRRDD.......",
-        ".........DDDDDDD.........",
+        "............D............",
+        "...........DGD...........",
+        "..........DGGGD..........",
+        ".........DGGLGGD.........",
+        "....D....DGGLGGD....D....",
+        "...DGD..DGGGLGGGD..DGD...",
+        "...DGD.DGGKGLGKGGD.DGD...",
+        "...DGDDGGGKGLGKGGGDDGD...",
+        "..DGGGGGGKKGLGKKGGGGGGD..",
+        ".DGGRGGGGKGGLGGKGGGGRGGD.",
+        "DGGGGGGGGKGDDDGKGGGGGGGGD",
+        "DGGKKKGGGGGDCDGGGGGKKKGGD",
+        "DGGGGGGGGGGDDDGGGGGGGGGGD",
+        ".DGGYGGDDGGGGGGGDDGGYGGD.",
+        "..DDDDDD.DGKGKGD.DDDDDD..",
+        ".........DEDEDED.........",
+        "..........E.E.E..........",
       ],
     },
     // The ships: a star cruiser and a frigate, dark violet with lit decks.
