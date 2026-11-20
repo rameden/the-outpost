@@ -21,6 +21,10 @@ const FILMS_DIR = join(ROOT, "docs", "films");
 
 const FILMS = [
   {
+    key: "sky", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:17",
+    note: "All of Mae in one loop. A request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the camp is idle.",
+  },
+  {
     key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket, start to finish", length: "0:54",
     note: "One example Jira ticket, from picking it up to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review.",
   },
@@ -45,7 +49,7 @@ const FILMS = [
 const SECTIONS = [
   {
     id: "films", name: "On film", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Two short films, drawn live in this page. The Quartermaster is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
+    lede: "Three short films, drawn live in this page. The Quartermaster is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
     before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
   },
   {
@@ -59,11 +63,13 @@ const STYLES_FROM = "three-audit-findings.html";
 
 // Colours the tour already has, which the films take from it.
 const TOUR_TOKENS = ["bg", "surface", "surface-2", "border", "border-strong", "text", "muted", "faint", "accent", "accent-soft", "accent-ink", "good", "good-soft",
-  "c-qm", "c-scout", "c-scribe", "c-art", "c-warden", "ink", "night", "night-text", "night-muted", "night-line", "shadow", "display", "body", "mono", "radius", "logo-ink", "logo-dot"];
+  "c-qm", "c-scout", "c-scribe", "c-art", "c-warden", "c-wiz", "ink", "night", "night-text", "night-muted", "night-line", "shadow", "display", "body", "mono", "radius", "logo-ink", "logo-dot"];
 // The few the films use that the tour has no other need of, light and dark.
 const EXTRA: Record<"light" | "dark", Record<string, string>> = {
-  light: { bad: "#a94630", "bad-soft": "#f5dfd8", "night-good": "#93c47d", shade: "rgba(60, 40, 20, .13)", "logo-stroke": "4", "on-light": "1", "on-dark": "0", sky: "#1d2b4c" },
-  dark: { bad: "#e88468", "bad-soft": "#33201a", "night-good": "#93c47d", shade: "rgba(0, 0, 0, .5)", "logo-stroke": "3", "on-light": "0", "on-dark": "1", sky: "#111c38" },
+  light: { bad: "#a94630", "bad-soft": "#f5dfd8", "night-good": "#93c47d", shade: "rgba(60, 40, 20, .13)", "logo-stroke": "4", "on-light": "1", "on-dark": "0", sky: "#1d2b4c",
+    "c-night": "#6f6a78", dusk: "#1b2135", "dusk-a": ".64", "star-night": "#f4ecdc" },
+  dark: { bad: "#e88468", "bad-soft": "#33201a", "night-good": "#93c47d", shade: "rgba(0, 0, 0, .5)", "logo-stroke": "3", "on-light": "0", "on-dark": "1", sky: "#111c38",
+    "c-night": "#a59fb3", dusk: "#04060d", "dusk-a": ".7", "star-night": "#f4ecdc" },
 };
 // Set by the films' own classes, not by the page.
 const OWN = ["tone", "sw"];
