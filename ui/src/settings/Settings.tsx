@@ -13,6 +13,7 @@ import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
+import { chimeOn, playChime, setChime } from "../chime.ts";
 import { showCost } from "../prefs.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
 import { SEASONS, seasonById } from "../seasons.ts";
@@ -267,6 +268,15 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
             onChange={async () => { await toggleNotifications(); redraw((n) => n + 1); }} /> {notificationsOn() ? "On" : "Off"}</label>
         )}
       </Row>
+      {notificationsOn() && (
+        <Row label="Notification sound" help="A soft chime with each notification: rising when a decision is needed, settling when an expedition finishes, falling when one fails. Remembered in this browser.">
+          <label className="switch"><input type="checkbox" checked={chimeOn()}
+            onChange={(ev) => { setChime(ev.target.checked); if (ev.target.checked) playChime("ask"); redraw((n) => n + 1); }} /> {chimeOn() ? "On" : "Off"}</label>
+          <button type="button" className="btn small" onClick={() => playChime("ask")}>Decision</button>
+          <button type="button" className="btn small" onClick={() => playChime("done")}>Finished</button>
+          <button type="button" className="btn small" onClick={() => playChime("fail")}>Failed</button>
+        </Row>
+      )}
       <Uploads S={S} refresh={refresh} />
       <OtherDevices S={S} />
     </>

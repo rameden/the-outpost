@@ -259,3 +259,31 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
   expect(refresh).toHaveBeenCalled();
   delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
 });
+
+test("the notification sound row shows once notifications are on: a switch kept in this browser, and buttons to hear each chime", () => {
+  localStorage.clear();
+  show("general");
+  expect(screen.queryByText("Notification sound")).toBeNull(); // jsdom has no notifications: nothing to add a sound to
+
+  cleanup();
+  const started: number[] = [];
+  vi.stubGlobal("Notification", class { static permission = "granted"; });
+  vi.stubGlobal("AudioContext", class {
+    state = "running"; currentTime = 0; destination = {};
+    createOscillator() { const o = { frequency: { value: 0 }, connect: (g: unknown) => g, start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
+    createGain() { return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d }; }
+  });
+  show("general");
+  const row = screen.getByText("Notification sound").closest(".set-row") as HTMLElement;
+  const box = within(row).getByRole("checkbox");
+  expect(box).toHaveProperty("checked", true); // on by default
+
+  fireEvent.click(box);
+  expect(localStorage.getItem("camp-notify-sound")).toBe("off");
+  expect(within(row).getByRole("checkbox")).toHaveProperty("checked", false);
+  expect(started).toEqual([]); // switching off is silent
+
+  fireEvent.click(within(row).getByRole("button", { name: "Failed" }));
+  expect(started.length).toBeGreaterThan(0); // the preview plays even with the sound off
+  localStorage.clear();
+});
