@@ -15,7 +15,7 @@
 // (settings/DrivePage.tsx: Stats, and What Mae does unasked). Nothing here starts by itself: a button brings feedback to the crew,
 // resumes a run, or opens the ticket kickoff, and what follows waits for your OK like any other work.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { cx, money, plural, when } from "../format.ts";
 import { w } from "../words.ts";
@@ -140,36 +140,41 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
     </section>
   );
 
-  // Your tickets, as cards in the Tickets page's grid (TicketsPage.tsx): the key and where Jira has it on top, the
-  // summary, then where it stands here, with its link and its one next step. A card with a conversation opens it.
-  const ticketCards = (lines: BriefLine[]) => !!lines.length && (
+  // Cards in the Tickets page's grid (TicketsPage.tsx), for your tickets, what's upcoming and your recent work: a
+  // key and where it stands on top, the title, then a line on it with its link and its one next step. A card with
+  // somewhere to go opens it from anywhere on the card; the link and the step sit above that.
+  type Card = { id: string; tag?: string; meta?: string; pill?: ReactNode; title: string; name?: string; open?: () => void; foot?: string; url?: string; urlTitle?: string; line?: BriefLine };
+  const card = (c: Card) => (
+    <li className={cx("proj-card jira-card home-card", c.open && "opens")} key={c.id}>
+      <span className="jira-card-top">
+        {c.tag && <span className="jira-key">{c.tag}</span>}
+        {c.meta && <span className="meta">{c.meta}</span>}
+        {c.pill}
+      </span>
+      {c.open
+        ? <button type="button" className="home-card-title" aria-label={c.name ?? c.title} title="Open its conversation" onClick={c.open}>{c.title}</button>
+        : <b className="home-card-title">{c.title}</b>}
+      <span className="home-card-foot">
+        <span className="meta">{c.foot}</span>
+        {c.url && <a className="home-line-out" href={c.url} target="_blank" rel="noopener noreferrer" title={c.urlTitle} aria-label={`Open ${c.name ?? c.title} in a new tab`}><Icon name="link" /></a>}
+        {c.line?.act && !day && <button type="button" className="btn small" disabled={busy === c.line.title} onClick={() => act(c.line!)}>{busy === c.line.title ? "Starting…" : ACT[c.line.act.do]}</button>}
+      </span>
+    </li>
+  );
+  const cards = (title: string, items: Card[], count = true) => !!items.length && (
     <section>
-      <div className="section-label">Your tickets · {lines.length}</div>
-      <div className="proj-grid jira-grid home-tickets">
-        {lines.map((l) => {
-          const [, key = "", summary = l.title] = /^([A-Z][A-Z0-9]+-\d+)\s+(.*)$/.exec(l.title) ?? [];
-          const parts = l.says.split(" · "), here = parts.pop() ?? "", [status, ...rest] = parts; // "In Progress · High · a conversation here is working on it"
-          return (
-            <div className={cx("proj-card jira-card home-ticket", l.conversation && "opens")} key={l.title}>
-              <span className="jira-card-top">
-                {key && <span className="jira-key">{key}</span>}
-                {rest.length > 0 && <span className="meta">{rest.join(" · ")}</span>}
-                {status && <span className="pill">{status}</span>}
-              </span>
-              {l.conversation
-                ? <button type="button" className="home-ticket-title" aria-label={l.title} title="Open its conversation" onClick={() => setView({ kind: "conversation", id: l.conversation! })}>{summary}</button>
-                : <b className="home-ticket-title">{summary}</b>}
-              <span className="home-ticket-foot">
-                <span className="meta">{here}</span>
-                {l.url && <a className="home-line-out" href={l.url} target="_blank" rel="noopener noreferrer" title="Open the ticket" aria-label={`Open ${l.title} in a new tab`}><Icon name="link" /></a>}
-                {l.act && !day && <button type="button" className="btn small" disabled={busy === l.title} onClick={() => act(l)}>{busy === l.title ? "Starting…" : ACT[l.act.do]}</button>}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      <div className="section-label">{title}{count ? ` · ${items.length}` : ""}</div>
+      <ul className="proj-grid jira-grid home-cards">{items.map(card)}</ul>
     </section>
   );
+  // A ticket's line says where Jira has it ("In Progress · High") and, for one under way, where it stands here last.
+  const ticketCard = (l: BriefLine, underWay: boolean): Card => {
+    const [, key = "", summary = l.title] = /^([A-Z][A-Z0-9]+-\d+)\s+(.*)$/.exec(l.title) ?? [];
+    const parts = l.says.split(" · "), here = underWay ? parts.pop() : undefined, [status, ...rest] = parts;
+    return { id: l.title, tag: key, meta: rest.join(" · "), pill: status && <span className="pill">{status}</span>, title: summary, name: l.title, foot: here, url: l.url, urlTitle: "Open the ticket", line: l, ...(l.conversation ? { open: () => setView({ kind: "conversation", id: l.conversation! }) } : {}) };
+  };
+  // A scheduled job: what it is, and when it runs.
+  const jobCard = (l: BriefLine): Card => ({ id: `job:${l.title}`, pill: <span className="pill">Scheduled</span>, title: l.title, foot: l.says, line: l });
 
   return (<>
     <HomeSky ref={sky} />
@@ -241,8 +246,8 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
         <>
           {section("Waiting on you", brief.needs)}
           {section("In motion", brief.moving)}
-          {ticketCards(brief.tickets)}
-          {section("Upcoming", brief.next)}
+          {cards("Your tickets", brief.tickets.map((l) => ticketCard(l, true)))}
+          {cards("Upcoming", brief.next.map((l) => l.kind === "job" ? jobCard(l) : ticketCard(l, false)))}
           {brief.yourNotes.length > 0 && (
             <section>
               <div className="section-label">Your notes · {brief.yourNotes.length}</div>
@@ -274,22 +279,10 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
         </>
       )}
 
-      {recent.length > 0 && !day && (
-        <section>
-          <div className="section-label">Recent work</div>
-          <ul className="list home-lines">
-            {recent.map((c) => (
-              <li className="home-line" key={c.id}>
-                <span className="home-line-text">
-                  <button type="button" className="home-line-title" onClick={() => setView({ kind: "conversation", id: c.id })}>{c.title}</button>
-                  <span className="meta">{[nameOf(c.project), c.jira, when(c.updated)].filter(Boolean).join(" · ")}</span>
-                </span>
-                {status(c)}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {!day && cards("Recent work", recent.map((c) => ({
+        id: c.id, tag: c.jira, meta: nameOf(c.project), pill: status(c), title: c.title,
+        open: () => setView({ kind: "conversation", id: c.id }), foot: when(c.updated),
+      })), false)}
     </div>
   </>);
 }
