@@ -35,31 +35,44 @@ test("each recall search is written down: who, which run, what was asked, what c
   assert.equal(log[0].shown[0].from, "one of your sessions");
   assert.match(log[0].shown[0].when ?? "", /^\d{4}-\d{2}-\d{2}$/);
   assert.deepEqual(log[2].terms, []);
+  assert.deepEqual(log.map((e) => e.loose), [1, 0, 0]);
+
+  // Words that are in a record but too far apart: found nothing, and the log says the words were there.
+  recordSession("artificer", { source: "brief", task: "Long notes", result: `The okapi was seen. ${"nothing to see here. ".repeat(120)} A wombat too.`, status: "done", messages: [] });
+  await withExpedition({ id: "run-a", project: "general", scope: [] }, () => recall("artificer", { query: "okapi wombat" }));
+  assert.deepEqual([q.readQueries().at(-1)!.found, q.readQueries().at(-1)!.loose], [0, 1]);
 });
 
 test("the summary counts empty searches and searches made again straight after, and shows the chains", () => {
   const at = (min: number) => new Date(Date.UTC(2026, 10, 20, 9, min)).toISOString();
   const e = (agent: string, run: string | undefined, min: number, query: string, found: number): RecallQuery =>
-    ({ time: at(min), agent, ...(run ? { run } : {}), project: "general", query, where: "all", terms: [], mode: "words", found, shown: [] });
+    ({ time: at(min), agent, ...(run ? { run } : {}), project: "general", query, where: "all", terms: query.split(" ").filter((w) => w.length >= 3), mode: "words", found, shown: [] });
   const s = q.summarizeQueries([
     e("scout", "r1", 0, "login broke", 0),
-    e("scout", "r1", 1, "auth token", 2),       // searched again after nothing
-    e("scout", "r1", 2, "auth token expiry", 1), // and again after something
+    e("scout", "r1", 1, "auth token", 2),       // searched again after nothing, on other words
+    e("scout", "r1", 2, "auth tokens expiry", 1), // and again after something, on some of the same
     e("scout", "r1", 30, "deploy", 3),           // too long after: a new search, not a retry
     e("scribe", "r1", 1, "release notes", 4),    // another agent in the same run: not scout's retry
+    e("scribe", "r1", 2, "a of", 0),             // no words to search for: counted apart
     e("warden", undefined, 0, "lint", 0),        // no run: never counted as again
-    e("warden", undefined, 1, "lint rules", 1),
+    { ...e("warden", undefined, 1, "lint rules", 0), loose: 2 }, // the words were there, too far apart
   ]);
-  assert.equal(s.searches, 7);
-  assert.equal(s.empty, 2);
-  assert.equal(s.again, 2);
+  assert.equal(s.searches, 8);
+  assert.equal(s.noWords, 1);
+  assert.equal(s.empty, 3);
+  assert.equal(s.scattered, 1);
+  assert.deepEqual([s.inRuns, s.emptyInRuns], [5, 1]);
+  assert.equal(s.again, 3, "scribe's search was followed by one too, though that one had no words");
   assert.equal(s.againAfterEmpty, 1);
-  assert.equal(s.againAfterFound, 1);
+  assert.equal(s.againAfterFound, 2);
+  assert.deepEqual([s.sameWords, s.sameWordsAfterFound], [1, 1]);
   assert.deepEqual(s.byAgent.scout, { searches: 4, empty: 1, again: 2 });
-  assert.deepEqual(s.chains, [{ agent: "scout", run: "r1", queries: [{ query: "login broke", found: 0 }, { query: "auth token", found: 2 }, { query: "auth token expiry", found: 1 }] }]);
+  assert.deepEqual(s.chains.find((c) => c.agent === "scout"), { agent: "scout", run: "r1", queries: [{ query: "login broke", found: 0 }, { query: "auth token", found: 2 }, { query: "auth tokens expiry", found: 1 }] });
   const text = q.formatSummary(s);
-  assert.match(text, /^7 recall searches\.\nFound nothing: 2 \(29%\)\./);
-  assert.match(text, /"login broke" \(0\) → "auth token" \(2\) → "auth token expiry" \(1\)/);
+  assert.match(text, /^8 recall searches \(1 with no words to search for, not counted below\)\.\nFound nothing: 3 of 7 \(43%\); 1 of those had the words, too far apart to count\./);
+  assert.match(text, /Searched again straight after: 3 of the 5 made in a run \(60%\), 1 on some of the same words\./);
+  assert.match(text, /After finding something: 2 of 4 \(50%\), 1 on some of the same words\./);
+  assert.match(text, /"login broke" \(0\) → "auth token" \(2\) → "auth tokens expiry" \(1\)/);
   assert.equal(q.formatSummary(q.summarizeQueries([])), "No recall searches on record yet.");
 });
 

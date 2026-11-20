@@ -376,7 +376,12 @@ test("recall: a term is found where a word begins, and a record scores by where 
   // "signed" isn't in "designed", nor "turn" in "return"; a root still finds its longer forms.
   assert.equal(scoreText("We redesigned the return flow", searchTerms("signed turns")), 0);
   assert.equal(scoreText("Commits are signed; the turn cap is 30", searchTerms("signed turns")), 1);
-  assert.equal(scoreText("We deployed it (deploys: 3)", searchTerms("deploys")), 1);
+  assert.equal(scoreText("We deployed it", searchTerms("deploys")), 1);
+  // A word also begins where a camelCase name turns, and after an underscore.
+  assert.equal(scoreText("Set maxTurns to 30", searchTerms("turns")), 1);
+  assert.equal(scoreText("Set max_turns to 30", searchTerms("turns")), 1);
+  assert.equal(scoreText("the HTTPServer class", searchTerms("server")), 1);
+  assert.equal(scoreText("RETURNS nothing", searchTerms("turns")), 0);
 
   // The stretch with the most of the terms, and where it starts.
   const filler = "nothing to see here. ".repeat(40);
@@ -392,4 +397,9 @@ test("recall: a term is found where a word begins, and a record scores by where 
   const found = recallFor("scout", "okapi wombat", ["sessions"]);
   assert.equal(found.length, 1);
   assert.match(found[0].text, /okapi and a wombat/);
+
+  // Terms at the far ends of a stretch are both in the excerpt, and one past the first 2,000 places is still found.
+  recordSession("scout", { source: "brief", task: "Far ends", result: `${filler.repeat(2)} quokka ${"x".repeat(NEAR - 30)} numbat arrived. ${filler.repeat(2)}`, status: "done", messages: [] });
+  assert.match(recallFor("scout", "quokka numbat", ["sessions"])[0].text, /quokka.*numbat/);
+  assert.equal(bestStretch(`${"alpha word word word. ".repeat(3000)} alpha beta`, ["alpha", "beta"]).found, 2);
 });
