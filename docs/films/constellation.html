@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mae Constellation</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one 16:9 stage that plays the constellation as a loop. Every line the crew remembers is a star,
+   grouped by where it lives. Stars grow as requests use them; then one is read and pinned, two are merged
+   into a draft, and one is forgotten. The map is on the left and a card on the right shows what a click
+   opens. A plain transport bar sits under the stage.
+   Colours, type, the logo and the dashed route are Mae's own. */
+:root {
+  --page: #f0e8da; --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
+  --text: #2a231c; --muted: #5d5247; --faint: #72675b;
+  --accent: #9e5c0c; --accent-ink: #fffaf2;
+  --good: #397034; --good-soft: #e1eedb; --bad: #a94630; --bad-soft: #f5dfd8;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
+  --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a; --night-good: #93c47d;
+  --shade: rgba(60, 40, 20, .13);
+  --logo-ink: #14233F; --logo-dot: #B97A12; --logo-stroke: 4; --on-light: 1; --on-dark: 0;
+  --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
+  --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+    --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+    --accent: #f0a640; --accent-ink: #1b1308;
+    --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+    --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
+    --shade: rgba(0, 0, 0, .5);
+  --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+  --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+  --accent: #f0a640; --accent-ink: #1b1308;
+  --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+  --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
+  --shade: rgba(0, 0, 0, .5);
+  --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 36px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+.stage { aspect-ratio: 16 / 9; max-width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 16px 40px var(--shade); }
+.stage svg { display: block; width: 100%; height: 100%; }
+.controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.controls button { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 14px; cursor: pointer; min-width: 68px; }
+.controls button:hover { border-color: var(--accent); }
+.controls input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.controls output { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { margin: 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+
+/* Stage drawing */
+#stage text { user-select: none; -webkit-user-select: none; pointer-events: none; white-space: pre; }
+.d { font-family: var(--display); } .b { font-family: var(--body); } .m { font-family: var(--mono); }
+.f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); }
+.f-accent { fill: var(--accent); } .f-ink { fill: var(--ink); } .f-accent-ink { fill: var(--accent-ink); } .f-tone { fill: var(--tone); }
+.f-good { fill: var(--good); } .f-bad { fill: var(--bad); }
+.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
+.bgfill { fill: var(--bg); }
+.contour { fill: none; stroke: var(--border-strong); stroke-width: 1.2; opacity: .5; vector-effect: non-scaling-stroke; }
+.contour.lit { stroke: var(--accent); stroke-width: 1.8; opacity: 0; }
+.ping { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+/* The system: orbits, the tail a planet leaves, and the sun's compass. Strokes keep their width under the camera. */
+.sorbit { fill: none; stroke: var(--border-strong); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.sorbit.tone { stroke: var(--tone); stroke-width: 2; }
+.ptrail { fill: none; stroke: var(--tone); stroke-width: 3.5; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.sun-glyph * { fill: none; stroke: var(--accent-ink); stroke-width: .62; stroke-linecap: round; stroke-linejoin: round; }
+.moon { fill: var(--tone); }
+.body-name { font-size: 28px; fill: var(--tone); }
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
+.orbit { fill: none; stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 3 7; stroke-linecap: round; }
+.comet { fill: var(--tone); }
+.shadow { filter: drop-shadow(0 12px 22px var(--shade)); }
+.card { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.inset { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+.hr { stroke: var(--border); stroke-width: 1; }
+.wm path { fill: var(--logo-ink); }
+/* The Mae mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
+.mk-solid { fill: var(--logo-ink); }
+.mk-arc { fill: none; stroke: var(--logo-ink); stroke-width: var(--logo-stroke); }
+.mk-arc.small { stroke-width: 8; }
+.mk-arc.on-light { opacity: var(--on-light); } .mk-arc.on-dark { opacity: var(--on-dark); }
+.mk-dot { fill: var(--logo-dot); }
+.mk-ripple { fill: none; stroke: var(--logo-dot); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
+.name-sub { font-size: 19px; fill: var(--muted); }
+.eyebrow { font-size: 13px; letter-spacing: .14em; fill: var(--accent); }
+.tagline { font-size: 44px; }
+.cmd-box { fill: var(--night); stroke: var(--night-line); }
+.cmd-t { font-size: 14px; fill: var(--night-text); }
+.cmd-t .p { fill: var(--night-muted); }
+.scene-l { font-size: 12px; letter-spacing: .12em; fill: var(--faint); }
+.cap { font-size: 42px; fill: var(--ink); }
+/* Route bar: the tour's numbered pins and dashed trail */
+.pin { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; transition: fill .25s, stroke .25s; }
+.pin-n { font-size: 12px; fill: var(--faint); transition: fill .25s; }
+.stop-l { font-size: 12px; letter-spacing: .12em; fill: var(--faint); transition: fill .25s; }
+.stop.on .pin { fill: var(--accent); stroke: var(--accent); }
+.stop.on .pin-n { fill: var(--accent-ink); }
+.stop.on .stop-l { fill: var(--text); }
+.dash { stroke-width: 2; stroke-dasharray: 6 6; }
+.dash.base { stroke: var(--border-strong); }
+.dash.fill { stroke: var(--accent); }
+/* Crew badges */
+.disc { fill: var(--surface-2); stroke: var(--tone); stroke-width: calc(var(--sw, 2) * 1px); }
+.glyph * { fill: none; stroke: var(--tone); stroke-width: calc(var(--sw, 2) * .8px); stroke-linecap: round; stroke-linejoin: round; }
+.pulse { fill: none; stroke: var(--tone); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.camp-l { font-size: 11px; letter-spacing: .14em; fill: var(--faint); }
+/* Cards and the workbench */
+.who { font-size: 14px; font-weight: 700; }
+.t13 { font-size: 13px; } .t15 { font-size: 15px; } .t16 { font-size: 16px; } .w6 { font-weight: 600; }
+.lbl { font-size: 11px; letter-spacing: .12em; fill: var(--faint); }
+.code { font-size: 13px; }
+.key-t { font-size: 12.5px; fill: var(--text); }
+.tk-title { font-size: 27px; fill: var(--ink); }
+.cb { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.cb-on { fill: var(--accent); }
+.cb-check { fill: none; stroke: var(--accent-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.caret { fill: var(--accent); }
+.btn-accent { fill: var(--accent); }
+.btn-ghost { fill: none; stroke: var(--border-strong); }
+.btn-t { font-size: 14px; font-weight: 600; }
+.bubble { font-size: 17px; fill: var(--muted); }
+.row-n { font-size: 12px; fill: var(--faint); }
+.row-dot { fill: var(--tone); }
+.row-name { font-size: 15px; font-weight: 700; fill: var(--tone); }
+.row-task { font-size: 15px; fill: var(--muted); }
+.ripple { fill: none; stroke: var(--accent); stroke-width: 2; }
+.ph-name { font-size: 16px; font-weight: 700; }
+.ph-sub { font-size: 12px; fill: var(--faint); }
+.q-st { font-size: 11px; fill: var(--faint); }
+.hl { fill: none; stroke: var(--tone); stroke-width: 2; }
+.bg-del { fill: var(--bad-soft); } .bg-add { fill: var(--good-soft); }
+.night-t { fill: var(--night-text); } .night-m { fill: var(--night-muted); } .night-good { fill: var(--night-good); }
+.night-check { fill: none; stroke: var(--night-good); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pill { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1; }
+.pill-t { font-size: 10.5px; letter-spacing: .1em; fill: var(--text); }
+.ok-disc { fill: var(--good); }
+.ok-check { fill: none; stroke: var(--surface); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pointer { fill: var(--ink); stroke: var(--surface); stroke-width: 1.3; stroke-linejoin: round; }
+/* The constellation: a place is a disc, a remembered line is a star in its place's colour, and a line joins two that are alike (solid) or used together (dashed). The star you picked has a solid ring. */
+.t12 { font-size: 12px; }
+.t19 { font-size: 19px; }
+.c-about { --tone: var(--accent); }
+.place { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.star { fill: var(--tone); stroke: var(--surface); stroke-width: 1.5; }
+.lg-star { fill: var(--muted); }
+.aline { fill: none; stroke: var(--faint); stroke-width: 1.2; }
+.aline.together { stroke-dasharray: 4 4; }
+.ring-pin { fill: none; stroke: var(--tone); stroke-width: 1.5; }
+.ring-sel { fill: none; stroke: var(--ink); stroke-width: 2; }
+.ring-cand { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.ghost { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.btn-bad { fill: none; stroke: var(--bad); }
+.btn-badfill { fill: var(--bad); }
+.scrim { fill: var(--bg); }
+</style>
+<style>body { margin: 0; }</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's constellation: the crew's memory drawn as a map of stars. Each remembered line is a star, grouped by the crew member whose memory holds it, or the note about you. Stars grow as requests use them. Then you click a star to read it and pin it, merge two lines that say the same thing into a draft that waits for your approval, and forget a line for good after it asks first.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="39.6" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 0:39</output>
+  </div>
+  <p class="note">The constellation: every line the crew remembers, as a star that grows each time it is used. Open it with <code>/constellation</code>. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+</main>
+
+<script>
+(() => {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('stage');
+const DUR = 39.6, PI = Math.PI, NEVER = 1e9;
+const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+// there from a to b, fading in and out over d
+const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// a class, a text or a set of attributes, written only when it changes
+const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
+const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
+const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, box, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+
+// ---- crew badges ----
+const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+};
+// a badge at any size: its lines stay as heavy as they are at full size
+function badge(key, parent, s = 1) {
+  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
+  el('circle', { r: 24, class: 'disc' }, k);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
+  return g;
+}
+
+// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
+const defs = svg.querySelector('defs');
+// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
+const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
+el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
+el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+tx(svg, 1216, 61, 'm scene-l', 'CONSTELLATION', { 'text-anchor': 'end' });
+
+function titleCard(eyebrow, ink, accent, sub) {
+  const g = el('g');
+  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
+  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
+  el('tspan', { class: 'f-ink' }, tag, ink);
+  el('tspan', { class: 'f-accent' }, tag, accent);
+  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// the last card: how to open what the film showed
+function endCard(lead, box, sub) {
+  const g = el('g'), w = box.length * 8.45 + 56;
+  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
+  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
+  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
+  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// a caption and the line under it, from a to b
+const CAPS = [];
+const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
+// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
+const STOPS = [], gRoute = el('g');
+function makeRoute(list) {
+  list.forEach(([label, at], i) => {
+    const s = { label, at };
+    if (i < list.length - 1) {
+      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+    }
+    s.g = el('g', { class: 'stop' }, gRoute);
+    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
+    STOPS.push(s);
+  });
+}
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
+function drawChrome(t) {
+  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
+  O(gEnd, span(t, END + .2, DUR - .5, .45));
+  CAPS.forEach(c => {
+    const p = seg(t, c.a, c.a + .45, ease.out);
+    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
+  });
+  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at);
+    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
+  });
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+const CLICKS = [];
+
+// ---- the story: the map of stars, stars that grow as they're used, then a pin, a merge and a forget ----
+const T = { used: 9.8, pick: 17.4, pin: 20.0, merge: 23.4, pickB: 25.6, drafted: 27.6, pickF: 30.4, forget: 32.2, sure: 33.9 }, END = 36.0;
+const MC = [400, 412], rad = d => d * PI / 180;
+// Where a star sits in its place, before the place is turned so that the first faces the middle of the map.
+const SPOTS = [[0, -36], [31, -17], [33, 20], [2, 38], [-31, 21], [-35, -15], [1, 1]];
+// Each place and how often each of its lines has been used.
+const PLACES = [
+  { key: 'qm', name: 'Quartermaster', n: [5, 1, 0, 3, 2, 0] },
+  { key: 'art', name: 'Artificer', n: [2, 1, 0, 4, 1, 6, 0] },
+  { key: 'scribe', name: 'Scribe', n: [0, 3, 1, 0, 2] },
+  { key: 'scout', name: 'Scout', n: [3, 0, 1, 7, 2, 1] },
+  { key: 'warden', name: 'Warden', n: [1, 4, 0, 2, 0] },
+  { key: 'about', name: 'About you', n: [6, 2, 3, 1] },
+];
+const gScene = el('g'), gPlaces = el('g', null, gScene), gLines = el('g', null, gScene), gStars = el('g', null, gScene);
+const STARS = [], star = (key, i) => STARS.find(s => s.p.key === key && s.i === i);
+PLACES.forEach((p, pi) => {
+  const th = -90 + 60 * pi, r = rad(th + 270);
+  p.x = MC[0] + 150 * Math.cos(rad(th)); p.y = MC[1] + 150 * Math.sin(rad(th));
+  p.g = el('g', { class: 'c-' + p.key }, gPlaces);
+  el('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 60, class: 'place' }, p.g);
+  const side = Math.cos(rad(th));
+  if (Math.abs(side) < .1) tx(p.g, p.x, p.y - 70, 'b t13 w6 f-tone', p.name, { 'text-anchor': 'middle' });
+  else tx(p.g, p.x + (side > 0 ? 70 : -70), p.y + 4.5, 'b t13 w6 f-tone', p.name, { 'text-anchor': side > 0 ? 'start' : 'end' });
+  p.n.forEach((n, i) => {
+    const [sx, sy] = SPOTS[i], s = { p, i, base: n, uses: [], x: p.x + sx * Math.cos(r) - sy * Math.sin(r), y: p.y + sx * Math.sin(r) + sy * Math.cos(r) };
+    s.g = el('g', { class: 'c-' + p.key }, gStars);
+    s.pulse = el('circle', { class: 'pulse' }, s.g);
+    s.dot = el('circle', { class: 'star' }, s.g);
+    STARS.push(s);
+  });
+});
+const A = star('art', 0), B = star('art', 1), F = star('scribe', 0), S1 = star('scribe', 1), Q5 = star('qm', 5);
+// the requests that use the picked line, and the lines each one loaded with it
+const USES = [
+  { t: 12.3, ask: 'Why do the invoice dates show a day early?', stars: [A, S1, Q5] },
+  { t: 13.7, ask: 'Fix the date on the export sheet', stars: [A, Q5] },
+  { t: 14.5, ask: 'Add a test for the time zone bug', stars: [A, S1] },
+  { t: 15.3, ask: 'Write the release note for the date fix', stars: [A, S1, Q5] },
+  { t: 16.1, ask: 'Review the date change before it ships', stars: [A] },
+];
+USES.forEach(u => u.stars.forEach(s => s.uses.push(u.t)));
+const LINES = [
+  [A, B, 0], [star('scout', 3), star('scout', 4), 0], [star('about', 0), star('about', 1), 0], [star('warden', 1), star('warden', 2), 0],
+  [star('qm', 0), star('qm', 3), 0], [S1, star('scribe', 4), 0],
+  [star('scout', 5), star('warden', 1), 1], [star('about', 0), star('qm', 1), 1],
+  [A, S1, 1, USES[0].t], [A, Q5, 1, USES[0].t],
+].map(([a, b, together, from]) => ({ a, b, from, n: el('line', { class: 'aline' + (together ? ' together' : '') }, gLines) }));
+// rings: the one you picked, a pinned one, the ones a merge can take, and the draft that joins two
+const ringPin = el('circle', { class: 'ring-pin c-art' }, gStars);
+const ringA = el('circle', { class: 'ring-sel' }, gStars), ringB = el('circle', { class: 'ring-sel' }, gStars), ringF = el('circle', { class: 'ring-sel' }, gStars);
+const CANDS = STARS.filter(s => s.p === A.p && s !== A).map(s => ({ s, n: el('circle', { class: 'ring-cand' }, gStars) }));
+const ghost = el('rect', { class: 'ghost' }, gStars);
+
+// ---- the card on the right: what the map says, and what a click opens ----
+const PX = 770, PY = 206, PW = 438, PH = 404, IX = PX + 24;
+const gCard = el('g', null, gScene);
+el('rect', { x: PX, y: PY, width: PW, height: PH, rx: 14, class: 'card shadow' }, gCard);
+// the legend
+const pLegend = el('g', null, gCard);
+tx(pLegend, IX, PY + 52, 'd tk-title', 'Memory');
+const countT = tx(pLegend, IX, PY + 78, 'b t15 f-muted', '');
+el('line', { x1: IX, y1: PY + 100, x2: PX + PW - 24, y2: PY + 100, class: 'hr' }, pLegend);
+[['bigger: used more often', g => { el('circle', { cx: IX + 6, cy: 0, r: 3.5, class: 'lg-star' }, g); el('circle', { cx: IX + 26, cy: 0, r: 8, class: 'lg-star' }, g); }],
+  ['pinned', g => { el('circle', { cx: IX + 18, cy: 0, r: 6, class: 'lg-star' }, g); el('circle', { cx: IX + 18, cy: 0, r: 10, class: 'ring-pin c-you' }, g); }],
+  ['alike', g => el('line', { x1: IX, y1: 0, x2: IX + 36, y2: 0, class: 'aline' }, g)],
+  ['used together', g => el('line', { x1: IX, y1: 0, x2: IX + 36, y2: 0, class: 'aline together' }, g)],
+].forEach(([label, draw], i) => {
+  const g = el('g', { transform: `translate(0 ${PY + 140 + i * 40})` }, pLegend);
+  draw(g); tx(g, IX + 54, 5, 'b t15 f-text', label);
+});
+tx(pLegend, IX, PY + PH - 28, 'b t12 f-faint', 'Scroll to zoom · drag to move · click a star to read it');
+// the requests
+const pReq = el('g', null, gCard);
+tx(pReq, IX, PY + 40, 'm lbl', 'ASKED TODAY');
+USES.forEach((u, i) => {
+  u.g = el('g', null, pReq);
+  const y = PY + 78 + i * 62;
+  if (i === 0) { u.typed = typer(u.g, IX, y, 'b t15 w6 f-text', u.ask); u.caret = el('rect', { y: y - 13, width: 2, height: 17, class: 'caret' }, u.g); }
+  else tx(u.g, IX, y, 'b t15 w6 f-text', u.ask);
+  u.sub = tx(u.g, IX, y + 21, 'm t12 f-faint', `${u.stars.length} line${u.stars.length > 1 ? 's' : ''} loaded with it`);
+});
+// one line, read: where it's kept, where it came from and how often it has been used
+function linePanel(key, name, lines, from, used) {
+  const g = el('g', { class: 'c-' + key }, gCard), o = { g };
+  el('circle', { cx: IX + 5, cy: PY + 37, r: 5, class: 'moon' }, g);
+  tx(g, IX + 18, PY + 42, 'b t15 w6 f-tone', name);
+  lines.forEach((l, i) => tx(g, IX, PY + 82 + i * 26, 'b t19 w6 f-text', l));
+  el('line', { x1: IX, y1: PY + 130, x2: PX + PW - 24, y2: PY + 130, class: 'hr' }, g);
+  o.detail = el('g', null, g);
+  [['KEPT', `In ${name}'s memory`], ['FROM', from], ['USED', used]].forEach(([k, v], i) => {
+    tx(o.detail, IX, PY + 164 + i * 30, 'm lbl', k); tx(o.detail, IX + 62, PY + 164 + i * 30, 'b t15 f-text', v);
+  });
+  o.pin = button(o.detail, IX + 44, PY + PH - 42, 88, 'Pin', 'ghost');
+  o.merge = button(o.detail, IX + 168, PY + PH - 42, 136, 'Merge with…', 'ghost');
+  o.forget = button(o.detail, IX + 294, PY + PH - 42, 92, 'Forget', 'ghost');
+  o.forget.box.setAttribute('class', 'btn-bad'); o.forget.tn.setAttribute('class', 'b btn-t f-bad');
+  return o;
+}
+const pA = linePanel('art', 'Artificer', ['Dates from the API are UTC: never', 'format them in local time.'], 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
+const pinned = el('g', null, pA.g);
+el('rect', { x: PX + PW - 24 - 78, y: PY + 26, width: 78, height: 22, rx: 11, class: 'pill-a' }, pinned);
+tx(pinned, PX + PW - 24 - 39, PY + 41, 'm pill-t', 'PINNED', { 'text-anchor': 'middle' });
+// the merge: which line, then the draft of the one line
+const aMerge = el('g', null, pA.g);
+tx(aMerge, IX, PY + 166, 'b t16 w6 f-text', 'Merge with which line?');
+tx(aMerge, IX, PY + 190, 'b t13 f-muted', 'Pick another star in Artificer, or one from this list.');
+['API dates are in UTC, so show them as UTC.', 'Run the date tests in three time zones.'].forEach((l, i) => {
+  el('rect', { x: IX, y: PY + 208 + i * 50, width: PW - 48, height: 40, rx: 8, class: 'inset' }, aMerge);
+  el('circle', { cx: IX + 17, cy: PY + 228 + i * 50, r: 4, class: 'moon' }, aMerge);
+  tx(aMerge, IX + 32, PY + 233 + i * 50, 'b t15 f-text', l);
+});
+const aDraft = el('g', null, pA.g);
+const draftHead = tx(aDraft, IX, PY + 166, 'b t16 w6 f-text', '');
+const draftNote = el('g', null, aDraft);
+tx(draftNote, IX, PY + 190, 'b t13 f-muted', 'Nothing has changed yet: approve it on the Memory page');
+tx(draftNote, IX, PY + 208, 'b t13 f-muted', "and it takes both lines' place.");
+el('rect', { x: IX, y: PY + 228, width: PW - 48, height: 76, rx: 10, class: 'inset' }, aDraft);
+const draft1 = typer(aDraft, IX + 16, PY + 259, 'b t15 f-text', 'Dates from the API are UTC: format and show them');
+const draft2 = typer(aDraft, IX + 16, PY + 282, 'b t15 f-text', 'as UTC, never in local time.');
+const draftCaret = el('rect', { width: 2, height: 17, class: 'caret' }, aDraft);
+const bReview = button(aDraft, IX + 52, PY + PH - 42, 104, 'Review it');
+const pF = linePanel('scribe', 'Scribe', ['Use the old changelog template', 'until March.'], 'the crew noted it', 'Not recalled yet');
+// the forget asks first
+const gAsk = el('g', null, gScene);
+el('rect', { width: 1280, height: 720, class: 'scrim', opacity: .62 }, gAsk);
+const dlg = el('g', null, gAsk);
+el('rect', { x: -220, y: -100, width: 440, height: 200, rx: 14, class: 'card shadow' }, dlg);
+tx(dlg, -192, -52, 'd tk-title', 'Forget this line?');
+tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Scribe for good:");
+tx(dlg, -192, 4, 'b t15 f-text', '"Use the old changelog template until March."');
+const bCancel = button(dlg, -144, 58, 96, 'Cancel', 'ghost'), bSure = button(dlg, -36, 58, 96, 'Forget');
+bSure.box.setAttribute('class', 'btn-badfill');
+
+CLICKS.push({ t: T.pick, x: A.x, y: A.y }, { t: T.pin, x: pA.pin.cx, y: pA.pin.cy + 2 }, { t: T.merge, x: pA.merge.cx, y: pA.merge.cy + 2 }, { t: T.pickB, x: B.x, y: B.y },
+  { t: T.pickF, x: F.x, y: F.y }, { t: T.forget, x: pF.forget.cx, y: pF.forget.cy + 2 }, { t: T.sure, x: 640 - 36, y: 400 + 60 });
+
+const gTitle = titleCard('NEW IN CAMP · CONSTELLATION', "The crew's memory, ", 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
+const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the map from Settings → Memory.');
+caption('Every line it remembers is a star.', "Grouped by where it lives: a crew member's memory, or the note about you.", 3.0, T.used - .3);
+caption("A star grows each time it's used.", "Whenever a line bears on a request, or comes back from recall, it's written down.", T.used + .2, T.pick - .5);
+caption('Click a star to read it, and pin it.', 'A pinned line always goes in the prompt, however full that memory gets.', T.pick - .2, T.merge - .5);
+caption('Merge two that say the same thing.', 'The one line is drafted for you. Nothing changes until you approve it.', T.merge - .2, T.pickF - .6);
+caption('Forget one for good.', 'It asks first. Nothing is tidied without your say.', T.pickF - .3, END - .3);
+makeRoute([['Stars', 2.8], ['Used', T.used], ['Pin', T.pick], ['Merge', T.merge], ['Forget', T.pickF]]);
+
+function layout() {}
+
+const radiusOf = n => 4 + 3.2 * Math.sqrt(n);
+function render(t) {
+  drawChrome(t);
+  O(gScene, seg(t, 2.4, 2.9) * (1 - seg(t, END - .3, END + .1)));
+  // while a merge waits for its second line, every place but the first line's steps back
+  const dim = 1 - .78 * span(t, T.merge + .1, T.pickB + .5, .35);
+  PLACES.forEach((p, pi) => { p.dim = p === A.p ? 1 : dim; O(p.g, seg(t, 2.5 + pi * .08, 3 + pi * .08) * p.dim); });
+
+  // the stars: each as big as it has been used, half there until its first use
+  STARS.forEach((s, idx) => {
+    let n = s.base, ping = 0;
+    for (const u of s.uses) { n += seg(t, u, u + .45, ease.out); if (t >= u && t < u + .8) ping = (t - u) / .8; }
+    s.r = radiusOf(n);
+    const gone = s === F ? 1 - seg(t, T.sure + .05, T.sure + .6, ease.in) : 1;
+    put(s.dot, { cx: s.x, cy: s.y, r: s.r * seg(t, 2.9 + idx * .07, 3.4 + idx * .07, ease.back) * gone });
+    O(s.g, lerp(.5, 1, clamp(n)) * s.p.dim * (gone > 0 ? 1 : 0));
+    put(s.pulse, { cx: s.x, cy: s.y, r: s.r + ping * 24 }); O(s.pulse, ping > 0 ? (1 - ping) * .9 : 0);
+  });
+  // the lines between them, cut short of each star
+  LINES.forEach((l, i) => {
+    const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y, d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d;
+    put(l.n, { x1: l.a.x + ux * (l.a.r + 3), y1: l.a.y + uy * (l.a.r + 3), x2: l.b.x - ux * (l.b.r + 3), y2: l.b.y - uy * (l.b.r + 3) });
+    O(l.n, (l.from ? seg(t, l.from + .2, l.from + .8) : seg(t, 5.4 + i * .1, 6 + i * .1)) * Math.min(l.a.p.dim, l.b.p.dim));
+  });
+  // picked, pinned, offered for the merge, and joined by the draft
+  const selA = span(t, T.pick, T.pickF + .2, .25), selB = span(t, T.pickB, T.pickF + .2, .25), selF = span(t, T.pickF, T.sure + .3, .25);
+  put(ringA, { cx: A.x, cy: A.y, r: A.r + 8 }); O(ringA, selA);
+  put(ringB, { cx: B.x, cy: B.y, r: B.r + 8 }); O(ringB, selB);
+  put(ringF, { cx: F.x, cy: F.y, r: F.r + 8 }); O(ringF, selF);
+  put(ringPin, { cx: A.x, cy: A.y, r: A.r + 4 }); O(ringPin, seg(t, T.pin, T.pin + .3, ease.out));
+  const offer = span(t, T.merge + .2, T.pickB + .15, .25);
+  CANDS.forEach(c => { put(c.n, { cx: c.s.x, cy: c.s.y, r: c.s.r + 5 }); O(c.n, offer); });
+  const gk = seg(t, T.pickB + .3, T.pickB + .7), half = Math.max(A.r, B.r) + 13, len = Math.hypot(B.x - A.x, B.y - A.y) + 2 * half;
+  put(ghost, { x: -len / 2, y: -half, width: len, height: 2 * half, rx: half });
+  ghost.setAttribute('transform', `translate(${((A.x + B.x) / 2).toFixed(1)} ${((A.y + B.y) / 2).toFixed(1)}) rotate(${(Math.atan2(B.y - A.y, B.x - A.x) * 180 / PI).toFixed(1)})`);
+  O(ghost, gk * (t < T.drafted ? .55 + .45 * Math.sin((t - T.pickB) * 7) ** 2 : 1) * (1 - seg(t, T.pickF - .2, T.pickF + .2)));
+
+  // the card: the legend, the requests, a line that's been read
+  O(gCard, seg(t, 2.8, 3.3));
+  O(pLegend, 1 - seg(t, T.used, T.used + .4) + seg(t, T.sure + .6, T.sure + 1));
+  say(countT, t >= T.sure + .3 && t < END + 1 ? '32 lines in 6 places' : '33 lines in 6 places');
+  O(pReq, span(t, T.used + .3, T.pick + .1, .35));
+  USES.forEach((u, i) => {
+    if (i === 0) {
+      typeTo(u.typed, seg(t, 10.4, 12.0, ease.lin));
+      put(u.caret, { x: IX + u.typed.w + 2 }); O(u.caret, t > 10.2 && t < 12.2 && (t * 2.4) % 1 < .6 ? 1 : 0);
+      O(u.g, seg(t, T.used + .3, T.used + .6));
+    } else O(u.g, seg(t, u.t - .5, u.t - .15));
+    O(u.sub, seg(t, u.t, u.t + .3)); cls(u.sub, 'm t12 ' + (t >= u.t && t < u.t + .9 ? 'f-accent' : 'f-faint'));
+  });
+  O(pA.g, span(t, T.pick, T.pickF + .1, .3));
+  O(pA.detail, 1 - seg(t, T.merge, T.merge + .3));
+  press(pA.pin, t, T.pin, 'Unpin'); press(pA.merge, t, T.merge); press(pA.forget, t, NEVER);
+  O(pinned, seg(t, T.pin + .05, T.pin + .35, ease.out));
+  O(aMerge, span(t, T.merge + .2, T.pickB + .2, .3));
+  O(aDraft, seg(t, T.pickB + .1, T.pickB + .4));
+  say(draftHead, t >= T.drafted ? 'Drafted, and waiting for you.' : 'Drafting the one line…');
+  O(draftNote, seg(t, T.drafted, T.drafted + .35));
+  typeTo(draft1, seg(t, T.pickB + .4, T.pickB + 1.3, ease.lin)); typeTo(draft2, seg(t, T.pickB + 1.3, T.drafted - .15, ease.lin));
+  const on2 = t >= T.pickB + 1.3;
+  put(draftCaret, { x: IX + 18 + (on2 ? draft2.w : draft1.w), y: PY + (on2 ? 269 : 246) }); O(draftCaret, t > T.pickB + .3 && t < T.drafted && (t * 2.4) % 1 < .6 ? 1 : 0);
+  press(bReview, t, NEVER); O(bReview.g, seg(t, T.drafted + .1, T.drafted + .45, ease.out));
+  O(pF.g, span(t, T.pickF, T.sure + .7, .3));
+  press(pF.pin, t, NEVER); press(pF.merge, t, NEVER); press(pF.forget, t, T.forget);
+  // the question before a line is forgotten
+  const ask = span(t, T.forget + .05, T.sure + .35, .25);
+  O(gAsk, ask); TR(dlg, 640, 400 + (1 - ask) * 10, .97 + .03 * ask);
+  press(bCancel, t, NEVER); press(bSure, t, T.sure);
+
+  drawPointer(t);
+}
+
+// ---- your pointer, drawn over everything ----
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+function drawPointer(t) {
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
+  const m = seg(t, cur.t - 1, cur.t - .12);
+  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
+  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+}
+
+// ---- transport ----
+const playB = document.getElementById('play'), scrub = document.getElementById('scrub'), clock = document.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+document.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+layoutRoute(); layout(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

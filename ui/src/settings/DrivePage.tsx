@@ -197,7 +197,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Night shift</b>
-          <p>Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts tidies for the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</p>
+          <p>Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts shorter versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</p>
           {home.lastNight && <p className="night-last">Last night shift, {when(home.lastNight.finished)}: {home.lastNight.line}</p>}
         </div>
         <div className="set-control unasked-control">

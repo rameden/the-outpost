@@ -160,7 +160,7 @@ test("While you were away: what the night shift drafted and found, with the way 
   const asked = camp({ "/api/home": page({ night: night() }), "/api/night/seen": { ok: true, seen: 1 } });
   const props = show();
   const card = await screen.findByRole("region", { name: "While you were away" });
-  expect(card.textContent).toMatch(/Drafted tidies for 2 memories \(Scout's memory, Scribe's memory\)/);
+  expect(card.textContent).toMatch(/Drafted shorter versions of 2 memories \(Scout's memory, Scribe's memory\)/);
   fireEvent.click(within(card).getByRole("button", { name: "Look them over" }));
   expect(props.onOpenMemory).toHaveBeenCalledTimes(1);
   // The old lines are folded away until you ask, each with where it is and when it was written.
@@ -177,12 +177,12 @@ test("While you were away: what the night shift drafted and found, with the way 
 });
 
 test("While you were away: one tidy reads as one, what couldn't be done is said, and a night that did nothing shows no card", async () => {
-  camp({ "/api/home": page({ night: night({ tidied: [{ where: "agent:scout", name: "Scout's memory" }], stale: [], housekeeping: [], frees: "", notes: ["No tidy was drafted for Scribe's memory: the model is unreachable"] }) }) });
+  camp({ "/api/home": page({ night: night({ tidied: [{ where: "agent:scout", name: "Scout's memory" }], stale: [], housekeeping: [], frees: "", notes: ["No shorter version was drafted for Scribe's memory: the model is unreachable"] }) }) });
   show();
   const card = await screen.findByRole("region", { name: "While you were away" });
-  expect(card.textContent).toMatch(/Drafted a tidy for 1 memory \(Scout's memory\)/);
+  expect(card.textContent).toMatch(/Drafted a shorter version of 1 memory \(Scout's memory\)/);
   expect(within(card).getByRole("button", { name: "Look it over" })).toBeTruthy();
-  expect(card.textContent).toMatch(/No tidy was drafted for Scribe's memory: the model is unreachable/);
+  expect(card.textContent).toMatch(/No shorter version was drafted for Scribe's memory: the model is unreachable/);
   expect(card.textContent).not.toMatch(/old line|Housekeeping could/);
   cleanup();
 

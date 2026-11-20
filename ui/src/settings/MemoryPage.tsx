@@ -12,7 +12,7 @@ import { say } from "../bus.ts";
 import { cClass, cx } from "../format.ts";
 import type { CampState, MemoryLine, MemoryPlace, Proposal } from "../types.ts";
 
-const HOW: Record<string, string> = { remember: "the crew noted it", feedback: "your feedback", suggestion: "a suggestion you approved", you: "you", tidy: "a tidy" };
+const HOW: Record<string, string> = { remember: "the crew noted it", feedback: "your feedback", suggestion: "a suggestion you approved", you: "you", tidy: "a shorter version you approved" };
 const linesOf = (text: string) => text.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("-")).map((l) => l.replace(/^-\s*/, ""));
 
 // Where a line came from: the conversation (a link to it), or how it got here.
@@ -73,10 +73,10 @@ function Waiting({ p, refresh }: { p: Proposal; refresh: () => void }) {
   const over = p.limit ? text.trim().length - p.limit : 0;
   const leftOut = p.leftOut ?? [];
   return (
-    <li className="mem-wait" aria-label={`A tidy of ${p.name}`}>
+    <li className="mem-wait" aria-label={`A shorter version of ${p.name}`}>
       <div className="mem-wait-head"><b>Tidy {p.name}?</b><span>{was.length} lines to {now.length} · {p.before.length.toLocaleString()} characters to {text.length.toLocaleString()}{cut && ` · a prompt loads ${p.limit!.toLocaleString()}`}</span></div>
       <p className="mem-wait-note">{cut
-        ? "This had outgrown what a prompt loads, so the smallest model drafted it to fit: lines on one subject merged, each said in fewer words, and the least lasting dropped. More goes than in an ordinary tidy, so read it before you approve: you can edit it here, and anything added since it was drafted is kept."
+        ? "This had outgrown what a prompt loads, so the smallest model drafted it to fit: lines on one subject merged, each said in fewer words, and the least lasting dropped. More goes than usual, so read it before you approve: you can edit it here, and anything added since it was drafted is kept."
         : "Duplicates merged and superseded lines dropped, drafted by the smallest model. Read it before you approve: you can edit it here, and anything added since it was drafted is kept."}</p>
       {leftOut.length > 0 && (
         <div className="mem-warn" role="status">
@@ -129,11 +129,11 @@ function Place({ m, refresh, waiting }: { m: MemoryPlace; refresh: () => void; w
           <span className="mem-bar"><span style={{ width: `${full}%` }} /></span>
           {m.size.toLocaleString()} of {m.limit.toLocaleString()} characters
         </span>
-        {m.lines.length >= 4 && <button type="button" className="btn small" disabled={!!busy || waiting} title={waiting ? "A tidy is already waiting above" : "Have the smallest model draft a merged version, for you to approve"} onClick={tidy}>{busy === "tidy" ? "Drafting…" : "Tidy…"}</button>}
+        {m.lines.length >= 4 && <button type="button" className="btn small" disabled={!!busy || waiting} title={waiting ? "A shorter version is already waiting above" : "Have the smallest model draft a merged version, for you to approve"} onClick={tidy}>{busy === "tidy" ? "Drafting…" : "Tidy…"}</button>}
       </div>
       {m.unloaded > 0 && (lists
-        ? <div className="mem-warn" role="status">This no longer all fits in a prompt. {m.unloaded} older {m.unloaded === 1 ? "line is" : "lines are"} loaded only when a request is about {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). Pin a line to load it every time; a tidy makes room.</div>
-        : <div className="mem-warn" role="status">The oldest {m.unloaded} {m.unloaded === 1 ? "line no longer fits" : "lines no longer fit"} in a prompt, so the crew doesn't start with {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). A tidy makes room.</div>)}
+        ? <div className="mem-warn" role="status">This no longer all fits in a prompt. {m.unloaded} older {m.unloaded === 1 ? "line is" : "lines are"} loaded only when a request is about {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). Pin a line to load it every time; a shorter version makes room.</div>
+        : <div className="mem-warn" role="status">The oldest {m.unloaded} {m.unloaded === 1 ? "line no longer fits" : "lines no longer fit"} in a prompt, so the crew doesn't start with {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). A shorter version makes room.</div>)}
       {!m.lines.length && <div className="meta">{m.kind === "about" ? "Nothing yet. Write what's true of you whoever you're working with, or let the crew note it as they learn." : "Nothing remembered yet."}</div>}
       <ul className="mem-lines">
         {shown.map((l, i) => (
@@ -194,7 +194,7 @@ export function MemoryPage({ S, refresh }: { S: CampState; refresh: () => void }
         </section>
       )}
       <div className="mem-care">
-        <label className="switch"><input type="checkbox" checked={care.tidy} onChange={(ev) => setCare({ tidy: ev.target.checked })} /> Offer a tidy when a memory is nearly full</label>
+        <label className="switch"><input type="checkbox" checked={care.tidy} onChange={(ev) => setCare({ tidy: ev.target.checked })} /> Offer a shorter version when a memory is nearly full</label>
         <span className="field-hint">The smallest model drafts it, and it waits here for you. It runs rarely: only when a memory passes four fifths of what a prompt loads.</span>
         <label className="switch"><input type="checkbox" checked={care.suggest} onChange={(ev) => setCare({ suggest: ev.target.checked })} /> After each run, suggest what's worth keeping</label>
         <span className="field-hint">Up to three suggestions a run, waiting here for you; most runs have none. It's one small call per run, so it uses a little of your plan each time.</span>

@@ -177,7 +177,7 @@ export async function findings(only?: Step, now = Date.now()): Promise<Finding[]
 export function notes(): string[] {
   const out: string[] = [];
   const full = CREW_IDS.filter((id) => fullMemory(id).length >= MEMORY_MAX_CHARS * 0.8).map((id) => CREW[id].name);
-  if (full.length) out.push(`Memory nearly full: ${full.join(", ")}. A tidy is drafted, for the user to approve, under Settings → Memory.`);
+  if (full.length) out.push(`Memory nearly full: ${full.join(", ")}. A shorter version is drafted, for the user to approve, under Settings → Memory.`);
   return out;
 }
 

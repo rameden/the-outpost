@@ -342,7 +342,7 @@ export function settleProposal(id: string, action: "approve" | "dismiss", text?:
       const now = textOf(p.where).trim(), was = p.before.trim();
       if (!now.startsWith(was)) {
         save(list.filter((x) => x.id !== id));
-        throw Object.assign(new Error(`${p.name} has changed since this was drafted, so it wasn't applied. Ask for a new tidy.`), { fixable: true });
+        throw Object.assign(new Error(`${p.name} has changed since this was drafted, so it wasn't applied. Ask for a new draft.`), { fixable: true });
       }
       const since = now.slice(was.length).trim();
       const after = (text ?? p.after).trim();

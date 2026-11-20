@@ -66,9 +66,9 @@ test("a tidy of a memory that had outgrown its room says it was cut to fit, and 
   const before = Array.from({ length: 6 }, (_, i) => `- 2026-01-0${i + 1} Lesson ${i + 1}`).join("\n");
   const cut: Proposal = { ...tidy, before, after: "- 2026-01-05 Lesson 5\n- 2026-01-06 Lesson 6", limit: 60, leftOut: ["- 2026-01-01 Lesson 1", "- 2026-01-02 Lesson 2"] } as Proposal;
   render(<MemoryPage S={state([cut])} refresh={vi.fn()} />);
-  const t = within(screen.getByRole("listitem", { name: "A tidy of Scribe's memory" }));
+  const t = within(screen.getByRole("listitem", { name: "A shorter version of Scribe's memory" }));
   expect(t.getByText(/^6 lines to 2 · 131 characters to 43 · a prompt loads 60$/)).toBeTruthy();
-  expect(t.getByText(/^This had outgrown what a prompt loads, so the smallest model drafted it to fit: .* More goes than in an ordinary tidy, so read it before you approve/)).toBeTruthy();
+  expect(t.getByText(/^This had outgrown what a prompt loads, so the smallest model drafted it to fit: .* More goes than usual, so read it before you approve/)).toBeTruthy();
   expect(t.getByRole("status").textContent).toMatch(/^The draft was still too long, so the 2 oldest unpinned lines were left out to make it fit\. Put back what you'd rather keep:2026-01-01 Lesson 12026-01-02 Lesson 2$/);
   // Putting them back by hand takes it over again, and that's said before you approve.
   fireEvent.change(t.getByLabelText("The tidied Scribe's memory"), { target: { value: before } });
@@ -87,7 +87,7 @@ test("about you is yours to write, whole; and the two switches say what each cos
   expect((await screen.findByText("Saved. The crew starts with it from their next run.")).getAttribute("role")).toBe("status");
   expect(posts.at(-1)).toEqual({ path: "/api/memory/about", body: { text: "Call it Mira.\n- 2026-03-01 Eastern time\n- Lead with the answer" } });
 
-  expect((screen.getByRole("checkbox", { name: /Offer a tidy when a memory is nearly full/ }) as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByRole("checkbox", { name: /Offer a shorter version when a memory is nearly full/ }) as HTMLInputElement).checked).toBe(true);
   const suggest = screen.getByRole("checkbox", { name: /After each run, suggest what's worth keeping/ }) as HTMLInputElement;
   expect(suggest.checked).toBe(false);
   expect(screen.getByText(/one small call per run, so it uses a little of your plan each time/)).toBeTruthy();
@@ -99,8 +99,8 @@ test("what's waiting: a tidy you can read, edit and approve; a suggestion you ca
   const refresh = vi.fn();
   render(<MemoryPage S={state([tidy, keep])} refresh={refresh} />);
   const waiting = within(screen.getByRole("region", { name: "Waiting for you" }));
-  expect(waiting.getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["A tidy of Scribe's memory", "Suggested for About you"]);
-  const t = within(waiting.getByRole("listitem", { name: "A tidy of Scribe's memory" }));
+  expect(waiting.getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["A shorter version of Scribe's memory", "Suggested for About you"]);
+  const t = within(waiting.getByRole("listitem", { name: "A shorter version of Scribe's memory" }));
   expect(t.getByText(/^4 lines to 2 · 15 characters to 7\d$/)).toBeTruthy();
   expect(t.getByText(/^Duplicates merged and superseded lines dropped/)).toBeTruthy();
   expect(t.queryByRole("status")).toBeNull();
@@ -122,7 +122,7 @@ test("what's waiting: a tidy you can read, edit and approve; a suggestion you ca
   fireEvent.click(s.getByRole("button", { name: "Don't keep" }));
   await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/memory/proposal", body: { id: "p2", action: "dismiss" } }));
   // A proposal the camp can no longer apply says why.
-  answer = () => new Response(JSON.stringify({ error: "Scribe's memory has changed since this was drafted, so it wasn't applied. Ask for a new tidy." }), { status: 400 });
+  answer = () => new Response(JSON.stringify({ error: "Scribe's memory has changed since this was drafted, so it wasn't applied. Ask for a new draft." }), { status: 400 });
   fireEvent.click(t.getByRole("button", { name: "Replace it with this" }));
   expect((await t.findByRole("alert")).textContent).toMatch(/has changed since this was drafted/);
 });

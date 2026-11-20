@@ -133,7 +133,7 @@ test("Night shift: off until you switch it on, with its hours, a run on request 
 
 test("Night shift, switched on: its two times can be changed, and the last night is summed up in a line", async () => {
   const on = page();
-  const asked = camp({ "/api/home": { ...on, drive: { ...on.drive, night: true, nightFrom: "23:00", nightTo: "05:30" }, lastNight: { day: "2026-11-12", finished: "2026-11-13T02:10:00.000Z", line: "Drafted 2 memory tidies, listed 5 old lines worth a look." } }, "/api/drive": { ok: true } });
+  const asked = camp({ "/api/home": { ...on, drive: { ...on.drive, night: true, nightFrom: "23:00", nightTo: "05:30" }, lastNight: { day: "2026-11-12", finished: "2026-11-13T02:10:00.000Z", line: "Drafted shorter versions of 2 memories, listed 5 old lines worth a look." } }, "/api/drive": { ok: true } });
   render(<UnaskedPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
   const row = (await screen.findByText("Night shift")).closest(".set-row") as HTMLElement;
   expect((within(row).getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
@@ -143,5 +143,5 @@ test("Night shift, switched on: its two times can be changed, and the last night
   await waitFor(() => expect(asked).toContain('POST /api/drive {"nightFrom":"00:30"}'));
   fireEvent.change(to, { target: { value: "04:00" } });
   await waitFor(() => expect(asked).toContain('POST /api/drive {"nightTo":"04:00"}'));
-  expect(row.textContent).toMatch(/Last night shift, .+: Drafted 2 memory tidies, listed 5 old lines worth a look\./);
+  expect(row.textContent).toMatch(/Last night shift, .+: Drafted shorter versions of 2 memories, listed 5 old lines worth a look\./);
 });
