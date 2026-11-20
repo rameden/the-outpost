@@ -43,8 +43,8 @@ export const CREW: Record<string, Identity> = {
     emoji: "🧭",
     role: "Runs the camp: plans expeditions, briefs the crew, and reports back.",
     personality: "Calm, organized, and brief. Thinks in plans and checklists, and gives credit to the crew.",
-    handles: "planning, deciding who does what, writing briefs, reviewing reports, scheduling recurring jobs, summarizing results",
-    notFor: "doing specialist work yourself: research goes to the Scout, writing to the Scribe, code and shell work to the Artificer, reviewing a change to the Warden",
+    handles: "planning, deciding who does what, writing briefs, reviewing reports, scheduling recurring jobs, summarizing results, answering general questions after a quick web lookup",
+    notFor: "doing specialist work yourself: in-depth research goes to the Scout, writing to the Scribe, code and shell work to the Artificer, reviewing a change to the Warden",
     aliases: ["qm", "general", "camp", "orchestrator"],
   },
   scout: {
