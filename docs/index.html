@@ -1403,9 +1403,9 @@ footer .mae-word { height: 16px; }
 .hill { fill: var(--surface-2); }
 .hill-n { fill: var(--sky); }
 .winframe { fill: none; stroke: var(--border-strong); stroke-width: 1; }
-.stand { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.door { fill: var(--border-strong); }
-.stand-n { fill: var(--night); }
+.tent { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.tent-door { fill: var(--border-strong); }
+.tent-n { fill: var(--night); }
 .lamp { fill: var(--accent); }
 .flame { fill: var(--accent); }
 .log { stroke: var(--border-strong); stroke-width: 4; stroke-linecap: round; }
@@ -4125,28 +4125,23 @@ for (let j = 0; j < 3; j++) {
 }
 // what stands in the camp is drawn for the day, with a dark copy over it that comes up with the night
 const DARK = [];
-const stand = (d, parent) => { el('path', { d, class: 'stand' }, parent); DARK.push(el('path', { d, class: 'stand-n' }, parent)); };
+const stand = (d, parent) => { el('path', { d, class: 'tent' }, parent); DARK.push(el('path', { d, class: 'tent-n' }, parent)); };
 [[-150, 572, 1], [-96, 566, .78], [96, 572, .82], [548, 568, 1], [590, 562, .74], [770, 566, .9], [836, 572, 1.1]].forEach(([x, y, s]) => {
   const g = el('g', { transform: `translate(${x} ${y})` }, gLand), q = v => (v * s).toFixed(1);
   el('path', { d: `M0 0 V${q(-12)}`, class: 'log' }, g);
   stand(`M${q(-17)} ${q(-10)} L0 ${q(-38)} L${q(17)} ${q(-10)} Z M${q(-13)} ${q(-29)} L0 ${q(-54)} L${q(13)} ${q(-29)} Z M${q(-9)} ${q(-46)} L0 ${q(-68)} L${q(9)} ${q(-46)} Z`, g);
 });
-// a little house, one storey high, and the lamp in its windows while the shift is on
-const HOUSE = [190, 566], gHouse = el('g', { transform: `translate(${HOUSE[0]} ${HOUSE[1]})` }, gLand);
-stand('M24 -64 V-90 H38 V-64 Z', gHouse);
-stand('M-58 0 V-46 H58 V0 Z', gHouse);
-stand('M-68 -44 L-42 -76 H42 L68 -44 Z', gHouse);
-el('path', { d: 'M-10 0 V-32 H10 V0 Z', class: 'door' }, gHouse);
-const PANES = 'M-46 -34 H-24 V-14 H-46 Z M24 -34 H46 V-14 H24 Z';
-const lampHalo = el('circle', { cy: -24, r: 62, fill: 'url(#glow)' }, gHouse), lamp = el('path', { d: PANES, class: 'lamp' }, gHouse);
-el('path', { d: PANES + ' M-35 -34 V-14 M35 -34 V-14', class: 'stand', fill: 'none' }, gHouse);
-// a second, smaller house
-const gHouse2 = el('g', { transform: 'translate(452 573)' }, gLand);
-stand('M-28 -40 V-57 H-19 V-40 Z', gHouse2);
-stand('M-36 0 V-29 H36 V0 Z', gHouse2);
-stand('M-43 -28 L-26 -49 H26 L43 -28 Z', gHouse2);
-el('path', { d: 'M-22 0 V-20 H-9 V0 Z', class: 'door' }, gHouse2);
-el('path', { d: 'M6 -21 H24 V-8 H6 Z M15 -21 V-8', class: 'stand', fill: 'none' }, gHouse2);
+// the tent, and the lamp in it while the shift is on
+const TENT = [190, 566], gTent = el('g', { transform: `translate(${TENT[0]} ${TENT[1]})` }, gLand);
+el('path', { d: 'M-7 -104 L0 -92 L7 -104', class: 'tent', fill: 'none' }, gTent);
+stand('M-74 0 L0 -92 L74 0 Z', gTent);
+el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'tent-door' }, gTent);
+const lampHalo = el('circle', { cy: -22, r: 54, fill: 'url(#glow)' }, gTent), lamp = el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'lamp' }, gTent);
+// a second, smaller tent
+const gTent2 = el('g', { transform: 'translate(452 573)' }, gLand);
+el('path', { d: 'M-4 -62 L0 -54 L4 -62', class: 'tent', fill: 'none' }, gTent2);
+stand('M-44 0 L0 -54 L44 0 Z', gTent2);
+el('path', { d: 'M-11 0 L0 -30 L11 0 Z', class: 'tent-door' }, gTent2);
 // the fire, and the logs to sit on
 const gFire = el('g', { transform: 'translate(318 578)' }, gLand);
 const fireHalo = el('circle', { cy: -12, r: 44, fill: 'url(#glow)' }, gFire);
@@ -4255,7 +4250,7 @@ function render(t) {
     const [x, y] = orbAt(p.orb, p.rest + p.sp * turn, ph);
     TR(p.g, x, y); O(p.g, lerp(1, .78, night)); zs(p.z, x, y, p.i);
   });
-  // the fire burns down for the night; the lamp in the house is the shift at work
+  // the fire burns down for the night; the lamp in the tent is the shift at work
   const fire = first ? lerp(1, .38, seg(t, T.dusk + 2, T.dusk + 4)) : lerp(.38, 1, seg(t, T.dawn + .8, T.dawn + 2.2));
   flame.setAttribute('transform', `scale(${(fire * (1 + .07 * Math.sin(t * 13))).toFixed(3)} ${(fire * (1 + .14 * Math.sin(t * 9.1 + 1))).toFixed(3)})`);
   O(fireHalo, fire * .75);
@@ -4268,9 +4263,9 @@ function render(t) {
   say(statusT, t < T.shift - 1.6 ? 'THE CAMP IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
   cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
 
-  // each row: a spark leaves the house by the chimney, the row is written, and its tag says nothing was changed
+  // each row: a spark leaves the tent, the row is written, and its tag says nothing was changed
   ROWS.forEach(r => {
-    const k = seg(t, r.at, r.at + .6), x0 = HOUSE[0] + 31 + dx, y0 = HOUSE[1] - 90, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
+    const k = seg(t, r.at, r.at + .6), x0 = TENT[0] + dx, y0 = TENT[1] - 30, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
     const sx = (1 - k) * (1 - k) * x0 + 2 * k * (1 - k) * ((x0 + x1) / 2) + k * k * x1, sy = (1 - k) * (1 - k) * y0 + 2 * k * (1 - k) * cy + k * k * y1;
     TR(r.spark, sx, sy); O(r.spark, k > 0 && k < 1 ? Math.min(1, k * 8, (1 - k) * 8) : 0);
     O(r.g, seg(t, r.at + .45, r.at + .8) * (1 - seg(t, T.dawn + .2, T.dawn + .7)));
