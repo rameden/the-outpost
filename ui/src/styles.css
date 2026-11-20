@@ -1158,7 +1158,7 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .pick-note.warn { color: var(--bad); }
 
 /* ---------- Mission feed ---------- */
-.mission { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.mission { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; isolation: isolate; } /* (isolate: Today's sky sits behind the page, inside it) */
 /* The thread runs to the bottom of the pane and scrolls under the message box, which floats over
    it (.dock). Its bottom padding is the dock's height (--dock-h, kept by Dock.tsx) plus a gap, so
    the last lines can always be scrolled clear of the box.
@@ -3012,20 +3012,48 @@ a.orb-btn { display: inline-block; text-decoration: none; }
    does unasked are pages of Settings (settings/DrivePage.tsx), styled here too. The numbers
    follow the chart rules the rest of the page keeps: figures wear text ink, one hue carries
    magnitude, a bar is thin, square at the baseline and rounded at the end that says how much. */
-.home section { display: grid; gap: 8px; }
+.proj-page.home { gap: 28px; }
+.home section { display: grid; gap: 10px; }
+/* The sky behind it (HomeSky.tsx): the memory map's sheets of stars, a soft glow up where the greeting is, and
+   the crew's constellation beside it. The stars fade out down the page, so the rows below read on calm ground. */
+.home-sky { position: absolute; inset: 0; z-index: -1; overflow: clip; pointer-events: none;
+  background: radial-gradient(70% 55% at 78% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
+    radial-gradient(60% 50% at 8% 10%, color-mix(in srgb, var(--c-warden) 7%, transparent), transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, rgba(0, 0, 0, .35) 80%, rgba(0, 0, 0, .2) 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, rgba(0, 0, 0, .35) 80%, rgba(0, 0, 0, .2) 100%); }
+.home-sky .orb-stars { transition: transform 120ms linear; filter: invert(1) hue-rotate(180deg) saturate(.6); opacity: .45; } /* a light page: the stars in ink */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .home-sky .orb-stars { filter: none; opacity: .9; } }
+:root[data-theme="dark"] .home-sky .orb-stars { filter: none; opacity: .9; }
+.home-figure { position: absolute; top: 18px; right: max(24px, calc(50% - 560px)); width: min(420px, 42vw); height: auto; overflow: visible; }
+.home-figure line { stroke-width: .8; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.home-figure-faint line { stroke: var(--faint); opacity: .35; }
+.home-figure-faint circle { fill: var(--muted); opacity: .6; animation: home-twinkle 6s ease-in-out infinite; }
+.home-figure-crew line { stroke: var(--accent); opacity: .32; stroke-dasharray: 3 4; }
+.home-figure-star { fill: var(--c); animation: home-twinkle 5s ease-in-out infinite; }
+.home-figure-glow { fill: var(--c); opacity: .14; }
+@keyframes home-twinkle { 0%, 100% { opacity: .95; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .home-figure * { animation: none; } .home-sky .orb-stars { transition: none; } }
+@media (max-width: 1360px) { .home-figure { opacity: .6; } } /* (narrower, it can reach behind the greeting: quieter there) */
+@media (max-width: 1100px) { .home-figure { opacity: .35; } }
+@media (max-width: 760px) { .home-figure { width: 70vw; } }
+/* Its cards are glass over the sky: the page's surface, a touch see-through, with the stars blurred behind. */
+.home :is(.home-last, .home-lines, .home-note, .home-night, .home-offer, .home-tile, .home-ticket) {
+  background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); border-radius: 14px; }
 .brand-home { display: flex; align-items: center; border: 0; background: none; padding: 0; color: inherit; cursor: pointer; border-radius: 8px; }
-.home-hero { display: grid; gap: 6px; padding-top: 8px; }
+.home-hero { position: relative; display: grid; gap: 10px; padding: clamp(20px, 5vh, 56px) 0 12px; }
 .home-date { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
-.home-hero h2 { margin: 0; font: 600 30px/1.2 var(--serif); color: var(--text); }
-.home-kickoff { margin: 2px 0 0; font-size: 16px; line-height: 1.55; color: var(--muted); max-width: 68ch; }
-.home-hero-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.home-hero h2 { margin: 0; font: 600 clamp(32px, 3.6vw, 44px)/1.1 var(--serif); letter-spacing: -.015em; color: var(--text); text-wrap: balance; }
+.home-kickoff { margin: 0; font-size: 16.5px; line-height: 1.6; color: var(--muted); max-width: 62ch; text-wrap: pretty; }
+.home-hero-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .home-hero-foot .meta { margin: 0 auto 0 0; }
+.home-hero-foot select { border-radius: 999px; padding: 4px 12px; background: color-mix(in srgb, var(--surface) 84%, transparent); }
 .home-hero-foot select, .stats-pick select, .unasked-control input[type="time"] { padding: 4px 8px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; }
-.home-last { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); min-width: 0; }
-.home-last-title { font: 600 16px/1.3 var(--serif); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-last { display: flex; align-items: center; gap: 12px; padding: 14px 16px; transition: border-color .15s; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); min-width: 0; }
+.home-last:hover { border-color: var(--border-strong); }
+.home-last-title { font: 600 17px/1.3 var(--serif); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-last .pill, .home-last .btn { flex: none; }
 .home-notes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.home-note { display: grid; gap: 4px; align-content: start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; min-width: 0; }
+.home-note { display: grid; gap: 4px; align-content: start; padding: 12px 14px; transition: border-color .15s; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; min-width: 0; }
 .home-note:hover { border-color: var(--border-strong); }
 .home-note b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-note > span:not(.meta) { font-size: 13px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
@@ -3041,12 +3069,26 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 .unasked-page .set-label p { margin: 4px 0 0; }
 .unasked-page .home-offer { margin-top: 10px; }
 .home-lines { gap: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.home-line { display: flex; align-items: center; gap: 10px; padding: 9px 12px; min-width: 0; }
+.home-line { display: flex; align-items: center; gap: 12px; padding: 11px 16px; min-width: 0; transition: background .12s; }
+.home-line:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.home-line:first-child { border-radius: 13px 13px 0 0; } .home-line:last-child { border-radius: 0 0 13px 13px; } .home-line:only-child { border-radius: 13px; }
 .home-line + .home-line { border-top: 1px solid var(--border); }
 .home-line-text { display: grid; gap: 1px; flex: 1; min-width: 0; }
 .home-line-text .meta { margin: 0; }
 /* Plans held for later: cards like "Where you left off", each with its text folded under it to read before you start it. */
 .home-held-cards { display: grid; gap: 8px; }
+/* Your tickets: the Tickets page's cards (.proj-card.jira-card) in its grid. One with a conversation opens it from
+   anywhere on the card (its title reaches over the card); its link and its button sit above that. */
+.home-tickets { gap: 12px; }
+.home-ticket { position: relative; display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+.home-ticket:not(.opens):hover { transform: none; box-shadow: var(--shadow); }
+.home-ticket-title { border: 0; background: none; padding: 0; color: var(--text); font: 600 14px/1.35 var(--sans); text-align: left; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+button.home-ticket-title { cursor: pointer; outline: none; }
+button.home-ticket-title::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.home-ticket:has(.home-ticket-title:focus-visible) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.home-ticket-foot { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 6px; min-width: 0; margin-top: auto; padding-top: 2px; }
+.home-ticket-foot .meta { flex: 1; min-width: 0; margin: 0; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.home-ticket-foot .btn { flex: none; }
 .home-held { align-items: flex-start; }
 .home-held-actions { display: flex; gap: 6px; flex: none; margin-top: 2px; }
 .home-held button.home-last-title { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }

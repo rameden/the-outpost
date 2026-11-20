@@ -15,7 +15,7 @@
 // (settings/DrivePage.tsx: Stats, and What Mae does unasked). Nothing here starts by itself: a button brings feedback to the crew,
 // resumes a run, or opens the ticket kickoff, and what follows waits for your OK like any other work.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { cx, money, plural, when } from "../format.ts";
 import { w } from "../words.ts";
@@ -24,6 +24,7 @@ import { OfferCard } from "../settings/DrivePage.tsx";
 import type { Brief, BriefLine, CampState, HomePage } from "../types.ts";
 import { Icon } from "./bits.tsx";
 import { Confirm } from "./Confirm.tsx";
+import { HomeSky, type HomeSkyHandle } from "./HomeSky.tsx";
 import { NightCard } from "./NightCard.tsx";
 
 const ACT: Record<NonNullable<BriefLine["act"]>["do"], string> = { address: "Address it", resume: "Resume", start: "Start…" };
@@ -69,6 +70,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
   const [earlier, setEarlier] = useState<Brief | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const sky = useRef<HomeSkyHandle>(null); // the stars drift as the page scrolls
   // Read again when the record moves: a run ends, a conversation appears, a suggestion is settled.
   const stamp = `${S.history.conversations.length}|${S.history.conversations[0]?.updated ?? ""}|${S.memoryProposals?.length ?? 0}|${S.triggers?.length ?? 0}`;
   const load = useCallback(() => api<HomePage>("/api/home").then(setHome, (e) => setNote(errorText(e))), []);
@@ -138,8 +140,40 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
     </section>
   );
 
-  return (
-    <div className="feed proj-page home">
+  // Your tickets, as cards in the Tickets page's grid (TicketsPage.tsx): the key and where Jira has it on top, the
+  // summary, then where it stands here, with its link and its one next step. A card with a conversation opens it.
+  const ticketCards = (lines: BriefLine[]) => !!lines.length && (
+    <section>
+      <div className="section-label">Your tickets · {lines.length}</div>
+      <div className="proj-grid jira-grid home-tickets">
+        {lines.map((l) => {
+          const [, key = "", summary = l.title] = /^([A-Z][A-Z0-9]+-\d+)\s+(.*)$/.exec(l.title) ?? [];
+          const parts = l.says.split(" · "), here = parts.pop() ?? "", [status, ...rest] = parts; // "In Progress · High · a conversation here is working on it"
+          return (
+            <div className={cx("proj-card jira-card home-ticket", l.conversation && "opens")} key={l.title}>
+              <span className="jira-card-top">
+                {key && <span className="jira-key">{key}</span>}
+                {rest.length > 0 && <span className="meta">{rest.join(" · ")}</span>}
+                {status && <span className="pill">{status}</span>}
+              </span>
+              {l.conversation
+                ? <button type="button" className="home-ticket-title" aria-label={l.title} title="Open its conversation" onClick={() => setView({ kind: "conversation", id: l.conversation! })}>{summary}</button>
+                : <b className="home-ticket-title">{summary}</b>}
+              <span className="home-ticket-foot">
+                <span className="meta">{here}</span>
+                {l.url && <a className="home-line-out" href={l.url} target="_blank" rel="noopener noreferrer" title="Open the ticket" aria-label={`Open ${l.title} in a new tab`}><Icon name="link" /></a>}
+                {l.act && !day && <button type="button" className="btn small" disabled={busy === l.title} onClick={() => act(l)}>{busy === l.title ? "Starting…" : ACT[l.act.do]}</button>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+
+  return (<>
+    <HomeSky ref={sky} />
+    <div className="feed proj-page home" onScroll={(ev) => sky.current?.scrolled(ev.currentTarget.scrollTop)}>
       <header className="home-hero">
         <div className="home-date">{now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</div>
         <h2>{greeting(now, home?.name)}</h2>
@@ -207,7 +241,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
         <>
           {section("Waiting on you", brief.needs)}
           {section("In motion", brief.moving)}
-          {section("Your tickets", brief.tickets)}
+          {ticketCards(brief.tickets)}
           {section("Upcoming", brief.next)}
           {brief.yourNotes.length > 0 && (
             <section>
@@ -257,5 +291,5 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
         </section>
       )}
     </div>
-  );
+  </>);
 }

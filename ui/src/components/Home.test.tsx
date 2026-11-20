@@ -110,7 +110,10 @@ test("your tickets, what's upcoming and your notes are part of it; the numbers a
   camp({ "/api/home": page() });
   const props = show();
   const tickets = (await screen.findByText("Your tickets · 1")).closest("section")!;
-  expect(tickets.textContent).toContain("In Progress · pull request #7 changes requested");
+  // A card, as on the Tickets page: the key and Jira's status on top, the summary, then where it stands here.
+  expect(within(tickets).getByText("MP-544").className).toBe("jira-key");
+  expect(within(tickets).getByText("In Progress").className).toContain("pill");
+  expect(within(tickets).getByText("pull request #7 changes requested")).toBeTruthy();
   fireEvent.click(within(tickets).getByRole("button", { name: "MP-544 Open button" }));
   expect(props.setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "c1" });
   expect(within(tickets).getByRole("link", { name: "Open MP-544 Open button in a new tab" }).getAttribute("title")).toBe("Open the ticket");
