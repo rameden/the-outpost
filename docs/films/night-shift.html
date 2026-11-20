@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mae Night Shift</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one 16:9 stage that plays a night shift as a loop. You switch it on in Settings and choose the
+   hours. A window on the camp goes from dusk to night; once the camp has sat idle, the shift drafts and
+   reports, one row at a time. In the morning the window gives way to the card on your Today page.
+   A plain transport bar sits under the stage.
+   Colours, type, the logo and the dashed route are Mae's own. */
+:root {
+  --page: #f0e8da; --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
+  --text: #2a231c; --muted: #5d5247; --faint: #72675b;
+  --accent: #9e5c0c; --accent-ink: #fffaf2;
+  --good: #397034; --good-soft: #e1eedb; --bad: #a94630; --bad-soft: #f5dfd8;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
+  --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a; --night-good: #93c47d;
+  --shade: rgba(60, 40, 20, .13); --sky: #1d2b4c;
+  --logo-ink: #14233F; --logo-dot: #B97A12; --logo-stroke: 4; --on-light: 1; --on-dark: 0;
+  --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
+  --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+    --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+    --accent: #f0a640; --accent-ink: #1b1308;
+    --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+    --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
+    --shade: rgba(0, 0, 0, .5); --sky: #111c38;
+  --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+  --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+  --accent: #f0a640; --accent-ink: #1b1308;
+  --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+  --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
+  --shade: rgba(0, 0, 0, .5); --sky: #111c38;
+  --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 36px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+.stage { aspect-ratio: 16 / 9; max-width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 16px 40px var(--shade); }
+.stage svg { display: block; width: 100%; height: 100%; }
+.controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.controls button { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 14px; cursor: pointer; min-width: 68px; }
+.controls button:hover { border-color: var(--accent); }
+.controls input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.controls output { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { margin: 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+
+/* Stage drawing */
+#stage text { user-select: none; -webkit-user-select: none; pointer-events: none; white-space: pre; }
+.d { font-family: var(--display); } .b { font-family: var(--body); } .m { font-family: var(--mono); }
+.f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); }
+.f-accent { fill: var(--accent); } .f-ink { fill: var(--ink); } .f-accent-ink { fill: var(--accent-ink); } .f-tone { fill: var(--tone); }
+.f-good { fill: var(--good); } .f-bad { fill: var(--bad); }
+.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
+.bgfill { fill: var(--bg); }
+.contour { fill: none; stroke: var(--border-strong); stroke-width: 1.2; opacity: .5; vector-effect: non-scaling-stroke; }
+.contour.lit { stroke: var(--accent); stroke-width: 1.8; opacity: 0; }
+.ping { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+/* The system: orbits, the tail a planet leaves, and the sun's compass. Strokes keep their width under the camera. */
+.sorbit { fill: none; stroke: var(--border-strong); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.sorbit.tone { stroke: var(--tone); stroke-width: 2; }
+.ptrail { fill: none; stroke: var(--tone); stroke-width: 3.5; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.sun-glyph * { fill: none; stroke: var(--accent-ink); stroke-width: .62; stroke-linecap: round; stroke-linejoin: round; }
+.moon { fill: var(--tone); }
+.body-name { font-size: 28px; fill: var(--tone); }
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
+.orbit { fill: none; stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 3 7; stroke-linecap: round; }
+.comet { fill: var(--tone); }
+.shadow { filter: drop-shadow(0 12px 22px var(--shade)); }
+.card { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.inset { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+.hr { stroke: var(--border); stroke-width: 1; }
+.wm path { fill: var(--logo-ink); }
+/* The Mae mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
+.mk-solid { fill: var(--logo-ink); }
+.mk-arc { fill: none; stroke: var(--logo-ink); stroke-width: var(--logo-stroke); }
+.mk-arc.small { stroke-width: 8; }
+.mk-arc.on-light { opacity: var(--on-light); } .mk-arc.on-dark { opacity: var(--on-dark); }
+.mk-dot { fill: var(--logo-dot); }
+.mk-ripple { fill: none; stroke: var(--logo-dot); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
+.name-sub { font-size: 19px; fill: var(--muted); }
+.eyebrow { font-size: 13px; letter-spacing: .14em; fill: var(--accent); }
+.tagline { font-size: 44px; }
+.cmd-box { fill: var(--night); stroke: var(--night-line); }
+.cmd-t { font-size: 14px; fill: var(--night-text); }
+.cmd-t .p { fill: var(--night-muted); }
+.scene-l { font-size: 12px; letter-spacing: .12em; fill: var(--faint); }
+.cap { font-size: 42px; fill: var(--ink); }
+/* Route bar: the tour's numbered pins and dashed trail */
+.pin { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; transition: fill .25s, stroke .25s; }
+.pin-n { font-size: 12px; fill: var(--faint); transition: fill .25s; }
+.stop-l { font-size: 12px; letter-spacing: .12em; fill: var(--faint); transition: fill .25s; }
+.stop.on .pin { fill: var(--accent); stroke: var(--accent); }
+.stop.on .pin-n { fill: var(--accent-ink); }
+.stop.on .stop-l { fill: var(--text); }
+.dash { stroke-width: 2; stroke-dasharray: 6 6; }
+.dash.base { stroke: var(--border-strong); }
+.dash.fill { stroke: var(--accent); }
+/* Crew badges */
+.disc { fill: var(--surface-2); stroke: var(--tone); stroke-width: calc(var(--sw, 2) * 1px); }
+.glyph * { fill: none; stroke: var(--tone); stroke-width: calc(var(--sw, 2) * .8px); stroke-linecap: round; stroke-linejoin: round; }
+.pulse { fill: none; stroke: var(--tone); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.camp-l { font-size: 11px; letter-spacing: .14em; fill: var(--faint); }
+/* Cards and the workbench */
+.who { font-size: 14px; font-weight: 700; }
+.t13 { font-size: 13px; } .t15 { font-size: 15px; } .t16 { font-size: 16px; } .w6 { font-weight: 600; }
+.lbl { font-size: 11px; letter-spacing: .12em; fill: var(--faint); }
+.code { font-size: 13px; }
+.key-t { font-size: 12.5px; fill: var(--text); }
+.tk-title { font-size: 27px; fill: var(--ink); }
+.cb { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.cb-on { fill: var(--accent); }
+.cb-check { fill: none; stroke: var(--accent-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.caret { fill: var(--accent); }
+.btn-accent { fill: var(--accent); }
+.btn-ghost { fill: none; stroke: var(--border-strong); }
+.btn-t { font-size: 14px; font-weight: 600; }
+.bubble { font-size: 17px; fill: var(--muted); }
+.row-n { font-size: 12px; fill: var(--faint); }
+.row-dot { fill: var(--tone); }
+.row-name { font-size: 15px; font-weight: 700; fill: var(--tone); }
+.row-task { font-size: 15px; fill: var(--muted); }
+.ripple { fill: none; stroke: var(--accent); stroke-width: 2; }
+.ph-name { font-size: 16px; font-weight: 700; }
+.ph-sub { font-size: 12px; fill: var(--faint); }
+.q-st { font-size: 11px; fill: var(--faint); }
+.hl { fill: none; stroke: var(--tone); stroke-width: 2; }
+.bg-del { fill: var(--bad-soft); } .bg-add { fill: var(--good-soft); }
+.night-t { fill: var(--night-text); } .night-m { fill: var(--night-muted); } .night-good { fill: var(--night-good); }
+.night-check { fill: none; stroke: var(--night-good); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pill { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1; }
+.pill-t { font-size: 10.5px; letter-spacing: .1em; fill: var(--text); }
+.ok-disc { fill: var(--good); }
+.ok-check { fill: none; stroke: var(--surface); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pointer { fill: var(--ink); stroke: var(--surface); stroke-width: 1.3; stroke-linejoin: round; }
+/* The night shift: a switch in Settings, a window on the camp that goes from day to night and back, the rows the shift writes, and the card on the Today page. */
+.t12 { font-size: 12px; }
+.t19 { font-size: 19px; }
+.daysky { fill: var(--surface-2); }
+.sky { fill: var(--sky); }
+.gnd { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.gnd-n { fill: var(--night); }
+.nstar { fill: var(--night-text); }
+.sunb { fill: var(--accent); }
+.moonb { fill: var(--night-text); }
+.winframe { fill: none; stroke: var(--border-strong); stroke-width: 1; }
+.tent { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.tent-door { fill: var(--border-strong); }
+.tent-n { fill: var(--night); }
+.lamp { fill: var(--accent); }
+.flame { fill: var(--accent); }
+.log { stroke: var(--border-strong); stroke-width: 4; stroke-linecap: round; }
+.sw { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; }
+.sw.on { fill: var(--accent); stroke: var(--accent); }
+.sw-knob { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.sw-knob.on { fill: var(--accent-ink); stroke: var(--accent-ink); }
+.clock-t { font-size: 26px; fill: var(--ink); }
+.st-on { fill: var(--accent); }
+.zz { font-size: 12px; fill: var(--night-text); }
+.spark { fill: var(--accent); }
+.dot-a { fill: var(--accent); }
+</style>
+<style>body { margin: 0; }</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's night shift. You switch it on in Settings and choose its hours. The camp goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="35.4" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 0:35</output>
+  </div>
+  <p class="note">The night shift: off until you switch it on, then it drafts and reports while the camp is idle. Nothing is applied, deleted or changed until you approve it. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+</main>
+
+<script>
+(() => {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('stage');
+const DUR = 35.4, PI = Math.PI, NEVER = 1e9;
+const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+// there from a to b, fading in and out over d
+const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// a class, a text or a set of attributes, written only when it changes
+const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
+const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
+const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, box, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+
+// ---- crew badges ----
+const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+};
+// a badge at any size: its lines stay as heavy as they are at full size
+function badge(key, parent, s = 1) {
+  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
+  el('circle', { r: 24, class: 'disc' }, k);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
+  return g;
+}
+
+// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
+const defs = svg.querySelector('defs');
+// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
+const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
+el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
+el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+tx(svg, 1216, 61, 'm scene-l', 'NIGHT SHIFT', { 'text-anchor': 'end' });
+
+function titleCard(eyebrow, ink, accent, sub) {
+  const g = el('g');
+  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
+  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
+  el('tspan', { class: 'f-ink' }, tag, ink);
+  el('tspan', { class: 'f-accent' }, tag, accent);
+  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// the last card: how to open what the film showed
+function endCard(lead, box, sub) {
+  const g = el('g'), w = box.length * 8.45 + 56;
+  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
+  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
+  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
+  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// a caption and the line under it, from a to b
+const CAPS = [];
+const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
+// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
+const STOPS = [], gRoute = el('g');
+function makeRoute(list) {
+  list.forEach(([label, at], i) => {
+    const s = { label, at };
+    if (i < list.length - 1) {
+      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+    }
+    s.g = el('g', { class: 'stop' }, gRoute);
+    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
+    STOPS.push(s);
+  });
+}
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
+function drawChrome(t) {
+  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
+  O(gEnd, span(t, END + .2, DUR - .5, .45));
+  CAPS.forEach(c => {
+    const p = seg(t, c.a, c.a + .45, ease.out);
+    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
+  });
+  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at);
+    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
+  });
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+const CLICKS = [];
+
+// ---- the story: you switch it on, the camp goes quiet, the shift drafts and reports, and the morning shows what it found ----
+const T = { on: 5.6, dusk: 8.6, shift: 13.6, done: 20.6, dawn: 22.4, look: 29.2 }, END = 31.8;
+
+// ---- Settings: off until you switch it on ----
+const SX = 200, SY = 230, SW = 880, SH = 250, IX = SX + 28, swY = SY + 212;
+const gSet = el('g');
+el('rect', { x: SX, y: SY, width: SW, height: SH, rx: 14, class: 'card shadow' }, gSet);
+tx(gSet, IX, SY + 38, 'm lbl', 'WHAT MAE DOES UNASKED');
+tx(gSet, IX, SY + 76, 'd tk-title', 'Night shift');
+['Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts shorter',
+  'versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping',
+  'could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it.',
+].forEach((l, i) => tx(gSet, IX, SY + 110 + i * 23, 'b t15 f-muted', l));
+el('line', { x1: IX, y1: SY + 176, x2: SX + SW - 28, y2: SY + 176, class: 'hr' }, gSet);
+const swTrack = el('rect', { x: IX, y: swY - 12, width: 44, height: 24, rx: 12 }, gSet), swKnob = el('circle', { cy: swY, r: 8 }, gSet);
+const swOff = tx(gSet, IX + 58, swY + 5, 'b t15 f-muted', 'Off');
+const gOn = el('g', null, gSet), onT = tx(gOn, IX + 58, swY + 5, 'b t15 w6 f-text', 'On, from'), gHours = el('g', null, gOn);
+[['01:00', IX + 134], ['05:00', IX + 240]].forEach(([s, x]) => {
+  el('rect', { x, y: swY - 16, width: 72, height: 32, rx: 8, class: 'inset' }, gHours);
+  tx(gHours, x + 36, swY + 4.5, 'm code f-text', s, { 'text-anchor': 'middle' });
+});
+tx(gHours, IX + 223, swY + 5, 'b t15 f-muted', 'to', { 'text-anchor': 'middle' });
+const bRun = button(gOn, SX + SW - 28 - 56, swY, 112, 'Run it now', 'ghost');
+
+// ---- a window on the camp: day, night and day again ----
+const WX = 72, WY = 196, WH = 434, WIDE = 1136, NARROW = 528, SHIFT = 300;
+const gCamp = el('g');
+const clip = el('rect', { x: WX, y: WY, height: WH, rx: 14 }, el('clipPath', { id: 'win' }, defs));
+const gWin = el('g', { 'clip-path': 'url(#win)' }, gCamp);
+el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'daysky' }, gWin);
+const sky = el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'sky' }, gWin);
+const rnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+const NSTARS = [];
+for (let i = 0; i < 54; i++) NSTARS.push({ ph: rnd(i + 300) * 6.28, sp: 1.2 + rnd(i + 400) * 1.8,
+  n: el('circle', { cx: (WX + 14 + rnd(i) * (WIDE - 28)).toFixed(1), cy: (WY + 12 + rnd(i + 100) * 300).toFixed(1), r: (.9 + rnd(i + 200) * 1.3).toFixed(2), class: 'nstar' }, gWin) });
+// the land moves across as the window narrows, so the camp is always in the middle of it
+const gLand = el('g', null, gWin);
+const gSun = el('g', null, gLand);
+el('circle', { r: 74, fill: 'url(#glow)', opacity: .7 }, gSun); el('circle', { r: 24, class: 'sunb' }, gSun);
+const gMoon = el('g', null, gLand);
+el('path', { d: 'M6 -21 A22 22 0 1 0 6 21 A24 24 0 0 1 6 -21 Z', class: 'moonb', transform: 'rotate(-24)' }, gMoon);
+const GROUND = 'M-260 560 C-60 548 60 556 190 542 S460 540 640 548 S1000 526 1240 546 S1440 552 1540 544 V640 H-260 Z';
+el('path', { d: GROUND, class: 'gnd' }, gLand);
+const gndN = el('path', { d: GROUND, class: 'gnd-n' }, gLand);
+// the tent, and the lamp in it while the shift is on
+const TENT = [190, 566], gTent = el('g', { transform: `translate(${TENT[0]} ${TENT[1]})` }, gLand);
+el('path', { d: 'M-7 -104 L0 -92 L7 -104', class: 'tent', fill: 'none' }, gTent);
+el('path', { d: 'M-74 0 L0 -92 L74 0 Z', class: 'tent' }, gTent);
+const tentN = el('path', { d: 'M-74 0 L0 -92 L74 0 Z', class: 'tent-n' }, gTent);
+el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'tent-door' }, gTent);
+const lampHalo = el('circle', { cy: -22, r: 54, fill: 'url(#glow)' }, gTent), lamp = el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'lamp' }, gTent);
+// the fire, and the crew round it
+const gFire = el('g', { transform: 'translate(318 578)' }, gLand);
+const fireHalo = el('circle', { cy: -12, r: 44, fill: 'url(#glow)' }, gFire);
+el('path', { d: 'M-15 0 L15 -7 M-15 -7 L15 0', class: 'log' }, gFire);
+const flame = el('path', { d: 'M0 0 C-13 -8 -9 -22 0 -34 C9 -22 13 -8 0 0 Z', class: 'flame' }, gFire);
+const SLEEPERS = [['qm', 376, 580], ['scout', 424, 573], ['scribe', 472, 582], ['art', 520, 574], ['warden', 568, 579]].map(([key, x, y], i) => {
+  const g = badge(key, gLand, .56); g.setAttribute('transform', `translate(${x} ${y})`);
+  return { g, x, y, i, z: tx(gLand, x, y, 'm zz', 'z') };
+});
+const winFrame = el('rect', { x: WX, y: WY, height: WH, rx: 14, class: 'winframe' }, gCamp);
+// the clock in the corner of the window, and what the camp is doing
+const gClock = el('g', null, gCamp);
+el('rect', { x: WX + 20, y: WY + 18, width: 304, height: 72, rx: 12, class: 'card' }, gClock);
+const clockT = tx(gClock, WX + 40, WY + 52, 'd clock-t', '');
+tx(gClock, WX + 304, WY + 48, 'm lbl', 'HOURS 01:00 TO 05:00', { 'text-anchor': 'end' });
+const statusT = tx(gClock, WX + 40, WY + 75, 'm lbl', '');
+
+// ---- what the shift writes down, one row at a time ----
+const RX = 630, RW = 578;
+const ROWS = [
+  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: "Scout's and Artificer's, both more than 60% full", pill: 'DRAFT · WAITS FOR YOUR OK' },
+  { at: 16.5, label: 'OLD LINES', title: 'Listed 5 old lines worth a look', sub: 'Not pinned, and more than 90 days old', pill: 'LISTED · NOTHING TOUCHED' },
+  { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: 'Finished run logs, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
+];
+const gRows = el('g'), gSparks = el('g');
+ROWS.forEach((r, i) => {
+  r.y = 196 + 152 * i; r.g = el('g', null, gRows);
+  el('rect', { x: RX, y: r.y, width: RW, height: 130, rx: 14, class: 'card' }, r.g);
+  tx(r.g, RX + 24, r.y + 37, 'm lbl', r.label);
+  r.typed = typer(r.g, RX + 24, r.y + 74, 'b t19 w6 f-text', r.title);
+  r.caret = el('rect', { y: r.y + 58, width: 2, height: 20, class: 'caret' }, r.g);
+  r.subT = tx(r.g, RX + 24, r.y + 102, 'b t15 f-muted', r.sub);
+  const pw = r.pill.length * 7.4 + 26;
+  r.pillG = el('g', null, r.g);
+  el('rect', { x: RX + RW - 20 - pw, y: r.y + 20, width: pw, height: 24, rx: 12, class: 'pill' }, r.pillG);
+  tx(r.pillG, RX + RW - 20 - pw / 2, r.y + 36, 'm pill-t', r.pill, { 'text-anchor': 'middle' });
+  r.spark = el('g', null, gSparks);
+  el('circle', { r: 20, fill: 'url(#glow)' }, r.spark); el('circle', { r: 4.5, class: 'spark' }, r.spark);
+});
+
+// ---- the morning: the card on your Today page ----
+const TX0 = 630, TY = 196, TW = 578, TH = 434, JX = TX0 + 26;
+const gToday = el('g');
+el('rect', { x: TX0, y: TY, width: TW, height: TH, rx: 14, class: 'card shadow' }, gToday);
+tx(gToday, JX, TY + 48, 'd tk-title', 'While you were away');
+tx(gToday, TX0 + TW - 26, TY + 45, 'm lbl', 'NIGHT SHIFT, 01:04', { 'text-anchor': 'end' });
+el('line', { x1: JX, y1: TY + 70, x2: TX0 + TW - 26, y2: TY + 70, class: 'hr' }, gToday);
+const ITEMS = [
+  ['Drafted shorter versions of 2 memories', 'Scout and Artificer. Nothing changes until you approve them.'],
+  ['5 old lines worth a look', 'Not pinned, and more than 90 days old. Nothing was changed.'],
+  ['Housekeeping could clear finished run logs (about 48 MB)', 'Nothing was cleared: ask for a camp cleanup when you want it done.'],
+].map(([title, sub], i) => {
+  const y = TY + 106 + i * 82, g = el('g', null, gToday);
+  el('circle', { cx: JX + 5, cy: y - 5, r: 4, class: 'dot-a' }, g);
+  tx(g, JX + 20, y, 'b t16 w6 f-text', title); tx(g, JX + 20, y + 23, 'b t13 f-muted', sub);
+  el('line', { x1: JX, y1: y + 47, x2: TX0 + TW - 26, y2: y + 47, class: 'hr' }, g);
+  return { g, y };
+});
+const bLook = button(ITEMS[0].g, TX0 + TW - 26 - 66, ITEMS[0].y + 6, 132, 'Look them over');
+const bDismiss = button(gToday, JX + 46, TY + TH - 46, 92, 'Dismiss', 'ghost');
+tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reported. Nothing was applied or deleted.');
+
+CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
+
+const gTitle = titleCard('NEW IN CAMP · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the camp is idle. Nothing changes until you approve it.');
+const gEnd = endCard('Switch it on under', 'Settings → What Mae does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
+caption('Off until you switch it on.', 'Under Settings → What Mae does unasked. You choose the hours.', 3.0, T.dusk - .3);
+caption('The camp goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
+caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
+caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);
+makeRoute([['Switch it on', 2.8], ['Quiet hours', T.dusk], ['The shift', T.shift], ['Morning', T.dawn]]);
+
+// the hours sit right after "On, from", however wide the type runs
+function layout() { gHours.setAttribute('transform', `translate(${(onT.getComputedTextLength() - 64).toFixed(1)} 0)`); }
+
+const pad2 = n => String(n).padStart(2, '0');
+function render(t) {
+  drawChrome(t);
+  // the switch
+  O(gSet, span(t, 2.5, T.dusk, .45));
+  const on = t >= T.on + .08;
+  cls(swTrack, on ? 'sw on' : 'sw'); cls(swKnob, on ? 'sw-knob on' : 'sw-knob');
+  put(swKnob, { cx: IX + 12 + 20 * seg(t, T.on, T.on + .25) });
+  O(swOff, 1 - seg(t, T.on, T.on + .2)); O(gOn, seg(t, T.on + .1, T.on + .5, ease.out));
+  press(bRun, t, NEVER);
+
+  // the window: it narrows when the shift starts, and the land slides so the camp stays in view
+  const out = 1 - seg(t, END - .3, END + .1);
+  O(gCamp, seg(t, T.dusk - .1, T.dusk + .4) * out);
+  const narrow = seg(t, T.shift, T.shift + .7), ww = lerp(WIDE, NARROW, narrow), dx = SHIFT * (1 - narrow);
+  put(clip, { width: ww }); put(winFrame, { width: ww });
+  gLand.setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
+  const night = seg(t, T.dusk + 1.1, T.dusk + 3.1) * (1 - seg(t, T.dawn, T.dawn + 2));
+  O(sky, night); O(gndN, night); O(tentN, night * .62);
+  NSTARS.forEach(s => O(s.n, night * (.4 + .6 * Math.sin(t * s.sp + s.ph) ** 2)));
+  const first = t < (T.shift + T.dawn) / 2;
+  TR(gSun, 440, first ? lerp(318, 650, seg(t, T.dusk + .2, T.dusk + 2.2)) : lerp(650, 318, seg(t, T.dawn + .1, T.dawn + 2.3, ease.out)));
+  TR(gMoon, 500, first ? lerp(650, 286, seg(t, T.dusk + 2, T.dusk + 4, ease.out)) : lerp(286, 650, seg(t, T.dawn - .1, T.dawn + 1.6, ease.in)));
+  // the fire burns down for the night; the lamp in the tent is the shift at work
+  const fire = first ? lerp(1, .38, seg(t, T.dusk + 2, T.dusk + 4)) : lerp(.38, 1, seg(t, T.dawn + .8, T.dawn + 2.2));
+  flame.setAttribute('transform', `scale(${(fire * (1 + .07 * Math.sin(t * 13))).toFixed(3)} ${(fire * (1 + .14 * Math.sin(t * 9.1 + 1))).toFixed(3)})`);
+  O(fireHalo, fire * .75);
+  const work = span(t, T.shift + .3, T.done + .5, .4) * (.8 + .2 * Math.sin(t * 10) ** 2);
+  O(lamp, work); O(lampHalo, work * .9);
+  SLEEPERS.forEach(s => {
+    O(s.g, lerp(1, .5, night));
+    const k = (t * .42 + s.i * .27) % 1;
+    put(s.z, { x: s.x + 9 + k * 9, y: s.y - 14 - k * 24 }); O(s.z, night > .95 ? Math.sin(k * PI) * .9 : 0);
+  });
+  // the clock, and what the camp is doing
+  const mins = t < T.shift ? lerp(10, 240, seg(t, T.dusk + .4, T.shift - 1.6)) : t < T.dawn ? lerp(240, 244, seg(t, T.shift + .6, T.done, ease.lin)) : lerp(245, 630, seg(t, T.dawn, T.dawn + 2.2));
+  const q = t >= T.shift && t < T.dawn ? 1 : 5, m = Math.round(mins / q) * q + 21 * 60;
+  say(clockT, pad2(Math.floor(m / 60) % 24) + ':' + pad2(m % 60));
+  say(statusT, t < T.shift - 1.6 ? 'THE CAMP IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
+  cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
+
+  // each row: a spark leaves the tent, the row is written, and its tag says nothing was changed
+  ROWS.forEach(r => {
+    const k = seg(t, r.at, r.at + .6), x0 = TENT[0] + dx, y0 = TENT[1] - 30, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
+    const sx = (1 - k) * (1 - k) * x0 + 2 * k * (1 - k) * ((x0 + x1) / 2) + k * k * x1, sy = (1 - k) * (1 - k) * y0 + 2 * k * (1 - k) * cy + k * k * y1;
+    TR(r.spark, sx, sy); O(r.spark, k > 0 && k < 1 ? Math.min(1, k * 8, (1 - k) * 8) : 0);
+    O(r.g, seg(t, r.at + .45, r.at + .8) * (1 - seg(t, T.dawn + .2, T.dawn + .7)));
+    typeTo(r.typed, seg(t, r.at + .8, r.at + 1.7, ease.lin));
+    put(r.caret, { x: RX + 26 + r.typed.w }); O(r.caret, t > r.at + .6 && t < r.at + 1.9 && (t * 2.4) % 1 < .6 ? 1 : 0);
+    O(r.subT, seg(t, r.at + 1.75, r.at + 2.05)); O(r.pillG, seg(t, r.at + 1.85, r.at + 2.15, ease.out));
+  });
+
+  // the morning
+  const up = seg(t, T.dawn + .9, T.dawn + 1.4, ease.out);
+  O(gToday, up * out); gToday.setAttribute('transform', `translate(0 ${((1 - up) * 12).toFixed(2)})`);
+  ITEMS.forEach((it, i) => O(it.g, seg(t, T.dawn + 1.5 + i * .35, T.dawn + 1.9 + i * .35)));
+  press(bLook, t, T.look); press(bDismiss, t, NEVER);
+
+  drawPointer(t);
+}
+
+// ---- your pointer, drawn over everything ----
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+function drawPointer(t) {
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
+  const m = seg(t, cur.t - 1, cur.t - .12);
+  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
+  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+}
+
+// ---- transport ----
+const playB = document.getElementById('play'), scrub = document.getElementById('scrub'), clock = document.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+document.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+layoutRoute(); layout(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

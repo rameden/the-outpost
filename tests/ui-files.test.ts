@@ -122,9 +122,11 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
 
 test("the tour's films are drawn by the page itself, so its policy needs nothing new", () => {
   const page = splashPage()!;
-  assert.match(page, /<section id="films">/);
-  assert.match(page, /<a href="#films">/, "the top bar links to them");
-  for (const key of ["ticket", "audit"]) {
+  for (const id of ["films", "videos"]) {
+    assert.match(page, new RegExp(`<section id="${id}">`));
+    assert.match(page, new RegExp(`<a href="#${id}">`), "the top bar links to them");
+  }
+  for (const key of ["ticket", "audit", "trail", "stars", "night"]) {
     assert.match(page, new RegExp(`<template id="film-${key}-stage">`), `the ${key} film's stage is in the page`);
     assert.match(page, new RegExp(`id="film-tab-${key}" aria-controls="film-${key}"`), `the ${key} film has its tab`);
   }

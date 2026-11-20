@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mae Trail Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one 16:9 stage that plays the trail map as a loop. One plan is drawn as waypoint cards with a
+   line from each step to the steps that wait for it. Then the whole day goes on one map: each plan a ring
+   round the Quartermaster, the first asked innermost. The same steps are then drawn as a tree, one bough
+   to a plan, and a new plan joins it. A plain transport bar sits under the stage.
+   Colours, type, the logo and the dashed route are Mae's own. */
+:root {
+  --page: #f0e8da; --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
+  --text: #2a231c; --muted: #5d5247; --faint: #72675b;
+  --accent: #9e5c0c; --accent-ink: #fffaf2;
+  --good: #397034; --good-soft: #e1eedb; --bad: #a94630; --bad-soft: #f5dfd8;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
+  --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a; --night-good: #93c47d;
+  --shade: rgba(60, 40, 20, .13);
+  --logo-ink: #14233F; --logo-dot: #B97A12; --logo-stroke: 4; --on-light: 1; --on-dark: 0;
+  --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
+  --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+    --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+    --accent: #f0a640; --accent-ink: #1b1308;
+    --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+    --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
+    --shade: rgba(0, 0, 0, .5);
+  --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+  --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+  --accent: #f0a640; --accent-ink: #1b1308;
+  --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+  --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
+  --shade: rgba(0, 0, 0, .5);
+  --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 36px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+.stage { aspect-ratio: 16 / 9; max-width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 16px 40px var(--shade); }
+.stage svg { display: block; width: 100%; height: 100%; }
+.controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.controls button { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 14px; cursor: pointer; min-width: 68px; }
+.controls button:hover { border-color: var(--accent); }
+.controls input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.controls output { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { margin: 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+
+/* Stage drawing */
+#stage text { user-select: none; -webkit-user-select: none; pointer-events: none; white-space: pre; }
+.d { font-family: var(--display); } .b { font-family: var(--body); } .m { font-family: var(--mono); }
+.f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); }
+.f-accent { fill: var(--accent); } .f-ink { fill: var(--ink); } .f-accent-ink { fill: var(--accent-ink); } .f-tone { fill: var(--tone); }
+.f-good { fill: var(--good); } .f-bad { fill: var(--bad); }
+.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
+.bgfill { fill: var(--bg); }
+.contour { fill: none; stroke: var(--border-strong); stroke-width: 1.2; opacity: .5; vector-effect: non-scaling-stroke; }
+.contour.lit { stroke: var(--accent); stroke-width: 1.8; opacity: 0; }
+.ping { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+/* The system: orbits, the tail a planet leaves, and the sun's compass. Strokes keep their width under the camera. */
+.sorbit { fill: none; stroke: var(--border-strong); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.sorbit.tone { stroke: var(--tone); stroke-width: 2; }
+.ptrail { fill: none; stroke: var(--tone); stroke-width: 3.5; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.sun-glyph * { fill: none; stroke: var(--accent-ink); stroke-width: .62; stroke-linecap: round; stroke-linejoin: round; }
+.moon { fill: var(--tone); }
+.body-name { font-size: 28px; fill: var(--tone); }
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
+.orbit { fill: none; stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 3 7; stroke-linecap: round; }
+.comet { fill: var(--tone); }
+.shadow { filter: drop-shadow(0 12px 22px var(--shade)); }
+.card { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.inset { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+.hr { stroke: var(--border); stroke-width: 1; }
+.wm path { fill: var(--logo-ink); }
+/* The Mae mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
+.mk-solid { fill: var(--logo-ink); }
+.mk-arc { fill: none; stroke: var(--logo-ink); stroke-width: var(--logo-stroke); }
+.mk-arc.small { stroke-width: 8; }
+.mk-arc.on-light { opacity: var(--on-light); } .mk-arc.on-dark { opacity: var(--on-dark); }
+.mk-dot { fill: var(--logo-dot); }
+.mk-ripple { fill: none; stroke: var(--logo-dot); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
+.name-sub { font-size: 19px; fill: var(--muted); }
+.eyebrow { font-size: 13px; letter-spacing: .14em; fill: var(--accent); }
+.tagline { font-size: 44px; }
+.cmd-box { fill: var(--night); stroke: var(--night-line); }
+.cmd-t { font-size: 14px; fill: var(--night-text); }
+.cmd-t .p { fill: var(--night-muted); }
+.scene-l { font-size: 12px; letter-spacing: .12em; fill: var(--faint); }
+.cap { font-size: 42px; fill: var(--ink); }
+/* Route bar: the tour's numbered pins and dashed trail */
+.pin { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; transition: fill .25s, stroke .25s; }
+.pin-n { font-size: 12px; fill: var(--faint); transition: fill .25s; }
+.stop-l { font-size: 12px; letter-spacing: .12em; fill: var(--faint); transition: fill .25s; }
+.stop.on .pin { fill: var(--accent); stroke: var(--accent); }
+.stop.on .pin-n { fill: var(--accent-ink); }
+.stop.on .stop-l { fill: var(--text); }
+.dash { stroke-width: 2; stroke-dasharray: 6 6; }
+.dash.base { stroke: var(--border-strong); }
+.dash.fill { stroke: var(--accent); }
+/* Crew badges */
+.disc { fill: var(--surface-2); stroke: var(--tone); stroke-width: calc(var(--sw, 2) * 1px); }
+.glyph * { fill: none; stroke: var(--tone); stroke-width: calc(var(--sw, 2) * .8px); stroke-linecap: round; stroke-linejoin: round; }
+.pulse { fill: none; stroke: var(--tone); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.camp-l { font-size: 11px; letter-spacing: .14em; fill: var(--faint); }
+/* Cards and the workbench */
+.who { font-size: 14px; font-weight: 700; }
+.t13 { font-size: 13px; } .t15 { font-size: 15px; } .t16 { font-size: 16px; } .w6 { font-weight: 600; }
+.lbl { font-size: 11px; letter-spacing: .12em; fill: var(--faint); }
+.code { font-size: 13px; }
+.key-t { font-size: 12.5px; fill: var(--text); }
+.tk-title { font-size: 27px; fill: var(--ink); }
+.cb { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.cb-on { fill: var(--accent); }
+.cb-check { fill: none; stroke: var(--accent-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.caret { fill: var(--accent); }
+.btn-accent { fill: var(--accent); }
+.btn-ghost { fill: none; stroke: var(--border-strong); }
+.btn-t { font-size: 14px; font-weight: 600; }
+.bubble { font-size: 17px; fill: var(--muted); }
+.row-n { font-size: 12px; fill: var(--faint); }
+.row-dot { fill: var(--tone); }
+.row-name { font-size: 15px; font-weight: 700; fill: var(--tone); }
+.row-task { font-size: 15px; fill: var(--muted); }
+.ripple { fill: none; stroke: var(--accent); stroke-width: 2; }
+.ph-name { font-size: 16px; font-weight: 700; }
+.ph-sub { font-size: 12px; fill: var(--faint); }
+.q-st { font-size: 11px; fill: var(--faint); }
+.hl { fill: none; stroke: var(--tone); stroke-width: 2; }
+.bg-del { fill: var(--bad-soft); } .bg-add { fill: var(--good-soft); }
+.night-t { fill: var(--night-text); } .night-m { fill: var(--night-muted); } .night-good { fill: var(--night-good); }
+.night-check { fill: none; stroke: var(--night-good); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pill { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1; }
+.pill-t { font-size: 10.5px; letter-spacing: .1em; fill: var(--text); }
+.ok-disc { fill: var(--good); }
+.ok-check { fill: none; stroke: var(--surface); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pointer { fill: var(--ink); stroke: var(--surface); stroke-width: 1.3; stroke-linejoin: round; }
+/* The trail map: waypoints and the lines between them, then the rings and the tree. A step that's out, and a view that's on, has a solid accent border. */
+.t12 { font-size: 12px; }
+.stepn { font-size: 12px; fill: var(--muted); }
+.wp { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.wp.todo { stroke-dasharray: 5 4; }
+.wp.out { stroke: var(--accent); stroke-width: 2; }
+.wp.done { stroke: var(--good); }
+.mark-o { fill: none; stroke: var(--faint); stroke-width: 1.5; }
+.mark-out { fill: var(--accent); }
+.mark-ok { fill: none; stroke: var(--good); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.eg .ln { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
+.eg .ah { fill: var(--border-strong); }
+.eg.live .ln { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 6; }
+.eg.live .ah { fill: var(--accent); }
+.eg.walked .ln { stroke: var(--good); stroke-width: 2; }
+.eg.walked .ah { fill: var(--good); }
+.tb { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+.tb.on { stroke: var(--accent); stroke-width: 2; }
+.bearing { stroke: var(--border); stroke-width: 1; }
+.rim { fill: none; stroke: var(--border-strong); stroke-width: 1; }
+.dial { fill: none; stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 2 5; }
+.ringl { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
+.ringl.walked { stroke: var(--good); stroke-width: 2.5; }
+.gate { fill: var(--bg); stroke: var(--border-strong); stroke-width: 1.2; }
+.gate-n { font-size: 10.5px; fill: var(--muted); }
+.link { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: .1 6; stroke-linecap: round; }
+.trunk { fill: var(--border-strong); }
+.ground { stroke: var(--border-strong); stroke-width: 2; stroke-linecap: round; }
+.bough { fill: none; stroke: var(--border-strong); stroke-width: 2.5; stroke-linecap: round; }
+.knot { fill: var(--surface); stroke: var(--border-strong); stroke-width: 2; }
+.knot.on { fill: var(--accent); stroke: var(--accent); }
+</style>
+<style>body { margin: 0; }</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's trail map. One plan is drawn as five numbered waypoints, joined by lines that fill in as the crew works through them. Then every plan of the day is put on one map, each plan a ring round the Quartermaster with the first asked innermost. The same plans are then drawn as a tree, one bough to a plan, and a fourth plan joins it as a new bough.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="36" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 0:36</output>
+  </div>
+  <p class="note">The trail map: one plan as waypoints, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+</main>
+
+<script>
+(() => {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('stage');
+const DUR = 36, PI = Math.PI, NEVER = 1e9;
+const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+// there from a to b, fading in and out over d
+const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// a class, a text or a set of attributes, written only when it changes
+const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
+const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
+const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, box, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+
+// ---- crew badges ----
+const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+};
+// a badge at any size: its lines stay as heavy as they are at full size
+function badge(key, parent, s = 1) {
+  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
+  el('circle', { r: 24, class: 'disc' }, k);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
+  return g;
+}
+
+// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
+const defs = svg.querySelector('defs');
+// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
+const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
+el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
+el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+tx(svg, 1216, 61, 'm scene-l', 'TRAIL MAP', { 'text-anchor': 'end' });
+
+function titleCard(eyebrow, ink, accent, sub) {
+  const g = el('g');
+  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
+  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
+  el('tspan', { class: 'f-ink' }, tag, ink);
+  el('tspan', { class: 'f-accent' }, tag, accent);
+  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// the last card: how to open what the film showed
+function endCard(lead, box, sub) {
+  const g = el('g'), w = box.length * 8.45 + 56;
+  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
+  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
+  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
+  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// a caption and the line under it, from a to b
+const CAPS = [];
+const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
+// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
+const STOPS = [], gRoute = el('g');
+function makeRoute(list) {
+  list.forEach(([label, at], i) => {
+    const s = { label, at };
+    if (i < list.length - 1) {
+      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+    }
+    s.g = el('g', { class: 'stop' }, gRoute);
+    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
+    STOPS.push(s);
+  });
+}
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
+function drawChrome(t) {
+  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
+  O(gEnd, span(t, END + .2, DUR - .5, .45));
+  CAPS.forEach(c => {
+    const p = seg(t, c.a, c.a + .45, ease.out);
+    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
+  });
+  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at);
+    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
+  });
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+const CLICKS = [];
+
+// ---- the story: one plan as waypoints, the whole day as rings, the same day as a tree, and a plan that joins ----
+const T = { map: 11.7, tree: 20.3, join: 27.5 }, END = 32.4;
+const C = [400, 408], RING = [70, 128, 186], BEAR = [-90, -90, 47.5];
+const CX = [184, 488, 792, 1096], TX = 200, Y3 = [566, 448, 330], Y4 = [572, 468, 360, 262];
+const rad = d => d * PI / 180;
+const S = (who, col, row, after, out, done, lines) => ({ who, col, row, after, out, done, lines });
+// Each plan of the day and its steps: who walks it, where it sits, the steps it waits for, and when it goes out and is done.
+const PLANS = [
+  { time: '09:12', task: 'Fix the day-early dates', steps: [
+    S('scout', 0, 0, [], 4.6, 6.0, ['Find where dates', 'are formatted']),
+    S('art', 1, -1, [0], 6.0, 8.0, ['Fix the date-only', 'path']),
+    S('scribe', 1, 1, [0], 6.0, 7.4, ['Draft the release', 'note']),
+    S('warden', 2, -1, [1], 8.0, 9.3, ['Review the change']),
+    S('scribe', 3, 0, [2, 3], 9.3, 10.4, ['Write up the', 'pull request']),
+  ] },
+  { time: '10:40', task: 'Add a time zone test matrix', steps: [S('scout', 0, 0, [], -1, -1), S('art', 1, 0, [0], -1, -1), S('warden', 2, 0, [1], -1, -1)] },
+  { time: '13:05', task: 'Audit the export module', steps: [S('scout', 0, 0, [], -1, -1), S('art', 1, -1, [0], -1, -1), S('scribe', 1, 1, [0], -1, 17.2), S('warden', 2, 0, [1, 2], 17.2, 25.4)] },
+  { time: '15:30', task: 'Draft the changelog', steps: [S('scribe', 0, 0, [], 28.7, NEVER), S('warden', 1, 0, [0], NEVER, NEVER)] },
+];
+const stateOf = (s, t) => t >= s.done ? 'done' : t >= s.out ? 'out' : 'todo';
+const WORD = { todo: 'Not started', out: 'Out', done: 'Done' }, WORDW = { todo: 63, out: 21, done: 30 };
+const tallyOf = (p, t) => {
+  const done = p.steps.filter(s => stateOf(s, t) === 'done').length, out = p.steps.filter(s => stateOf(s, t) === 'out').length;
+  return `${done} of ${p.steps.length} done` + (out ? ` · ${out} out` : '');
+};
+
+const gScene = el('g');
+// the dial under the rings: the Quartermaster in the middle, bearings and a ticked rim
+const gDial = el('g', null, gScene);
+el('circle', { cx: C[0], cy: C[1], r: 222, class: 'rim' }, gDial);
+for (let i = 0; i < 72; i++) {
+  const a = rad(i * 5), r1 = i % 6 ? 217 : 211;
+  el('line', { x1: (C[0] + r1 * Math.cos(a)).toFixed(1), y1: (C[1] + r1 * Math.sin(a)).toFixed(1), x2: (C[0] + 222 * Math.cos(a)).toFixed(1), y2: (C[1] + 222 * Math.sin(a)).toFixed(1), class: 'rim' }, gDial);
+}
+for (let i = 0; i < 6; i++) {
+  const a = rad(i * 30), dx = 205 * Math.cos(a), dy = 205 * Math.sin(a);
+  el('line', { x1: (C[0] - dx).toFixed(1), y1: (C[1] - dy).toFixed(1), x2: (C[0] + dx).toFixed(1), y2: (C[1] + dy).toFixed(1), class: 'bearing' }, gDial);
+}
+el('circle', { cx: C[0], cy: C[1], r: 30, class: 'bgfill' }, gDial);
+el('circle', { cx: C[0], cy: C[1], r: 20, class: 'dial' }, gDial);
+el('circle', { cx: C[0], cy: C[1], r: 27, class: 'dial' }, gDial);
+badge('qm', gDial, .5).setAttribute('transform', `translate(${C[0]} ${C[1]})`);
+// the tree: the day is the trunk, with the ground under it
+const gTree = el('g', null, gScene);
+el('line', { x1: 120, y1: 632, x2: 620, y2: 632, class: 'ground' }, gTree);
+const trunk = el('path', { class: 'trunk' }, gTree);
+const gRings = el('g', null, gScene), gEdges = el('g', null, gScene), gMoons = el('g', null, gScene), gSteps = el('g', null, gScene);
+const link = el('line', { x1: C[0], y1: C[1] - RING[0] - 10, x2: C[0], y2: C[1] - RING[1] + 10, class: 'link' }, gRings);
+
+const EDGES = [];
+PLANS.forEach((p, pi) => {
+  if (pi < 3) {
+    const R = RING[pi], b = rad(BEAR[pi]);
+    p.gRing = el('g', null, gRings);
+    el('circle', { r: R, class: 'ringl' }, p.gRing);
+    p.walk = el('circle', { r: R, class: 'ringl walked', transform: `rotate(${BEAR[pi]})` }, p.gRing);
+    const gate = el('g', { transform: `translate(${(R * Math.cos(b)).toFixed(1)} ${(R * Math.sin(b)).toFixed(1)})` }, p.gRing);
+    el('rect', { x: -9, y: -9, width: 18, height: 18, rx: 4, class: 'gate' }, gate);
+    tx(gate, 0, 3.8, 'm gate-n', String(pi + 1), { 'text-anchor': 'middle' });
+  }
+  p.bough = el('path', { class: 'bough', pathLength: 1, 'stroke-dasharray': 1 }, gTree);
+  p.knot = el('circle', { cx: TX, r: 6, class: 'knot' }, gTree);
+  p.head = el('g', null, gTree);
+  tx(p.head, 0, 0, 'm t12 f-faint', p.time);
+  p.hTask = tx(p.head, 50, 0, 'b t15 w6 f-text', p.task);
+  p.hTally = tx(p.head, 260, 0, 'b t13 f-muted', '');
+  p.steps.forEach((s, si) => {
+    s.g = el('g', { class: 'c-' + s.who }, gSteps);
+    s.pulse = el('circle', { class: 'ping' }, s.g);
+    s.box = el('rect', { class: 'wp' }, s.g);
+    s.num = tx(s.g, 0, 0, 'm stepn', String(si + 1), { 'text-anchor': 'middle' });
+    s.mark = el('g', null, s.g);
+    s.mk = el('circle', { r: 4.5 }, s.mark);
+    s.ck = el('path', { d: 'M-4.6 .2 L-1.5 3.3 L4.6 -3.4', class: 'mark-ok' }, s.mark);
+    if (pi === 0) {
+      s.card = { x: CX[s.col], y: 400 + s.row * 72, w: 224, h: 116, rx: 10, nx: -94, ny: -26 };
+      s.gCard = el('g', null, s.g);
+      s.word = tx(s.gCard, 98, -26, 'b t12 w6', '', { 'text-anchor': 'end' });
+      s.lines.forEach((l, i) => tx(s.gCard, -98, (s.lines.length > 1 ? 0 : 10) + i * 21, 'b t16 w6 f-text', l));
+      el('circle', { cx: -93, cy: 39, r: 4.5, class: 'moon' }, s.gCard);
+      tx(s.gCard, -82, 43.5, 'b t13 w6 f-tone', CREW[s.who]);
+    }
+    if (pi < 3) {
+      const a = rad(BEAR[pi]) + (36 + 46 * si) / RING[pi];
+      s.ring = { x: C[0] + RING[pi] * Math.cos(a), y: C[1] + RING[pi] * Math.sin(a), w: 28, h: 28, rx: 14, nx: 0, ny: 4.2 };
+      s.moon = el('circle', { cx: (C[0] + (RING[pi] + 23) * Math.cos(a)).toFixed(1), cy: (C[1] + (RING[pi] + 23) * Math.sin(a)).toFixed(1), r: 4, class: 'moon c-' + s.who }, gMoons);
+    }
+    s.gMini = el('g', null, s.g);
+    el('circle', { cx: -47, cy: 0, r: 4, class: 'moon' }, s.gMini);
+    tx(s.gMini, -38, 4.3, 'b t12 w6 f-tone', CREW[s.who]);
+    for (const a of s.after) {
+      const g = el('g', { class: 'eg' }, gEdges);
+      EDGES.push({ pi, from: p.steps[a], to: s, g, ln: el('path', { class: 'ln' }, g), ah: el('path', { class: 'ah' }, g) });
+    }
+  });
+});
+
+// one plan at a time: which plan this is, over its waypoints
+const gPlan = el('g', null, gScene);
+tx(gPlan, 72, 232, 'm lbl', 'TODAY, 09:12');
+tx(gPlan, 72, 257, 'b t16 w6 f-text', PLANS[0].task);
+const planTally = tx(gPlan, 72, 279, 'b t13 f-muted', '');
+// the whole map as rings: the plans in a list beside it, newest first
+const gList = el('g', null, gScene);
+tx(gList, 760, 232, 'b t13 f-muted', 'All 3 plans, a ring each: the first asked innermost');
+PLANS.slice(0, 3).forEach((p, pi) => {
+  p.row = el('g', null, gList);
+  el('rect', { width: 448, height: 64, rx: 10, class: 'card' }, p.row);
+  el('rect', { x: 16, y: 23, width: 18, height: 18, rx: 4, class: 'gate' }, p.row);
+  tx(p.row, 25, 35.8, 'm gate-n', String(pi + 1), { 'text-anchor': 'middle' });
+  tx(p.row, 50, 28, 'b t15 w6 f-text', p.task);
+  tx(p.row, 50, 48, 'm t12 f-faint', p.time);
+  p.lTally = tx(p.row, 98, 48, 'b t13 f-muted', '');
+});
+// the toolbar: the views of the map, and the replay
+const gBar = el('g', null, gScene);
+function tb(cx, w, label) {
+  const g = el('g', null, gBar), box = el('rect', { x: -w / 2, y: -16, width: w, height: 32, rx: 8, class: 'tb' }, g);
+  tx(g, 0, 4.5, 'b t13 w6 f-text', label, { 'text-anchor': 'middle' });
+  return { g, box, cx };
+}
+const bTree = tb(890, 68, 'Tree'), bRings = tb(968, 72, 'Rings'), bWhole = tb(1070, 108, 'Whole map'), bReplay = tb(1170, 76, 'Replay');
+CLICKS.push({ t: T.map, x: 1070, y: 122 }, { t: T.tree, x: 890, y: 122 });
+
+const gTitle = titleCard('NEW IN CAMP · TRAIL MAP', 'The plan, ', 'drawn as a trail.', 'Every step a waypoint, and every plan of the day on one map.');
+const gEnd = endCard('Open it beside Orbit, or type', '/trail', 'M for the whole map · R for tree or rings · P to replay the day');
+caption('Each step is a waypoint.', 'A line runs from a step to each step that has to wait for it. It fills in as the crew works.', 3.0, T.map - .4);
+caption('Every plan of the day, on one map.', 'Each plan is a ring, the first asked innermost, so the map grows outward as the day goes on.', T.map + .3, T.tree - .3);
+caption('Or draw it as a tree.', 'One trunk for the day, the first plan at the foot, and each plan a bough growing off it.', T.tree + .3, T.join - .3);
+caption('A plan that joins is drawn in.', 'A bough grows, or a ring opens out, while the rest move over for it.', T.join + .2, END - .3);
+makeRoute([['One plan', 2.8], ['Whole map', T.map], ['Tree', T.tree], ['A plan joins', T.join]]);
+
+function layout() {
+  PLANS.forEach(p => p.hTally.setAttribute('x', (50 + p.hTask.getComputedTextLength() + 14).toFixed(1)));
+}
+
+const KEYS = ['x', 'y', 'w', 'h', 'rx', 'nx', 'ny'];
+function render(t) {
+  drawChrome(t);
+  O(gScene, seg(t, 2.4, 2.9) * (1 - seg(t, END - .3, END + .1)));
+  const k1 = seg(t, T.map, T.map + 1.2), k2 = seg(t, T.tree, T.tree + 1.4), kj = seg(t, T.join, T.join + .7);
+  const ringsOn = k1 * (1 - clamp(k2 * 2.5));
+
+  // the dial, the rings and what has been walked of each
+  O(gDial, ringsOn);
+  PLANS.forEach((p, pi) => {
+    if (pi > 2) return;
+    const kr = seg(t, T.map + .15 + pi * .4, T.map + .9 + pi * .4, ease.out);
+    TR(p.gRing, C[0], C[1], .88 + .12 * kr); O(p.gRing, kr * (1 - clamp(k2 * 2.5)));
+    let walked = 0;
+    for (let i = 0; i < p.steps.length; i++) {
+      const k = seg(t, p.steps[i].done, p.steps[i].done + .5);
+      walked += k * (i ? 46 : 36);
+      if (k < 1) break;
+    }
+    p.walk.setAttribute('stroke-dasharray', `${walked.toFixed(1)} ${(2 * PI * RING[pi]).toFixed(1)}`);
+  });
+  O(link, seg(t, T.map + .8, T.map + 1.3) * (1 - clamp(k2 * 2.5)));
+
+  // each step, somewhere between a waypoint card, a disc on its ring and a small card on its bough
+  PLANS.forEach((p, pi) => {
+    const by = pi < 3 ? lerp(Y3[pi], Y4[pi], kj) : Y4[3];
+    p.by = by;
+    p.steps.forEach((s, si) => {
+      const st = stateOf(s, t);
+      const k1s = pi === 0 ? seg(t, T.map + si * .06, T.map + 1.1 + si * .06) : 1;
+      const k2s = seg(t, T.tree + pi * .06 + si * .03, T.tree + 1.2 + pi * .06 + si * .03);
+      const tree = { x: 345 + s.col * 248, y: by + s.row * 20, w: 160, h: 34, rx: 8, nx: -65, ny: 4.2 };
+      const a0 = s.card || s.ring || tree, a1 = s.ring || tree, P = {};
+      for (const key of KEYS) P[key] = lerp(lerp(a0[key], a1[key], k1s), tree[key], k2s);
+      s.cur = P;
+      const ka = pi === 0 ? seg(t, 2.8 + si * .12, 3.3 + si * .12, ease.out)
+        : pi < 3 ? seg(t, T.map + .5 + pi * .4 + si * .1, T.map + 1 + pi * .4 + si * .1, ease.back)
+          : seg(t, T.join + .8 + si * .3, T.join + 1.3 + si * .3, ease.back);
+      TR(s.g, P.x, P.y + (pi === 0 ? (1 - ka) * 12 : 0), pi === 0 ? 1 : ka); O(s.g, pi === 0 ? ka : ka * 3);
+      put(s.box, { x: -P.w / 2, y: -P.h / 2, width: P.w, height: P.h, rx: P.rx }); cls(s.box, 'wp ' + st);
+      put(s.num, { x: P.nx, y: P.ny });
+      const inTree = k2s > 0;
+      s.mark.setAttribute('transform', inTree ? 'translate(64 0)' : `translate(${98 - WORDW[st] - 11} -30)`);
+      O(s.mark, inTree ? (k2s - .6) / .4 : 1 - k1s * 3);
+      cls(s.mk, st === 'out' ? 'mark-out' : 'mark-o'); O(s.mk, st === 'done' ? 0 : 1); O(s.ck, st === 'done' ? 1 : 0);
+      if (s.gCard) {
+        O(s.gCard, 1 - k1s * 3); say(s.word, WORD[st]);
+        cls(s.word, 'b t12 w6 ' + (st === 'done' ? 'f-good' : st === 'out' ? 'f-accent' : 'f-faint'));
+      }
+      O(s.gMini, (k2s - .55) / .45);
+      if (s.moon) O(s.moon, clamp(ka) * clamp((k1s - .7) / .3) * (1 - clamp(k2s * 3)));
+      const pk = (t * .8) % 1;
+      put(s.pulse, { r: lerp(14, 29, ease.out(pk)) }); O(s.pulse, st === 'out' && k1s > .98 && k2s < .02 ? (1 - pk) * .9 : 0);
+    });
+  });
+
+  // the lines between steps: grey until walked, marching while the step they lead to is out
+  EDGES.forEach(e => {
+    const a = e.from.cur, b = e.to.cur, x1 = a.x + a.w / 2, x2 = b.x - b.w / 2, mx = (x1 + x2) / 2;
+    e.ln.setAttribute('d', `M${x1.toFixed(1)} ${a.y.toFixed(1)} C${mx.toFixed(1)} ${a.y.toFixed(1)} ${mx.toFixed(1)} ${b.y.toFixed(1)} ${(x2 - 6).toFixed(1)} ${b.y.toFixed(1)}`);
+    e.ah.setAttribute('d', `M${(x2 - 8.5).toFixed(1)} ${(b.y - 4.5).toFixed(1)} L${x2.toFixed(1)} ${b.y.toFixed(1)} L${(x2 - 8.5).toFixed(1)} ${(b.y + 4.5).toFixed(1)} Z`);
+    const sa = stateOf(e.from, t), sb = stateOf(e.to, t), c = sb === 'done' ? ' walked' : sa === 'done' && sb === 'out' ? ' live' : '';
+    cls(e.g, 'eg' + c);
+    e.ln.style.strokeDashoffset = c === ' live' ? (-((t * 26) % 13)).toFixed(1) : '0';
+    const late = clamp((k2 - .8) / .2);
+    O(e.g, e.pi === 0 ? clamp(1 - k1 * 3.5) * seg(t, 3.5, 4.1) + late : late * (e.pi === 3 ? seg(t, T.join + 1.4, T.join + 1.8) : 1));
+  });
+
+  // the tree: the trunk grows up to the top bough, and each plan's bough is drawn out to its first step
+  O(gTree, k2 * 2);
+  const top = lerp(632, lerp(Y3[2], Y4[3], kj) - 4, seg(t, T.tree + .2, T.tree + 1.2));
+  trunk.setAttribute('d', `M${TX - 6} 632 L${TX - 2} ${top.toFixed(1)} L${TX + 2} ${top.toFixed(1)} L${TX + 6} 632 Z`);
+  PLANS.forEach((p, pi) => {
+    const by = p.by, ky = by + 26;
+    const kb = pi < 3 ? seg(t, T.tree + .5 + pi * .15, T.tree + 1.2 + pi * .15) : seg(t, T.join + .3, T.join + 1);
+    p.bough.setAttribute('d', `M${TX} ${ky.toFixed(1)} C${TX + 28} ${ky.toFixed(1)} ${TX + 26} ${by.toFixed(1)} 265 ${by.toFixed(1)}`);
+    p.bough.style.strokeDashoffset = (1 - kb).toFixed(3); O(p.bough, kb > 0 ? 1 : 0);
+    put(p.knot, { cy: ky }); O(p.knot, kb * 4); cls(p.knot, 'knot' + (p.steps.some(s => stateOf(s, t) === 'out') ? ' on' : ''));
+    p.head.setAttribute('transform', `translate(265 ${(by - 48).toFixed(1)})`); O(p.head, (kb - .5) * 2);
+    const tally = tallyOf(p, t);
+    say(p.hTally, tally); if (p.lTally) say(p.lTally, tally);
+  });
+
+  // one plan's name over its waypoints, and the list beside the rings
+  O(gPlan, seg(t, 2.6, 3.1) * (1 - k1 * 3)); say(planTally, tallyOf(PLANS[0], t));
+  O(gList, k1 * (1 - clamp(k2 * 3)));
+  const ap = [0, 1, 2].map(pi => seg(t, T.map + .5 + pi * .4, T.map + 1 + pi * .4, ease.out));
+  PLANS.slice(0, 3).forEach((p, pi) => {
+    let rank = 0;
+    for (let q = pi + 1; q < 3; q++) rank += ap[q];
+    TR(p.row, 760 + (1 - ap[pi]) * 24, 250 + rank * 76); O(p.row, ap[pi]);
+  });
+
+  // the toolbar: Whole map, then Tree
+  const squeeze = tc => 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI), kv = seg(t, T.map, T.map + .3);
+  TR(bWhole.g, bWhole.cx, 120, squeeze(T.map)); cls(bWhole.box, 'tb' + (t >= T.map ? ' on' : ''));
+  TR(bTree.g, bTree.cx, 120, squeeze(T.tree)); cls(bTree.box, 'tb' + (t >= T.tree ? ' on' : '')); O(bTree.g, kv);
+  TR(bRings.g, bRings.cx, 120); cls(bRings.box, 'tb' + (t >= T.map && t < T.tree ? ' on' : '')); O(bRings.g, kv);
+  TR(bReplay.g, bReplay.cx, 120);
+
+  drawPointer(t);
+}
+
+// ---- your pointer, drawn over everything ----
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+function drawPointer(t) {
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
+  const m = seg(t, cur.t - 1, cur.t - .12);
+  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
+  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+}
+
+// ---- transport ----
+const playB = document.getElementById('play'), scrub = document.getElementById('scrub'), clock = document.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+document.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+layoutRoute(); layout(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

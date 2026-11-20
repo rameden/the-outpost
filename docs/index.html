@@ -480,7 +480,7 @@ footer .mae-word { height: 16px; }
 .reveal.in { opacity: 1; transform: none; }
 
 /* films:start */
-/* The films: two tabs over one stage. The tab that's showing has a solid 2px line under it. */
+/* The films: in each section, a tab each over one stage. The tab that's showing has a solid 2px line under it. */
 .film-tabs { display: flex; flex-wrap: wrap; gap: 0 28px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
 .film-tabs button { font: 600 15px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; cursor: pointer; }
 .film-tabs button span { font: 400 12px var(--mono); color: var(--faint); margin-left: 8px; }
@@ -491,9 +491,9 @@ footer .mae-word { height: 16px; }
 .film-note { margin: 14px 0 0; color: var(--muted); font-size: 15px; max-width: 72ch; }
 .film-note code { font-family: var(--mono); font-size: .92em; white-space: nowrap; }
 /* The few colours the films use that the page has no other need of. */
-:root { --bad: #a94630; --bad-soft: #f5dfd8; --night-good: #93c47d; --shade: rgba(60, 40, 20, .13); --logo-stroke: 4; --on-light: 1; --on-dark: 0; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; } }
-:root[data-theme="dark"] { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; }
+:root { --bad: #a94630; --bad-soft: #f5dfd8; --night-good: #93c47d; --shade: rgba(60, 40, 20, .13); --logo-stroke: 4; --on-light: 1; --on-dark: 0; --sky: #1d2b4c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; --sky: #111c38; } }
+:root[data-theme="dark"] { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; --sky: #111c38; }
 /* films:end */
 @media (max-width: 960px) {
   .hero, .pitch { grid-template-columns: minmax(0, 1fr); gap: 36px; }
@@ -573,6 +573,7 @@ footer .mae-word { height: 16px; }
         <a href="#route">How it runs</a>
         <a href="#films">On film</a>
         <a href="#orbit">Orbit</a>
+        <a href="#videos">Videos</a>
         <a href="#kit">The kit</a>
         <a href="#rules">Camp rules</a>
         <a href="#pitch">Get started</a>
@@ -794,6 +795,35 @@ footer .mae-word { height: 16px; }
   </div>
 </section>
 
+<!-- videos:start -->
+<section id="videos">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Videos</div>
+      <h2>Three newer parts of the camp, in motion.</h2>
+      <p class="lede">Three more short films, drawn live in this page. Each shows one newer part of the camp: the trail map, the constellation and the night shift.</p>
+    </div>
+    <div class="film-tabs" role="tablist" aria-label="Videos">
+      <button type="button" role="tab" id="film-tab-trail" aria-controls="film-trail" aria-selected="true" data-film="trail">The trail map <span>0:36</span></button>
+      <button type="button" role="tab" id="film-tab-stars" aria-controls="film-stars" aria-selected="false" data-film="stars">The constellation <span>0:39</span></button>
+      <button type="button" role="tab" id="film-tab-night" aria-controls="film-night" aria-selected="false" data-film="night">The night shift <span>0:35</span></button>
+    </div>
+    <div class="film" id="film-trail" role="tabpanel" aria-labelledby="film-tab-trail">
+      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+      <p class="film-note">The trail map: one plan as waypoints, lit as the crew reaches each one, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>. It loops. Click the stage to pause.</p>
+    </div>
+    <div class="film" id="film-stars" role="tabpanel" aria-labelledby="film-tab-stars" hidden>
+      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+      <p class="film-note">The constellation: every line the crew remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it with <code>/constellation</code>. It loops. Click the stage to pause.</p>
+    </div>
+    <div class="film" id="film-night" role="tabpanel" aria-labelledby="film-tab-night" hidden>
+      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+      <p class="film-note">The night shift: off until you switch it on, then it drafts and reports while the camp is idle. Nothing is applied, deleted or changed until you approve it. It loops. Click the stage to pause.</p>
+    </div>
+  </div>
+</section>
+<!-- videos:end -->
+
 <section id="kit">
   <div class="wrap">
     <div class="sec-head">
@@ -828,7 +858,7 @@ footer .mae-word { height: 16px; }
         <span class="tag">While you're away</span>
         <h3>It keeps an eye on the work</h3>
         <p>Each part has its own switch under Settings, and nothing it starts goes ahead without your OK.</p>
-        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections, and drafts a how-to for work you keep asking for. Nothing is kept until you approve it</li><li>A night shift, off until you switch it on, uses the quiet hours to draft memory tidies, list old lines worth a look and note what housekeeping could clear. It only drafts and reports: the morning's Today page shows what it left, and nothing changes until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
+        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections, and drafts a how-to for work you keep asking for. Nothing is kept until you approve it</li><li>A night shift, off until you switch it on, uses the quiet hours to draft shorter versions of memories that are getting full, list old lines worth a look and note what housekeeping could clear. It only drafts and reports: the morning's Today page shows what it left, and nothing changes until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
       </div>
       <div class="item">
         <span class="tag">Projects &amp; Jira</span>
@@ -1087,9 +1117,9 @@ footer .mae-word { height: 16px; }
 })();
 </script>
 <!-- films-code:start -->
-<!-- The two films in the "On film" section, written here by `npm run tour:films` (scripts/tour-films.ts)
+<!-- The films in the "On film" and "Videos" sections, written here by `npm run tour:films` (scripts/tour-films.ts)
      from the pages in docs/films/. Edit those and run it again, rather than changing anything between
-     these markers. What follows is the films' styles, each one's stage, then the code that draws it.
+     these markers. What follows is the styles the films share, each one's own rules and stage, then the code that draws it.
      Each is mounted in a shadow root, so nothing here meets the page's own styles, and takes its
      colours from the page. -->
 <template id="film-css"><style>
@@ -1251,6 +1281,148 @@ footer .mae-word { height: 16px; }
     <button type="button" id="play">Pause</button>
     <input type="range" id="scrub" min="0" max="63.9" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 1:03</output>
+  </div>
+</template>
+<template id="film-trail-css"><style>
+/* The trail map: waypoints and the lines between them, then the rings and the tree. A step that's out, and a view that's on, has a solid accent border. */
+.t12 { font-size: 12px; }
+.stepn { font-size: 12px; fill: var(--muted); }
+.wp { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.wp.todo { stroke-dasharray: 5 4; }
+.wp.out { stroke: var(--accent); stroke-width: 2; }
+.wp.done { stroke: var(--good); }
+.mark-o { fill: none; stroke: var(--faint); stroke-width: 1.5; }
+.mark-out { fill: var(--accent); }
+.mark-ok { fill: none; stroke: var(--good); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.eg .ln { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
+.eg .ah { fill: var(--border-strong); }
+.eg.live .ln { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 6; }
+.eg.live .ah { fill: var(--accent); }
+.eg.walked .ln { stroke: var(--good); stroke-width: 2; }
+.eg.walked .ah { fill: var(--good); }
+.tb { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+.tb.on { stroke: var(--accent); stroke-width: 2; }
+.bearing { stroke: var(--border); stroke-width: 1; }
+.rim { fill: none; stroke: var(--border-strong); stroke-width: 1; }
+.dial { fill: none; stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 2 5; }
+.ringl { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
+.ringl.walked { stroke: var(--good); stroke-width: 2.5; }
+.gate { fill: var(--bg); stroke: var(--border-strong); stroke-width: 1.2; }
+.gate-n { font-size: 10.5px; fill: var(--muted); }
+.link { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: .1 6; stroke-linecap: round; }
+.trunk { fill: var(--border-strong); }
+.ground { stroke: var(--border-strong); stroke-width: 2; stroke-linecap: round; }
+.bough { fill: none; stroke: var(--border-strong); stroke-width: 2.5; stroke-linecap: round; }
+.knot { fill: var(--surface); stroke: var(--border-strong); stroke-width: 2; }
+.knot.on { fill: var(--accent); stroke: var(--accent); }
+</style></template>
+<template id="film-trail-stage">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's trail map. One plan is drawn as five numbered waypoints, joined by lines that fill in as the crew works through them. Then every plan of the day is put on one map, each plan a ring round the Quartermaster with the first asked innermost. The same plans are then drawn as a tree, one bough to a plan, and a fourth plan joins it as a new bough.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="36" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 0:36</output>
+  </div>
+</template>
+<template id="film-stars-css"><style>
+/* The constellation: a place is a disc, a remembered line is a star in its place's colour, and a line joins two that are alike (solid) or used together (dashed). The star you picked has a solid ring. */
+.t12 { font-size: 12px; }
+.t19 { font-size: 19px; }
+.c-about { --tone: var(--accent); }
+.place { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.star { fill: var(--tone); stroke: var(--surface); stroke-width: 1.5; }
+.lg-star { fill: var(--muted); }
+.aline { fill: none; stroke: var(--faint); stroke-width: 1.2; }
+.aline.together { stroke-dasharray: 4 4; }
+.ring-pin { fill: none; stroke: var(--tone); stroke-width: 1.5; }
+.ring-sel { fill: none; stroke: var(--ink); stroke-width: 2; }
+.ring-cand { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.ghost { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.btn-bad { fill: none; stroke: var(--bad); }
+.btn-badfill { fill: var(--bad); }
+.scrim { fill: var(--bg); }
+</style></template>
+<template id="film-stars-stage">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's constellation: the crew's memory drawn as a map of stars. Each remembered line is a star, grouped by the crew member whose memory holds it, or the note about you. Stars grow as requests use them. Then you click a star to read it and pin it, merge two lines that say the same thing into a draft that waits for your approval, and forget a line for good after it asks first.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="39.6" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 0:39</output>
+  </div>
+</template>
+<template id="film-night-css"><style>
+/* The night shift: a switch in Settings, a window on the camp that goes from day to night and back, the rows the shift writes, and the card on the Today page. */
+.t12 { font-size: 12px; }
+.t19 { font-size: 19px; }
+.daysky { fill: var(--surface-2); }
+.sky { fill: var(--sky); }
+.gnd { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.gnd-n { fill: var(--night); }
+.nstar { fill: var(--night-text); }
+.sunb { fill: var(--accent); }
+.moonb { fill: var(--night-text); }
+.winframe { fill: none; stroke: var(--border-strong); stroke-width: 1; }
+.tent { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.tent-door { fill: var(--border-strong); }
+.tent-n { fill: var(--night); }
+.lamp { fill: var(--accent); }
+.flame { fill: var(--accent); }
+.log { stroke: var(--border-strong); stroke-width: 4; stroke-linecap: round; }
+.sw { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; }
+.sw.on { fill: var(--accent); stroke: var(--accent); }
+.sw-knob { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.sw-knob.on { fill: var(--accent-ink); stroke: var(--accent-ink); }
+.clock-t { font-size: 26px; fill: var(--ink); }
+.st-on { fill: var(--accent); }
+.zz { font-size: 12px; fill: var(--night-text); }
+.spark { fill: var(--accent); }
+.dot-a { fill: var(--accent); }
+</style></template>
+<template id="film-night-stage">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's night shift. You switch it on in Settings and choose its hours. The camp goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="35.4" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 0:35</output>
   </div>
 </template>
 <script>
@@ -2871,32 +3043,1239 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { la
 requestAnimationFrame(frame);
 // the page says when this film can be seen: it only runs then
 return { show: v => { shown = !!v; } };
+},
+trail: function (root) {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = root.getElementById('stage');
+const DUR = 36, PI = Math.PI, NEVER = 1e9;
+const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+// there from a to b, fading in and out over d
+const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// a class, a text or a set of attributes, written only when it changes
+const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
+const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
+const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, box, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+
+// ---- crew badges ----
+const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+};
+// a badge at any size: its lines stay as heavy as they are at full size
+function badge(key, parent, s = 1) {
+  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
+  el('circle', { r: 24, class: 'disc' }, k);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
+  return g;
+}
+
+// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
+const defs = svg.querySelector('defs');
+// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
+const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
+el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
+el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+tx(svg, 1216, 61, 'm scene-l', 'TRAIL MAP', { 'text-anchor': 'end' });
+
+function titleCard(eyebrow, ink, accent, sub) {
+  const g = el('g');
+  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
+  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
+  el('tspan', { class: 'f-ink' }, tag, ink);
+  el('tspan', { class: 'f-accent' }, tag, accent);
+  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// the last card: how to open what the film showed
+function endCard(lead, box, sub) {
+  const g = el('g'), w = box.length * 8.45 + 56;
+  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
+  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
+  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
+  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// a caption and the line under it, from a to b
+const CAPS = [];
+const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
+// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
+const STOPS = [], gRoute = el('g');
+function makeRoute(list) {
+  list.forEach(([label, at], i) => {
+    const s = { label, at };
+    if (i < list.length - 1) {
+      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+    }
+    s.g = el('g', { class: 'stop' }, gRoute);
+    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
+    STOPS.push(s);
+  });
+}
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
+function drawChrome(t) {
+  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
+  O(gEnd, span(t, END + .2, DUR - .5, .45));
+  CAPS.forEach(c => {
+    const p = seg(t, c.a, c.a + .45, ease.out);
+    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
+  });
+  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at);
+    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
+  });
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+const CLICKS = [];
+
+// ---- the story: one plan as waypoints, the whole day as rings, the same day as a tree, and a plan that joins ----
+const T = { map: 11.7, tree: 20.3, join: 27.5 }, END = 32.4;
+const C = [400, 408], RING = [70, 128, 186], BEAR = [-90, -90, 47.5];
+const CX = [184, 488, 792, 1096], TX = 200, Y3 = [566, 448, 330], Y4 = [572, 468, 360, 262];
+const rad = d => d * PI / 180;
+const S = (who, col, row, after, out, done, lines) => ({ who, col, row, after, out, done, lines });
+// Each plan of the day and its steps: who walks it, where it sits, the steps it waits for, and when it goes out and is done.
+const PLANS = [
+  { time: '09:12', task: 'Fix the day-early dates', steps: [
+    S('scout', 0, 0, [], 4.6, 6.0, ['Find where dates', 'are formatted']),
+    S('art', 1, -1, [0], 6.0, 8.0, ['Fix the date-only', 'path']),
+    S('scribe', 1, 1, [0], 6.0, 7.4, ['Draft the release', 'note']),
+    S('warden', 2, -1, [1], 8.0, 9.3, ['Review the change']),
+    S('scribe', 3, 0, [2, 3], 9.3, 10.4, ['Write up the', 'pull request']),
+  ] },
+  { time: '10:40', task: 'Add a time zone test matrix', steps: [S('scout', 0, 0, [], -1, -1), S('art', 1, 0, [0], -1, -1), S('warden', 2, 0, [1], -1, -1)] },
+  { time: '13:05', task: 'Audit the export module', steps: [S('scout', 0, 0, [], -1, -1), S('art', 1, -1, [0], -1, -1), S('scribe', 1, 1, [0], -1, 17.2), S('warden', 2, 0, [1, 2], 17.2, 25.4)] },
+  { time: '15:30', task: 'Draft the changelog', steps: [S('scribe', 0, 0, [], 28.7, NEVER), S('warden', 1, 0, [0], NEVER, NEVER)] },
+];
+const stateOf = (s, t) => t >= s.done ? 'done' : t >= s.out ? 'out' : 'todo';
+const WORD = { todo: 'Not started', out: 'Out', done: 'Done' }, WORDW = { todo: 63, out: 21, done: 30 };
+const tallyOf = (p, t) => {
+  const done = p.steps.filter(s => stateOf(s, t) === 'done').length, out = p.steps.filter(s => stateOf(s, t) === 'out').length;
+  return `${done} of ${p.steps.length} done` + (out ? ` · ${out} out` : '');
+};
+
+const gScene = el('g');
+// the dial under the rings: the Quartermaster in the middle, bearings and a ticked rim
+const gDial = el('g', null, gScene);
+el('circle', { cx: C[0], cy: C[1], r: 222, class: 'rim' }, gDial);
+for (let i = 0; i < 72; i++) {
+  const a = rad(i * 5), r1 = i % 6 ? 217 : 211;
+  el('line', { x1: (C[0] + r1 * Math.cos(a)).toFixed(1), y1: (C[1] + r1 * Math.sin(a)).toFixed(1), x2: (C[0] + 222 * Math.cos(a)).toFixed(1), y2: (C[1] + 222 * Math.sin(a)).toFixed(1), class: 'rim' }, gDial);
+}
+for (let i = 0; i < 6; i++) {
+  const a = rad(i * 30), dx = 205 * Math.cos(a), dy = 205 * Math.sin(a);
+  el('line', { x1: (C[0] - dx).toFixed(1), y1: (C[1] - dy).toFixed(1), x2: (C[0] + dx).toFixed(1), y2: (C[1] + dy).toFixed(1), class: 'bearing' }, gDial);
+}
+el('circle', { cx: C[0], cy: C[1], r: 30, class: 'bgfill' }, gDial);
+el('circle', { cx: C[0], cy: C[1], r: 20, class: 'dial' }, gDial);
+el('circle', { cx: C[0], cy: C[1], r: 27, class: 'dial' }, gDial);
+badge('qm', gDial, .5).setAttribute('transform', `translate(${C[0]} ${C[1]})`);
+// the tree: the day is the trunk, with the ground under it
+const gTree = el('g', null, gScene);
+el('line', { x1: 120, y1: 632, x2: 620, y2: 632, class: 'ground' }, gTree);
+const trunk = el('path', { class: 'trunk' }, gTree);
+const gRings = el('g', null, gScene), gEdges = el('g', null, gScene), gMoons = el('g', null, gScene), gSteps = el('g', null, gScene);
+const link = el('line', { x1: C[0], y1: C[1] - RING[0] - 10, x2: C[0], y2: C[1] - RING[1] + 10, class: 'link' }, gRings);
+
+const EDGES = [];
+PLANS.forEach((p, pi) => {
+  if (pi < 3) {
+    const R = RING[pi], b = rad(BEAR[pi]);
+    p.gRing = el('g', null, gRings);
+    el('circle', { r: R, class: 'ringl' }, p.gRing);
+    p.walk = el('circle', { r: R, class: 'ringl walked', transform: `rotate(${BEAR[pi]})` }, p.gRing);
+    const gate = el('g', { transform: `translate(${(R * Math.cos(b)).toFixed(1)} ${(R * Math.sin(b)).toFixed(1)})` }, p.gRing);
+    el('rect', { x: -9, y: -9, width: 18, height: 18, rx: 4, class: 'gate' }, gate);
+    tx(gate, 0, 3.8, 'm gate-n', String(pi + 1), { 'text-anchor': 'middle' });
+  }
+  p.bough = el('path', { class: 'bough', pathLength: 1, 'stroke-dasharray': 1 }, gTree);
+  p.knot = el('circle', { cx: TX, r: 6, class: 'knot' }, gTree);
+  p.head = el('g', null, gTree);
+  tx(p.head, 0, 0, 'm t12 f-faint', p.time);
+  p.hTask = tx(p.head, 50, 0, 'b t15 w6 f-text', p.task);
+  p.hTally = tx(p.head, 260, 0, 'b t13 f-muted', '');
+  p.steps.forEach((s, si) => {
+    s.g = el('g', { class: 'c-' + s.who }, gSteps);
+    s.pulse = el('circle', { class: 'ping' }, s.g);
+    s.box = el('rect', { class: 'wp' }, s.g);
+    s.num = tx(s.g, 0, 0, 'm stepn', String(si + 1), { 'text-anchor': 'middle' });
+    s.mark = el('g', null, s.g);
+    s.mk = el('circle', { r: 4.5 }, s.mark);
+    s.ck = el('path', { d: 'M-4.6 .2 L-1.5 3.3 L4.6 -3.4', class: 'mark-ok' }, s.mark);
+    if (pi === 0) {
+      s.card = { x: CX[s.col], y: 400 + s.row * 72, w: 224, h: 116, rx: 10, nx: -94, ny: -26 };
+      s.gCard = el('g', null, s.g);
+      s.word = tx(s.gCard, 98, -26, 'b t12 w6', '', { 'text-anchor': 'end' });
+      s.lines.forEach((l, i) => tx(s.gCard, -98, (s.lines.length > 1 ? 0 : 10) + i * 21, 'b t16 w6 f-text', l));
+      el('circle', { cx: -93, cy: 39, r: 4.5, class: 'moon' }, s.gCard);
+      tx(s.gCard, -82, 43.5, 'b t13 w6 f-tone', CREW[s.who]);
+    }
+    if (pi < 3) {
+      const a = rad(BEAR[pi]) + (36 + 46 * si) / RING[pi];
+      s.ring = { x: C[0] + RING[pi] * Math.cos(a), y: C[1] + RING[pi] * Math.sin(a), w: 28, h: 28, rx: 14, nx: 0, ny: 4.2 };
+      s.moon = el('circle', { cx: (C[0] + (RING[pi] + 23) * Math.cos(a)).toFixed(1), cy: (C[1] + (RING[pi] + 23) * Math.sin(a)).toFixed(1), r: 4, class: 'moon c-' + s.who }, gMoons);
+    }
+    s.gMini = el('g', null, s.g);
+    el('circle', { cx: -47, cy: 0, r: 4, class: 'moon' }, s.gMini);
+    tx(s.gMini, -38, 4.3, 'b t12 w6 f-tone', CREW[s.who]);
+    for (const a of s.after) {
+      const g = el('g', { class: 'eg' }, gEdges);
+      EDGES.push({ pi, from: p.steps[a], to: s, g, ln: el('path', { class: 'ln' }, g), ah: el('path', { class: 'ah' }, g) });
+    }
+  });
+});
+
+// one plan at a time: which plan this is, over its waypoints
+const gPlan = el('g', null, gScene);
+tx(gPlan, 72, 232, 'm lbl', 'TODAY, 09:12');
+tx(gPlan, 72, 257, 'b t16 w6 f-text', PLANS[0].task);
+const planTally = tx(gPlan, 72, 279, 'b t13 f-muted', '');
+// the whole map as rings: the plans in a list beside it, newest first
+const gList = el('g', null, gScene);
+tx(gList, 760, 232, 'b t13 f-muted', 'All 3 plans, a ring each: the first asked innermost');
+PLANS.slice(0, 3).forEach((p, pi) => {
+  p.row = el('g', null, gList);
+  el('rect', { width: 448, height: 64, rx: 10, class: 'card' }, p.row);
+  el('rect', { x: 16, y: 23, width: 18, height: 18, rx: 4, class: 'gate' }, p.row);
+  tx(p.row, 25, 35.8, 'm gate-n', String(pi + 1), { 'text-anchor': 'middle' });
+  tx(p.row, 50, 28, 'b t15 w6 f-text', p.task);
+  tx(p.row, 50, 48, 'm t12 f-faint', p.time);
+  p.lTally = tx(p.row, 98, 48, 'b t13 f-muted', '');
+});
+// the toolbar: the views of the map, and the replay
+const gBar = el('g', null, gScene);
+function tb(cx, w, label) {
+  const g = el('g', null, gBar), box = el('rect', { x: -w / 2, y: -16, width: w, height: 32, rx: 8, class: 'tb' }, g);
+  tx(g, 0, 4.5, 'b t13 w6 f-text', label, { 'text-anchor': 'middle' });
+  return { g, box, cx };
+}
+const bTree = tb(890, 68, 'Tree'), bRings = tb(968, 72, 'Rings'), bWhole = tb(1070, 108, 'Whole map'), bReplay = tb(1170, 76, 'Replay');
+CLICKS.push({ t: T.map, x: 1070, y: 122 }, { t: T.tree, x: 890, y: 122 });
+
+const gTitle = titleCard('NEW IN CAMP · TRAIL MAP', 'The plan, ', 'drawn as a trail.', 'Every step a waypoint, and every plan of the day on one map.');
+const gEnd = endCard('Open it beside Orbit, or type', '/trail', 'M for the whole map · R for tree or rings · P to replay the day');
+caption('Each step is a waypoint.', 'A line runs from a step to each step that has to wait for it. It fills in as the crew works.', 3.0, T.map - .4);
+caption('Every plan of the day, on one map.', 'Each plan is a ring, the first asked innermost, so the map grows outward as the day goes on.', T.map + .3, T.tree - .3);
+caption('Or draw it as a tree.', 'One trunk for the day, the first plan at the foot, and each plan a bough growing off it.', T.tree + .3, T.join - .3);
+caption('A plan that joins is drawn in.', 'A bough grows, or a ring opens out, while the rest move over for it.', T.join + .2, END - .3);
+makeRoute([['One plan', 2.8], ['Whole map', T.map], ['Tree', T.tree], ['A plan joins', T.join]]);
+
+function layout() {
+  PLANS.forEach(p => p.hTally.setAttribute('x', (50 + p.hTask.getComputedTextLength() + 14).toFixed(1)));
+}
+
+const KEYS = ['x', 'y', 'w', 'h', 'rx', 'nx', 'ny'];
+function render(t) {
+  drawChrome(t);
+  O(gScene, seg(t, 2.4, 2.9) * (1 - seg(t, END - .3, END + .1)));
+  const k1 = seg(t, T.map, T.map + 1.2), k2 = seg(t, T.tree, T.tree + 1.4), kj = seg(t, T.join, T.join + .7);
+  const ringsOn = k1 * (1 - clamp(k2 * 2.5));
+
+  // the dial, the rings and what has been walked of each
+  O(gDial, ringsOn);
+  PLANS.forEach((p, pi) => {
+    if (pi > 2) return;
+    const kr = seg(t, T.map + .15 + pi * .4, T.map + .9 + pi * .4, ease.out);
+    TR(p.gRing, C[0], C[1], .88 + .12 * kr); O(p.gRing, kr * (1 - clamp(k2 * 2.5)));
+    let walked = 0;
+    for (let i = 0; i < p.steps.length; i++) {
+      const k = seg(t, p.steps[i].done, p.steps[i].done + .5);
+      walked += k * (i ? 46 : 36);
+      if (k < 1) break;
+    }
+    p.walk.setAttribute('stroke-dasharray', `${walked.toFixed(1)} ${(2 * PI * RING[pi]).toFixed(1)}`);
+  });
+  O(link, seg(t, T.map + .8, T.map + 1.3) * (1 - clamp(k2 * 2.5)));
+
+  // each step, somewhere between a waypoint card, a disc on its ring and a small card on its bough
+  PLANS.forEach((p, pi) => {
+    const by = pi < 3 ? lerp(Y3[pi], Y4[pi], kj) : Y4[3];
+    p.by = by;
+    p.steps.forEach((s, si) => {
+      const st = stateOf(s, t);
+      const k1s = pi === 0 ? seg(t, T.map + si * .06, T.map + 1.1 + si * .06) : 1;
+      const k2s = seg(t, T.tree + pi * .06 + si * .03, T.tree + 1.2 + pi * .06 + si * .03);
+      const tree = { x: 345 + s.col * 248, y: by + s.row * 20, w: 160, h: 34, rx: 8, nx: -65, ny: 4.2 };
+      const a0 = s.card || s.ring || tree, a1 = s.ring || tree, P = {};
+      for (const key of KEYS) P[key] = lerp(lerp(a0[key], a1[key], k1s), tree[key], k2s);
+      s.cur = P;
+      const ka = pi === 0 ? seg(t, 2.8 + si * .12, 3.3 + si * .12, ease.out)
+        : pi < 3 ? seg(t, T.map + .5 + pi * .4 + si * .1, T.map + 1 + pi * .4 + si * .1, ease.back)
+          : seg(t, T.join + .8 + si * .3, T.join + 1.3 + si * .3, ease.back);
+      TR(s.g, P.x, P.y + (pi === 0 ? (1 - ka) * 12 : 0), pi === 0 ? 1 : ka); O(s.g, pi === 0 ? ka : ka * 3);
+      put(s.box, { x: -P.w / 2, y: -P.h / 2, width: P.w, height: P.h, rx: P.rx }); cls(s.box, 'wp ' + st);
+      put(s.num, { x: P.nx, y: P.ny });
+      const inTree = k2s > 0;
+      s.mark.setAttribute('transform', inTree ? 'translate(64 0)' : `translate(${98 - WORDW[st] - 11} -30)`);
+      O(s.mark, inTree ? (k2s - .6) / .4 : 1 - k1s * 3);
+      cls(s.mk, st === 'out' ? 'mark-out' : 'mark-o'); O(s.mk, st === 'done' ? 0 : 1); O(s.ck, st === 'done' ? 1 : 0);
+      if (s.gCard) {
+        O(s.gCard, 1 - k1s * 3); say(s.word, WORD[st]);
+        cls(s.word, 'b t12 w6 ' + (st === 'done' ? 'f-good' : st === 'out' ? 'f-accent' : 'f-faint'));
+      }
+      O(s.gMini, (k2s - .55) / .45);
+      if (s.moon) O(s.moon, clamp(ka) * clamp((k1s - .7) / .3) * (1 - clamp(k2s * 3)));
+      const pk = (t * .8) % 1;
+      put(s.pulse, { r: lerp(14, 29, ease.out(pk)) }); O(s.pulse, st === 'out' && k1s > .98 && k2s < .02 ? (1 - pk) * .9 : 0);
+    });
+  });
+
+  // the lines between steps: grey until walked, marching while the step they lead to is out
+  EDGES.forEach(e => {
+    const a = e.from.cur, b = e.to.cur, x1 = a.x + a.w / 2, x2 = b.x - b.w / 2, mx = (x1 + x2) / 2;
+    e.ln.setAttribute('d', `M${x1.toFixed(1)} ${a.y.toFixed(1)} C${mx.toFixed(1)} ${a.y.toFixed(1)} ${mx.toFixed(1)} ${b.y.toFixed(1)} ${(x2 - 6).toFixed(1)} ${b.y.toFixed(1)}`);
+    e.ah.setAttribute('d', `M${(x2 - 8.5).toFixed(1)} ${(b.y - 4.5).toFixed(1)} L${x2.toFixed(1)} ${b.y.toFixed(1)} L${(x2 - 8.5).toFixed(1)} ${(b.y + 4.5).toFixed(1)} Z`);
+    const sa = stateOf(e.from, t), sb = stateOf(e.to, t), c = sb === 'done' ? ' walked' : sa === 'done' && sb === 'out' ? ' live' : '';
+    cls(e.g, 'eg' + c);
+    e.ln.style.strokeDashoffset = c === ' live' ? (-((t * 26) % 13)).toFixed(1) : '0';
+    const late = clamp((k2 - .8) / .2);
+    O(e.g, e.pi === 0 ? clamp(1 - k1 * 3.5) * seg(t, 3.5, 4.1) + late : late * (e.pi === 3 ? seg(t, T.join + 1.4, T.join + 1.8) : 1));
+  });
+
+  // the tree: the trunk grows up to the top bough, and each plan's bough is drawn out to its first step
+  O(gTree, k2 * 2);
+  const top = lerp(632, lerp(Y3[2], Y4[3], kj) - 4, seg(t, T.tree + .2, T.tree + 1.2));
+  trunk.setAttribute('d', `M${TX - 6} 632 L${TX - 2} ${top.toFixed(1)} L${TX + 2} ${top.toFixed(1)} L${TX + 6} 632 Z`);
+  PLANS.forEach((p, pi) => {
+    const by = p.by, ky = by + 26;
+    const kb = pi < 3 ? seg(t, T.tree + .5 + pi * .15, T.tree + 1.2 + pi * .15) : seg(t, T.join + .3, T.join + 1);
+    p.bough.setAttribute('d', `M${TX} ${ky.toFixed(1)} C${TX + 28} ${ky.toFixed(1)} ${TX + 26} ${by.toFixed(1)} 265 ${by.toFixed(1)}`);
+    p.bough.style.strokeDashoffset = (1 - kb).toFixed(3); O(p.bough, kb > 0 ? 1 : 0);
+    put(p.knot, { cy: ky }); O(p.knot, kb * 4); cls(p.knot, 'knot' + (p.steps.some(s => stateOf(s, t) === 'out') ? ' on' : ''));
+    p.head.setAttribute('transform', `translate(265 ${(by - 48).toFixed(1)})`); O(p.head, (kb - .5) * 2);
+    const tally = tallyOf(p, t);
+    say(p.hTally, tally); if (p.lTally) say(p.lTally, tally);
+  });
+
+  // one plan's name over its waypoints, and the list beside the rings
+  O(gPlan, seg(t, 2.6, 3.1) * (1 - k1 * 3)); say(planTally, tallyOf(PLANS[0], t));
+  O(gList, k1 * (1 - clamp(k2 * 3)));
+  const ap = [0, 1, 2].map(pi => seg(t, T.map + .5 + pi * .4, T.map + 1 + pi * .4, ease.out));
+  PLANS.slice(0, 3).forEach((p, pi) => {
+    let rank = 0;
+    for (let q = pi + 1; q < 3; q++) rank += ap[q];
+    TR(p.row, 760 + (1 - ap[pi]) * 24, 250 + rank * 76); O(p.row, ap[pi]);
+  });
+
+  // the toolbar: Whole map, then Tree
+  const squeeze = tc => 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI), kv = seg(t, T.map, T.map + .3);
+  TR(bWhole.g, bWhole.cx, 120, squeeze(T.map)); cls(bWhole.box, 'tb' + (t >= T.map ? ' on' : ''));
+  TR(bTree.g, bTree.cx, 120, squeeze(T.tree)); cls(bTree.box, 'tb' + (t >= T.tree ? ' on' : '')); O(bTree.g, kv);
+  TR(bRings.g, bRings.cx, 120); cls(bRings.box, 'tb' + (t >= T.map && t < T.tree ? ' on' : '')); O(bRings.g, kv);
+  TR(bReplay.g, bReplay.cx, 120);
+
+  drawPointer(t);
+}
+
+// ---- your pointer, drawn over everything ----
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+function drawPointer(t) {
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
+  const m = seg(t, cur.t - 1, cur.t - .12);
+  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
+  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+}
+
+// ---- transport ----
+const playB = root.getElementById('play'), scrub = root.getElementById('scrub'), clock = root.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+root.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+layoutRoute(); layout(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+requestAnimationFrame(frame);
+// the page says when this film can be seen: it only runs then
+return { show: v => { shown = !!v; } };
+},
+stars: function (root) {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = root.getElementById('stage');
+const DUR = 39.6, PI = Math.PI, NEVER = 1e9;
+const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+// there from a to b, fading in and out over d
+const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// a class, a text or a set of attributes, written only when it changes
+const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
+const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
+const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, box, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+
+// ---- crew badges ----
+const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+};
+// a badge at any size: its lines stay as heavy as they are at full size
+function badge(key, parent, s = 1) {
+  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
+  el('circle', { r: 24, class: 'disc' }, k);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
+  return g;
+}
+
+// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
+const defs = svg.querySelector('defs');
+// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
+const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
+el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
+el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+tx(svg, 1216, 61, 'm scene-l', 'CONSTELLATION', { 'text-anchor': 'end' });
+
+function titleCard(eyebrow, ink, accent, sub) {
+  const g = el('g');
+  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
+  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
+  el('tspan', { class: 'f-ink' }, tag, ink);
+  el('tspan', { class: 'f-accent' }, tag, accent);
+  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// the last card: how to open what the film showed
+function endCard(lead, box, sub) {
+  const g = el('g'), w = box.length * 8.45 + 56;
+  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
+  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
+  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
+  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// a caption and the line under it, from a to b
+const CAPS = [];
+const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
+// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
+const STOPS = [], gRoute = el('g');
+function makeRoute(list) {
+  list.forEach(([label, at], i) => {
+    const s = { label, at };
+    if (i < list.length - 1) {
+      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+    }
+    s.g = el('g', { class: 'stop' }, gRoute);
+    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
+    STOPS.push(s);
+  });
+}
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
+function drawChrome(t) {
+  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
+  O(gEnd, span(t, END + .2, DUR - .5, .45));
+  CAPS.forEach(c => {
+    const p = seg(t, c.a, c.a + .45, ease.out);
+    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
+  });
+  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at);
+    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
+  });
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+const CLICKS = [];
+
+// ---- the story: the map of stars, stars that grow as they're used, then a pin, a merge and a forget ----
+const T = { used: 9.8, pick: 17.4, pin: 20.0, merge: 23.4, pickB: 25.6, drafted: 27.6, pickF: 30.4, forget: 32.2, sure: 33.9 }, END = 36.0;
+const MC = [400, 412], rad = d => d * PI / 180;
+// Where a star sits in its place, before the place is turned so that the first faces the middle of the map.
+const SPOTS = [[0, -36], [31, -17], [33, 20], [2, 38], [-31, 21], [-35, -15], [1, 1]];
+// Each place and how often each of its lines has been used.
+const PLACES = [
+  { key: 'qm', name: 'Quartermaster', n: [5, 1, 0, 3, 2, 0] },
+  { key: 'art', name: 'Artificer', n: [2, 1, 0, 4, 1, 6, 0] },
+  { key: 'scribe', name: 'Scribe', n: [0, 3, 1, 0, 2] },
+  { key: 'scout', name: 'Scout', n: [3, 0, 1, 7, 2, 1] },
+  { key: 'warden', name: 'Warden', n: [1, 4, 0, 2, 0] },
+  { key: 'about', name: 'About you', n: [6, 2, 3, 1] },
+];
+const gScene = el('g'), gPlaces = el('g', null, gScene), gLines = el('g', null, gScene), gStars = el('g', null, gScene);
+const STARS = [], star = (key, i) => STARS.find(s => s.p.key === key && s.i === i);
+PLACES.forEach((p, pi) => {
+  const th = -90 + 60 * pi, r = rad(th + 270);
+  p.x = MC[0] + 150 * Math.cos(rad(th)); p.y = MC[1] + 150 * Math.sin(rad(th));
+  p.g = el('g', { class: 'c-' + p.key }, gPlaces);
+  el('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 60, class: 'place' }, p.g);
+  const side = Math.cos(rad(th));
+  if (Math.abs(side) < .1) tx(p.g, p.x, p.y - 70, 'b t13 w6 f-tone', p.name, { 'text-anchor': 'middle' });
+  else tx(p.g, p.x + (side > 0 ? 70 : -70), p.y + 4.5, 'b t13 w6 f-tone', p.name, { 'text-anchor': side > 0 ? 'start' : 'end' });
+  p.n.forEach((n, i) => {
+    const [sx, sy] = SPOTS[i], s = { p, i, base: n, uses: [], x: p.x + sx * Math.cos(r) - sy * Math.sin(r), y: p.y + sx * Math.sin(r) + sy * Math.cos(r) };
+    s.g = el('g', { class: 'c-' + p.key }, gStars);
+    s.pulse = el('circle', { class: 'pulse' }, s.g);
+    s.dot = el('circle', { class: 'star' }, s.g);
+    STARS.push(s);
+  });
+});
+const A = star('art', 0), B = star('art', 1), F = star('scribe', 0), S1 = star('scribe', 1), Q5 = star('qm', 5);
+// the requests that use the picked line, and the lines each one loaded with it
+const USES = [
+  { t: 12.3, ask: 'Why do the invoice dates show a day early?', stars: [A, S1, Q5] },
+  { t: 13.7, ask: 'Fix the date on the export sheet', stars: [A, Q5] },
+  { t: 14.5, ask: 'Add a test for the time zone bug', stars: [A, S1] },
+  { t: 15.3, ask: 'Write the release note for the date fix', stars: [A, S1, Q5] },
+  { t: 16.1, ask: 'Review the date change before it ships', stars: [A] },
+];
+USES.forEach(u => u.stars.forEach(s => s.uses.push(u.t)));
+const LINES = [
+  [A, B, 0], [star('scout', 3), star('scout', 4), 0], [star('about', 0), star('about', 1), 0], [star('warden', 1), star('warden', 2), 0],
+  [star('qm', 0), star('qm', 3), 0], [S1, star('scribe', 4), 0],
+  [star('scout', 5), star('warden', 1), 1], [star('about', 0), star('qm', 1), 1],
+  [A, S1, 1, USES[0].t], [A, Q5, 1, USES[0].t],
+].map(([a, b, together, from]) => ({ a, b, from, n: el('line', { class: 'aline' + (together ? ' together' : '') }, gLines) }));
+// rings: the one you picked, a pinned one, the ones a merge can take, and the draft that joins two
+const ringPin = el('circle', { class: 'ring-pin c-art' }, gStars);
+const ringA = el('circle', { class: 'ring-sel' }, gStars), ringB = el('circle', { class: 'ring-sel' }, gStars), ringF = el('circle', { class: 'ring-sel' }, gStars);
+const CANDS = STARS.filter(s => s.p === A.p && s !== A).map(s => ({ s, n: el('circle', { class: 'ring-cand' }, gStars) }));
+const ghost = el('rect', { class: 'ghost' }, gStars);
+
+// ---- the card on the right: what the map says, and what a click opens ----
+const PX = 770, PY = 206, PW = 438, PH = 404, IX = PX + 24;
+const gCard = el('g', null, gScene);
+el('rect', { x: PX, y: PY, width: PW, height: PH, rx: 14, class: 'card shadow' }, gCard);
+// the legend
+const pLegend = el('g', null, gCard);
+tx(pLegend, IX, PY + 52, 'd tk-title', 'Memory');
+const countT = tx(pLegend, IX, PY + 78, 'b t15 f-muted', '');
+el('line', { x1: IX, y1: PY + 100, x2: PX + PW - 24, y2: PY + 100, class: 'hr' }, pLegend);
+[['bigger: used more often', g => { el('circle', { cx: IX + 6, cy: 0, r: 3.5, class: 'lg-star' }, g); el('circle', { cx: IX + 26, cy: 0, r: 8, class: 'lg-star' }, g); }],
+  ['pinned', g => { el('circle', { cx: IX + 18, cy: 0, r: 6, class: 'lg-star' }, g); el('circle', { cx: IX + 18, cy: 0, r: 10, class: 'ring-pin c-you' }, g); }],
+  ['alike', g => el('line', { x1: IX, y1: 0, x2: IX + 36, y2: 0, class: 'aline' }, g)],
+  ['used together', g => el('line', { x1: IX, y1: 0, x2: IX + 36, y2: 0, class: 'aline together' }, g)],
+].forEach(([label, draw], i) => {
+  const g = el('g', { transform: `translate(0 ${PY + 140 + i * 40})` }, pLegend);
+  draw(g); tx(g, IX + 54, 5, 'b t15 f-text', label);
+});
+tx(pLegend, IX, PY + PH - 28, 'b t12 f-faint', 'Scroll to zoom · drag to move · click a star to read it');
+// the requests
+const pReq = el('g', null, gCard);
+tx(pReq, IX, PY + 40, 'm lbl', 'ASKED TODAY');
+USES.forEach((u, i) => {
+  u.g = el('g', null, pReq);
+  const y = PY + 78 + i * 62;
+  if (i === 0) { u.typed = typer(u.g, IX, y, 'b t15 w6 f-text', u.ask); u.caret = el('rect', { y: y - 13, width: 2, height: 17, class: 'caret' }, u.g); }
+  else tx(u.g, IX, y, 'b t15 w6 f-text', u.ask);
+  u.sub = tx(u.g, IX, y + 21, 'm t12 f-faint', `${u.stars.length} line${u.stars.length > 1 ? 's' : ''} loaded with it`);
+});
+// one line, read: where it's kept, where it came from and how often it has been used
+function linePanel(key, name, lines, from, used) {
+  const g = el('g', { class: 'c-' + key }, gCard), o = { g };
+  el('circle', { cx: IX + 5, cy: PY + 37, r: 5, class: 'moon' }, g);
+  tx(g, IX + 18, PY + 42, 'b t15 w6 f-tone', name);
+  lines.forEach((l, i) => tx(g, IX, PY + 82 + i * 26, 'b t19 w6 f-text', l));
+  el('line', { x1: IX, y1: PY + 130, x2: PX + PW - 24, y2: PY + 130, class: 'hr' }, g);
+  o.detail = el('g', null, g);
+  [['KEPT', `In ${name}'s memory`], ['FROM', from], ['USED', used]].forEach(([k, v], i) => {
+    tx(o.detail, IX, PY + 164 + i * 30, 'm lbl', k); tx(o.detail, IX + 62, PY + 164 + i * 30, 'b t15 f-text', v);
+  });
+  o.pin = button(o.detail, IX + 44, PY + PH - 42, 88, 'Pin', 'ghost');
+  o.merge = button(o.detail, IX + 168, PY + PH - 42, 136, 'Merge with…', 'ghost');
+  o.forget = button(o.detail, IX + 294, PY + PH - 42, 92, 'Forget', 'ghost');
+  o.forget.box.setAttribute('class', 'btn-bad'); o.forget.tn.setAttribute('class', 'b btn-t f-bad');
+  return o;
+}
+const pA = linePanel('art', 'Artificer', ['Dates from the API are UTC: never', 'format them in local time.'], 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
+const pinned = el('g', null, pA.g);
+el('rect', { x: PX + PW - 24 - 78, y: PY + 26, width: 78, height: 22, rx: 11, class: 'pill-a' }, pinned);
+tx(pinned, PX + PW - 24 - 39, PY + 41, 'm pill-t', 'PINNED', { 'text-anchor': 'middle' });
+// the merge: which line, then the draft of the one line
+const aMerge = el('g', null, pA.g);
+tx(aMerge, IX, PY + 166, 'b t16 w6 f-text', 'Merge with which line?');
+tx(aMerge, IX, PY + 190, 'b t13 f-muted', 'Pick another star in Artificer, or one from this list.');
+['API dates are in UTC, so show them as UTC.', 'Run the date tests in three time zones.'].forEach((l, i) => {
+  el('rect', { x: IX, y: PY + 208 + i * 50, width: PW - 48, height: 40, rx: 8, class: 'inset' }, aMerge);
+  el('circle', { cx: IX + 17, cy: PY + 228 + i * 50, r: 4, class: 'moon' }, aMerge);
+  tx(aMerge, IX + 32, PY + 233 + i * 50, 'b t15 f-text', l);
+});
+const aDraft = el('g', null, pA.g);
+const draftHead = tx(aDraft, IX, PY + 166, 'b t16 w6 f-text', '');
+const draftNote = el('g', null, aDraft);
+tx(draftNote, IX, PY + 190, 'b t13 f-muted', 'Nothing has changed yet: approve it on the Memory page');
+tx(draftNote, IX, PY + 208, 'b t13 f-muted', "and it takes both lines' place.");
+el('rect', { x: IX, y: PY + 228, width: PW - 48, height: 76, rx: 10, class: 'inset' }, aDraft);
+const draft1 = typer(aDraft, IX + 16, PY + 259, 'b t15 f-text', 'Dates from the API are UTC: format and show them');
+const draft2 = typer(aDraft, IX + 16, PY + 282, 'b t15 f-text', 'as UTC, never in local time.');
+const draftCaret = el('rect', { width: 2, height: 17, class: 'caret' }, aDraft);
+const bReview = button(aDraft, IX + 52, PY + PH - 42, 104, 'Review it');
+const pF = linePanel('scribe', 'Scribe', ['Use the old changelog template', 'until March.'], 'the crew noted it', 'Not recalled yet');
+// the forget asks first
+const gAsk = el('g', null, gScene);
+el('rect', { width: 1280, height: 720, class: 'scrim', opacity: .62 }, gAsk);
+const dlg = el('g', null, gAsk);
+el('rect', { x: -220, y: -100, width: 440, height: 200, rx: 14, class: 'card shadow' }, dlg);
+tx(dlg, -192, -52, 'd tk-title', 'Forget this line?');
+tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Scribe for good:");
+tx(dlg, -192, 4, 'b t15 f-text', '"Use the old changelog template until March."');
+const bCancel = button(dlg, -144, 58, 96, 'Cancel', 'ghost'), bSure = button(dlg, -36, 58, 96, 'Forget');
+bSure.box.setAttribute('class', 'btn-badfill');
+
+CLICKS.push({ t: T.pick, x: A.x, y: A.y }, { t: T.pin, x: pA.pin.cx, y: pA.pin.cy + 2 }, { t: T.merge, x: pA.merge.cx, y: pA.merge.cy + 2 }, { t: T.pickB, x: B.x, y: B.y },
+  { t: T.pickF, x: F.x, y: F.y }, { t: T.forget, x: pF.forget.cx, y: pF.forget.cy + 2 }, { t: T.sure, x: 640 - 36, y: 400 + 60 });
+
+const gTitle = titleCard('NEW IN CAMP · CONSTELLATION', "The crew's memory, ", 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
+const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the map from Settings → Memory.');
+caption('Every line it remembers is a star.', "Grouped by where it lives: a crew member's memory, or the note about you.", 3.0, T.used - .3);
+caption("A star grows each time it's used.", "Whenever a line bears on a request, or comes back from recall, it's written down.", T.used + .2, T.pick - .5);
+caption('Click a star to read it, and pin it.', 'A pinned line always goes in the prompt, however full that memory gets.', T.pick - .2, T.merge - .5);
+caption('Merge two that say the same thing.', 'The one line is drafted for you. Nothing changes until you approve it.', T.merge - .2, T.pickF - .6);
+caption('Forget one for good.', 'It asks first. Nothing is tidied without your say.', T.pickF - .3, END - .3);
+makeRoute([['Stars', 2.8], ['Used', T.used], ['Pin', T.pick], ['Merge', T.merge], ['Forget', T.pickF]]);
+
+function layout() {}
+
+const radiusOf = n => 4 + 3.2 * Math.sqrt(n);
+function render(t) {
+  drawChrome(t);
+  O(gScene, seg(t, 2.4, 2.9) * (1 - seg(t, END - .3, END + .1)));
+  // while a merge waits for its second line, every place but the first line's steps back
+  const dim = 1 - .78 * span(t, T.merge + .1, T.pickB + .5, .35);
+  PLACES.forEach((p, pi) => { p.dim = p === A.p ? 1 : dim; O(p.g, seg(t, 2.5 + pi * .08, 3 + pi * .08) * p.dim); });
+
+  // the stars: each as big as it has been used, half there until its first use
+  STARS.forEach((s, idx) => {
+    let n = s.base, ping = 0;
+    for (const u of s.uses) { n += seg(t, u, u + .45, ease.out); if (t >= u && t < u + .8) ping = (t - u) / .8; }
+    s.r = radiusOf(n);
+    const gone = s === F ? 1 - seg(t, T.sure + .05, T.sure + .6, ease.in) : 1;
+    put(s.dot, { cx: s.x, cy: s.y, r: s.r * seg(t, 2.9 + idx * .07, 3.4 + idx * .07, ease.back) * gone });
+    O(s.g, lerp(.5, 1, clamp(n)) * s.p.dim * (gone > 0 ? 1 : 0));
+    put(s.pulse, { cx: s.x, cy: s.y, r: s.r + ping * 24 }); O(s.pulse, ping > 0 ? (1 - ping) * .9 : 0);
+  });
+  // the lines between them, cut short of each star
+  LINES.forEach((l, i) => {
+    const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y, d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d;
+    put(l.n, { x1: l.a.x + ux * (l.a.r + 3), y1: l.a.y + uy * (l.a.r + 3), x2: l.b.x - ux * (l.b.r + 3), y2: l.b.y - uy * (l.b.r + 3) });
+    O(l.n, (l.from ? seg(t, l.from + .2, l.from + .8) : seg(t, 5.4 + i * .1, 6 + i * .1)) * Math.min(l.a.p.dim, l.b.p.dim));
+  });
+  // picked, pinned, offered for the merge, and joined by the draft
+  const selA = span(t, T.pick, T.pickF + .2, .25), selB = span(t, T.pickB, T.pickF + .2, .25), selF = span(t, T.pickF, T.sure + .3, .25);
+  put(ringA, { cx: A.x, cy: A.y, r: A.r + 8 }); O(ringA, selA);
+  put(ringB, { cx: B.x, cy: B.y, r: B.r + 8 }); O(ringB, selB);
+  put(ringF, { cx: F.x, cy: F.y, r: F.r + 8 }); O(ringF, selF);
+  put(ringPin, { cx: A.x, cy: A.y, r: A.r + 4 }); O(ringPin, seg(t, T.pin, T.pin + .3, ease.out));
+  const offer = span(t, T.merge + .2, T.pickB + .15, .25);
+  CANDS.forEach(c => { put(c.n, { cx: c.s.x, cy: c.s.y, r: c.s.r + 5 }); O(c.n, offer); });
+  const gk = seg(t, T.pickB + .3, T.pickB + .7), half = Math.max(A.r, B.r) + 13, len = Math.hypot(B.x - A.x, B.y - A.y) + 2 * half;
+  put(ghost, { x: -len / 2, y: -half, width: len, height: 2 * half, rx: half });
+  ghost.setAttribute('transform', `translate(${((A.x + B.x) / 2).toFixed(1)} ${((A.y + B.y) / 2).toFixed(1)}) rotate(${(Math.atan2(B.y - A.y, B.x - A.x) * 180 / PI).toFixed(1)})`);
+  O(ghost, gk * (t < T.drafted ? .55 + .45 * Math.sin((t - T.pickB) * 7) ** 2 : 1) * (1 - seg(t, T.pickF - .2, T.pickF + .2)));
+
+  // the card: the legend, the requests, a line that's been read
+  O(gCard, seg(t, 2.8, 3.3));
+  O(pLegend, 1 - seg(t, T.used, T.used + .4) + seg(t, T.sure + .6, T.sure + 1));
+  say(countT, t >= T.sure + .3 && t < END + 1 ? '32 lines in 6 places' : '33 lines in 6 places');
+  O(pReq, span(t, T.used + .3, T.pick + .1, .35));
+  USES.forEach((u, i) => {
+    if (i === 0) {
+      typeTo(u.typed, seg(t, 10.4, 12.0, ease.lin));
+      put(u.caret, { x: IX + u.typed.w + 2 }); O(u.caret, t > 10.2 && t < 12.2 && (t * 2.4) % 1 < .6 ? 1 : 0);
+      O(u.g, seg(t, T.used + .3, T.used + .6));
+    } else O(u.g, seg(t, u.t - .5, u.t - .15));
+    O(u.sub, seg(t, u.t, u.t + .3)); cls(u.sub, 'm t12 ' + (t >= u.t && t < u.t + .9 ? 'f-accent' : 'f-faint'));
+  });
+  O(pA.g, span(t, T.pick, T.pickF + .1, .3));
+  O(pA.detail, 1 - seg(t, T.merge, T.merge + .3));
+  press(pA.pin, t, T.pin, 'Unpin'); press(pA.merge, t, T.merge); press(pA.forget, t, NEVER);
+  O(pinned, seg(t, T.pin + .05, T.pin + .35, ease.out));
+  O(aMerge, span(t, T.merge + .2, T.pickB + .2, .3));
+  O(aDraft, seg(t, T.pickB + .1, T.pickB + .4));
+  say(draftHead, t >= T.drafted ? 'Drafted, and waiting for you.' : 'Drafting the one line…');
+  O(draftNote, seg(t, T.drafted, T.drafted + .35));
+  typeTo(draft1, seg(t, T.pickB + .4, T.pickB + 1.3, ease.lin)); typeTo(draft2, seg(t, T.pickB + 1.3, T.drafted - .15, ease.lin));
+  const on2 = t >= T.pickB + 1.3;
+  put(draftCaret, { x: IX + 18 + (on2 ? draft2.w : draft1.w), y: PY + (on2 ? 269 : 246) }); O(draftCaret, t > T.pickB + .3 && t < T.drafted && (t * 2.4) % 1 < .6 ? 1 : 0);
+  press(bReview, t, NEVER); O(bReview.g, seg(t, T.drafted + .1, T.drafted + .45, ease.out));
+  O(pF.g, span(t, T.pickF, T.sure + .7, .3));
+  press(pF.pin, t, NEVER); press(pF.merge, t, NEVER); press(pF.forget, t, T.forget);
+  // the question before a line is forgotten
+  const ask = span(t, T.forget + .05, T.sure + .35, .25);
+  O(gAsk, ask); TR(dlg, 640, 400 + (1 - ask) * 10, .97 + .03 * ask);
+  press(bCancel, t, NEVER); press(bSure, t, T.sure);
+
+  drawPointer(t);
+}
+
+// ---- your pointer, drawn over everything ----
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+function drawPointer(t) {
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
+  const m = seg(t, cur.t - 1, cur.t - .12);
+  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
+  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+}
+
+// ---- transport ----
+const playB = root.getElementById('play'), scrub = root.getElementById('scrub'), clock = root.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+root.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+layoutRoute(); layout(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+requestAnimationFrame(frame);
+// the page says when this film can be seen: it only runs then
+return { show: v => { shown = !!v; } };
+},
+night: function (root) {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = root.getElementById('stage');
+const DUR = 35.4, PI = Math.PI, NEVER = 1e9;
+const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+// there from a to b, fading in and out over d
+const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// a class, a text or a set of attributes, written only when it changes
+const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
+const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
+const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, box, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+
+// ---- crew badges ----
+const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+};
+// a badge at any size: its lines stay as heavy as they are at full size
+function badge(key, parent, s = 1) {
+  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
+  el('circle', { r: 24, class: 'disc' }, k);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
+  return g;
+}
+
+// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
+const defs = svg.querySelector('defs');
+// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
+const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
+el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
+el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+tx(svg, 1216, 61, 'm scene-l', 'NIGHT SHIFT', { 'text-anchor': 'end' });
+
+function titleCard(eyebrow, ink, accent, sub) {
+  const g = el('g');
+  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
+  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
+  el('tspan', { class: 'f-ink' }, tag, ink);
+  el('tspan', { class: 'f-accent' }, tag, accent);
+  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// the last card: how to open what the film showed
+function endCard(lead, box, sub) {
+  const g = el('g'), w = box.length * 8.45 + 56;
+  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
+  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
+  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
+  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// a caption and the line under it, from a to b
+const CAPS = [];
+const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
+// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
+const STOPS = [], gRoute = el('g');
+function makeRoute(list) {
+  list.forEach(([label, at], i) => {
+    const s = { label, at };
+    if (i < list.length - 1) {
+      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+    }
+    s.g = el('g', { class: 'stop' }, gRoute);
+    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
+    STOPS.push(s);
+  });
+}
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
+function drawChrome(t) {
+  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
+  O(gEnd, span(t, END + .2, DUR - .5, .45));
+  CAPS.forEach(c => {
+    const p = seg(t, c.a, c.a + .45, ease.out);
+    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
+  });
+  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at);
+    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
+  });
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+const CLICKS = [];
+
+// ---- the story: you switch it on, the camp goes quiet, the shift drafts and reports, and the morning shows what it found ----
+const T = { on: 5.6, dusk: 8.6, shift: 13.6, done: 20.6, dawn: 22.4, look: 29.2 }, END = 31.8;
+
+// ---- Settings: off until you switch it on ----
+const SX = 200, SY = 230, SW = 880, SH = 250, IX = SX + 28, swY = SY + 212;
+const gSet = el('g');
+el('rect', { x: SX, y: SY, width: SW, height: SH, rx: 14, class: 'card shadow' }, gSet);
+tx(gSet, IX, SY + 38, 'm lbl', 'WHAT MAE DOES UNASKED');
+tx(gSet, IX, SY + 76, 'd tk-title', 'Night shift');
+['Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts shorter',
+  'versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping',
+  'could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it.',
+].forEach((l, i) => tx(gSet, IX, SY + 110 + i * 23, 'b t15 f-muted', l));
+el('line', { x1: IX, y1: SY + 176, x2: SX + SW - 28, y2: SY + 176, class: 'hr' }, gSet);
+const swTrack = el('rect', { x: IX, y: swY - 12, width: 44, height: 24, rx: 12 }, gSet), swKnob = el('circle', { cy: swY, r: 8 }, gSet);
+const swOff = tx(gSet, IX + 58, swY + 5, 'b t15 f-muted', 'Off');
+const gOn = el('g', null, gSet), onT = tx(gOn, IX + 58, swY + 5, 'b t15 w6 f-text', 'On, from'), gHours = el('g', null, gOn);
+[['01:00', IX + 134], ['05:00', IX + 240]].forEach(([s, x]) => {
+  el('rect', { x, y: swY - 16, width: 72, height: 32, rx: 8, class: 'inset' }, gHours);
+  tx(gHours, x + 36, swY + 4.5, 'm code f-text', s, { 'text-anchor': 'middle' });
+});
+tx(gHours, IX + 223, swY + 5, 'b t15 f-muted', 'to', { 'text-anchor': 'middle' });
+const bRun = button(gOn, SX + SW - 28 - 56, swY, 112, 'Run it now', 'ghost');
+
+// ---- a window on the camp: day, night and day again ----
+const WX = 72, WY = 196, WH = 434, WIDE = 1136, NARROW = 528, SHIFT = 300;
+const gCamp = el('g');
+const clip = el('rect', { x: WX, y: WY, height: WH, rx: 14 }, el('clipPath', { id: 'win' }, defs));
+const gWin = el('g', { 'clip-path': 'url(#win)' }, gCamp);
+el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'daysky' }, gWin);
+const sky = el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'sky' }, gWin);
+const rnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+const NSTARS = [];
+for (let i = 0; i < 54; i++) NSTARS.push({ ph: rnd(i + 300) * 6.28, sp: 1.2 + rnd(i + 400) * 1.8,
+  n: el('circle', { cx: (WX + 14 + rnd(i) * (WIDE - 28)).toFixed(1), cy: (WY + 12 + rnd(i + 100) * 300).toFixed(1), r: (.9 + rnd(i + 200) * 1.3).toFixed(2), class: 'nstar' }, gWin) });
+// the land moves across as the window narrows, so the camp is always in the middle of it
+const gLand = el('g', null, gWin);
+const gSun = el('g', null, gLand);
+el('circle', { r: 74, fill: 'url(#glow)', opacity: .7 }, gSun); el('circle', { r: 24, class: 'sunb' }, gSun);
+const gMoon = el('g', null, gLand);
+el('path', { d: 'M6 -21 A22 22 0 1 0 6 21 A24 24 0 0 1 6 -21 Z', class: 'moonb', transform: 'rotate(-24)' }, gMoon);
+const GROUND = 'M-260 560 C-60 548 60 556 190 542 S460 540 640 548 S1000 526 1240 546 S1440 552 1540 544 V640 H-260 Z';
+el('path', { d: GROUND, class: 'gnd' }, gLand);
+const gndN = el('path', { d: GROUND, class: 'gnd-n' }, gLand);
+// the tent, and the lamp in it while the shift is on
+const TENT = [190, 566], gTent = el('g', { transform: `translate(${TENT[0]} ${TENT[1]})` }, gLand);
+el('path', { d: 'M-7 -104 L0 -92 L7 -104', class: 'tent', fill: 'none' }, gTent);
+el('path', { d: 'M-74 0 L0 -92 L74 0 Z', class: 'tent' }, gTent);
+const tentN = el('path', { d: 'M-74 0 L0 -92 L74 0 Z', class: 'tent-n' }, gTent);
+el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'tent-door' }, gTent);
+const lampHalo = el('circle', { cy: -22, r: 54, fill: 'url(#glow)' }, gTent), lamp = el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'lamp' }, gTent);
+// the fire, and the crew round it
+const gFire = el('g', { transform: 'translate(318 578)' }, gLand);
+const fireHalo = el('circle', { cy: -12, r: 44, fill: 'url(#glow)' }, gFire);
+el('path', { d: 'M-15 0 L15 -7 M-15 -7 L15 0', class: 'log' }, gFire);
+const flame = el('path', { d: 'M0 0 C-13 -8 -9 -22 0 -34 C9 -22 13 -8 0 0 Z', class: 'flame' }, gFire);
+const SLEEPERS = [['qm', 376, 580], ['scout', 424, 573], ['scribe', 472, 582], ['art', 520, 574], ['warden', 568, 579]].map(([key, x, y], i) => {
+  const g = badge(key, gLand, .56); g.setAttribute('transform', `translate(${x} ${y})`);
+  return { g, x, y, i, z: tx(gLand, x, y, 'm zz', 'z') };
+});
+const winFrame = el('rect', { x: WX, y: WY, height: WH, rx: 14, class: 'winframe' }, gCamp);
+// the clock in the corner of the window, and what the camp is doing
+const gClock = el('g', null, gCamp);
+el('rect', { x: WX + 20, y: WY + 18, width: 304, height: 72, rx: 12, class: 'card' }, gClock);
+const clockT = tx(gClock, WX + 40, WY + 52, 'd clock-t', '');
+tx(gClock, WX + 304, WY + 48, 'm lbl', 'HOURS 01:00 TO 05:00', { 'text-anchor': 'end' });
+const statusT = tx(gClock, WX + 40, WY + 75, 'm lbl', '');
+
+// ---- what the shift writes down, one row at a time ----
+const RX = 630, RW = 578;
+const ROWS = [
+  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: "Scout's and Artificer's, both more than 60% full", pill: 'DRAFT · WAITS FOR YOUR OK' },
+  { at: 16.5, label: 'OLD LINES', title: 'Listed 5 old lines worth a look', sub: 'Not pinned, and more than 90 days old', pill: 'LISTED · NOTHING TOUCHED' },
+  { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: 'Finished run logs, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
+];
+const gRows = el('g'), gSparks = el('g');
+ROWS.forEach((r, i) => {
+  r.y = 196 + 152 * i; r.g = el('g', null, gRows);
+  el('rect', { x: RX, y: r.y, width: RW, height: 130, rx: 14, class: 'card' }, r.g);
+  tx(r.g, RX + 24, r.y + 37, 'm lbl', r.label);
+  r.typed = typer(r.g, RX + 24, r.y + 74, 'b t19 w6 f-text', r.title);
+  r.caret = el('rect', { y: r.y + 58, width: 2, height: 20, class: 'caret' }, r.g);
+  r.subT = tx(r.g, RX + 24, r.y + 102, 'b t15 f-muted', r.sub);
+  const pw = r.pill.length * 7.4 + 26;
+  r.pillG = el('g', null, r.g);
+  el('rect', { x: RX + RW - 20 - pw, y: r.y + 20, width: pw, height: 24, rx: 12, class: 'pill' }, r.pillG);
+  tx(r.pillG, RX + RW - 20 - pw / 2, r.y + 36, 'm pill-t', r.pill, { 'text-anchor': 'middle' });
+  r.spark = el('g', null, gSparks);
+  el('circle', { r: 20, fill: 'url(#glow)' }, r.spark); el('circle', { r: 4.5, class: 'spark' }, r.spark);
+});
+
+// ---- the morning: the card on your Today page ----
+const TX0 = 630, TY = 196, TW = 578, TH = 434, JX = TX0 + 26;
+const gToday = el('g');
+el('rect', { x: TX0, y: TY, width: TW, height: TH, rx: 14, class: 'card shadow' }, gToday);
+tx(gToday, JX, TY + 48, 'd tk-title', 'While you were away');
+tx(gToday, TX0 + TW - 26, TY + 45, 'm lbl', 'NIGHT SHIFT, 01:04', { 'text-anchor': 'end' });
+el('line', { x1: JX, y1: TY + 70, x2: TX0 + TW - 26, y2: TY + 70, class: 'hr' }, gToday);
+const ITEMS = [
+  ['Drafted shorter versions of 2 memories', 'Scout and Artificer. Nothing changes until you approve them.'],
+  ['5 old lines worth a look', 'Not pinned, and more than 90 days old. Nothing was changed.'],
+  ['Housekeeping could clear finished run logs (about 48 MB)', 'Nothing was cleared: ask for a camp cleanup when you want it done.'],
+].map(([title, sub], i) => {
+  const y = TY + 106 + i * 82, g = el('g', null, gToday);
+  el('circle', { cx: JX + 5, cy: y - 5, r: 4, class: 'dot-a' }, g);
+  tx(g, JX + 20, y, 'b t16 w6 f-text', title); tx(g, JX + 20, y + 23, 'b t13 f-muted', sub);
+  el('line', { x1: JX, y1: y + 47, x2: TX0 + TW - 26, y2: y + 47, class: 'hr' }, g);
+  return { g, y };
+});
+const bLook = button(ITEMS[0].g, TX0 + TW - 26 - 66, ITEMS[0].y + 6, 132, 'Look them over');
+const bDismiss = button(gToday, JX + 46, TY + TH - 46, 92, 'Dismiss', 'ghost');
+tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reported. Nothing was applied or deleted.');
+
+CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
+
+const gTitle = titleCard('NEW IN CAMP · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the camp is idle. Nothing changes until you approve it.');
+const gEnd = endCard('Switch it on under', 'Settings → What Mae does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
+caption('Off until you switch it on.', 'Under Settings → What Mae does unasked. You choose the hours.', 3.0, T.dusk - .3);
+caption('The camp goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
+caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
+caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);
+makeRoute([['Switch it on', 2.8], ['Quiet hours', T.dusk], ['The shift', T.shift], ['Morning', T.dawn]]);
+
+// the hours sit right after "On, from", however wide the type runs
+function layout() { gHours.setAttribute('transform', `translate(${(onT.getComputedTextLength() - 64).toFixed(1)} 0)`); }
+
+const pad2 = n => String(n).padStart(2, '0');
+function render(t) {
+  drawChrome(t);
+  // the switch
+  O(gSet, span(t, 2.5, T.dusk, .45));
+  const on = t >= T.on + .08;
+  cls(swTrack, on ? 'sw on' : 'sw'); cls(swKnob, on ? 'sw-knob on' : 'sw-knob');
+  put(swKnob, { cx: IX + 12 + 20 * seg(t, T.on, T.on + .25) });
+  O(swOff, 1 - seg(t, T.on, T.on + .2)); O(gOn, seg(t, T.on + .1, T.on + .5, ease.out));
+  press(bRun, t, NEVER);
+
+  // the window: it narrows when the shift starts, and the land slides so the camp stays in view
+  const out = 1 - seg(t, END - .3, END + .1);
+  O(gCamp, seg(t, T.dusk - .1, T.dusk + .4) * out);
+  const narrow = seg(t, T.shift, T.shift + .7), ww = lerp(WIDE, NARROW, narrow), dx = SHIFT * (1 - narrow);
+  put(clip, { width: ww }); put(winFrame, { width: ww });
+  gLand.setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
+  const night = seg(t, T.dusk + 1.1, T.dusk + 3.1) * (1 - seg(t, T.dawn, T.dawn + 2));
+  O(sky, night); O(gndN, night); O(tentN, night * .62);
+  NSTARS.forEach(s => O(s.n, night * (.4 + .6 * Math.sin(t * s.sp + s.ph) ** 2)));
+  const first = t < (T.shift + T.dawn) / 2;
+  TR(gSun, 440, first ? lerp(318, 650, seg(t, T.dusk + .2, T.dusk + 2.2)) : lerp(650, 318, seg(t, T.dawn + .1, T.dawn + 2.3, ease.out)));
+  TR(gMoon, 500, first ? lerp(650, 286, seg(t, T.dusk + 2, T.dusk + 4, ease.out)) : lerp(286, 650, seg(t, T.dawn - .1, T.dawn + 1.6, ease.in)));
+  // the fire burns down for the night; the lamp in the tent is the shift at work
+  const fire = first ? lerp(1, .38, seg(t, T.dusk + 2, T.dusk + 4)) : lerp(.38, 1, seg(t, T.dawn + .8, T.dawn + 2.2));
+  flame.setAttribute('transform', `scale(${(fire * (1 + .07 * Math.sin(t * 13))).toFixed(3)} ${(fire * (1 + .14 * Math.sin(t * 9.1 + 1))).toFixed(3)})`);
+  O(fireHalo, fire * .75);
+  const work = span(t, T.shift + .3, T.done + .5, .4) * (.8 + .2 * Math.sin(t * 10) ** 2);
+  O(lamp, work); O(lampHalo, work * .9);
+  SLEEPERS.forEach(s => {
+    O(s.g, lerp(1, .5, night));
+    const k = (t * .42 + s.i * .27) % 1;
+    put(s.z, { x: s.x + 9 + k * 9, y: s.y - 14 - k * 24 }); O(s.z, night > .95 ? Math.sin(k * PI) * .9 : 0);
+  });
+  // the clock, and what the camp is doing
+  const mins = t < T.shift ? lerp(10, 240, seg(t, T.dusk + .4, T.shift - 1.6)) : t < T.dawn ? lerp(240, 244, seg(t, T.shift + .6, T.done, ease.lin)) : lerp(245, 630, seg(t, T.dawn, T.dawn + 2.2));
+  const q = t >= T.shift && t < T.dawn ? 1 : 5, m = Math.round(mins / q) * q + 21 * 60;
+  say(clockT, pad2(Math.floor(m / 60) % 24) + ':' + pad2(m % 60));
+  say(statusT, t < T.shift - 1.6 ? 'THE CAMP IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
+  cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
+
+  // each row: a spark leaves the tent, the row is written, and its tag says nothing was changed
+  ROWS.forEach(r => {
+    const k = seg(t, r.at, r.at + .6), x0 = TENT[0] + dx, y0 = TENT[1] - 30, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
+    const sx = (1 - k) * (1 - k) * x0 + 2 * k * (1 - k) * ((x0 + x1) / 2) + k * k * x1, sy = (1 - k) * (1 - k) * y0 + 2 * k * (1 - k) * cy + k * k * y1;
+    TR(r.spark, sx, sy); O(r.spark, k > 0 && k < 1 ? Math.min(1, k * 8, (1 - k) * 8) : 0);
+    O(r.g, seg(t, r.at + .45, r.at + .8) * (1 - seg(t, T.dawn + .2, T.dawn + .7)));
+    typeTo(r.typed, seg(t, r.at + .8, r.at + 1.7, ease.lin));
+    put(r.caret, { x: RX + 26 + r.typed.w }); O(r.caret, t > r.at + .6 && t < r.at + 1.9 && (t * 2.4) % 1 < .6 ? 1 : 0);
+    O(r.subT, seg(t, r.at + 1.75, r.at + 2.05)); O(r.pillG, seg(t, r.at + 1.85, r.at + 2.15, ease.out));
+  });
+
+  // the morning
+  const up = seg(t, T.dawn + .9, T.dawn + 1.4, ease.out);
+  O(gToday, up * out); gToday.setAttribute('transform', `translate(0 ${((1 - up) * 12).toFixed(2)})`);
+  ITEMS.forEach((it, i) => O(it.g, seg(t, T.dawn + 1.5 + i * .35, T.dawn + 1.9 + i * .35)));
+  press(bLook, t, T.look); press(bDismiss, t, NEVER);
+
+  drawPointer(t);
+}
+
+// ---- your pointer, drawn over everything ----
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+function drawPointer(t) {
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
+  const m = seg(t, cur.t - 1, cur.t - .12);
+  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
+  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+}
+
+// ---- transport ----
+const playB = root.getElementById('play'), scrub = root.getElementById('scrub'), clock = root.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+root.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+layoutRoute(); layout(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+requestAnimationFrame(frame);
+// the page says when this film can be seen: it only runs then
+return { show: v => { shown = !!v; } };
 }
   };
-  var keys = ['ticket', 'audit'], film = {}, active = keys[0], inView = false;
-  keys.forEach(function (key) {
-    film[key] = { panel: document.getElementById('film-' + key), tab: document.getElementById('film-tab-' + key), ctl: null };
-    film[key].tab.addEventListener('click', function () { active = key; update(); });
-  });
+  var film = {};
   // A film is built the first time it is on screen, and only moves while it is.
   function mount(key) {
     var f = film[key], root = f.panel.querySelector('.film-stage').attachShadow({ mode: 'open' });
     root.appendChild(document.getElementById('film-css').content.cloneNode(true));
+    var own = document.getElementById('film-' + key + '-css');
+    if (own) root.appendChild(own.content.cloneNode(true));
     root.appendChild(document.getElementById('film-' + key + '-stage').content.cloneNode(true));
     f.ctl = DRAW[key](root);
   }
-  function update() {
+  // Each section has its own tabs, and its films move only while that section is on screen.
+  [{ id: 'films', keys: ['ticket', 'audit'] }, { id: 'videos', keys: ['trail', 'stars', 'night'] }].forEach(function (sec) {
+    var keys = sec.keys, active = keys[0], inView = false;
+    function update() {
+      keys.forEach(function (key) {
+        var f = film[key], on = key === active;
+        f.panel.hidden = !on; f.tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on && inView && !f.ctl) mount(key);
+        if (f.ctl) f.ctl.show(on && inView);
+      });
+    }
     keys.forEach(function (key) {
-      var f = film[key], on = key === active;
-      f.panel.hidden = !on; f.tab.setAttribute('aria-selected', on ? 'true' : 'false');
-      if (on && inView && !f.ctl) mount(key);
-      if (f.ctl) f.ctl.show(on && inView);
+      film[key] = { panel: document.getElementById('film-' + key), tab: document.getElementById('film-tab-' + key), ctl: null };
+      film[key].tab.addEventListener('click', function () { active = key; update(); });
     });
-  }
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver(function (entries) { inView = entries[entries.length - 1].isIntersecting; update(); }, { threshold: .2 }).observe(document.getElementById('films'));
-  } else { inView = true; }
-  update();
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) { inView = entries[entries.length - 1].isIntersecting; update(); }, { threshold: .2 }).observe(document.getElementById(sec.id));
+    } else { inView = true; }
+    update();
+  });
 })();
 </script>
 <!-- films-code:end -->
