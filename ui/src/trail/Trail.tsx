@@ -36,6 +36,7 @@ import { stepState, type FeedNode, type PlanNode, type PlanQuest, type StepState
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, clock, cx } from "../format.ts";
 import { reelOf, type Reel } from "../orbit/replay.ts";
+import { STARS, wrap } from "../orbit/scene.ts";
 import { Timeline, type Time } from "../orbit/Timeline.tsx";
 import type { CampEvent, CampState } from "../types.ts";
 import { motionOK, useLingering } from "../motion.tsx";
@@ -243,12 +244,19 @@ function Moon({ q, at, ended, expId, crewId, onOpen }: { q: PlanQuest; at: { dx:
 // pointing at (or have tabbed to) says in full. sky: the drawing, for the map to be fitted to the window.
 // going: the plans that have just gone, still drawn while they fade. The plans by name, and the
 // map itself, glide to make room when one joins or goes.
+// How far each sheet of stars drifts for a pixel the rings are scrolled: Orbit's depths, made big enough to be felt.
+const STAR_DRIFT = 2.4;
+
 function TrailRings({ plans, going, crewId, openIn, onOnly, zoom, sky }: {
   plans: Trailhead[]; going: Set<string>; crewId: CrewId; openIn: (p: Trailhead) => Open | undefined; onOnly: (expId: string) => void; zoom: number; sky: RefObject<HTMLDivElement | null>;
 }) {
-  const runs = useRef<HTMLOListElement>(null);
+  const runs = useRef<HTMLOListElement>(null), stars = useRef<(HTMLDivElement | null)[]>([]);
   useSettle(runs);
   useMiddle(sky, zoom);
+  const drift = (box: HTMLElement) => STARS.forEach(([tile, depth], j) => {
+    const el = stars.current[j];
+    if (el) el.style.transform = `translate3d(${wrap(-box.scrollLeft * depth * STAR_DRIFT, tile).toFixed(1)}px, ${wrap(-box.scrollTop * depth * STAR_DRIFT, tile).toFixed(1)}px, 0)`;
+  });
   // Laid out again only when a plan's shape changes or one joins, not each time a quest moves.
   const shape = JSON.stringify(plans.map((p) => [p.expId, p.thread, p.plan.steps.map((s) => [s.n, s.after])]));
   const map = useMemo(() => ringsOf(plans.map((p) => ({ expId: p.expId, thread: p.thread, steps: p.plan.steps }))), [shape]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -283,62 +291,68 @@ function TrailRings({ plans, going, crewId, openIn, onOnly, zoom, sky }: {
         })}
       </ol>
       <div className="trail-sky-side">
-        <div className="trail-sky-box">
-          <div className="trail-sky" ref={sky} style={{ width: size, height: size, zoom, "--disc": `${DISC}px`, "--moon": `${MOON}px` } as CSSProperties}>
-            <svg className="trail-lines" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-              {/* The instrument behind it all, as in Orbit: bearings, and a rim with its ticks. */}
-              {[0, 30, 60, 90, 120, 150].map((a) => <line key={a} className="trail-bearing" x1={c - far} y1={c} x2={c + far} y2={c} transform={`rotate(${a} ${c} ${c})`} />)}
-              <circle className="trail-rim" cx={c} cy={c} r={far} />
-              <circle className="trail-ticks" cx={c} cy={c} r={far - 3} pathLength={360} strokeDasharray="0.4 4.6" />
-              <circle className="trail-ticks long" cx={c} cy={c} r={far - 5} pathLength={360} strokeDasharray="0.5 29.5" />
-              {/* The sun: the Quartermaster, whose plans these are. */}
-              <circle className="trail-sun-dial" cx={c} cy={c} r={31} strokeDasharray="14 5 2 5" />
-              <circle className="trail-sun-dial inner" cx={c} cy={c} r={23} strokeDasharray="2 4.5" />
-              <circle className="trail-sun" cx={c} cy={c} r={14} />
-              {map.links.map((l) => <path key={l.to} className={cx("trail-link", hot && (hot.expId === l.from || hot.expId === l.to) && "hot", (going.has(l.from) || going.has(l.to)) && "leaving")} data-join={`${l.from}>${l.to}`} d={l.d} />)}
-              {map.rings.map((ring) => {
-                const p = by.get(ring.expId);
-                if (!p) return null;
-                const state = new Map(p.plan.steps.map((s) => [s.n, stepState(s, p.plan.ended)]));
-                return (
-                  <g key={ring.expId} className={cx("trail-ring", p.running && "running", hot?.expId === ring.expId && "hot", going.has(ring.expId) && "leaving")} data-exp={ring.expId}>
-                    <circle className="trail-orbit" cx={c} cy={c} r={ring.r} />
-                    {ring.edges.map((e) => (
-                      <g key={`${e.from}-${e.to}`} data-line={`${e.from}-${e.to}`} data-lane={e.lane} className={cx("trail-edge", state.get(e.from) === "done" && "walked", state.get(e.from) === "done" && state.get(e.to) === "out" && "live")}>
-                        <path d={e.d} /><path className="tip" d={e.tip} />
-                      </g>
-                    ))}
-                  </g>
-                );
-              })}
-            </svg>
-            <ol className="trail-ring-list" aria-label="Every plan as a ring, the first asked innermost">
-              {map.rings.map((ring) => {
-                const p = by.get(ring.expId);
-                if (!p) return null;
-                const stepOf = new Map(p.plan.steps.map((s) => [s.n, s]));
-                return (
-                  <li key={ring.expId} className={cx("trail-ring-run", p.running && "running", hot?.expId === ring.expId && "hot", going.has(ring.expId) && "leaving")} data-exp={ring.expId}
-                    inert={going.has(ring.expId) || undefined}>
-                    <span className="trail-ring-no" style={{ left: ring.gate.x, top: ring.gate.y }} aria-hidden="true">{ring.ring}</span>
-                    {ring.ways.length === 0 ? <span className="sr-only">Ring {ring.ring}, no steps: {brief(p.task)}</span> : (
-                      <ol className="trail-ways" aria-label={`Ring ${ring.ring}, the steps of: ${brief(p.task)}`}>
-                        {ring.ways.map((w) => {
-                          const step = stepOf.get(w.n)!, state = stepState(step, p.plan.ended), moons = moonsOf(w.a, step.quests.length);
-                          return (
-                            <li key={w.n} className={cx("trail-way", state)} data-n={w.n} data-slot={w.slot} data-state={state} tabIndex={0} style={{ left: w.x, top: w.y, "--slot": w.slot } as CSSProperties}
-                              title={`${w.n}. ${step.text}`} aria-label={stepSays(w.n, state, step.text, w.after)} {...over(ring.expId, w.n)}>
-                              <b>{w.n}</b>{state !== "todo" && <i aria-hidden="true">{STEP_MARK[state]}</i>}
-                              {step.quests.map((q, i) => <Moon key={q.node} q={q} at={moons[i]} ended={p.plan.ended} expId={ring.expId} crewId={crewId} onOpen={openIn(p)} />)}
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
+        <div className="trail-sky-well">
+          {/* Orbit's night sky behind the rings: its three sheets of stars, drifting as you scroll round the map, the nearer ones further. */}
+          <div className="trail-stars" aria-hidden="true">
+            {STARS.map((_, j) => <div key={j} className={`orb-stars s${j + 1}`} ref={(el) => { stars.current[j] = el; }} />)}
+          </div>
+          <div className="trail-sky-box" onScroll={(e) => drift(e.currentTarget)}>
+            <div className="trail-sky" ref={sky} style={{ width: size, height: size, zoom, "--disc": `${DISC}px`, "--moon": `${MOON}px` } as CSSProperties}>
+              <svg className="trail-lines" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+                {/* The instrument behind it all, as in Orbit: bearings, and a rim with its ticks. */}
+                {[0, 30, 60, 90, 120, 150].map((a) => <line key={a} className="trail-bearing" x1={c - far} y1={c} x2={c + far} y2={c} transform={`rotate(${a} ${c} ${c})`} />)}
+                <circle className="trail-rim" cx={c} cy={c} r={far} />
+                <circle className="trail-ticks" cx={c} cy={c} r={far - 3} pathLength={360} strokeDasharray="0.4 4.6" />
+                <circle className="trail-ticks long" cx={c} cy={c} r={far - 5} pathLength={360} strokeDasharray="0.5 29.5" />
+                {/* The sun: the Quartermaster, whose plans these are. */}
+                <circle className="trail-sun-dial" cx={c} cy={c} r={31} strokeDasharray="14 5 2 5" />
+                <circle className="trail-sun-dial inner" cx={c} cy={c} r={23} strokeDasharray="2 4.5" />
+                <circle className="trail-sun" cx={c} cy={c} r={14} />
+                {map.links.map((l) => <path key={l.to} className={cx("trail-link", hot && (hot.expId === l.from || hot.expId === l.to) && "hot", (going.has(l.from) || going.has(l.to)) && "leaving")} data-join={`${l.from}>${l.to}`} d={l.d} />)}
+                {map.rings.map((ring) => {
+                  const p = by.get(ring.expId);
+                  if (!p) return null;
+                  const state = new Map(p.plan.steps.map((s) => [s.n, stepState(s, p.plan.ended)]));
+                  return (
+                    <g key={ring.expId} className={cx("trail-ring", p.running && "running", hot?.expId === ring.expId && "hot", going.has(ring.expId) && "leaving")} data-exp={ring.expId}>
+                      <circle className="trail-orbit" cx={c} cy={c} r={ring.r} />
+                      {ring.edges.map((e) => (
+                        <g key={`${e.from}-${e.to}`} data-line={`${e.from}-${e.to}`} data-lane={e.lane} className={cx("trail-edge", state.get(e.from) === "done" && "walked", state.get(e.from) === "done" && state.get(e.to) === "out" && "live")}>
+                          <path d={e.d} /><path className="tip" d={e.tip} />
+                        </g>
+                      ))}
+                    </g>
+                  );
+                })}
+              </svg>
+              <ol className="trail-ring-list" aria-label="Every plan as a ring, the first asked innermost">
+                {map.rings.map((ring) => {
+                  const p = by.get(ring.expId);
+                  if (!p) return null;
+                  const stepOf = new Map(p.plan.steps.map((s) => [s.n, s]));
+                  return (
+                    <li key={ring.expId} className={cx("trail-ring-run", p.running && "running", hot?.expId === ring.expId && "hot", going.has(ring.expId) && "leaving")} data-exp={ring.expId}
+                      inert={going.has(ring.expId) || undefined}>
+                      <span className="trail-ring-no" style={{ left: ring.gate.x, top: ring.gate.y }} aria-hidden="true">{ring.ring}</span>
+                      {ring.ways.length === 0 ? <span className="sr-only">Ring {ring.ring}, no steps: {brief(p.task)}</span> : (
+                        <ol className="trail-ways" aria-label={`Ring ${ring.ring}, the steps of: ${brief(p.task)}`}>
+                          {ring.ways.map((w) => {
+                            const step = stepOf.get(w.n)!, state = stepState(step, p.plan.ended), moons = moonsOf(w.a, step.quests.length);
+                            return (
+                              <li key={w.n} className={cx("trail-way", state)} data-n={w.n} data-slot={w.slot} data-state={state} tabIndex={0} style={{ left: w.x, top: w.y, "--slot": w.slot } as CSSProperties}
+                                title={`${w.n}. ${step.text}`} aria-label={stepSays(w.n, state, step.text, w.after)} {...over(ring.expId, w.n)}>
+                                <b>{w.n}</b>{state !== "todo" && <i aria-hidden="true">{STEP_MARK[state]}</i>}
+                                {step.quests.map((q, i) => <Moon key={q.node} q={q} at={moons[i]} ended={p.plan.ended} expId={ring.expId} crewId={crewId} onOpen={openIn(p)} />)}
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
           </div>
         </div>
         {/* What's under the pointer or the keyboard, in full. Not read out: the waypoint itself says all of it. */}

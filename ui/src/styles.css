@@ -2417,7 +2417,13 @@ button.trail-chip:hover { border-color: var(--c, var(--c-other)); background: co
 :is(.trail-run, .trail-ring-run).running .trail-ring-no { border-color: var(--accent); color: var(--accent-deep); }
 .trail-ring-run.hot .trail-ring-no { padding: 0 3px; border: 2px solid var(--accent); }
 .trail-sky-side { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.trail-sky-box { flex: 1; min-height: 0; display: flex; overflow: auto; padding: 16px 28px; }
+.trail-sky-well { position: relative; flex: 1; min-height: 0; display: flex; isolation: isolate; }
+.trail-sky-box { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; overflow: auto; padding: 16px 28px; }
+/* Orbit's night sky behind the rings (.orb-stars, which reach a tile past the top and left: clipped here). On a light page the stars are in ink. */
+.trail-stars { position: absolute; inset: 0; z-index: -1; overflow: clip; pointer-events: none; }
+.trail-stars .orb-stars { filter: invert(1) hue-rotate(180deg) saturate(.6); opacity: .45; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .trail-stars .orb-stars { filter: none; opacity: .9; } }
+:root[data-theme="dark"] .trail-stars .orb-stars { filter: none; opacity: .9; }
 .trail-sky { position: relative; flex: none; margin: auto; }
 .trail-bearing { stroke: var(--border); stroke-width: 1; }
 .trail-rim { fill: none; stroke: var(--border-strong); stroke-width: 1; }
