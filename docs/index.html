@@ -39,7 +39,7 @@ img { max-width: 100%; }
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
   --accent: #9e5c0c; --accent-soft: #f6e3c6; --accent-ink: #fffaf2;
   --good: #397034; --good-soft: #e1eedb;
-  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-wiz: #2c8486;
   --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a;
   --shadow: 0 1px 2px rgba(60,40,20,.06), 0 12px 32px rgba(60,40,20,.09);
   --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
@@ -55,7 +55,7 @@ img { max-width: 100%; }
     --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
     --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
     --good: #93c47d; --good-soft: #1f2a1b;
-    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-wiz: #7ccfcf;
     --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
     color-scheme: dark;
@@ -66,7 +66,7 @@ img { max-width: 100%; }
   --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
   --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
   --good: #93c47d; --good-soft: #1f2a1b;
-  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-wiz: #7ccfcf;
   --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
   color-scheme: dark;
@@ -326,6 +326,14 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .member dt { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
 .member dd { margin: 0; }
 .member.qm { --tone: var(--c-qm); } .member.scout { --tone: var(--c-scout); } .member.scribe { --tone: var(--c-scribe); } .member.art { --tone: var(--c-art); } .member.warden { --tone: var(--c-warden); }
+/* One of your own: the Wizard, a full-width card under the five. */
+.member.yours { --tone: var(--c-wiz); margin-top: 16px; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr); column-gap: 28px; align-items: start; border-style: dashed; border-color: var(--border-strong); }
+.yours-copy { display: grid; gap: 8px; }
+.yours-copy .how { color: var(--muted); font-size: 15px; }
+.yours-copy .how b { color: var(--text); font-weight: 600; }
+.yours-side { display: grid; gap: 12px; align-content: start; }
+.abilities { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.abilities li { font-size: 13px; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--bg); }
 .wrong { font: 600 13px var(--body); color: var(--text); background: transparent; border: 1px dashed var(--border-strong); border-radius: 8px; padding: 8px 10px; cursor: pointer; text-align: left; }
 .wrong:hover { border-style: solid; }
 .decline { font-size: 14px; font-style: italic; color: var(--tone); min-height: 1.6em; }
@@ -475,12 +483,26 @@ footer .mae-word { height: 16px; }
 .packs { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; display: grid; gap: 22px; }
 .packs-head { display: grid; gap: 10px; }
 .pack-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
-.pack-list li { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; background: var(--bg); min-width: 0; transition: transform .25s ease, border-color .25s ease; }
+.pack-list li { border: 1px solid var(--border); border-radius: 10px; padding: 0; display: grid; gap: 2px; background: var(--bg); min-width: 0; transition: transform .25s ease, border-color .25s ease; }
 .pack-list li:hover { transform: translateY(-3px); border-color: var(--accent); }
+.pack-list li.new, .pick { padding: 12px 14px; }
 .pack-list li.new { border-style: dashed; border-color: var(--border-strong); }
 .pack-list i { font-style: normal; font-size: 22px; line-height: 1.3; }
 .pack-list b { font-size: 14px; }
 .pack-list span { font-size: 12px; color: var(--faint); }
+.look-tabs { display: flex; flex-wrap: wrap; gap: 0 28px; border-bottom: 1px solid var(--border); }
+.look-tabs button { font: 600 15px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; cursor: pointer; }
+.look-tabs button:hover { color: var(--text); }
+.look-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.look-tabs button:focus-visible, .pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.look-panel { display: grid; gap: 22px; }
+.look-panel[hidden] { display: none; }
+.theme-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.pick { width: 100%; height: 100%; display: grid; gap: 2px; align-content: start; text-align: left; font: inherit; color: inherit; background: none; border: 0; border-radius: inherit; cursor: pointer; }
+.pack-list li.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.swatch { width: 26px; height: 26px; margin-bottom: 4px; border-radius: 50%; border: 1px solid var(--border-strong); background: linear-gradient(135deg, var(--sw-bg) 50%, var(--sw-ac) 50%); }
+.packs > .deco { color: var(--muted); font-size: 15px; }
+.packs > .deco b { color: var(--text); font-weight: 600; }
 .packs-body { columns: 2 320px; column-gap: 44px; color: var(--muted); font-size: 15px; }
 .packs-body p + p { margin-top: 12px; }
 .packs-body b { color: var(--text); font-weight: 600; }
@@ -505,7 +527,7 @@ footer .mae-word { height: 16px; }
 .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [role="tabpanel"][hidden] { display: none; }
-[role="tabpanel"]:is(.packs, .words, .feature) { margin-top: 0; }
+[role="tabpanel"]:is(.packs, .words, .feature, .yours) { margin-top: 0; }
 [role="tabpanel"].feature { border-top: 0; padding-top: 0; }
 :is(#orbit, .rules-band) .tabs { border-bottom-color: var(--night-line); }
 :is(#orbit, .rules-band) .tabs button { color: var(--night-muted); }
@@ -551,6 +573,8 @@ footer .mae-word { height: 16px; }
   .alter { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .alter .mae-orb { --orb: 112px; margin: 34px; }
   .crew > :last-child { grid-column: 1 / -1; }
+  .member.yours { grid-template-columns: auto minmax(0, 1fr); }
+  .yours-side { grid-column: 2; }
   .rules > :last-child { grid-column: 1 / -1; }
   .sky { min-height: 0; }
   .scroll-cue { display: none; }
@@ -571,6 +595,7 @@ footer .mae-word { height: 16px; }
   .stat:nth-child(3) { border-left: 0; padding-left: 0; }
   .stat:nth-child(n+3) { border-top: 1px solid var(--border); }
   .pack-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .theme-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .feature { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .item.solo { grid-column: 1 / -1; } /* a lone small card on two columns takes the row, so no gap is left beside it */
 }
@@ -584,6 +609,8 @@ footer .mae-word { height: 16px; }
   .top nav { display: none; }
   .rule { padding-right: 0; }
   .crew > :last-child, .rules > :last-child { grid-column: auto; }
+  .member.yours { grid-template-columns: minmax(0, 1fr); }
+  .yours-side { grid-column: auto; }
   .hero-system { scale: .55; top: 80%; }
   .stat { padding: 14px 10px 14px 0; column-gap: 10px; }
   .stat b { font-size: 40px; }
@@ -591,6 +618,7 @@ footer .mae-word { height: 16px; }
   .stat + .stat { padding-left: 0; border-left: 0; }
   .stat:nth-child(even) { padding-left: 16px; border-left: 1px solid var(--border); }
   .pack-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .theme-list > :last-child { grid-column: 1 / -1; }
   .packs { padding: 20px; }
   #orbit { padding-block: 72px; margin-top: 64px; }
 }
@@ -681,7 +709,7 @@ footer .mae-word { height: 16px; }
       </div>
     </div>
     <div class="stats">
-      <div class="stat"><b>5</b><span>specialists, each in its own trade</span></div>
+      <div class="stat"><b>6</b><span>specialists, each in its own trade</span></div>
       <div class="stat"><b>4</b><span>quests out at once, each from a clean brief</span></div>
       <div class="stat"><b>1</b><span>plan to approve before anyone sets out</span></div>
       <div class="stat"><b>0</b><span>pushes the crew makes on its own</span></div>
@@ -708,7 +736,7 @@ footer .mae-word { height: 16px; }
     </div>
     <div class="words">
       <div class="word"><h3>My</h3><p>It runs on your machine, on your Claude subscription or your own API key. The camp is a folder of files you can open and read, and one note about you is shared by the whole crew.</p></div>
-      <div class="word"><h3>Alter</h3><p>Not one assistant but five other pairs of hands: a planner, a researcher, a writer, a coder and a reviewer, with up to four quests out at once.</p></div>
+      <div class="word"><h3>Alter</h3><p>Not one assistant but six other pairs of hands: a planner, a researcher, a writer, a coder, a reviewer and a Wizard for the quick jobs, with up to four quests out at once.</p></div>
       <div class="word"><h3>Ego</h3><p>Each one has a fixed identity. It grows its memory, but it can't rewrite who it is, and it can't talk its way past the camp rules.</p></div>
     </div>
   </div>
@@ -718,11 +746,12 @@ footer .mae-word { height: 16px; }
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow">The crew</div>
-      <h2>Five specialists who know their trade, and stay in it.</h2>
+      <h2>Six specialists who know their trade, and stay in it.</h2>
       <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="The crew">
       <button type="button" role="tab" id="crew-tab-five" aria-controls="crew-five" aria-selected="true">The five</button>
+      <button type="button" role="tab" id="crew-tab-yours" aria-controls="crew-yours" aria-selected="false">Your own</button>
       <button type="button" role="tab" id="crew-tab-packs" aria-controls="crew-packs" aria-selected="false">Theme packs</button>
     </div>
     <div class="crew" id="crew-five" role="tabpanel" aria-labelledby="crew-tab-five">
@@ -767,24 +796,57 @@ footer .mae-word { height: 16px; }
         <p class="decline" aria-live="polite"></p>
       </article>
     </div>
+    <article class="member yours" id="crew-yours" role="tabpanel" aria-labelledby="crew-tab-yours" hidden>
+      <div class="badge" aria-hidden="true">🪄</div>
+      <div class="yours-copy">
+        <span class="tag">One of your own</span>
+        <h3>Wizard</h3>
+        <p class="role">Moves fast on small things: the quick fix, the one-line check, the switch beside a bigger job.</p>
+        <p class="how">The Quartermaster and four others come built in, and the Wizard makes six. Add it, or anyone else, with the <b>+</b> at the end of the crew bar: a name, an icon and a colour, a line on what they're for and how they should work, and what they're allowed to do. The Quartermaster plans with them like anyone, they keep a memory of their own, and they turn down what isn't theirs. Call one the Wizard and every theme pack has a name for them too.</p>
+      </div>
+      <div class="yours-side">
+        <dl><dt>Can be given</dt><dd><ul class="abilities"><li>Web search</li><li>Writing files</li><li>Shell, asking first</li><li>Wiki notes</li></ul></dd></dl>
+        <button class="wrong" type="button" data-say="That's a big job. The Quartermaster plans it, and I'll take the small pieces.">Ask it to plan a rewrite</button>
+        <p class="decline" aria-live="polite"></p>
+      </div>
+    </article>
     <div class="packs" id="crew-packs" role="tabpanel" aria-labelledby="crew-tab-packs" hidden>
       <div class="packs-head">
         <span class="tag">Make it yours</span>
-        <h3>Not a guild person? Change the costumes.</h3>
+        <h3>Change the colours, or the costumes.</h3>
+      </div>
+      <div class="look-tabs" role="tablist" aria-label="Make it yours">
+        <button type="button" role="tab" id="look-tab-themes" aria-controls="look-themes" aria-selected="true">Themes</button>
+        <button type="button" role="tab" id="look-tab-packs" aria-controls="look-packs" aria-selected="false" tabindex="-1">Theme packs</button>
+      </div>
+      <div class="look-panel" id="look-themes" role="tabpanel" aria-labelledby="look-tab-themes">
+        <ul class="pack-list theme-list" aria-label="Themes">
+          <li><button class="pick" type="button" data-pick-palette="camp" aria-pressed="false"><i class="swatch" style="--sw-bg:#f5efe4;--sw-ac:#9e5c0c" aria-hidden="true"></i><b>Camp</b><span>Warm paper and amber</span></button></li>
+          <li><button class="pick" type="button" data-pick-palette="harbor" aria-pressed="false"><i class="swatch" style="--sw-bg:#eef2f7;--sw-ac:#1d62ad" aria-hidden="true"></i><b>Harbor</b><span>Cool paper and deep blue</span></button></li>
+          <li><button class="pick" type="button" data-pick-palette="moss" aria-pressed="false"><i class="swatch" style="--sw-bg:#f0f3ea;--sw-ac:#3d7a2a" aria-hidden="true"></i><b>Moss</b><span>Pale lichen and green</span></button></li>
+          <li><button class="pick" type="button" data-pick-palette="heather" aria-pressed="false"><i class="swatch" style="--sw-bg:#f4f0f5;--sw-ac:#8a3f96" aria-hidden="true"></i><b>Heather</b><span>Soft lilac and plum</span></button></li>
+          <li><button class="pick" type="button" data-pick-palette="ochre" aria-pressed="false"><i class="swatch" style="--sw-bg:#f3efe6;--sw-ac:#27408a" aria-hidden="true"></i><b>Ochre</b><span>Cream, navy and ochre</span></button></li>
+        </ul>
+        <div class="packs-body">
+          <p>Five sets of colours, each with a light side and a dark one, so switching light and dark never changes the set. Pick one here and this page wears it now; mission control opens in it too, from the same browser, and a change made in either shows in the other at once. Light or dark sits beside it in the top bar, or follows the system.</p>
+        </div>
+      </div>
+      <div class="look-panel" id="look-packs" role="tabpanel" aria-labelledby="look-tab-packs" hidden>
         <ul class="pack-list" aria-label="Theme packs">
-          <li><i aria-hidden="true">🧭</i><b>Guild</b><span>Quartermaster</span></li>
-          <li><i aria-hidden="true">🚀</i><b>Starship</b><span>Commander</span></li>
-          <li><i aria-hidden="true">📰</i><b>Newsroom</b><span>Editor</span></li>
-          <li><i aria-hidden="true">🎬</i><b>Studio</b><span>Director</span></li>
-          <li><i aria-hidden="true">🧪</i><b>Lab</b><span>Lab Lead</span></li>
-          <li><i aria-hidden="true">🏴‍☠️</i><b>Pirate</b><span>Commodore</span></li>
+          <li><button class="pick" type="button" data-pick-pack="guild" aria-pressed="false"><i aria-hidden="true">🧭</i><b>Guild</b><span>Quartermaster</span></button></li>
+          <li><button class="pick" type="button" data-pick-pack="starship" aria-pressed="false"><i aria-hidden="true">🚀</i><b>Starship</b><span>Commander</span></button></li>
+          <li><button class="pick" type="button" data-pick-pack="newsroom" aria-pressed="false"><i aria-hidden="true">📰</i><b>Newsroom</b><span>Editor</span></button></li>
+          <li><button class="pick" type="button" data-pick-pack="studio" aria-pressed="false"><i aria-hidden="true">🎬</i><b>Studio</b><span>Director</span></button></li>
+          <li><button class="pick" type="button" data-pick-pack="lab" aria-pressed="false"><i aria-hidden="true">🧪</i><b>Lab</b><span>Lab Lead</span></button></li>
+          <li><button class="pick" type="button" data-pick-pack="pirate" aria-pressed="false"><i aria-hidden="true">🏴‍☠️</i><b>Pirate</b><span>Commodore</span></button></li>
           <li class="new"><i aria-hidden="true">✚</i><b>New pack…</b><span>your own names</span></li>
         </ul>
+        <div class="packs-body">
+          <p class="try-pack">Pick one and this page dresses for it: the crew above take its names, the orb its colours, and the page the colours it suggests. It's only this page, for now; the camp's own pack is set in mission control.</p>
+          <p>A theme pack (Settings → General) is kept by the camp, because it renames all six, for you and for them: Starship makes them a Commander, Navigator, Comms Officer, Engineer, Security Chief and Test Pilot, on a ship flying missions. Newsroom is an Editor and staff filing stories, Studio a Director and a film crew shooting scenes, Lab a Lab Lead and a team running experiments, Pirate a Commodore and a crew out on raids. The plane game in the top bar dresses to match: a starfighter against an empire's grey fleet, a kid on a bike throwing papers with the whole street after them, a star throwing stars, a mech dog with lasers for eyes, a pirate ship firing cannonballs. None of them fit? New pack… on the same page makes one of your own, with your names, icons and words for all six; it's kept in camp/packs.json, and it's there after a restart. Who they are and what they remember stays the same.</p>
+        </div>
       </div>
-      <div class="packs-body">
-        <p>A theme pack (Settings → General) renames the five, for you and for them: Starship makes them a Commander, Navigator, Comms Officer, Engineer and Security Chief, on a ship flying missions. Newsroom is an Editor and staff filing stories, Studio a Director and a film crew shooting scenes, Lab a Lab Lead and a team running experiments, Pirate a Commodore and a crew out on raids. The plane game in the top bar dresses to match: a starfighter against an empire's grey fleet, a kid on a bike throwing papers with the whole street after them, a star throwing stars, a mech dog with lasers for eyes, a pirate ship firing cannonballs. A Wizard you've added is renamed with them (a Test Pilot, on the ship). None of them fit? New pack… on the same page makes one of your own, with your names, icons and words for the five; it's kept in camp/packs.json, and it's there after a restart. Who they are and what they remember stays the same.</p>
-        <p class="deco"><b>Decorations</b>, on the same page, are only for looks: snow in winter, bats at Halloween, confetti at New Year, with a string of lights under the top bar. They're off until you turn one on, and they change nothing the crew reads.</p>
-      </div>
+      <p class="deco"><b>Decorations</b>, on the same page, are only for looks: snow in winter, bats at Halloween, confetti at New Year, with a string of lights under the top bar. They're off until you turn one on, and they change nothing the crew reads.</p>
     </div>
   </div>
 </section>
@@ -1055,9 +1117,18 @@ footer .mae-word { height: 16px; }
   var themeBtn = document.getElementById('theme');
   var paletteSel = document.getElementById('palette');
   var palettes = ['harbor', 'moss', 'heather', 'ochre'];
+  // Mark the one picked in a list under "Make it yours" (solid border, aria-pressed).
+  var mark = function (sel, key, value) {
+    document.querySelectorAll(sel).forEach(function (b) {
+      var on = b.dataset[key] === value;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.parentElement.classList.toggle('on', on);
+    });
+  };
   var showPalette = function (p) {
     if (palettes.indexOf(p) >= 0) root.dataset.palette = p; else delete root.dataset.palette;
     paletteSel.value = root.dataset.palette || 'camp';
+    mark('[data-pick-palette]', 'pickPalette', paletteSel.value);
   };
   showPalette(root.dataset.palette);
   paletteSel.addEventListener('change', function () {
@@ -1085,6 +1156,77 @@ footer .mae-word { height: 16px; }
   });
   if (dark.addEventListener) dark.addEventListener('change', relabel);
   relabel();
+
+  // Make it yours: two tabs, Themes and Theme packs.
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.look-tabs [role="tab"]'));
+  var openTab = function (tab, focus) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    if (focus) tab.focus();
+  };
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { openTab(t); });
+    t.addEventListener('keydown', function (ev) {
+      var step = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0;
+      if (step) { ev.preventDefault(); openTab(tabs[(i + step + tabs.length) % tabs.length], true); }
+    });
+  });
+
+  // A theme: the same choice as the top bar's, kept the same way.
+  document.querySelectorAll('[data-pick-palette]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      showPalette(b.dataset.pickPalette);
+      try { localStorage.setItem('camp-palette', root.dataset.palette || ''); } catch (e) { /* it lasts until the page is closed */ }
+    });
+  });
+
+  // A theme pack: this page dresses for it (the crew's names and icons, the orb, the colours it
+  // suggests), as src/packs.ts has them. The camp keeps the real one, so nothing is stored here.
+  var PACKS = {
+    guild: { crew: ['Quartermaster 🧭', 'Scout 🏹', 'Scribe 🪶', 'Artificer 🔨', 'Warden 🛡️', 'Wizard 🪄'] },
+    starship: { palette: 'harbor', crew: ['Commander 🚀', 'Navigator 🔭', 'Comms Officer 📡', 'Engineer 🔧', 'Security Chief 🛡️', 'Test Pilot 🛸'] },
+    newsroom: { palette: 'ochre', crew: ['Editor 📰', 'Reporter 🔎', 'Columnist ✍️', 'Typesetter 🖨️', 'Fact Checker ✅', 'Stringer ⚡'] },
+    studio: { palette: 'heather', crew: ['Director 🎬', 'Location Scout 📍', 'Screenwriter 📝', 'Set Builder 🛠️', 'Script Supervisor 📋', 'Stunt Double 🤸'] },
+    lab: { palette: 'moss', crew: ['Lab Lead 🧪', 'Field Researcher 🔬', 'Author 📓', 'Technician ⚙️', 'Peer Reviewer 🧐', 'Tinkerer ⚗️'] },
+    pirate: { palette: 'harbor', crew: ['Commodore 🏴‍☠️', 'Spyglass 🔭', 'Logkeeper 📜', 'Rigger 🪢', 'First Mate ⚓', 'Powder Monkey 🧨'] }
+  };
+  var split = function (c) { var at = c.lastIndexOf(' '); return { name: c.slice(0, at), emoji: c.slice(at + 1) }; };
+  var cards = ['.member.qm', '.member.scout', '.member.scribe', '.member.art', '.member.warden', '.member.yours'].map(function (sel) { return document.querySelector(sel); });
+  var says = Array.prototype.slice.call(document.querySelectorAll('#crew .wrong')).map(function (b) { return { btn: b, text: b.dataset.say, label: b.textContent }; });
+  var dress = function (id) {
+    var crew = PACKS[id].crew.map(split), guild = PACKS.guild.crew.map(split);
+    cards.forEach(function (card, i) {
+      if (!card) return;
+      card.querySelector('h3').textContent = crew[i].name;
+      card.querySelector('.badge').textContent = crew[i].emoji;
+    });
+    says.forEach(function (s) {
+      var text = s.text;
+      guild.forEach(function (g, i) { text = text.split('the ' + g.name).join('the ' + crew[i].name); });
+      s.btn.dataset.say = text;
+      var out = s.btn.nextElementSibling;
+      if (out.textContent) out.textContent = '“' + text + '”';
+    });
+  };
+  var wearPack = function (id, colours) {
+    if (!PACKS[id]) return;
+    if (id === 'guild') delete root.dataset.pack; else root.dataset.pack = id;
+    mark('[data-pick-pack]', 'pickPack', id);
+    dress(id);
+    if (colours) {
+      var own = null;
+      try { own = localStorage.getItem('camp-palette'); } catch (e) { /* none kept */ }
+      showPalette(PACKS[id].palette || own || 'camp');
+    }
+  };
+  document.querySelectorAll('[data-pick-pack]').forEach(function (b) {
+    b.addEventListener('click', function () { wearPack(b.dataset.pickPack, true); });
+  });
+  wearPack(root.dataset.pack || 'guild', false);
 
   // Copy buttons
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
@@ -1200,7 +1342,7 @@ footer .mae-word { height: 16px; }
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
-    var groups = ['.sec-head', '.stats > *', '.crew > *', '.packs', '.route > *', '.kit > *', '.words > *',
+    var groups = ['.sec-head', '.stats > *', '.crew > *', '.yours', '.packs', '.route > *', '.kit > *', '.words > *',
                   '.feature', '.rules > *', '.term', '.try'];
     groups.forEach(function (sel) {
       var seen = new Map();

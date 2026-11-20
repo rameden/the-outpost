@@ -52,13 +52,18 @@ test("parallel: two dispatches in one turn run at the same time", async () => {
     ] };
     return { text: "Both back." };
   };
-  const t0 = Date.now();
   const r = await runExpedition("Do two things");
   assert.equal(r.status, "done");
-  const starts = api.seen.filter((s) => s.who === "Scout" || s.who === "Scribe").map((s) => s.at);
+  const crew = api.seen.filter((s) => s.who === "Scout" || s.who === "Scribe");
+  const starts = crew.map((s) => s.at);
   assert.equal(starts.length, 2);
   assert.ok(Math.abs(starts[0] - starts[1]) < 150, `started ${Math.abs(starts[0] - starts[1])}ms apart`);
-  assert.ok(Date.now() - t0 < 1200, "the two 300ms quests overlapped");
+  // Time only the quests, not the planning turns around them (a slow CI runner made those
+  // count): the Quartermaster hears back ~300ms after the first start if they overlapped,
+  // and no sooner than 600ms if they ran one after the other.
+  const firstStart = Math.min(...starts);
+  const backAt = api.seen.find((s) => s.at > firstStart && !crew.includes(s))?.at ?? Infinity;
+  assert.ok(backAt - firstStart < 600, `the two 300ms quests took ${backAt - firstStart}ms, so they didn't overlap`);
   const questIds = new Set(events.filter((e) => e.type === "dispatch").map((e) => e.questId));
   assert.equal(questIds.size, 2, "each quest has its own id");
 });
