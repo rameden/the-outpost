@@ -874,21 +874,16 @@ footer .mae-word { height: 16px; }
     <div class="sec-head">
       <div class="eyebrow">On film</div>
       <h2>Watch the work go round the crew.</h2>
-      <p class="lede">Four short films, drawn live in this page. The first two show all of Mae: one in a single shot from the ground to the sky, one as a loop round the whole sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.</p>
+      <p class="lede">Three short films, drawn live in this page. The first shows all of Mae in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Films">
       <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">Ground to sky <span>1:15</span></button>
-      <button type="button" role="tab" id="film-tab-whole" aria-controls="film-whole" aria-selected="false" data-film="whole">The whole sky <span>1:17</span></button>
       <button type="button" role="tab" id="film-tab-ticket" aria-controls="film-ticket" aria-selected="false" data-film="ticket">One ticket, start to finish <span>0:54</span></button>
       <button type="button" role="tab" id="film-tab-audit" aria-controls="film-audit" aria-selected="false" data-film="audit">Three audit findings <span>1:03</span></button>
     </div>
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
       <p class="film-note">Mae in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
-    </div>
-    <div class="film" id="film-whole" role="tabpanel" aria-labelledby="film-tab-whole" hidden>
-      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">All of Mae in one loop. A request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the camp is idle. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -6214,7 +6209,7 @@ return { show: v => { shown = !!v; } };
     f.ctl = DRAW[key](root);
   }
   // Each section has its own tabs, and its films move only while that section is on screen.
-  [{ id: 'films', keys: ['sky', 'whole', 'ticket', 'audit'] }, { id: 'videos', keys: ['trail', 'stars', 'night'] }].forEach(function (sec) {
+  [{ id: 'films', keys: ['sky', 'ticket', 'audit'] }, { id: 'videos', keys: ['trail', 'stars', 'night'] }].forEach(function (sec) {
     var keys = sec.keys, active = keys[0], inView = false;
     function update() {
       keys.forEach(function (key) {
