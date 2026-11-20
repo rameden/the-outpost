@@ -87,7 +87,7 @@ test("the terminal's style rules get a per-launch nonce, and nothing else is loo
 test("the tour is the repo's docs page, under a policy that reaches nothing of the camp", () => {
   const page = splashPage()!;
   assert.ok(page, `${SPLASH_FILE} exists`);
-  assert.match(page, /<title>Mae, My Alter Ego<\/title>/);
+  assert.match(page, /<title>Outpost Mae<\/title>/);
   // It wears the theme picked in mission control (the same saved choice), set before anything is drawn,
   // and carries both of mission control's palettes.
   assert.ok(page.indexOf("localStorage.getItem('camp-theme')") < page.indexOf("<style>"), "the saved theme is applied in the head, ahead of the styles");
@@ -126,7 +126,7 @@ test("the tour's films are drawn by the page itself, so its policy needs nothing
     assert.match(page, new RegExp(`<section id="${id}">`));
     assert.match(page, new RegExp(`<a href="#${id}">`), "the top bar links to them");
   }
-  for (const key of ["sky", "ticket", "audit", "trail", "stars", "night"]) {
+  for (const key of ["sky", "whole", "ticket", "audit", "trail", "stars", "night"]) {
     assert.match(page, new RegExp(`<template id="film-${key}-stage">`), `the ${key} film's stage is in the page`);
     assert.match(page, new RegExp(`id="film-tab-${key}" aria-controls="film-${key}"`), `the ${key} film has its tab`);
   }

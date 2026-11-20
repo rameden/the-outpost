@@ -515,11 +515,12 @@ export function Sortie({ paused, onPause, onResume, onClose, onMode }: GameProps
       }
 
       const p = game.player;
-      // The ships (a carrier, a missile boat) are down on the water: under everything else, and with no shadow.
+      // The ships (a carrier, a missile boat: a skin may draw them its own way) are down on the water: under everything else, and with no shadow.
       for (const e of game.enemies) {
         if (!SHIPS.has(e.kind) || e.age < 0) continue;
         g.save(); g.translate(Math.round(e.x), Math.round(e.y)); g.rotate(Math.PI); // (bow towards you)
-        sprite(g, ART[e.kind].rows, skin?.enemies[e.kind].paint ?? ART[e.kind].paint, PIXEL, e.hurt > 0 ? "#ffffff" : undefined);
+        const look = skin?.enemies[e.kind];
+        sprite(g, look?.rows ?? ART[e.kind].rows, look?.paint ?? ART[e.kind].paint, PIXEL, e.hurt > 0 ? "#ffffff" : undefined);
         g.restore();
       }
       for (const e of game.enemies) {

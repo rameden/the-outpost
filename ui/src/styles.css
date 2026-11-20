@@ -219,7 +219,8 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 .mae-logo { display: block; height: 26px; width: auto; flex: none; } /* the logo (MaeLogo.tsx): the kit's mark and the name, one drawing */
 .logo-dot { fill: var(--logo-dot); }
 .mae-word { display: block; height: 16px; width: auto; flex: none; } /* the name, drawn (MaeWord.tsx): the logo kit's letters, as tall beside the orb as they are beside the kit's mark */
-.tour-link { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+.tour-link { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; position: relative; top: 4px; }
+/* top: 4px sits "Tour" on the same baseline as the drawn "Mae" beside it (flex centring alone leaves it 4px high). */
 .tour-link:hover { color: var(--text); border-bottom-color: var(--accent); }
 .tour-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 /* The logo kit's ink and its amber (docs/brand): navy on a light page, cream on a dark one. */

@@ -38,7 +38,7 @@ test("a new pack: a name for it and for each of the five, its words and colours,
   render(<PackDialog pack={null} packs={packs} onClose={() => {}} onSaved={onSaved} />);
   const d = screen.getByRole("dialog", { name: "New theme pack" });
   // Each of the five is labelled with their Guild name, in the order the crew is listed, with the
-  // Guild's icon to start from and no name yet. No Wizard: this camp hasn't one.
+  // Guild's icon to start from and no name yet. No Test Pilot: this camp hasn't one.
   const names = within(within(d).getByRole("group", { name: "What it calls the crew" }));
   expect(names.getAllByLabelText(/^Name for the /).map((i) => [i.getAttribute("aria-label"), (i as HTMLInputElement).value]))
     .toEqual([["Name for the Quartermaster", ""], ["Name for the Scout", ""], ["Name for the Artificer", ""], ["Name for the Scribe", ""], ["Name for the Warden", ""]]);
@@ -84,15 +84,15 @@ test("a new pack: a name for it and for each of the five, its words and colours,
 });
 const WORDS = ["crew", "quest", "quests", "camp", "expedition"];
 
-test("Start from another pack fills in its names, words, place and colours, and the Wizard's name when the camp has one", async () => {
+test("Start from another pack fills in its names, words, place and colours, and the Test Pilot's name when the camp has one", async () => {
   render(<PackDialog pack={null} packs={packs} extras={["wizard"]} onClose={() => {}} onSaved={() => {}} />);
   const d = screen.getByRole("dialog", { name: "New theme pack" });
   type(d, "Pack name", "My Ship");
-  expect(field(d, "Name for the Wizard").value).toBe("");
+  expect(field(d, "Name for the Test Pilot").value).toBe("");
   const from = field(d, "Start from") as unknown as HTMLSelectElement;
   expect([...from.options].map((o) => o.textContent).slice(1)).toEqual(["Guild", "Starship", "Newsroom", "Studio", "Lab", "Pirate"]);
   fireEvent.change(from, { target: { value: "starship" } });
-  expect(["Quartermaster", "Scout", "Artificer", "Scribe", "Warden", "Wizard"].map((who) => [field(d, `Name for the ${who}`).value, field(d, `Icon for the ${who}`).value]))
+  expect(["Quartermaster", "Scout", "Artificer", "Scribe", "Warden", "Test Pilot"].map((who) => [field(d, `Name for the ${who}`).value, field(d, `Icon for the ${who}`).value]))
     .toEqual([["Commander", "🚀"], ["Navigator", "🔭"], ["Engineer", "🔧"], ["Comms Officer", "📡"], ["Security Chief", "🛡️"], ["Test Pilot", "🛸"]]);
   const starship = PACKS.find((p) => p.id === "starship")!;
   expect(WORDS.map((k) => field(d, `Word for ${k}`).value)).toEqual(WORDS.map((k) => (starship.words as Record<string, string>)[k]));
@@ -118,7 +118,7 @@ test("a pack of yours can be changed: it opens as it is, and what the camp says 
   render(<PackDialog pack={PIRATES} packs={[...packs, PIRATES]} extras={["wizard"]} onClose={onClose} onSaved={onSaved} />);
   const d = screen.getByRole("dialog", { name: "Edit the Pirates pack" });
   expect(within(d).queryByLabelText("Start from")).toBeNull();
-  expect([field(d, "Pack name").value, field(d, "About it").value, field(d, "Name for the Scout").value, field(d, "Icon for the Scout").value, field(d, "Name for the Wizard").value, field(d, "Word for quests").value, field(d, "Where the crew works").value])
+  expect([field(d, "Pack name").value, field(d, "About it").value, field(d, "Name for the Scout").value, field(d, "Icon for the Scout").value, field(d, "Name for the Test Pilot").value, field(d, "Word for quests").value, field(d, "Where the crew works").value])
     .toEqual(["Pirates", "A ship and her hands.", "Lookout", "🔭", "Sea Witch", "errands", "the good ship Mae"]);
   expect(within(d).getByRole("button", { name: "Harbor" }).getAttribute("aria-pressed")).toBe("true");
 

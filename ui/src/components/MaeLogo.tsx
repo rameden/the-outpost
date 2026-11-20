@@ -7,7 +7,7 @@ import { LETTERS } from "./MaeWord.tsx";
 
 export function MaeLogo({ className }: { className?: string }) {
   return (
-    <svg className={className ? `mae-logo ${className}` : "mae-logo"} xmlns="http://www.w3.org/2000/svg" viewBox="10 10 532.5 180" role="img" aria-label="Mae">
+    <svg className={className ? `mae-logo ${className}` : "mae-logo"} xmlns="http://www.w3.org/2000/svg" viewBox="10 10 532.5 180" role="img" aria-label="Outpost Mae">
       <path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z" />
       <g fill="none" stroke="currentColor" strokeWidth="8">
         <path d="M100 48 A52 52 0 0 1 100 152" />

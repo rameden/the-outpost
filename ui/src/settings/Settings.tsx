@@ -17,7 +17,7 @@ import { chimeOn, playChime, setChime } from "../chime.ts";
 import { showCost } from "../prefs.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
 import { SEASONS, seasonById } from "../seasons.ts";
-import { autoName, cClass, cx, isAuto, money } from "../format.ts";
+import { autoName, cameAs, cClass, cx, isAuto, money } from "../format.ts";
 import { w } from "../words.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
@@ -202,7 +202,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   const [packDialog, setPackDialog] = useState<{ pack: PackLine | null } | null>(null);
   const closePack = useCallback(() => setPackDialog(null), []);
   useEffect(() => { setPaletteShown(paletteNow()); }, [S.pack, S.packs]);
-  const renamed = S.characters.filter((c) => c.custom && (c.own?.name ?? c.name) === packs[0]?.extras?.[c.id]?.name);
+  const renamed = S.characters.filter((c) => c.custom && cameAs(packs[0]?.extras?.[c.id], c.own?.name ?? c.name));
   return (
     <>
       <Row label="What runs the crew" help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
@@ -216,7 +216,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
       </Row>
-      <Row label="Theme pack" wide help={<>Renames the camp's own five (and the Wizard, if you've added one), for you <b>and for the crew too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with. You can make a pack of your own: it's kept in <code>camp/packs.json</code>, and it leaves the orb's colours as they are.</>}>
+      <Row label="Theme pack" wide help={<>Renames the camp's own five (and the Test Pilot, <code>@wizard</code>, if you've added one), for you <b>and for the crew too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with. You can make a pack of your own: it's kept in <code>camp/packs.json</code>, and it leaves the orb's colours as they are.</>}>
         <div className="looks" role="group" aria-label="Theme pack">
           {packs.map((p) => {
             const button = (

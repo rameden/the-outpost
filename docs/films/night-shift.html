@@ -271,7 +271,7 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief' };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
@@ -405,7 +405,7 @@ const gLand = el('g', null, gWin);
 // a map line is drawn twice, for the day and for the night, and the two are cross-faded
 const TOPO = [];
 const topo = (d, parent) => { el('path', { d, class: 'contour' }, parent); TOPO.push(el('path', { d, class: 'contour topo-n' }, parent)); };
-// the sky: the Quartermaster is the sun and the crew are its planets, on orbits drawn as map contours and seen from the camp at a tilt
+// the sky: the Commander is the sun and the crew are its planets, on orbits drawn as map contours and seen from the camp at a tilt
 const SYS = [370, 398], TILT = .45, NORB = 6, orbR = i => 64 + i * 36;
 const gSys = el('g', { transform: `translate(${SYS[0]} ${SYS[1]})` }, gLand);
 const ORBS = Array.from({ length: NORB }, () => ({ day: el('path', { class: 'contour' }, gSys), night: el('path', { class: 'contour topo-n' }, gSys), lit: el('path', { class: 'contour lit' }, gSys) }));
@@ -491,7 +491,7 @@ const statusT = tx(gClock, WX + 40, WY + 75, 'm lbl', '');
 // ---- what the shift writes down, one row at a time ----
 const RX = 630, RW = 578;
 const ROWS = [
-  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: "Scout's and Artificer's, both more than 60% full", pill: 'DRAFT · WAITS FOR YOUR OK' },
+  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: "Navigator's and Engineer's, both more than 60% full", pill: 'DRAFT · WAITS FOR YOUR OK' },
   { at: 16.5, label: 'OLD LINES', title: 'Listed 5 old lines worth a look', sub: 'Not pinned, and more than 90 days old', pill: 'LISTED · NOTHING TOUCHED' },
   { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: 'Finished run logs, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
 ];
@@ -519,7 +519,7 @@ tx(gToday, JX, TY + 48, 'd tk-title', 'While you were away');
 tx(gToday, TX0 + TW - 26, TY + 45, 'm lbl', 'NIGHT SHIFT, 01:04', { 'text-anchor': 'end' });
 el('line', { x1: JX, y1: TY + 70, x2: TX0 + TW - 26, y2: TY + 70, class: 'hr' }, gToday);
 const ITEMS = [
-  ['Drafted shorter versions of 2 memories', 'Scout and Artificer. Nothing changes until you approve them.'],
+  ['Drafted shorter versions of 2 memories', 'Navigator and Engineer. Nothing changes until you approve them.'],
   ['5 old lines worth a look', 'Not pinned, and more than 90 days old. Nothing was changed.'],
   ['Housekeeping could clear finished run logs (about 48 MB)', 'Nothing was cleared: ask for a camp cleanup when you want it done.'],
 ].map(([title, sub], i) => {
@@ -569,7 +569,7 @@ function render(t) {
   NSTARS.forEach(s => O(s.n, night * (.4 + .6 * Math.sin(t * s.sp + s.ph) ** 2)));
   const first = t < (T.shift + T.dawn) / 2;
   TR(gMoon, 548, lerp(274, 250, night)); O(gMoon, night);
-  // the sky: the crew go round the Quartermaster by day, and come to rest and sleep at night
+  // the sky: the crew go round the Commander by day, and come to rest and sleep at night
   const ph = t / DUR * 2 * PI, wake = lerp(0, 330, seg(t, T.dawn + .7, T.dawn + 2.3, ease.lin));
   ORBS.forEach((o, i) => {
     const d = orbPath(i, ph); o.day.setAttribute('d', d); o.night.setAttribute('d', d); o.lit.setAttribute('d', d);

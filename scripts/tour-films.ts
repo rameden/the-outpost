@@ -21,7 +21,11 @@ const FILMS_DIR = join(ROOT, "docs", "films");
 
 const FILMS = [
   {
-    key: "sky", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:17",
+    key: "sky", section: "films", file: "ground-to-sky.html", tab: "Ground to sky", length: "1:15",
+    note: "Mae in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
+  },
+  {
+    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:17",
     note: "All of Mae in one loop. A request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the camp is idle.",
   },
   {
@@ -49,12 +53,12 @@ const FILMS = [
 const SECTIONS = [
   {
     id: "films", name: "On film", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Three short films, drawn live in this page. The Quartermaster is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
+    lede: "Four short films, drawn live in this page. The first two show all of Mae: one in a single shot from the ground to the sky, one as a loop round the whole sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
     before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
   },
   {
-    id: "videos", name: "Videos", label: "Videos", title: "Three newer parts of the camp, in motion.",
-    lede: "Three more short films, drawn live in this page. Each shows one newer part of the camp: the trail map, the constellation and the night shift.",
+    id: "videos", name: "Videos", label: "Videos", title: "Three newer parts of the outpost, in motion.",
+    lede: "Three more short films, drawn live in this page. Each shows one newer part of the outpost: the trail map, the constellation and the night shift.",
     before: '<section id="kit">', linkBefore: '        <a href="#kit">The kit</a>', // after Orbit, ahead of the kit they belong to
   },
 ];
@@ -67,8 +71,10 @@ const TOUR_TOKENS = ["bg", "surface", "surface-2", "border", "border-strong", "t
 // The few the films use that the tour has no other need of, light and dark.
 const EXTRA: Record<"light" | "dark", Record<string, string>> = {
   light: { bad: "#a94630", "bad-soft": "#f5dfd8", "night-good": "#93c47d", shade: "rgba(60, 40, 20, .13)", "logo-stroke": "4", "on-light": "1", "on-dark": "0", sky: "#1d2b4c",
+    deep: "#e0d2ba", zenith: "#eadcc4", line: "#c2b196", hot: "#fff3d9", "c-pilot": "#2c8486",
     "c-night": "#6f6a78", dusk: "#1b2135", "dusk-a": ".64", "star-night": "#f4ecdc" },
   dark: { bad: "#e88468", "bad-soft": "#33201a", "night-good": "#93c47d", shade: "rgba(0, 0, 0, .5)", "logo-stroke": "3", "on-light": "0", "on-dark": "1", sky: "#111c38",
+    deep: "#070605", zenith: "#14233f", line: "#574c40", hot: "#fff1cf", "c-pilot": "#7ccfcf",
     "c-night": "#a59fb3", dusk: "#04060d", "dusk-a": ".7", "star-night": "#f4ecdc" },
 };
 // Set by the films' own classes, not by the page.
@@ -102,7 +108,9 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
 
   const parts = FILMS.map((f) => {
     const page = film(f.file);
-    const svg = '<svg id="stage"' + cut(page, '<svg id="stage"', "</svg>") + "</svg>";
+    // Its stage: drawn as SVG, or painted on a canvas.
+    const [open, close] = page.includes('<canvas id="stage"') ? ['<canvas id="stage"', "</canvas>"] : ['<svg id="stage"', "</svg>"];
+    const stage = open + cut(page, open, close) + close;
     const controls = page.match(/<div class="controls">[\s\S]*?<\/div>/)?.[0];
     if (!controls) throw new Error(`${f.file} has no controls`);
     // The film's code, looking for its stage and controls in its own shadow root, and running only while the tour says it can be seen.
@@ -114,10 +122,11 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
     if (/<\/script/i.test(js)) throw new Error(`${f.file}: its code would end the tour's script early`);
     // The rules this film has that the shared styles don't.
     const own = f.file === STYLES_FROM ? "" : stageCss(f.file).filter((line) => line.trim() && !shared.includes(line)).join("\n");
-    for (const [, name] of (css + own + js + svg).matchAll(/var\(--([a-z0-9-]+)/g)) {
+    // Every colour it asks the page for is one the tour has: var(--name) in its styles and stage, and '--name' where its code reads one to paint with.
+    for (const [, name] of [...(css + own + js + stage).matchAll(/var\(--([a-z0-9-]+)/g), ...js.matchAll(/'--([a-z0-9-]+)'/g)]) {
       if (!TOUR_TOKENS.includes(name) && !(name in EXTRA.light) && !OWN.includes(name)) throw new Error(`${f.file} uses --${name}, which the tour doesn't have`);
     }
-    return { ...f, svg, controls, js, own };
+    return { ...f, stage, controls, js, own };
   });
 
   const declare = (set: Record<string, string>) => Object.entries(set).map(([name, value]) => `--${name}: ${value};`).join(" ");
@@ -172,7 +181,7 @@ ${css}
 </style></template>
 ${parts.map((f) => `${f.own ? `<template id="film-${f.key}-css"><style>\n${f.own}\n</style></template>\n` : ""}<template id="film-${f.key}-stage">
   <div class="stage" id="frame">
-    ${f.svg}
+    ${f.stage}
   </div>
   ${f.controls}
 </template>`).join("\n")}

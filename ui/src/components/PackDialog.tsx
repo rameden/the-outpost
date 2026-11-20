@@ -1,6 +1,6 @@
 // The pack dialog: make a theme pack of your own, or change one you made.
 //
-// A pack is a set of names: what it calls each of the camp's own five (and the Wizard, if you have
+// A pack is a set of names: what it calls each of the camp's own five (and the Test Pilot, if you have
 // one), five of the page's words, the line the crew reads about where they work, and the colours
 // it suggests. The camp keeps yours in camp/packs.json, beside the ones it comes with, and checks
 // that no name in it is already someone else's; what it says when one is, is shown here as it is.
@@ -25,7 +25,7 @@ const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 export function PackDialog({ pack, packs, extras = [], on = false, onClose, onSaved }: {
   pack: PackLine | null;             // null: a new pack
   packs: PackLine[];                 // every pack the camp has; the first is the Guild's
-  extras?: string[];                 // crew members you added that packs rename (the Wizard), by handle
+  extras?: string[];                 // crew members you added that packs rename (the Test Pilot, @wizard), by handle
   on?: boolean;                      // this pack is the one the camp is wearing
   onClose: () => void;
   onSaved: (id: string) => void;
