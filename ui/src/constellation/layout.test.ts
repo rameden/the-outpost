@@ -60,3 +60,18 @@ test("one place sits in the middle, and nothing at all is an empty map", () => {
   expect(none.clusters).toEqual([]);
   expect(none.extent).toBe(0);
 });
+
+test("the places stand round a ring that's wider than it's tall, as a page is, and none is crowded at its ends", () => {
+  const seven = Array.from({ length: 7 }, (_, p) => Array.from({ length: 6 + p }, (_, i) => ({ id: `n${p}-${i}`, where: `project:p${p}`, recalls: 0 }))).flat();
+  const l = layout(seven, []);
+  const wide = Math.max(...l.clusters.map((c) => Math.abs(c.x) + c.r)), tall = Math.max(...l.clusters.map((c) => Math.abs(c.y) + c.r));
+  expect(wide / tall).toBeGreaterThan(1.25);
+  expect(wide / tall).toBeLessThan(2);
+  for (const p of l.clusters) for (const q of l.clusters) if (p !== q) expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeGreaterThan(p.r + q.r + 30);
+  // The first place still comes first, clockwise from the top: it's in the top right.
+  expect(l.clusters[0].x).toBeGreaterThan(0);
+  expect(l.clusters[0].y).toBeLessThan(0);
+  // On an upright page the ring stands up instead.
+  const up = layout(seven, [], true);
+  expect(Math.max(...up.clusters.map((c) => Math.abs(c.y) + c.r)) / Math.max(...up.clusters.map((c) => Math.abs(c.x) + c.r))).toBeGreaterThan(1.25);
+});

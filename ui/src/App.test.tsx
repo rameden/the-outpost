@@ -45,13 +45,14 @@ test("what the page says back shows by the message box, where a conversation's v
   expect(store.getState().items.at(-1)).toMatchObject({ kind: "sys", text: "There's no finished answer here to rate yet." }); // and in the feed, for All activity
 });
 
-test("Orbit takes the whole page from its button in the top bar or /orbit, and going anywhere on the page leaves it", async () => {
+test("Orbit takes the whole page from the Arcade menu in the top bar or /orbit, and going anywhere on the page leaves it", async () => {
   render(<App store={createFeedStore()} />);
   expect(screen.queryByRole("dialog", { name: "Orbit: the crew at work" })).toBe(null);
-  fireEvent.click(screen.getByRole("button", { name: "Orbit" }));
+  fireEvent.click(screen.getByRole("button", { name: "Arcade" }));
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Orbit" }));
   // Orbit is its own script, fetched the first time it's opened; after that it opens at once.
   const view = await screen.findByRole("dialog", { name: "Orbit: the crew at work" });
-  expect(screen.getByRole("button", { name: "Leave Orbit", pressed: true })).toBeTruthy(); // the top bar's button, lit while it's open
+  expect(screen.getByRole("button", { name: "Arcade" }).classList.contains("on")).toBe(true); // the top bar's button, lit while it's open
   fireEvent.keyDown(view, { key: "Escape" });
   expect(screen.queryByRole("dialog", { name: "Orbit: the crew at work" })).toBe(null);
   act(() => say({ do: "command", name: "orbit" })); // what typing /orbit does

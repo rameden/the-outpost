@@ -399,6 +399,29 @@ footer .mae-word { height: 16px; }
 .sky .hero .cta { margin-top: clamp(16px, 2.6svh, 30px); }
 .sky .feed-body { gap: clamp(8px, 1.2svh, 12px); padding: clamp(10px, 1.6svh, 16px) 16px; }
 .hero h1 { font-size: clamp(44px, min(7vw, 8svh), 92px); letter-spacing: -.02em; margin-block: clamp(10px, 1.6svh, 18px) clamp(12px, 2svh, 22px); }
+/* A small "Scroll" cue sits under the numbers, still on the first screen. */
+.scroll-cue { position: relative; z-index: 1; align-self: center; display: grid; justify-items: center; gap: 6px; padding-block: clamp(10px, 2svh, 22px) clamp(12px, 2.4svh, 26px); font: 500 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); text-decoration: none; }
+.scroll-cue:hover { color: var(--muted); }
+.scroll-cue i { width: 1px; height: clamp(24px, 3.6svh, 40px); background: linear-gradient(var(--faint), transparent); transform-origin: top; animation: cue 2.2s ease-in-out infinite; }
+@keyframes cue { 0% { transform: scaleY(0); opacity: 1; } 55% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+/* Short windows: the example chat tightens so the numbers and the cue still fit on the first screen. */
+@media (min-width: 961px) and (max-height: 860px) {
+  .sky .feed-top { padding-block: 8px; }
+  .sky .feed-body { font-size: 13px; line-height: 1.4; }
+  .sky .msg { gap: 8px; grid-template-columns: 26px minmax(0, 1fr); }
+  .sky .av { width: 26px; height: 26px; font-size: 13px; }
+  .sky .plan { margin-top: 6px; padding: 6px 10px; gap: 4px; }
+  .sky .plan ol { gap: 2px; }
+  .sky .approve { margin-top: 2px; }
+  .sky .approve span { padding: 2px 8px; }
+  .sky .quests { margin-top: 6px; }
+  .sky .quest { padding: 6px 8px; }
+  .sky .hero .runtimes { margin-top: 12px; }
+  .stat { padding-block: 10px; }
+  .stat b { font-size: 38px; }
+  .scroll-cue { padding-block: 8px 10px; }
+  .scroll-cue i { height: 22px; }
+}
 .sky-layer { position: absolute; inset: -40% 0; pointer-events: none; transform: translate3d(0, var(--py, 0px), 0); }
 .sky > .sky-layer { -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 85%); mask-image: linear-gradient(to bottom, #000 55%, transparent 85%); }
 .stars { background-image:
@@ -475,6 +498,26 @@ footer .mae-word { height: 16px; }
 .feature-head { display: grid; gap: 8px; align-content: start; }
 .feature-head h3 { font-size: 30px; }
 .feature p { columns: 2 280px; column-gap: 44px; font-size: 15px; }
+/* Tabs: a section that would run long shows one part at a time. An underline marks the part that is open. */
+.tabs { display: flex; flex-wrap: wrap; gap: 0 28px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+.tabs button { font: 600 15px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; cursor: pointer; }
+.tabs button:hover { color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[role="tabpanel"][hidden] { display: none; }
+[role="tabpanel"]:is(.packs, .words, .feature) { margin-top: 0; }
+[role="tabpanel"].feature { border-top: 0; padding-top: 0; }
+:is(#orbit, .rules-band) .tabs { border-bottom-color: var(--night-line); }
+:is(#orbit, .rules-band) .tabs button { color: var(--night-muted); }
+:is(#orbit, .rules-band) .tabs button:is(:hover, [aria-selected="true"]) { color: var(--night-text); }
+/* The line under the rules' tabs is the line over the rules. */
+.rules-band .tabs { margin-bottom: 0; }
+[role="tabpanel"].rules { border-top: 0; }
+/* In a tab of the kit, one card can take the whole row, and its list runs in two columns. */
+.item.full { grid-column: 1 / -1; }
+.item.full > p { max-width: 90ch; }
+.item.full ul { display: block; columns: 2 300px; column-gap: 44px; }
+.item.full li { break-inside: avoid; margin-bottom: 4px; }
 .rules-band { position: relative; overflow: clip; isolation: isolate; --star: color-mix(in oklab, var(--night-text) 55%, transparent); }
 .rules-band > .wrap { position: relative; z-index: 1; }
 
@@ -510,6 +553,7 @@ footer .mae-word { height: 16px; }
   .crew > :last-child { grid-column: 1 / -1; }
   .rules > :last-child { grid-column: 1 / -1; }
   .sky { min-height: 0; }
+  .scroll-cue { display: none; }
   /* Stacked, the words and the numbers share one column, and the numbers come straight after the
      heading so they're on the first screen of a phone too. */
   .sky .hero { padding-block: 16px 56px; grid-template-areas: none; grid-template-rows: none; row-gap: 0; }
@@ -528,6 +572,7 @@ footer .mae-word { height: 16px; }
   .stat:nth-child(n+3) { border-top: 1px solid var(--border); }
   .pack-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .feature { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .item.solo { grid-column: 1 / -1; } /* a lone small card on two columns takes the row, so no gap is left beside it */
 }
 @media (max-width: 600px) {
   section { padding-block: 64px 0; }
@@ -552,7 +597,7 @@ footer .mae-word { height: 16px; }
 @media (prefers-reduced-motion: reduce) {
   .msg { transition: none; }
   .feed.running .quest .bar b { animation: none; }
-  .ring, .sun, .hero-copy > *, .sky .feed { animation: none; }
+  .ring, .sun, .hero-copy > *, .sky .feed, .scroll-cue i { animation: none; }
   .member, .item, .pack-list li { transition: none; }
   .member:hover, .item:hover, .pack-list li:hover { transform: none; }
 }
@@ -643,6 +688,7 @@ footer .mae-word { height: 16px; }
     </div>
   </div>
 </div>
+<a class="scroll-cue" href="#name" aria-label="Scroll to the next section"><span>Scroll</span><i aria-hidden="true"></i></a>
 </div>
 
 <section id="name">
@@ -675,7 +721,11 @@ footer .mae-word { height: 16px; }
       <h2>Five specialists who know their trade, and stay in it.</h2>
       <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
     </div>
-    <div class="crew">
+    <div class="tabs" role="tablist" aria-label="The crew">
+      <button type="button" role="tab" id="crew-tab-five" aria-controls="crew-five" aria-selected="true">The five</button>
+      <button type="button" role="tab" id="crew-tab-packs" aria-controls="crew-packs" aria-selected="false">Theme packs</button>
+    </div>
+    <div class="crew" id="crew-five" role="tabpanel" aria-labelledby="crew-tab-five">
       <article class="member qm">
         <div class="badge" aria-hidden="true">🧭</div>
         <h3>Quartermaster</h3>
@@ -717,7 +767,7 @@ footer .mae-word { height: 16px; }
         <p class="decline" aria-live="polite"></p>
       </article>
     </div>
-    <div class="packs">
+    <div class="packs" id="crew-packs" role="tabpanel" aria-labelledby="crew-tab-packs" hidden>
       <div class="packs-head">
         <span class="tag">Make it yours</span>
         <h3>Not a guild person? Change the costumes.</h3>
@@ -792,16 +842,20 @@ footer .mae-word { height: 16px; }
     <div class="sec-head">
       <div class="eyebrow">Orbit</div>
       <h2>The same sky, live, with your crew in it.</h2>
-      <p class="lede">Orbit is mission control at full screen. The Quartermaster is the sun and each crew member a planet that lights up while it works. A dispatch is a comet going out, a report is a comet coming home, and each quest out is a moon. Open it from the top bar, the command palette or <code>/orbit</code>.</p>
+      <p class="lede">Orbit is mission control at full screen. The Quartermaster is the sun and each crew member a planet that lights up while it works. A dispatch is a comet going out, a report is a comet coming home, and each quest out is a moon. Open it from the Arcade menu in the top bar, the command palette or <code>/orbit</code>.</p>
     </div>
-    <div class="words">
+    <div class="tabs" role="tablist" aria-label="Orbit and the trail map">
+      <button type="button" role="tab" id="orbit-tab-sky" aria-controls="orbit-sky" aria-selected="true">Orbit</button>
+      <button type="button" role="tab" id="orbit-tab-trail" aria-controls="orbit-trail" aria-selected="false">Trail map</button>
+    </div>
+    <div class="words" id="orbit-sky" role="tabpanel" aria-labelledby="orbit-tab-sky">
       <div class="word"><h3>Watch</h3><p>Click a planet and the camera flies to it and stays there. Its panel shows each quest, how long it has been out, its last few steps, and a reply as it's written. The sun's panel shows the running expeditions and where each plan stands.</p></div>
       <div class="word"><h3>Act</h3><p>Answer a question, steer a quest, stop one or send new work from the panel, without leaving the view. Stopping a whole expedition asks you once first.</p></div>
       <div class="word"><h3>Replay</h3><p>Scrub back through the day on a timeline. Demo plays a pretend camp, so you can see it busy without sending anyone anywhere. HD draws the system in three dimensions, as worlds you can make your own.</p></div>
     </div>
-    <div class="feature">
+    <div class="feature" id="orbit-trail" role="tabpanel" aria-labelledby="orbit-tab-trail" hidden>
       <div class="feature-head"><span class="tag">Beside Orbit</span><h3>Trail map</h3></div>
-      <p>The plan has a full-screen view of its own, beside Orbit in the top bar or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the crew works, and replays the day the same way. <b>Whole map</b> (or M) puts every plan on one map, drawn one of two ways, and <b>Tree</b> and <b>Rings</b> (or R) swap between them. As rings, the way Orbit draws the crew: each plan is a ring round one centre, the first asked innermost, so the map grows outward as the day goes on. Its steps are waypoints on the ring, with whoever was sent on one beside it, and the plans of one conversation start on the same bearing and are joined, ring to ring. As a tree: one trunk for the day, standing on the foot of the window and growing upward, the first plan at the bottom and the newest at the tip, each plan a bough growing off it. Either way it holds the whole last day (the same day a replay plays, so a replay ends on the map you started from), it's drawn as small as it takes to fit, and fitted again as plans join, and the way you chose is remembered. A plan that joins while you watch, live or in a replay, is drawn in (a ring opens out, a bough grows) while the rest move over for it, and one that goes when you wind a replay back fades where it stood.</p>
+      <p>The plan has a full-screen view of its own, beside Orbit in the top bar's Arcade menu, or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the crew works, and replays the day the same way. <b>Whole map</b> (or M) puts every plan on one map, drawn one of two ways, and <b>Tree</b> and <b>Rings</b> (or R) swap between them. As rings, the way Orbit draws the crew: each plan is a ring round one centre, the first asked innermost, so the map grows outward as the day goes on. Its steps are waypoints on the ring, with whoever was sent on one beside it, and the plans of one conversation start on the same bearing and are joined, ring to ring. As a tree: one trunk for the day, standing on the foot of the window and growing upward, the first plan at the bottom and the newest at the tip, each plan a bough growing off it. Either way it holds the whole last day (the same day a replay plays, so a replay ends on the map you started from), it's drawn as small as it takes to fit, and fitted again as plans join, and the way you chose is remembered. A plan that joins while you watch, live or in a replay, is drawn in (a ring opens out, a bough grows) while the rest move over for it, and one that goes when you wind a replay back fades where it stood.</p>
     </div>
   </div>
 </section>
@@ -825,7 +879,7 @@ footer .mae-word { height: 16px; }
     </div>
     <div class="film" id="film-stars" role="tabpanel" aria-labelledby="film-tab-stars" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">The constellation: every line the crew remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it with <code>/constellation</code>. It loops. Click the stage to pause.</p>
+      <p class="film-note">The constellation: every line the crew remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Arcade menu in the top bar or with <code>/constellation</code>. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-night" role="tabpanel" aria-labelledby="film-tab-night" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -841,48 +895,20 @@ footer .mae-word { height: 16px; }
       <div class="eyebrow">The kit</div>
       <h2>Everything in the pack.</h2>
     </div>
-    <div class="kit">
-      <div class="item wide">
+    <div class="tabs" role="tablist" aria-label="The kit">
+      <button type="button" role="tab" id="kit-tab-control" aria-controls="kit-control" aria-selected="true">Mission control</button>
+      <button type="button" role="tab" id="kit-tab-memory" aria-controls="kit-memory" aria-selected="false">Memory and models</button>
+      <button type="button" role="tab" id="kit-tab-tickets" aria-controls="kit-tickets" aria-selected="false">Tickets</button>
+      <button type="button" role="tab" id="kit-tab-away" aria-controls="kit-away" aria-selected="false">While you're away</button>
+    </div>
+    <div class="kit" id="kit-control" role="tabpanel" aria-labelledby="kit-tab-control">
+      <div class="item full">
         <span class="tag">Mission control</span>
         <h3>A local dashboard for the whole camp</h3>
         <p><code>npm run ui</code> opens it on <code>127.0.0.1</code>. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
         <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Tool calls fold into one line per stretch ("Read 5 files, ran 2 commands"), and a Condensed/Detailed switch brings back every line</li><li>Attach a file, a folder, or a .zip that arrives as the folder it holds, up to 5,000 files</li><li>Mention <code>@scribe</code> anywhere in a plain chat and the Scribe takes that turn</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
       </div>
-      <div class="item">
-        <span class="tag">Memory</span>
-        <h3>Three layers that last</h3>
-        <p>Each agent's own memory, a shared wiki with sources, and skills you approve. When a memory outgrows its room, a prompt gets the lines you pinned, the newest, and the ones that bear on the request. <code>recall</code> finds the rest, and nothing is tidied without your say. Type <code>/constellation</code> to see it all as a map: every line a star that grows each time it's used, where you can pin, forget or merge it.</p>
-      </div>
-      <div class="item">
-        <span class="tag">Other models</span>
-        <h3>Claude leads. Others can join.</h3>
-        <p>Connect another provider's key and its models show up in every picker. A wiki guide ranks them by cost and speed. On the API, if a model declines a request, another Claude model carries on and the feed says so.</p>
-        <div class="models"><span class="lead">Claude</span><span>DeepSeek</span><span>Gemini</span><span>Groq</span><span>OpenRouter</span></div>
-      </div>
-      <div class="item wide">
-        <span class="tag">Auto, the router</span>
-        <h3>A router picks the model for each task</h3>
-        <p>Set a crew member, a project or one conversation to Auto: Economy, Balanced or Quality. Right before each dispatch the router sizes up the task (how hard it is, how much is at stake, how big the request is), rules out every model that can't carry it, and picks the cheapest that should finish, or the likeliest to.</p>
-        <ul><li>It keeps a model through routine work, and moves on when one is failing, rate limited or too small for the conversation</li><li>An outage is waited out, not given up on, and a model you pick yourself stays pinned</li><li>It learns from how each run actually went, within a limit, so one good or bad day doesn't decide a model's fate</li><li>Every run says which model it used and why. Settings → Models shows how Auto's runs have gone, with a switch for each model Auto may pick (you can still pick one it may not)</li></ul>
-      </div>
-      <div class="item wide">
-        <span class="tag">While you're away</span>
-        <h3>It keeps an eye on the work</h3>
-        <p>Each part has its own switch under Settings, and nothing it starts goes ahead without your OK.</p>
-        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections, and drafts a how-to for work you keep asking for. Nothing is kept until you approve it</li><li>A night shift, off until you switch it on, uses the quiet hours to draft shorter versions of memories that are getting full, list old lines worth a look and note what housekeeping could clear. It only drafts and reports: the morning's Today page shows what it left, and nothing changes until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
-      </div>
-      <div class="item">
-        <span class="tag">Projects &amp; Jira</span>
-        <h3>From a note to a pull request</h3>
-        <p>Jot a note and the Scout can write it up as a ticket with acceptance criteria, or ask for ideas and get up to five from the project's record. Start from a Jira ticket, step by step. Pull requests go out with a real description, from your own button, and review comments come back for you to read.</p>
-      </div>
-      <div class="item wide">
-        <span class="tag">Tickets &amp; debriefs</span>
-        <h3>Tickets of its own, and a look back when one's done</h3>
-        <p>No Jira? Mae keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the Quartermaster make them.</p>
-        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, a Mae ticket or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
-      </div>
-      <div class="item">
+      <div class="item solo">
         <span class="tag">Voice</span>
         <h3>Read aloud</h3>
         <p>Connect an ElevenLabs key under Settings → Voice and Mae reads to you in the voice you choose: an answer, a job's report, an inbox item, a ticket's debrief, or text you select. One player in the top bar pauses, skips and changes speed, and stays as you move around. Each piece is kept, so hearing it again costs nothing.</p>
@@ -901,7 +927,52 @@ footer .mae-word { height: 16px; }
           </div>
         </div>
       </div>
+    </div>
+    <div class="kit" id="kit-memory" role="tabpanel" aria-labelledby="kit-tab-memory" hidden>
       <div class="item">
+        <span class="tag">Memory</span>
+        <h3>Three layers that last</h3>
+        <p>Each agent's own memory, a shared wiki with sources, and skills you approve. When a memory outgrows its room, a prompt gets the lines you pinned, the newest, and the ones that bear on the request. <code>recall</code> finds the rest, and nothing is tidied without your say. Type <code>/constellation</code> to see it all as a map: every line a star that grows each time it's used, where you can pin, forget or merge it.</p>
+      </div>
+      <div class="item">
+        <span class="tag">Other models</span>
+        <h3>Claude leads. Others can join.</h3>
+        <p>Connect another provider's key and its models show up in every picker. A wiki guide ranks them by cost and speed. On the API, if a model declines a request, another Claude model carries on and the feed says so.</p>
+        <div class="models"><span class="lead">Claude</span><span>DeepSeek</span><span>Gemini</span><span>Groq</span><span>OpenRouter</span></div>
+      </div>
+      <div class="item solo">
+        <span class="tag">Skills</span>
+        <h3>How-tos the crew picks up</h3>
+        <p>After a good expedition the Quartermaster can propose a skill: the steps, the format, the pitfall that cost a retry. It goes live only when you approve it. Import a skill pack, or set one to apply to everything a crew member does.</p>
+      </div>
+      <div class="item full">
+        <span class="tag">Auto, the router</span>
+        <h3>A router picks the model for each task</h3>
+        <p>Set a crew member, a project or one conversation to Auto: Economy, Balanced or Quality. Right before each dispatch the router sizes up the task (how hard it is, how much is at stake, how big the request is), rules out every model that can't carry it, and picks the cheapest that should finish, or the likeliest to.</p>
+        <ul><li>It keeps a model through routine work, and moves on when one is failing, rate limited or too small for the conversation</li><li>An outage is waited out, not given up on, and a model you pick yourself stays pinned</li><li>It learns from how each run actually went, within a limit, so one good or bad day doesn't decide a model's fate</li><li>Every run says which model it used and why. Settings → Models shows how Auto's runs have gone, with a switch for each model Auto may pick (you can still pick one it may not)</li></ul>
+      </div>
+    </div>
+    <div class="kit" id="kit-tickets" role="tabpanel" aria-labelledby="kit-tab-tickets" hidden>
+      <div class="item solo">
+        <span class="tag">Projects &amp; Jira</span>
+        <h3>From a note to a pull request</h3>
+        <p>Jot a note and the Scout can write it up as a ticket with acceptance criteria, or ask for ideas and get up to five from the project's record. Start from a Jira ticket, step by step. Pull requests go out with a real description, from your own button, and review comments come back for you to read.</p>
+      </div>
+      <div class="item wide">
+        <span class="tag">Tickets &amp; debriefs</span>
+        <h3>Tickets of its own, and a look back when one's done</h3>
+        <p>No Jira? Mae keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the Quartermaster make them.</p>
+        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, a Mae ticket or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
+      </div>
+    </div>
+    <div class="kit" id="kit-away" role="tabpanel" aria-labelledby="kit-tab-away" hidden>
+      <div class="item full">
+        <span class="tag">While you're away</span>
+        <h3>It keeps an eye on the work</h3>
+        <p>Each part has its own switch under Settings, and nothing it starts goes ahead without your OK.</p>
+        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections, and drafts a how-to for work you keep asking for. Nothing is kept until you approve it</li><li>A night shift, off until you switch it on, uses the quiet hours to draft shorter versions of memories that are getting full, list old lines worth a look and note what housekeeping could clear. It only drafts and reports: the morning's Today page shows what it left, and nothing changes until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
+      </div>
+      <div class="item solo">
         <span class="tag">Housekeeping</span>
         <h3>It tidies up when you say</h3>
         <p>Ask the Quartermaster to clean up the camp. It lists what could go (unused uploads, finished worktrees, leftovers from a crash), then asks before each step and shows exactly what will be removed.</p>
@@ -911,11 +982,6 @@ footer .mae-word { height: 16px; }
         <h3>Leave it running</h3>
         <p>The camp's own files are written whole or not at all, so a crash can't leave one half-written. A reply cut off by a dropped connection is asked for again. Stop the camp and its running work stops with it, with a Resume button waiting on each run.</p>
         <ul><li>A run picked up again, even on another model, never repeats a command, pull request or review</li><li>A settings file with a typo is set aside, not silently replaced</li><li>Checks you list run after every change, and a failure goes back to be fixed</li><li>Budgets hold even on a model too new to have a listed price</li></ul>
-      </div>
-      <div class="item">
-        <span class="tag">Skills</span>
-        <h3>How-tos the crew picks up</h3>
-        <p>After a good expedition the Quartermaster can propose a skill: the steps, the format, the pitfall that cost a retry. It goes live only when you approve it. Import a skill pack, or set one to apply to everything a crew member does.</p>
       </div>
     </div>
   </div>
@@ -929,16 +995,25 @@ footer .mae-word { height: 16px; }
       <h2>Clear limits, kept by the camp's own code.</h2>
       <p class="lede">An agent can't talk its way past these. The camp's own source is read-only to the crew, so nothing it reads can loosen them.</p>
     </div>
-    <div class="rules">
+    <div class="tabs" role="tablist" aria-label="Camp rules">
+      <button type="button" role="tab" id="rules-tab-secrets" aria-controls="rules-secrets" aria-selected="true">Your secrets</button>
+      <button type="button" role="tab" id="rules-tab-asks" aria-controls="rules-asks" aria-selected="false">Asks first</button>
+      <button type="button" role="tab" id="rules-tab-run" aria-controls="rules-run" aria-selected="false">During a run</button>
+    </div>
+    <div class="rules" id="rules-secrets" role="tabpanel" aria-labelledby="rules-tab-secrets">
       <div class="rule"><b>Secrets stay put</b><p>File tools never read <code>.env</code>, private keys or credentials, at any depth, in a linked folder or through a symlink.</p></div>
+      <div class="rule"><b>Commands travel light</b><p>Your API keys and tokens are left out of every command and connector the crew starts, unless you name one to pass on.</p></div>
+      <div class="rule"><b>The key isn't in the link</b><p>The link the camp prints signs one browser in, once. The camp's key never sits in an address, your history or a bookmark.</p></div>
+    </div>
+    <div class="rules" id="rules-asks" role="tabpanel" aria-labelledby="rules-tab-asks" hidden>
       <div class="rule"><b>Shell asks first</b><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A sandbox is there if you want it, on macOS or Linux. God mode, for the camp or one project, runs every command without asking, but "Never run" rules still stop one, and a scheduled job gets the sandbox instead.</p></div>
+      <div class="rule"><b>Deleting asks first</b><p>Uploads, worktrees and old records are cleared only when you ask, a step at a time, each showing what will go.</p></div>
       <div class="rule"><b>Read-only git</b><p>Everyone can run <code>status</code>, <code>diff</code>, <code>log</code> and <code>blame</code>. Nobody pushes on their own.</p></div>
+    </div>
+    <div class="rules" id="rules-run" role="tabpanel" aria-labelledby="rules-tab-run" hidden>
       <div class="rule"><b>No trampling</b><p>Parallel quests can't overwrite each other. A file changed by another quest has to be read again first.</p></div>
       <div class="rule"><b>Pages are information</b><p>Web pages, files and connector results are never treated as instructions, and suspected prompt injection is flagged.</p></div>
       <div class="rule"><b>Budgets hold</b><p>Spending is tallied after every reply, across all quests, and the run stops when the budget is reached.</p></div>
-      <div class="rule"><b>Commands travel light</b><p>Your API keys and tokens are left out of every command and connector the crew starts, unless you name one to pass on.</p></div>
-      <div class="rule"><b>The key isn't in the link</b><p>The link the camp prints signs one browser in, once. The camp's key never sits in an address, your history or a bookmark.</p></div>
-      <div class="rule"><b>Deleting asks first</b><p>Uploads, worktrees and old records are cleared only when you ask, a step at a time, each showing what will go.</p></div>
     </div>
   </div>
 </div>
@@ -1043,6 +1118,31 @@ footer .mae-word { height: 16px; }
       demo.dataset.state = btn.dataset.orb;
       orbBtns.forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
     });
+  });
+
+  // Tabs: one part of a section shows at a time. Left and right arrows, Home and End move between them.
+  document.querySelectorAll('.tabs').forEach(function (list) {
+    var tabs = [].slice.call(list.querySelectorAll('[role="tab"]'));
+    var pick = function (tab) {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      });
+    };
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () { pick(tab); });
+      tab.addEventListener('keydown', function (ev) {
+        var n = tabs.length;
+        var to = ev.key === 'ArrowRight' ? (i + 1) % n : ev.key === 'ArrowLeft' ? (i + n - 1) % n : ev.key === 'Home' ? 0 : ev.key === 'End' ? n - 1 : -1;
+        if (to < 0) return;
+        ev.preventDefault();
+        pick(tabs[to]);
+        tabs[to].focus();
+      });
+    });
+    pick(list.querySelector('[aria-selected="true"]') || tabs[0]);
   });
 
   // Replay the example expedition.
@@ -1403,9 +1503,9 @@ footer .mae-word { height: 16px; }
 .hill { fill: var(--surface-2); }
 .hill-n { fill: var(--sky); }
 .winframe { fill: none; stroke: var(--border-strong); stroke-width: 1; }
-.tent { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.tent-door { fill: var(--border-strong); }
-.tent-n { fill: var(--night); }
+.stand { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.door { fill: var(--border-strong); }
+.stand-n { fill: var(--night); }
 .lamp { fill: var(--accent); }
 .flame { fill: var(--accent); }
 .log { stroke: var(--border-strong); stroke-width: 4; stroke-linecap: round; }
@@ -4125,23 +4225,28 @@ for (let j = 0; j < 3; j++) {
 }
 // what stands in the camp is drawn for the day, with a dark copy over it that comes up with the night
 const DARK = [];
-const stand = (d, parent) => { el('path', { d, class: 'tent' }, parent); DARK.push(el('path', { d, class: 'tent-n' }, parent)); };
+const stand = (d, parent) => { el('path', { d, class: 'stand' }, parent); DARK.push(el('path', { d, class: 'stand-n' }, parent)); };
 [[-150, 572, 1], [-96, 566, .78], [96, 572, .82], [548, 568, 1], [590, 562, .74], [770, 566, .9], [836, 572, 1.1]].forEach(([x, y, s]) => {
   const g = el('g', { transform: `translate(${x} ${y})` }, gLand), q = v => (v * s).toFixed(1);
   el('path', { d: `M0 0 V${q(-12)}`, class: 'log' }, g);
   stand(`M${q(-17)} ${q(-10)} L0 ${q(-38)} L${q(17)} ${q(-10)} Z M${q(-13)} ${q(-29)} L0 ${q(-54)} L${q(13)} ${q(-29)} Z M${q(-9)} ${q(-46)} L0 ${q(-68)} L${q(9)} ${q(-46)} Z`, g);
 });
-// the tent, and the lamp in it while the shift is on
-const TENT = [190, 566], gTent = el('g', { transform: `translate(${TENT[0]} ${TENT[1]})` }, gLand);
-el('path', { d: 'M-7 -104 L0 -92 L7 -104', class: 'tent', fill: 'none' }, gTent);
-stand('M-74 0 L0 -92 L74 0 Z', gTent);
-el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'tent-door' }, gTent);
-const lampHalo = el('circle', { cy: -22, r: 54, fill: 'url(#glow)' }, gTent), lamp = el('path', { d: 'M-18 0 L0 -50 L18 0 Z', class: 'lamp' }, gTent);
-// a second, smaller tent
-const gTent2 = el('g', { transform: 'translate(452 573)' }, gLand);
-el('path', { d: 'M-4 -62 L0 -54 L4 -62', class: 'tent', fill: 'none' }, gTent2);
-stand('M-44 0 L0 -54 L44 0 Z', gTent2);
-el('path', { d: 'M-11 0 L0 -30 L11 0 Z', class: 'tent-door' }, gTent2);
+// a little house, one storey high, and the lamp in its windows while the shift is on
+const HOUSE = [190, 566], gHouse = el('g', { transform: `translate(${HOUSE[0]} ${HOUSE[1]})` }, gLand);
+stand('M24 -64 V-90 H38 V-64 Z', gHouse);
+stand('M-58 0 V-46 H58 V0 Z', gHouse);
+stand('M-68 -44 L-42 -76 H42 L68 -44 Z', gHouse);
+el('path', { d: 'M-10 0 V-32 H10 V0 Z', class: 'door' }, gHouse);
+const PANES = 'M-46 -34 H-24 V-14 H-46 Z M24 -34 H46 V-14 H24 Z';
+const lampHalo = el('circle', { cy: -24, r: 62, fill: 'url(#glow)' }, gHouse), lamp = el('path', { d: PANES, class: 'lamp' }, gHouse);
+el('path', { d: PANES + ' M-35 -34 V-14 M35 -34 V-14', class: 'stand', fill: 'none' }, gHouse);
+// a second, smaller house
+const gHouse2 = el('g', { transform: 'translate(452 573)' }, gLand);
+stand('M-28 -40 V-57 H-19 V-40 Z', gHouse2);
+stand('M-36 0 V-29 H36 V0 Z', gHouse2);
+stand('M-43 -28 L-26 -49 H26 L43 -28 Z', gHouse2);
+el('path', { d: 'M-22 0 V-20 H-9 V0 Z', class: 'door' }, gHouse2);
+el('path', { d: 'M6 -21 H24 V-8 H6 Z M15 -21 V-8', class: 'stand', fill: 'none' }, gHouse2);
 // the fire, and the logs to sit on
 const gFire = el('g', { transform: 'translate(318 578)' }, gLand);
 const fireHalo = el('circle', { cy: -12, r: 44, fill: 'url(#glow)' }, gFire);
@@ -4250,7 +4355,7 @@ function render(t) {
     const [x, y] = orbAt(p.orb, p.rest + p.sp * turn, ph);
     TR(p.g, x, y); O(p.g, lerp(1, .78, night)); zs(p.z, x, y, p.i);
   });
-  // the fire burns down for the night; the lamp in the tent is the shift at work
+  // the fire burns down for the night; the lamp in the house is the shift at work
   const fire = first ? lerp(1, .38, seg(t, T.dusk + 2, T.dusk + 4)) : lerp(.38, 1, seg(t, T.dawn + .8, T.dawn + 2.2));
   flame.setAttribute('transform', `scale(${(fire * (1 + .07 * Math.sin(t * 13))).toFixed(3)} ${(fire * (1 + .14 * Math.sin(t * 9.1 + 1))).toFixed(3)})`);
   O(fireHalo, fire * .75);
@@ -4263,9 +4368,9 @@ function render(t) {
   say(statusT, t < T.shift - 1.6 ? 'THE CAMP IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
   cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
 
-  // each row: a spark leaves the tent, the row is written, and its tag says nothing was changed
+  // each row: a spark leaves the house by the chimney, the row is written, and its tag says nothing was changed
   ROWS.forEach(r => {
-    const k = seg(t, r.at, r.at + .6), x0 = TENT[0] + dx, y0 = TENT[1] - 30, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
+    const k = seg(t, r.at, r.at + .6), x0 = HOUSE[0] + 31 + dx, y0 = HOUSE[1] - 90, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
     const sx = (1 - k) * (1 - k) * x0 + 2 * k * (1 - k) * ((x0 + x1) / 2) + k * k * x1, sy = (1 - k) * (1 - k) * y0 + 2 * k * (1 - k) * cy + k * k * y1;
     TR(r.spark, sx, sy); O(r.spark, k > 0 && k < 1 ? Math.min(1, k * 8, (1 - k) * 8) : 0);
     O(r.g, seg(t, r.at + .45, r.at + .8) * (1 - seg(t, T.dawn + .2, T.dawn + .7)));
