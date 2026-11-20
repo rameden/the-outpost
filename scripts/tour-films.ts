@@ -19,13 +19,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TOUR = join(ROOT, "docs", "index.html");
 const FILMS_DIR = join(ROOT, "docs", "films");
 
-const FILMS = [
+const FILMS: { key: string; section: string; file: string; tab: string; length: string; note: string; hidden?: boolean }[] = [
   {
     key: "sky", section: "films", file: "ground-to-sky.html", tab: "Ground to sky", length: "1:15",
     note: "Mae in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
   },
   {
-    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:17",
+    // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in "On film".
+    // To show it again: take `hidden` off, put it back in that section's lede below (the lede counts
+    // the films and describes them), and run `npm run tour:films`.
+    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:17", hidden: true,
     note: "All of Mae in one loop. A request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the camp is idle.",
   },
   {
@@ -53,7 +56,7 @@ const FILMS = [
 const SECTIONS = [
   {
     id: "films", name: "On film", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Four short films, drawn live in this page. The first two show all of Mae: one in a single shot from the ground to the sky, one as a loop round the whole sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
+    lede: "Three short films, drawn live in this page. The first shows all of Mae in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
     before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
   },
   {
@@ -147,8 +150,11 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
 :root[data-theme="dark"] { ${declare(EXTRA.dark)} }
 /* films:end */
 `;
+  // A hidden film has no tab and no panel, and its section's code never asks for it. Its stage and the
+  // code that draws it are still written in below, so it stays in step with its page in docs/films/.
+  const shownIn = (id: string) => parts.filter((f) => f.section === id && !f.hidden);
   const sections = SECTIONS.map((s) => {
-    const shown = parts.filter((f) => f.section === s.id);
+    const shown = shownIn(s.id);
     return `<!-- ${s.id}:start -->
 <section id="${s.id}">
   <div class="wrap">
@@ -203,7 +209,7 @@ ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
     f.ctl = DRAW[key](root);
   }
   // Each section has its own tabs, and its films move only while that section is on screen.
-  [${SECTIONS.map((s) => `{ id: '${s.id}', keys: [${parts.filter((f) => f.section === s.id).map((f) => `'${f.key}'`).join(", ")}] }`).join(", ")}].forEach(function (sec) {
+  [${SECTIONS.map((s) => `{ id: '${s.id}', keys: [${shownIn(s.id).map((f) => `'${f.key}'`).join(", ")}] }`).join(", ")}].forEach(function (sec) {
     var keys = sec.keys, active = keys[0], inView = false;
     function update() {
       keys.forEach(function (key) {
