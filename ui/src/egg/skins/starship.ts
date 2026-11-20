@@ -1,6 +1,7 @@
 // Starship: you fly a white fighter with four wings, a long nose and a cannon out at each
-// wingtip, firing red bolts; what comes at you is a grey armada: interceptors with one red
-// eye, a cruiser, a rock with something glowing in it, and a dreadnought at the end.
+// wingtip, firing red bolts; what comes at you is an empire's fleet, all of it grey: fighters
+// that are a round pod slung between two flat panels, a bomber with two pods, a rock with
+// something glowing in it, and a great wedge of a dreadnought at the end.
 
 import type { Skin } from "../skins.ts";
 
@@ -33,76 +34,77 @@ export const starship: Skin = {
   // A bolt of red light.
   shot: { paint: { D: "#3a0a0a", G: "#ff4a3c", W: "#ffe0d8" }, rows: [".D.", "DWD", "DGD", "DGD", "DGD", "DGD", "DGD", ".D."] },
   enemies: {
-    // An interceptor: a steel arrowhead with one red eye.
+    // A fighter: a round pod with one red eye, slung between two flat panels.
     scout: {
       paint: STEEL,
       rows: [
-        ".....D.....",
-        "....DGD....",
-        "....DGD....",
-        "...DGRGD...",
-        "D..DGGGD..D",
-        "DD.DGKGD.DD",
-        "DGDDGGGDDGD",
-        "DGGGGKGGGGD",
-        "DKGGDDDGGKD",
-        ".DDD.E.DDD.",
-        ".....E.....",
+        "GK.......KG",
+        "GK.......KG",
+        "GK..DDD..KG",
+        "GK.DGGGD.KG",
+        "GKDDGRGDDKG",
+        "GKGGRRRGGKG",
+        "GKDDGRGDDKG",
+        "GK.DGGGD.KG",
+        "GK..DDD..KG",
+        "GK.......KG",
+        "GK.......KG",
       ],
     },
-    // The squadron leader's: a size up, with gold on its nose and wingtips.
+    // The squadron leader's: a size up, with gold on its panels.
     leader: {
       paint: { ...STEEL, Y: "#ffd84a" },
       rows: [
-        "......D......",
-        ".....DGD.....",
-        ".....DYD.....",
-        "....DGRGD....",
-        "D...DGGGD...D",
-        "DD.DGGKGGD.DD",
-        "DGDDGGGGGDDGD",
-        "DGGGGGKGGGGGD",
-        "DYGGGDDDGGGYD",
-        ".DDDD.E.DDDD.",
-        "......E......",
+        "G...........G",
+        "GK.........KG",
+        "GK.........KG",
+        "YK...DDD...KY",
+        "GK..DGGGD..KG",
+        "GKDDDGRGDDDKG",
+        "GKGGGRRRGGGKG",
+        "GKDDDGRGDDDKG",
+        "GK..DGGGD..KG",
+        "YK...DDD...KY",
+        "GK.........KG",
+        "G...........G",
       ],
     },
-    // A fighter with its wings swept forward: purple, with gold on it.
+    // The ace's: its panels bent in at the tips, purple, with gold on it.
     ace: {
-      paint: { D: "#1c0f33", R: "#7a4bd6", C: "#ffd84a", W: "#ffd84a" },
+      paint: { D: "#1c0f33", P: "#7a4bd6", W: "#ffd84a", C: "#ffd84a" },
       rows: [
-        ".....D.....",
-        "....DRD....",
-        "....DCD....",
-        "D..DRRRD..D",
-        "DD.DRWRD.DD",
-        "DRDDRRRDDRD",
-        "DRRRRWRRRRD",
-        "DWRRDRDRRWD",
-        ".DDD.D.DDD.",
-        "...DDWDD...",
-        "....DDD....",
+        ".PP.....PP.",
+        "PPD.....DPP",
+        "PW..DDD..WP",
+        "PW.DPPPD.WP",
+        "PWDDPCPDDWP",
+        "PWPPCCCPPWP",
+        "PWDDPCPDDWP",
+        "PW.DPPPD.WP",
+        "PW..DDD..WP",
+        "PPD.....DPP",
+        ".PP.....PP.",
       ],
     },
-    // A cruiser: broad, dark red, lit windows down its spine and an engine pod on each wing.
+    // A bomber: two pods side by side between its panels, and an engine under each.
     heavy: {
-      paint: { D: "#2a0d1c", R: "#a02c5a", K: "#5a1c3a", C: "#9ff0ff", Y: "#ffd84a" },
+      paint: STEEL,
       rows: [
-        ".........D.........",
-        "........DRD........",
-        ".......DRCRD.......",
-        ".......DRRRD.......",
-        "..D...DRRCRRD...D..",
-        ".DYD..DRRRRRD..DYD.",
-        ".DRDDDDRRCRRDDDDRD.",
-        "DRRRRRRRRRRRRRRRRRD",
-        "DRKKRRRRRRRRRRRKKRD",
-        "DRKKRRRKKKKKRRRKKRD",
-        ".DDRRRRKYKYKRRRRDD.",
-        "...DDDRRRRRRRDDD...",
-        "......DRRDRRD......",
-        "......DYD.DYD......",
-        ".......D...D.......",
+        "GK...............KG",
+        "GK...............KG",
+        "GK...DDD...DDD...KG",
+        "GK..DGGGD.DGGGD..KG",
+        "GK.DGGGGGDGGGGGD.KG",
+        "GKDDGGRGGDGGRGGDDKG",
+        "GKGGGRRRGGGRRRGGGKG",
+        "GKGGGRRRGGGRRRGGGKG",
+        "GKDDGGRGGDGGRGGDDKG",
+        "GK.DGGGGGDGGGGGD.KG",
+        "GK..DGGGD.DGGGD..KG",
+        "GK...DED...DED...KG",
+        "GK....E.....E....KG",
+        "GK...............KG",
+        "GK...............KG",
       ],
     },
     // A yellow supply shuttle, with its hold in the middle.
@@ -154,10 +156,10 @@ export const starship: Skin = {
         ".......D.D.......",
       ],
     },
-    // A warship behind a shield of light ("S": bright while it's covered).
+    // A grey warship behind a shield of light ("S": bright while it's covered).
     gunship: {
       bare: "#3d4a66",
-      paint: { D: "#14101f", R: "#8c2a5a", K: "#4d4650", C: "#eafaff", S: "#7df0ff", Y: "#ffd84a" },
+      paint: { D: "#10141c", R: "#8a93a3", K: "#4a5262", C: "#eafaff", S: "#7df0ff", Y: "#ff3b30" },
       rows: [
         ".....DDDDDDD.....",
         "....DSSSSSSSD....",
@@ -196,32 +198,32 @@ export const starship: Skin = {
         ".......D.......",
       ],
     },
-    // The dreadnought: grey and broad, a lit spine, a bridge amidships and three engines.
+    // The dreadnought: a great grey wedge, a lit spine down it, the bridge astern and three engines.
     flagship: {
-      paint: { ...STEEL, L: "#9ff0ff", C: "#ffdf5a", Y: "#ffd84a" },
+      paint: { ...STEEL, L: "#9ff0ff", C: "#ffdf5a" },
       rows: [
         "............D............",
         "...........DGD...........",
+        "...........DGD...........",
         "..........DGGGD..........",
+        "..........DGLGD..........",
         ".........DGGLGGD.........",
-        "....D....DGGLGGD....D....",
-        "...DGD..DGGGLGGGD..DGD...",
-        "...DGD.DGGKGLGKGGD.DGD...",
-        "...DGDDGGGKGLGKGGGDDGD...",
-        "..DGGGGGGKKGLGKKGGGGGGD..",
-        ".DGGRGGGGKGGLGGKGGGGRGGD.",
-        "DGGGGGGGGKGDDDGKGGGGGGGGD",
-        "DGGKKKGGGGGDCDGGGGGKKKGGD",
-        "DGGGGGGGGGGDDDGGGGGGGGGGD",
-        ".DGGYGGDDGGGGGGGDDGGYGGD.",
-        "..DDDDDD.DGKGKGD.DDDDDD..",
-        ".........DEDEDED.........",
-        "..........E.E.E..........",
+        "........DGGGLGGGD........",
+        "........DGKGLGKGD........",
+        ".......DGGKGLGKGGD.......",
+        "......DGGGKGLGKGGGD......",
+        ".....DGGGGGDDDGGGGGD.....",
+        "....DGGKGGDCCCDGGKGGD....",
+        "...DGGGKGGGDDDGGGKGGGD...",
+        "..DGGRGGGGGGGGGGGGGRGGD..",
+        ".DGGGGGGGGGGGGGGGGGGGGGD.",
+        ".DDDDDDEDDDDEDDDDEDDDDDD.",
+        ".......E....E....E.......",
       ],
     },
-    // The ships: a star cruiser and a frigate, dark violet with lit decks.
-    carrier: { paint: { D: "#0d1020", H: "#8a7fd0", K: "#4a4480", W: "#7df0ff", I: "#1b1838", Y: "#ffd84a", T: "#e2463c" } },
-    boat: { paint: { D: "#0d1020", H: "#8a7fd0", K: "#4a4480", I: "#1b1838", Y: "#ffd84a", T: "#e2463c" } },
+    // The ships: the fleet's own, the same grey, with lit decks.
+    carrier: { paint: { D: "#10141c", H: "#8a93a3", K: "#4a5262", W: "#9ff0ff", I: "#1b2030", Y: "#ffd84a", T: "#ff3b30" } },
+    boat: { paint: { D: "#10141c", H: "#8a93a3", K: "#4a5262", I: "#1b2030", Y: "#ffd84a", T: "#ff3b30" } },
   },
   // Crew in suits: a silver helmet over a green face, and teal overalls.
   builder: { H: "#c9d3e0", D: "#7a8494", S: "#8fd16a", K: "#14181f", N: "#5ea832", B: "#2fb4d0", T: "#16566b", F: "#1b1b1f" },
