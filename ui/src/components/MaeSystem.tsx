@@ -12,7 +12,7 @@
 // map. Then the next one, and round again.
 //
 // Who is in the rotation is the camp's own crew (everyone but the Quartermaster, who is the sun),
-// so someone you add, like the Wizard, gets an orbit too: the next one out, in the colour you gave
+// so someone you add, like the Test Pilot, gets an orbit too: the next one out, in the colour you gave
 // them. With nobody (`crew` empty: outside a project there is no crew until you call one in) the
 // lines are empty and the sun just sends a ring out now and then.
 //

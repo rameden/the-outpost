@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { PACKS } from "../../../src/packs.ts";
-import { GREMLIN_PAINT } from "./gremlins.ts";
+import { GREMLIN_PAINT, QUOTES as GREMLIN_QUOTES } from "./gremlins.ts";
 import { SKINS, bareOf, quiet, skinFor, type Art, type Paint } from "./skins.ts";
 
 const KINDS = ["scout", "leader", "ace", "heavy", "ferry", "dart", "chaser", "mine", "hauler", "gunship", "balloon", "flagship", "carrier", "boat"];
@@ -36,9 +36,17 @@ test("every picture in every skin can be drawn, and nothing in the game is left 
     }
     // A gunship's shield is the letter S, so there's something to show when it's turned away.
     expect(skin.enemies.gunship.rows?.join(""), `${id} gunship`).toContain("S");
-    // The ships are only ever repainted: they're on the water, drawn the game's own way.
-    expect([skin.enemies.carrier.rows, skin.enemies.boat.rows], id).toEqual([undefined, undefined]);
+    // A ship drawn its own way is the game's ship's size, so it's hit where it's drawn.
+    for (const [kind, wide, long] of [["carrier", 17, 41], ["boat", 9, 21]] as const) {
+      const rows = skin.enemies[kind].rows;
+      if (rows) expect([rows[0].length, rows.length], `${id} ${kind}`).toEqual([wide, long]);
+    }
+    for (const [kind, lines] of Object.entries(skin.quotes ?? {})) {
+      expect(Object.keys(GREMLIN_QUOTES), `${id} quotes`).toContain(kind);
+      expect(lines?.length, `${id} ${kind} lines`).toBeGreaterThan(1); // (so there's never the same one twice running)
+    }
     expect(Object.keys(skin.builder).sort(), `${id} builders`).toEqual(Object.keys(GREMLIN_PAINT).sort());
+    for (const rows of skin.crew ? [...skin.crew.frames, skin.crew.duck] : []) drawable(`${id} crew`, { rows, paint: skin.builder });
   }
 });
 

@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: one 16:9 stage that plays a single Jira ticket as a loop. The Mae mark opens into a solar
-   system: its rings become orbits, its dot is the sun (the Quartermaster) and the crew are the planets.
+   system: its rings become orbits, its dot is the sun (the Commander) and the crew are the planets.
    A camera goes close on each body in turn, with that body on the left and its work in a panel on the
    right, and pulls back to the whole system between steps. A plain transport bar sits under the stage.
    Colours, type, the logo and the dashed route are Mae's own. */
@@ -156,7 +156,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 <body>
 <main class="wrap">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae, My Alter Ego, drawn as a solar system. The logo opens into orbits, with the Quartermaster as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you start the ticket and approve the plan, the Scout finds the bug, the Artificer changes the code and runs the tests, you commit, the Scribe drafts the pull request and you open it, and the Warden reviews it.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost Mae, drawn as a solar system. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -179,7 +179,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
     <input type="range" id="scrub" min="0" max="54.7" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 0:54</output>
   </div>
-  <p class="note">One example Jira ticket, from picking it up to a reviewed pull request, told as a solar system: the Quartermaster is the sun and each of the crew is a planet. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+  <p class="note">One example Jira ticket, from picking it up to a reviewed pull request, told as a solar system: the Commander is the sun and each of the crew is a planet. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
 </main>
 
 <script>
@@ -243,7 +243,7 @@ function chip(parent, x, cy, s) {
   return g;
 }
 
-// ---- the system: the sun is the Quartermaster, the planets are the crew, and the camera moves between them ----
+// ---- the system: the sun is the Commander, the planets are the crew, and the camera moves between them ----
 const FIN = 48.1;                                    // when the system folds back into the logo
 const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
 const SLOT = [496, 568, 640, 712, 784], ROWY = 526;
@@ -252,12 +252,12 @@ const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring 
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
 // a: its panel opens, b: its panel closes and the camera pulls back, done: its own work is finished
 const CREW = [
-  { key: 'scout', name: 'Scout', sub: 'READS THE CODE', slot: 1, w: 40, ang: -25, a: 17.0, b: 20.4, done: 19.6, want: [60, null, null, 150, 230, 300] },
-  { key: 'art', name: 'Artificer', sub: 'CHANGES THE CODE', slot: 3, w: 26, ang: -25, a: 23.3, b: 31.8, done: 28.1, want: [140, 200, null, null, 120, 200] },
-  { key: 'scribe', name: 'Scribe', sub: 'WRITES IT UP', slot: 2, w: 17, ang: -28, a: 34.7, b: 39.3, done: 37.3, want: [215, 240, 265, null, null, 80] },
-  { key: 'warden', name: 'Warden', sub: 'REVIEWS IT', slot: 4, w: 11, ang: -40, a: 42.2, b: 46.5, done: 44.4, want: [330, 100, 150, 250, null, null] },
+  { key: 'scout', name: 'Navigator', sub: 'READS THE CODE', slot: 1, w: 40, ang: -25, a: 17.0, b: 20.4, done: 19.6, want: [60, null, null, 150, 230, 300] },
+  { key: 'art', name: 'Engineer', sub: 'CHANGES THE CODE', slot: 3, w: 26, ang: -25, a: 23.3, b: 31.8, done: 28.1, want: [140, 200, null, null, 120, 200] },
+  { key: 'scribe', name: 'Comms Officer', sub: 'WRITES IT UP', slot: 2, w: 17, ang: -28, a: 34.7, b: 39.3, done: 37.3, want: [215, 240, 265, null, null, 80] },
+  { key: 'warden', name: 'Security Chief', sub: 'REVIEWS IT', slot: 4, w: 11, ang: -40, a: 42.2, b: 46.5, done: 44.4, want: [330, 100, 150, 250, null, null] },
 ];
-const QM = { key: 'qm', name: 'Quartermaster', sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
+const QM = { key: 'qm', name: 'Commander', sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
 // how close the camera is on a body: 0 is the whole system, 1 is the close-up
@@ -386,7 +386,7 @@ function makeMark(parent) {
   const dotG = el('g', null, g);
   return { g, halo, ripple, full, rings, small, dotG, dot: el('circle', { class: 'mk-dot' }, dotG) };
 }
-// the system's own mark: its rings become the orbits and its dot is the sun, with the Quartermaster's compass on it up close
+// the system's own mark: its rings become the orbits and its dot is the sun, with the Commander's compass on it up close
 const sys = makeMark(gWorld);
 sys.small.remove(); sys.dot.setAttribute('r', 15.5);
 sys.glyph = el('g', { class: 'sun-glyph', transform: 'scale(.82) translate(-12 -12)' }, sys.dotG);
@@ -438,11 +438,11 @@ const CAPX = 470;
 const CAPS = [
   ['Start from a ticket.', 4.9, 9.3],
   ['You approve the plan.', 10.1, 14.4],
-  ['The Scout finds the bug.', 17.0, 20.3],
-  ['The Artificer fixes it.', 23.3, 28.9],
+  ['The Navigator finds the bug.', 17.0, 20.3],
+  ['The Engineer fixes it.', 23.3, 28.9],
   ['You make the commit.', 29.3, 31.7],
   ['Nothing leaves without your click.', 34.7, 39.2],
-  ['Then the Warden reviews it.', 42.2, 46.4],
+  ['Then the Security Chief reviews it.', 42.2, 46.4],
 ].map(([s, a, b]) => ({ a, b, words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
 const capProbe = [tx(svg, 0, -200, 'd cap', 'xx'), tx(svg, 0, -200, 'd cap', 'x x')];
 function layoutCaps() {
@@ -466,7 +466,7 @@ CREW.forEach(c => {
   c.label = tx(svg, 0, 0, 'm camp-l', c.name.toUpperCase(), { 'text-anchor': 'middle' });
 });
 const qm = badge('qm');
-const sunL = tx(svg, 0, 0, 'm camp-l', 'QUARTERMASTER', { 'text-anchor': 'middle' });
+const sunL = tx(svg, 0, 0, 'm camp-l', 'COMMANDER', { 'text-anchor': 'middle' });
 const gBody = el('g');                                         // who you are looking at, under the close-up
 const bodyName = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 66, 'd body-name', '', { 'text-anchor': 'middle' });
 const bodySub = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 88, 'm camp-l', '', { 'text-anchor': 'middle' });
@@ -501,7 +501,7 @@ tx(tkWhere, 352, 432, 'b t15 f-text', 'links/web, on a new branch');
 tx(tkWhere, 560, 432, 'm code f-muted', BRANCH);
 const tkWho = el('g', null, gTk);
 tx(tkWho, 282, 460, 'm lbl', 'WHO');
-tx(tkWho, 352, 460, 'b t15 f-text', 'The Quartermaster, with the Warden reviewing at the end');
+tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander, with the Security Chief reviewing at the end');
 tx(gTk, 282, 537, 'm lbl', 'TICKET  ·  DETAILS  ·  WHERE  ·  WHO  ·  START');
 const tkBtnG = el('g', null, gTk);
 const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
@@ -509,20 +509,20 @@ const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
 // ---- close on the sun: the plan ----
 const gPlan = el('g', { class: 'shadow' });
 el('rect', { x: 336, y: 226, width: 660, height: 334, rx: 16, class: 'card' }, gPlan);
-tx(gPlan, 360, 264, 'b who c-qm f-tone', 'Quartermaster');
+tx(gPlan, 360, 264, 'b who c-qm f-tone', 'Commander');
 tx(gPlan, 360, 292, 'b bubble', "Here's the plan for WEB-212. Four quests, one after another.");
 el('rect', { x: 360, y: 312, width: 612, height: 170, rx: 10, class: 'inset' }, gPlan);
 const ROWS = [
-  ['scout', 'Scout', 'find where dates are formatted'],
-  ['art', 'Artificer', 'fix it, add a test, run the suite'],
-  ['scribe', 'Scribe', 'draft the pull request description'],
-  ['warden', 'Warden', 'review the pull request'],
+  ['scout', 'Navigator', 'find where dates are formatted'],
+  ['art', 'Engineer', 'fix it, add a test, run the suite'],
+  ['scribe', 'Comms Officer', 'draft the pull request description'],
+  ['warden', 'Security Chief', 'review the pull request'],
 ].map(([key, name, task], j) => {
   const y = 346 + j * 38, g = el('g', { class: 'c-' + key }, gPlan);
   tx(g, 380, y, 'm row-n', String(j + 1));
   el('circle', { cx: 410, cy: y - 5, r: 5, class: 'row-dot' }, g);
   tx(g, 424, y, 'b row-name', name);
-  tx(g, 512, y, 'b row-task', task);
+  tx(g, 552, y, 'b row-task', task);
   return g;
 });
 const planBtnG = el('g', null, gPlan);
@@ -541,9 +541,9 @@ const head = (g, name, sub, st) => {
 const setStatus = (st, done, b = 'done') => { if (done !== st.v) { st.v = done; st.n.textContent = done ? b : st.a; } };
 const phase = (g, t, a, b) => O(g, seg(t, a, a + .4, ease.out) * (1 - seg(t, b, b + .35)));
 
-// Scout: finds where the bug lives
+// Navigator: finds where the bug lives
 const gSc = phaseG('scout');
-const scSt = head(gSc, 'Scout', 'reading links/web', 'working');
+const scSt = head(gSc, 'Navigator', 'reading links/web', 'working');
 el('rect', { x: 494, y: 290, width: 682, height: 38, rx: 8, class: 'inset' }, gSc);
 tx(gSc, 510, 314, 'm code f-faint', '$');
 const scCmd = typer(gSc, 528, 314, 'm code f-text', 'grep -rn "toLocaleDateString" src/');
@@ -559,9 +559,9 @@ tx(scRep, 494, 452, 'm lbl', 'REPORT');
 tx(scRep, 494, 478, 'b t16 f-text', 'new Date("2026-03-01") is midnight UTC, so formatDay shows the');
 tx(scRep, 494, 502, 'b t16 f-text', 'day before to anyone west of UTC. Two screens use it.');
 
-// Artificer: changes the code, adds a test, runs the suite
+// Engineer: changes the code, adds a test, runs the suite
 const gAr = phaseG('art');
-const arSt = head(gAr, 'Artificer', 'links/web on ' + BRANCH, 'working');
+const arSt = head(gAr, 'Engineer', 'links/web on ' + BRANCH, 'working');
 tx(gAr, 494, 302, 'm code f-text', 'src/format/date.ts');
 const arStat = tx(gAr, 1176, 302, 'm code', null, { 'text-anchor': 'end' });
 el('tspan', { class: 'f-good' }, arStat, '+2 '); el('tspan', { class: 'f-bad' }, arStat, '−2');
@@ -610,9 +610,9 @@ const cmBtn = button(cmBtnG, 1130, 556, 92, 'Commit');
 button(cmBtnG, 1030, 556, 88, 'Cancel', 'ghost'); TR(cmBtnG.lastChild, 1030, 556);
 const cmChip = chip(gCm, 494, 556, 'Committed to ' + BRANCH);
 
-// Scribe: drafts the pull request, you open it
+// Comms Officer: drafts the pull request, you open it
 const gSb = phaseG('scribe');
-const sbSt = head(gSb, 'Scribe', 'drafting the pull request', 'working');
+const sbSt = head(gSb, 'Comms Officer', 'drafting the pull request', 'working');
 tx(gSb, 494, 302, 'm lbl', 'TITLE');
 el('rect', { x: 494, y: 312, width: 682, height: 40, rx: 8, class: 'inset' }, gSb);
 tx(gSb, 510, 337, 'b t15 f-text', 'WEB-212: Dates show a day early west of UTC');
@@ -631,9 +631,9 @@ const sbBtn = button(sbBtnG, 1098, 556, 156, 'Push and open it');
 button(sbBtnG, 962, 556, 88, 'Cancel', 'ghost'); TR(sbBtnG.lastChild, 962, 556);
 const sbChip = chip(gSb, 494, 556, 'Pull request #418 is open');
 
-// Warden: reviews the pull request, you post the review
+// Security Chief: reviews the pull request, you post the review
 const gWd = phaseG('warden');
-const wdSt = head(gWd, 'Warden', 'reviewing pull request #418', 'working');
+const wdSt = head(gWd, 'Security Chief', 'reviewing pull request #418', 'working');
 tx(gWd, 494, 302, 'b t16 f-text', 'The fix is right: date-only values no longer shift. Two things are');
 tx(gWd, 494, 326, 'b t16 f-text', 'worth a look before it merges.');
 const wdFind = [
@@ -720,7 +720,7 @@ const CLICKS = [
 ];
 
 // ---- where each badge is at time t ----
-// the Quartermaster leaves the title card's row for the sun, and steps out of it again at the end
+// the Commander leaves the title card's row for the sun, and steps out of it again at the end
 function qmState(t, c0) {
   if (t < 3) { const k = seg(t, 1.5, 2.2); return { x: lerp(SLOT[0], c0[0], k), y: lerp(ROWY, c0[1], k), s: 1 - ease.in(clamp((t - 1.7) / .5)), o: 1 - seg(t, 2.0, 2.2) }; }
   if (t < FIN) return { x: c0[0], y: c0[1], s: 0, o: 0 };
@@ -827,7 +827,7 @@ function render(t) {
   TR(gChip, lerp(1330, c0[0], ck), lerp(40, c0[1], ck) + Math.sin(ck * PI) * 60, lerp(1.15, .4, ease.in(ck)));
   O(gChip, seg(t, 3.3, 3.45) * (1 - seg(t, 4.02, 4.17)));
 
-  // close on the sun: the ticket fills itself in, you start the work, it folds back into the Quartermaster
+  // close on the sun: the ticket fills itself in, you start the work, it folds back into the Commander
   CRIT.forEach((c, i) => { const p = seg(t, 5.9 + .4 * i, 6.2 + .4 * i, ease.back); TR(c.on, 290, c.y - 5, p); O(c.on, p * 3); });
   show(tkWhere, t, 6.8); show(tkWho, t, 7.2); show(tkBtnG, t, 7.6, 0);
   press(tkBtn, t, 8.8, 'Started');
@@ -843,7 +843,7 @@ function render(t) {
   CREW.forEach(c => { const k = seg(t, c.a, c.a + .55, ease.out) * (1 - seg(t, c.b, c.b + .45, ease.in)); if (k > pk) { pk = k; pfrom = proj(cam, worldPos(c, t)); } });
   place(gPanel, pk, PN, pfrom, 24);
 
-  // Scout
+  // Navigator
   phase(gSc, t, 17.0, 20.4);
   typeTo(scCmd, (t - 17.4) / .7); caretAt(scCaret, scCmd, 18); O(scCaret, t < 18.1 ? 1 : 0);
   scRows.forEach((g, i) => show(g, t, 18.2 + .15 * i, 5));
@@ -851,7 +851,7 @@ function render(t) {
   show(scRep, t, 19.2);
   setStatus(scSt, t >= 19.6);
 
-  // Artificer
+  // Engineer
   phase(gAr, t, 23.3, 28.9);
   arDel.forEach((n, i) => { const p = seg(t, 24.1 + .2 * i, 24.35 + .2 * i, ease.out); O(n, p); O(arMinus[i], p); });
   const grow = seg(t, 24.7, 25.0);
@@ -868,13 +868,13 @@ function render(t) {
   { const n = Math.round(212 * seg(t, 28.1, 28.65, ease.out)); if (n !== arPassN) { arPassN = n; arPassT.textContent = n + ' passed'; } }
   setStatus(arSt, t >= 28.1);
 
-  // You: commit, still at the Artificer's planet
+  // You: commit, still at the Engineer's planet
   phase(gCm, t, 29.3, 31.8);
   press(cmBtn, t, 31.1, 'Committed'); O(cmBtnG, 1);
   show(cmChip, t, 31.2, 5);
   setStatus(cmSt, t >= 31.1);
 
-  // Scribe: the pull request
+  // Comms Officer: the pull request
   phase(gSb, t, 34.7, 39.3);
   let left = Math.floor(sbTotal * clamp((t - 35.3) / 2.0)), cl = sbLines[0];
   sbLines.forEach((o, i) => { if (left > 0 || i === 0) cl = o; typeTo(o, left / o.s.length); left -= o.s.length; });
@@ -885,7 +885,7 @@ function render(t) {
   show(sbChip, t, 38.5, 5);
   setStatus(sbSt, t >= 38.4);
 
-  // Warden: the review
+  // Security Chief: the review
   phase(gWd, t, 42.2, 46.5);
   wdFind.forEach((g, i) => show(g, t, 43.2 + .6 * i));
   O(wdNote, seg(t, 44.4, 44.7));

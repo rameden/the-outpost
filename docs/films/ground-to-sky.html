@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Mae Ground to Sky</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one 16:9 stage that plays the whole of Mae as a loop, in a single shot with no cuts. The gold dot
+   of the mark never leaves the frame: it is the ember your ask lands on, the campfire on a contour map,
+   the sun the crew orbits, one star in the sky of what they remember, and last the dot of the mark again.
+   The camera only ever climbs, from the ground to the sky, and an altimeter on the right keeps count.
+   A plain transport bar sits under the stage.
+   Colours, type, the logo and the dashed route are Mae's own. */
+:root {
+  --page: #f0e8da; --bg: #f5efe4; --deep: #e0d2ba; --zenith: #eadcc4; --surface: #fffcf6; --border: #e2d7c5; --border-strong: #cdbfa8; --line: #c2b196;
+  --logo-ink: #14233f; --text: #2a231c; --muted: #5d5247; --faint: #72675b;
+  --accent: #9e5c0c; --accent-ink: #fffaf2; --logo-dot: #b97a12; --hot: #fff3d9; --good: #397034;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-pilot: #2c8486;
+  --shade: rgba(60, 40, 20, .16); --on-dark: 0;
+  --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
+  --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0b0a; --bg: #13110f; --deep: #070605; --zenith: #14233f; --surface: #1b1815; --border: #312b25; --border-strong: #453d34; --line: #574c40;
+    --logo-ink: #f3ede0; --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+    --accent: #f0a640; --accent-ink: #1b1308; --logo-dot: #d9982b; --hot: #fff1cf; --good: #93c47d;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #7ccfcf;
+    --shade: rgba(0, 0, 0, .5); --on-dark: 1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0b0a; --bg: #13110f; --deep: #070605; --zenith: #14233f; --surface: #1b1815; --border: #312b25; --border-strong: #453d34; --line: #574c40;
+  --logo-ink: #f3ede0; --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+  --accent: #f0a640; --accent-ink: #1b1308; --logo-dot: #d9982b; --hot: #fff1cf; --good: #93c47d;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #7ccfcf;
+  --shade: rgba(0, 0, 0, .5); --on-dark: 1;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 36px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+.stage { aspect-ratio: 16 / 9; max-width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 16px 40px var(--shade); }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.controls button { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 14px; cursor: pointer; min-width: 68px; }
+.controls button:hover { border-color: var(--accent); }
+.controls input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.controls output { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { margin: 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="stage" id="frame">
+    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost Mae in one continuous shot. A gold dot waits. You type an ask, fix the flaky sign-in test, and it walks a dashed trail up a contour map to the fire at its centre: Mae sets up an outpost on your own machine. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the most challenging mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the lines the crew remembers, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the Mae mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your alter ego has a crew."></canvas>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="75.2" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 1:15</output>
+  </div>
+  <p class="note">Mae from the ground to the sky, in one shot. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, the Test Pilot flies the most challenging one out past every orbit, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+</main>
+
+<script>
+(() => {
+'use strict';
+const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
+const W = 1280, H = 720, PI = Math.PI, TAU = PI * 2, DUR = 75.2;
+
+// ---- small maths ----
+const clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, u) => a + (b - a) * u;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const smooth = u => u * u * (3 - 2 * u);
+const smoother = u => u * u * u * (u * (u * 6 - 15) + 10);
+const outCubic = u => 1 - Math.pow(1 - u, 3);
+const inOut = u => u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+const outBack = u => 1 + 2.4 * Math.pow(u - 1, 3) + 1.4 * Math.pow(u - 1, 2);
+// 1 between a and b, eased in over `fi` and out over `fo`
+const win = (t, a, b, fi = .6, fo = .5) => Math.min(smooth(prog(t, a, a + fi)), 1 - smooth(prog(t, b - fo, b)));
+// how far through a one-off beat that starts at t0 and lasts `len`, or -1 outside it
+const pulse = (t, t0, len) => { const p = (t - t0) / len; return p > 0 && p < 1 ? p : -1; };
+const flare = (t, t0) => t < t0 ? 0 : Math.exp(-(t - t0) * 2.6);
+function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let x = Math.imul(a ^ a >>> 15, 1 | a); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; }; }
+// a value that moves between keyframes [time, ...values]
+function track(keys, t, ease = smoother) {
+  if (t <= keys[0][0]) return keys[0].slice(1);
+  for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) { const a = keys[i - 1], b = keys[i], u = ease((t - a[0]) / (b[0] - a[0])); return a.slice(1).map((v, j) => lerp(v, b[j + 1], u)); }
+  return keys[keys.length - 1].slice(1);
+}
+
+// ---- the page's colours, read into the drawing ----
+// The drawing's short name for each, and the page's name for it. The names are the tour's, so the film can be shown there too.
+const NAMES = {
+  bg: '--bg', deep: '--deep', sky: '--zenith', surface: '--surface', border: '--border', line: '--line', ink: '--logo-ink', text: '--text', muted: '--muted', faint: '--faint',
+  accent: '--accent', 'accent-ink': '--accent-ink', dot: '--logo-dot', hot: '--hot', good: '--good',
+  qm: '--c-qm', scout: '--c-scout', scribe: '--c-scribe', art: '--c-art', warden: '--c-warden', pilot: '--c-pilot',
+};
+const C = {}; let DARK = false, SHADE = 'rgba(0,0,0,.2)';
+for (const n in NAMES) C[n] = [128, 128, 128];
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const n in NAMES) { const m = /^#([0-9a-f]{6})$/i.exec(cs.getPropertyValue(NAMES[n]).trim()); if (m) { const x = parseInt(m[1], 16); C[n] = [x >> 16, x >> 8 & 255, x & 255]; } }
+  DARK = cs.getPropertyValue('--on-dark').trim() === '1';
+  SHADE = cs.getPropertyValue('--shade').trim() || SHADE;
+}
+const al = a => Math.round(clamp(a) * 1000) / 1000;
+const col = (n, a = 1) => { const c = C[n]; return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + al(a) + ')'; };
+const mix = (n1, n2, u, a = 1) => { const p = C[n1], q = C[n2]; return 'rgba(' + Math.round(lerp(p[0], q[0], u)) + ',' + Math.round(lerp(p[1], q[1], u)) + ',' + Math.round(lerp(p[2], q[2], u)) + ',' + al(a) + ')'; };
+
+// ---- drawing helpers ----
+const FACE = {
+  d: '"Young Serif", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif',
+  b: 'Figtree, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  m: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
+};
+const setFont = (face, size, weight = 400) => { ctx.font = weight + ' ' + size + 'px ' + FACE[face]; };
+const WIDTHS = new Map();
+function charW(ch) { const k = ctx.font + ch; let w = WIDTHS.get(k); if (w === undefined) { w = ctx.measureText(ch).width; WIDTHS.set(k, w); } return w; }
+function textW(s, sp = 0) { if (!sp) return ctx.measureText(s).width; let w = 0; for (const ch of s) w += charW(ch) + sp; return w - sp; }
+// Text, with optional letter-spacing and a map-style halo in the stage colour so it reads over linework.
+function label(s, x, y, o) {
+  const sp = o.sp || 0, align = o.align || 'left';
+  ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+  if (!sp) {
+    ctx.textAlign = align;
+    if (o.halo) { ctx.lineWidth = o.halo; ctx.strokeStyle = col('bg', .92); ctx.strokeText(s, x, y); }
+    ctx.fillStyle = o.fill; ctx.fillText(s, x, y);
+    return;
+  }
+  const w = textW(s, sp), x0 = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+  ctx.textAlign = 'left';
+  if (o.halo) { ctx.lineWidth = o.halo; ctx.strokeStyle = col('bg', .92); let cx = x0; for (const ch of s) { ctx.strokeText(ch, cx, y); cx += charW(ch) + sp; } }
+  ctx.fillStyle = o.fill; let cx = x0; for (const ch of s) { ctx.fillText(ch, cx, y); cx += charW(ch) + sp; }
+}
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function disc(x, y, r) { ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, TAU); ctx.fill(); }
+// A soft light. On the dark stage it glows; on the light one it is a wash of the same colour.
+function glow(x, y, r, n, a) {
+  if (a <= .004 || r <= .5) return;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, col(n, a * (DARK ? 1 : .62))); g.addColorStop(.4, col(n, a * (DARK ? .34 : .2))); g.addColorStop(1, col(n, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+
+// ---- the film's clock ----
+const T = { send: 3.9, ground: 4.6, arrive: 14.4, lift: 15, orbit: 21.2, plan: 22, ok1: 24.9, out: 25.4, pilot: 30.4, review: 37, back: 40.8, ok2: 43.2, pull: 44.8, sky: 50.6, router: 54.8, mark: 61.6, dive: 71.4 };   // every beat is timed from the nearest of these, so one can be added or moved
+const LEG = 1.5;            // how long a comet takes along one leg of the route
+const S4 = .07;             // the camp's size once the camera is up among the stars
+const MS = 1.3;             // the mark's size on the last card, in stage pixels per logo unit
+// where the gold dot sits, the tilt of the plane it lies in, its glow, and the camera's height (0 camp, 1 orbit, 2 sky, 3 the mark)
+const FOCUS = [[0, 640, 352], [T.lift, 640, 352], [T.orbit, 660, 316], [T.pull, 660, 316], [T.sky, 700, 322], [T.mark + .2, 700, 322], [T.mark + 5.2, 408.6, 300], [T.dive, 408.6, 300], [DUR, 640, 352]];
+const TILT = [[0, 1], [T.lift, 1], [T.orbit, .44], [T.pull, .47], [T.sky - 1.6, 1], [DUR, 1]];
+const GLOW = [[0, .5], [T.arrive, .5], [16.4, .85], [T.pull, .85], [T.sky, .62], [T.mark + 3.2, .62], [T.mark + 5, 0], [T.dive + .4, 0], [T.dive + 3.2, .5], [DUR, .5]];
+const ALT = [[0, 0], [T.lift, 0], [T.orbit, 1], [T.pull, 1], [T.sky, 2], [T.mark + .2, 2], [T.mark + 4.8, 3], [T.dive + .2, 3], [T.dive + 3.6, 0], [DUR, 0]];
+const V = { fx: 640, fy: 352, S: 1, k: 1, lift: 0, gs: 1, phi: 0, P: [] };   // this frame's camera, worked out once in render()
+
+// ---- the ground: contour lines round the camp, four of which become the crew's orbits ----
+const NP = 200;
+const NK = [[1, .085, 1.3, .22], [2, .11, 4.1, -.17], [3, .075, .6, .31], [5, .034, 2.2, -.4], [8, .017, 5, .52], [13, .008, 3.3, .6]];
+const noiseAt = (i, th) => { let n = 0; for (const q of NK) n += q[1] * Math.sin(q[0] * th + q[2] + i * q[3]); return n; };
+const noiseRow = i => Float32Array.from({ length: NP }, (_, j) => noiseAt(i, j / NP * TAU));
+const RC = [30, 62, 98, 138, 182, 228, 278, 332, 390, 452, 518, 590, 668];
+const NOISE = RC.map((_, i) => noiseRow(i));
+const ORB = { 4: 0, 6: 1, 8: 2, 10: 3 };      // the contours that lift off as orbits
+const RO = [112, 178, 250, 326];              // and the radii they settle at
+// A closed loop round (cx, cy): radius r, roughened by `amp`, turned by `phi`, squashed by `k`. `upto` draws part of it.
+function loop(row, cx, cy, r, amp, phi, k, upto = 1) {
+  ctx.beginPath();
+  const n = Math.round(NP * upto);
+  for (let j = 0; j <= n; j++) {
+    const jj = j % NP, th = jj / NP * TAU + phi, q = r * (1 + amp * row[jj]), x = cx + q * Math.cos(th), y = cy + q * Math.sin(th) * k;
+    j ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  if (upto >= 1) ctx.closePath();
+}
+
+// the trail your ask walks in on: from the send button, once and a bit round the hill, to the fire
+const TR0 = { r: 192.5, th: Math.atan2(100, 191) }, TN = 180;
+const trailPt = s => {
+  const r = lerp(TR0.r, 9, Math.pow(s, .9)) + 10 * Math.sin(s * PI * 7) * Math.sin(PI * s), th = TR0.th + 1.3 * TAU * s + V.phi;
+  return [V.fx + V.gs * r * Math.cos(th), V.fy + V.gs * r * Math.sin(th)];
+};
+const walk = t => { const u = prog(t, T.ground + .6, T.arrive); return lerp(u, smooth(u), .65); };
+
+// ---- the crew ----
+const CREW = [
+  { key: 'scout', name: 'Navigator', role: 'research, with sources', r: 9.5, th0: 40, w: .11 },
+  { key: 'art', name: 'Engineer', role: 'code, run and tested', r: 12.5, th0: 170, w: .08 },
+  { key: 'scribe', name: 'Comms Officer', role: 'docs and write-ups', r: 11, th0: 290, w: .06 },
+  { key: 'warden', name: 'Security Chief', role: 'reviews what changed', r: 10.5, th0: 115, w: .045 },
+];
+// the route: out to three of the crew at once, in to the Security Chief, back to the fire
+const LEGS = [
+  { a: 'S', b: 0, t0: T.out, tone: 'qm', sag: .2 }, { a: 'S', b: 1, t0: T.out + .3, tone: 'qm', sag: .2 }, { a: 'S', b: 2, t0: T.out + .6, tone: 'qm', sag: .2 },
+  { a: 0, b: 3, t0: T.review, tone: 'scout', sag: .3 }, { a: 1, b: 3, t0: T.review + .3, tone: 'art', sag: .3 }, { a: 2, b: 3, t0: T.review + .6, tone: 'scribe', sag: .3 },
+  { a: 3, b: 'S', t0: T.back, tone: 'warden', sag: .22 },
+];
+const ARR = j => LEGS[j].t0 + LEG;
+const WORK = [[ARR(0), T.review], [ARR(1), T.review + .3], [ARR(2), T.review + .6], [T.review + LEG, T.back]];
+const FLARES = [[ARR(0), T.review], [ARR(1), T.review + .3], [ARR(2), T.review + .6], [T.review + LEG, T.review + LEG + .3, T.review + LEG + .6, T.back]];
+const ROLES = [[ARR(0) - .2, T.pilot + 1.2], [ARR(1) - .2, T.pilot + 1.5], [ARR(2) - .2, T.pilot + 1.8], [T.review + LEG - .2, T.back + 1.4]];
+// The Test Pilot's mission, measured from the gold dot: out past every orbit to a place no one has charted, one and a half times round it, and home.
+const PL = { out: [[0, 0], [-100, 120], [270, 198], [350, 198]], back: [[350, 102], [230, 102], [110, 30], [0, 0]], x: 350, y: 150, r: 30, orbit: 48, t0: T.pilot + 1.1, t1: T.pilot + 2.6 };
+PL.w = 3 * (PL.out[3][0] - PL.out[2][0]) / (PL.t1 - PL.t0) / PL.orbit;     // it rounds the place at the speed it came in
+PL.lap = TAU / PL.w; PL.leave = PL.t1 + 1.5 * PL.lap; PL.home = PL.leave + 1.1;
+const SUNFL = [T.arrive, T.ok1, PL.home, T.back + LEG, T.ok2, T.mark + 5.1];
+
+function planet(j, t) {
+  const c = CREW[j], th = c.th0 * PI / 180 + c.w * (t - T.lift);
+  const lp = smoother(prog(t, T.lift + .2 + j * .2, T.orbit - .5 + j * .15));
+  const pop = outBack(prog(t, T.ground + 1.4 + j * .18, T.ground + 2.1 + j * .18));
+  const rad = lerp(17 * V.gs, RO[j], lp) * V.S, depth = 1 + .21 * Math.sin(th) * (1 - V.k);
+  return {
+    th, lp, pop, x: V.fx + rad * Math.cos(th), y: V.fy + rad * Math.sin(th) * V.k,
+    r: pop > 0 ? Math.max(lerp(3.4, c.r, lp) * pop * depth * Math.pow(V.S, .8), 1.1) : 0,
+    front: lp < .3 || Math.sin(th) >= 0, a: smooth(clamp((V.S - .1) / .25)),
+  };
+}
+
+// ---- the sky: every line the crew remembers is a star, grouped by whose it is ----
+const R = rng(20261120);
+const gauss = () => Math.sqrt(-2 * Math.log(1 - R() * .999)) * Math.cos(TAU * R());
+const CL = [
+  { key: 'qm', name: 'Commander', x: 0, y: 0, n: 13, sp: 62, lines: 22 },
+  { key: 'scout', name: 'Navigator', x: -424, y: -92, n: 24, sp: 80, lines: 41 },
+  { key: 'scribe', name: 'Comms Officer', x: -74, y: -190, n: 19, sp: 66, lines: 28 },
+  { key: 'art', name: 'Engineer', x: 250, y: -150, n: 25, sp: 80, lines: 36 },
+  { key: 'warden', name: 'Security Chief', x: 300, y: 172, n: 16, sp: 62, lines: 17 },
+];
+const STARS = [];
+CL.forEach((c, ci) => {
+  c.rows = [0, 1, 2].map(q => noiseRow(31 + ci * 5 + q * 1.7));
+  c.big = [];
+  const turn = R() * TAU;
+  for (let i = 0; i < c.n; i++) {
+    const big = i < 6, ang = big ? turn + i / 6 * TAU * .86 + (R() - .5) * .5 : R() * TAU;
+    const rad = big ? c.sp * (.34 + .5 * R()) : Math.max(c.key === 'qm' ? 20 : 4, Math.min(Math.abs(gauss()) * c.sp * .55, c.sp * 1.12));
+    const s = { x: c.x + rad * Math.cos(ang), y: c.y + rad * Math.sin(ang) * .9, s: big ? 2.7 + R() * 1.7 : 1 + R() * 1.2, tone: c.key, ph: R() * TAU };
+    STARS.push(s); if (big) c.big.push(s);
+  }
+});
+const addStar = (ci, dx, dy, s, more) => { const st = Object.assign({ x: CL[ci].x + dx, y: CL[ci].y + dy, s, tone: CL[ci].key, ph: R() * TAU }, more); STARS.push(st); return st; };
+const NEWSTAR = addStar(3, 50, 46, 4.2, { born: T.sky + .6 });                 // the line this job taught the Engineer
+addStar(1, 38, 30, 2.1); addStar(1, 53, 40, 1.8); addStar(4, -36, -24, 1.2, { dim: .6 });   // and a few faint ones out at the edges
+CL[1].big[0].used = T.sky + 1.3; CL[2].big[1].used = T.sky + 1.9;                      // stars grow when a request uses them
+const DUST = Array.from({ length: 640 }, () => { const a = R() * TAU, r = Math.sqrt(R()) * 860; return { x: r * Math.cos(a), y: r * Math.sin(a), s: .5 + R() * R() * 1.3, ph: R() * TAU }; });
+// Synapses: lines that have to do with each other link up, inside a group and across groups, and a spark runs along each one now and then.
+let from = 0; for (const c of CL) { c.all = STARS.slice(from, from + c.n); from += c.n; }
+const nearest = (list, x, y) => list.reduce((m, s) => Math.hypot(s.x - x, s.y - y) < Math.hypot(m.x - x, m.y - y) ? s : m);
+const SYN = [];
+const synapse = (a, b, t0, bend) => SYN.push({ a, b, t0, cx: (a.x + b.x) / 2 - (b.y - a.y) * bend, cy: (a.y + b.y) / 2 + (b.x - a.x) * bend, per: 2.3 + SYN.length % 4 * .45, off: SYN.length * .37 % 1 });
+[[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3], [3, 4]].forEach(([i, j], n) => synapse(nearest(CL[i].big, CL[j].x, CL[j].y), nearest(CL[j].big, CL[i].x, CL[i].y), T.sky + .5 + n * .26, n % 2 ? -.17 : .17));
+CL.forEach((c, ci) => [7, 10, 12].forEach((k, n) => synapse(c.all[k], nearest(c.big, c.all[k].x, c.all[k].y), T.sky + .3 + ci * .2 + n * .3, n % 2 ? .28 : -.28)));
+synapse(NEWSTAR, nearest(CL[4].big, NEWSTAR.x, NEWSTAR.y), NEWSTAR.born + .5, .2);      // the new line finds the ones it belongs with
+synapse(NEWSTAR, nearest(CL[0].big, NEWSTAR.x, NEWSTAR.y), NEWSTAR.born + .9, -.2);
+
+// ---- the mark, from the logo kit: thick bands on the left, thin arcs on the right, the dot ----
+const BANDS = [[66.5, 90], [42.5, 61.5], [20.5, 37.5]], ARCS = [88.25, 64, 40], MARK_DOT = 15.5 * MS;
+const BAND_AREA = BANDS.map(b => b[1] * b[1] - b[0] * b[0]), BAND_SUM = BAND_AREA.reduce((a, b) => a + b, 0);
+// Where a star ends up in the mark. Each one turns the same way round the dot as it falls in, so the sky winds up like a galaxy.
+for (const p of STARS.concat(DUST)) {
+  p.r0 = Math.hypot(p.x, p.y); p.a0 = Math.atan2(p.y, p.x); p.delay = .3 * clamp(p.r0 / 860);
+  const left = R() < .68;
+  let a1 = (left ? PI / 2 : -PI / 2) + R() * PI;
+  while (a1 - p.a0 < .5) a1 += TAU;
+  while (a1 - p.a0 >= .5 + TAU) a1 -= TAU;
+  p.a1 = a1;
+  if (left) { let u = R() * BAND_SUM, b = 0; while (b < 2 && u > BAND_AREA[b]) u -= BAND_AREA[b++]; p.r1 = Math.sqrt(lerp(BANDS[b][0] * BANDS[b][0], BANDS[b][1] * BANDS[b][1], R())) * MS; }
+  else { const u = R() * (ARCS[0] + ARCS[1] + ARCS[2]); p.r1 = (ARCS[u < ARCS[0] ? 0 : u < ARCS[0] + ARCS[1] ? 1 : 2] + (R() - .5) * 2.6) * MS; }
+}
+const starAt = (p, e5, zs) => {
+  if (e5 <= 0) return [V.fx + p.x * zs, V.fy + p.y * zs, 0];
+  const e = smoother(clamp((e5 - p.delay) / .7)), r = lerp(p.r0, p.r1, e), a = lerp(p.a0, p.a1, e);
+  return [V.fx + r * Math.cos(a), V.fy + r * Math.sin(a), e];
+};
+const LETTERS = new Path2D("M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z");
+const SMALL_SOLID = new Path2D('M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z');
+const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 100 186');
+
+// ---- words ----
+const ASK = 'Fix the flaky sign-in test';
+const CAPS = [
+  { a: .5, b: 4.4, eb: 'THE ASK', l: ['It starts with one ask.'] },
+  { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Outpost Mae sets up', 'on your own machine.'] },
+  { a: 16.2, b: 21.8, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, a crew of four.'] },
+  { a: 22.2, b: 25.5, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
+  // the missions section runs over two captions, so its eyebrow stays up between them (ebOut, ebIn)
+  { a: 25.9, b: T.pilot + .2, eb: 'THE MISSIONS', l: ['The crew sets out,', 'several missions at once.'], ebOut: false },
+  { a: T.pilot + .2, b: T.review - .1, eb: 'THE MISSIONS', l: ['For the most challenging missions,', 'send the Test Pilot.'], ebIn: false },
+  { a: T.review + .3, b: T.back, eb: 'THE REVIEW', l: ['The Security Chief reviews', 'everything that changed.'] },
+  { a: T.back + .4, b: T.pull + .1, eb: 'YOUR CLICK', l: ['Nothing leaves the outpost', 'without your click.'] },
+  { a: T.pull + 2.2, b: T.router - .2, eb: 'THE MEMORY', l: ['What the crew learns, it keeps.', 'Every line is a star.'] },
+  { a: T.router, b: T.mark + .1, eb: 'THE ROUTER', l: ['A router sizes up each task', 'and picks the model to fit.'] },
+];
+const BTN = [
+  { a: 23, click: T.ok1, label: 'Approve plan', done: 'Plan approved' },
+  { a: T.back + 1.2, click: T.ok2, label: 'Open pull request', done: 'Pull request opened' },
+];
+const LOGALT = [Math.log10(240), Math.log10(1.496e11), Math.log10(40 * 9.461e15), Math.log10(1e5 * 9.461e15)];
+function altText(a) {
+  const i = Math.min(2, Math.floor(a)), m = Math.pow(10, lerp(LOGALT[i], LOGALT[i + 1], a - i));
+  const two = v => Number(v.toPrecision(2)), fmt = v => v.toLocaleString('en-US', { maximumFractionDigits: 3 });
+  if (m < 995) return Math.round(m / 10) * 10 + ' m';
+  if (m < 1.4e10) return fmt(two(m / 1000)) + ' km';
+  if (m < 1.496e11 * 1500) return fmt(two(m / 1.496e11)) + ' AU';
+  return fmt(two(m / 9.461e15)) + ' ly';
+}
+
+// ---- scenes, back to front ----
+function backdrop(t) {
+  const { fx, fy } = V;
+  ctx.fillStyle = col('bg'); ctx.fillRect(0, 0, W, H);
+  const skyAmt = smooth(prog(t, T.lift + .5, T.orbit)) * (1 - smooth(prog(t, T.mark + 3.8, T.mark + 5.6)));
+  if (skyAmt > 0) {
+    const g = ctx.createRadialGradient(fx, fy, 0, fx, fy, 780);
+    g.addColorStop(0, col('sky', (DARK ? .95 : .8) * skyAmt)); g.addColorStop(.55, col('sky', (DARK ? .42 : .4) * skyAmt)); g.addColorStop(1, col('sky', 0));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  // far stars. They barely move as the camera climbs, and at the end they fall into the mark with the rest.
+  const dustA = smooth(prog(t, 16, 20.5)) * (1 - smooth(prog(t, T.mark + 4.4, T.mark + 5.4)));
+  if (dustA > 0) {
+    const par = Math.pow(V.S / S4, .12), e5 = prog(t, T.mark + .2, T.mark + 4.6);
+    ctx.fillStyle = col('ink', (DARK ? .8 : .5) * dustA); ctx.beginPath();
+    for (const d of DUST) {
+      const p = e5 > 0 ? starAt(d, e5, 1) : [fx + d.x * par, fy + d.y * par, 0];
+      if (p[0] < -4 || p[0] > W + 4 || p[1] < -4 || p[1] > H + 4) continue;
+      const s = lerp(d.s * (1 + .28 * Math.sin(TAU * t / 2.2 + d.ph)), 1.15, p[2]);
+      ctx.moveTo(p[0] + s, p[1]); ctx.arc(p[0], p[1], s, 0, TAU);
+    }
+    ctx.fill();
+  }
+}
+
+function ground(t) {
+  if (t < T.ground || t > T.sky + 2) return;
+  const { fx, fy, S, k, lift, gs, phi } = V;
+  const amp = 1 - smoother(prog(t, T.lift, T.lift + 4.4)), sysA = smooth(clamp((S - .09) / .3));
+  if (sysA <= 0) return;
+  const wave = pulse(t, T.ok2, 1.5);
+  const size = i => RC[i] * lerp(.62, 1, outCubic(prog(t, T.ground + i * .22, T.ground + i * .22 + 1.7))) * gs;
+  for (let i = RC.length - 1; i >= 0; i--) {
+    const born = prog(t, T.ground + i * .22, T.ground + i * .22 + 1.7);
+    if (born <= 0) continue;
+    const orb = ORB[i], isOrb = orb !== undefined, index = i % 4 === 3, seen = smooth(prog(born, 0, .45));
+    loop(NOISE[i], fx, fy, lerp(size(i), isOrb ? RO[orb] : RC[i] * .56, lift) * S, amp, phi, k);
+    const tint = seen * (1 - smooth(prog(lift, 0, .55)));
+    if (tint > 0) { ctx.globalAlpha = 1; ctx.fillStyle = col('accent', (DARK ? .014 : .02) * tint); ctx.fill(); }   // each band a little warmer, up to the camp
+    const base = index ? .95 : .62, a = (isOrb ? lerp(base, 1, lift) : base * (1 - smooth(prog(lift, .05, .7)))) * seen * sysA;
+    if (a > .003) { ctx.globalAlpha = a; ctx.strokeStyle = col('line'); ctx.lineWidth = isOrb ? lerp(1, 1.5, lift) : index ? 1.8 : 1; ctx.stroke(); }
+    if (isOrb && wave >= 0) {   // your click goes out across the orbits
+      const d = (lerp(20, 400, outCubic(wave)) - RO[orb]) / 50, lit = Math.exp(-d * d) * (1 - wave * .6);
+      if (lit > .01) { ctx.globalAlpha = lit * sysA; ctx.strokeStyle = col('accent'); ctx.lineWidth = 2.2; ctx.stroke(); }
+    }
+  }
+  // what a map prints on its lines: heights on the index contours, and the height of the camp
+  const mapA = 1 - smooth(prog(lift, 0, .3));
+  if (mapA > 0) {
+    setFont('m', 10, 500);
+    for (const [i, la, s] of [[3, -.95, '200'], [7, 2.86, '160']]) {
+      const seen = smooth(prog(t, T.ground + i * .22 + .8, T.ground + i * .22 + 1.7));
+      if (seen <= 0) continue;
+      const q = size(i) * (1 + amp * noiseAt(i, la)), x = fx + q * Math.cos(la + phi), y = fy + q * Math.sin(la + phi);
+      let ang = la + phi + PI / 2; if (Math.cos(ang) < 0) ang += PI;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.globalAlpha = seen * mapA;
+      ctx.fillStyle = mix('bg', 'accent', (DARK ? .014 : .02) * (RC.length - i)); ctx.fillRect(-15, -7, 30, 14);
+      label(s, 0, 3.6, { align: 'center', fill: col('muted') }); ctx.restore();
+    }
+    ctx.globalAlpha = smooth(prog(t, T.ground + 2, T.ground + 2.8)) * (1 - smooth(prog(t, T.arrive, T.lift))) * mapA;
+    if (ctx.globalAlpha > 0) label('240 m', fx + 30, fy - 26, { fill: col('muted'), halo: 4 });
+  }
+  // the trail
+  const trA = 1 - smooth(prog(t, T.arrive + .1, T.arrive + 1.3));
+  if (trA > 0) {
+    const fu = smooth(prog(t, T.ground + .2, T.ground + 1.9)), tu = walk(t);
+    const path = u => { ctx.beginPath(); const n = Math.floor(u * TN); for (let j = 0; j <= n; j++) { const p = trailPt(j / TN); j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } const p = trailPt(u); ctx.lineTo(p[0], p[1]); };
+    ctx.lineCap = 'round'; ctx.setLineDash([3, 7]);
+    path(fu); ctx.globalAlpha = .55 * trA; ctx.strokeStyle = col('muted'); ctx.lineWidth = 1.5; ctx.stroke();
+    if (tu > 0) { path(tu); ctx.globalAlpha = trA; ctx.strokeStyle = col('accent'); ctx.lineWidth = 2.2; ctx.stroke(); }
+    ctx.setLineDash([]); ctx.lineCap = 'butt';
+    for (const s of [0, .3, .58, .82]) {
+      if (fu < s) continue;
+      const p = trailPt(s), on = t > T.ground + .6 && tu >= s;
+      ctx.globalAlpha = trA * smooth(prog(fu, s, s + .08)); ctx.beginPath(); ctx.arc(p[0], p[1], 4.4, 0, TAU);
+      ctx.fillStyle = col(on ? 'accent' : 'bg'); ctx.fill(); ctx.strokeStyle = col('accent'); ctx.lineWidth = 1.6; ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function legs(t) {
+  if (t < T.plan || t > T.pull + 1.2) return;
+  const out = 1 - smooth(prog(t, T.pull - .1, T.pull + 1));
+  const wv = pulse(t, T.ok2, 1.5);
+  if (wv >= 0) {
+    const wr = lerp(20, 400, outCubic(wv));
+    ctx.beginPath(); ctx.ellipse(V.fx, V.fy, wr * V.S, wr * V.S * V.k, 0, 0, TAU);
+    ctx.globalAlpha = (1 - wv) * .55; ctx.strokeStyle = col('accent'); ctx.lineWidth = 1.6; ctx.stroke();
+  }
+  LEGS.forEach((L, i) => {
+    const a = L.a === 'S' ? { x: V.fx, y: V.fy } : V.P[L.a], b = L.b === 'S' ? { x: V.fx, y: V.fy } : V.P[L.b];
+    const len = Math.hypot(b.x - a.x, b.y - a.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2 + len * L.sag;
+    const B = u => { const v = 1 - u; return [v * v * a.x + 2 * v * u * cx + u * u * b.x, v * v * a.y + 2 * v * u * cy + u * u * b.y]; };
+    const part = u => { ctx.beginPath(); const n = Math.floor(u * 40); for (let q = 0; q <= n; q++) { const p = B(q / 40); q ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } const p = B(u); ctx.lineTo(p[0], p[1]); };
+    ctx.lineCap = 'round'; ctx.setLineDash([3, 7]);
+    const pv = smooth(prog(t, T.plan + .4 + i * .2, T.plan + 1.3 + i * .2));     // the plan, drawn faint before anyone moves
+    if (pv > 0) { part(pv); ctx.globalAlpha = .6 * out; ctx.strokeStyle = col('muted'); ctx.lineWidth = 1.4; ctx.stroke(); }
+    const u = inOut(prog(t, L.t0, L.t0 + LEG));
+    if (u > 0) {
+      part(u); ctx.globalAlpha = lerp(1, .6, smooth(prog(t, L.t0 + LEG, L.t0 + LEG + 2.5))) * out; ctx.strokeStyle = col(L.tone); ctx.lineWidth = 2.3; ctx.stroke();
+      if (u < 1) {   // the comet at its head
+        ctx.setLineDash([]); ctx.lineCap = 'butt';
+        for (let q = 0; q < 12; q++) {
+          const p0 = B(Math.max(0, u - .17 * (1 - q / 12))), p1 = B(Math.max(0, u - .17 * (1 - (q + 1) / 12)));
+          ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.globalAlpha = Math.pow((q + 1) / 12, 1.5) * .9 * out; ctx.lineWidth = 1 + 3.6 * (q + 1) / 12; ctx.stroke();
+        }
+        const h = B(u); ctx.globalAlpha = 1; glow(h[0], h[1], 20, L.tone, .7 * out);
+        ctx.globalAlpha = out; ctx.fillStyle = col(L.tone); disc(h[0], h[1], 4.4); ctx.fillStyle = col('hot'); disc(h[0], h[1], 1.9);
+      }
+    }
+    ctx.setLineDash([]); ctx.lineCap = 'butt';
+  });
+  ctx.globalAlpha = 1;
+}
+
+function planets(t, front) {
+  if (t < T.ground + 1.4 || t > T.sky + 1) return;
+  V.P.forEach((p, j) => {
+    if (p.front !== front || p.pop <= 0 || p.a <= 0) return;
+    const c = CREW[j];
+    let fl = 0; for (const f of FLARES[j]) fl = Math.max(fl, flare(t, f));
+    // the tail it leaves on its orbit
+    const ta = smooth(prog(p.lp, .7, 1)) * p.a;
+    if (ta > 0) {
+      const q0 = RO[j] * V.S; ctx.strokeStyle = col(c.key); ctx.lineWidth = 3.2 * Math.max(V.S, .3);
+      for (let q = 0; q < 16; q++) {
+        const a0 = p.th - .62 * (1 - q / 16), a1 = p.th - .62 * (1 - (q + 1) / 16) + .004;
+        ctx.beginPath(); ctx.moveTo(V.fx + q0 * Math.cos(a0), V.fy + q0 * Math.sin(a0) * V.k); ctx.lineTo(V.fx + q0 * Math.cos(a1), V.fy + q0 * Math.sin(a1) * V.k);
+        ctx.globalAlpha = Math.pow((q + 1) / 16, 1.7) * .8 * ta; ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    glow(p.x, p.y, p.r * (2.7 + 1.7 * fl), c.key, (.32 + .5 * fl) * p.a * Math.min(1, p.pop));
+    ctx.globalAlpha = p.a; ctx.fillStyle = col(c.key); disc(p.x, p.y, p.r);
+    if (p.lp > 0) {   // its night side, away from the fire
+      const dx = p.x - V.fx, dy = p.y - V.fy, d = Math.hypot(dx, dy) || 1;
+      ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.clip();
+      ctx.globalAlpha = .42 * p.lp * p.a; ctx.fillStyle = col('bg'); disc(p.x + dx / d * p.r * .8, p.y + dy / d * p.r * .8, p.r * 1.05); ctx.restore();
+    }
+    // a ring that fills while it works
+    const wk = WORK[j], wa = win(t, wk[0], wk[1] + .5, .3, .4) * p.a;
+    if (wa > 0) {
+      const q0 = p.r + 7; ctx.lineWidth = 2; ctx.strokeStyle = col(c.key);
+      ctx.globalAlpha = .28 * wa; ctx.beginPath(); ctx.arc(p.x, p.y, q0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = wa; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(p.x, p.y, q0, -PI / 2, -PI / 2 + TAU * prog(t, wk[0] + .1, wk[1] - .05)); ctx.stroke(); ctx.lineCap = 'butt';
+    }
+    for (const f of FLARES[j]) {
+      const q = pulse(t, f, .9);
+      if (q >= 0) { ctx.globalAlpha = (1 - q) * .7 * p.a; ctx.lineWidth = 1.5; ctx.strokeStyle = col(c.key); ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 6 + 30 * outCubic(q), 0, TAU); ctx.stroke(); }
+    }
+  });
+  ctx.globalAlpha = 1;
+}
+
+// The gold dot: the ember, the campfire, the sun, a star, the dot of the mark. It is on stage for the whole film.
+function dotR(t) {
+  if (t < T.arrive) return 7;
+  if (t < T.pull) return lerp(7, 22, outBack(prog(t, T.arrive, T.lift + 1.2)));
+  if (t < T.mark + 4) return Math.max(22 * V.S, 4.6);
+  if (t < T.dive) return lerp(4.6, MARK_DOT, outBack(prog(t, T.mark + 4, T.mark + 5.4)));
+  return lerp(MARK_DOT, 7, smoother(prog(t, T.dive + 1, T.dive + 3.6))) + 3.5 * Math.sin(PI * prog(t, T.dive, T.dive + 2.2));
+}
+function dot(t) {
+  const { fx, fy } = V, r = dotR(t);
+  let fl = 0; for (const f of SUNFL) fl = Math.max(fl, flare(t, f));
+  const gi = track(GLOW, t, smooth)[0] * (1 + .1 * Math.sin(TAU * t / 3.3)) + .35 * fl * (t < T.mark + 3.6 ? 1 : .4);
+  glow(fx, fy, Math.max(r * 4.3, 26) * (1 + .5 * fl), 'accent', .62 * gi);
+  const sun = smooth(prog(t, T.lift + .6, T.lift + 2)) * smooth(clamp((V.S - .25) / .4));
+  if (sun > 0) {   // while it is the Commander: a ring and the points of a compass
+    ctx.strokeStyle = col('accent'); ctx.lineWidth = 1.2; ctx.globalAlpha = .45 * sun;
+    ctx.beginPath(); ctx.arc(fx, fy, r + 6.5, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = .75 * sun; ctx.lineCap = 'round'; ctx.beginPath();
+    for (let q = 0; q < 8; q++) { const a = q * PI / 4 + t * .05, r0 = r + 11, r1 = r + (q % 2 ? 14 : 18); ctx.moveTo(fx + r0 * Math.cos(a), fy + r0 * Math.sin(a)); ctx.lineTo(fx + r1 * Math.cos(a), fy + r1 * Math.sin(a)); }
+    ctx.stroke(); ctx.lineCap = 'butt';
+  }
+  ctx.globalAlpha = 1; ctx.fillStyle = col('dot'); disc(fx, fy, r);
+  for (const f of SUNFL) {
+    const q = pulse(t, f, 1);
+    if (q >= 0) { ctx.globalAlpha = (1 - q) * .7; ctx.lineWidth = 1.6; ctx.strokeStyle = col('accent'); ctx.beginPath(); ctx.arc(fx, fy, r + 6 + 46 * outCubic(q), 0, TAU); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function crewLabels(t) {
+  if (t < 19 || t > T.pull + 1) return;
+  const gone = 1 - smooth(prog(t, T.pull, T.pull + .8));
+  // the Commander, over the fire
+  const qa = smooth(prog(t, 19.2, 20.2)) * gone;
+  if (qa > 0) {
+    setFont('d', 19); ctx.globalAlpha = qa; label('Commander', V.fx, V.fy - 46, { align: 'center', fill: col('qm'), halo: 5 });
+    const ra = win(t, T.plan + .2, T.out + .4);   // only while it plans: later the Engineer passes behind here
+    if (ra > 0) { setFont('m', 11); ctx.globalAlpha = qa * ra; label('plans, briefs, reviews', V.fx, V.fy - 68, { align: 'center', fill: col('muted'), halo: 4 }); }
+  }
+  V.P.forEach((p, j) => {
+    const c = CREW[j], na = smooth(prog(t, 19.4 + j * .15, 20.4 + j * .15)) * gone;
+    if (na <= 0) return;
+    const ra = win(t, ROLES[j][0], ROLES[j][1]);
+    setFont('d', 19); const nw = ctx.measureText(c.name).width;
+    setFont('m', 11); const rw = ctx.measureText(c.role).width;
+    const half = lerp(nw, Math.max(nw, rw), ra) / 2, hh = lerp(9, 17, ra);
+    const dx = p.x - V.fx, dy = p.y - V.fy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    // out from the fire, and only as far as it takes for the words to clear the planet and its ring
+    const clear = p.r + 13; let lo = 0, hi = clear + half + hh;
+    for (let q = 0; q < 14; q++) { const m = (lo + hi) / 2; if (Math.hypot(Math.max(Math.abs(ux * m) - half, 0), Math.max(Math.abs(uy * m) - hh, 0)) < clear) lo = m; else hi = m; }
+    const lx = p.x + ux * hi, ly = p.y + uy * hi;
+    setFont('d', 19); ctx.globalAlpha = na; label(c.name, lx, ly - hh + 15, { align: 'center', fill: col(c.key), halo: 5 });
+    if (ra > 0) { setFont('m', 11); ctx.globalAlpha = na * ra; label(c.role, lx, ly - hh + 31, { align: 'center', fill: col('muted'), halo: 4 }); }
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ---- the Test Pilot: for the mission past every orbit, to a blank on the map ----
+const PROWS = [0, 1, 2].map(q => noiseRow(83 + q * 2.9));
+const bez = (P, u) => { const v = 1 - u; return [0, 1].map(d => v * v * v * P[0][d] + 3 * v * v * u * P[1][d] + 3 * v * u * u * P[2][d] + u * u * u * P[3][d]); };
+const pilotAt = tt => {     // where it is at a given time: flying out, rounding the place, flying home
+  if (tt <= PL.t1) { const p = clamp((tt - PL.t0) / (PL.t1 - PL.t0)); return bez(PL.out, p * p * (2 - p)); }
+  if (tt <= PL.leave) { const a = PI / 2 - PL.w * (tt - PL.t1); return [PL.x + PL.orbit * Math.cos(a), PL.y + PL.orbit * Math.sin(a)]; }
+  const p = clamp((tt - PL.leave) / (PL.home - PL.leave)); return bez(PL.back, (p + p * p) / 2);
+};
+const pilotPt = p => [V.fx + p[0] * V.S, V.fy + p[1] * V.S];
+const pilotA = t => win(t, T.pilot + .3, T.pull + .8, .6, .9);
+const pilotRest = t => lerp(1, .6, smooth(prog(t, PL.home, PL.home + 1.6)));     // once it is home, its mission sits back
+// Its ways out and home, dashed like every route at the outpost. They go under the gold dot, so they are drawn before it.
+function pilotWays(t) {
+  const A = pilotA(t);
+  if (A <= 0) return;
+  const part = (P, u1) => { ctx.beginPath(); for (let q = 0; q <= 48; q++) { const p = pilotPt(bez(P, u1 * q / 48)); q ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } };
+  const rest = pilotRest(t);
+  ctx.lineCap = 'round'; ctx.setLineDash([3, 7]);
+  const pv = smooth(prog(t, T.pilot + .4, T.pilot + 1.2));
+  if (pv > 0) { part(PL.out, pv); ctx.globalAlpha = .6 * A; ctx.strokeStyle = col('muted'); ctx.lineWidth = 1.4; ctx.stroke(); }
+  const fo = clamp((t - PL.t0) / (PL.t1 - PL.t0)), fb = clamp((t - PL.leave) / (PL.home - PL.leave));
+  ctx.strokeStyle = col('pilot'); ctx.lineWidth = 2.3;
+  if (fo > 0) { part(PL.out, fo * fo * (2 - fo)); ctx.globalAlpha = lerp(1, .6, smooth(prog(t, PL.t1, PL.t1 + 2.5))) * A * rest; ctx.stroke(); }
+  if (fb > 0) { part(PL.back, (fb + fb * fb) / 2); ctx.globalAlpha = lerp(1, .6, smooth(prog(t, PL.home, PL.home + 2.5))) * A * rest; ctx.stroke(); }
+  ctx.setLineDash([]); ctx.lineCap = 'butt'; ctx.globalAlpha = 1;
+}
+function pilot(t) {
+  const A = pilotA(t);
+  if (A <= 0) return;
+  const { fx, fy, S } = V, [kx, ky] = pilotPt([PL.x, PL.y]), r = PL.r * S, rest = pilotRest(t);
+  const charted = smooth(prog(t, PL.leave - .2, PL.leave + .3));
+  // the place: a dashed blank, until the Test Pilot's laps sweep its contour lines in
+  ctx.globalAlpha = A; glow(kx, ky, 90 * S, 'pilot', (.26 * charted + .4 * flare(t, PL.leave)) * rest);
+  const blank = smooth(prog(t, T.pilot + .3, T.pilot + 1)) * (1 - prog(t, PL.t1 + PL.lap * .5, PL.leave));
+  if (blank > 0) { ctx.setLineDash([2, 5]); ctx.lineCap = 'round'; ctx.globalAlpha = .85 * blank * A; ctx.strokeStyle = col('muted'); ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(kx, ky, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'butt'; }
+  if (charted > 0) { loop(PROWS[2], kx, ky, r, .3, PI / 2, -1); ctx.globalAlpha = .14 * charted * A * rest; ctx.fillStyle = col('pilot'); ctx.fill(); }
+  ctx.strokeStyle = col('pilot'); ctx.lineWidth = 1.35; ctx.lineJoin = 'round';
+  for (let i = 0; i < 3; i++) {     // each ring starts where the Test Pilot is and follows it once round
+    const s = PL.t1 + i * PL.lap / 4, up = prog(t, s, s + PL.lap);
+    if (up > 0) { loop(PROWS[i], kx, ky, r * (i + 1) / 3, .3, PL.w * (s - PL.t1) - PI / 2, -1, up); ctx.globalAlpha = A * rest * (i === 2 ? 1 : .75); ctx.stroke(); }
+  }
+  if (charted > 0) { ctx.globalAlpha = A * rest * charted; ctx.fillStyle = col('pilot'); disc(kx, ky, 2.2 * S); }
+  const dq = pulse(t, PL.leave, 1);
+  if (dq >= 0) { ctx.globalAlpha = (1 - dq) * .75 * A; ctx.strokeStyle = col('pilot'); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(kx, ky, r + 6 + 44 * outCubic(dq), 0, TAU); ctx.stroke(); }
+  const ta = smooth(prog(t, T.pilot + .6, T.pilot + 1.1)) * A;
+  if (ta > 0) {
+    setFont('m', 10.5, 500);
+    if (charted < 1) { ctx.globalAlpha = ta * (1 - charted); label('uncharted', kx, ky - (PL.orbit + 23) * S, { align: 'center', fill: col('muted'), halo: 4 }); }
+    if (charted > 0) { ctx.globalAlpha = ta * charted * lerp(1, .8, 1 - rest); label('charted', kx, ky - (PL.orbit + 23) * S, { align: 'center', fill: col('pilot'), halo: 4 }); }
+  }
+  // sent: a ring off the Commander as it goes
+  const lq = pulse(t, PL.t0, .8);
+  if (lq >= 0) { ctx.globalAlpha = (1 - lq) * .7 * A; ctx.strokeStyle = col('pilot'); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(fx, fy, dotR(t) + 6 + 40 * outCubic(lq), 0, TAU); ctx.stroke(); }
+  if (t > PL.t0 && t < PL.home) {
+    const clear = p => smooth(clamp((Math.hypot(p[0], p[1]) - 12) / 16));     // it comes out of the gold dot, and goes back into it
+    ctx.strokeStyle = col('pilot');
+    for (let q = 0; q < 14; q++) {
+      const o0 = pilotAt(Math.max(PL.t0, t - .34 * (1 - q / 14))), o1 = pilotAt(Math.max(PL.t0, t - .34 * (1 - (q + 1) / 14))), p0 = pilotPt(o0), p1 = pilotPt(o1);
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.globalAlpha = Math.pow((q + 1) / 14, 1.5) * .9 * A * clear(o1); ctx.lineWidth = 1.2 + 4.2 * (q + 1) / 14; ctx.stroke();
+    }
+    const o = pilotAt(t), [hx, hy] = pilotPt(o), ha = A * clear(o);
+    const sw = win(t, PL.t1, PL.leave + .1, .3, .3);     // while it charts, a sweep line from the middle of the place out to it
+    if (sw > 0) { ctx.globalAlpha = .3 * sw * A; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(hx, hy); ctx.stroke(); }
+    ctx.globalAlpha = ha; glow(hx, hy, 26, 'pilot', .75); ctx.fillStyle = col('pilot'); disc(hx, hy, 5.4); ctx.fillStyle = col('hot'); disc(hx, hy, 2.3);
+    // its name rides out under it, then waits under the place
+    const na = win(t, PL.t0 + .4, PL.leave + .5, .5, .6) * A, st = smoother(prog(t, PL.t1 - .5, PL.t1));
+    if (na > 0) { setFont('d', 17); ctx.globalAlpha = na; label('Test Pilot', lerp(hx, kx, st), lerp(hy + 30, ky + (PL.orbit + 30) * S, st), { align: 'center', fill: col('pilot'), halo: 5 }); }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function sky(t) {
+  if (t < T.pull + 1.2 || t > T.mark + 5.6) return;
+  const { fx, fy } = V, zs = V.S / S4;
+  const skyA = smooth(prog(t, T.pull + 1.4, T.sky - .6)), lineA = (1 - smooth(prog(t, T.mark, T.mark + 1))) * skyA;
+  const e5 = prog(t, T.mark + .2, T.mark + 4.6), fall = 1 - smooth(prog(t, T.mark + 4.4, T.mark + 5.4));
+  if (lineA > 0) {
+    // each group has its own contour lines: the sky is drawn like the ground
+    CL.forEach((c, ci) => {
+      const up = smooth(prog(t, T.sky - 1.6 + ci * .25, T.sky + .8 + ci * .25));
+      if (up <= 0) return;
+      ctx.strokeStyle = col('line'); ctx.lineWidth = 1;
+      [.5, .88, 1.27].forEach((q, n) => { loop(c.rows[n], fx + c.x * zs, fy + c.y * zs, c.sp * q * zs, .6, 0, 1, up); ctx.globalAlpha = lineA * [.95, .75, .5][n]; ctx.stroke(); });
+      // and its brightest stars are joined up
+      const lp = prog(t, T.sky - .8 + ci * .3, T.sky + 1.6 + ci * .3) * (c.big.length - 1);
+      if (lp > 0) {
+        ctx.beginPath();
+        c.big.forEach((s, i) => {
+          const x = fx + s.x * zs, y = fy + s.y * zs;
+          if (!i) ctx.moveTo(x, y);
+          else if (lp >= i) ctx.lineTo(x, y);
+          else if (lp > i - 1) { const o = c.big[i - 1], u = smooth(lp - (i - 1)); ctx.lineTo(fx + lerp(o.x, s.x, u) * zs, fy + lerp(o.y, s.y, u) * zs); }
+        });
+        ctx.globalAlpha = lineA * .6; ctx.strokeStyle = col(c.key); ctx.lineWidth = 1.1; ctx.stroke();
+      }
+    });
+    // synapses: curved threads between lines that belong together, each fading from one owner's colour to the other's
+    const hush = 1 - .4 * smooth(prog(t, T.router - .4, T.router + .6));     // they quieten once the film moves on
+    ctx.lineCap = 'round';
+    for (const y of SYN) {
+      const g = smooth(prog(t, y.t0, y.t0 + .9));
+      if (g <= 0) continue;
+      const ax = fx + y.a.x * zs, ay = fy + y.a.y * zs, bx = fx + y.b.x * zs, by = fy + y.b.y * zs, cx = fx + y.cx * zs, cy = fy + y.cy * zs;
+      const B = u => { const v = 1 - u; return [v * v * ax + 2 * v * u * cx + u * u * bx, v * v * ay + 2 * v * u * cy + u * u * by]; };
+      const e = B(g), gr = ctx.createLinearGradient(ax, ay, bx, by);
+      gr.addColorStop(0, col(y.a.tone)); gr.addColorStop(1, col(y.b.tone));
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(lerp(ax, cx, g), lerp(ay, cy, g), e[0], e[1]);
+      ctx.strokeStyle = gr; ctx.globalAlpha = lineA * .13 * hush; ctx.lineWidth = 4.5; ctx.stroke();
+      ctx.globalAlpha = lineA * .62 * hush; ctx.lineWidth = 1.15; ctx.stroke();
+      // a spark crosses, and the star it reaches answers
+      const ph = ((t - y.t0) / y.per + y.off) % 1 * y.per, sa = lineA * hush * smooth(prog(t, y.t0 + .9, y.t0 + 1.4));
+      if (sa <= 0) continue;
+      if (ph < .65) {
+        const u = smooth(ph / .65), h = B(u);
+        ctx.beginPath(); for (let q = 0; q <= 6; q++) { const p = B(Math.max(0, u - .14 * (1 - q / 6))); q ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }
+        ctx.strokeStyle = mix(y.a.tone, y.b.tone, u); ctx.lineWidth = 2; ctx.globalAlpha = sa * .8; ctx.stroke();
+        ctx.globalAlpha = sa; glow(h[0], h[1], 11, y.b.tone, .8); ctx.fillStyle = mix(y.a.tone, y.b.tone, u); disc(h[0], h[1], 2.3); ctx.fillStyle = col('hot'); disc(h[0], h[1], 1.1);
+      } else if (ph < 1.2) {
+        const q = (ph - .65) / .55;
+        ctx.globalAlpha = sa * (1 - q) * .7; ctx.strokeStyle = col(y.b.tone); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(bx, by, 4 + 11 * outCubic(q), 0, TAU); ctx.stroke();
+      }
+    }
+    ctx.lineCap = 'butt';
+  }
+  // the stars
+  for (const s of STARS) {
+    if (s.born && t < s.born) continue;
+    const p = starAt(s, e5, zs);
+    if (p[0] < -8 || p[0] > W + 8 || p[1] < -8 || p[1] > H + 8) continue;
+    let size = s.s * (1 + .16 * Math.sin(TAU * t / 2.2 + s.ph));
+    if (s.born) size *= outBack(prog(t, s.born, s.born + .7));
+    if (s.used) size *= 1 + .55 * smooth(prog(t, s.used, s.used + .6));
+    size = lerp(size, 1.25, p[2]);
+    const a = skyA * fall * lerp(s.dim || 1, 1, p[2]);
+    ctx.fillStyle = mix(s.tone, 'ink', p[2]);
+    if (size > 2.4) { ctx.globalAlpha = a * .17; disc(p[0], p[1], size * 2.7); }
+    ctx.globalAlpha = a; disc(p[0], p[1], size);
+    for (const when of [s.born, s.used]) {
+      const q = when ? pulse(t, when, 1) : -1;
+      if (q >= 0) { ctx.globalAlpha = (1 - q) * .8 * skyA; ctx.strokeStyle = col(s.tone); ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(p[0], p[1], 5 + 26 * outCubic(q), 0, TAU); ctx.stroke(); }
+    }
+  }
+  // what this job taught the crew leaves the camp and becomes a star of the Engineer's
+  const fl = prog(t, T.sky - 1.6, NEWSTAR.born);
+  if (fl > 0 && fl < 1) {
+    const u = inOut(fl), bx = NEWSTAR.x, by = NEWSTAR.y, cx = bx / 2 + by * .25, cy = by / 2 - bx * .25;
+    const B = q => { const v = 1 - q; return [fx + (2 * v * q * cx + q * q * bx) * zs, fy + (2 * v * q * cy + q * q * by) * zs]; };
+    ctx.strokeStyle = col('accent');
+    for (let q = 0; q < 12; q++) {
+      const p0 = B(Math.max(0, u - .16 * (1 - q / 12))), p1 = B(Math.max(0, u - .16 * (1 - (q + 1) / 12)));
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.globalAlpha = Math.pow((q + 1) / 12, 1.5) * .9; ctx.lineWidth = .8 + 3 * (q + 1) / 12; ctx.stroke();
+    }
+    const h = B(u); ctx.globalAlpha = 1; glow(h[0], h[1], 18, 'accent', .7); ctx.fillStyle = col('dot'); disc(h[0], h[1], 3.8); ctx.fillStyle = col('hot'); disc(h[0], h[1], 1.7);
+  }
+  const tagA = win(t, NEWSTAR.born + .3, T.router - .1) * skyA;
+  if (tagA > 0) {
+    const x = fx + NEWSTAR.x * zs + 13, y = fy + NEWSTAR.y * zs + 4;
+    setFont('m', 11, 500); ctx.globalAlpha = tagA; label('+', x, y, { fill: col('accent'), halo: 4 }); label('mock the clock', x + 13, y, { fill: col('text'), halo: 4 });
+  }
+  // whose they are, until the sky is needed for what comes next
+  CL.forEach((c, ci) => {
+    const a = win(t, T.sky + .1 + ci * .18, T.router + .3, .7, .6) * skyA;
+    if (a <= 0) return;
+    const x = fx + c.x * zs, y = fy + (c.y + c.sp * 1.27 + 24) * zs, added = ci === 3 && t >= NEWSTAR.born;
+    setFont('d', 17); ctx.globalAlpha = a; label(c.name, x, y, { align: 'center', fill: col(c.key), halo: 5 });
+    setFont('m', 10.5); label((c.lines + (added ? 1 : 0)) + ' lines', x, y + 16, { align: 'center', fill: mix('faint', 'accent', added ? Math.min(1, flare(t, NEWSTAR.born) * 1.6) : 0), halo: 4 });
+  });
+  ctx.globalAlpha = 1;
+}
+
+// A comet at `u` along the curve B: a tapering tail and a hot head, `k` times the usual size.
+function comet(B, u, tone, k, a) {
+  ctx.strokeStyle = col(tone);
+  for (let q = 0; q < 12; q++) {
+    const p0 = B(Math.max(0, u - .16 * (1 - q / 12))), p1 = B(Math.max(0, u - .16 * (1 - (q + 1) / 12)));
+    ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.globalAlpha = Math.pow((q + 1) / 12, 1.5) * .9 * a; ctx.lineWidth = (.8 + 3 * (q + 1) / 12) * k; ctx.stroke();
+  }
+  const h = B(u); ctx.globalAlpha = a; glow(h[0], h[1], 18 * k, tone, .7); ctx.fillStyle = col(tone === 'accent' ? 'dot' : tone); disc(h[0], h[1], 3.8 * k); ctx.fillStyle = col('hot'); disc(h[0], h[1], 1.7 * k);
+}
+
+// ---- the router: models of three sizes, and each task goes to the smallest that can carry it ----
+const RT = { x: 48, y: 130 };                      // where the router sits, measured from the gold dot as the stars are
+const T_SIZE = .5, T_PICK = .85, T_LAND = 1.45;    // a task reaches the router, leaves it and lands, in seconds after it sets out
+const MODELS = [
+  { x: -50, y: 234, r: 10, name: 'SMALL', task: 'rename a flag', t0: T.router + .8, k: .72 },
+  { x: 60, y: 258, r: 16, name: 'MID', task: 'write the docs', t0: T.router + 2.3, k: 1 },
+  { x: 168, y: 234, r: 23, name: 'LARGE', task: 'plan a migration', t0: T.router + 3.8, k: 1.3 },
+];
+const MROWS = [0, 1, 2].map(q => noiseRow(71 + q * 2.3));
+function router(t) {
+  const A = win(t, T.router + .2, T.mark + .3, .6, .6);
+  if (A <= 0) return;
+  const { fx, fy } = V, rx = fx + RT.x, ry = fy + RT.y;
+  const inB = u => [lerp(fx, rx, u), lerp(fy, ry, u)];
+  const way = m => { const mx = fx + m.x, my = fy + m.y, cx = lerp(rx, mx, .12), cy = lerp(ry, my, .7); return u => { const v = 1 - u; return [v * v * rx + 2 * v * u * cx + u * u * mx, v * v * ry + 2 * v * u * cy + u * u * my]; }; };
+  // the ways a task could go, dashed, and the one it takes
+  ctx.lineCap = 'round'; ctx.setLineDash([3, 7]); ctx.lineWidth = 1.4; ctx.globalAlpha = .6 * A;
+  const pv = smooth(prog(t, T.router + .3, T.router + 1.1));
+  ctx.strokeStyle = col('muted'); ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(lerp(fx, rx, pv), lerp(fy, ry, pv)); ctx.stroke();
+  MODELS.forEach((m, i) => {
+    const B = way(m), pu = smooth(prog(t, T.router + .6 + i * .12, T.router + 1.4 + i * .12));
+    if (pu <= 0) return;
+    ctx.beginPath(); for (let q = 0; q <= 24; q++) { const p = B(pu * q / 24); q ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }
+    ctx.strokeStyle = mix('muted', 'accent', smooth(prog(t, m.t0 + T_PICK, m.t0 + T_LAND))); ctx.stroke();
+  });
+  ctx.setLineDash([]); ctx.lineCap = 'butt';
+  // the router itself
+  const dn = 6 * outBack(prog(t, T.router + .25, T.router + .9));
+  ctx.save(); ctx.translate(rx, ry); ctx.rotate(PI / 4); ctx.globalAlpha = A; ctx.fillStyle = col('bg'); ctx.strokeStyle = col('accent'); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.rect(-dn, -dn, dn * 2, dn * 2); ctx.fill(); ctx.stroke(); ctx.restore();
+  setFont('m', 10, 500); ctx.globalAlpha = A * smooth(prog(t, T.router + .7, T.router + 1.2)); label('AUTO', rx + 17, ry + 3.6, { sp: 1.4, fill: col('accent'), halo: 4 });
+  // the tasks: out from the Commander, sized up, then on to the model that fits
+  for (const m of MODELS) {
+    const u1 = prog(t, m.t0, m.t0 + T_SIZE), u2 = prog(t, m.t0 + T_PICK, m.t0 + T_LAND);
+    if (u1 > 0 && u1 < 1) comet(inB, inOut(u1), 'accent', m.k, A);
+    else if (u1 >= 1 && u2 <= 0) {
+      const q = prog(t, m.t0 + T_SIZE, m.t0 + T_PICK);     // a ring closes on it, like a caliper
+      ctx.globalAlpha = A; glow(rx, ry, 18 * m.k, 'accent', .7); ctx.fillStyle = col('dot'); disc(rx, ry, 3.8 * m.k); ctx.fillStyle = col('hot'); disc(rx, ry, 1.7 * m.k);
+      ctx.globalAlpha = A * smooth(q) * .9; ctx.strokeStyle = col('accent'); ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(rx, ry, lerp(24, 3.8 * m.k + 3.5, outCubic(q)), 0, TAU); ctx.stroke();
+    } else if (u2 > 0 && u2 < 1) comet(way(m), inOut(u2), 'accent', m.k, A);
+  }
+  // the models, drawn as hills: the more contour lines, the more it can carry
+  MODELS.forEach((m, i) => {
+    const x = fx + m.x, y = fy + m.y, up = outBack(prog(t, T.router + .35 + i * .15, T.router + 1.05 + i * .15));
+    if (up <= 0) return;
+    const land = m.t0 + T_LAND, hit = smooth(prog(t, land - .05, land + .35));
+    let small = 0;     // dimmed while a task too big for it is being sized up
+    for (let k = i + 1; k < MODELS.length; k++) small = Math.max(small, win(t, MODELS[k].t0 + T_SIZE - .05, MODELS[k].t0 + T_PICK + .3, .2, .3));
+    const a = A * (1 - .62 * small);
+    ctx.globalAlpha = a; glow(x, y, m.r * 3.2, 'accent', .45 * hit + .5 * flare(t, land));
+    loop(MROWS[i], x, y, m.r * up, .3, 0, 1); ctx.fillStyle = mix('bg', 'accent', .18 * hit); ctx.fill();
+    ctx.strokeStyle = mix('muted', 'accent', hit); ctx.lineWidth = 1.3;
+    for (let q = 0; q <= i; q++) { loop(MROWS[q], x, y, m.r * up * (q + 1) / (i + 1), .3, 0, 1); ctx.globalAlpha = a * (q === i ? 1 : .7); ctx.stroke(); }
+    const q = pulse(t, land, .7);
+    if (q >= 0) { ctx.globalAlpha = (1 - q) * .7 * A; ctx.strokeStyle = col('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, m.r + 5 + 26 * outCubic(q), 0, TAU); ctx.stroke(); }
+    setFont('m', 10, 500); ctx.globalAlpha = a * clamp(up); label(m.name, x, y + m.r + 19, { align: 'center', sp: 1.4, fill: mix('faint', 'accent', hit), halo: 4 });
+    const tg = smooth(prog(t, land + .1, land + .6));
+    if (tg > 0) { setFont('m', 10.5, 500); ctx.globalAlpha = A * tg; label(m.task, x, y + m.r + 35, { align: 'center', fill: col('text'), halo: 4 }); }
+  });
+  ctx.globalAlpha = 1;
+}
+
+function mark(t) {
+  if (t < T.mark + 3) return;
+  const { fx, fy } = V;
+  const mz = Math.exp(3.4 * smooth(prog(t, T.dive + .5, T.dive + 3.2))), A0 = 1 - smooth(clamp((mz - 1.4) / 7));   // at the end the camera goes back in through the dot
+  if (A0 > 0) {
+    ctx.save(); ctx.translate(fx, fy); ctx.scale(MS * mz, MS * mz);
+    ctx.fillStyle = col('ink');
+    BANDS.forEach(([ri, ro], b) => {
+      const p = outCubic(prog(t, T.mark + 3.3 + b * .22, T.mark + 4.8 + b * .22));
+      if (p <= 0) return;
+      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath(); ctx.arc(0, 0, ro, -PI / 2, -PI / 2 - PI * p, true); ctx.arc(0, 0, ri, -PI / 2 - PI * p, -PI / 2, false); ctx.closePath(); ctx.fill();
+    });
+    ctx.strokeStyle = col('ink'); ctx.lineWidth = DARK ? 3 : 4;
+    ARCS.forEach((q, n) => {
+      const p = outCubic(prog(t, T.mark + 3.6 + n * .22, T.mark + 5.1 + n * .22));
+      if (p <= 0) return;
+      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath(); ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p); ctx.stroke();
+    });
+    ctx.restore();
+  }
+  const card = 1 - smooth(prog(t, T.dive, T.dive + .7));
+  if (card <= 0) { ctx.globalAlpha = 1; return; }
+  // the name
+  const wp = smoother(prog(t, T.mark + 5.1, T.mark + 6.7));
+  if (wp > 0) {
+    ctx.save(); ctx.translate(fx - 100 * MS, fy - 100 * MS); ctx.scale(MS, MS);
+    ctx.beginPath(); ctx.rect(236, 30, 318 * wp, 140); ctx.clip();
+    ctx.globalAlpha = card * smooth(prog(wp, 0, .3)); ctx.fillStyle = col('ink'); ctx.translate(-16 * (1 - wp), 0); ctx.fill(LETTERS); ctx.restore();
+  }
+  // what the two halves are
+  const la = win(t, T.mark + 4.9, T.dive + .4, .6, .5), lp = outCubic(prog(t, T.mark + 4.9, T.mark + 5.8));
+  if (la > 0) {
+    const lead = (pts, s, align) => {
+      ctx.globalAlpha = la * .9; ctx.strokeStyle = col('muted'); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      const u1 = clamp(lp * 2), u2 = clamp(lp * 2 - 1);
+      ctx.lineTo(lerp(pts[0][0], pts[1][0], u1), lerp(pts[0][1], pts[1][1], u1));
+      if (u2 > 0) ctx.lineTo(lerp(pts[1][0], pts[2][0], u2), lerp(pts[1][1], pts[2][1], u2));
+      ctx.stroke(); ctx.fillStyle = col('accent'); disc(pts[0][0], pts[0][1], 2.4);
+      setFont('m', 11, 500); ctx.globalAlpha = la * smooth(prog(lp, .6, 1));
+      label(s, pts[2][0] + (align === 'right' ? -7 : 7), pts[2][1] + 4, { align, sp: 1.7, fill: col('muted') });
+    };
+    lead([[fx - 95, fy - 34.5], [fx - 150, fy - 72], [fx - 176, fy - 72]], 'GROUND', 'right');
+    lead([[fx + 90.6, fy - 70.8], [fx + 124, fy - 104], [fx + 150, fy - 104]], 'SKY', 'left');
+  }
+  // the line, and the roll call
+  const ta = smooth(prog(t, T.mark + 6.3, T.mark + 7.2)) * card;
+  if (ta > 0) {
+    const y = 488 + (1 - outCubic(prog(t, T.mark + 6.3, T.mark + 7.3))) * 12, s1 = 'Your alter ego ', s2 = 'has a crew.';
+    setFont('d', 40); const w1 = ctx.measureText(s1).width, w2 = ctx.measureText(s2).width, x = 640 - (w1 + w2) / 2;
+    ctx.globalAlpha = ta; label(s1, x, y, { fill: col('text') }); label(s2, x + w1, y, { fill: col('accent') });
+  }
+  const names = [['COMMANDER', 'qm'], ['NAVIGATOR', 'scout'], ['COMMS OFFICER', 'scribe'], ['ENGINEER', 'art'], ['SECURITY CHIEF', 'warden'], ['TEST PILOT', 'pilot']];
+  setFont('m', 11.5, 500);
+  const gap = 30, total = names.reduce((a, n) => a + textW(n[0], 1.7), 0) + gap * (names.length - 1);
+  let x = 640 - total / 2;
+  names.forEach((n, i) => {
+    const a = smooth(prog(t, T.mark + 7.1 + i * .14, T.mark + 7.8 + i * .14)) * card, w = textW(n[0], 1.7);
+    if (a > 0) { ctx.globalAlpha = a; label(n[0], x, 532, { sp: 1.7, fill: col(n[1]) }); if (i) { ctx.fillStyle = col('line'); disc(x - gap / 2, 528, 1.6); } }
+    x += w + gap;
+  });
+  ctx.globalAlpha = 1;
+}
+
+function vignette() {
+  const g = ctx.createRadialGradient(640, 360, 400, 640, 360, 860);
+  g.addColorStop(0, col('deep', 0)); g.addColorStop(1, col('deep', DARK ? .72 : .5));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+
+function ask(t, px) {
+  const pa = win(t, .3, T.send + .75, .6, .6);
+  if (pa > 0) {
+    const out = smooth(prog(t, T.send + .15, T.send + .75)), x = 425, y = 428 + (1 - outCubic(prog(t, .3, 1))) * 10 + out * 6, w = 430, h = 48;
+    ctx.save(); ctx.globalAlpha = pa; ctx.shadowColor = SHADE; ctx.shadowBlur = 28 * px; ctx.shadowOffsetY = 10 * px; rr(x, y, w, h, 12); ctx.fillStyle = col('surface'); ctx.fill(); ctx.restore();
+    ctx.globalAlpha = pa; rr(x, y, w, h, 12); ctx.strokeStyle = col('border'); ctx.lineWidth = 1; ctx.stroke();
+    const n = Math.floor(clamp((t - 1.15) * 12.5, 0, ASK.length)), typed = ASK.slice(0, n);
+    setFont('b', 16, 500);
+    label(n ? typed : 'Ask the crew…', x + 20, y + 30, { fill: col(n ? 'text' : 'faint') });
+    if (t < T.send && (n < ASK.length ? n > 0 || Math.sin(t * 9) > 0 : Math.sin(t * 9) > 0)) { ctx.fillStyle = col('accent'); ctx.fillRect(x + 21 + (n ? ctx.measureText(typed).width : 0), y + 14, 1.6, 21); }
+    const pr = pulse(t, T.send - .14, .42), bs = pr >= 0 ? 1 - .15 * Math.sin(PI * pr) : 1, bx = x + w - 24, by = y + h / 2;
+    ctx.fillStyle = mix('line', 'accent', smooth(prog(t, 1.15, 1.7))); disc(bx, by, 15 * bs);
+    ctx.strokeStyle = col('accent-ink'); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(bx, by + 5 * bs); ctx.lineTo(bx, by - 5 * bs); ctx.moveTo(bx - 4.5 * bs, by - .5 * bs); ctx.lineTo(bx, by - 5 * bs); ctx.lineTo(bx + 4.5 * bs, by - .5 * bs); ctx.stroke(); ctx.lineCap = 'butt';
+  }
+  // the ask itself, as a spark: off the send button and up the trail to the fire
+  if (t >= T.send && t < T.arrive + .2) {
+    const p = t > T.ground ? trailPt(walk(t)) : [831, 452];
+    const a = smooth(prog(t, T.send, T.send + .25)) * (1 - smooth(prog(t, T.arrive - .05, T.arrive + .2)));
+    ctx.globalAlpha = 1; glow(p[0], p[1], 22, 'accent', .75 * a);
+    ctx.globalAlpha = a; ctx.fillStyle = col('dot'); disc(p[0], p[1], 4.6); ctx.fillStyle = col('hot'); disc(p[0], p[1], 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+const POINTER = [[0, 0], [0, 16.5], [4.4, 12.7], [7.3, 19], [9.9, 17.8], [7, 11.6], [12.6, 11.6]];
+function captions(t, px) {
+  for (const c of CAPS) {
+    if (t < c.a || t > c.b) continue;
+    const out = smooth(prog(t, c.b - .5, c.b));
+    const row = (i, comes = true, goes = true) => { const u = comes ? prog(t, c.a + i * .13, c.a + i * .13 + .7) : 1, o = goes ? out : 0; return [smooth(u) * (1 - o), (1 - outCubic(u)) * 14 - o * 6]; };
+    let [a, dy] = row(0, c.ebIn !== false, c.ebOut !== false);
+    setFont('m', 12, 500); ctx.globalAlpha = a; label(c.eb, 72, 536 + dy, { sp: 1.8, fill: col('accent'), halo: 5 });
+    setFont('d', 36);
+    c.l.forEach((s, i) => { [a, dy] = row(i + 1); ctx.globalAlpha = a; label(s, 72, 582 + i * 44 + dy, { fill: col('text'), halo: 7 }); });
+  }
+  // the two clicks that are yours, and the pointer that makes them
+  for (const b of BTN) {
+    const a = win(t, b.a, b.click + .85, .45, .4);
+    if (a > 0) {
+      setFont('b', 13, 600);
+      const w = Math.max(ctx.measureText(b.label).width, ctx.measureText(b.done).width) + 34, h = 34, x = 72, y = 646 + (1 - outCubic(prog(t, b.a, b.a + .5))) * 8;
+      const done = smooth(prog(t, b.click + .05, b.click + .3)), pr = pulse(t, b.click - .08, .3), sc = pr >= 0 ? 1 - .05 * Math.sin(PI * pr) : 1;
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(sc, sc); ctx.globalAlpha = a;
+      ctx.shadowColor = SHADE; ctx.shadowBlur = 14 * px; ctx.shadowOffsetY = 5 * px; rr(-w / 2, -h / 2, w, h, 8); ctx.fillStyle = mix('accent', 'good', done); ctx.fill();
+      ctx.shadowColor = 'transparent'; label(done > .5 ? b.done : b.label, 0, 4.6, { align: 'center', fill: col('accent-ink') }); ctx.restore();
+      const ca = win(t, b.click - 1.4, b.click + 1, .3, .4), cu = inOut(prog(t, b.click - 1.35, b.click - .2));
+      const px0 = lerp(430, x + w * .62, cu), py0 = lerp(716, y + 20, cu) - 46 * Math.sin(PI * cu) * (1 - cu);
+      for (const [d, len, grow, al0] of [[0, .6, 30, .75], [.12, .7, 54, .5]]) {
+        const q = pulse(t, b.click + d, len);
+        if (q >= 0) { ctx.globalAlpha = (1 - q) * al0; ctx.strokeStyle = col('accent'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px0, py0, 8 + grow * outCubic(q), 0, TAU); ctx.stroke(); }
+      }
+      if (ca > 0) {
+        ctx.save(); ctx.translate(px0, py0); ctx.scale(1.15, 1.15); ctx.globalAlpha = ca; ctx.beginPath();
+        POINTER.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
+        ctx.lineJoin = 'round'; ctx.strokeStyle = col('bg'); ctx.lineWidth = 2.6; ctx.stroke(); ctx.fillStyle = col('text'); ctx.fill(); ctx.restore();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function hud(t) {
+  // the kit's small mark and the name beside it, and the film's name; they step aside while the big mark is on
+  const ca = 1 - win(t, T.mark + 2.2, T.dive + 3.6, .9, 1);
+  if (ca > 0) {
+    ctx.save(); ctx.translate(56, 36); ctx.scale(.19, .19); ctx.globalAlpha = ca;
+    ctx.fillStyle = col('ink'); ctx.fill(SMALL_SOLID); ctx.strokeStyle = col('ink'); ctx.lineWidth = 8; ctx.stroke(SMALL_ARCS);
+    ctx.fillStyle = col('dot'); disc(100, 100, 20); ctx.fillStyle = col('ink'); ctx.fill(LETTERS); ctx.restore();
+  }
+  setFont('m', 12, 500); ctx.globalAlpha = 1; label('GROUND TO SKY', 1226, 61, { align: 'right', sp: 1.7, fill: col('faint'), halo: 4 });
+  // the altimeter: how high the camera has climbed, on a scale that runs from metres to light years
+  const x = 1226, y0 = 592, y1 = 196, a = track(ALT, t)[0], ya = lerp(y0, y1, a / 3);
+  ctx.strokeStyle = col('line'); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1);
+  for (let q = 0; q <= 12; q++) { const y = lerp(y0, y1, q / 12); ctx.moveTo(x - (q % 4 ? 3 : 8), y); ctx.lineTo(x, y); }
+  ctx.stroke();
+  setFont('m', 10, 500);
+  ['OUTPOST', 'ORBIT', 'SKY', 'MAE'].forEach((s, q) => label(s, x - 14, lerp(y0, y1, q / 3) + 3.6, { align: 'right', sp: 1.4, fill: mix('faint', 'text', clamp(1 - Math.abs(a - q) * 2.2)), halo: 4 }));
+  glow(x, ya, 14, 'accent', .5); ctx.fillStyle = col('bg'); disc(x, ya, 5.2); ctx.fillStyle = col('dot'); disc(x, ya, 3.6);
+  setFont('m', 11, 500); label('ALT ' + altText(a), x, y0 + 28, { align: 'right', sp: .5, fill: col('muted'), halo: 4 });
+}
+
+function render(t) {
+  const px = cv.width / W;
+  ctx.setTransform(px, 0, 0, px, 0, 0); ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.lineCap = 'butt';
+  const f = track(FOCUS, t);
+  V.fx = f[0]; V.fy = f[1];
+  V.S = Math.exp(Math.log(S4) * smoother(prog(t, T.pull, T.sky)));
+  V.k = track(TILT, t)[0];
+  V.lift = smoother(prog(t, T.lift, T.orbit));
+  V.gs = lerp(1.12, 1, smooth(prog(t, T.ground, T.lift)));
+  V.phi = .012 * Math.max(0, t - T.ground);
+  V.P = CREW.map((c, j) => planet(j, t));
+  backdrop(t); ground(t); sky(t); router(t); legs(t); pilotWays(t); planets(t, false); dot(t); planets(t, true); pilot(t); crewLabels(t); mark(t); vignette(); ask(t, px); captions(t, px); hud(t);
+}
+
+// ---- transport ----
+const playB = document.getElementById('play'), scrub = document.getElementById('scrub'), clock = document.getElementById('clock');
+let t = 0, last = null, tick = 0, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!playing) t = T.mark + 8.4;   // with motion reduced it waits on the last card, which says the most standing still
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+function fit() {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2), w = Math.max(320, Math.round(r.width * dpr)), h = Math.round(w * H / W);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+}
+function redraw() { readTheme(); fit(); render(t); }
+playB.addEventListener('click', () => setPlaying(!playing));
+document.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (++tick % 45 === 0) readTheme();
+  if (playing && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+if (window.ResizeObserver) new ResizeObserver(redraw).observe(cv); else addEventListener('resize', redraw);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
+setPlaying(playing); redraw(); sync();
+if (document.fonts && document.fonts.load) Promise.all(['400 36px "Young Serif"', '500 16px Figtree', '600 13px Figtree', '400 11px "JetBrains Mono"', '500 11px "JetBrains Mono"'].map(f => document.fonts.load(f))).then(() => { WIDTHS.clear(); render(t); }, () => {});
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

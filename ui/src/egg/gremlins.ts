@@ -242,7 +242,8 @@ export const HUSH = 3.5;
 export const BUBBLES_MAX = 2;
 
 // A line of that kind, never the same one twice running.
-export function pickLine(kind: QuoteKind, not = "", rand: () => number = Math.random): string {
-  const lines = QUOTES[kind].filter((l) => l !== not);
+// (lines: a skin's own for that kind, if it has them.)
+export function pickLine(kind: QuoteKind, not = "", rand: () => number = Math.random, lines: readonly string[] = QUOTES[kind]): string {
+  lines = lines.filter((l) => l !== not);
   return lines[Math.min(lines.length - 1, Math.floor(rand() * lines.length))];
 }

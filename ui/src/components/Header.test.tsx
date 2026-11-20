@@ -65,7 +65,7 @@ test("the busy chip counts running expeditions and what's queued, and the title 
   );
   expect(screen.getByText("2 expeditions running · 1 queued")).toBeTruthy();
   expect(screen.getByRole("button", { name: "2 decisions need you" })).toBeTruthy();
-  expect(document.title).toBe("(2) Mae, My Alter Ego");
+  expect(document.title).toBe("(2) Outpost Mae");
 
   events(store, { type: "answered", id: "ask1", answer: "" });
   expect(screen.getByRole("button", { name: "1 decision needs you" })).toBeTruthy();
@@ -190,8 +190,8 @@ test("what needs you is one chip: several things open a list, and each row goes 
 test("the name is the logo kit's logo, with no subtitle and no orb beside it", () => {
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   const name = screen.getByRole("heading", { level: 1 });
-  // The logo is one drawing, the mark and the name, in the colour of the text around it (the kit's ink for the theme), read as "Mae".
-  const logo = within(name).getByRole("img", { name: "Mae" });
+  // The logo is one drawing, the mark and the name, in the colour of the text around it (the kit's ink for the theme), read as "Outpost Mae" (the drawing says Mae, the short form).
+  const logo = within(name).getByRole("img", { name: "Outpost Mae" });
   expect([...logo.querySelectorAll("path")].every((p) => [p.getAttribute("fill"), p.parentElement!.getAttribute("stroke")].includes("currentColor"))).toBe(true);
   expect(logo.querySelector("circle.logo-dot")).toBeTruthy(); // the amber centre, coloured by the stylesheet
   expect(name.textContent).toBe(""); // no words beside the drawing
@@ -240,7 +240,7 @@ test("the connection chip: quiet while live, and after a long outage it says the
 test("the logo is the way home: it opens Today", () => {
   const onHome = vi.fn();
   render(<Header S={null} store={createFeedStore()} conn="live" refresh={() => {}} onHome={onHome} />);
-  fireEvent.click(screen.getByRole("button", { name: "Mae" }));
+  fireEvent.click(screen.getByRole("button", { name: "Outpost Mae" }));
   expect(onHome).toHaveBeenCalled();
 });
 

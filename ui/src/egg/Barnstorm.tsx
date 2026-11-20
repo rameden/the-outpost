@@ -176,7 +176,7 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
     // nobody talking over themselves. (always: this one's worth breaking the quiet for.)
     const yell = (who: Gremlin<Wreck> | undefined, kind: QuoteKind, always = false) => {
       if (!who || Math.random() > CHATTER[kind] || (hush > 0 && !always) || bubbles.length >= BUBBLES_MAX || bubbles.some((b) => b.who === who)) return;
-      lastLine = pickLine(kind, lastLine);
+      lastLine = pickLine(kind, lastLine, Math.random, skinFor(packNow())?.quotes?.[kind]);
       bubbles.push({ who, text: lastLine, age: 0 });
       hush = HUSH;
     };
@@ -412,7 +412,8 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
       // A job from a ladder: stand it up, climb, work at the top, climb down. (Even its tea is had up there.)
       const up = atJob && ladder ? ladderPhase(it) : null;
       const working = busy && atJob && (!up || up.working);
-      const rows = ducking ? GREMLIN_DUCK : GREMLIN_FRAMES[walking || (busy && up && !up.working && !up.lean) ? Math.floor(it.clock * 10) % 2 : 0];
+      const crew = skinFor(packNow())?.crew;
+      const rows = ducking ? crew?.duck ?? GREMLIN_DUCK : (crew?.frames ?? GREMLIN_FRAMES)[walking || (busy && up && !up.working && !up.lean) ? Math.floor(it.clock * 10) % 2 : 0];
       const px = PIXEL, top = (FEET - rows.length) * px, wear = builderPaint();
       const climb = up ? up.rung * px : 0;
       const hop = it.hop > 0 ? Math.sin(Math.PI * (1 - it.hop / HOP)) * 9 : 0; // job done: a little jump

@@ -314,7 +314,7 @@ test("opened on the demo with no crew to play it, the camp's own do", () => {
   const { container } = render(<Orbit S={null} store={createFeedStore()} demo {...on} />);
   expect(screen.getByRole("status").textContent).toMatch(/^Demo:/);
   expect([...container.querySelectorAll(".orb-planet")].map((p) => p.getAttribute("data-who"))).toEqual(["scout", "artificer", "scribe", "warden", "wizard"]);
-  pass(36_000); // the Scout has been and gone: the Artificer has two out, and the Wizard one
+  pass(36_000); // the Scout has been and gone: the Artificer has two out, and the Test Pilot one
   expect(container.querySelector('.orb-planet[data-who="artificer"]')!.querySelectorAll(".orb-moon").length).toBe(2);
   expect(container.querySelector('.orb-planet[data-who="wizard"]')!.querySelectorAll(".orb-moon").length).toBe(1);
   expect(container.querySelectorAll(".orb-moon").length).toBe(3);

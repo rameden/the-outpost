@@ -244,7 +244,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   const gh = useGithub();
 
   // The tab's title: the name and its tag, behind the count of what needs you.
-  useEffect(() => { document.title = asks.length ? `(${asks.length}) Mae, My Alter Ego` : "Mae, My Alter Ego"; }, [asks.length]);
+  useEffect(() => { document.title = asks.length ? `(${asks.length}) Outpost Mae` : "Outpost Mae"; }, [asks.length]);
 
   return (
     <header className="top">
@@ -255,7 +255,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
           ? <button type="button" className="brand-home" title="Today: your brief, and where things stand" onClick={onHome}><MaeLogo /></button>
           : <MaeLogo />}</h1>
         {/* The tour (docs/index.html, served at /splash), in its own tab so nothing here is interrupted. */}
-        <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Mae (opens in a new tab)">Tour</a>
+        <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Outpost Mae (opens in a new tab)">Tour</a>
       </div>
       <div className="top-right">
         {/* What the camp is doing, then the page's own switches. On a phone the first group scrolls sideways and the second stays put (styles.css). */}

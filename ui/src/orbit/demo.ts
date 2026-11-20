@@ -5,7 +5,7 @@
 //
 // It plays expeditions one after another, round and round, and each goes in stages, the way real
 // work does: the Scout goes out alone to find things out; once they've reported, the Artificer is
-// sent on two quests at once and the Wizard on a third; when those are in, the Warden reviews; and
+// sent on two quests at once and the Test Pilot on a third; when those are in, the Warden reviews; and
 // last the Scribe writes it up. Nobody leaves before the stage before them is home. On the way
 // they use tools and write (a word at a time, as a real reply arrives), and one of them stops to
 // ask for your OK and is given it. Nothing is random: the same crew sees the same show, which is
@@ -60,7 +60,7 @@ export const DEMO_CREW = [
   { id: "artificer", name: "Artificer", emoji: "🔨", role: "Builds and changes things" },
   { id: "scribe", name: "Scribe", emoji: "🪶", role: "Writes it up" },
   { id: "warden", name: "Warden", emoji: "🛡️", role: "Reviews and checks" },
-  { id: "wizard", name: "Wizard", emoji: "🪄", role: "Moves fast on small things" },
+  { id: "wizard", name: "Test Pilot", emoji: "🛸", role: "Takes the most challenging work" },
 ];
 
 // Whose part each is. A crew without one of these has someone else stand in (see castFor).
@@ -82,7 +82,7 @@ const SHOWS: { task: string; plan: string; done: string; stages: Stage[] }[] = [
           tools: [["read_file", "links/app/src/session.ts"], ["grep", "\"Set-Cookie\" links/app/src"], ["read_file", "links/app/src/cookies.ts"], ["read_file", "links/app/src/sign-out.ts"], ["grep", "\"SameSite\" links/app"]],
           says: "The session cookie is set in session.ts on line 48 without the Secure flag, and SameSite falls back to the browser's default. Sign-out clears it with its own copy of the options, which has drifted from the first." },
       ] },
-      { says: "The Scout is back with two things to fix, so the Artificer takes both, and the Wizard a quick one beside them.", parts: [
+      { says: "The Scout is back with two things to fix, so the Artificer takes both, and the Test Pilot the check that keeps them fixed.", parts: [
         { who: "artificer", brief: "Set the cookie flags where the session is made",
           tools: [["read_file", "links/app/src/cookies.ts"], ["edit_file", "links/app/src/cookies.ts"], ["edit_file", "links/app/src/session.ts"], ["write_file", "links/app/tests/cookies.test.ts"]],
           asks: "npm test -- cookies", says: "Both flags are set where the cookie is made, and the new test fails without them. The suite passes." },
@@ -115,7 +115,7 @@ const SHOWS: { task: string; plan: string; done: string; stages: Stage[] }[] = [
           tools: [["read_file", "links/app/jobs/export.ts"], ["shell", "node jobs/export.js --profile --limit 500"], ["grep", "\"SELECT\" links/app/jobs"], ["read_file", "links/app/db/orders.ts"], ["shell", "node jobs/export.js --explain"]],
           says: "Almost all of the time is in one loop: it runs the orders query again for every customer, about nine thousand times a night. The file is also written a row at a time." },
       ] },
-      { says: "Two slow things, so two quests for the Artificer, and the Wizard adds a timer so we'd see it next time.", parts: [
+      { says: "Two slow things, so two quests for the Artificer, and the Test Pilot adds a timer so we'd see it next time.", parts: [
         { who: "artificer", brief: "Read the orders once and group them in memory",
           tools: [["read_file", "links/app/jobs/export.ts"], ["edit_file", "links/app/jobs/export.ts"], ["edit_file", "links/app/db/orders.ts"], ["edit_file", "links/app/jobs/export.test.ts"]],
           asks: "node jobs/export.js --profile", says: "One query now, grouped by customer as it's read. The output is byte for byte what it was." },
@@ -148,7 +148,7 @@ const SHOWS: { task: string; plan: string; done: string; stages: Stage[] }[] = [
           tools: [["grep", "\"#[0-9a-f]{6}\" links/app/src/settings"], ["read_file", "links/app/src/settings/theme.css"], ["read_file", "links/app/src/settings/Toggle.tsx"], ["read_file", "links/app/src/settings/Field.tsx"], ["grep", "\"prefers-color-scheme\" links/app/src"]],
           says: "Most colours come from eleven variables, but six are written straight into the components and would stay light. Nothing follows the system's setting yet." },
       ] },
-      { says: "So: the dark set, and the six stragglers. The Artificer takes those two, and the Wizard the switch itself.", parts: [
+      { says: "So: the dark set, and the six stragglers. The Artificer takes those two, and the Test Pilot the switch itself.", parts: [
         { who: "artificer", brief: "Add the dark colours beside the light ones",
           tools: [["read_file", "links/app/src/settings/theme.css"], ["edit_file", "links/app/src/settings/theme.css"], ["edit_file", "links/app/src/settings/theme.test.ts"], ["shell", "npm test -- theme"]],
           says: "The dark set is in, variable for variable, and follows the system until you choose." },
@@ -181,10 +181,11 @@ const OK_AFTER = 4500; // how long a quest waits on your OK before it's given
 const BREATH = 1600;   // from a stage's last report to the Quartermaster sending the next
 const BETWEEN = 5000;  // from one expedition ending to the next starting
 
-// Who plays each part: whoever in the crew goes by that name, and for a part nobody does, someone
+// Who plays each part: whoever in the crew goes by that name (the Test Pilot's part is under their
+// handle, wizard, which is what the Guild pack called them once), and for a part nobody does, someone
 // who has no part of their own (or, failing that, anyone), so every crew can play the whole show.
 export function castFor(crew: Actor[]): Record<Role, Actor | undefined> {
-  const called = (a: Actor) => a.name.toLowerCase().replace(/[^a-z]/g, "");
+  const called = (a: Actor) => a.name.toLowerCase().replace(/[^a-z]/g, "").replace(/^testpilot$/, "wizard");
   const spare = crew.filter((a) => !(ROLES as readonly string[]).includes(called(a)));
   const pool = spare.length ? spare : crew;
   return Object.fromEntries(ROLES.map((role, i) => [role, crew.find((a) => called(a) === role) ?? pool[i % (pool.length || 1)]])) as Record<Role, Actor | undefined>;

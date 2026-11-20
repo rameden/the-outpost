@@ -5,7 +5,7 @@
 // No tool imports here, so anything can read the crew without import cycles.
 
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
-import { DEFAULT_PACK, PACKS, RETIRED, customPacks, isPack, nameAliases, packAliases, packById, packFrom, retiredAliases, setCustomPacks, setRetired, type Pack, type PackInput, type Taken } from "./packs.js";
+import { DEFAULT_PACK, PACKS, RETIRED, cameAs, customPacks, isPack, nameAliases, packAliases, packById, packFrom, retiredAliases, setCustomPacks, setRetired, type Pack, type PackInput, type Taken } from "./packs.js";
 import { packId, setPackId } from "./settings.js";
 
 export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
@@ -109,7 +109,7 @@ function watchNames() {
 export const activePack = (): Pack => pack;
 
 // Crew members you added, as you wrote them. CREW holds each one as they're called now: the same,
-// unless the pack has a name for them (packs.ts, extras) and they still have the Guild's.
+// unless the pack has a name for them (packs.ts, extras) and they still have the one they came with.
 const OWN = new Map<string, Identity>();
 export const ownOf = (id: string): Identity | undefined => OWN.get(id);
 
@@ -143,14 +143,15 @@ function dress() {
   }
 }
 
-// And on the ones you added that packs have a name for (the Wizard): the pack's name and emoji,
-// with every pack's name for them as a handle. Only while their own name is still the Guild's,
-// and never a name or handle someone else on the crew already has.
+// And on the ones you added that packs have a name for (the Test Pilot, @wizard): the pack's name
+// and emoji, with every pack's name for them as a handle. Only while their own name is still the
+// one they came with (the Guild's, now or before), and never a name or handle someone else on the
+// crew already has.
 function dressYours() {
   const guild = PACKS[0].extras ?? {};
   for (const own of OWN.values()) Object.assign(CREW[own.id], { name: own.name, emoji: own.emoji, aliases: own.aliases, persona: own.persona });
   for (const own of OWN.values()) {
-    if (guild[own.id]?.name !== own.name) continue;
+    if (!cameAs(guild[own.id], own.name)) continue;
     const c = CREW[own.id];
     const taken = new Set(Object.values(CREW).filter((x) => x.id !== own.id).flatMap((x) => [x.id, x.name.toLowerCase(), oneWord(x.name), ...x.aliases]));
     const free = (a: string) => !taken.has(a);

@@ -257,7 +257,7 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief' };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
@@ -358,11 +358,11 @@ const MC = [400, 412], rad = d => d * PI / 180;
 const SPOTS = [[0, -36], [31, -17], [33, 20], [2, 38], [-31, 21], [-35, -15], [1, 1]];
 // Each place and how often each of its lines has been used.
 const PLACES = [
-  { key: 'qm', name: 'Quartermaster', n: [5, 1, 0, 3, 2, 0] },
-  { key: 'art', name: 'Artificer', n: [2, 1, 0, 4, 1, 6, 0] },
-  { key: 'scribe', name: 'Scribe', n: [0, 3, 1, 0, 2] },
-  { key: 'scout', name: 'Scout', n: [3, 0, 1, 7, 2, 1] },
-  { key: 'warden', name: 'Warden', n: [1, 4, 0, 2, 0] },
+  { key: 'qm', name: 'Commander', n: [5, 1, 0, 3, 2, 0] },
+  { key: 'art', name: 'Engineer', n: [2, 1, 0, 4, 1, 6, 0] },
+  { key: 'scribe', name: 'Comms Officer', n: [0, 3, 1, 0, 2] },
+  { key: 'scout', name: 'Navigator', n: [3, 0, 1, 7, 2, 1] },
+  { key: 'warden', name: 'Security Chief', n: [1, 4, 0, 2, 0] },
   { key: 'about', name: 'About you', n: [6, 2, 3, 1] },
 ];
 const gScene = el('g'), gPlaces = el('g', null, gScene), gLines = el('g', null, gScene), gStars = el('g', null, gScene);
@@ -450,14 +450,14 @@ function linePanel(key, name, lines, from, used) {
   o.forget.box.setAttribute('class', 'btn-bad'); o.forget.tn.setAttribute('class', 'b btn-t f-bad');
   return o;
 }
-const pA = linePanel('art', 'Artificer', ['Dates from the API are UTC: never', 'format them in local time.'], 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
+const pA = linePanel('art', 'Engineer', ['Dates from the API are UTC: never', 'format them in local time.'], 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
 const pinned = el('g', null, pA.g);
 el('rect', { x: PX + PW - 24 - 78, y: PY + 26, width: 78, height: 22, rx: 11, class: 'pill-a' }, pinned);
 tx(pinned, PX + PW - 24 - 39, PY + 41, 'm pill-t', 'PINNED', { 'text-anchor': 'middle' });
 // the merge: which line, then the draft of the one line
 const aMerge = el('g', null, pA.g);
 tx(aMerge, IX, PY + 166, 'b t16 w6 f-text', 'Merge with which line?');
-tx(aMerge, IX, PY + 190, 'b t13 f-muted', 'Pick another star in Artificer, or one from this list.');
+tx(aMerge, IX, PY + 190, 'b t13 f-muted', 'Pick another star in Engineer, or one from this list.');
 ['API dates are in UTC, so show them as UTC.', 'Run the date tests in three time zones.'].forEach((l, i) => {
   el('rect', { x: IX, y: PY + 208 + i * 50, width: PW - 48, height: 40, rx: 8, class: 'inset' }, aMerge);
   el('circle', { cx: IX + 17, cy: PY + 228 + i * 50, r: 4, class: 'moon' }, aMerge);
@@ -473,14 +473,14 @@ const draft1 = typer(aDraft, IX + 16, PY + 259, 'b t15 f-text', 'Dates from the 
 const draft2 = typer(aDraft, IX + 16, PY + 282, 'b t15 f-text', 'as UTC, never in local time.');
 const draftCaret = el('rect', { width: 2, height: 17, class: 'caret' }, aDraft);
 const bReview = button(aDraft, IX + 52, PY + PH - 42, 104, 'Review it');
-const pF = linePanel('scribe', 'Scribe', ['Use the old changelog template', 'until March.'], 'the crew noted it', 'Not recalled yet');
+const pF = linePanel('scribe', 'Comms Officer', ['Use the old changelog template', 'until March.'], 'the crew noted it', 'Not recalled yet');
 // the forget asks first
 const gAsk = el('g', null, gScene);
 el('rect', { width: 1280, height: 720, class: 'scrim', opacity: .62 }, gAsk);
 const dlg = el('g', null, gAsk);
 el('rect', { x: -220, y: -100, width: 440, height: 200, rx: 14, class: 'card shadow' }, dlg);
 tx(dlg, -192, -52, 'd tk-title', 'Forget this line?');
-tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Scribe for good:");
+tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Comms Officer for good:");
 tx(dlg, -192, 4, 'b t15 f-text', '"Use the old changelog template until March."');
 const bCancel = button(dlg, -144, 58, 96, 'Cancel', 'ghost'), bSure = button(dlg, -36, 58, 96, 'Forget');
 bSure.box.setAttribute('class', 'btn-badfill');

@@ -19,17 +19,22 @@ export type PackWords = {
   expedition: string;  // one request, planned and carried out
 };
 
-// What a pack calls someone. short: other one-word names they answer to (after @).
-export type PackName = { name: string; emoji: string; short?: string[] };
+// What a pack calls someone. short: other one-word names they answer to (after @). was: what the
+// Guild pack called them before it called them this (the Test Pilot came as the Wizard).
+export type PackName = { name: string; emoji: string; short?: string[]; was?: string[] };
+
+// Whether someone you added still has the name they came with: what the Guild pack calls them, or
+// called them before. Only then do they wear each pack's name for them.
+export const cameAs = (guild: PackName | undefined, name: string): boolean => !!guild && (guild.name === name || !!guild.was?.includes(name));
 
 export type Pack = {
   id: string;
   name: string;
   about: string;                 // one line for the settings row
   crew: Record<PackCrewId, PackName>;   // what each of the five is called
-  // What it calls a crew member you added, by their handle: the Wizard (@wizard), if you have
-  // one. Worn only while they still have the name the Guild pack gives here; give them a name
-  // of your own and yours is kept under every pack.
+  // What it calls a crew member you added, by their handle: the Test Pilot (@wizard), if you have
+  // one. Worn only while they still have the name they came with (cameAs, above); give them a
+  // name of your own and yours is kept under every pack.
   extras?: Record<string, PackName>;
   words: PackWords;
   place: string;                 // "You are the Scout of <place>."
@@ -55,7 +60,7 @@ export const PACKS: Pack[] = [
       artificer: { name: "Artificer", emoji: "🔨" },
       warden: { name: "Warden", emoji: "🛡️" },
     },
-    extras: { wizard: { name: "Wizard", emoji: "🪄" } },
+    extras: { wizard: { name: "Test Pilot", emoji: "🛸", was: ["Wizard"] } },
     words: { crew: "crew", quest: "quest", quests: "quests", camp: "camp", expedition: "expedition" },
     place: "the Adventurer's Guild camp",
   },

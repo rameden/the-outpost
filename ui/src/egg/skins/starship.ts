@@ -1,9 +1,44 @@
 // Starship: you fly a white fighter with four wings, a long nose and a cannon out at each
 // wingtip, firing red bolts; what comes at you is an empire's fleet, all of it grey: fighters
 // that are a round pod slung between two flat panels, a bomber with two pods, a rock with
-// something glowing in it, and a great wedge of a dreadnought at the end.
+// something glowing in it, a star destroyer for the carrier and a corvette for the missile
+// boat, and a great wedge of a dreadnought at the end. Its troopers mend the page in the Wreck.
 
 import type { Skin } from "../skins.ts";
+
+// A trooper, from the helmet to the hips (its legs are the frames' last two rows).
+const TROOPER = [
+  "..HHHHH..",
+  ".HHHHHHH.",
+  ".HKKHKKH.", // the lenses
+  ".DHHKHHD.",
+  "..DNDND..", // the grille
+  "TTBBBBBTT", // shoulders and chest plate
+  "STBKKKBTS", // gloves, and the belt
+  "..BBBBB..",
+];
+
+// The carrier, as a star destroyer (bow up, like the game's carrier, and the same 17 by 41 so its
+// hull is hit where it's drawn): a long grey wedge lit down its left and shadowed down its right,
+// a pale ridge along its spine, a stepped superstructure astern with the bridge across the top of
+// it, and the glow of its engines on the stern.
+function destroyerRows(): string[] {
+  const WIDE = 17, LONG = 41, mid = 8;
+  return Array.from({ length: LONG }, (_, r) => {
+    const half = Math.min(8, Math.ceil(r / 4)); // the wedge, widening to the stern
+    return Array.from({ length: WIDE }, (_, c) => {
+      const d = Math.abs(c - mid);
+      if (d > half) return ".";
+      if (r >= LONG - 3 && r < LONG - 1 && (d === 2 || d === 5)) return "E"; // its engines
+      if (d === half || r === 0 || r === LONG - 1) return "D";
+      if (r >= 33 && r <= 35 && d <= 6) return d === 6 || r === 33 ? "D" : d === 5 ? "W" : "H"; // the bridge, its domes at the ends
+      if (r >= 27 && r <= 32 && d <= 3) return d === 3 || r === 27 ? "D" : r === 29 && d <= 1 ? "Y" : "I"; // the tower, with lights
+      if (r >= 22 && r <= 26 && d <= 4) return d === 4 || r === 22 ? "D" : "K"; // the deck it stands on
+      if (c === mid) return "W"; // the ridge
+      return c < mid ? "H" : "K";
+    }).join("");
+  });
+}
 
 const STEEL = { D: "#10141c", G: "#8a93a3", K: "#4a5262", R: "#ff3b30", E: "#7dffb0" };
 
@@ -222,9 +257,59 @@ export const starship: Skin = {
       ],
     },
     // The ships: the fleet's own, the same grey, with lit decks.
-    carrier: { paint: { D: "#10141c", H: "#8a93a3", K: "#4a5262", W: "#9ff0ff", I: "#1b2030", Y: "#ffd84a", T: "#ff3b30" } },
-    boat: { paint: { D: "#10141c", H: "#8a93a3", K: "#4a5262", I: "#1b2030", Y: "#ffd84a", T: "#ff3b30" } },
+    // The carrier: a star destroyer (destroyerRows, above).
+    carrier: { paint: { D: "#10141c", H: "#b4bcc8", K: "#6a7384", W: "#e8edf2", I: "#2a323e", Y: "#9ff0ff", E: "#5fd0ff" }, rows: destroyerRows() },
+    // The missile boat: a corvette, a little wedge of the same grey (bow up, and the boat's 9 by
+    // 21): a ridge down it, a dark bridge with a light, red launch tubes either side of the spine
+    // where the missiles come from, and two engines astern.
+    boat: {
+      paint: { D: "#10141c", H: "#b4bcc8", K: "#6a7384", W: "#e8edf2", I: "#2a323e", Y: "#9ff0ff", T: "#ff3b30", E: "#5fd0ff" },
+      rows: [
+        "....D....",
+        "...DWD...",
+        "...DWD...",
+        "..DHWKD..",
+        "..DHWKD..",
+        "..DHWKD..",
+        ".DHHWKKD.",
+        ".DHHWKKD.",
+        ".DDDDDDD.",
+        ".DHIYIKD.",
+        ".DHIIIKD.",
+        ".DDDDDDD.",
+        "DHHTWTKKD",
+        "DHHTWTKKD",
+        "DHHTWTKKD",
+        "DHHHWKKKD",
+        "DHHHWKKKD",
+        "DDDDDDDDD",
+        "DHEHDKEKD",
+        ".DEDDDED.",
+        "..E...E..",
+      ],
+    },
   },
-  // Crew in suits: a silver helmet over a green face, and teal overalls.
-  builder: { H: "#c9d3e0", D: "#7a8494", S: "#8fd16a", K: "#14181f", N: "#5ea832", B: "#2fb4d0", T: "#16566b", F: "#1b1b1f" },
+  // Troopers in white armour: a helmet with two black lenses and a grille, a black belt and
+  // gloves, and white boots. (The helmet's what flies off when one's shot.)
+  builder: { H: "#f4f6f9", D: "#9aa3b2", K: "#14181f", N: "#5d6675", B: "#e6eaf0", T: "#cfd6df", S: "#1b1e24", F: "#b4bcc8" },
+  crew: {
+    frames: [
+      [...TROOPER, ".TT...TT.", ".FF...FF."],
+      [...TROOPER, "..TT.TT..", "..FF.FF.."],
+    ],
+    // Ducking: down on its heels, helmet tucked into its shoulders.
+    duck: ["..HHHHH..", ".HHHHHHH.", ".HKKHKKH.", "TDNDNDNDT", "TTBBBBBTT", "STBKKKBTS", ".FF...FF."],
+  },
+  // What they shout: by the book, and not very good shots either.
+  quotes: {
+    wrecked: ["Halt! Rebel scum!", "That was Imperial property!", "Sound the alarm!", "I just requisitioned that!", "Report this to the commander!",
+      "We'll be on cleanup duty for a week!", "That's coming out of my pay!", "Stop that ship!", "Who authorised this?", "Not the reactor!"],
+    miss: ["Missed! ...Wait, so did I.", "Can't see a thing in this helmet!", "Hey! Watch the armour!", "Blast! Close one!", "Was that a warning shot?", "Take cover!"],
+    mate: ["TK-421's down!", "Man down!", "He had two days till retirement!", "Somebody call a medic droid!", "Who's taking his shift?", "That was my bunkmate!"],
+    arrive: ["Move along. Move along.", "Repair detail, reporting.", "Fan out!", "This isn't the page we're looking for.", "Lord Vader won't like this."],
+    done: ["Fully operational!", "Good as new, sir.", "Repairs complete.", "Back on schedule.", "Report: all clear."],
+    leave: ["Back to the barracks.", "Shift's over.", "Mess hall, double time!", "Tell the commander we're done.", "Fall in!"],
+    tea: ["Helmet off. Finally.", "Ration bar?", "Regulation break.", "Blue milk, anyone?", "Don't tell the commander."],
+  },
+
 };

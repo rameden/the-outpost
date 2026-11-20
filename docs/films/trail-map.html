@@ -8,7 +8,7 @@
 <style>
 /* Layout: one 16:9 stage that plays the trail map as a loop. One plan is drawn as waypoint cards with a
    line from each step to the steps that wait for it. Then the whole day goes on one map: each plan a ring
-   round the Quartermaster, the first asked innermost. The same steps are then drawn as a tree, one bough
+   round the Commander, the first asked innermost. The same steps are then drawn as a tree, one bough
    to a plan, and a new plan joins it. A plain transport bar sits under the stage.
    Colours, type, the logo and the dashed route are Mae's own. */
 :root {
@@ -195,7 +195,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 <body>
 <main class="wrap">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's trail map. One plan is drawn as five numbered waypoints, joined by lines that fill in as the crew works through them. Then every plan of the day is put on one map, each plan a ring round the Quartermaster with the first asked innermost. The same plans are then drawn as a tree, one bough to a plan, and a fourth plan joins it as a new bough.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's trail map. One plan is drawn as five numbered waypoints, joined by lines that fill in as the crew works through them. Then every plan of the day is put on one map, each plan a ring round the Commander with the first asked innermost. The same plans are then drawn as a tree, one bough to a plan, and a fourth plan joins it as a new bough.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -272,7 +272,7 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Quartermaster', scout: 'Scout', scribe: 'Scribe', art: 'Artificer', warden: 'Warden' };
+const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief' };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
@@ -393,7 +393,7 @@ const tallyOf = (p, t) => {
 };
 
 const gScene = el('g');
-// the dial under the rings: the Quartermaster in the middle, bearings and a ticked rim
+// the dial under the rings: the Commander in the middle, bearings and a ticked rim
 const gDial = el('g', null, gScene);
 el('circle', { cx: C[0], cy: C[1], r: 222, class: 'rim' }, gDial);
 for (let i = 0; i < 72; i++) {

@@ -8,6 +8,7 @@
 // the rest of the game's. Something that flies is drawn nose up and turned to its heading,
 // unless it's `upright` (a person, say, who'd look silly upside down): that's drawn as it is.
 
+import type { QuoteKind } from "./gremlins.ts";
 import type { EnemyKind } from "./sortie.ts";
 import { lab } from "./skins/lab.ts";
 import { newsroom } from "./skins/newsroom.ts";
@@ -17,8 +18,8 @@ import { studio } from "./skins/studio.ts";
 
 export type Paint = Record<string, string>;
 export type Art = { rows: string[]; paint: Paint };
-// One of the Sortie's enemies. No rows: the plane game's own shape, in this paint (the ships,
-// which are built row by row, and anything else whose shape already suits). `bare` is what its
+// One of the Sortie's enemies. No rows: the plane game's own shape, in this paint (anything whose
+// shape already suits). A ship given rows of its own keeps the game's size, so it's hit where it's drawn. `bare` is what its
 // armour ("S") goes when it's turned away from you (the gunship).
 export type EnemyArt = { rows?: string[]; paint: Paint; upright?: boolean; bare?: string };
 
@@ -29,6 +30,10 @@ export type Skin = {
   shot: Art & { spin?: boolean }; // what you fire (spin: it tumbles as it goes)
   enemies: Record<EnemyKind, EnemyArt>;
   builder: Paint; // the Wreck's builders, in other clothes (the letters of GREMLIN_PAINT)
+  // ...and, if they aren't dwarves under there, their own shape: two walking frames and a duck,
+  // in the same letters (gremlins.ts has the dwarf's). The ladder arm is still T and the hand S.
+  crew?: { frames: string[][]; duck: string[] };
+  quotes?: Partial<Record<QuoteKind, readonly string[]>>; // ...and their own lines, for any kind of moment (gremlins.ts has the dwarves')
 };
 
 export const SKINS: Record<string, Skin> = { starship, newsroom, studio, lab, pirate };
