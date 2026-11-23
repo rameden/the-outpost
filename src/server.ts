@@ -717,7 +717,9 @@ const server = http.createServer(async (req, res) => {
     // already signed in. For the address that device will use: this machine's name on the
     // network in LAN mode, else the one this request came to.
     if (req.method === "POST" && url.pathname === "/api/login/link") {
-      const origin = fromElsewhere() ?? `http://${req.headers.host}/`;
+      // A proxy's name (Tailscale Serve) is reached over HTTPS, on the standard port.
+      const host = String(req.headers.host ?? "").toLowerCase().replace(/:443$/, "");
+      const origin = fromElsewhere() ?? (ACCESS.proxied.includes(host) ? `https://${host}/` : `http://${req.headers.host}/`);
       return send(res, 200, { link: linkAt(origin, newSignInCode(10)), minutes: 10 });
     }
     // Is this browser's key still good? (The page asks as it opens.)

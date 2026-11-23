@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
 # Mae from anywhere, through a small Lightsail server of your own.
 #
-#   your phone ──HTTPS──▶ Lightsail (Caddy: certificate + password) ──SSH tunnel──▶ this Mac (Mae on 127.0.0.1:4747)
+#   your phone ──HTTPS──▶ Lightsail (Caddy + Google sign-in) ──SSH tunnel──▶ this Mac (Mae on 127.0.0.1:4747)
 #
 # The Mac keeps an outbound SSH connection open to the server and forwards the server's
 # 127.0.0.1:4748 back to Mae. Nothing on the Mac is opened to the network, and the server's only
 # open ports are 22 (SSH), 80 (certificate checks, redirects to HTTPS) and 443.
 #
-# Two locks: Caddy's password at the door, then Mae's own key behind it. Caddy adds
+# Two locks: your Google account at the door (oauth2-proxy lets in only the addresses you list,
+# or Caddy's password instead), then Mae's own key behind it. Caddy adds
 # X-Forwarded-For to everything it passes on, so Mae treats every relayed request as coming from
 # another machine (no terminal pane, no folder dialog), even though the tunnel arrives from here.
 #
 #   scripts/relay/relay.sh create     make the server, its static IP, its firewall and the DNS record
 #   scripts/relay/relay.sh server     install Caddy and the tunnel's key on the server
-#   scripts/relay/relay.sh password   set the password Caddy asks for (prompts; never echoed)
+#   scripts/relay/relay.sh google     sign in with Google at the door (prompts for the OAuth client)
+#   scripts/relay/relay.sh password   or: a password at the door instead (prompts; never echoed)
 #   scripts/relay/relay.sh install    run Mae and the tunnel under launchd on this Mac
+#   scripts/relay/relay.sh camp       (re)start just Mae under launchd (scripts/tailscale.sh uses it)
 #   scripts/relay/relay.sh uninstall  stop both and remove them from launchd
 #   scripts/relay/relay.sh link       a one-time sign-in link for a phone or laptop (lasts 10 minutes)
 #   scripts/relay/relay.sh status     what's running, and whether the page answers from outside
 #
 # Settings: override with environment variables. Keys and the server's address live in ~/.mae-relay.
+#
+# Tailscale is the backup way in (scripts/tailscale.sh): the same Mae job answers to its tailnet
+# name too whenever Tailscale is connected, so both routes work at once.
 
 set -euo pipefail
 
@@ -37,6 +43,7 @@ TUNNEL_KEY="$DIR/tunnel_ed25519"              # can only hold open the one port 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 AGENTS="$HOME/Library/LaunchAgents"
 LABEL_CAMP="app.outpostmae.camp"
+OAUTH2_PROXY_VERSION="${OAUTH2_PROXY_VERSION:-v7.15.6}"
 LABEL_TUNNEL="app.outpostmae.tunnel"
 
 say() { printf '\033[1m%s\033[0m\n' "$*"; }
@@ -119,6 +126,119 @@ EOF
   say "Done. Next: $0 password"
 }
 
+# The part of the site that hands requests to Mae, the same whichever door is in front.
+to_mae() {
+  cat <<EOF
+		reverse_proxy 127.0.0.1:$RELAY_PORT {
+			# Mae answers only to its own address; the tunnel hands it over on this Mac.
+			header_up Host 127.0.0.1:$CAMP_PORT
+			flush_interval -1
+		}
+EOF
+}
+site_headers() {
+  printf '\theader {\n\t\tStrict-Transport-Security "max-age=31536000"\n\t\t-Server\n\t}\n'
+}
+# Write the Caddyfile on the server (from stdin), check it, and reload.
+put_caddyfile() {
+  admin "sudo bash -c 'cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile >/dev/null 2>&1 && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy'"
+}
+
+google() {
+  local id secret emails cookie
+  cat <<EOF
+In Google Cloud Console (https://console.cloud.google.com/apis/credentials):
+  OAuth consent screen: External, in Testing, with your Google address as a test user.
+  Create credentials → OAuth client ID → Web application, with
+    Authorized redirect URI: https://$DOMAIN/oauth2/callback
+EOF
+  read -rp "Client ID: " id
+  read -rsp "Client secret (not shown): " secret; echo
+  read -rp "Google addresses allowed in (comma-separated): " emails
+  [[ "$id" == *.apps.googleusercontent.com ]] || { echo "That doesn't look like a Google client ID (…apps.googleusercontent.com)." >&2; exit 1; }
+  [[ -n "$secret" && "$emails" == *@* ]] || { echo "Need the secret and at least one address." >&2; exit 1; }
+  cookie="$(openssl rand -base64 32 | tr -- '+/' '-_')"
+
+  say "Installing oauth2-proxy $OAUTH2_PROXY_VERSION on the server"
+  admin "sudo bash -s" <<EOF
+set -euo pipefail
+if [[ "\$(/usr/local/bin/oauth2-proxy --version 2>/dev/null | awk '{print \$2}')" != "$OAUTH2_PROXY_VERSION" ]]; then
+  t=\$(mktemp -d); cd "\$t"
+  f=oauth2-proxy-$OAUTH2_PROXY_VERSION.linux-amd64.tar.gz
+  curl -fsSLO "https://github.com/oauth2-proxy/oauth2-proxy/releases/download/$OAUTH2_PROXY_VERSION/\$f"
+  curl -fsSLO "https://github.com/oauth2-proxy/oauth2-proxy/releases/download/$OAUTH2_PROXY_VERSION/\$f-sha256sum.txt"
+  sha256sum -c "\$f-sha256sum.txt"
+  tar xzf "\$f" && install -m 755 oauth2-proxy-$OAUTH2_PROXY_VERSION.linux-amd64/oauth2-proxy /usr/local/bin/oauth2-proxy
+  cd / && rm -rf "\$t"
+fi
+id oauth2-proxy >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin oauth2-proxy
+install -d -m 750 -o root -g oauth2-proxy /etc/oauth2-proxy
+cat > /etc/systemd/system/oauth2-proxy.service <<'UNIT'
+[Unit]
+Description=oauth2-proxy (Google sign-in for Mae)
+After=network-online.target
+[Service]
+User=oauth2-proxy
+ExecStart=/usr/local/bin/oauth2-proxy --config=/etc/oauth2-proxy/oauth2-proxy.cfg
+Restart=always
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+EOF
+
+  # The secrets travel on stdin, never on a command line.
+  { cat <<EOF
+http_address = "127.0.0.1:4180"
+reverse_proxy = true
+provider = "google"
+client_id = "$id"
+client_secret = "$secret"
+cookie_secret = "$cookie"
+cookie_secure = true
+cookie_samesite = "lax"
+cookie_expire = "168h"
+redirect_url = "https://$DOMAIN/oauth2/callback"
+authenticated_emails_file = "/etc/oauth2-proxy/emails"
+upstreams = ["static://202"]
+skip_provider_button = true
+EOF
+  } | admin "sudo bash -c 'umask 027; cat > /etc/oauth2-proxy/oauth2-proxy.cfg; chgrp oauth2-proxy /etc/oauth2-proxy/oauth2-proxy.cfg'"
+  tr ',' '\n' <<<"$emails" | sed 's/^ *//; s/ *$//' | grep @ | tr 'A-Z' 'a-z' \
+    | admin "sudo bash -c 'umask 027; cat > /etc/oauth2-proxy/emails; chgrp oauth2-proxy /etc/oauth2-proxy/emails'"
+  admin "sudo systemctl enable --now oauth2-proxy >/dev/null 2>&1; sudo systemctl restart oauth2-proxy; sleep 2; systemctl is-active oauth2-proxy"
+
+  # Caddy asks oauth2-proxy about every request; without a session it sends you to Google.
+  { cat <<EOF
+$DOMAIN {
+	handle /oauth2/* {
+		reverse_proxy 127.0.0.1:4180 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Uri {uri}
+		}
+	}
+	handle {
+		forward_auth 127.0.0.1:4180 {
+			uri /oauth2/auth
+			header_up X-Real-IP {remote_host}
+			@out status 401
+			handle_response @out {
+				redir * /oauth2/start?rd={scheme}://{host}{uri}
+			}
+		}
+EOF
+  to_mae
+  printf '\t}\n'
+  site_headers
+  printf '}\n'
+  } | put_caddyfile
+  say "Google sign-in is on at https://$DOMAIN. Next (if not yet): $0 install"
+}
+
 password() {
   local pw pw2 hash
   read -rsp "Password for $DOMAIN (user: mae): " pw; echo
@@ -126,28 +246,9 @@ password() {
   [[ "$pw" == "$pw2" ]] || { echo "They don't match." >&2; exit 1; }
   [[ ${#pw} -ge 12 ]] || { echo "Use at least 12 characters." >&2; exit 1; }
   hash="$(printf '%s' "$pw" | admin "caddy hash-password")"
-  admin "sudo bash -s" <<EOF
-set -euo pipefail
-echo '$hash' > /etc/caddy/mae-password; chmod 640 /etc/caddy/mae-password; chown root:caddy /etc/caddy/mae-password
-cat > /etc/caddy/Caddyfile <<'CADDY'
-$DOMAIN {
-	basic_auth {
-		mae $hash
-	}
-	reverse_proxy 127.0.0.1:$RELAY_PORT {
-		# Mae answers only to its own address; the tunnel hands it over on this Mac.
-		header_up Host 127.0.0.1:$CAMP_PORT
-		flush_interval -1
-	}
-	header {
-		Strict-Transport-Security "max-age=31536000"
-		-Server
-	}
-}
-CADDY
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
-systemctl reload caddy
-EOF
+  admin "sudo systemctl disable --now oauth2-proxy >/dev/null 2>&1 || true"
+  { printf '%s {\n\tbasic_auth {\n\t\tmae %s\n\t}\n' "$DOMAIN" "$hash"; to_mae; site_headers; printf '}\n'; } | put_caddyfile
+  admin "sudo touch /etc/caddy/mae-password"
   say "Password set. Next: $0 install"
 }
 
@@ -157,25 +258,45 @@ plist() { # label, then the program and its arguments
   printf '  <key>Label</key><string>%s</string>\n  <key>ProgramArguments</key><array>\n' "$label"
   for a in "$@"; do printf '    <string>%s</string>\n' "$a"; done
   printf '  </array>\n  <key>WorkingDirectory</key><string>%s</string>\n' "$REPO"
-  printf '  <key>EnvironmentVariables</key><dict><key>PATH</key><string>%s</string></dict>\n' "$(dirname "$(command -v node)"):$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  printf '  <key>EnvironmentVariables</key><dict>\n    <key>PATH</key><string>%s</string>\n' "$(dirname "$(command -v node)"):$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  [[ -n "${CAMP_PROXY_NAMES:-}" ]] && printf '    <key>CAMP_PROXY_NAMES</key><string>%s</string>\n' "$CAMP_PROXY_NAMES"
+  printf '  </dict>\n'
   printf '  <key>RunAtLoad</key><true/>\n  <key>KeepAlive</key><true/>\n  <key>ThrottleInterval</key><integer>15</integer>\n'
   printf '  <key>StandardOutPath</key><string>%s/%s.log</string>\n  <key>StandardErrorPath</key><string>%s/%s.log</string>\n' "$DIR" "$label" "$DIR" "$label"
   printf '</dict></plist>\n'
 }
 
+# This Mac's tailnet name, when Tailscale is installed and connected (else nothing).
+tailnet_name() {
+  local t; t="$(command -v tailscale || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)"
+  [[ -x "$t" ]] || return 0
+  "$t" status --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j.BackendState==="Running")process.stdout.write(j.Self.DNSName.replace(/\.$/,""))}catch{}})' || true
+}
+
+camp() {
+  mkdir -p "$DIR" "$AGENTS"
+  launchctl bootout "gui/$(id -u)/app.outpostmae.tailnet" 2>/dev/null || true   # the old Tailscale-only job
+  rm -f "$AGENTS/app.outpostmae.tailnet.plist"
+  if lsof -nP -iTCP:"$CAMP_PORT" -sTCP:LISTEN >/dev/null && ! launchctl print "gui/$(id -u)/$LABEL_CAMP" >/dev/null 2>&1; then
+    sleep 3
+    lsof -nP -iTCP:"$CAMP_PORT" -sTCP:LISTEN >/dev/null && { echo "Something else is on port $CAMP_PORT (npm run ui?). Stop it first." >&2; exit 1; }
+  fi
+  # Mae: the built page, kept awake (caffeinate -s holds off sleep while on mains power), and
+  # answering to its tailnet name too when Tailscale is up.
+  CAMP_PROXY_NAMES="$(tailnet_name)" plist "$LABEL_CAMP" /usr/bin/caffeinate -is "$(command -v npm)" run ui:serve > "$AGENTS/$LABEL_CAMP.plist"
+  launchctl bootout "gui/$(id -u)/$LABEL_CAMP" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$AGENTS/$LABEL_CAMP.plist"
+}
+
 install() {
-  mkdir -p "$AGENTS"
-  # Mae: the built page, kept awake (caffeinate -s holds off sleep while on mains power).
-  plist "$LABEL_CAMP" /usr/bin/caffeinate -is "$(command -v npm)" run ui:serve > "$AGENTS/$LABEL_CAMP.plist"
+  camp
   # The tunnel: launchd starts it again whenever it drops (Wi-Fi gone, server rebooted…).
   plist "$LABEL_TUNNEL" /usr/bin/ssh -N -i "$TUNNEL_KEY" \
     -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
     -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$DIR/known_hosts" -o BatchMode=yes \
     -R "127.0.0.1:$RELAY_PORT:127.0.0.1:$CAMP_PORT" "tunnel@$(ip_of)" > "$AGENTS/$LABEL_TUNNEL.plist"
-  for l in "$LABEL_CAMP" "$LABEL_TUNNEL"; do
-    launchctl bootout "gui/$(id -u)/$l" 2>/dev/null || true
-    launchctl bootstrap "gui/$(id -u)" "$AGENTS/$l.plist"
-  done
+  launchctl bootout "gui/$(id -u)/$LABEL_TUNNEL" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$AGENTS/$LABEL_TUNNEL.plist"
   say "Running. Logs: $DIR/*.log"
 }
 
@@ -198,10 +319,10 @@ status() {
     printf '%-22s %s\n' "$l" "$(launchctl print "gui/$(id -u)/$l" 2>/dev/null | awk '/state =/{print $3; exit}' || echo 'not loaded')"
   done
   printf '%-22s %s\n' "Mae on this Mac" "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$CAMP_PORT/")"
-  printf '%-22s %s\n' "https://$DOMAIN" "$(curl -s -o /dev/null -w '%{http_code}' "https://$DOMAIN/") (401 = password prompt, as it should be)"
+  printf '%-22s %s\n' "https://$DOMAIN" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "https://$DOMAIN/" | cut -c1-60) (302 to /oauth2 = Google sign-in; 401 = password)"
 }
 
 case "${1:-}" in
-  create|server|password|install|uninstall|link|status) "$1" ;;
-  *) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  create|server|google|password|install|camp|uninstall|link|status) "$1" ;;
+  *) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
