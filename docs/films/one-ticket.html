@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mae Solar System</title>
+<title>Outpost Solar System</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one 16:9 stage that plays a single Jira ticket as a loop. The Mae mark opens into a solar
+/* Layout: one 16:9 stage that plays a single Jira ticket as a loop. The mark opens into a solar
    system: its rings become orbits, its dot is the sun (the Commander) and the crew are the planets.
    A camera goes close on each body in turn, with that body on the left and its work in a panel on the
    right, and pulls back to the whole system between steps. A plain transport bar sits under the stage.
-   Colours, type, the logo and the dashed route are Mae's own. */
+   Colours, type, the logo and the dashed route are Outpost's own. */
 :root {
   --page: #f0e8da; --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
@@ -86,15 +86,15 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 .card { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
 .inset { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
 .hr { stroke: var(--border); stroke-width: 1; }
-.wm path { fill: var(--logo-ink); }
-/* The Mae mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
+.wm-word { font-size: 158px; font-weight: 700; letter-spacing: -.01em; fill: var(--logo-ink); }
+/* The mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
 .mk-solid { fill: var(--logo-ink); }
 .mk-arc { fill: none; stroke: var(--logo-ink); stroke-width: var(--logo-stroke); }
 .mk-arc.small { stroke-width: 8; }
 .mk-arc.on-light { opacity: var(--on-light); } .mk-arc.on-dark { opacity: var(--on-dark); }
 .mk-dot { fill: var(--logo-dot); }
 .mk-ripple { fill: none; stroke: var(--logo-dot); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
-.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
+.name-w { font-size: 52px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 .name-sub { font-size: 19px; fill: var(--muted); }
 .eyebrow { font-size: 13px; letter-spacing: .14em; fill: var(--accent); }
 .tagline { font-size: 44px; }
@@ -156,7 +156,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 <body>
 <main class="wrap">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost Mae, drawn as a solar system. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -187,7 +187,6 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 const NS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('stage');
 const DUR = 54.7, PI = Math.PI;
-const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
 const BRANCH = 'WEB-212-day-early-dates';
 
 // ---- helpers ----
@@ -247,7 +246,7 @@ function chip(parent, x, cy, s) {
 const FIN = 48.1;                                    // when the system folds back into the logo
 const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
 const SLOT = [496, 568, 640, 712, 784], ROWY = 526;
-const TITLE_ORB = [500.8, 295, 142], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120], WORD_C = [733.7, 296];
+const TITLE_ORB = [446.5, 295, 111.6], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120];
 const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring radii, and the orbits they open into
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
 // a: its panel opens, b: its panel closes and the camera pulls back, done: its own work is finished
@@ -361,7 +360,7 @@ CREW.forEach(c => {
   c.pulse = el('circle', { class: 'pulse c-' + c.key }, gWorld);
 });
 
-// ---- the Mae mark, from the logo kit (docs/brand), in the kit's own coordinates (centre 100,100, radius 90) ----
+// ---- the mark, from the logo kit (docs/brand), in the kit's own coordinates (centre 100,100, radius 90) ----
 // the full mark a ring at a time from the centre out (the solid half on the left, the fine arc on the right), and the kit's small mark
 const RING_ART = [
   ['M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z', ['M100 60 A40 40 0 0 1 100 140']],
@@ -656,18 +655,19 @@ const wdChip = chip(gWd, 494, 556, 'Posted on pull request #418');
 
 // ---- title card and the name, drawn ----
 const gTitle = el('g');
-tx(gTitle, 640, 190, 'm eyebrow', 'MAE, MY ALTER EGO', { 'text-anchor': 'middle' });
+tx(gTitle, 640, 190, 'm eyebrow', 'A CREW ON YOUR OWN MACHINE', { 'text-anchor': 'middle' });
 const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
-el('tspan', { class: 'f-ink' }, tag, 'Your alter ego ');
-el('tspan', { class: 'f-accent' }, tag, 'has a crew.');
+el('tspan', { class: 'f-ink' }, tag, 'Your outpost. Your crew. ');
+el('tspan', { class: 'f-accent' }, tag, 'Your call.');
 el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'p' }, cmd, '$ ');
 el('tspan', null, cmd, 'npm install && npm start');
-const gW = el('g', { class: 'wm' });
-el('path', { d: LETTERS }, gW);
-// a shine that crosses the letters as the logo lands
-el('path', { d: LETTERS }, el('clipPath', { id: 'wmClip' }, defs));
+// the app's name beside the mark, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+const gW = el('g');
+tx(gW, 247, 156, 'b wm-word', 'Outpost');
+// a shine that crosses the name as the logo lands
+tx(el('clipPath', { id: 'wmClip' }, defs), 247, 156, 'b wm-word', 'Outpost');
 const shineG = el('g', { 'clip-path': 'url(#wmClip)' }, gW);
 const shine = el('rect', { y: 20, width: 90, height: 170, fill: 'url(#shine)', transform: 'skewX(-18)' }, shineG);
 // the kit's small mark, in the corner beside the name while the ticket is worked
@@ -685,18 +685,16 @@ function ringAt(idx, t) {
   return [cp[0] + R * Math.cos(a), cp[1] + R * Math.sin(a)];
 }
 
-// ---- the name: My Alter Ego, whose initials close up into Mae ----
+// ---- the ending: the tagline, a phrase at a time ----
 const gName = el('g');
-const NAME = [['M', 1, 0], ['y', 0, 0], ['A', 1, 1], ['lter', 0, 1], ['E', 1, 2], ['go', 0, 2]]
-  .map(([s, init, word]) => ({ s, init, word, n: tx(gName, 0, 0, 'd name-w' + (init ? ' name-i' : ''), s), x: 0, w: 0, tx: 0 }));
+const NAME = [['Your outpost.', 0], ['Your crew.', 0], ['Your call.', 1]]
+  .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
 const nameSub = tx(svg, 640, 506, 'b name-sub', "The crew you'd be if there were more of you.", { 'text-anchor': 'middle' });
 function layoutName() {
   NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
-  const sp = 24, ini = NAME.filter(p => p.init);
+  const sp = 18;
   let x = 640 - (NAME.reduce((a, p) => a + p.w, 0) + 2 * sp) / 2;
-  NAME.forEach((p, i) => { if (i && p.init) x += sp; p.x = x; x += p.w; });
-  let c = -(ini.reduce((a, p) => a + p.w, 0) + 6) / 2;       // where each initial sits about the centre once the rest has gone
-  ini.forEach(p => { p.tx = c; c += p.w + 3; });
+  NAME.forEach(p => { p.x = x; x += p.w + sp; });
 }
 const sceneL = tx(svg, 1216, 61, 'm scene-l', 'FROM TICKET TO PULL REQUEST', { 'text-anchor': 'end' });
 const ripple = el('circle', { class: 'ripple' });
@@ -783,23 +781,22 @@ function render(t) {
   // the name beside the corner mark while the ticket is worked; both leave for the ending, and the name comes back in the logo
   const early = t < 20, k0 = seg(t, 1.5, 2.4);
   const kw = early ? k0 : t < FIN + 1.6 ? 1 : 0;
-  gW.setAttribute('transform', `translate(${lerp(421.8, 56, kw).toFixed(2)} ${lerp(216, 36, kw).toFixed(2)}) scale(${lerp(.79, .19, kw).toFixed(4)})`);
+  gW.setAttribute('transform', `translate(${lerp(384.5, 56, kw).toFixed(2)} ${lerp(233, 36, kw).toFixed(2)}) scale(${lerp(.62, .19, kw).toFixed(4)})`);
   O(gW, early ? 1 : t < FIN + 1.6 ? 1 - seg(t, FIN + .1, FIN + .4) : seg(t, FIN + 2.75, FIN + 3.15));
   drawLogo(t, BUG_ORB[2] * (early ? seg(t, 1.9, 2.5, ease.back) : 1), early ? seg(t, 1.9, 2.2) : 1 - seg(t, FIN + .1, FIN + .4));
   const sh = clamp((t - FIN - 3.2) / .9);
-  shine.setAttribute('x', lerp(230, 660, ease.io(sh)).toFixed(1)); O(shineG, sh > 0 && sh < 1 ? 1 : 0);
+  shine.setAttribute('x', lerp(230, 880, ease.io(sh)).toFixed(1)); O(shineG, sh > 0 && sh < 1 ? 1 : 0);
   O(gTitle, (1 - seg(t, 1.2, 1.7)) + seg(t, FIN + 3.0, FIN + 3.7));
   O(sceneL, early ? k0 : 1 - seg(t, FIN, FIN + .4));
 
-  // the name: three words rise, the small letters fall away, and M, A, E close up into the logo
-  const nk = seg(t, FIN + 2.2, FIN + 3.0), nrest = 1 - seg(t, FIN + 2.1, FIN + 2.45), nini = 1 - seg(t, FIN + 2.7, FIN + 3.05);
+  // the tagline: its three phrases rise one after another, then make way for the logo
+  const nrest = 1 - seg(t, FIN + 2.1, FIN + 2.45);
   NAME.forEach(p => {
-    const pin = seg(t, FIN + .7 + .15 * p.word, FIN + 1.2 + .15 * p.word, ease.out);
-    p.n.setAttribute('x', (p.init ? lerp(p.x, WORD_C[0] + p.tx, nk) : p.x).toFixed(2));
-    p.n.setAttribute('y', ((p.init ? lerp(452, 321, nk) : 452) + (1 - pin) * 16).toFixed(2));
-    O(p.n, pin * (p.init ? nini : nrest));
+    const pin = seg(t, FIN + .7 + .2 * p.word, FIN + 1.2 + .2 * p.word, ease.out);
+    p.n.setAttribute('x', p.x.toFixed(2)); p.n.setAttribute('y', (452 + (1 - pin) * 16).toFixed(2));
+    O(p.n, pin * nrest);
   });
-  O(nameSub, seg(t, FIN + 1.3, FIN + 1.7) * (1 - seg(t, FIN + 2.1, FIN + 2.4)));
+  O(nameSub, seg(t, FIN + 1.5, FIN + 1.9) * (1 - seg(t, FIN + 2.1, FIN + 2.4)));
   const cp = sunAt(t);
   orbitRing.setAttribute('cx', cp[0].toFixed(1)); orbitRing.setAttribute('cy', cp[1].toFixed(1));
   orbitRing.setAttribute('r', (baseD(t) / 2 + 40).toFixed(1)); orbitRing.setAttribute('stroke-dashoffset', (-t * 8).toFixed(1));

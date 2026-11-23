@@ -88,7 +88,7 @@ import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
-import { OUTPOST, renameOutpost } from "./outpost.js";
+import { OUTPOST, renameOutpost, withOutpost } from "./outpost.js";
 import { chartAddress } from "./hub.js";
 
 // CAMP_PORT wins; else the port this outpost was given (camp/outpost.json); else 4747.
@@ -710,10 +710,10 @@ const server = http.createServer(async (req, res) => {
     }
     // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
     if (req.method === "GET" && url.pathname === "/splash") {
-      const page = splashPage();
+      const page = splashPage(); // with this outpost's name in its title and logo, as the app page has
       if (!page) return send(res, 404, "The tour page (docs/index.html) is missing.", "text/plain; charset=utf-8");
       res.setHeader("content-security-policy", SPLASH_CSP);
-      return send(res, 200, page, "text/html; charset=utf-8");
+      return send(res, 200, withOutpost(page), "text/html; charset=utf-8");
     }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
     // Uploads: how much is kept, and how much of it nothing uses any more (?days= how old that must be).

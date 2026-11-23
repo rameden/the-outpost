@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { withOutpost } from "../src/outpost.ts";
 import { uiPage, uiAsset, uiCsp, UI_CSP, splashPage, SPLASH_CSP, SPLASH_FILE, ASSET_CACHE } from "../src/ui-files.ts";
 import { withFilms } from "../scripts/tour-films.ts";
 
@@ -88,6 +89,9 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
   const page = splashPage()!;
   assert.ok(page, `${SPLASH_FILE} exists`);
   assert.match(page, /<title>Outpost Mae<\/title>/);
+  // The server fills in its own outpost's name (withOutpost), which the logo reads from this meta.
+  assert.match(page, /<meta name="outpost" content="Mae">/);
+  assert.match(withOutpost(page, "Work"), /<title>Outpost Work<\/title>[\s\S]*<meta name="outpost" content="Work">/);
   // It wears the theme picked in mission control (the same saved choice), set before anything is drawn,
   // and carries both of mission control's palettes.
   assert.ok(page.indexOf("localStorage.getItem('camp-theme')") < page.indexOf("<style>"), "the saved theme is applied in the head, ahead of the styles");

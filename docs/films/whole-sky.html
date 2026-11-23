@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mae Whole Sky</title>
+<title>Outpost Whole Sky</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <!--
-  THE WHOLE SKY: Mae's master film. One continuous camera, 77 seconds, looping without a seam.
+  THE WHOLE SKY: Outpost's master film. One continuous camera, 77 seconds, looping without a seam.
 
   Storyboard
-   0:00  The mark      The Mae lockup sits on topographic ground. The letters undraw, the mark slides to centre,
+   0:00  The mark      The Outpost lockup sits on topographic ground. The name fades, the mark slides to centre,
                        and its nested arcs open out into contour-line orbits. The amber dot is the sun.
    0:05  The crew      Four topographic planets come up on their orbits: Scout, Scribe, Artificer, Warden.
    0:13  A request     A falling star carries a request into the sun. A ping runs out across the ground,
@@ -29,7 +29,7 @@
    0:59  Memory        What the crew learned rises as motes and settles as stars, joined into a constellation
                        beside the faint stars it already knew.
    1:07  Night shift   The sky turns to night. A grey comet laps the sun, leaving two drafts and changing nothing.
-   1:11  Home          Dawn. The planets set, the orbits fold back into the mark, the letters draw, and the
+   1:11  Home          Dawn. The planets set, the orbits fold back into the mark, the name returns, and the
                        film is back where it began.
 -->
 <style>
@@ -124,12 +124,12 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 <body>
 <main class="wrap">
   <header class="head">
-    <div class="eyebrow">Mae · on film</div>
+    <div class="eyebrow">Outpost · on film</div>
     <h1>The whole sky</h1>
-    <p class="lede">One request, all the way round the camp: from the mark to the crew, through the work, into memory and out the other side of the night.</p>
+    <p class="lede">One request, all the way round the outpost: from the mark to the crew, through the work, into memory and out the other side of the night.</p>
   </header>
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Mae. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the camp sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the camp sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
@@ -137,7 +137,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
     <output id="clock" for="scrub">0:00 / 1:17</output>
   </div>
   <ol class="chapters" id="chapters" aria-label="Chapters"></ol>
-  <p class="note">Drawn live in this page, in Mae's own colours. It loops, follows your light or dark theme, and stays still if you've asked your system to reduce motion. Click the stage to pause, or jump to a chapter.</p>
+  <p class="note">Drawn live in this page, in Outpost's own colours. It loops, follows your light or dark theme, and stays still if you've asked your system to reduce motion. Click the stage to pause, or jump to a chapter.</p>
 </main>
 
 <script>
@@ -165,9 +165,8 @@ const rng = (seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Ma
 const DUR = 77;
 const SUN = { x: 640, y: 360 };
 const K = 1.1;                                   // lockup scale
-const LOCK = { x: 640 - 271 * K, y: 360 - 100 * K };
+const LOCK = { x: 640 - 342.5 * K, y: 360 - 100 * K };
 const DOT0 = { x: LOCK.x + 100 * K, y: 360 };     // where the dot sits in the lockup
-const LETTERS = 'M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z';
 const GLYPH = {
   scout: '<path d="M7 3.5 C16.5 6.5 16.5 17.5 7 20.5"/><path d="M7 3.5 V20.5"/><path d="M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15"/>',
   art: '<g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5"/><path d="M12 10 V21.5"/></g>',
@@ -497,8 +496,10 @@ const gMark = el('g', {}, gLock);
 el('path', { class: 'logo-f', d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z' }, gMark);
 el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, gMark);
 el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, gMark);
-const letters = drawable(el('path', { class: 'logo-s', 'stroke-width': 1.3, d: LETTERS }, gLock));
-const lettersFill = el('path', { class: 'logo-f', d: LETTERS }, gLock);
+// the app's name beside the mark, set a little smaller than the kit's letters were so mark and name fit the stage: an outline first, then filled
+const word = cls => { const n = el('text', { class: 'b ' + cls, x: 247, y: 142, 'font-size': 120, 'font-weight': 700 }, gLock); n.textContent = 'Outpost'; return n; };
+const letters = word('logo-s'); letters.setAttribute('stroke-width', 1.3);
+const lettersFill = word('logo-f');
 const tagline = el('text', { class: 'b f-muted', 'font-size': 19, x: 640, y: 528, 'text-anchor': 'middle' }, gWorld);
 tagline.textContent = 'One sun. A crew. A sky that remembers.';
 
@@ -552,7 +553,7 @@ T(phone, 'b f-muted', 13, 108, 124, 'Friday 20 November', { 'text-anchor': 'midd
 const banner = el('g', {}, phone);
 el('rect', { class: 'card', x: 18, y: 146, width: 180, height: 152, rx: 16 }, banner);
 el('circle', { class: 'dot-f', cx: 36, cy: 167, r: 6 }, banner);
-T(banner, 'm f-muted', 10, 48, 170.5, 'MAE · now', { 'letter-spacing': '1' });
+T(banner, 'm f-muted', 10, 48, 170.5, 'OUTPOST · now', { 'letter-spacing': '1' });
 T(banner, 'b f-text', 13.5, 32, 196, 'Ready for your review', { 'font-weight': 600 });
 T(banner, 'b f-muted', 12, 32, 215, 'The new search page');
 T(banner, 'b f-muted', 12, 32, 232, '5 of 5 steps, all checked');
@@ -584,7 +585,7 @@ const CAPS = [
   [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
   [54.1, 58.9, 'Say yes from anywhere.', 'The review pings your phone. Nothing ships until you approve.'],
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
-  [67.5, 71.5, 'At night, the night shift.', 'It drafts while the camp is idle, and changes nothing without you.'],
+  [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
 const CHAPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
 const CHIPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
@@ -654,7 +655,6 @@ function render(t) {
   const sc = lerp(1, 1.55, ease.out(e));
   gMark.setAttribute('transform', `translate(${f2((SUN.x - DOT0.x) / K * ease.inOut(s))} 0) translate(100 100) scale(${sc.toFixed(3)}) translate(-100 -100)`);
   O(gMark, 1 - clamp((e - .08) / .5));
-  drawTo(letters, ease.inOut(clamp(lp / .7)));
   O(letters, clamp(lp * 4)); O(lettersFill, clamp((lp - .55) / .45));
   O(tagline, 1 - clamp(m / .18));
 
@@ -787,7 +787,7 @@ function render(t) {
   if (ci >= 0) lastCap = ci;
   O(capG, cv2); capG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv2))) * 8)})`);
   let ch = 0; CHAPS.forEach((c, k) => { if (t >= c[0]) ch = k; });
-  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'MAE · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(t); }
+  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(t); }
 }
 
 // ---- transport ----
