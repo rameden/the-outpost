@@ -37,7 +37,7 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
   },
   {
     key: "audit", section: "films", file: "three-audit-findings.html", tab: "Three audit findings", length: "1:03",
-    note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review, as they are in the demo (<code>npm run demo</code>). The first goes from ticket to reviewed pull request step by step; the other two follow the same route.",
+    note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review. The first goes from ticket to reviewed pull request step by step; the other two follow the same route.",
   },
   {
     key: "trail", section: "videos", file: "trail-map.html", tab: "The trail map", length: "0:36",
@@ -60,8 +60,8 @@ const SECTIONS = [
     before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
   },
   {
-    id: "videos", name: "Videos", label: "Videos", title: "Three newer parts of the outpost, in motion.",
-    lede: "Three more short films, drawn live in this page. Each shows one newer part of the outpost: the trail map, the constellation and the night shift.",
+    id: "videos", name: "Videos", label: "Videos", title: "Three parts of the outpost, in motion.",
+    lede: "Three more short films, drawn live in this page. Each shows one part of the outpost: the trail map, the constellation and the night shift.",
     before: '<section id="kit">', linkBefore: '        <a href="#kit">The kit</a>', // after Orbit, ahead of the kit they belong to
   },
 ];

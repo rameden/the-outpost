@@ -9,9 +9,9 @@
   THE WHOLE SKY: Outpost's master film. One continuous camera, 86 seconds, looping without a seam.
 
   Storyboard
-   0:00  The star chart  The Outpost lockup gives way to three outposts side by side: Work, Home and a new one
-                       being named. Each lists what is its own (crew, memory, keys), with a line drawn between
-                       them. Work is picked and its mark becomes the lockup. Everything after this runs on its
+   0:00  The star chart  The Outpost lockup gives way to the star chart: Work, Home and a new one, planets round a sun
+                       being named, each on a line of its own. A card lists what every outpost has of its own
+                       (crew, memory, keys). Work is picked and its mark becomes the lockup. Everything after this runs on its
                        own clock, 9 seconds behind the film's (PRE).
    0:09  The mark      The Outpost lockup sits on topographic ground. The name fades, the mark slides to centre,
                        and its nested arcs open out into contour-line orbits. The amber dot is the sun.
@@ -23,12 +23,12 @@
                          Scout reads the ground (a radar sweep over a small hill, a route, three pins)
                          Scribe writes the spec along contour lines (text set on curved arcs, a quill at the tip)
                          Artificer builds terraces (contour layers dropped and struck into a hill)
-   0:35  The Test Pilot    Pull back. Auto sizes up the hard part and picks the strongest model. The Test Pilot flies in
-                       from beyond the outer orbit, takes a sixth orbit, and its wand takes a knot of crossed
+   0:35  The Test Pilot    Pull back. The hard part goes to the Test Pilot, on the strongest model by default. It flies in
+                       from beyond the outer orbit, takes a fifth orbit, and its wand takes a knot of crossed
                        contour lines apart into clean rings.
    0:44  Warden        A shield drawn round the planet, three ticks, "ready for review".
    0:49  The trail     Pull back. The five steps join into a dashed trail with waypoints and the reports come
-                       home as comets. The review pings your phone and you approve it there. Only then does the
+                       home as comets. The push pings your phone and you approve it there. Only then does the
                        sun ping again.
    0:59  Memory        What the crew learned rises as motes and settles as stars, joined into a constellation
                        beside the faint stars it already knew.
@@ -133,7 +133,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
     <p class="lede">Pick an outpost on the star chart, then follow one request all the way round it: from the mark to the crew, through the work, into memory and out the other side of the night.</p>
   </header>
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, planets going round a sun, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail, and you approve the push from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
@@ -269,7 +269,7 @@ for (const [cx, cy, n, ph] of [[120, 116, 6, 1.2], [1172, 606, 6, 3.1], [1150, 1
 }
 const pingEl = el('circle', { class: 'ping', cx: 640, cy: 360, r: 0 }, gWorld);
 
-// Faint stars the camp already remembers (they stay all film).
+// Faint stars the outpost already remembers (they stay all film).
 const OLD = [[560, 54], [1110, 70], [86, 250], [1206, 430], [168, 690], [1010, 668], [330, 40]];
 const gMem = el('g', {}, gWorld);
 const oldEls = OLD.map(([x, y]) => el('circle', { class: 'star', cx: x, cy: y, r: 2.1 }, gMem));
@@ -458,7 +458,7 @@ const VIG = [];
   } });
 })();
 
-// Wizard: a knot of crossed contour lines, taken apart by the wand into clean rings.
+// Test Pilot: a knot of crossed contour lines, taken apart by the wand into clean rings.
 (() => {
   const g = el('g', { class: 'c-wiz' }, gWorld), CX = 52, CY = 0, N = 84;
   const loops = [0, 1, 2, 3, 4].map(k => {
@@ -547,7 +547,7 @@ const bars = [['How hard', .94], ['What’s at stake', .8], ['How big', .52]].ma
 const pick = el('g', { class: 'c-wiz', transform: 'translate(24 164)' }, router);
 el('rect', { class: 'tone-f', width: 304, height: 36, rx: 18 }, pick);
 const pgl = el('g', { class: 'glyph', transform: 'translate(12 6) scale(1)' }, pick); pgl.innerHTML = GLYPH.wiz;
-T(pick, 'b f-ink', 14, 44, 23, 'Quality · the strongest model', { 'font-weight': 600 });
+T(pick, 'b f-ink', 14, 44, 23, 'Test Pilot · the strongest model', { 'font-weight': 600 });
 // Approvals from your phone
 const phone = el('g', { transform: 'translate(944 126)' }, gHud);
 el('rect', { class: 'card', width: 216, height: 392, rx: 32, style: 'stroke:var(--border-strong);stroke-width:1.5' }, phone);
@@ -559,9 +559,9 @@ const banner = el('g', {}, phone);
 el('rect', { class: 'card', x: 18, y: 146, width: 180, height: 152, rx: 16 }, banner);
 el('circle', { class: 'dot-f', cx: 36, cy: 167, r: 6 }, banner);
 T(banner, 'm f-muted', 10, 48, 170.5, 'OUTPOST · now', { 'letter-spacing': '1' });
-T(banner, 'b f-text', 13.5, 32, 196, 'Ready for your review', { 'font-weight': 600 });
+T(banner, 'b f-text', 13.5, 32, 196, 'Shell command waiting', { 'font-weight': 600 });
 T(banner, 'b f-muted', 12, 32, 215, 'The new search page');
-T(banner, 'b f-muted', 12, 32, 232, '5 of 5 steps, all checked');
+T(banner, 'm f-muted', 11, 32, 232, 'git push origin search');
 const okBtn = el('g', { transform: 'translate(32 248)' }, banner);
 const okRect = el('rect', { class: 'btn', width: 76, height: 34, rx: 9 }, okBtn);
 const okText = T(okBtn, 'b f-ink', 12.5, 38, 21.5, 'Approve', { 'font-weight': 600, 'text-anchor': 'middle' });
@@ -578,7 +578,8 @@ T(night, 'b f-muted', 14, 24, 90, 'Nothing applied, nothing deleted.');
 T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
 
 // ---- the star chart: the opening, before the film proper ----
-// Three outposts side by side, each with what is its own, and a line between them. One is picked and its mark becomes the lockup.
+// A sun, and each outpost a planet on a contour line of its own, going slowly round it. A new one takes the next line out.
+// One is picked, and its planet becomes the lockup's mark.
 const gIntro = el('g', {}, gHud);
 const MARK_D = 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z';
 const smallMark = parent => {
@@ -590,23 +591,39 @@ const smallMark = parent => {
   el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, g);
   return g;
 };
-const TILE = { w: 250, h: 300, y: 168, xs: [215, 515, 815] };
-const OWN = ['Its own crew', 'Its own memory', 'Its own keys and settings'];
-const tiles = [['Work', 'c-scout'], ['Home', 'c-scribe'], ['Side project', 'c-art']].map(([name, tone], k) => {
+const CH = { x: 600, y: 322, pr: 18 };
+const chartR = (R, k, a) => R * (1 + .025 * Math.sin(3 * a + k * 1.7) + .018 * Math.sin(5 * a - k));
+const chartLine = (R, k) => { let d = ''; for (let q = 0; q < 120; q++) { const a = q / 120 * 2 * Math.PI, r = chartR(R, k, a); d += (q ? 'L' : 'M') + f1(CH.x + r * Math.cos(a)) + ' ' + f1(CH.y + r * Math.sin(a)); } return d + 'Z'; };
+const LINE_S = 'fill:none;stroke:var(--border-strong);stroke-width:1.5';
+const chartLines = el('g', {}, gIntro);
+const chartSun = el('g', { transform: `translate(${CH.x} ${CH.y})` }, gIntro);
+el('circle', { class: 'dot-f', r: 54, style: 'opacity:.12' }, chartSun);
+el('circle', { r: 25, style: LINE_S }, chartSun);
+el('circle', { class: 'dot-f', r: 16 }, chartSun);
+// each outpost: its name, its colour, the line it's on, and where on that line it starts
+const outs = [['Work', 'c-scout', 112, 200], ['Home', 'c-scribe', 178, -42], ['Side project', 'c-art', 244, 150]].map(([name, tone, R, a0], k) => {
+  const line = el('path', { d: chartLine(R, k), style: LINE_S }, chartLines);
+  const dash = k === 2 ? el('path', { d: chartLine(R, k), style: LINE_S + ';stroke-dasharray:5 8;stroke-linecap:round' }, chartLines) : null;
   const g = el('g', { class: tone }, gIntro);
-  const slot = k === 2 ? el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:6 7' }, g) : null;
-  const chrome = el('g', {}, g);
-  el('rect', { class: 'card', width: TILE.w, height: TILE.h, rx: 14 }, chrome);
-  const sel = el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
-  const plus = k === 2 ? el('path', { d: 'M125 68 V104 M107 86 H143', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, g) : null;
-  const ghost = k === 2 ? T(g, 'b f-faint', 17, 125, 178, 'New outpost', { 'text-anchor': 'middle' }) : null;
-  const label = T(g, 'd f-text', 25, 125, 180, name, { 'text-anchor': 'middle' });
-  const rows = OWN.map((s, r) => { const rg = el('g', { transform: `translate(40 ${218 + r * 26})` }, g); el('circle', { class: 'tone-f', cx: 4, cy: -5, r: 4 }, rg); T(rg, 'b f-muted', 14.5, 18, 0, s); return rg; });
-  return { g, slot, chrome, sel, plus, ghost, label, rows, name };
+  const slot = k === 2 ? el('g', {}, g) : null;
+  if (slot) { el('circle', { r: CH.pr, style: LINE_S + ';stroke-dasharray:4 5' }, slot); el('path', { d: 'M0 -7 V7 M-7 0 H7', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, slot); }
+  const body = el('g', {}, g);
+  el('circle', { class: 'tone-f', r: CH.pr * 2.3, style: 'opacity:.14' }, body);
+  el('circle', { class: 'tone-f', r: CH.pr }, body);
+  T(body, 'b f-ink', 17, 0, 6, name[0], { 'text-anchor': 'middle', 'font-weight': 600 });
+  const sel = el('circle', { r: CH.pr + 6, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
+  const ghost = k === 2 ? T(g, 'b f-faint', 15, 0, 46, 'New outpost', { 'text-anchor': 'middle' }) : null;
+  const label = T(g, 'd f-text', 19, 0, 47, name, { 'text-anchor': 'middle' });
+  return { name, R, a0, line, dash, g, slot, body, sel, ghost, label };
 });
-// the marks sit above the cards, so the picked one can leave its card and become the lockup
-const tileMarks = tiles.map(() => smallMark(gIntro));
-const fences = [490, 790].map(x => el('line', { x1: x, x2: x, y1: 318, y2: 318, style: 'stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:3 7;stroke-linecap:round' }, gIntro));
+// what every outpost has of its own
+const ownCard = card(908, 214, 312, 190);
+T(ownCard, 'm f-muted', 11, 24, 32, 'EVERY OUTPOST', { 'letter-spacing': '1.5' });
+T(ownCard, 'd f-text', 22, 24, 62, 'A camp of its own');
+const ownRows = ['Its own crew', 'Its own memory', 'Its own keys and settings'].map((s, r) => { const rg = el('g', { transform: `translate(24 ${100 + r * 28})` }, ownCard); el('circle', { class: 'dot-f', cx: 5, cy: -5, r: 4 }, rg); T(rg, 'b f-text', 14.5, 20, 0, s); return rg; });
+gIntro.appendChild(ownCard);
+// the picked outpost's mark, drawn over its planet, so it can leave the chart and become the lockup
+const pickMark = smallMark(gIntro);
 const icG = el('g', {}, gIntro);
 const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, icG);
 const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
@@ -621,22 +638,25 @@ function intro(tt) {
   const lockA = Math.max(1 - prog(tt, 1.0, 1.7), prog(tt, 8.3, 8.9));
   O(gLock, lockA); O(tagline, lockA); O(sunCore, lockA); sunGlow.style.opacity = .25 * lockA;
   const leave = prog(tt, 7.6, 8.1), fly = ease.inOut(prog(tt, 7.8, 8.45));
-  tiles.forEach((c, k) => {
-    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), x = TILE.xs[k], y = TILE.y + (1 - ease.out(inn)) * 14;
-    const made = k < 2 ? 1 : prog(tt, 4.2, 4.7), away = k === 0 ? prog(tt, 7.9, 8.35) : leave;
-    c.g.setAttribute('transform', `translate(${x} ${f1(y)})`);
-    O(c.g, inn * (1 - away));
-    O(c.chrome, made);
-    if (c.slot) { O(c.slot, 1 - made); O(c.plus, 1 - prog(tt, 4.2, 4.5)); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
-    c.rows.forEach((r, j) => O(r, prog(tt, 5.0 + j * .45 + k * .12, 5.4 + j * .45 + k * .12)));
+  O(chartSun, prog(tt, 1.3, 1.9) * (1 - leave));
+  outs.forEach((c, k) => {
+    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), made = k < 2 ? 1 : prog(tt, 4.2, 4.7);
+    const a = (c.a0 + 4 * tt) * Math.PI / 180, r = chartR(c.R, k, a) + (1 - ease.out(inn)) * 14;
+    c.x = CH.x + r * Math.cos(a); c.y = CH.y + r * Math.sin(a);
+    c.g.setAttribute('transform', `translate(${f1(c.x)} ${f1(c.y)})`);
+    O(c.g, inn * (1 - leave));
+    O(c.line, inn * made * (1 - leave) * .85);
+    O(c.body, k === 0 ? made * (1 - prog(tt, 7.6, 7.8)) : made);
+    if (c.slot) { O(c.dash, inn * (1 - made) * (1 - leave)); O(c.slot, 1 - made); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
     O(c.sel, k === 0 ? prog(tt, 7.3, 7.5) : 0);
-    // its mark: on the card, then (for Work) across to where the lockup's mark sits
-    const mk = tileMarks[k], f = k === 0 ? fly : 0;
-    const cx = lerp(x + 125, DOT0.x, f), cy = lerp(y + 86, 360, f), sc = lerp(.5, K, f);
-    mk.setAttribute('transform', `translate(${f2(cx)} ${f2(cy)}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
-    O(mk, k === 0 ? inn * (1 - prog(tt, 8.6, 8.95)) : inn * made * (1 - leave));
   });
-  fences.forEach((l, k) => { const u = ease.out(prog(tt, 4.9 + k * .2, 5.7 + k * .2)); put(l, { y1: f1(318 - 130 * u), y2: f1(318 + 130 * u) }); O(l, Math.min(u * 3, 1 - leave)); });
+  ownRows.forEach((r, j) => O(r, prog(tt, 5.6 + j * .45, 6.0 + j * .45)));
+  const ov = prog(tt, 5.0, 5.5);
+  O(ownCard, ov * (1 - leave)); ownCard.setAttribute('transform', `translate(908 ${f1(214 + (1 - ease.out(ov)) * 12)})`);
+  // Work's planet turns into the mark, and crosses to where the lockup's mark sits
+  const w = outs[0], sc = lerp(2 * CH.pr / 180, K, fly);
+  pickMark.setAttribute('transform', `translate(${f2(lerp(w.x, DOT0.x, fly))} ${f2(lerp(w.y, 360, fly))}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+  O(pickMark, prog(tt, 7.6, 7.8) * (1 - prog(tt, 8.6, 8.95)));
   let ci = -1, cv = 0;
   ICAPS.forEach((c, k) => { const v = win(tt, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv = v; } });
   if (ci >= 0) { txt(icT, ICAPS[ci][2]); txt(icS, ICAPS[ci][3]); }
@@ -645,16 +665,16 @@ function intro(tt) {
 
 // ---- timeline ----
 const CAPS = [
-  [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, each on its own orbit.'],
+  [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, with the Test Pilot on call.'],
   [13.9, 19.9, 'You ask. The Quartermaster makes a plan.', 'From the sun at the centre, one request becomes four quests.'],
   [20.7, 25.3, 'Scout reads the ground.', 'It maps the code before anyone touches it.'],
   [25.7, 30.3, 'Scribe writes it down.', 'The spec, line by line, along the contours.'],
   [30.7, 35.3, 'Artificer builds it.', 'Each layer set down and struck into the one below.'],
-  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'Auto sizes up the task and picks the strongest model there is.'],
+  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'It runs on the strongest model by default, and lists every shortcut it took.'],
   [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
   [44.7, 49.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
   [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
-  [54.1, 58.9, 'Say yes from anywhere.', 'The review pings your phone. Nothing ships until you approve.'],
+  [54.1, 58.9, 'Say yes from anywhere.', 'The push pings your phone. Nothing ships until you approve.'],
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
   [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
@@ -802,7 +822,7 @@ function renderMain(t) {
     });
   } else { O(trailEl, 0); WAY.forEach(w => O(w.g, 0)); }
 
-  // the review pings your phone, and you approve it there
+  // the push pings your phone, and you approve it there
   const pv = win(t, 53.5, 59.3, .5, .6);
   O(phone, pv); phone.setAttribute('transform', `translate(944 ${f1(126 + (1 - ease.out(prog(t, 53.5, 54.2))) * 30)})`);
   const bv = prog(t, 54.1, 54.5); O(banner, bv); banner.setAttribute('transform', `translate(0 ${f1(-(1 - ease.out(bv)) * 12)})`);
@@ -814,7 +834,7 @@ function renderMain(t) {
   if (tv > 0) { const u = ease.inOut(prog(t, 56.2, 57.0)); put(touch, { cx: f1(lerp(TX + 40, TX, u)), cy: f1(lerp(TY + 190, TY, u)), r: f2(15 * (1 - press * .15)) }); O(touch, tv); } else O(touch, 0);
   const rg = prog(t, 57.12, 57.8); if (rg > 0 && rg < 1) { put(tapRing, { cx: TX, cy: TY, r: f1(10 + rg * 34) }); O(tapRing, (1 - rg) * .9); } else O(tapRing, 0);
 
-  // Auto sizes up the hard part
+  // The hard part is sized up
   O(router, win(t, 35.2, 38.8, .5, .6)); router.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 35.2, 35.8))) * 14)})`);
   bars.forEach((b, k) => b.fill.setAttribute('width', f1(176 * b.v * ease.out(prog(t, 35.8 + k * .3, 36.5 + k * .3)))));
   const pk = prog(t, 36.9, 37.3); O(pick, pk); pick.setAttribute('transform', `translate(24 164) translate(152 18) scale(${f2(lerp(.9, 1, ease.back(pk)))}) translate(-152 -18)`);

@@ -16,7 +16,7 @@
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
   --accent: #9e5c0c; --accent-ink: #fffaf2;
   --good: #397034; --good-soft: #e1eedb; --bad: #a94630; --bad-soft: #f5dfd8;
-  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-pilot: #9b4ea3;
   --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a; --night-good: #93c47d;
   --shade: rgba(60, 40, 20, .13);
   --logo-ink: #14233F; --logo-dot: #B97A12; --logo-stroke: 4; --on-light: 1; --on-dark: 0;
@@ -30,7 +30,7 @@
     --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
     --accent: #f0a640; --accent-ink: #1b1308;
     --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
-    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #d79be0;
     --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
     --shade: rgba(0, 0, 0, .5);
   --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
@@ -42,7 +42,7 @@
   --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
   --accent: #f0a640; --accent-ink: #1b1308;
   --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
-  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #d79be0;
   --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
   --shade: rgba(0, 0, 0, .5);
   --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
@@ -68,7 +68,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 .f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); }
 .f-accent { fill: var(--accent); } .f-ink { fill: var(--ink); } .f-accent-ink { fill: var(--accent-ink); } .f-tone { fill: var(--tone); }
 .f-good { fill: var(--good); } .f-bad { fill: var(--bad); }
-.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
+.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-pilot { --tone: var(--c-pilot); } .c-you { --tone: var(--muted); }
 .bgfill { fill: var(--bg); }
 .contour { fill: none; stroke: var(--border-strong); stroke-width: 1.2; opacity: .5; vector-effect: non-scaling-stroke; }
 .contour.lit { stroke: var(--accent); stroke-width: 1.8; opacity: 0; }
@@ -256,13 +256,14 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief' };
+const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief', pilot: 'Test Pilot' };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
   scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
   art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
   warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
 };
 // a badge at any size: its lines stay as heavy as they are at full size
 function badge(key, parent, s = 1) {
@@ -354,7 +355,7 @@ const CLICKS = [];
 
 // ---- the story: the map of stars, stars that grow as they're used, then a pin, a merge and a forget ----
 const T = { used: 9.8, pick: 17.4, pin: 20.0, merge: 23.4, pickB: 25.6, drafted: 27.6, pickF: 30.4, forget: 32.2, sure: 33.9 }, END = 36.0;
-const MC = [400, 412], rad = d => d * PI / 180;
+const MC = [388, 412], rad = d => d * PI / 180;
 // Where a star sits in its place, before the place is turned so that the first faces the middle of the map.
 const SPOTS = [[0, -36], [31, -17], [33, 20], [2, 38], [-31, 21], [-35, -15], [1, 1]];
 // Each place and how often each of its lines has been used.
@@ -365,17 +366,19 @@ const PLACES = [
   { key: 'scout', name: 'Navigator', n: [3, 0, 1, 7, 2, 1] },
   { key: 'warden', name: 'Security Chief', n: [1, 4, 0, 2, 0] },
   { key: 'about', name: 'About you', n: [6, 2, 3, 1] },
+  { key: 'pilot', name: 'Test Pilot', n: [2, 0, 1, 3] },
 ];
 const gScene = el('g'), gPlaces = el('g', null, gScene), gLines = el('g', null, gScene), gStars = el('g', null, gScene);
 const STARS = [], star = (key, i) => STARS.find(s => s.p.key === key && s.i === i);
+const placeName = p => p.key === 'about' ? p.name : p.name + "'s memory";     // a crew member's place is named as the app names it
 PLACES.forEach((p, pi) => {
-  const th = -90 + 60 * pi, r = rad(th + 270);
+  const th = -90 + 360 / PLACES.length * pi, r = rad(th + 270);
   p.x = MC[0] + 150 * Math.cos(rad(th)); p.y = MC[1] + 150 * Math.sin(rad(th));
   p.g = el('g', { class: 'c-' + p.key }, gPlaces);
   el('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 60, class: 'place' }, p.g);
   const side = Math.cos(rad(th));
-  if (Math.abs(side) < .1) tx(p.g, p.x, p.y - 70, 'b t13 w6 f-tone', p.name, { 'text-anchor': 'middle' });
-  else tx(p.g, p.x + (side > 0 ? 70 : -70), p.y + 4.5, 'b t13 w6 f-tone', p.name, { 'text-anchor': side > 0 ? 'start' : 'end' });
+  if (Math.abs(side) < .1) tx(p.g, p.x, p.y - 70, 'b t13 w6 f-tone', placeName(p), { 'text-anchor': 'middle' });
+  else tx(p.g, p.x + (side > 0 ? 70 : -70), p.y + 4.5, 'b t13 w6 f-tone', placeName(p), { 'text-anchor': side > 0 ? 'start' : 'end' });
   p.n.forEach((n, i) => {
     const [sx, sy] = SPOTS[i], s = { p, i, base: n, uses: [], x: p.x + sx * Math.cos(r) - sy * Math.sin(r), y: p.y + sx * Math.sin(r) + sy * Math.cos(r) };
     s.g = el('g', { class: 'c-' + p.key }, gStars);
@@ -426,23 +429,23 @@ el('line', { x1: IX, y1: PY + 100, x2: PX + PW - 24, y2: PY + 100, class: 'hr' }
 tx(pLegend, IX, PY + PH - 28, 'b t12 f-faint', 'Scroll to zoom · drag to move · click a star to read it');
 // the requests
 const pReq = el('g', null, gCard);
-tx(pReq, IX, PY + 40, 'm lbl', 'ASKED TODAY');
+tx(pReq, IX, PY + 40, 'm lbl', 'RUNS');
 USES.forEach((u, i) => {
   u.g = el('g', null, pReq);
   const y = PY + 78 + i * 62;
   if (i === 0) { u.typed = typer(u.g, IX, y, 'b t15 w6 f-text', u.ask); u.caret = el('rect', { y: y - 13, width: 2, height: 17, class: 'caret' }, u.g); }
   else tx(u.g, IX, y, 'b t15 w6 f-text', u.ask);
-  u.sub = tx(u.g, IX, y + 21, 'm t12 f-faint', `${u.stars.length} line${u.stars.length > 1 ? 's' : ''} loaded with it`);
+  u.sub = tx(u.g, IX, y + 21, 'm t12 f-faint', `${u.stars.length} line${u.stars.length > 1 ? 's' : ''} used`);
 });
 // one line, read: where it's kept, where it came from and how often it has been used
-function linePanel(key, name, lines, from, used) {
+function linePanel(key, name, lines, kept, from, used) {
   const g = el('g', { class: 'c-' + key }, gCard), o = { g };
   el('circle', { cx: IX + 5, cy: PY + 37, r: 5, class: 'moon' }, g);
-  tx(g, IX + 18, PY + 42, 'b t15 w6 f-tone', name);
+  tx(g, IX + 18, PY + 42, 'b t15 w6 f-tone', name + "'s memory");
   lines.forEach((l, i) => tx(g, IX, PY + 82 + i * 26, 'b t19 w6 f-text', l));
   el('line', { x1: IX, y1: PY + 130, x2: PX + PW - 24, y2: PY + 130, class: 'hr' }, g);
   o.detail = el('g', null, g);
-  [['KEPT', `In ${name}'s memory`], ['FROM', from], ['USED', used]].forEach(([k, v], i) => {
+  [['KEPT', kept], ['FROM', from], ['USED', used]].forEach(([k, v], i) => {
     tx(o.detail, IX, PY + 164 + i * 30, 'm lbl', k); tx(o.detail, IX + 62, PY + 164 + i * 30, 'b t15 f-text', v);
   });
   o.pin = button(o.detail, IX + 44, PY + PH - 42, 88, 'Pin', 'ghost');
@@ -451,14 +454,14 @@ function linePanel(key, name, lines, from, used) {
   o.forget.box.setAttribute('class', 'btn-bad'); o.forget.tn.setAttribute('class', 'b btn-t f-bad');
   return o;
 }
-const pA = linePanel('art', 'Engineer', ['Dates from the API are UTC: never', 'format them in local time.'], 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
+const pA = linePanel('art', 'Engineer', ['Dates from the API are UTC: never', 'format them in local time.'], '2026-10-06', 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
 const pinned = el('g', null, pA.g);
 el('rect', { x: PX + PW - 24 - 78, y: PY + 26, width: 78, height: 22, rx: 11, class: 'pill-a' }, pinned);
 tx(pinned, PX + PW - 24 - 39, PY + 41, 'm pill-t', 'PINNED', { 'text-anchor': 'middle' });
 // the merge: which line, then the draft of the one line
 const aMerge = el('g', null, pA.g);
 tx(aMerge, IX, PY + 166, 'b t16 w6 f-text', 'Merge with which line?');
-tx(aMerge, IX, PY + 190, 'b t13 f-muted', 'Pick another star in Engineer, or one from this list.');
+tx(aMerge, IX, PY + 190, 'b t13 f-muted', "Pick another star in Engineer's memory, or one from this list.");
 ['API dates are in UTC, so show them as UTC.', 'Run the date tests in three time zones.'].forEach((l, i) => {
   el('rect', { x: IX, y: PY + 208 + i * 50, width: PW - 48, height: 40, rx: 8, class: 'inset' }, aMerge);
   el('circle', { cx: IX + 17, cy: PY + 228 + i * 50, r: 4, class: 'moon' }, aMerge);
@@ -474,14 +477,14 @@ const draft1 = typer(aDraft, IX + 16, PY + 259, 'b t15 f-text', 'Dates from the 
 const draft2 = typer(aDraft, IX + 16, PY + 282, 'b t15 f-text', 'as UTC, never in local time.');
 const draftCaret = el('rect', { width: 2, height: 17, class: 'caret' }, aDraft);
 const bReview = button(aDraft, IX + 52, PY + PH - 42, 104, 'Review it');
-const pF = linePanel('scribe', 'Comms Officer', ['Use the old changelog template', 'until March.'], 'the crew noted it', 'Not recalled yet');
+const pF = linePanel('scribe', 'Comms Officer', ['Use the old changelog template', 'until March.'], '2026-09-14', 'the crew noted it', 'Not recalled yet');
 // the forget asks first
 const gAsk = el('g', null, gScene);
 el('rect', { width: 1280, height: 720, class: 'scrim', opacity: .62 }, gAsk);
 const dlg = el('g', null, gAsk);
 el('rect', { x: -220, y: -100, width: 440, height: 200, rx: 14, class: 'card shadow' }, dlg);
 tx(dlg, -192, -52, 'd tk-title', 'Forget this line?');
-tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Comms Officer for good:");
+tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Comms Officer's memory for good:");
 tx(dlg, -192, 4, 'b t15 f-text', '"Use the old changelog template until March."');
 const bCancel = button(dlg, -144, 58, 96, 'Cancel', 'ghost'), bSure = button(dlg, -36, 58, 96, 'Forget');
 bSure.box.setAttribute('class', 'btn-badfill');
