@@ -57,3 +57,11 @@ test("a proxy's HTTPS name is answered without LAN mode, and only as that name",
   for (const h of ["mac.tail1234.ts.net", "MAC.tail1234.ts.net:443", "127.0.0.1:4747"]) assert.equal(hostAllowed(h, 4747, a), true, h);
   for (const h of ["mac.tail1234.ts.net:4747", "mac.tail1234.ts.net:80", "evil.ts.net", "tail1234.ts.net", ""]) assert.equal(hostAllowed(h, 4747, a), false, h);
 });
+
+test("a proxy name with a port of its own is answered only on that port", () => {
+  const a = accessFrom({ CAMP_PROXY_NAMES: "mac.tail1234.ts.net:4748, https://mac.tail1234.ts.net:443/, mac.tail1234.ts.net:99999, localhost:4748" }, "winbox", nics);
+  assert.deepEqual(a.proxied, ["mac.tail1234.ts.net:4748", "mac.tail1234.ts.net"]);
+  const b = accessFrom({ CAMP_PROXY_NAMES: "mac.tail1234.ts.net:4748" }, "winbox", nics);
+  assert.equal(hostAllowed("mac.tail1234.ts.net:4748", 4748, b), true);
+  for (const h of ["mac.tail1234.ts.net", "mac.tail1234.ts.net:443", "mac.tail1234.ts.net:4749"]) assert.equal(hostAllowed(h, 4748, b), false, h);
+});
