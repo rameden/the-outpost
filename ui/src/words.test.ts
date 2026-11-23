@@ -1,7 +1,7 @@
 // The theme pack's nouns: the Guild's until the camp says otherwise, with capitals and plurals.
 import { afterEach, expect, test } from "vitest";
 import { PACKS } from "../../src/packs.ts";
-import { a, cap, many, setWords, w } from "./words.ts";
+import { a, atCamp, cap, many, setWords, w } from "./words.ts";
 
 afterEach(() => setWords(undefined));
 
@@ -53,4 +53,13 @@ test("the pack's phrases: the Guild's are the originals, a pack's own replace th
   expect([w("member"), w("members"), w("log"), w("close"), w("depart"), w("hq"), a("member")]).toEqual(["officer", "officers", "ship's log", "power down", "launches", "the bridge", "an officer"]);
   setWords("older", [{ id: "older", words: { crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "voyage" } }]);
   expect([w("crew"), w("member"), w("back"), w("closing"), w("hq")]).toEqual(["hands", "hands member", "returns to the ship", "Closing the ship", "mission control"]);
+});
+
+test("an idle crew member is at the pack's place: \"At camp\" for the Guild, with an article for the rest", () => {
+  setWords("guild", PACKS);
+  expect(atCamp()).toBe("At camp");
+  setWords("starship", PACKS);
+  expect(atCamp()).toBe("At the ship");
+  setWords("newsroom", PACKS);
+  expect(atCamp()).toBe("At the newsroom");
 });

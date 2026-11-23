@@ -61,3 +61,7 @@ export function a(noun: Noun | Capitalize<Noun>): string {
   const an = /^[aeiou]/i.test(word) ? "an" : "a";
   return `${noun[0] === noun[0].toUpperCase() ? cap(an) : an} ${word}`;
 }
+
+// Where an idle crew member is: "At camp" for the Guild, "At the ship", "At the newsroom" for the rest
+// (a pack's camp word is a place with an article; only "camp" reads without one).
+export const atCamp = (): string => (now.camp.toLowerCase() === "camp" ? `At ${now.camp}` : `At the ${now.camp}`);

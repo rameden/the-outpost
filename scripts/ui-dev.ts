@@ -40,12 +40,13 @@ camp.stdout.on("data", (chunk: Buffer) => {
   for (const line of lines) {
     const code = line.match(/\/#k=([0-9a-f]+)/)?.[1];
     if (!code || starting) { if (held) held.push(line); else process.stdout.write(ours(line) + "\n"); continue; }
-    starting = true; held = []; void startVite(code);
+    starting = true; held = []; void startVite(code, line.match(/^(\S+)\s+Outpost /)?.[1] ?? "🏕️");
   }
 });
 camp.stdout.on("end", () => { if (pending) process.stdout.write(pending); });
 
-async function startVite(code: string) {
+// sign: the camp's own mark at the start of its line (the pack's: 🏕️ for the Guild, the lead's emoji for another).
+async function startVite(code: string, sign: string) {
   try {
     vite = await createServer({
       configFile: join(ROOT, "ui", "vite.config.ts"),
@@ -53,7 +54,7 @@ async function startVite(code: string) {
       plugins: [{ name: "outpost-name", transformIndexHtml: (html) => withOutpost(html, readOutpost().name) }],
     });
     await vite.listen();
-    console.log(`🏕️  Outpost ${OUTPOST.name} is up: http://127.0.0.1:${vite.config.server.port}/#k=${code}`);
+    console.log(`${sign}  Outpost ${OUTPOST.name} is up: http://127.0.0.1:${vite.config.server.port}/#k=${code}`);
     console.log("   The page reloads as you edit ui/src.");
     for (const line of held ?? []) console.log(ours(line));
     held = null;

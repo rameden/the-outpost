@@ -12,7 +12,7 @@ import type { OpenPicker } from "./Crew.tsx";
 import { Clamp, Empty, Icon } from "./bits.tsx";
 import { Dialog } from "./Dialog.tsx";
 
-import { w, a as an } from "../words.ts";
+import { w, a as an, atCamp } from "../words.ts";
 export type AgentTab = "chat" | "runs" | "memory" | "outputs" | "about";
 const TABS: [AgentTab, string][] = [["chat", "Chat"], ["runs", "Runs"], ["memory", "Memory"], ["outputs", "Outputs"], ["about", "About"]];
 const sourceLabel = (source: string): string | undefined => ({ user: "You", direct: "You", discord: "You (Discord)", brief: `${leadEmoji()} ${leadName()}'s brief`, job: "⏰ Scheduled job" } as Record<string, string>)[source];
@@ -340,7 +340,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, onOpenPicker, onCl
 
   const name = a?.name ?? character?.name ?? "";
   const st: CrewStatus = crew[name] ?? { status: "idle", line: "" };
-  const status = st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : `At ${w("camp")}`;
+  const status = st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : atCamp();
 
   return (
     <Dialog as="aside" className={cx("drawer", cClass(name))} labelledBy="drawerTitle" onClose={onClose}>

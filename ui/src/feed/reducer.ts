@@ -9,7 +9,7 @@
 import type { AskKind, Attached, CampEvent, EventOf, Workspaces } from "../types.ts";
 import { askOutcome, heldAnswer } from "./asks.ts";
 
-import { w } from "../words.ts";
+import { w, atCamp } from "../words.ts";
 import { leadName } from "../format.ts";
 export type CrewStatus = { status: "idle" | "active" | "waiting"; line: string };
 
@@ -74,7 +74,7 @@ export type FeedState = {
 // What one of the crew is doing, in a line: their quests if several are out, else what they're on, else where they are.
 export function statusLine(st: CrewStatus, out: QuestOut[]): string {
   if (out.length > 1) return `${out.length} ${w("quests")} out${out.some((q) => q.waiting) ? " · one needs your OK" : ""}`;
-  return st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : `At ${w("camp")}`);
+  return st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : atCamp());
 }
 
 export const emptyFeed: FeedState = { lastSeq: 0, items: [], open: {}, live: {}, asks: [], crew: {}, quests: [], localSeq: 0 };
