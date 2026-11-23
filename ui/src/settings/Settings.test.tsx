@@ -293,10 +293,18 @@ test("the notification sound row shows once notifications are on: a switch kept 
   cleanup();
   const started: number[] = [];
   vi.stubGlobal("Notification", class { static permission = "granted"; });
+  const node = () => ({ connect: (d: unknown) => d });
+  const param = () => ({ value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} });
   vi.stubGlobal("AudioContext", class {
-    state = "running"; currentTime = 0; destination = {};
-    createOscillator() { const o = { frequency: { value: 0 }, connect: (g: unknown) => g, start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
-    createGain() { return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d }; }
+    state = "running"; currentTime = 0; destination = {}; sampleRate = 8000;
+    createOscillator() { const o = { ...node(), frequency: param(), start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
+    createGain() { return { ...node(), gain: param() }; }
+    createBiquadFilter() { return { ...node(), frequency: param(), Q: param() }; }
+    createWaveShaper() { return node(); }
+    createStereoPanner() { return { ...node(), pan: param() }; }
+    createConvolver() { return node(); }
+    createBufferSource() { return { ...node(), start: () => {} }; }
+    createBuffer(channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
   });
   show("notifications");
   const row = screen.getByText("Notification sound").closest(".set-row") as HTMLElement;

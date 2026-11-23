@@ -1,20 +1,22 @@
-// The chime that goes with a browser notification: two or three soft sine notes, made with
-// Web Audio so there's no sound file. The notes' shape tells you what happened without looking:
-// rising for a decision, settling for finished, falling for failed.
+// The camp's sounds, made with Web Audio so there's no sound file: the chime that goes with a browser
+// notification, and the strum of the orbit lines in the camp at rest (below). They're one voice: a
+// notification sounds like the innermost line being plucked, so you know it's the camp. The shape
+// tells you what happened without looking: that line's ping alone for a decision, a lower ping rising
+// to it for finished, and it falling away to the lower one for failed.
 
 import { storeGet, storeSet } from "./api.ts";
 
 export type ChimeKind = "ask" | "done" | "fail";
 
+// Each line's note, nearest the sun first (see the strum, below).
+export const STRUM_NOTES = [659.25, 587.33, 493.88, 440, 392, 329.63, 293.66, 246.94]; // E5 D5 B4 A4 G4 E4 D4 B3
+const INNER = STRUM_NOTES[0], BELOW = STRUM_NOTES[2];
 export const CHIME_NOTES: Record<ChimeKind, number[]> = {
-  ask: [659.25, 880], // E5 → A5
-  done: [523.25, 659.25, 783.99], // C5 E5 G5
-  fail: [587.33, 440], // D5 → A4
+  ask: [INNER], // E5
+  done: [BELOW, INNER], // B4 → E5
+  fail: [INNER, BELOW], // E5 → B4
 };
-
-const STEP = 0.14; // seconds between notes
-const RING = 0.9; // how long each note rings
-const VOLUME = 0.3;
+const STEP = 0.2; // seconds between pings
 
 export const chimeOn = () => storeGet("camp-notify-sound") !== "off";
 export const setChime = (on: boolean) => storeSet("camp-notify-sound", on ? "on" : "off");
@@ -43,28 +45,13 @@ export function readyChimeOnFirstGesture() {
   window.addEventListener("keydown", wake);
 }
 
+// Louder than a strum, as it's for when you're looking elsewhere.
 export function playChime(kind: ChimeKind) {
   const a = audio();
   if (!a) return;
   if (a.state === "suspended") void a.resume().catch(() => {});
   const t0 = a.currentTime + 0.02;
-  CHIME_NOTES[kind].forEach((f, i) => {
-    note(a, f, t0 + i * STEP, RING, VOLUME);
-    note(a, f * 2, t0 + i * STEP, RING * 0.45, VOLUME * 0.13); // a quiet octave on top, for shine
-  });
-}
-
-function note(a: AudioContext, freq: number, t: number, ring: number, peak: number) {
-  const osc = a.createOscillator();
-  const gain = a.createGain();
-  osc.type = "sine";
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(peak, t + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + ring);
-  osc.connect(gain).connect(a.destination);
-  osc.start(t);
-  osc.stop(t + ring + 0.05);
+  CHIME_NOTES[kind].forEach((f, i) => ping(a, f, 1, 0, t0 + i * STEP, "alert"));
 }
 
 // The orbit lines in the camp at rest (MaeSystem) can be strummed, and each sounds its own note as
@@ -75,12 +62,12 @@ function note(a: AudioContext, freq: number, t: number, ring: number, peak: numb
 // lets go, as struck plate does), starts a touch sharp and slides onto its note, and goes through
 // a little overdrive and a radio's narrow band, so it's gritty. Then it rings on a long while into
 // a dark reverb, like a hull. Each line sits at its own place from left to right, so a sweep moves
-// across. Nothing in it beats or repeats (no out-of-tune twin, no echo taps), so the tail fades
+// across. A notification is the same ping (playChime, above). Nothing in it beats or repeats (no out-of-tune twin, no echo taps), so the tail fades
 // away evenly instead of pulsing. Silent when the notification sound is off.
-export const STRUM_NOTES = [659.25, 587.33, 493.88, 440, 392, 329.63, 293.66, 246.94]; // E5 D5 B4 A4 G4 E4 D4 B3
 const STRUM_RING = 4.5; // seconds the note itself rings; the reverb carries it on past that
 const HALL = 5; // seconds the reverb takes to die away
-let strumBus: AudioNode | null = null;
+type Out = "strum" | "alert";
+const buses: Partial<Record<Out, AudioNode>> = {};
 let clickNoise: AudioBuffer | null = null;
 
 // The reverb's echo of a single click: noise fading away smoothly over HALL seconds, darker as it
@@ -99,10 +86,11 @@ function hall(a: AudioContext): AudioBuffer {
   return buf;
 }
 
-// Where the strum goes: driven into a gentle overdrive (the grit), through a radio's band (no deep
-// lows, no bright highs), then out as it is and into the reverb.
-function strumOut(a: AudioContext): AudioNode {
-  if (strumBus) return strumBus;
+// Where a ping goes: driven into a gentle overdrive (the grit), through a radio's band (no deep
+// lows, no bright highs), then out as it is and into the reverb. A notification's comes out louder.
+function strumOut(a: AudioContext, out: Out): AudioNode {
+  const made = buses[out];
+  if (made) return made;
   const drive = a.createGain(), grit = a.createWaveShaper(), level = a.createGain(), lows = a.createBiquadFilter(), highs = a.createBiquadFilter();
   const dry = a.createGain(), room = a.createConvolver(), wet = a.createGain();
   drive.gain.value = 10;
@@ -110,7 +98,7 @@ function strumOut(a: AudioContext): AudioNode {
   for (let n = 0; n < curve.length; n++) { const x = (n / (curve.length - 1)) * 2 - 1; curve[n] = Math.tanh(k * x) / Math.tanh(k); }
   grit.curve = curve;
   grit.oversample = "2x";
-  level.gain.value = 0.06;
+  level.gain.value = out === "alert" ? 0.16 : 0.06;
   lows.type = "highpass";
   lows.frequency.value = 180;
   highs.type = "lowpass";
@@ -121,7 +109,7 @@ function strumOut(a: AudioContext): AudioNode {
   drive.connect(grit).connect(level).connect(lows).connect(highs);
   highs.connect(dry).connect(a.destination);
   highs.connect(room).connect(wet).connect(a.destination);
-  strumBus = drive;
+  buses[out] = drive;
   return drive;
 }
 
@@ -132,11 +120,16 @@ export function strum(i: number, strength = 0.5) {
   if (!a) return;
   if (a.state === "suspended") void a.resume().catch(() => {});
   const f = STRUM_NOTES[Math.min(Math.max(i, 0), STRUM_NOTES.length - 1)];
-  const hard = Math.min(Math.max(strength, 0), 1), peak = 0.035 + 0.03 * hard, t = a.currentTime + 0.01, end = t + STRUM_RING;
   // Where it sits: the nearest line in the middle, each further one out a little wider, by turns left and right.
+  ping(a, f, Math.min(Math.max(strength, 0), 1), (i % 2 ? -1 : 1) * Math.min(0.7, 0.12 * i), a.currentTime + 0.01, "strum");
+}
+
+// One ping of note `f` at time `t`: `hard` from 0 to 1, `side` from -1 (left) to 1 (right).
+function ping(a: AudioContext, f: number, hard: number, side: number, t: number, out: Out) {
+  const peak = 0.035 + 0.03 * hard, end = t + STRUM_RING;
   const pan = a.createStereoPanner();
-  pan.pan.value = (i % 2 ? -1 : 1) * Math.min(0.7, 0.12 * i);
-  pan.connect(strumOut(a));
+  pan.pan.value = side;
+  pan.connect(strumOut(a, out));
   const osc = a.createOscillator(), gain = a.createGain();
   osc.type = "sine";
   osc.frequency.value = f;
