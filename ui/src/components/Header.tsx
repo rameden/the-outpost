@@ -250,6 +250,9 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   const name = renamed || outpostName();
   useEffect(() => { if (renamed) setOutpostName(renamed); }, [renamed]);
   const outpost = `Outpost ${name}`;
+  // The star chart that started this outpost (npm start), when this page is on the same machine as
+  // it: the chart answers only there, so from anywhere else the link would lead nowhere.
+  const chart = S?.settings?.chart && ["127.0.0.1", "localhost"].includes(location.hostname) ? S.settings.chart : null;
   useEffect(() => { document.title = asks.length ? `(${asks.length}) ${outpost}` : outpost; }, [asks.length, outpost]);
 
   return (
@@ -260,6 +263,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <h1>{onHome
           ? <button type="button" className="brand-home" title="Today: your brief, and where things stand" onClick={onHome}><MaeLogo name={name} /></button>
           : <MaeLogo name={name} />}</h1>
+        {chart && <a className="tour-link chart-link" href={chart} title="Back to the star chart, to pick another outpost. This one keeps running.">Outposts</a>}
         {/* The tour (docs/index.html, served at /splash), in its own tab so nothing here is interrupted. */}
         <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Outpost (opens in a new tab)">Tour</a>
       </div>

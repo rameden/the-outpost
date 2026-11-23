@@ -1785,6 +1785,8 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .outpost-title { font-size: 15px; }
   .outpost-sub { font-size: 10px; }
   .tour-link, .wide-only { display: none; }
+  /* The way back to the star chart stays: on a narrow window it is still the only way to the other outposts. */
+  .tour-link.chart-link { display: inline; }
   .top-right { flex: 1; gap: 6px; }
   .top-chips { flex: 1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
   .top-chips > .chip-status { order: -1; }

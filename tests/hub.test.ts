@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { hubHostOk, hubPage, outpostFacts, signInLinkIn } from "../src/hub.ts";
+import { chartAddress, hubHostOk, hubPage, outpostFacts, signInLinkIn } from "../src/hub.ts";
 import { startHub } from "../scripts/launch.ts";
 
 test("the chart answers only to its own address on this machine", () => {
@@ -14,6 +14,15 @@ test("the chart answers only to its own address on this machine", () => {
   assert.equal(hubHostOk("127.0.0.1:4747", 4700), false);
   assert.equal(hubHostOk("evil.example:4700", 4700), false);
   assert.equal(hubHostOk(undefined, 4700), false);
+});
+
+test("an outpost takes the chart's address only in the chart's own shape", () => {
+  assert.equal(chartAddress("http://127.0.0.1:4700/"), "http://127.0.0.1:4700/");
+  assert.equal(chartAddress("http://evil.example:4700/"), null);
+  assert.equal(chartAddress("http://127.0.0.1:4700/#k=1"), null);
+  assert.equal(chartAddress("javascript:alert(1)"), null);
+  assert.equal(chartAddress("http://127.0.0.1:80/"), null);
+  assert.equal(chartAddress(undefined), null);
 });
 
 test("an outpost's sign-in link is read out of the line it prints", () => {

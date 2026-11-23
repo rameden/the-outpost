@@ -89,6 +89,7 @@ import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile,
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
 import { OUTPOST, renameOutpost } from "./outpost.js";
+import { chartAddress } from "./hub.js";
 
 // CAMP_PORT wins; else the port this outpost was given (camp/outpost.json); else 4747.
 const PORT = Number(process.env.CAMP_PORT ?? OUTPOST.port);
@@ -605,6 +606,7 @@ async function fullState(full: boolean, historySeen?: string) {
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
       outpost: OUTPOST.name, // this outpost's name ("Outpost Mae"); Settings, General renames it
+      chart: chartAddress(process.env.CAMP_CHART), // the star chart that started this outpost, if one did: the header links back to it
       // Where it can be reached from: only here, or (LAN mode) your other machines, at these addresses.
       lan: ACCESS.lan ? ACCESS.names.map((n) => addressOf(n, PORT)) : null,
     },
