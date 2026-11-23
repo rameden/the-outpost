@@ -22,7 +22,8 @@
     "eval": "tsx --import ./scripts/env.mjs evals/run.ts",
     "extension:build": "tsx scripts/extension-build.ts",
     "extension:pack": "tsx scripts/extension-build.ts --zip",
-    "tour:films": "tsx scripts/tour-films.ts"
+    "tour:films": "tsx scripts/tour-films.ts",
+    "site": "bash scripts/site.sh"
   },
   "keywords": [],
   "author": "Ryley Ameden",
