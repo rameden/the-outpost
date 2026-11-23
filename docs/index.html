@@ -2730,7 +2730,7 @@ const GLYPH = {
   scout: '<path d="M7 3.5 C16.5 6.5 16.5 17.5 7 20.5"/><path d="M7 3.5 V20.5"/><path d="M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15"/>',
   art: '<g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5"/><path d="M12 10 V21.5"/></g>',
   scribe: '<path d="M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z"/><path d="M3.8 20.2 L13 11"/>',
-  wiz: '<path d="M4 20.5 L14.2 10.3"/><path d="M17 2.8 L18.1 5.6 L21 5.9 L18.8 7.8 L19.5 10.7 L17 9.2 L14.5 10.7 L15.2 7.8 L13 5.9 L15.9 5.6 Z"/><path d="M5.5 4 V8 M3.5 6 H7.5"/>',
+  wiz: '<path d="M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z"/><path d="M10.5 13.5 L20.5 3.5"/>',
   warden: '<path d="M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z"/><path d="M8.8 11.9 L11.2 14.3 L15.4 9.9"/>',
 };
 
@@ -3013,7 +3013,7 @@ const VIG = [];
   } });
 })();
 
-// Test Pilot: a knot of crossed contour lines, taken apart by the wand into clean rings.
+// Test Pilot: a knot of crossed contour lines, taken apart into clean rings as its plane flies round.
 (() => {
   const g = el('g', { class: 'c-wiz' }, gWorld), CX = 52, CY = 0, N = 84;
   const loops = [0, 1, 2, 3, 4].map(k => {
@@ -3024,26 +3024,27 @@ const VIG = [];
   });
   const tailEl = el('path', { class: 'tone-s', 'stroke-width': .55, opacity: .6, d: 'M0 0' }, g);
   const SPK = [0, 1, 2, 3, 4, 5].map(k => { const n = el('path', { class: 'tone-f', d: 'M0 -2.2 L.5 -.5 L2.2 0 L.5 .5 L0 2.2 L-.5 .5 L-2.2 0 L-.5 -.5 Z' }, g); return { n, u: .1 + k * .15 }; });
-  const wand = el('g', { class: 'glyph toned' }, g); wand.innerHTML = GLYPH.wiz;
-  wand.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.2'; });
+  const plane = el('g', { class: 'glyph toned' }, g); plane.innerHTML = GLYPH.wiz;
+  plane.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.2'; });
   const before = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); before.textContent = 'two searches racing';
   const after = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); after.textContent = 'in order, every time';
   const stamp = el('g', {}, g);
   el('rect', { class: 'tone-f', x: -23, y: -4.2, width: 46, height: 8.4, rx: 4.2 }, stamp);
   const st = el('text', { class: 'm f-ink', 'font-size': 3.4, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'untangled · 2 files';
-  const wandAt = u => { const a = lerp(-400, -40, u) * DEG, r = 32; return [CX + r * Math.cos(a), CY + r * Math.sin(a) * .9]; };
+  const planeAt = u => { const a = lerp(-400, -40, u) * DEG, r = 32; return [CX + r * Math.cos(a), CY + r * Math.sin(a) * .9]; };
   VIG.push({ i: WZ, a: 39.5, b: 44.4, g, update(t) {
     loops.forEach((l, k) => {
       drawTo(l.path, ease.out(prog(t, 39.7 + k * .12, 40.6 + k * .12)));
       const u = ease.inOut(prog(t, l.s, l.s + .9));
       l.path.setAttribute('d', u <= 0 ? dOf(l.from, true, f2) : dOf(l.from.map((p, j) => [lerp(p[0], l.to[j][0], u), lerp(p[1], l.to[j][1], u)]), true, f2));
     });
-    const wu = ease.inOut(prog(t, 40.9, 43.2)), [wx, wy] = wandAt(wu);
-    wand.setAttribute('transform', `translate(${f2(wx)} ${f2(wy)}) scale(.62) translate(-17 -6.4)`);
-    O(wand, win(t, 40.7, 43.6, .3, .4));
-    const pts = []; for (let k = 0; k < 12; k++) { const v = wu - k * .012; if (v < 0) break; pts.push(wandAt(v)); }
+    const wu = ease.inOut(prog(t, 40.9, 43.2)), [wx, wy] = planeAt(wu);
+    const [hx, hy] = planeAt(wu + .004), head = Math.atan2(hy - wy, hx - wx) / DEG + 45;   // nose along the way it flies
+    plane.setAttribute('transform', `translate(${f2(wx)} ${f2(wy)}) rotate(${f1(head)}) scale(.62) translate(-12 -12)`);
+    O(plane, win(t, 40.7, 43.6, .3, .4));
+    const pts = []; for (let k = 0; k < 12; k++) { const v = wu - k * .012; if (v < 0) break; pts.push(planeAt(v)); }
     tailEl.setAttribute('d', pts.length > 1 ? dOf(pts, false, f2) : 'M0 0'); O(tailEl, wu > 0 && wu < 1 ? .6 : 0);
-    SPK.forEach(p => { const v = (wu - p.u) / .16; if (v > 0 && v < 1) { const [x, y] = wandAt(p.u); p.n.setAttribute('transform', `translate(${f2(x)} ${f2(y)}) scale(${f2(Math.sin(Math.PI * v) * 1.2)})`); O(p.n, 1 - v * .5); } else O(p.n, 0); });
+    SPK.forEach(p => { const v = (wu - p.u) / .16; if (v > 0 && v < 1) { const [x, y] = planeAt(p.u); p.n.setAttribute('transform', `translate(${f2(x)} ${f2(y)}) scale(${f2(Math.sin(Math.PI * v) * 1.2)})`); O(p.n, 1 - v * .5); } else O(p.n, 0); });
     O(before, win(t, 40.1, 42.0, .4, .4)); O(after, prog(t, 42.9, 43.3));
     const sv = prog(t, 43.2, 43.5); O(stamp, sv); stamp.setAttribute('transform', `translate(${CX} ${CY + 34}) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
   } });
