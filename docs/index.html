@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- Mae's promotional page. Standalone: open it in a browser, or serve docs/ with GitHub Pages. -->
+<!-- Outpost's promotional page. Standalone: open it in a browser, or serve docs/ with GitHub Pages. -->
 <title>Outpost Mae</title>
-<meta name="description" content="Outpost Mae: a small, hackable multi-agent harness on Claude. A Quartermaster plans, you approve, and a crew of specialists does the work.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314233F'/%3E%3Cg transform='translate(9 9) scale(0.23)'%3E%3Cpath fill='%23F3EDE0' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg fill='none' stroke='%23F3EDE0' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle cx='100' cy='100' r='20' fill='%23D9982B'/%3E%3C/g%3E%3C/svg%3E">
+<!-- The outpost's name: the camp server fills in its own as it serves the Tour (src/outpost.ts). -->
+<meta name="outpost" content="Mae">
+<meta name="description" content="Outpost: a small, hackable multi-agent harness on Claude. A Quartermaster plans, you approve, and a crew of specialists does the work.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314233F'/%3E%3Cg transform='translate(9 9) scale(0.23)'%3E%3Cpath fill='%23F3EDE0' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg fill='none' stroke='%23F3EDE0' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle cx='100' cy='100' r='20' fill='%23D9982B'/%3E%3Ccircle cx='160.81' cy='39.19' r='13' fill='%23D9982B'/%3E%3C/g%3E%3C/svg%3E">
 <script>
 // The tour wears the look you picked in mission control. The camp serves this page at its own
 // address, so the two choices kept there are readable here: "camp-theme" (light, dark, or
@@ -31,8 +33,8 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; }
 img { max-width: 100%; }
-/* Layout: a field guide for a camp. The logo and a live expedition up top, then the name (Mae is
-   My Alter Ego, with the orb at size), the crew roster, the route an expedition takes, the kit,
+/* Layout: a field guide for a camp. The logo and a live expedition up top, then the name (the tagline,
+   with the orb at size), the crew roster, the route an expedition takes, the kit,
    the outpost rules, and how to set it up. */
 :root {
   --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
@@ -196,7 +198,11 @@ a.brand { text-decoration: none; }
 :root { --logo-ink: #14233F; --logo-dot: #B97A12; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --logo-ink: #F3EDE0; --logo-dot: #D9982B; } }
 :root[data-theme="dark"] { --logo-ink: #F3EDE0; --logo-dot: #D9982B; }
-.mae-word { display: block; height: 21px; width: auto; flex: none; } /* the name, drawn: beside the mark, as tall as the kit's lockup has it */
+/* The words beside the mark, as mission control's header has them: "Outpost" over this outpost's name. */
+.outpost-words { display: flex; flex-direction: column; min-width: 0; text-align: left; }
+.outpost-title { font-family: var(--body); font-weight: 700; font-size: 20px; line-height: 1.05; letter-spacing: -.01em; color: var(--logo-ink); }
+.outpost-sub { font-family: var(--body); font-weight: 600; font-size: 12px; line-height: 1.2; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-in { display: contents; }
 .mae-mark { display: block; height: 34px; width: 34px; flex: none; } /* the kit's small mark */
 .logo-dot { fill: var(--logo-dot); }
 .mae-orb { --orb: 28px; --orb-speed: 1; --orb-navy: #1c2541; --orb-ochre: #e9b44c; --orb-line: #1c2541; --orb-glint: #141a2b;
@@ -272,7 +278,9 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .feed-name { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--logo-ink); } /* as mission control's header has it: the logo, small */
 .feed-name small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .feed-name .mae-mark { height: 20px; width: 20px; }
-.feed-name .mae-word { height: 12px; margin-right: 2px; }
+.feed-name .outpost-title { font-size: 14px; }
+.feed-name .outpost-sub { font-size: 9px; }
+.feed-name .outpost-words { margin-right: 4px; flex: none; }
 .feed-top .replay { font: 600 12px var(--body); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
 .feed-body { padding: 16px; display: grid; gap: 12px; font-size: 14px; }
 .msg { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; transition: opacity .35s ease, transform .35s ease; }
@@ -304,7 +312,7 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .doc { margin-top: 8px; display: inline-flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--bg); color: var(--text); }
 .doc::before { content: ""; width: 10px; height: 12px; border: 1.5px solid var(--muted); border-radius: 2px; }
 
-/* The name: the orb at size, and what each word of "My Alter Ego" means here. */
+/* The name: the orb at size, and what each part of the tagline means here. */
 .alter { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: center; }
 .alter .mae-orb { --orb: 148px; margin: 46px 52px; } /* the margin is room for its rings */
 .alter .sec-head { margin: 0; }
@@ -315,7 +323,6 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .words { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 40px; }
 .word { border-top: 2px solid var(--border-strong); padding-top: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
 .word h3 { font-size: 26px; }
-.word h3::first-letter { color: var(--accent); }
 .word p { color: var(--muted); font-size: 15px; }
 
 /* Crew */
@@ -392,7 +399,8 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 footer { padding-block: 72px 48px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--faint); font-size: 14px; align-items: center; }
 footer .brand { gap: 8px; }
 footer .mae-mark { height: 26px; width: 26px; }
-footer .mae-word { height: 16px; }
+footer .outpost-title { font-size: 16px; }
+footer .outpost-sub { font-size: 10px; }
 
 /* The sky, the stars and the system: the page's moving parts. Each layer with data-speed is moved
    by the script (--py) so it lags behind the page; with reduced motion nothing moves. */
@@ -637,8 +645,7 @@ footer .mae-word { height: 16px; }
 
 <!-- The logo kit's artwork (docs/brand): the wordmark's letters, and the small mark. Drawn where they're used, in the kit's ink for the theme. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="mae-word" viewBox="247 44 295.5 114"><path fill="currentColor" d="M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z"/></symbol>
-  <symbol id="mae-mark" viewBox="0 0 200 200"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z"/><g fill="none" stroke="currentColor" stroke-width="8"><path d="M100 48 A52 52 0 0 1 100 152"/><path d="M100 14 A86 86 0 0 1 100 186"/></g><circle class="logo-dot" cx="100" cy="100" r="20"/></symbol>
+  <symbol id="mae-mark" viewBox="0 0 200 200"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z"/><g fill="none" stroke="currentColor" stroke-width="8"><path d="M100 48 A52 52 0 0 1 100 152"/><path d="M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186"/></g><circle class="logo-dot" cx="100" cy="100" r="20"/><circle class="logo-dot" cx="160.81" cy="39.19" r="13"/></symbol>
 </svg>
 
 <!-- The sky: the page opens on the camp's own picture of the work, a sun with the crew round it, in
@@ -656,7 +663,7 @@ footer .mae-word { height: 16px; }
 </div>
 <div class="wrap hero-wrap">
   <header class="top">
-    <a class="brand" href="/" title="Back to mission control"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><svg class="mae-word" viewBox="0 0 295.5 114" role="img" aria-label="Outpost Mae"><use href="#mae-word"/></svg></a>
+    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
     <div class="top-end">
       <nav aria-label="Sections">
         <a href="#crew">The crew</a>
@@ -683,9 +690,9 @@ footer .mae-word { height: 16px; }
 
   <div class="hero">
     <div class="hero-copy" data-speed="0.12" data-fade>
-      <div class="eyebrow">Outpost Mae</div>
-      <h1>Your alter ego <em>has a crew.</em></h1>
-      <p class="lede">Outpost Mae is where a small crew of agents takes on your work the way you'd want it done. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
+      <div class="eyebrow">Outpost</div>
+      <h1>Your outpost. Your crew. <em>Your call.</em></h1>
+      <p class="lede">Outpost is where a small crew of agents takes on your work the way you'd want it done, in outposts of your own: one for work, one for home, each with the name you give it. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
       <div class="cta">
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the crew</a>
@@ -694,7 +701,7 @@ footer .mae-word { height: 16px; }
     </div>
 
     <div class="feed" id="feed" aria-label="An example expedition">
-      <div class="feed-top"><span class="feed-name"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><svg class="mae-word" viewBox="0 0 295.5 114" role="img" aria-label="Outpost Mae"><use href="#mae-word"/></svg><small>mission control · example expedition</small></span><button class="replay" id="replay" type="button">Replay</button></div>
+      <div class="feed-top"><span class="feed-name"><span class="brand-in" role="img" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></span><small>mission control · example expedition</small></span><button class="replay" id="replay" type="button">Replay</button></div>
       <div class="feed-body">
         <div class="msg"><div class="av">🙂</div><div><div class="who you">You</div><div class="bubble you">Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.</div></div></div>
         <div class="msg"><div class="av">🧭</div><div><div class="who qm">Quartermaster</div><div class="bubble">Here's the plan. Two quests, the second waits on the first.</div>
@@ -724,11 +731,11 @@ footer .mae-word { height: 16px; }
 <section id="name">
   <div class="wrap">
     <div class="alter">
-      <span class="mae-orb" id="orb-demo" data-state="idle" role="img" aria-label="The Mae orb"><span class="orb-glow"></span><span class="orb-ripple"></span><span class="orb-ripple late"></span><span class="orb-ripple busy"></span><span class="orb-dial"><i></i><i></i><i></i></span><span class="orb-dial inner"></span><span class="orb-core"><i></i></span><span class="orb-light"></span></span>
+      <span class="mae-orb" id="orb-demo" data-state="idle" role="img" aria-label="The Outpost orb"><span class="orb-glow"></span><span class="orb-ripple"></span><span class="orb-ripple late"></span><span class="orb-ripple busy"></span><span class="orb-dial"><i></i><i></i><i></i></span><span class="orb-dial inner"></span><span class="orb-core"><i></i></span><span class="orb-light"></span></span>
       <div class="sec-head">
         <div class="eyebrow">The name</div>
-        <h2>Outpost Mae. Mae is short for My Alter Ego.</h2>
-        <p class="lede">The outpost is the place: you go there, and the crew stationed there does the work. It's the crew you'd be if there were more of you. They plan before they act, show you the plan, and nothing leaves the camp without your click. The orb is Mae's own light. It meets you at the door when you sign in to mission control, and it has two moods: at rest and at work.</p>
+        <h2>Outpost is the app. Each outpost takes the name you give it.</h2>
+        <p class="lede">The app is Outpost, and each camp it runs is an outpost: a place you go, where the crew stationed there does the work. It's the crew you'd be if there were more of you. They plan before they act, show you the plan, and nothing leaves the outpost without your click. The orb is the outpost's own light. It meets you at the door when you sign in to mission control, and it has two moods: at rest and at work.</p>
         <div class="orb-switch" role="group" aria-label="The orb">
           <span>See the orb</span>
           <button type="button" data-orb="idle" aria-pressed="true">At rest</button>
@@ -737,9 +744,9 @@ footer .mae-word { height: 16px; }
       </div>
     </div>
     <div class="words">
-      <div class="word"><h3>My</h3><p>It runs on your machine, on your Claude subscription or your own API key. The camp is a folder of files you can open and read, and one note about you is shared by the whole crew.</p></div>
-      <div class="word"><h3>Alter</h3><p>Not one assistant but six other pairs of hands: a planner, a researcher, a writer, a coder, a reviewer and a Test Pilot for the most challenging missions, with up to four out at once.</p></div>
-      <div class="word"><h3>Ego</h3><p>Each one has a fixed identity. It grows its memory, but it can't rewrite who it is, and it can't talk its way past the outpost rules.</p></div>
+      <div class="word"><h3>Your outpost</h3><p>It runs on your machine, on your Claude subscription or your own API key. An outpost is a folder of files you can open and read, and one note about you is shared by the whole crew.</p></div>
+      <div class="word"><h3>Your crew</h3><p>Not one assistant but six other pairs of hands: a planner, a researcher, a writer, a coder, a reviewer and a Test Pilot for the most challenging missions, with up to four out at once.</p></div>
+      <div class="word"><h3>Your call</h3><p>You approve the plan before anyone sets out, and again before anything is sent, merged or deleted. Each crew member grows its memory, but it can't rewrite who it is or talk its way past the outpost rules.</p></div>
     </div>
   </div>
 </section>
@@ -874,7 +881,7 @@ footer .mae-word { height: 16px; }
     <div class="sec-head">
       <div class="eyebrow">On film</div>
       <h2>Watch the work go round the crew.</h2>
-      <p class="lede">Three short films, drawn live in this page. The first shows all of Mae in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.</p>
+      <p class="lede">Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Films">
       <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">Ground to sky <span>1:15</span></button>
@@ -883,7 +890,7 @@ footer .mae-word { height: 16px; }
     </div>
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">Mae in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
+      <p class="film-note">Outpost in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -952,7 +959,7 @@ footer .mae-word { height: 16px; }
     </div>
     <div class="film" id="film-night" role="tabpanel" aria-labelledby="film-tab-night" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">The night shift: off until you switch it on, then it drafts and reports while the camp is idle. Nothing is applied, deleted or changed until you approve it. It loops. Click the stage to pause.</p>
+      <p class="film-note">The night shift: off until you switch it on, then it drafts and reports while the outpost is idle. Nothing is applied, deleted or changed until you approve it. It loops. Click the stage to pause.</p>
     </div>
   </div>
 </section>
@@ -969,6 +976,7 @@ footer .mae-word { height: 16px; }
       <button type="button" role="tab" id="kit-tab-memory" aria-controls="kit-memory" aria-selected="false">Memory and models</button>
       <button type="button" role="tab" id="kit-tab-tickets" aria-controls="kit-tickets" aria-selected="false">Tickets</button>
       <button type="button" role="tab" id="kit-tab-away" aria-controls="kit-away" aria-selected="false">While you're away</button>
+      <button type="button" role="tab" id="kit-tab-outposts" aria-controls="kit-outposts" aria-selected="false">Outposts</button>
     </div>
     <div class="kit" id="kit-control" role="tabpanel" aria-labelledby="kit-tab-control">
       <div class="item full">
@@ -980,7 +988,7 @@ footer .mae-word { height: 16px; }
       <div class="item solo">
         <span class="tag">Voice</span>
         <h3>Read aloud</h3>
-        <p>Connect an ElevenLabs key under Settings → Voice and Mae reads to you in the voice you choose: an answer, a job's report, an inbox item, a ticket's debrief, or text you select. One player in the top bar pauses, skips and changes speed, and stays as you move around. Each piece is kept, so hearing it again costs nothing.</p>
+        <p>Connect an ElevenLabs key under Settings → Voice and Outpost reads to you in the voice you choose: an answer, a job's report, an inbox item, a ticket's debrief, or text you select. One player in the top bar pauses, skips and changes speed, and stays as you move around. Each piece is kept, so hearing it again costs nothing.</p>
       </div>
       <div class="item wide">
         <div class="phone">
@@ -990,7 +998,7 @@ footer .mae-word { height: 16px; }
             <p>Hook up <a href="https://ntfy.sh">ntfy</a> and each plan, job report and long expedition pings your phone, with Approve and Decline buttons for the kinds you choose. Shell commands only notify unless you opt in.</p>
           </div>
           <div class="notif" aria-hidden="true">
-            <small>MAE · now</small>
+            <small>OUTPOST · now</small>
             <div><b>Plan ready:</b> 2 quests for "memory survey"</div>
             <div class="btns"><span>Approve</span><span>Decline</span></div>
           </div>
@@ -1030,8 +1038,8 @@ footer .mae-word { height: 16px; }
       <div class="item wide">
         <span class="tag">Tickets &amp; debriefs</span>
         <h3>Tickets of its own, and a look back when one's done</h3>
-        <p>No Jira? Mae keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the Quartermaster make them.</p>
-        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, a Mae ticket or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
+        <p>No Jira? Outpost keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the Quartermaster make them.</p>
+        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
       </div>
     </div>
     <div class="kit" id="kit-away" role="tabpanel" aria-labelledby="kit-tab-away" hidden>
@@ -1051,6 +1059,24 @@ footer .mae-word { height: 16px; }
         <h3>Leave it running</h3>
         <p>The camp's own files are written whole or not at all, so a crash can't leave one half-written. A reply cut off by a dropped connection is asked for again. Stop the camp and its running work stops with it, with a Resume button waiting on each run.</p>
         <ul><li>A run picked up again, even on another model, never repeats a command, pull request or review</li><li>A settings file with a typo is set aside, not silently replaced</li><li>Checks you list run after every change, and a failure goes back to be fixed</li><li>Budgets hold even on a model too new to have a listed price</li></ul>
+      </div>
+    </div>
+    <div class="kit" id="kit-outposts" role="tabpanel" aria-labelledby="kit-tab-outposts" hidden>
+      <div class="item full">
+        <span class="tag">Outposts</span>
+        <h3>One app, as many outposts as you need</h3>
+        <p>Each outpost is a camp of its own: one for work and one for home, say, that know nothing of each other. Mae is this checkout, with the <code>camp/</code> it has always had. The others live in <code>~/Outposts/&lt;name&gt;/</code>, and each runs as its own server on its own port.</p>
+        <ul><li>Each has its own crew, memory, settings, keys, jobs, skills and <code>.env</code></li><li>A new outpost starts empty: connect its models and accounts from its own Settings</li><li>The crew's built-in skills are brought up to date each time an outpost starts, while the skills an outpost learns stay in that outpost</li><li>The header reads Outpost with the outpost's name under it, and so do the tab title, notifications and Jira notes, so you always know which one you're in</li><li>Rename one under Settings → General → Outpost name: it shows at once, while its folder stays where it is</li></ul>
+      </div>
+      <div class="item solo">
+        <span class="tag">The star chart</span>
+        <h3>Every outpost, round one sun</h3>
+        <p><code>npm start</code> opens the star chart: each outpost on this machine is a planet in Orbit's night sky. Pick one to read about it, then Launch, and you land in its mission control, signed in. New outpost makes another on the next free port. From the terminal, <code>npm run outpost</code> lists, makes and starts them too.</p>
+      </div>
+      <div class="item wide">
+        <span class="tag">From anywhere</span>
+        <h3>Every outpost, away from home</h3>
+        <p>Two ways in, both on at once: your own small relay server with Google sign-in at the door, and Tailscale as the backup, with no public address. Name an outpost and it gets a door of its own on the relay, and one sign-in covers them all. Each outpost still keeps its own key behind the door.</p>
       </div>
     </div>
   </div>
@@ -1091,7 +1117,7 @@ footer .mae-word { height: 16px; }
   <div class="wrap pitch">
     <div class="sec-head" style="margin:0">
       <div class="eyebrow">Get started</div>
-      <h2>Set up your outpost in three commands.</h2>
+      <h2>Set up your first outpost in three commands.</h2>
       <p class="lede">Needs Node 22.9 or later and either a Claude subscription or an API key. On a subscription, the crew runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
       <div class="try">Try asking:<q>Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.</q></div>
     </div>
@@ -1102,7 +1128,7 @@ footer .mae-word { height: 16px; }
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
         <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
         <div class="line"><code id="c3">npm start</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
-        <div class="note">It opens the star chart in your browser: pick an outpost and launch it, and you land in mission control, signed in. Or npm run cli for the camp in your terminal, npm run watch for scheduled jobs, and npm run prod for a built camp that starts in about half the time.</div>
+        <div class="note">It opens the star chart in your browser: pick an outpost (Mae, to begin with) and launch it, and you land in mission control, signed in. New outpost on the chart makes another. Or npm run cli for the camp in your terminal, npm run watch for scheduled jobs, and npm run prod for a built camp that starts in about half the time.</div>
       </div>
     </div>
   </div>
@@ -1110,12 +1136,19 @@ footer .mae-word { height: 16px; }
 
 <div class="wrap">
   <footer>
-    <a class="brand" href="/" title="Back to mission control"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><svg class="mae-word" viewBox="0 0 295.5 114" role="img" aria-label="Outpost Mae"><use href="#mae-word"/></svg></a>
-    <span>My Alter Ego. Small, hackable, and built on the Claude API.</span>
+    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
+    <span>Small, hackable, and built on the Claude API.</span>
   </footer>
 </div>
 
 <script>
+(function () {
+  // The outpost's name under "Outpost" in the logo, from the <meta name="outpost"> the camp server
+  // fills in as it serves this page (src/outpost.ts). Opened as a file, it stays Mae.
+  var outpost = (document.querySelector('meta[name="outpost"]') || {}).content || 'Mae';
+  document.querySelectorAll('.outpost-sub').forEach(function (el) { el.textContent = outpost; });
+  document.querySelectorAll('[aria-label="Outpost Mae"]').forEach(function (el) { el.setAttribute('aria-label', 'Outpost ' + outpost); });
+})();
 (function () {
   // Light or dark, and which colours. The button names the one you'd switch to. Both choices are
   // the camp's own ("camp-theme", "camp-palette"), so mission control opens in them too, and a
@@ -1426,15 +1459,15 @@ footer .mae-word { height: 16px; }
 .card { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
 .inset { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
 .hr { stroke: var(--border); stroke-width: 1; }
-.wm path { fill: var(--logo-ink); }
-/* The Mae mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
+.wm-word { font-size: 158px; font-weight: 700; letter-spacing: -.01em; fill: var(--logo-ink); }
+/* The mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
 .mk-solid { fill: var(--logo-ink); }
 .mk-arc { fill: none; stroke: var(--logo-ink); stroke-width: var(--logo-stroke); }
 .mk-arc.small { stroke-width: 8; }
 .mk-arc.on-light { opacity: var(--on-light); } .mk-arc.on-dark { opacity: var(--on-dark); }
 .mk-dot { fill: var(--logo-dot); }
 .mk-ripple { fill: none; stroke: var(--logo-dot); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
-.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
+.name-w { font-size: 52px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 .name-sub { font-size: 19px; fill: var(--muted); }
 .eyebrow { font-size: 13px; letter-spacing: .14em; fill: var(--accent); }
 .tagline { font-size: 44px; }
@@ -1496,7 +1529,7 @@ footer .mae-word { height: 16px; }
 </style></template>
 <template id="film-sky-stage">
   <div class="stage" id="frame">
-    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost Mae in one continuous shot. A gold dot waits. You type an ask, fix the flaky sign-in test, and it walks a dashed trail up a contour map to the fire at its centre: Mae sets up an outpost on your own machine. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the most challenging mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the lines the crew remembers, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the Mae mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your alter ego has a crew."></canvas>
+    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost in one continuous shot. A gold dot waits. You type an ask, fix the flaky sign-in test, and it walks a dashed trail up a contour map to the fire at its centre: your outpost sets up on your own machine. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the most challenging mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the lines the crew remembers, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your alter ego has a crew."></canvas>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
@@ -1541,17 +1574,17 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </style></template>
 <template id="film-whole-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Mae. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the camp sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
-    <input type="range" id="scrub" min="0" max="77" step="0.01" value="0" aria-label="Scrub through the film">
-    <output id="clock" for="scrub">0:00 / 1:17</output>
+    <input type="range" id="scrub" min="0" max="86" step="0.01" value="0" aria-label="Scrub through the film">
+    <output id="clock" for="scrub">0:00 / 1:26</output>
   </div>
 </template>
 <template id="film-ticket-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost Mae, drawn as a solar system. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -1577,7 +1610,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </template>
 <template id="film-audit-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost Mae, drawn as a solar system, working through three findings from a SOC 2 Type I and ISO 27001 readiness review. The Commander is the sun and the crew are planets. The view goes close on each in turn as the first finding, an account with no role that can void invoices, becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the gap, the Engineer changes one line and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. The other two findings then go round the same crew.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system, working through three findings from a SOC 2 Type I and ISO 27001 readiness review. The Commander is the sun and the crew are planets. The view goes close on each in turn as the first finding, an account with no role that can void invoices, becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the gap, the Engineer changes one line and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. The other two findings then go round the same crew.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -1602,6 +1635,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
   </div>
 </template>
 <template id="film-trail-css"><style>
+.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 /* The trail map: waypoints and the lines between them, then the rings and the tree. A step that's out, and a view that's on, has a solid accent border. */
 .t12 { font-size: 12px; }
 .stepn { font-size: 12px; fill: var(--muted); }
@@ -1636,7 +1670,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </style></template>
 <template id="film-trail-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's trail map. One plan is drawn as five numbered waypoints, joined by lines that fill in as the crew works through them. Then every plan of the day is put on one map, each plan a ring round the Commander with the first asked innermost. The same plans are then drawn as a tree, one bough to a plan, and a fourth plan joins it as a new bough.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost's trail map. One plan is drawn as five numbered waypoints, joined by lines that fill in as the crew works through them. Then every plan of the day is put on one map, each plan a ring round the Commander with the first asked innermost. The same plans are then drawn as a tree, one bough to a plan, and a fourth plan joins it as a new bough.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -1656,6 +1690,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
   </div>
 </template>
 <template id="film-stars-css"><style>
+.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 /* The constellation: a place is a disc, a remembered line is a star in its place's colour, and a line joins two that are alike (solid) or used together (dashed). The star you picked has a solid ring. */
 .t12 { font-size: 12px; }
 .t19 { font-size: 19px; }
@@ -1675,7 +1710,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </style></template>
 <template id="film-stars-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's constellation: the crew's memory drawn as a map of stars. Each remembered line is a star, grouped by the crew member whose memory holds it, or the note about you. Stars grow as requests use them. Then you click a star to read it and pin it, merge two lines that say the same thing into a draft that waits for your approval, and forget a line for good after it asks first.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost's constellation: the crew's memory drawn as a map of stars. Each remembered line is a star, grouped by the crew member whose memory holds it, or the note about you. Stars grow as requests use them. Then you click a star to read it and pin it, merge two lines that say the same thing into a draft that waits for your approval, and forget a line for good after it asks first.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -1695,6 +1730,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
   </div>
 </template>
 <template id="film-night-css"><style>
+.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 /* The night shift: a switch in Settings, a window on the camp that goes from day to night and back, the rows the shift writes, and the card on the Today page. */
 .t12 { font-size: 12px; }
 .t19 { font-size: 19px; }
@@ -1728,7 +1764,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </style></template>
 <template id="film-night-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's night shift. You switch it on in Settings and choose its hours. The camp goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost's night shift. You switch it on in Settings and choose its hours. The outpost goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -1839,7 +1875,7 @@ const LEG = 1.5;            // how long a comet takes along one leg of the route
 const S4 = .07;             // the camp's size once the camera is up among the stars
 const MS = 1.3;             // the mark's size on the last card, in stage pixels per logo unit
 // where the gold dot sits, the tilt of the plane it lies in, its glow, and the camera's height (0 camp, 1 orbit, 2 sky, 3 the mark)
-const FOCUS = [[0, 640, 352], [T.lift, 640, 352], [T.orbit, 660, 316], [T.pull, 660, 316], [T.sky, 700, 322], [T.mark + .2, 700, 322], [T.mark + 5.2, 408.6, 300], [T.dive, 408.6, 300], [DUR, 640, 352]];
+const FOCUS = [[0, 640, 352], [T.lift, 640, 352], [T.orbit, 660, 316], [T.pull, 660, 316], [T.sky, 700, 322], [T.mark + .2, 700, 322], [T.mark + 5.2, 325, 300], [T.dive, 325, 300], [DUR, 640, 352]];
 const TILT = [[0, 1], [T.lift, 1], [T.orbit, .44], [T.pull, .47], [T.sky - 1.6, 1], [DUR, 1]];
 const GLOW = [[0, .5], [T.arrive, .5], [16.4, .85], [T.pull, .85], [T.sky, .62], [T.mark + 3.2, .62], [T.mark + 5, 0], [T.dive + .4, 0], [T.dive + 3.2, .5], [DUR, .5]];
 const ALT = [[0, 0], [T.lift, 0], [T.orbit, 1], [T.pull, 1], [T.sky, 2], [T.mark + .2, 2], [T.mark + 4.8, 3], [T.dive + .2, 3], [T.dive + 3.6, 0], [DUR, 0]];
@@ -1964,15 +2000,16 @@ const starAt = (p, e5, zs) => {
   const e = smoother(clamp((e5 - p.delay) / .7)), r = lerp(p.r0, p.r1, e), a = lerp(p.a0, p.a1, e);
   return [V.fx + r * Math.cos(a), V.fy + r * Math.sin(a), e];
 };
-const LETTERS = new Path2D("M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z");
+// the app's name beside the mark, in the kit's coordinates: in the corner its capitals stand as tall as the kit's letters did, and on the last card it is set smaller, so mark and name fit the stage
+function wordmark(size, base) { setFont('b', size, 700); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('Outpost', 247, base); }
 const SMALL_SOLID = new Path2D('M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z');
-const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 100 186');
+const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186');
 
 // ---- words ----
 const ASK = 'Fix the flaky sign-in test';
 const CAPS = [
   { a: .5, b: 4.4, eb: 'THE ASK', l: ['It starts with one ask.'] },
-  { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Outpost Mae sets up', 'on your own machine.'] },
+  { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Your outpost sets up', 'on your own machine.'] },
   { a: 16.2, b: 21.8, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, a crew of four.'] },
   { a: 22.2, b: 25.5, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
   // the missions section runs over two captions, so its eyebrow stays up between them (ebOut, ebIn)
@@ -2467,7 +2504,15 @@ function mark(t) {
     ARCS.forEach((q, n) => {
       const p = outCubic(prog(t, T.mark + 3.6 + n * .22, T.mark + 5.1 + n * .22));
       if (p <= 0) return;
-      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath(); ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p); ctx.stroke();
+      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath();
+      if (n) ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p);
+      else {   // the outer ring leaves a gap, and an outpost sits in it
+        ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * Math.min(p, .2));
+        if (p > .3) { ctx.moveTo(q * Math.cos(-PI * .2), q * Math.sin(-PI * .2)); ctx.arc(0, 0, q, -PI * .2, -PI / 2 + PI * p); }
+      }
+      ctx.stroke();
+      const op = n ? 0 : outBack(prog(p, .25, .5));
+      if (op > 0) { ctx.fillStyle = col('dot'); disc(q * Math.SQRT1_2, -q * Math.SQRT1_2, 9 * op); }
     });
     ctx.restore();
   }
@@ -2477,8 +2522,8 @@ function mark(t) {
   const wp = smoother(prog(t, T.mark + 5.1, T.mark + 6.7));
   if (wp > 0) {
     ctx.save(); ctx.translate(fx - 100 * MS, fy - 100 * MS); ctx.scale(MS, MS);
-    ctx.beginPath(); ctx.rect(236, 30, 318 * wp, 140); ctx.clip();
-    ctx.globalAlpha = card * smooth(prog(wp, 0, .3)); ctx.fillStyle = col('ink'); ctx.translate(-16 * (1 - wp), 0); ctx.fill(LETTERS); ctx.restore();
+    ctx.beginPath(); ctx.rect(236, 20, 460 * wp, 170); ctx.clip();
+    ctx.globalAlpha = card * smooth(prog(wp, 0, .3)); ctx.fillStyle = col('ink'); ctx.translate(-16 * (1 - wp), 0); wordmark(120, 142); ctx.restore();
   }
   // what the two halves are
   const la = win(t, T.mark + 4.9, T.dive + .4, .6, .5), lp = outCubic(prog(t, T.mark + 4.9, T.mark + 5.8));
@@ -2493,12 +2538,12 @@ function mark(t) {
       label(s, pts[2][0] + (align === 'right' ? -7 : 7), pts[2][1] + 4, { align, sp: 1.7, fill: col('muted') });
     };
     lead([[fx - 95, fy - 34.5], [fx - 150, fy - 72], [fx - 176, fy - 72]], 'GROUND', 'right');
-    lead([[fx + 90.6, fy - 70.8], [fx + 124, fy - 104], [fx + 150, fy - 104]], 'SKY', 'left');
+    lead([[fx + 109.4, fy - 35.5], [fx + 150, fy - 72], [fx + 176, fy - 72]], 'SKY', 'left');   // from further round the ring than the outpost, so it isn't the outpost it names
   }
   // the line, and the roll call
   const ta = smooth(prog(t, T.mark + 6.3, T.mark + 7.2)) * card;
   if (ta > 0) {
-    const y = 488 + (1 - outCubic(prog(t, T.mark + 6.3, T.mark + 7.3))) * 12, s1 = 'Your alter ego ', s2 = 'has a crew.';
+    const y = 488 + (1 - outCubic(prog(t, T.mark + 6.3, T.mark + 7.3))) * 12, s1 = 'Your outpost. Your crew. ', s2 = 'Your call.';
     setFont('d', 40); const w1 = ctx.measureText(s1).width, w2 = ctx.measureText(s2).width, x = 640 - (w1 + w2) / 2;
     ctx.globalAlpha = ta; label(s1, x, y, { fill: col('text') }); label(s2, x + w1, y, { fill: col('accent') });
   }
@@ -2588,7 +2633,7 @@ function hud(t) {
   if (ca > 0) {
     ctx.save(); ctx.translate(56, 36); ctx.scale(.19, .19); ctx.globalAlpha = ca;
     ctx.fillStyle = col('ink'); ctx.fill(SMALL_SOLID); ctx.strokeStyle = col('ink'); ctx.lineWidth = 8; ctx.stroke(SMALL_ARCS);
-    ctx.fillStyle = col('dot'); disc(100, 100, 20); ctx.fillStyle = col('ink'); ctx.fill(LETTERS); ctx.restore();
+    ctx.fillStyle = col('dot'); disc(100, 100, 20); disc(160.81, 39.19, 13); ctx.fillStyle = col('ink'); wordmark(158, 156); ctx.restore();
   }
   setFont('m', 12, 500); ctx.globalAlpha = 1; label('GROUND TO SKY', 1226, 61, { align: 'right', sp: 1.7, fill: col('faint'), halo: 4 });
   // the altimeter: how high the camera has climbed, on a scale that runs from metres to light years
@@ -2597,7 +2642,7 @@ function hud(t) {
   for (let q = 0; q <= 12; q++) { const y = lerp(y0, y1, q / 12); ctx.moveTo(x - (q % 4 ? 3 : 8), y); ctx.lineTo(x, y); }
   ctx.stroke();
   setFont('m', 10, 500);
-  ['OUTPOST', 'ORBIT', 'SKY', 'MAE'].forEach((s, q) => label(s, x - 14, lerp(y0, y1, q / 3) + 3.6, { align: 'right', sp: 1.4, fill: mix('faint', 'text', clamp(1 - Math.abs(a - q) * 2.2)), halo: 4 }));
+  ['OUTPOST', 'ORBIT', 'SKY', 'MARK'].forEach((s, q) => label(s, x - 14, lerp(y0, y1, q / 3) + 3.6, { align: 'right', sp: 1.4, fill: mix('faint', 'text', clamp(1 - Math.abs(a - q) * 2.2)), halo: 4 }));
   glow(x, ya, 14, 'accent', .5); ctx.fillStyle = col('bg'); disc(x, ya, 5.2); ctx.fillStyle = col('dot'); disc(x, ya, 3.6);
   setFont('m', 11, 500); label('ALT ' + altText(a), x, y0 + 28, { align: 'right', sp: .5, fill: col('muted'), halo: 4 });
 }
@@ -2667,12 +2712,11 @@ const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
 const rng = (seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; })(7);
 
-const DUR = 77;
+const PRE = 9, MAIN = 77, DUR = PRE + MAIN;   // the star chart, then the film proper (its times are its own, from 0)
 const SUN = { x: 640, y: 360 };
 const K = 1.1;                                   // lockup scale
-const LOCK = { x: 640 - 271 * K, y: 360 - 100 * K };
+const LOCK = { x: 640 - 342.5 * K, y: 360 - 100 * K };
 const DOT0 = { x: LOCK.x + 100 * K, y: 360 };     // where the dot sits in the lockup
-const LETTERS = 'M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z';
 const GLYPH = {
   scout: '<path d="M7 3.5 C16.5 6.5 16.5 17.5 7 20.5"/><path d="M7 3.5 V20.5"/><path d="M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15"/>',
   art: '<g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5"/><path d="M12 10 V21.5"/></g>',
@@ -3001,9 +3045,12 @@ const gLock = el('g', { transform: `translate(${f2(LOCK.x)} ${f2(LOCK.y)}) scale
 const gMark = el('g', {}, gLock);
 el('path', { class: 'logo-f', d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z' }, gMark);
 el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, gMark);
-el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, gMark);
-const letters = drawable(el('path', { class: 'logo-s', 'stroke-width': 1.3, d: LETTERS }, gLock));
-const lettersFill = el('path', { class: 'logo-f', d: LETTERS }, gLock);
+el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, gMark);
+el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, gMark);   // an outpost, in a gap in the outer ring
+// the app's name beside the mark, set a little smaller than the kit's letters were so mark and name fit the stage: an outline first, then filled
+const word = cls => { const n = el('text', { class: 'b ' + cls, x: 247, y: 142, 'font-size': 120, 'font-weight': 700 }, gLock); n.textContent = 'Outpost'; return n; };
+const letters = word('logo-s'); letters.setAttribute('stroke-width', 1.3);
+const lettersFill = word('logo-f');
 const tagline = el('text', { class: 'b f-muted', 'font-size': 19, x: 640, y: 528, 'text-anchor': 'middle' }, gWorld);
 tagline.textContent = 'One sun. A crew. A sky that remembers.';
 
@@ -3057,7 +3104,7 @@ T(phone, 'b f-muted', 13, 108, 124, 'Friday 20 November', { 'text-anchor': 'midd
 const banner = el('g', {}, phone);
 el('rect', { class: 'card', x: 18, y: 146, width: 180, height: 152, rx: 16 }, banner);
 el('circle', { class: 'dot-f', cx: 36, cy: 167, r: 6 }, banner);
-T(banner, 'm f-muted', 10, 48, 170.5, 'MAE · now', { 'letter-spacing': '1' });
+T(banner, 'm f-muted', 10, 48, 170.5, 'OUTPOST · now', { 'letter-spacing': '1' });
 T(banner, 'b f-text', 13.5, 32, 196, 'Ready for your review', { 'font-weight': 600 });
 T(banner, 'b f-muted', 12, 32, 215, 'The new search page');
 T(banner, 'b f-muted', 12, 32, 232, '5 of 5 steps, all checked');
@@ -3076,6 +3123,72 @@ T(night, 'd f-text', 21, 24, 62, 'Two drafts, ready by morning.');
 T(night, 'b f-muted', 14, 24, 90, 'Nothing applied, nothing deleted.');
 T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
 
+// ---- the star chart: the opening, before the film proper ----
+// Three outposts side by side, each with what is its own, and a line between them. One is picked and its mark becomes the lockup.
+const gIntro = el('g', {}, gHud);
+const MARK_D = 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z';
+const smallMark = parent => {
+  const g = el('g', {}, parent);
+  el('path', { class: 'logo-f', d: MARK_D }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, g);
+  el('circle', { class: 'dot-f', cx: 100, cy: 100, r: 20 }, g);
+  el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, g);
+  return g;
+};
+const TILE = { w: 250, h: 300, y: 168, xs: [215, 515, 815] };
+const OWN = ['Its own crew', 'Its own memory', 'Its own keys and settings'];
+const tiles = [['Work', 'c-scout'], ['Home', 'c-scribe'], ['Side project', 'c-art']].map(([name, tone], k) => {
+  const g = el('g', { class: tone }, gIntro);
+  const slot = k === 2 ? el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:6 7' }, g) : null;
+  const chrome = el('g', {}, g);
+  el('rect', { class: 'card', width: TILE.w, height: TILE.h, rx: 14 }, chrome);
+  const sel = el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
+  const plus = k === 2 ? el('path', { d: 'M125 68 V104 M107 86 H143', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, g) : null;
+  const ghost = k === 2 ? T(g, 'b f-faint', 17, 125, 178, 'New outpost', { 'text-anchor': 'middle' }) : null;
+  const label = T(g, 'd f-text', 25, 125, 180, name, { 'text-anchor': 'middle' });
+  const rows = OWN.map((s, r) => { const rg = el('g', { transform: `translate(40 ${218 + r * 26})` }, g); el('circle', { class: 'tone-f', cx: 4, cy: -5, r: 4 }, rg); T(rg, 'b f-muted', 14.5, 18, 0, s); return rg; });
+  return { g, slot, chrome, sel, plus, ghost, label, rows, name };
+});
+// the marks sit above the cards, so the picked one can leave its card and become the lockup
+const tileMarks = tiles.map(() => smallMark(gIntro));
+const fences = [490, 790].map(x => el('line', { x1: x, x2: x, y1: 318, y2: 318, style: 'stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:3 7;stroke-linecap:round' }, gIntro));
+const icG = el('g', {}, gIntro);
+const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, icG);
+const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
+const ICAPS = [
+  [1.7, 4.9, 'It starts on the star chart.', 'An outpost for each part of your life: work, home, a side project.'],
+  [5.1, 7.9, 'Each outpost keeps to itself.', 'Its own crew, memory, settings and keys. Work never reads home.'],
+];
+function intro(tt) {
+  if (tt >= PRE) { O(gIntro, 0); O(gLock, 1); O(sunCore, 1); return; }
+  O(gIntro, 1);
+  // the lockup steps aside for the chart, and comes back as the picked outpost
+  const lockA = Math.max(1 - prog(tt, 1.0, 1.7), prog(tt, 8.3, 8.9));
+  O(gLock, lockA); O(tagline, lockA); O(sunCore, lockA); sunGlow.style.opacity = .25 * lockA;
+  const leave = prog(tt, 7.6, 8.1), fly = ease.inOut(prog(tt, 7.8, 8.45));
+  tiles.forEach((c, k) => {
+    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), x = TILE.xs[k], y = TILE.y + (1 - ease.out(inn)) * 14;
+    const made = k < 2 ? 1 : prog(tt, 4.2, 4.7), away = k === 0 ? prog(tt, 7.9, 8.35) : leave;
+    c.g.setAttribute('transform', `translate(${x} ${f1(y)})`);
+    O(c.g, inn * (1 - away));
+    O(c.chrome, made);
+    if (c.slot) { O(c.slot, 1 - made); O(c.plus, 1 - prog(tt, 4.2, 4.5)); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
+    c.rows.forEach((r, j) => O(r, prog(tt, 5.0 + j * .45 + k * .12, 5.4 + j * .45 + k * .12)));
+    O(c.sel, k === 0 ? prog(tt, 7.3, 7.5) : 0);
+    // its mark: on the card, then (for Work) across to where the lockup's mark sits
+    const mk = tileMarks[k], f = k === 0 ? fly : 0;
+    const cx = lerp(x + 125, DOT0.x, f), cy = lerp(y + 86, 360, f), sc = lerp(.5, K, f);
+    mk.setAttribute('transform', `translate(${f2(cx)} ${f2(cy)}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+    O(mk, k === 0 ? inn * (1 - prog(tt, 8.6, 8.95)) : inn * made * (1 - leave));
+  });
+  fences.forEach((l, k) => { const u = ease.out(prog(tt, 4.9 + k * .2, 5.7 + k * .2)); put(l, { y1: f1(318 - 130 * u), y2: f1(318 + 130 * u) }); O(l, Math.min(u * 3, 1 - leave)); });
+  let ci = -1, cv = 0;
+  ICAPS.forEach((c, k) => { const v = win(tt, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv = v; } });
+  if (ci >= 0) { txt(icT, ICAPS[ci][2]); txt(icS, ICAPS[ci][3]); }
+  O(icG, cv); icG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv))) * 8)})`);
+}
+
 // ---- timeline ----
 const CAPS = [
   [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, each on its own orbit.'],
@@ -3089,10 +3202,11 @@ const CAPS = [
   [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
   [54.1, 58.9, 'Say yes from anywhere.', 'The review pings your phone. Nothing ships until you approve.'],
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
-  [67.5, 71.5, 'At night, the night shift.', 'It drafts while the camp is idle, and changes nothing without you.'],
+  [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
-const CHAPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
-const CHIPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
 const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
 const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
 const ZOOM = 5.2;
@@ -3132,10 +3246,10 @@ const comet = (c, a, b, from, to, bend, t, step = .032, n = 13) => {
   return true;
 };
 
-let lastCap = -1, lastChap = -1, duskA = .64;
+let lastCap = -1, lastChap = -1, duskA = .64, filmT = 0, pingT = 0;
 const readDusk = () => { duskA = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dusk-a')) || .64; };
 readDusk(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readDusk(); render(t); });
-function render(t) {
+function renderMain(t) {
   const m = logoM(t), s = clamp(m / .4), e = clamp((m - .32) / .68), lp = 1 - clamp(m / .3);
   const cam = camera(t), z = cam.z;
   gWorld.setAttribute('transform', `translate(640 360) scale(${z.toFixed(4)}) translate(${f2(-cam.x)} ${f2(-cam.y)})`);
@@ -3147,7 +3261,7 @@ function render(t) {
   const nightA = ease.inOut(win(t, 66.9, 72, 1.1, 1.3));
   dusk.style.opacity = nightA * duskA;
   O(starsNight, nightA); starsDay.style.opacity = 1 - nightA * .7;
-  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(t * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
+  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(filmT * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
   O(moon, nightA);
 
   // sun and logo
@@ -3159,7 +3273,6 @@ function render(t) {
   const sc = lerp(1, 1.55, ease.out(e));
   gMark.setAttribute('transform', `translate(${f2((SUN.x - DOT0.x) / K * ease.inOut(s))} 0) translate(100 100) scale(${sc.toFixed(3)}) translate(-100 -100)`);
   O(gMark, 1 - clamp((e - .08) / .5));
-  drawTo(letters, ease.inOut(clamp(lp / .7)));
   O(letters, clamp(lp * 4)); O(lettersFill, clamp((lp - .55) / .45));
   O(tagline, 1 - clamp(m / .18));
 
@@ -3174,7 +3287,7 @@ function render(t) {
 
   // pings light the ground as they pass
   let pr = null;
-  for (const p of PINGS) { let dt = t - p.t; if (dt < 0) dt += DUR; if (dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
+  for (const p of PINGS) { const dt = pingT - p.t; if (dt >= 0 && dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
   if (pr) { put(pingEl, { cx: f1(sp.x), r: f1(pr.r) }); O(pingEl, pr.a * .85); } else O(pingEl, 0);
   for (const c of CONTOURS) { const v = pr ? pr.a * Math.exp(-Math.pow((pr.r - c.R) / 24, 2)) : 0; O(c.lit, v * .95); }
 
@@ -3291,8 +3404,16 @@ function render(t) {
   if (ci !== lastCap && ci >= 0) { txt(capT, CAPS[ci][2]); txt(capS, CAPS[ci][3]); }
   if (ci >= 0) lastCap = ci;
   O(capG, cv2); capG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv2))) * 8)})`);
-  let ch = 0; CHAPS.forEach((c, k) => { if (t >= c[0]) ch = k; });
-  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'MAE · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(t); }
+  let ch = 0; CHAPS.forEach((c, k) => { if (filmT >= c[0]) ch = k; });
+  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(filmT); }
+}
+
+// The film's clock: the star chart first, then the film proper on its own clock. The last ping of the loop runs on into the chart.
+function render(tt) {
+  filmT = tt;
+  const t = Math.max(0, tt - PRE);
+  pingT = tt < PRE ? MAIN + tt : t;
+  renderMain(t); intro(tt);
 }
 
 // ---- transport ----
@@ -3322,7 +3443,6 @@ ticket: function (root) {
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 54.7, PI = Math.PI;
-const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
 const BRANCH = 'WEB-212-day-early-dates';
 
 // ---- helpers ----
@@ -3382,7 +3502,7 @@ function chip(parent, x, cy, s) {
 const FIN = 48.1;                                    // when the system folds back into the logo
 const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
 const SLOT = [496, 568, 640, 712, 784], ROWY = 526;
-const TITLE_ORB = [500.8, 295, 142], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120], WORD_C = [733.7, 296];
+const TITLE_ORB = [446.5, 295, 111.6], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120];
 const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring radii, and the orbits they open into
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
 // a: its panel opens, b: its panel closes and the camera pulls back, done: its own work is finished
@@ -3496,28 +3616,30 @@ CREW.forEach(c => {
   c.pulse = el('circle', { class: 'pulse c-' + c.key }, gWorld);
 });
 
-// ---- the Mae mark, from the logo kit (docs/brand), in the kit's own coordinates (centre 100,100, radius 90) ----
+// ---- the mark, from the logo kit (docs/brand), in the kit's own coordinates (centre 100,100, radius 90) ----
 // the full mark a ring at a time from the centre out (the solid half on the left, the fine arc on the right), and the kit's small mark
 const RING_ART = [
   ['M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z', ['M100 60 A40 40 0 0 1 100 140']],
   ['M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z', ['M100 36 A64 64 0 0 1 100 164']],
-  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 100 188.5']],
+  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 151.73 28.81 M171.19 48.27 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5'], [162.4, 37.6, 9]],
 ];
 function makeMark(parent) {
   const g = el('g', null, parent);
   const halo = el('circle', { cx: 100, cy: 100, r: 46, fill: 'url(#dotGlow)' }, g);
   const ripple = el('circle', { cx: 100, cy: 100, class: 'mk-ripple' }, g);
   const full = el('g', null, g);
-  const rings = RING_ART.map(([solid, arcs]) => {
+  const rings = RING_ART.map(([solid, arcs, post]) => {
     const r = el('g', null, full);
     el('path', { d: solid, class: 'mk-solid' }, r);
     arcs.forEach((d, i) => el('path', { d, class: 'mk-arc' + (arcs.length > 1 ? (i ? ' on-dark' : ' on-light') : '') }, r));
+    if (post) el('circle', { cx: post[0], cy: post[1], r: post[2], class: 'mk-dot' }, r);   // an outpost, in a gap in the outer ring
     return r;
   });
   const small = el('g', null, g);
   el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, small);
   el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, small);
-  el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, small);
   const dotG = el('g', null, g);
   return { g, halo, ripple, full, rings, small, dotG, dot: el('circle', { class: 'mk-dot' }, dotG) };
 }
@@ -3791,18 +3913,19 @@ const wdChip = chip(gWd, 494, 556, 'Posted on pull request #418');
 
 // ---- title card and the name, drawn ----
 const gTitle = el('g');
-tx(gTitle, 640, 190, 'm eyebrow', 'MAE, MY ALTER EGO', { 'text-anchor': 'middle' });
+tx(gTitle, 640, 190, 'm eyebrow', 'A CREW ON YOUR OWN MACHINE', { 'text-anchor': 'middle' });
 const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
-el('tspan', { class: 'f-ink' }, tag, 'Your alter ego ');
-el('tspan', { class: 'f-accent' }, tag, 'has a crew.');
+el('tspan', { class: 'f-ink' }, tag, 'Your outpost. Your crew. ');
+el('tspan', { class: 'f-accent' }, tag, 'Your call.');
 el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'p' }, cmd, '$ ');
 el('tspan', null, cmd, 'npm install && npm start');
-const gW = el('g', { class: 'wm' });
-el('path', { d: LETTERS }, gW);
-// a shine that crosses the letters as the logo lands
-el('path', { d: LETTERS }, el('clipPath', { id: 'wmClip' }, defs));
+// the app's name beside the mark, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+const gW = el('g');
+tx(gW, 247, 156, 'b wm-word', 'Outpost');
+// a shine that crosses the name as the logo lands
+tx(el('clipPath', { id: 'wmClip' }, defs), 247, 156, 'b wm-word', 'Outpost');
 const shineG = el('g', { 'clip-path': 'url(#wmClip)' }, gW);
 const shine = el('rect', { y: 20, width: 90, height: 170, fill: 'url(#shine)', transform: 'skewX(-18)' }, shineG);
 // the kit's small mark, in the corner beside the name while the ticket is worked
@@ -3820,18 +3943,16 @@ function ringAt(idx, t) {
   return [cp[0] + R * Math.cos(a), cp[1] + R * Math.sin(a)];
 }
 
-// ---- the name: My Alter Ego, whose initials close up into Mae ----
+// ---- the ending: the tagline, a phrase at a time ----
 const gName = el('g');
-const NAME = [['M', 1, 0], ['y', 0, 0], ['A', 1, 1], ['lter', 0, 1], ['E', 1, 2], ['go', 0, 2]]
-  .map(([s, init, word]) => ({ s, init, word, n: tx(gName, 0, 0, 'd name-w' + (init ? ' name-i' : ''), s), x: 0, w: 0, tx: 0 }));
+const NAME = [['Your outpost.', 0], ['Your crew.', 0], ['Your call.', 1]]
+  .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
 const nameSub = tx(svg, 640, 506, 'b name-sub', "The crew you'd be if there were more of you.", { 'text-anchor': 'middle' });
 function layoutName() {
   NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
-  const sp = 24, ini = NAME.filter(p => p.init);
+  const sp = 18;
   let x = 640 - (NAME.reduce((a, p) => a + p.w, 0) + 2 * sp) / 2;
-  NAME.forEach((p, i) => { if (i && p.init) x += sp; p.x = x; x += p.w; });
-  let c = -(ini.reduce((a, p) => a + p.w, 0) + 6) / 2;       // where each initial sits about the centre once the rest has gone
-  ini.forEach(p => { p.tx = c; c += p.w + 3; });
+  NAME.forEach(p => { p.x = x; x += p.w + sp; });
 }
 const sceneL = tx(svg, 1216, 61, 'm scene-l', 'FROM TICKET TO PULL REQUEST', { 'text-anchor': 'end' });
 const ripple = el('circle', { class: 'ripple' });
@@ -3918,23 +4039,22 @@ function render(t) {
   // the name beside the corner mark while the ticket is worked; both leave for the ending, and the name comes back in the logo
   const early = t < 20, k0 = seg(t, 1.5, 2.4);
   const kw = early ? k0 : t < FIN + 1.6 ? 1 : 0;
-  gW.setAttribute('transform', `translate(${lerp(421.8, 56, kw).toFixed(2)} ${lerp(216, 36, kw).toFixed(2)}) scale(${lerp(.79, .19, kw).toFixed(4)})`);
+  gW.setAttribute('transform', `translate(${lerp(384.5, 56, kw).toFixed(2)} ${lerp(233, 36, kw).toFixed(2)}) scale(${lerp(.62, .19, kw).toFixed(4)})`);
   O(gW, early ? 1 : t < FIN + 1.6 ? 1 - seg(t, FIN + .1, FIN + .4) : seg(t, FIN + 2.75, FIN + 3.15));
   drawLogo(t, BUG_ORB[2] * (early ? seg(t, 1.9, 2.5, ease.back) : 1), early ? seg(t, 1.9, 2.2) : 1 - seg(t, FIN + .1, FIN + .4));
   const sh = clamp((t - FIN - 3.2) / .9);
-  shine.setAttribute('x', lerp(230, 660, ease.io(sh)).toFixed(1)); O(shineG, sh > 0 && sh < 1 ? 1 : 0);
+  shine.setAttribute('x', lerp(230, 880, ease.io(sh)).toFixed(1)); O(shineG, sh > 0 && sh < 1 ? 1 : 0);
   O(gTitle, (1 - seg(t, 1.2, 1.7)) + seg(t, FIN + 3.0, FIN + 3.7));
   O(sceneL, early ? k0 : 1 - seg(t, FIN, FIN + .4));
 
-  // the name: three words rise, the small letters fall away, and M, A, E close up into the logo
-  const nk = seg(t, FIN + 2.2, FIN + 3.0), nrest = 1 - seg(t, FIN + 2.1, FIN + 2.45), nini = 1 - seg(t, FIN + 2.7, FIN + 3.05);
+  // the tagline: its three phrases rise one after another, then make way for the logo
+  const nrest = 1 - seg(t, FIN + 2.1, FIN + 2.45);
   NAME.forEach(p => {
-    const pin = seg(t, FIN + .7 + .15 * p.word, FIN + 1.2 + .15 * p.word, ease.out);
-    p.n.setAttribute('x', (p.init ? lerp(p.x, WORD_C[0] + p.tx, nk) : p.x).toFixed(2));
-    p.n.setAttribute('y', ((p.init ? lerp(452, 321, nk) : 452) + (1 - pin) * 16).toFixed(2));
-    O(p.n, pin * (p.init ? nini : nrest));
+    const pin = seg(t, FIN + .7 + .2 * p.word, FIN + 1.2 + .2 * p.word, ease.out);
+    p.n.setAttribute('x', p.x.toFixed(2)); p.n.setAttribute('y', (452 + (1 - pin) * 16).toFixed(2));
+    O(p.n, pin * nrest);
   });
-  O(nameSub, seg(t, FIN + 1.3, FIN + 1.7) * (1 - seg(t, FIN + 2.1, FIN + 2.4)));
+  O(nameSub, seg(t, FIN + 1.5, FIN + 1.9) * (1 - seg(t, FIN + 2.1, FIN + 2.4)));
   const cp = sunAt(t);
   orbitRing.setAttribute('cx', cp[0].toFixed(1)); orbitRing.setAttribute('cy', cp[1].toFixed(1));
   orbitRing.setAttribute('r', (baseD(t) / 2 + 40).toFixed(1)); orbitRing.setAttribute('stroke-dashoffset', (-t * 8).toFixed(1));
@@ -4102,7 +4222,6 @@ audit: function (root) {
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 63.9, PI = Math.PI;
-const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
 const BRANCH = 'LED-105-an-account-with-no-role-can-void-invoice';
 
 // ---- helpers ----
@@ -4162,7 +4281,7 @@ function chip(parent, x, cy, s) {
 const FIN = 57.3;                                    // when the system folds back into the logo
 const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
 const SLOT = [496, 568, 640, 712, 784], ROWY = 526;
-const TITLE_ORB = [500.8, 295, 142], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120], WORD_C = [733.7, 296];
+const TITLE_ORB = [446.5, 295, 111.6], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120];
 const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring radii, and the orbits they open into
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
 // a: its panel opens, b: its panel closes and the camera pulls back, done: its own work is finished
@@ -4279,28 +4398,30 @@ CREW.forEach(c => {
   c.pulse = el('circle', { class: 'pulse c-' + c.key }, gWorld);
 });
 
-// ---- the Mae mark, from the logo kit (docs/brand), in the kit's own coordinates (centre 100,100, radius 90) ----
+// ---- the mark, from the logo kit (docs/brand), in the kit's own coordinates (centre 100,100, radius 90) ----
 // the full mark a ring at a time from the centre out (the solid half on the left, the fine arc on the right), and the kit's small mark
 const RING_ART = [
   ['M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z', ['M100 60 A40 40 0 0 1 100 140']],
   ['M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z', ['M100 36 A64 64 0 0 1 100 164']],
-  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 100 188.5']],
+  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 151.73 28.81 M171.19 48.27 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5'], [162.4, 37.6, 9]],
 ];
 function makeMark(parent) {
   const g = el('g', null, parent);
   const halo = el('circle', { cx: 100, cy: 100, r: 46, fill: 'url(#dotGlow)' }, g);
   const ripple = el('circle', { cx: 100, cy: 100, class: 'mk-ripple' }, g);
   const full = el('g', null, g);
-  const rings = RING_ART.map(([solid, arcs]) => {
+  const rings = RING_ART.map(([solid, arcs, post]) => {
     const r = el('g', null, full);
     el('path', { d: solid, class: 'mk-solid' }, r);
     arcs.forEach((d, i) => el('path', { d, class: 'mk-arc' + (arcs.length > 1 ? (i ? ' on-dark' : ' on-light') : '') }, r));
+    if (post) el('circle', { cx: post[0], cy: post[1], r: post[2], class: 'mk-dot' }, r);   // an outpost, in a gap in the outer ring
     return r;
   });
   const small = el('g', null, g);
   el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, small);
   el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, small);
-  el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, small);
   const dotG = el('g', null, g);
   return { g, halo, ripple, full, rings, small, dotG, dot: el('circle', { class: 'mk-dot' }, dotG) };
 }
@@ -4608,7 +4729,7 @@ const wdChip = chip(gWd, 494, 556, 'Posted on pull request #1');
 
 // ---- title card and the name, drawn ----
 const gTitle = el('g');
-tx(gTitle, 640, 190, 'm eyebrow', 'MAE, MY ALTER EGO', { 'text-anchor': 'middle' });
+tx(gTitle, 640, 190, 'm eyebrow', 'A CREW ON YOUR OWN MACHINE', { 'text-anchor': 'middle' });
 const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'f-ink' }, tag, 'Your audit findings ');
 el('tspan', { class: 'f-accent' }, tag, 'have a crew.');
@@ -4616,10 +4737,11 @@ el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' },
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'p' }, cmd, '$ ');
 el('tspan', null, cmd, 'npm run demo');
-const gW = el('g', { class: 'wm' });
-el('path', { d: LETTERS }, gW);
-// a shine that crosses the letters as the logo lands
-el('path', { d: LETTERS }, el('clipPath', { id: 'wmClip' }, defs));
+// the app's name beside the mark, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+const gW = el('g');
+tx(gW, 247, 156, 'b wm-word', 'Outpost');
+// a shine that crosses the name as the logo lands
+tx(el('clipPath', { id: 'wmClip' }, defs), 247, 156, 'b wm-word', 'Outpost');
 const shineG = el('g', { 'clip-path': 'url(#wmClip)' }, gW);
 const shine = el('rect', { y: 20, width: 90, height: 170, fill: 'url(#shine)', transform: 'skewX(-18)' }, shineG);
 // the kit's small mark, in the corner beside the name while the ticket is worked
@@ -4637,18 +4759,16 @@ function ringAt(idx, t) {
   return [cp[0] + R * Math.cos(a), cp[1] + R * Math.sin(a)];
 }
 
-// ---- the name: My Alter Ego, whose initials close up into Mae ----
+// ---- the ending: the tagline, a phrase at a time ----
 const gName = el('g');
-const NAME = [['M', 1, 0], ['y', 0, 0], ['A', 1, 1], ['lter', 0, 1], ['E', 1, 2], ['go', 0, 2]]
-  .map(([s, init, word]) => ({ s, init, word, n: tx(gName, 0, 0, 'd name-w' + (init ? ' name-i' : ''), s), x: 0, w: 0, tx: 0 }));
+const NAME = [['Your outpost.', 0], ['Your crew.', 0], ['Your call.', 1]]
+  .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
 const nameSub = tx(svg, 640, 506, 'b name-sub', "The crew you'd be if there were more of you.", { 'text-anchor': 'middle' });
 function layoutName() {
   NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
-  const sp = 24, ini = NAME.filter(p => p.init);
+  const sp = 18;
   let x = 640 - (NAME.reduce((a, p) => a + p.w, 0) + 2 * sp) / 2;
-  NAME.forEach((p, i) => { if (i && p.init) x += sp; p.x = x; x += p.w; });
-  let c = -(ini.reduce((a, p) => a + p.w, 0) + 6) / 2;       // where each initial sits about the centre once the rest has gone
-  ini.forEach(p => { p.tx = c; c += p.w + 3; });
+  NAME.forEach(p => { p.x = x; x += p.w + sp; });
 }
 const sceneL = tx(svg, 1216, 61, 'm scene-l', 'FROM AUDIT FINDING TO PULL REQUEST', { 'text-anchor': 'end' });
 const ripple = el('circle', { class: 'ripple' });
@@ -4737,23 +4857,22 @@ function render(t) {
   // the name beside the corner mark while the ticket is worked; both leave for the ending, and the name comes back in the logo
   const early = t < 20, k0 = seg(t, 1.5, 2.4);
   const kw = early ? k0 : t < FIN + 1.6 ? 1 : 0;
-  gW.setAttribute('transform', `translate(${lerp(421.8, 56, kw).toFixed(2)} ${lerp(216, 36, kw).toFixed(2)}) scale(${lerp(.79, .19, kw).toFixed(4)})`);
+  gW.setAttribute('transform', `translate(${lerp(384.5, 56, kw).toFixed(2)} ${lerp(233, 36, kw).toFixed(2)}) scale(${lerp(.62, .19, kw).toFixed(4)})`);
   O(gW, early ? 1 : t < FIN + 1.6 ? 1 - seg(t, FIN + .1, FIN + .4) : seg(t, FIN + 2.75, FIN + 3.15));
   drawLogo(t, BUG_ORB[2] * (early ? seg(t, 1.9, 2.5, ease.back) : 1), early ? seg(t, 1.9, 2.2) : 1 - seg(t, FIN + .1, FIN + .4));
   const sh = clamp((t - FIN - 3.2) / .9);
-  shine.setAttribute('x', lerp(230, 660, ease.io(sh)).toFixed(1)); O(shineG, sh > 0 && sh < 1 ? 1 : 0);
+  shine.setAttribute('x', lerp(230, 880, ease.io(sh)).toFixed(1)); O(shineG, sh > 0 && sh < 1 ? 1 : 0);
   O(gTitle, (1 - seg(t, 1.2, 1.7)) + seg(t, FIN + 3.0, FIN + 3.7));
   O(sceneL, early ? k0 : 1 - seg(t, FIN, FIN + .4));
 
-  // the name: three words rise, the small letters fall away, and M, A, E close up into the logo
-  const nk = seg(t, FIN + 2.2, FIN + 3.0), nrest = 1 - seg(t, FIN + 2.1, FIN + 2.45), nini = 1 - seg(t, FIN + 2.7, FIN + 3.05);
+  // the tagline: its three phrases rise one after another, then make way for the logo
+  const nrest = 1 - seg(t, FIN + 2.1, FIN + 2.45);
   NAME.forEach(p => {
-    const pin = seg(t, FIN + .7 + .15 * p.word, FIN + 1.2 + .15 * p.word, ease.out);
-    p.n.setAttribute('x', (p.init ? lerp(p.x, WORD_C[0] + p.tx, nk) : p.x).toFixed(2));
-    p.n.setAttribute('y', ((p.init ? lerp(452, 321, nk) : 452) + (1 - pin) * 16).toFixed(2));
-    O(p.n, pin * (p.init ? nini : nrest));
+    const pin = seg(t, FIN + .7 + .2 * p.word, FIN + 1.2 + .2 * p.word, ease.out);
+    p.n.setAttribute('x', p.x.toFixed(2)); p.n.setAttribute('y', (452 + (1 - pin) * 16).toFixed(2));
+    O(p.n, pin * nrest);
   });
-  O(nameSub, seg(t, FIN + 1.3, FIN + 1.7) * (1 - seg(t, FIN + 2.1, FIN + 2.4)));
+  O(nameSub, seg(t, FIN + 1.5, FIN + 1.9) * (1 - seg(t, FIN + 2.1, FIN + 2.4)));
   const cp = sunAt(t);
   orbitRing.setAttribute('cx', cp[0].toFixed(1)); orbitRing.setAttribute('cy', cp[1].toFixed(1));
   orbitRing.setAttribute('r', (baseD(t) / 2 + 40).toFixed(1)); orbitRing.setAttribute('stroke-dashoffset', (-t * 8).toFixed(1));
@@ -4936,7 +5055,6 @@ trail: function (root) {
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 36, PI = Math.PI, NEVER = 1e9;
-const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
 
 // ---- helpers ----
 const el = (tag, attrs, parent, text) => {
@@ -5009,9 +5127,11 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
-el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
+// the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'TRAIL MAP', { 'text-anchor': 'end' });
 
 function titleCard(eyebrow, ink, accent, sub) {
@@ -5205,7 +5325,7 @@ function tb(cx, w, label) {
 const bTree = tb(890, 68, 'Tree'), bRings = tb(968, 72, 'Rings'), bWhole = tb(1070, 108, 'Whole map'), bReplay = tb(1170, 76, 'Replay');
 CLICKS.push({ t: T.map, x: 1070, y: 122 }, { t: T.tree, x: 890, y: 122 });
 
-const gTitle = titleCard('NEW IN CAMP · TRAIL MAP', 'The plan, ', 'drawn as a trail.', 'Every step a waypoint, and every plan of the day on one map.');
+const gTitle = titleCard('NEW AT THE OUTPOST · TRAIL MAP', 'The plan, ', 'drawn as a trail.', 'Every step a waypoint, and every plan of the day on one map.');
 const gEnd = endCard('Open it beside Orbit, or type', '/trail', 'M for the whole map · R for tree or rings · P to replay the day');
 caption('Each step is a waypoint.', 'A line runs from a step to each step that has to wait for it. It fills in as the crew works.', 3.0, T.map - .4);
 caption('Every plan of the day, on one map.', 'Each plan is a ring, the first asked innermost, so the map grows outward as the day goes on.', T.map + .3, T.tree - .3);
@@ -5360,7 +5480,6 @@ stars: function (root) {
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 39.6, PI = Math.PI, NEVER = 1e9;
-const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
 
 // ---- helpers ----
 const el = (tag, attrs, parent, text) => {
@@ -5433,9 +5552,11 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
-el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
+// the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'CONSTELLATION', { 'text-anchor': 'end' });
 
 function titleCard(eyebrow, ink, accent, sub) {
@@ -5642,7 +5763,7 @@ bSure.box.setAttribute('class', 'btn-badfill');
 CLICKS.push({ t: T.pick, x: A.x, y: A.y }, { t: T.pin, x: pA.pin.cx, y: pA.pin.cy + 2 }, { t: T.merge, x: pA.merge.cx, y: pA.merge.cy + 2 }, { t: T.pickB, x: B.x, y: B.y },
   { t: T.pickF, x: F.x, y: F.y }, { t: T.forget, x: pF.forget.cx, y: pF.forget.cy + 2 }, { t: T.sure, x: 640 - 36, y: 400 + 60 });
 
-const gTitle = titleCard('NEW IN CAMP · CONSTELLATION', "The crew's memory, ", 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
+const gTitle = titleCard('NEW AT THE OUTPOST · CONSTELLATION', "The crew's memory, ", 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
 const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the map from Settings → Memory.');
 caption('Every line it remembers is a star.', "Grouped by where it lives: a crew member's memory, or the note about you.", 3.0, T.used - .3);
 caption("A star grows each time it's used.", "Whenever a line bears on a request, or comes back from recall, it's written down.", T.used + .2, T.pick - .5);
@@ -5765,7 +5886,6 @@ night: function (root) {
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 35.4, PI = Math.PI, NEVER = 1e9;
-const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
 
 // ---- helpers ----
 const el = (tag, attrs, parent, text) => {
@@ -5838,9 +5958,11 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
-el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
+// the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'NIGHT SHIFT', { 'text-anchor': 'end' });
 
 function titleCard(eyebrow, ink, accent, sub) {
@@ -6080,10 +6202,10 @@ tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reporte
 
 CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
 
-const gTitle = titleCard('NEW IN CAMP · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the camp is idle. Nothing changes until you approve it.');
+const gTitle = titleCard('NEW AT THE OUTPOST · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the outpost is idle. Nothing changes until you approve it.');
 const gEnd = endCard('Switch it on under', 'Settings → What Mae does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
 caption('Off until you switch it on.', 'Under Settings → What Mae does unasked. You choose the hours.', 3.0, T.dusk - .3);
-caption('The camp goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
+caption('The outpost goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
 caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
 caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);
 makeRoute([['Switch it on', 2.8], ['Quiet hours', T.dusk], ['The shift', T.shift], ['Morning', T.dawn]]);
@@ -6138,7 +6260,7 @@ function render(t) {
   const mins = t < T.shift ? lerp(10, 240, seg(t, T.dusk + .4, T.shift - 1.6)) : t < T.dawn ? lerp(240, 244, seg(t, T.shift + .6, T.done, ease.lin)) : lerp(245, 630, seg(t, T.dawn, T.dawn + 2.2));
   const q = t >= T.shift && t < T.dawn ? 1 : 5, m = Math.round(mins / q) * q + 21 * 60;
   say(clockT, pad2(Math.floor(m / 60) % 24) + ':' + pad2(m % 60));
-  say(statusT, t < T.shift - 1.6 ? 'THE CAMP IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
+  say(statusT, t < T.shift - 1.6 ? 'THE OUTPOST IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
   cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
 
   // each row: a spark leaves the house by the chimney, the row is written, and its tag says nothing was changed

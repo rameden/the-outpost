@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mae Night Shift</title>
+<title>Outpost Night Shift</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: one 16:9 stage that plays a night shift as a loop. You switch it on in Settings and choose the
-   hours. A window on the camp goes from dusk to night; once the camp has sat idle, the shift drafts and
+   hours. A window on the outpost goes from dusk to night; once the outpost has sat idle, the shift drafts and
    reports, one row at a time. In the morning the window gives way to the card on your Today page.
    A plain transport bar sits under the stage.
-   Colours, type, the logo and the dashed route are Mae's own. */
+   Colours, type, the logo and the dashed route are Outpost's own. */
 :root {
   --page: #f0e8da; --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
@@ -94,8 +94,8 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 .card { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
 .inset { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
 .hr { stroke: var(--border); stroke-width: 1; }
-.wm path { fill: var(--logo-ink); }
-/* The Mae mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
+.wm-word { font-size: 158px; font-weight: 700; letter-spacing: -.01em; fill: var(--logo-ink); }
+/* The mark, from the logo kit: navy on light with 4-unit arcs, cream on dark with 3-unit arcs */
 .mk-solid { fill: var(--logo-ink); }
 .mk-arc { fill: none; stroke: var(--logo-ink); stroke-width: var(--logo-stroke); }
 .mk-arc.small { stroke-width: 8; }
@@ -194,7 +194,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 <body>
 <main class="wrap">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Mae's night shift. You switch it on in Settings and choose its hours. The camp goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost's night shift. You switch it on in Settings and choose its hours. The outpost goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -212,7 +212,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
     <input type="range" id="scrub" min="0" max="35.4" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 0:35</output>
   </div>
-  <p class="note">The night shift: off until you switch it on, then it drafts and reports while the camp is idle. Nothing is applied, deleted or changed until you approve it. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+  <p class="note">The night shift: off until you switch it on, then it drafts and reports while the outpost is idle. Nothing is applied, deleted or changed until you approve it. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
 </main>
 
 <script>
@@ -220,7 +220,6 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 const NS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('stage');
 const DUR = 35.4, PI = Math.PI, NEVER = 1e9;
-const LETTERS = "M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z";
 
 // ---- helpers ----
 const el = (tag, attrs, parent, text) => {
@@ -293,9 +292,11 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
-el('path', { d: LETTERS }, el('g', { class: 'wm' }, gLogo));
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
+// the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'NIGHT SHIFT', { 'text-anchor': 'end' });
 
 function titleCard(eyebrow, ink, accent, sub) {
@@ -535,10 +536,10 @@ tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reporte
 
 CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
 
-const gTitle = titleCard('NEW IN CAMP · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the camp is idle. Nothing changes until you approve it.');
+const gTitle = titleCard('NEW AT THE OUTPOST · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the outpost is idle. Nothing changes until you approve it.');
 const gEnd = endCard('Switch it on under', 'Settings → What Mae does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
 caption('Off until you switch it on.', 'Under Settings → What Mae does unasked. You choose the hours.', 3.0, T.dusk - .3);
-caption('The camp goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
+caption('The outpost goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
 caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
 caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);
 makeRoute([['Switch it on', 2.8], ['Quiet hours', T.dusk], ['The shift', T.shift], ['Morning', T.dawn]]);
@@ -593,7 +594,7 @@ function render(t) {
   const mins = t < T.shift ? lerp(10, 240, seg(t, T.dusk + .4, T.shift - 1.6)) : t < T.dawn ? lerp(240, 244, seg(t, T.shift + .6, T.done, ease.lin)) : lerp(245, 630, seg(t, T.dawn, T.dawn + 2.2));
   const q = t >= T.shift && t < T.dawn ? 1 : 5, m = Math.round(mins / q) * q + 21 * 60;
   say(clockT, pad2(Math.floor(m / 60) % 24) + ':' + pad2(m % 60));
-  say(statusT, t < T.shift - 1.6 ? 'THE CAMP IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
+  say(statusT, t < T.shift - 1.6 ? 'THE OUTPOST IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
   cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
 
   // each row: a spark leaves the house by the chimney, the row is written, and its tag says nothing was changed

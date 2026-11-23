@@ -50,7 +50,7 @@ export function startHub({ port = HUB_PORT, dev = false, log = (s: string) => co
 
   function run(o: Place): Kid {
     const id = idOf(o);
-    const child = spawnOutpost(o, dev, ["pipe", "pipe", "pipe"]);
+    const child = spawnOutpost(o, dev, ["pipe", "pipe", "pipe"], { CAMP_CHART: `http://127.0.0.1:${port}/` });
     const kid: Kid = { child, base: "", waiting: [], tail: [] };
     kids.set(id, kid);
     const read = (stream: NodeJS.ReadableStream | null) => {

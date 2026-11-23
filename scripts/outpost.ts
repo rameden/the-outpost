@@ -87,12 +87,13 @@ export function buildPage(): number {
 }
 
 // The outpost's own server, running in its own folder: the camp alone, or (dev) with Vite in front.
-export function spawnOutpost(o: Place, dev: boolean, stdio: StdioOptions = "inherit"): ChildProcess {
+// `more`: anything else to tell it (the star chart says where it is, so the outpost can link back).
+export function spawnOutpost(o: Place, dev: boolean, stdio: StdioOptions = "inherit", more: Record<string, string> = {}): ChildProcess {
   syncSkills(o.dir);
   const tsx = import.meta.resolve("tsx");
   const env = pathToFileURL(join(ROOT, "scripts", "env.mjs")).href; // loads the outpost's own .env
   // Each outpost's dev page gets its own port too, so two can be open at once.
-  const vars = { ...process.env, CAMP_PORT: String(o.port), ...(dev && !process.env.CAMP_UI_PORT ? { CAMP_UI_PORT: String(5173 + o.port - 4747) } : {}) };
+  const vars = { ...process.env, ...more, CAMP_PORT: String(o.port), ...(dev && !process.env.CAMP_UI_PORT ? { CAMP_UI_PORT: String(5173 + o.port - 4747) } : {}) };
   const entry = dev ? join(ROOT, "scripts", "ui-dev.ts") : join(ROOT, "src", "server.ts");
   return spawn(process.execPath, ["--import", env, "--import", tsx, entry], { cwd: o.dir, env: vars, stdio });
 }

@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
-<title>Mae Ground to Sky</title>
+<title>Outpost Ground to Sky</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one 16:9 stage that plays the whole of Mae as a loop, in a single shot with no cuts. The gold dot
+/* Layout: one 16:9 stage that plays the whole of Outpost as a loop, in a single shot with no cuts. The gold dot
    of the mark never leaves the frame: it is the ember your ask lands on, the campfire on a contour map,
    the sun the crew orbits, one star in the sky of what they remember, and last the dot of the mark again.
    The camera only ever climbs, from the ground to the sky, and an altimeter on the right keeps count.
    A plain transport bar sits under the stage.
-   Colours, type, the logo and the dashed route are Mae's own. */
+   Colours, type, the logo and the dashed route are Outpost's own. */
 :root {
   --page: #f0e8da; --bg: #f5efe4; --deep: #e0d2ba; --zenith: #eadcc4; --surface: #fffcf6; --border: #e2d7c5; --border-strong: #cdbfa8; --line: #c2b196;
   --logo-ink: #14233f; --text: #2a231c; --muted: #5d5247; --faint: #72675b;
@@ -59,14 +59,14 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 <body>
 <main class="wrap">
   <div class="stage" id="frame">
-    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost Mae in one continuous shot. A gold dot waits. You type an ask, fix the flaky sign-in test, and it walks a dashed trail up a contour map to the fire at its centre: Mae sets up an outpost on your own machine. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the most challenging mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the lines the crew remembers, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the Mae mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your alter ego has a crew."></canvas>
+    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost in one continuous shot. A gold dot waits. You type an ask, fix the flaky sign-in test, and it walks a dashed trail up a contour map to the fire at its centre: your outpost sets up on your own machine. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the most challenging mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the lines the crew remembers, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your alter ego has a crew."></canvas>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
     <input type="range" id="scrub" min="0" max="75.2" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 1:15</output>
   </div>
-  <p class="note">Mae from the ground to the sky, in one shot. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, the Test Pilot flies the most challenging one out past every orbit, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+  <p class="note">Outpost from the ground to the sky, in one shot. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, the Test Pilot flies the most challenging one out past every orbit, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
 </main>
 
 <script>
@@ -157,7 +157,7 @@ const LEG = 1.5;            // how long a comet takes along one leg of the route
 const S4 = .07;             // the camp's size once the camera is up among the stars
 const MS = 1.3;             // the mark's size on the last card, in stage pixels per logo unit
 // where the gold dot sits, the tilt of the plane it lies in, its glow, and the camera's height (0 camp, 1 orbit, 2 sky, 3 the mark)
-const FOCUS = [[0, 640, 352], [T.lift, 640, 352], [T.orbit, 660, 316], [T.pull, 660, 316], [T.sky, 700, 322], [T.mark + .2, 700, 322], [T.mark + 5.2, 408.6, 300], [T.dive, 408.6, 300], [DUR, 640, 352]];
+const FOCUS = [[0, 640, 352], [T.lift, 640, 352], [T.orbit, 660, 316], [T.pull, 660, 316], [T.sky, 700, 322], [T.mark + .2, 700, 322], [T.mark + 5.2, 325, 300], [T.dive, 325, 300], [DUR, 640, 352]];
 const TILT = [[0, 1], [T.lift, 1], [T.orbit, .44], [T.pull, .47], [T.sky - 1.6, 1], [DUR, 1]];
 const GLOW = [[0, .5], [T.arrive, .5], [16.4, .85], [T.pull, .85], [T.sky, .62], [T.mark + 3.2, .62], [T.mark + 5, 0], [T.dive + .4, 0], [T.dive + 3.2, .5], [DUR, .5]];
 const ALT = [[0, 0], [T.lift, 0], [T.orbit, 1], [T.pull, 1], [T.sky, 2], [T.mark + .2, 2], [T.mark + 4.8, 3], [T.dive + .2, 3], [T.dive + 3.6, 0], [DUR, 0]];
@@ -282,15 +282,16 @@ const starAt = (p, e5, zs) => {
   const e = smoother(clamp((e5 - p.delay) / .7)), r = lerp(p.r0, p.r1, e), a = lerp(p.a0, p.a1, e);
   return [V.fx + r * Math.cos(a), V.fy + r * Math.sin(a), e];
 };
-const LETTERS = new Path2D("M247.43 156V44H262.77L308.09 116.69H299.37L344.65 44H359.99V156H338.36V81.2L342.62 82.36L311.04 133.06H296.38L264.84 82.36L269.06 81.2V156Z M410.05 157.59Q399.54 157.59 391.16 152.34Q382.77 147.08 377.93 138.04Q373.09 129 373.09 117.64Q373.09 106.17 377.93 97.11Q382.77 88.05 391.16 82.75Q399.54 77.46 410.05 77.46Q418.34 77.46 424.87 80.84Q431.4 84.23 435.37 90.16Q439.33 96.1 439.61 103.66V131.39Q439.33 138.95 435.43 144.89Q431.52 150.82 424.93 154.21Q418.34 157.59 410.05 157.59ZM413.96 138.32Q422.72 138.32 428.1 132.48Q433.47 126.65 433.47 117.52Q433.47 111.39 431.04 106.71Q428.61 102.03 424.23 99.38Q419.85 96.73 414 96.73Q408.26 96.73 403.88 99.38Q399.5 102.03 396.97 106.73Q394.44 111.43 394.44 117.52Q394.44 123.62 396.95 128.32Q399.46 133.02 403.86 135.67Q408.26 138.32 413.96 138.32ZM432.4 156V135.33L435.74 116.57L432.4 97.97V79.05H453.15V156Z M505.68 157.67Q493.66 157.67 484.2 152.5Q474.74 147.32 469.28 138.18Q463.82 129.04 463.82 117.52Q463.82 106.05 469.18 96.99Q474.54 87.93 483.76 82.65Q492.98 77.38 504.33 77.38Q515.4 77.38 523.91 82.34Q532.41 87.29 537.27 95.98Q542.13 104.66 542.13 115.77Q542.13 117.8 541.89 119.95Q541.65 122.11 541.09 124.77L476.33 124.89V109.36L531.37 109.24L522.85 115.65Q522.61 108.8 520.44 104.2Q518.27 99.6 514.23 97.17Q510.18 94.74 504.25 94.74Q498.04 94.74 493.46 97.49Q488.88 100.24 486.39 105.24Q483.9 110.24 483.9 117.21Q483.9 124.22 486.55 129.37Q489.19 134.53 494.09 137.3Q498.99 140.07 505.56 140.07Q511.38 140.07 516.2 138.06Q521.02 136.05 524.52 132.06L536.79 144.41Q531.14 150.98 523.09 154.33Q515.04 157.67 505.68 157.67Z");
+// the app's name beside the mark, in the kit's coordinates: in the corner its capitals stand as tall as the kit's letters did, and on the last card it is set smaller, so mark and name fit the stage
+function wordmark(size, base) { setFont('b', size, 700); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('Outpost', 247, base); }
 const SMALL_SOLID = new Path2D('M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z');
-const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 100 186');
+const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186');
 
 // ---- words ----
 const ASK = 'Fix the flaky sign-in test';
 const CAPS = [
   { a: .5, b: 4.4, eb: 'THE ASK', l: ['It starts with one ask.'] },
-  { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Outpost Mae sets up', 'on your own machine.'] },
+  { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Your outpost sets up', 'on your own machine.'] },
   { a: 16.2, b: 21.8, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, a crew of four.'] },
   { a: 22.2, b: 25.5, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
   // the missions section runs over two captions, so its eyebrow stays up between them (ebOut, ebIn)
@@ -785,7 +786,15 @@ function mark(t) {
     ARCS.forEach((q, n) => {
       const p = outCubic(prog(t, T.mark + 3.6 + n * .22, T.mark + 5.1 + n * .22));
       if (p <= 0) return;
-      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath(); ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p); ctx.stroke();
+      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath();
+      if (n) ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p);
+      else {   // the outer ring leaves a gap, and an outpost sits in it
+        ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * Math.min(p, .2));
+        if (p > .3) { ctx.moveTo(q * Math.cos(-PI * .2), q * Math.sin(-PI * .2)); ctx.arc(0, 0, q, -PI * .2, -PI / 2 + PI * p); }
+      }
+      ctx.stroke();
+      const op = n ? 0 : outBack(prog(p, .25, .5));
+      if (op > 0) { ctx.fillStyle = col('dot'); disc(q * Math.SQRT1_2, -q * Math.SQRT1_2, 9 * op); }
     });
     ctx.restore();
   }
@@ -795,8 +804,8 @@ function mark(t) {
   const wp = smoother(prog(t, T.mark + 5.1, T.mark + 6.7));
   if (wp > 0) {
     ctx.save(); ctx.translate(fx - 100 * MS, fy - 100 * MS); ctx.scale(MS, MS);
-    ctx.beginPath(); ctx.rect(236, 30, 318 * wp, 140); ctx.clip();
-    ctx.globalAlpha = card * smooth(prog(wp, 0, .3)); ctx.fillStyle = col('ink'); ctx.translate(-16 * (1 - wp), 0); ctx.fill(LETTERS); ctx.restore();
+    ctx.beginPath(); ctx.rect(236, 20, 460 * wp, 170); ctx.clip();
+    ctx.globalAlpha = card * smooth(prog(wp, 0, .3)); ctx.fillStyle = col('ink'); ctx.translate(-16 * (1 - wp), 0); wordmark(120, 142); ctx.restore();
   }
   // what the two halves are
   const la = win(t, T.mark + 4.9, T.dive + .4, .6, .5), lp = outCubic(prog(t, T.mark + 4.9, T.mark + 5.8));
@@ -811,12 +820,12 @@ function mark(t) {
       label(s, pts[2][0] + (align === 'right' ? -7 : 7), pts[2][1] + 4, { align, sp: 1.7, fill: col('muted') });
     };
     lead([[fx - 95, fy - 34.5], [fx - 150, fy - 72], [fx - 176, fy - 72]], 'GROUND', 'right');
-    lead([[fx + 90.6, fy - 70.8], [fx + 124, fy - 104], [fx + 150, fy - 104]], 'SKY', 'left');
+    lead([[fx + 109.4, fy - 35.5], [fx + 150, fy - 72], [fx + 176, fy - 72]], 'SKY', 'left');   // from further round the ring than the outpost, so it isn't the outpost it names
   }
   // the line, and the roll call
   const ta = smooth(prog(t, T.mark + 6.3, T.mark + 7.2)) * card;
   if (ta > 0) {
-    const y = 488 + (1 - outCubic(prog(t, T.mark + 6.3, T.mark + 7.3))) * 12, s1 = 'Your alter ego ', s2 = 'has a crew.';
+    const y = 488 + (1 - outCubic(prog(t, T.mark + 6.3, T.mark + 7.3))) * 12, s1 = 'Your outpost. Your crew. ', s2 = 'Your call.';
     setFont('d', 40); const w1 = ctx.measureText(s1).width, w2 = ctx.measureText(s2).width, x = 640 - (w1 + w2) / 2;
     ctx.globalAlpha = ta; label(s1, x, y, { fill: col('text') }); label(s2, x + w1, y, { fill: col('accent') });
   }
@@ -906,7 +915,7 @@ function hud(t) {
   if (ca > 0) {
     ctx.save(); ctx.translate(56, 36); ctx.scale(.19, .19); ctx.globalAlpha = ca;
     ctx.fillStyle = col('ink'); ctx.fill(SMALL_SOLID); ctx.strokeStyle = col('ink'); ctx.lineWidth = 8; ctx.stroke(SMALL_ARCS);
-    ctx.fillStyle = col('dot'); disc(100, 100, 20); ctx.fillStyle = col('ink'); ctx.fill(LETTERS); ctx.restore();
+    ctx.fillStyle = col('dot'); disc(100, 100, 20); disc(160.81, 39.19, 13); ctx.fillStyle = col('ink'); wordmark(158, 156); ctx.restore();
   }
   setFont('m', 12, 500); ctx.globalAlpha = 1; label('GROUND TO SKY', 1226, 61, { align: 'right', sp: 1.7, fill: col('faint'), halo: 4 });
   // the altimeter: how high the camera has climbed, on a scale that runs from metres to light years
@@ -915,7 +924,7 @@ function hud(t) {
   for (let q = 0; q <= 12; q++) { const y = lerp(y0, y1, q / 12); ctx.moveTo(x - (q % 4 ? 3 : 8), y); ctx.lineTo(x, y); }
   ctx.stroke();
   setFont('m', 10, 500);
-  ['OUTPOST', 'ORBIT', 'SKY', 'MAE'].forEach((s, q) => label(s, x - 14, lerp(y0, y1, q / 3) + 3.6, { align: 'right', sp: 1.4, fill: mix('faint', 'text', clamp(1 - Math.abs(a - q) * 2.2)), halo: 4 }));
+  ['OUTPOST', 'ORBIT', 'SKY', 'MARK'].forEach((s, q) => label(s, x - 14, lerp(y0, y1, q / 3) + 3.6, { align: 'right', sp: 1.4, fill: mix('faint', 'text', clamp(1 - Math.abs(a - q) * 2.2)), halo: 4 }));
   glow(x, ya, 14, 'accent', .5); ctx.fillStyle = col('bg'); disc(x, ya, 5.2); ctx.fillStyle = col('dot'); disc(x, ya, 3.6);
   setFont('m', 11, 500); label('ALT ' + altText(a), x, y0 + 28, { align: 'right', sp: .5, fill: col('muted'), halo: 4 });
 }

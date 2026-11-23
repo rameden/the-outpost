@@ -311,3 +311,12 @@ test("what's being read aloud has its controls in the bar, just before the statu
   fireEvent.click(within(bar).getByRole("button", { name: "Stop reading" }));
   expect(screen.queryByRole("region", { name: "Reading aloud" })).toBeNull();
 });
+
+test("an outpost the star chart started links back to it, from this machine only", () => {
+  const S = { ...camp(), settings: { ...camp().settings, chart: "http://127.0.0.1:4700/" } } as CampState;
+  const { unmount } = render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  expect(screen.getByRole("link", { name: "Outposts" }).getAttribute("href")).toBe("http://127.0.0.1:4700/");
+  unmount();
+  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  expect(screen.queryByRole("link", { name: "Outposts" })).toBeNull();
+});

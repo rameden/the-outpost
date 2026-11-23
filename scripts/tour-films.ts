@@ -22,14 +22,14 @@ const FILMS_DIR = join(ROOT, "docs", "films");
 const FILMS: { key: string; section: string; file: string; tab: string; length: string; note: string; hidden?: boolean }[] = [
   {
     key: "sky", section: "films", file: "ground-to-sky.html", tab: "Ground to sky", length: "1:15",
-    note: "Mae in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
+    note: "Outpost in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
   },
   {
     // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in "On film".
     // To show it again: take `hidden` off, put it back in that section's lede below (the lede counts
     // the films and describes them), and run `npm run tour:films`.
-    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:17", hidden: true,
-    note: "All of Mae in one loop. A request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the camp is idle.",
+    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26", hidden: true,
+    note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own crew, memory and keys. Then a request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
   },
   {
     key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket, start to finish", length: "0:54",
@@ -49,14 +49,14 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
   },
   {
     key: "night", section: "videos", file: "night-shift.html", tab: "The night shift", length: "0:35",
-    note: "The night shift: off until you switch it on, then it drafts and reports while the camp is idle. Nothing is applied, deleted or changed until you approve it.",
+    note: "The night shift: off until you switch it on, then it drafts and reports while the outpost is idle. Nothing is applied, deleted or changed until you approve it.",
   },
 ];
 // The sections the films are shown in: where each goes in the tour, and its link in the top bar.
 const SECTIONS = [
   {
     id: "films", name: "On film", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Three short films, drawn live in this page. The first shows all of Mae in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
+    lede: "Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
     before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
   },
   {
