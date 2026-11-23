@@ -34,6 +34,7 @@ import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
 import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, ownOf, activePack, setPack, addPack, updatePack, removePack, packsLeftOut, currentName, type CrewId } from "./crew.js";
 import { PACKS, RETIRED } from "./packs.js";
+import { withPack } from "./words.js";
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
@@ -715,7 +716,7 @@ const server = http.createServer(async (req, res) => {
       const page = splashPage(); // with this outpost's name in its title and logo, as the app page has
       if (!page) return send(res, 404, "The tour page (docs/index.html) is missing.", "text/plain; charset=utf-8");
       res.setHeader("content-security-policy", SPLASH_CSP);
-      return send(res, 200, withOutpost(page), "text/html; charset=utf-8");
+      return send(res, 200, withPack(withOutpost(page)), "text/html; charset=utf-8"); // and the pack on, its names and words
     }
     if (!authed) return send(res, 401, { error: "Missing or wrong camp token" });
     // Uploads: how much is kept, and how much of it nothing uses any more (?days= how old that must be).
