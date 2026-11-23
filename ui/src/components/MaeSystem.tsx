@@ -19,6 +19,7 @@
 // It's drawn as SVG. The stylesheet (.mae-system in styles.css) does all the moving, sets its size
 // and its colours for each theme, and stops it for anyone who has asked their system for less
 // motion (the planets then rest where they start). The only script is whose turn it is.
+// Point at a line and it turns the sun's amber: each has a wider, unseen line over it to catch the pointer.
 //
 // Decoration: the words beside it say what the page is.
 
@@ -111,6 +112,7 @@ export function MaeSystem({ crew = BUILT_IN, className }: { crew?: Orbiter[]; cl
         <g key={i} className={`sys-drift sys-c${i + 1}`}>
           <path className={i < lines ? "sys-ring" : "sys-ring sys-far"} d={d} />
           {lit(d, i)}
+          <path className="sys-hit" d={d} />
         </g>
       )).filter((_, i) => !planets[i])}
       {/* The ring the sun sends out: as a report lands, or just now and then when there is no crew. */}
@@ -127,6 +129,7 @@ export function MaeSystem({ crew = BUILT_IN, className }: { crew?: Orbiter[]; cl
             <g className={`sys-orbit sys-o${i + 1}`}>
               <path className="sys-ring" d={contours[i]} />
               {lit(contours[i], i)}
+              <path className="sys-hit" d={contours[i]} />
               {/* The same line in the planet's colour, lit while it has the quest. */}
               <path className="sys-tone" d={contours[i]} />
               {TAIL.map((k) => { const len = stretch(r, k); return <path key={k} className="sys-tail" d={contours[i]} pathLength={LAP} strokeDasharray={`${len} ${LAP - len}`} strokeDashoffset={len} />; })}

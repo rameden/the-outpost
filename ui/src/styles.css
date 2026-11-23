@@ -343,8 +343,13 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 .sys-c2, .sys-c4, .sys-c6, .sys-c8 { animation-direction: reverse; }
 .sys-c2 { animation-duration: 190s; } .sys-c3 { animation-duration: 230s; } .sys-c4 { animation-duration: 270s; }
 .sys-c5 { animation-duration: 310s; } .sys-c6 { animation-duration: 350s; } .sys-c7 { animation-duration: 390s; } .sys-c8 { animation-duration: 430s; }
-.sys-ring { fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: .75; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.sys-ring { fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: .75; vector-effect: non-scaling-stroke; stroke-linejoin: round; transition: stroke .25s, opacity .25s, stroke-width .25s; }
 .sys-ring.sys-far { opacity: .4; }
+/* Pointing at a line turns it the sun's amber. The line itself is too thin to aim at, so a wider unseen
+   copy over it (.sys-hit) takes the pointer: as wide as the gap between lines, so the line nearest the
+   pointer lights, and stays lit as the lines drift under a pointer that is still. */
+.sys-hit { fill: none; stroke: transparent; stroke-width: 16; vector-effect: non-scaling-stroke; pointer-events: stroke; }
+.sys-drift:has(> .sys-hit:hover) > .sys-ring, .sys-orbit:has(> .sys-hit:hover) > .sys-ring { stroke: var(--logo-dot); stroke-width: 1.7; opacity: .9; }
 .sys-tone { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.6; opacity: 0; vector-effect: non-scaling-stroke; stroke-linejoin: round; transition: opacity .6s; }
 .sys-on .sys-tone { opacity: .85; }
 .sys-sun { fill: var(--logo-dot); animation: sys-breathe 5s ease-in-out infinite; }
