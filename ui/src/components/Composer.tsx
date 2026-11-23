@@ -18,6 +18,7 @@ import { tell } from "./StatusLine.tsx";
 import { isZip, uploadFile as sendFile, uploadZip } from "../upload.ts";
 import { noteFile } from "../notes.ts";
 import { isMaeKey } from "../tickets.ts";
+import { useDismiss } from "./usePopover.ts";
 
 const MAX_FOLDER_FILES = 200;
 
@@ -66,7 +67,7 @@ export type SendContext = { replyTo?: string; project?: string; placeholder?: st
 // The menu beside Send while a run works: queue what you've typed (as Enter does), or say it to the run now.
 const SEND_OPTIONS = [
   { label: "Queue", now: false, title: "It goes once this run has finished (Enter does this too)" },
-  { label: "Send now", now: true, title: "The crew reads it on their next step, without waiting for the run to finish" },
+  { label: "Send now", now: true, get title() { return `The ${w("crew")} reads it on their next step, without waiting for the run to finish`; } },
 ];
 
 export const Composer = memo(function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders, draftKey, hidden }: {
@@ -136,14 +137,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     setPickAt(0);
     queueMenu.current?.querySelector<HTMLButtonElement>("[role=menuitem]:not(:disabled)")?.focus();
   }, [queueOpen]);
-  useEffect(() => {
-    if (!queueOpen) return;
-    const away = (ev: MouseEvent) => { if (!queueMenu.current?.contains(ev.target as Node)) setQueueOpen(false); };
-    const esc = (ev: { key: string }) => { if (ev.key === "Escape") setQueueOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
-  }, [queueOpen]);
+  useDismiss(queueOpen, () => setQueueOpen(false), queueMenu);
   const [sends, setSends] = useState(0);
   const { repos, reload: reloadRepos, switchBranch } = useRepos(S?.links); // links added or removed: look again
   // Moving to another project starts from that project's own default for where to work. So does
@@ -495,7 +489,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       else if (r.position > 0) {
         tell(store, S?.pausedUntil
           ? `Queued (#${r.position}): it starts when your plan's limit resets`
-          : `Queued (#${r.position}): ${S?.parallel ?? 3} expeditions are already running, so it starts when one finishes`);
+          : `Queued (#${r.position}): ${S?.parallel ?? 3} ${w("expeditions")} are already running, so it starts when one finishes`);
       }
       refresh();
       return "sent";
@@ -526,7 +520,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setDragging(false); }}>
       {reply && (
         <div className="reply-bar">
-          <Icon name="reply" /><span>Following up on</span><b>{reply.task || "that expedition"}</b>
+          <Icon name="reply" /><span>Following up on</span><b>{reply.task || `that ${w("expedition")}`}</b>
           <button type="button" className="att-x" aria-label="Stop following up" title="Send as a new request instead" onClick={() => setReply(null)}>×</button>
         </div>
       )}
@@ -542,7 +536,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
         </div>
       )}
       {mention && (
-        <div className="popover mention" role="listbox" aria-label="Files and crew" ref={mentionBox}>
+        <div className="popover mention" role="listbox" aria-label={`Files and ${w("crew")}`} ref={mentionBox}>
           {mention.items.map((it, i) => (
             <button key={it.value + i} type="button" role="option" aria-selected={i === mention.index} className={i === mention.index ? "mention-item active" : "mention-item"}
               onMouseDown={(ev) => { ev.preventDefault(); pickMention(i); }}>
@@ -619,7 +613,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
             {live ? (
               <span className="send-split stop">
                 <button className="btn primary" type="button" disabled={stopping === live} onClick={stopLive}
-                  title="Stop this run and every quest in it">{stopping === live ? "Stopping…" : "Stop"}</button>
+                  title={`Stop this run and every ${w("quest")} in it`}>{stopping === live ? "Stopping…" : "Stop"}</button>
                 <button className="btn primary send-more" type="button" aria-label="More ways to send" aria-haspopup="menu" aria-expanded={queueOpen} disabled={sending}
                   onClick={() => { setMention(null); setMenu(null); setAfterOpen(false); setQueueOpen((o) => !o); }}><Icon name="chevron" /></button>
               </span>

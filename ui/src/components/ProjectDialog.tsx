@@ -10,7 +10,9 @@ import { autoName, isAuto, shortModel } from "../format.ts";
 import type { CampState, History, PickResult, Project, ProjectSettings } from "../types.ts";
 import { AUTO_CHOICES, useModelList } from "./ModelPicker.tsx";
 import { Icon } from "./bits.tsx";
+import { Dialog } from "./Dialog.tsx";
 
+import { w } from "../words.ts";
 type NewFolder = { path: string; access: "read" | "write" };
 const baseName = (path: string) => path.replace(/\/+$/, "").split("/").pop() ?? "";
 
@@ -46,10 +48,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
 
   useEffect(() => {
     nameInput.current?.focus();
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
+  }, []);
 
   function addFolder(p: string) {
     const clean = p.trim();
@@ -105,9 +104,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
   const customized = [workIn, web, approval, review, budget.trim(), Object.keys(agents).length ? "x" : ""].filter(Boolean).length;
 
   return (
-    <>
-      <div className="drawer-backdrop" onClick={onClose} />
-      <form className="dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" onSubmit={save}>
+    <Dialog as="form" className="dialog" labelledBy="project-dialog-title" onClose={onClose} onSubmit={save}>
         <h2 id="project-dialog-title">{project ? `Edit ${project.name}` : "New project"}</h2>
         <label className="field">Name
           <input ref={nameInput} value={name} maxLength={60} placeholder="e.g. mi-web-app, Home network, Mae" onChange={(ev) => setName(ev.target.value)} />
@@ -116,7 +113,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
           <textarea value={description} rows={5} maxLength={4000}
             placeholder="What this project is, how you like the work done here, and anything to be careful with."
             onChange={(ev) => setDescription(ev.target.value)} />
-          <span className="field-hint">The crew reads this at the start of every conversation in the project.</span>
+          <span className="field-hint">The {w("crew")} reads this at the start of every conversation in the project.</span>
         </label>
 
         {!general && (
@@ -135,7 +132,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
                   <button type="button" className="att-x" aria-label={`Don't link ${f.path}`} onClick={() => setFolders((list) => list.filter((x) => x.path !== f.path))}>×</button>
                 </span>
               ))}
-              {!links.length && !folders.length && <span className="field-hint">None. The crew won't see any of your linked folders in this project.</span>}
+              {!links.length && !folders.length && <span className="field-hint">None. The {w("crew")} won't see any of your linked folders in this project.</span>}
             </div>
             <div className="dialog-folder-row">
               {free.length > 0 && (
@@ -166,7 +163,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
 
         <label className="field">Pinned references
           <textarea value={pins} rows={2} spellCheck={false} placeholder={"links/app/docs/architecture.md\nhttps://example.com/api-reference"} onChange={(ev) => setPins(ev.target.value)} />
-          <span className="field-hint">One per line: a file as the crew sees it (links/…, camp/wiki/…) or a web address. Files are shown to the crew in every conversation here; addresses are listed for them to fetch.</span>
+          <span className="field-hint">One per line: a file as the {w("crew")} sees it (links/…, camp/wiki/…) or a web address. Files are shown to the {w("crew")} in every conversation here; addresses are listed for them to fetch.</span>
         </label>
 
         <details className="dialog-more">
@@ -185,11 +182,11 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
               <option value="careful">On, but confidential: keep this project's names and code out of searches</option>
               <option value="off">Off: no web search or fetch here</option>
             </select>
-            {web === "careful" && <span className="field-hint">This is an instruction to the crew, not a filter: nothing checks what they search for.</span>}
+            {web === "careful" && <span className="field-hint">This is an instruction to the {w("crew")}, not a filter: nothing checks what they search for.</span>}
           </label>
           <label className="field">Shell commands
             <select value={approval} onChange={(ev) => setApproval(ev.target.value as typeof approval)}>
-              <option value="">Same as the camp ({S?.settings.approval ?? "safe"})</option>
+              <option value="">Same as the {w("camp")} ({S?.settings.approval ?? "safe"})</option>
               <option value="ask">Ask about every command</option>
               <option value="safe">Run simple read-only commands; ask about the rest</option>
               {S?.sandbox?.available && <option value="sandbox">Run the rest in the sandbox without asking</option>}
@@ -198,14 +195,14 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
           </label>
           <label className="field">Review changes before reporting
             <select value={review} onChange={(ev) => setReview(ev.target.value as typeof review)}>
-              <option value="">Same as the camp ({S?.settings.reviewChanges ? "on" : "off"})</option>
+              <option value="">Same as the {w("camp")} ({S?.settings.reviewChanges ? "on" : "off"})</option>
               <option value="on">Always here: the Scout reads the diff first</option>
               <option value="off">Never here</option>
             </select>
-            <span className="field-hint">Each review is another quest's worth of usage. This project's page shows what its reviews have been finding.</span>
+            <span className="field-hint">Each review is another {w("quest")}'s worth of usage. This project's page shows what its reviews have been finding.</span>
           </label>
-          <label className="field">Budget per expedition ($)
-            <input type="number" min="0" step="0.25" value={budget} placeholder={S?.budgetUsd ? `Same as the camp ($${S.budgetUsd})` : "Same as the camp (none)"} onChange={(ev) => setBudget(ev.target.value)} />
+          <label className="field">Budget per {w("expedition")} ($)
+            <input type="number" min="0" step="0.25" value={budget} placeholder={S?.budgetUsd ? `Same as the ${w("camp")} ($${S.budgetUsd})` : `Same as the ${w("camp")} (none)`} onChange={(ev) => setBudget(ev.target.value)} />
           </label>
           <div className="field" role="group" aria-label="Models">Models
             {S?.characters.map((c) => {
@@ -215,7 +212,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
                 <div key={c.id} className="dialog-model">
                   <span>{c.emoji} {c.name}</span>
                   <select aria-label={`${c.name}'s model in this project`} value={mine?.model ?? ""} onChange={(ev) => setAgent(c.id, { model: ev.target.value, effort: "" })}>
-                    <option value="">Same as the camp ({shortModel(c.model)})</option>
+                    <option value="">Same as the {w("camp")} ({shortModel(c.model)})</option>
                     {mine?.model && !isAuto(mine.model) && !models?.models.some((m) => m.id === mine.model) && <option value={mine.model}>{shortModel(mine.model)}</option>}
                     {AUTO_CHOICES.map((a) => <option key={a.id} value={a.id}>{autoName(a.id)}</option>)}
                     {models?.models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -235,7 +232,6 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : project ? "Save" : "Create project"}</button>
         </div>
-      </form>
-    </>
+    </Dialog>
   );
 }

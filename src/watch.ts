@@ -1,4 +1,5 @@
-// The watch: runs scheduled jobs from the terminal while you're away.
+// The watch: runs scheduled jobs when mission control isn't open. Most people never run this by
+// hand: an open outpost runs its own jobs, and `npm run watch:install` covers the rest.
 //   npm run watch                    keep running; check for due jobs every 30 seconds
 //   npm run watch -- --once          run whatever is due now, then exit (for cron or launchd)
 //   npm run watch -- --run <name>    run one job right now, due or not (to try it out)

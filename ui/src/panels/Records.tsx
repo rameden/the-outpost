@@ -10,42 +10,19 @@ import { cClass, cx, stripFrontmatter, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Link } from "../types.ts";
 import { ask } from "../components/Confirm.tsx";
+import { complain } from "../components/StatusLine.tsx";
 
+import { w, a as an } from "../words.ts";
 type Panel = { S: CampState; refresh: () => void };
-
-// ---------- Memory ----------
-export function Memory({ S }: Panel) {
-  return (
-    <>
-      <p className="panel-note">Each crew member keeps their own memory for their own role, plus their own session history. Files live in camp/agents/&lt;name&gt;/.</p>
-      {S.memories.map((a) => {
-        const lines = a.memory.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("- ")).reverse();
-        return (
-          <div key={a.id} className={cx("wiki-group", cClass(a.name))}>
-            <h4 style={{ color: "var(--c)" }}>{a.emoji} {a.name}</h4>
-            <p>{a.sessions} session{a.sessions === 1 ? "" : "s"} · camp/agents/{a.id}/memory.md</p>
-            {!lines.length && <div className="meta">Nothing remembered yet.</div>}
-            <ul className="ledger">
-              {lines.map((l, i) => {
-                const m = l.match(/^- (\d{4}-\d{2}-\d{2})\s+(.*)$/);
-                return <li key={i}>{m ? <><time>{m[1]}</time>{m[2]}</> : l.slice(2)}</li>;
-              })}
-            </ul>
-          </div>
-        );
-      })}
-    </>
-  );
-}
 
 // ---------- Jobs ----------
 export function Jobs({ S, refresh }: Panel) {
-  const act = (name: string, action: string) => api("/api/jobs", { name, action }).then(refresh, (e) => alert(errorText(e)));
+  const act = (name: string, action: string) => api("/api/jobs", { name, action }).then(refresh, (e) => complain(errorText(e)));
   return (
     <>
       <p className="panel-note">
         {S.jobsRunBy === "watch"
-          ? "A watcher (npm run watch, or the background one) is running the jobs right now, so mission control is standing by."
+          ? "The background watcher is running the jobs right now, so mission control is standing by."
           : "Jobs run on schedule while mission control is open. To run them with nothing open, use npm run watch:install."}
         {" "}Quiet runs (nothing new) don't ping you.{S.pausedUntil && <> <b>Paused until your plan's limit resets.</b></>}
       </p>
@@ -73,7 +50,7 @@ export function Jobs({ S, refresh }: Panel) {
 
 // ---------- Triggers: work that starts when an issue or ticket arrives ----------
 function Triggers({ S, refresh }: Panel) {
-  const act = (name: string, action: string) => api("/api/triggers", { name, action }).then(refresh, (e) => alert(errorText(e)));
+  const act = (name: string, action: string) => api("/api/triggers", { name, action }).then(refresh, (e) => complain(errorText(e)));
   const [adding, setAdding] = useState(false);
   const list = S.triggers ?? [];
   return (
@@ -134,7 +111,7 @@ function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
     try {
       await api("/api/triggers", { action: "add", trigger: { name, kind, link, label, jql, task, project, worktree: worktree && writable, describe: kind === "github-pr" && describe } });
       done();
-    } catch (e) { alert(errorText(e)); }
+    } catch (e) { complain(errorText(e)); }
     setBusy(false);
   }
   const projects = (S.history?.projects ?? []).filter((p) => p.id !== "general");
@@ -153,7 +130,7 @@ function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
         {kind === "github-issue"
           ? <label>Label <input id="trigger-label" value={label} onChange={(ev) => setLabel(ev.target.value)} /></label>
           : <label className="switch"><input id="trigger-describe" type="checkbox" checked={describe} onChange={(ev) => setDescribe(ev.target.checked)} /> After new commits are pushed, have the Scribe draft an updated description for you to approve</label>}
-      </> : <label>JQL filter <input id="trigger-jql" value={jql} placeholder="Empty: the camp's own filter" onChange={(ev) => setJql(ev.target.value)} /></label>}
+      </> : <label>JQL filter <input id="trigger-jql" value={jql} placeholder={`Empty: the ${w("camp")}'s own filter`} onChange={(ev) => setJql(ev.target.value)} /></label>}
       <label>{kind === "github-pr" ? "What to do with new feedback" : "What to do with each one"} <textarea id="trigger-task" value={task} onChange={(ev) => setTask(ev.target.value)} /></label>
       <label>Project <select id="trigger-project" value={project} onChange={(ev) => setProject(ev.target.value)}>
         <option value="">General</option>
@@ -167,11 +144,11 @@ function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
 
 // ---------- Skills ----------
 export function Skills({ S, refresh }: Panel) {
-  const act = (owner: string, name: string, action: "approve" | "reject") => api("/api/skills", { owner, name, action }).then(refresh, (e) => alert(errorText(e)));
+  const act = (owner: string, name: string, action: "approve" | "reject") => api("/api/skills", { owner, name, action }).then(refresh, (e) => complain(errorText(e)));
   return (
     <>
-      <p className="panel-note">Skills the Quartermaster proposed after expeditions. Nothing goes live until you approve it.</p>
-      {!S.skills.length ? <Empty title="No proposals">After a good expedition, the Quartermaster may propose a skill that captures what worked.</Empty> : (
+      <p className="panel-note">Skills the Quartermaster proposed after {w("expeditions")}. Nothing goes live until you approve it.</p>
+      {!S.skills.length ? <Empty title="No proposals">After a good {w("expedition")}, the Quartermaster may propose a skill that captures what worked.</Empty> : (
         <ul className="list">
           {S.skills.map((s) => (
             <li className="card" key={`${s.owner}/${s.name}`}>
@@ -195,9 +172,9 @@ export function Skills({ S, refresh }: Panel) {
 // or setup in each new worktree it creates for it.
 const COMMANDS = {
   verify: { title: "Checks after changes", noun: "checks", example: "npm run typecheck",
-    hint: "Commands the camp runs by itself after a quest changes files here, one per line. Results go into the quest's report." },
+    get hint() { return `Commands the ${w("camp")} runs by itself after ${an("quest")} changes files here, one per line. Results go into the ${w("quest")}'s report.`; } },
   setup: { title: "Setup for new worktrees", noun: "setup", example: "npm ci",
-    hint: "Commands the camp runs once in each new worktree it makes for this repository, before the crew starts there, one per line. They run without the sandbox, since installs need the network." },
+    get hint() { return `Commands the ${w("camp")} runs once in each new worktree it makes for this repository, before the ${w("crew")} starts there, one per line. They run without the sandbox, since installs need the network.`; } },
 } as const;
 export function LinkCommands({ link, kind, refresh, open }: { link: Link; kind: keyof typeof COMMANDS; refresh: () => void; open?: boolean }) {
   const list = link[kind] ?? [];
@@ -206,7 +183,7 @@ export function LinkCommands({ link, kind, refresh, open }: { link: Link; kind: 
   useEffect(() => setText(saved), [saved]);
   const c = COMMANDS[kind];
   async function save() {
-    try { await api(`/api/links/${kind}`, { name: link.name, commands: text.split("\n") }); refresh(); } catch (e) { alert(errorText(e)); }
+    try { await api(`/api/links/${kind}`, { name: link.name, commands: text.split("\n") }); refresh(); } catch (e) { complain(errorText(e)); }
   }
   return (
     <details className="checks-edit" open={open ?? !!list.length}>
@@ -222,7 +199,7 @@ export function LinkCommands({ link, kind, refresh, open }: { link: Link; kind: 
 export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink: (link: Link) => void }) {
   async function unlink(l: Link) {
     if (!await ask({ title: `Unlink ${l.path}?`, body: "The folder itself isn't touched.", action: "Unlink", danger: true })) return;
-    try { await api("/api/links/remove", { name: l.name }); refresh(); } catch (e) { alert(errorText(e)); }
+    try { await api("/api/links/remove", { name: l.name }); refresh(); } catch (e) { complain(errorText(e)); }
   }
   const links = S.links ?? [];
   return (
@@ -230,7 +207,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
       <JiraConnection S={S} refresh={refresh} />
       <div className="wiki-group">
         <h4>Linked folders</h4>
-        <p>Folders on your disk the crew can read as links/&lt;name&gt;/, without uploading. Add one by adding its folder to a project.</p>
+        <p>Folders on your disk the {w("crew")} can read as links/&lt;name&gt;/, without uploading. Add one by adding its folder to a project.</p>
         {!links.length && <div className="meta">None yet.</div>}
         <ul className="list">
           {links.map((l) => (
@@ -251,7 +228,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
         <h4>MCP connectors</h4>
         <p>Servers from camp/mcp.json. Read-only unless a server allows writes, and then each write asks you first.</p>
       </div>
-      {!S.connectors.length ? <Empty title="No connectors yet">Copy mcp.example.json to camp/mcp.json, fill in a server (GitHub, a notes folder…), and say which crew members may use it. It's picked up on the next run.</Empty> : (
+      {!S.connectors.length ? <Empty title="No connectors yet">Copy mcp.example.json (in the app's folder) to camp/mcp.json inside this outpost's folder, fill in a server (GitHub, a notes folder…) and list which {w("crew")} members may use it. A new server shows up here on the next refresh and is used on the {w("crew")}'s next run. If you change one that's already connected, restart the {w("camp")}.</Empty> : (
         <ul className="list">
           {S.connectors.map((c) => {
             const ok = c.state === "connected";
@@ -278,7 +255,7 @@ export function Inbox({ S, refresh }: Panel) {
   const voice = useContext(VoiceOn);
   if (!S.inbox.length) return <Empty title="Inbox is empty">Reports from scheduled jobs land here, newest first. Runs that find nothing new stay quiet.</Empty>;
   const unread = S.inbox.filter((m) => !m.seen).length;
-  const markRead = (which: { heading: string } | { all: true }) => api("/api/inbox/seen", which).then(refresh, (e) => alert(errorText(e)));
+  const markRead = (which: { heading: string } | { all: true }) => api("/api/inbox/seen", which).then(refresh, (e) => complain(errorText(e)));
   return (
     <>
       <div className="panel-note inbox-note">

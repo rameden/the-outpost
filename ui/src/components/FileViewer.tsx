@@ -16,7 +16,9 @@ import type { FilePreview } from "../types.ts";
 import { Markdown } from "../markdown.tsx";
 import { Icon } from "./bits.tsx";
 import { CAMP_FILES, isImage, kindOf, refOf, sizeText, type FileRoot } from "./Files.tsx";
+import { Dialog } from "./Dialog.tsx";
 
+import { w } from "../words.ts";
 export const isMarkdown = (name: string) => /\.(md|markdown|mdx)$/i.test(name);
 // A Markdown file's opening block of "key: value" lines between --- rules (a wiki page's summary
 // and the like): shown as a small table above the page, not as a stray rule and a run-on line.
@@ -48,19 +50,12 @@ export function FileViewer({ root, rel, line, changes: atChanges = false, onClos
   const ref = refOf(root, rel, false);
   const where = treeQuery(root.link, root.path, rel);
 
-  // The file is read once for each place it's opened at. (Escape has its own effect below: what
-  // closes the viewer is often a new function each time the page around it is drawn, and tied
-  // together that read the file again, and coloured it again, many times a second.)
+  // The file is read once for each place it's opened at.
   useEffect(() => {
     let gone = false;
     api<FilePreview>(`/api/tree/file?${where}`).then((f) => { if (!gone) setFile(f); }, (e) => { if (!gone) setError(errorText(e)); });
     return () => { gone = true; };
   }, [where]);
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
 
   const lines = file && "text" in file ? file.text.replace(/\n$/, "").split("\n") : null;
   // The code, coloured by its language (told from the file's name), where it's one we know.
@@ -90,9 +85,7 @@ export function FileViewer({ root, rel, line, changes: atChanges = false, onClos
   }
 
   return (
-    <>
-      <div className="drawer-backdrop file-fly-backdrop" onClick={onClose} />
-      <div className="drawer file-view" role="dialog" aria-modal="true" aria-label={ref}>
+    <Dialog className="drawer file-view" backdropClass="file-fly-backdrop" label={ref} onClose={onClose}>
         <header className={cx("file-head", kind)}>
           <Icon name={isImage(rel) ? "image" : "file"} />
           <b title={file?.abs}>{ref}</b>
@@ -141,13 +134,12 @@ export function FileViewer({ root, rel, line, changes: atChanges = false, onClos
               </div>
             )
             : "image" in file ? <img className="file-image" alt={rel} src={treeImageUrl(root.link, root.path, rel)} />
-            : <div className="ft-note">{"tooLarge" in file ? `This file is ${sizeText(file.size)}, too large to show here.` : "This isn't a text file, so there's nothing to show."} The crew can still read it.</div>}
+            : <div className="ft-note">{"tooLarge" in file ? `This file is ${sizeText(file.size)}, too large to show here.` : "This isn't a text file, so there's nothing to show."} The {w("crew")} can still read it.</div>}
         </div>
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={copy} disabled={!file}>{copied ? "Copied" : "Copy path"}</button>
           <button type="button" className="btn primary" onClick={() => onMention(ref)}>Mention in message</button>
         </div>
-      </div>
-    </>
+    </Dialog>
   );
 }

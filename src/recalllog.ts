@@ -15,9 +15,9 @@
 // To read it: readRecalls() (everything, oldest first) and recallsOf(where, line) (one line's,
 // newest first). It depends only on memlog.ts, memfit.ts and atomic.ts.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { writeAtomic } from "./atomic.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { fitMemory, parseEntry } from "./memfit.js";
 import { norm, readAbout, type Where } from "./memlog.js";
 
@@ -38,9 +38,7 @@ function load(): Loaded {
   if (!existsSync(RECALL_LOG)) return (cache = { stamp: `${process.cwd()}|none`, list: [], seen: new Set() });
   const stamp = stampOf();
   if (cache?.stamp === stamp) return cache;
-  const list = readFileSync(RECALL_LOG, "utf8").split("\n").filter(Boolean).flatMap((l) => {
-    try { const r = JSON.parse(l) as Recall; return r && typeof r.key === "string" && typeof r.where === "string" && typeof r.time === "string" ? [r] : []; } catch { return []; }
-  });
+  const list = readJsonl<Recall>(RECALL_LOG).filter((r) => r && typeof r.key === "string" && typeof r.where === "string" && typeof r.time === "string");
   return (cache = { stamp, list, seen: new Set(list.map(once)) });
 }
 
@@ -69,13 +67,12 @@ export function logRecalls(where: Where, lines: { text: string; score?: number }
       fresh.push(r);
     }
     if (!fresh.length) return;
-    mkdirSync("camp", { recursive: true });
     have.list.push(...fresh);
     if (have.list.length > RECALL_MAX + SLACK) {
       have.list = have.list.slice(-RECALL_MAX);
       have.seen = new Set(have.list.map(once));
       writeAtomic(RECALL_LOG, have.list.map((r) => JSON.stringify(r)).join("\n") + "\n");
-    } else appendFileSync(RECALL_LOG, fresh.map((r) => JSON.stringify(r)).join("\n") + "\n");
+    } else appendLine(RECALL_LOG, fresh.map((r) => JSON.stringify(r)).join("\n"));
     cache = { stamp: stampOf(), list: have.list, seen: have.seen };
   } catch { cache = null; /* a recall that isn't written down is no loss */ }
 }

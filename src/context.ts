@@ -36,7 +36,6 @@ export const currentRunKey = () => store.getStore()?.questId ?? store.getStore()
 export const currentWorkspaces = () => store.getStore()?.workspaces ?? {};
 export const currentSteering = () => store.getStore()?.steering;
 export const currentProjectId = () => store.getStore()?.project;
-export const currentScope = () => store.getStore()?.scope;
 export const inScope = (link: string) => { const s = store.getStore()?.scope; return !s || s.includes(link); };
 // The folders the user left or took out of this conversation (so the crew can be told it was on purpose).
 export const leftOutHere = () => store.getStore()?.without ?? [];

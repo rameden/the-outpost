@@ -11,14 +11,15 @@ import { useState } from "react";
 import { say, type Sent } from "../bus.ts";
 import { cx, plural } from "../format.ts";
 
+import { w } from "../words.ts";
 export type Finding = { severity: "blocker" | "should" | "nit"; file: string; line?: number; title: string; detail: string };
 const LABEL = { blocker: "Must fix", should: "Should fix", nit: "Small" } as const;
 const ORDER = { blocker: 0, should: 1, nit: 2 } as const;
 const MAX_FINDINGS = 60;
 const HINT = {
   sending: "Sending…",
-  now: "Sent to the crew: they'll take it on their next step.",
-  sent: "Sent: the crew is on it.",
+  get now() { return `Sent to the ${w("crew")}: they'll take it on their next step.`; },
+  get sent() { return `Sent: the ${w("crew")} is on it.`; },
   failed: "It didn't go: the message box says why.",
   box: "It's in the message box: read it over, then send.",
 } as const;
@@ -90,7 +91,7 @@ export function Findings({ list }: { list: Finding[] }) {
       </ul>
       <div className="findings-foot">
         <button type="button" className="btn small primary" disabled={!chosen.length || sent === "sending" || sent === "now" || sent === "sent"}
-          title="Send the ticked findings as a change request: to the crew now if they're working, else as a reply"
+          title={`Send the ticked findings as a change request: to the ${w("crew")} now if they're working, else as a reply`}
           onClick={() => { setSent("sending"); say({ do: "send", text: fixRequest(chosen), sent: (how) => setSent(how ?? "failed") }); }}>Ask for {chosen.length === list.length ? "these" : `${chosen.length} of them`} to be fixed</button>
         <button type="button" className="btn small" disabled={!chosen.length} title="Put a request in the message box to post the ticked findings on the pull request as you. You approve the exact text before anything is posted."
           onClick={() => { say({ do: "compose", text: postRequest(chosen) }); setSent("box"); }}>Post on the pull request…</button>

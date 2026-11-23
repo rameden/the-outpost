@@ -5,7 +5,9 @@ import { api, errorText } from "../api.ts";
 import { plural } from "../format.ts";
 import type { CheckpointDiff, UndoResult } from "../types.ts";
 import { ask } from "../components/Confirm.tsx";
+import { complain } from "../components/StatusLine.tsx";
 
+import { w } from "../words.ts";
 const WORDS = { created: "created", modified: "changed", deleted: "deleted" };
 
 function DiffLine({ line }: { line: string }) {
@@ -35,13 +37,13 @@ export function Changes({ expId }: { expId: string }) {
   async function undo() {
     if (!diff) return;
     const n = diff.files.length;
-    if (!await ask({ title: `Put ${n} ${plural(n, "file")} back the way ${n === 1 ? "it was" : "they were"} before this expedition?`, action: "Put back", danger: true })) return;
+    if (!await ask({ title: `Put ${n} ${plural(n, "file")} back the way ${n === 1 ? "it was" : "they were"} before this ${w("expedition")}?`, action: "Put back", danger: true })) return;
     setUndoing(true);
     try {
       const r = await api<UndoResult>("/api/checkpoint/undo", { id: expId });
       setDiff(null);
       setMessage(`↩ Put back ${r.restored.length} ${plural(r.restored.length, "file")}.${r.skipped.length ? ` Couldn't restore: ${r.skipped.join(", ")}.` : ""}`);
-    } catch (e) { setUndoing(false); alert(errorText(e)); }
+    } catch (e) { setUndoing(false); complain(errorText(e)); }
   }
 
   if (message !== null || !diff) return <div className="exp-changes"><div className="meta">{message}</div></div>;

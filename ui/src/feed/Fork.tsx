@@ -2,28 +2,21 @@
 // run (the original stays as it was). "Go back to here" also puts back what every later run in
 // the conversation changed, so the files are as they were right after this one.
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { Confirm } from "../components/Confirm.tsx";
 import { plural } from "../format.ts";
+import { usePopover } from "../components/usePopover.ts";
+import { complain } from "../components/StatusLine.tsx";
 
 type ForkResult = { ok: true; thread: string; expedition: string; restored: string[]; skipped: string[] };
 
 export function ForkButton({ expId }: { expId: string }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, box } = usePopover();
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const box = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (ev: MouseEvent) => { if (!box.current?.contains(ev.target as Node)) setOpen(false); };
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
-  }, [open]);
 
   async function fork(rewind: boolean) {
     setBusy(true);
@@ -34,7 +27,7 @@ export function ForkButton({ expId }: { expId: string }) {
         setMessage(`↩ Put back ${r.restored.length} ${plural(r.restored.length, "file")}.${r.skipped.length ? ` Left alone: ${r.skipped.join(", ")}.` : ""}`);
       }
       say({ do: "open-conversation", id: r.thread });
-    } catch (e) { alert(errorText(e)); }
+    } catch (e) { complain(errorText(e)); }
     setBusy(false);
   }
 

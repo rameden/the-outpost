@@ -5,6 +5,8 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createFeedStore } from "../feed/store.ts";
 import { Quests } from "../panels/Quests.tsx";
 import type { CampEvent, CampState } from "../types.ts";
+import { hear } from "../bus.ts";
+import { ConfirmHost } from "./Confirm.tsx";
 import { Header } from "./Header.tsx";
 import type { Need } from "../needs.ts";
 import { readAloud } from "../readaloud.ts";
@@ -17,7 +19,6 @@ beforeEach(() => {
     if (init?.body) posts.push({ path, body: JSON.parse(String(init.body)) }); // what the page sends, not what it reads
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   }));
-  vi.stubGlobal("confirm", vi.fn(() => true));
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -45,10 +46,10 @@ function events(store: ReturnType<typeof createFeedStore>, ...bodies: object[]) 
   });
 }
 
-test("the busy chip counts running expeditions and what's queued, and the title counts decisions", () => {
+test("the busy chip counts running expeditions and what's queued, and the tab title counts decisions", () => {
   const store = createFeedStore();
   const S = { ...camp(), queued: [{ id: "q", label: "expedition" }] } as CampState;
-  render(<Header S={S} store={store} conn="live" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={S} store={store} conn="live" refresh={() => {}} />);
   expect(screen.getByText("Idle · 1 queued")).toBeTruthy();
   expect(screen.queryByText("$1.50 today")).toBeNull(); // today's spend is in the status chip's menu, not the bar
   fireEvent.click(screen.getByRole("button", { name: /^Idle · 1 queued/ }));
@@ -64,32 +65,34 @@ test("the busy chip counts running expeditions and what's queued, and the title 
     { type: "ask", id: "ask2", kind: "plan", title: "📋 Plan", body: "1.", expeditionId: "b" },
   );
   expect(screen.getByText("2 expeditions running · 1 queued")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "2 decisions need you" })).toBeTruthy();
   expect(document.title).toBe("(2) Outpost Mae");
 
   events(store, { type: "answered", id: "ask1", answer: "" });
-  expect(screen.getByRole("button", { name: "1 decision needs you" })).toBeTruthy();
+  expect(document.title).toBe("(1) Outpost Mae");
 });
 
 test("the runtime chip switches what runs the crew, after you confirm", async () => {
   const refresh = vi.fn();
-  render(<Header S={onSubscription()} store={createFeedStore()} conn="live" refresh={refresh} />);
+  render(<><Header needs={[]} onNeed={() => {}} S={onSubscription()} store={createFeedStore()} conn="live" refresh={refresh} /><ConfirmHost /></>);
   expect(screen.getByRole("button", { name: /Plan limit · resets in 30 min/ })).toBeTruthy();
   expect(screen.queryByText("Claude Max")).toBeNull(); // set once, so it's in the status chip's menu
   fireEvent.click(screen.getByRole("button", { name: /^Idle/ }));
   expect(screen.getByText("$1.50 today (est.)")).toBeTruthy();
   await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: /Claude Max/ })); });
-  expect(confirm).toHaveBeenCalledWith("Switch the crew to the API? Usage will be billed to your API key.");
+  expect(screen.getByRole("alertdialog").textContent).toContain("Usage will be billed to your API key.");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Switch to the API" })); });
   expect(posts).toEqual([{ path: "/api/runtime", body: { runtime: "api" } }]);
   expect(refresh).toHaveBeenCalled();
 });
 
 test("a sign-in problem is shown instead of switching", () => {
-  vi.stubGlobal("alert", vi.fn());
+  const said: unknown[] = [];
+  const off = hear((a) => said.push(a));
   const S = camp({ runtime: "claude-code", login: { ok: false, problem: "Claude Code isn't signed in." } });
-  render(<Header S={S} store={createFeedStore()} conn="reconnecting" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="reconnecting" refresh={() => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "⚠️ Claude Code sign-in" }));
-  expect(alert).toHaveBeenCalledWith("Claude Code isn't signed in.");
+  off();
+  expect(said).toEqual([{ do: "tell", text: "Claude Code isn't signed in.", error: true }]);
   expect(posts).toEqual([]);
   expect(screen.getByText("Reconnecting…")).toBeTruthy();
 });
@@ -114,7 +117,7 @@ test("Quests shows plan usage and the pause, and sends you to Settings for the b
 
 test("focus mode: one button closes the panels, and shows when they're closed", () => {
   const onToggleFocus = vi.fn();
-  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused={false} onToggleFocus={onToggleFocus} />);
+  const { rerender } = render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused={false} onToggleFocus={onToggleFocus} />);
   fireEvent.click(screen.getByRole("button", { name: "More" })); // it's in the ··· menu
   const focus = screen.getByRole("menuitemcheckbox", { name: "Focus mode" });
   expect(focus.getAttribute("aria-checked")).toBe("false");
@@ -122,40 +125,49 @@ test("focus mode: one button closes the panels, and shows when they're closed", 
   expect(onToggleFocus).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("menu", { name: "More" })).toBeNull(); // picking shuts the menu
   expect(screen.queryByRole("button", { name: /the terminal/ })).toBeNull(); // the terminal has its own tab now
-  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused onToggleFocus={onToggleFocus} />);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} focused onToggleFocus={onToggleFocus} />);
   const more = screen.getByRole("button", { name: "More" });
   expect(more.className).toContain("on"); // lit while focus is on
   fireEvent.click(more);
   expect(screen.getByRole("menuitemcheckbox", { name: "Focus mode" }).getAttribute("aria-checked")).toBe("true");
 });
 
-test("the Arcade menu holds Orbit, the trail map, the constellation and Barnstorm, and is lit while one is open", () => {
+test("the Views menu holds Orbit, the trail map and the constellation, and is lit while one is open", () => {
   const onOrbit = vi.fn(), onTrail = vi.fn(), onConstellation = vi.fn(), onBarnstorm = vi.fn();
   const on = { onOrbit, onTrail, onConstellation, onBarnstorm };
-  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} />);
-  const arcade = screen.getByRole("button", { name: "Arcade" });
-  expect(arcade.classList.contains("on")).toBe(false);
+  const { rerender } = render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} />);
+  const views = screen.getByRole("button", { name: "Views" });
+  expect(views.classList.contains("on")).toBe(false);
   expect(screen.queryByRole("button", { name: "Orbit" })).toBeNull(); // none of them has a button of its own in the bar
-  fireEvent.click(arcade);
-  const menu = screen.getByRole("menu", { name: "Arcade" });
-  expect(within(menu).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit", "Trail map", "Constellation", "Barnstorm"]);
+  fireEvent.click(views);
+  const menu = screen.getByRole("menu", { name: "Views" });
+  expect(within(menu).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit", "Trail map", "Constellation"]);
   fireEvent.click(within(menu).getByRole("menuitemcheckbox", { name: "Constellation" }));
   expect(onConstellation).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole("menu", { name: "Arcade" })).toBeNull(); // picking shuts the menu
-  fireEvent.click(arcade);
+  expect(screen.queryByRole("menu", { name: "Views" })).toBeNull(); // picking shuts the menu
+  fireEvent.click(views);
   fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Trail map" }));
-  fireEvent.click(arcade);
+  fireEvent.click(views);
   fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Orbit" }));
   expect([onOrbit, onTrail, onBarnstorm].map((f) => f.mock.calls.length)).toEqual([1, 1, 0]);
-  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} constellation />);
-  expect(arcade.classList.contains("on")).toBe(true);
-  fireEvent.click(arcade);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} constellation />);
+  expect(views.classList.contains("on")).toBe(true);
+  fireEvent.click(views);
   expect(screen.getByRole("menuitemcheckbox", { name: "Leave the constellation" }).getAttribute("aria-checked")).toBe("true");
 });
 
-test("with nothing to open, there's no Arcade menu", () => {
-  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
-  expect(screen.queryByRole("button", { name: "Arcade" })).toBeNull();
+test("Barnstorm is the last row of the ··· menu, not in Views", () => {
+  render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} onOrbit={() => {}} onBarnstorm={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Views" }));
+  expect(screen.queryByRole("menuitemcheckbox", { name: "Barnstorm" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  const rows = [...screen.getByRole("menu", { name: "More" }).querySelectorAll('[role^="menuitem"]')];
+  expect(rows[rows.length - 1].getAttribute("aria-label")).toBe("Barnstorm");
+});
+
+test("with nothing to open, there's no Views menu", () => {
+  render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  expect(screen.queryByRole("button", { name: "Views" })).toBeNull();
 });
 
 test("what needs you is one chip: several things open a list, and each row goes to its own", () => {
@@ -192,7 +204,7 @@ test("the title is Outpost, with the outpost's name under it, and the tab says b
   meta.name = "outpost"; meta.content = "Work";
   document.head.append(meta);
   try {
-    render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+    render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
     const logo = within(screen.getByRole("heading", { level: 1 })).getByRole("img", { name: "Outpost Work" });
     expect(logo.querySelector(".mae-mark")).toBeTruthy();
     expect(logo.querySelector(".outpost-title")!.textContent).toBe("Outpost");
@@ -207,7 +219,7 @@ test("a rename in the camp's state shows at once, and the page keeps the new nam
   document.head.append(meta);
   try {
     const S = { ...camp(), settings: { ...camp().settings, outpost: "Home" } } as CampState;
-    render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
+    render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
     expect(within(screen.getByRole("heading", { level: 1 })).getByRole("img", { name: "Outpost Home" }).querySelector(".outpost-sub")!.textContent).toBe("Home");
     expect(document.title).toBe("Outpost Home");
     expect(meta.content).toBe("Home");
@@ -215,7 +227,7 @@ test("a rename in the camp's state shows at once, and the page keeps the new nam
 });
 
 test("the logo is the kit's mark and the words, with no orb beside it", () => {
-  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   const name = screen.getByRole("heading", { level: 1 });
   const logo = within(name).getByRole("img", { name: "Outpost Mae" });
   const mark = logo.querySelector("svg.mae-mark")!;
@@ -229,16 +241,16 @@ test("the logo is the kit's mark and the words, with no orb beside it", () => {
 });
 
 test("the connection only shows when it's lost or not made yet", () => {
-  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  const { rerender } = render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   expect(screen.queryByTitle(/Connection to the camp/)).toBeNull();
-  rerender(<Header S={camp()} store={createFeedStore()} conn="reconnecting" refresh={() => {}} />);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="reconnecting" refresh={() => {}} />);
   expect(screen.getByText("Reconnecting…")).toBeTruthy();
-  rerender(<Header S={camp()} store={createFeedStore()} conn="connecting" refresh={() => {}} />);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="connecting" refresh={() => {}} />);
   expect(screen.getByText("Connecting…")).toBeTruthy();
 });
 
 test("Tour, in the ··· menu, opens the splash page in a new tab", () => {
-  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   expect(screen.queryByRole("link")).toBeNull(); // nothing beside the name
   fireEvent.click(screen.getByRole("button", { name: "More" }));
   const link = screen.getByRole("menuitem", { name: "Tour" });
@@ -250,25 +262,25 @@ test("Tour, in the ··· menu, opens the splash page in a new tab", () => {
 test("the connection chip: quiet while live, and after a long outage it says the camp isn't running and what to do", () => {
   const store = createFeedStore();
   const refresh = vi.fn();
-  const { rerender } = render(<Header S={camp()} store={store} conn="live" refresh={refresh} />);
+  const { rerender } = render(<Header needs={[]} onNeed={() => {}} S={camp()} store={store} conn="live" refresh={refresh} />);
   expect(screen.queryByRole("status")).toBeNull();
-  rerender(<Header S={camp()} store={store} conn="reconnecting" refresh={refresh} />);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={store} conn="reconnecting" refresh={refresh} />);
   expect(screen.getByRole("status").textContent).toBe("Reconnecting…");
-  rerender(<Header S={camp()} store={store} conn="offline" refresh={refresh} />);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={store} conn="offline" refresh={refresh} />);
   expect(screen.getByRole("status").textContent).toBe("The camp isn't running. Start it again, or reopen the link it prints in the terminal.");
   // Connected, but the panels' last reload failed: a chip says so, and a click tries again.
-  rerender(<Header S={camp()} store={store} conn="live" stale refresh={refresh} />);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={store} conn="live" stale refresh={refresh} />);
   expect(screen.queryByRole("status")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Out of date · retry" }));
   expect(refresh).toHaveBeenCalledTimes(1);
   // While the stream is down that's the news; the stale chip waits its turn.
-  rerender(<Header S={camp()} store={store} conn="reconnecting" stale refresh={refresh} />);
+  rerender(<Header needs={[]} onNeed={() => {}} S={camp()} store={store} conn="reconnecting" stale refresh={refresh} />);
   expect(screen.queryByRole("button", { name: "Out of date · retry" })).toBeNull();
 });
 
 test("the logo is the way home: it opens Today", () => {
   const onHome = vi.fn();
-  render(<Header S={null} store={createFeedStore()} conn="live" refresh={() => {}} onHome={onHome} />);
+  render(<Header needs={[]} onNeed={() => {}} S={null} store={createFeedStore()} conn="live" refresh={() => {}} onHome={onHome} />);
   fireEvent.click(screen.getByRole("button", { name: "Outpost Mae" }));
   expect(onHome).toHaveBeenCalled();
 });
@@ -283,7 +295,7 @@ test("on extra-usage credit: the header says so with what's left, and Quests sho
     credit: { inUse: true, until, out: false, limit: 50, used: 12.4, left: 37.6, currency: "USD", measured: Date.now() },
   } as Partial<CampState>);
   const opened: string[] = [];
-  render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onOpenSettings={(s) => opened.push(String(s))} />);
+  render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onOpenSettings={(s) => opened.push(String(s))} />);
   fireEvent.click(screen.getByRole("button", { name: "💳 On credit · $37.60 left" }));
   expect(opened).toEqual(["usage"]);
   cleanup();
@@ -294,7 +306,7 @@ test("on extra-usage credit: the header says so with what's left, and Quests sho
   // Not on credit: no chip, but the row still says what's left.
   cleanup();
   const idle = { ...S, credit: { ...S.credit!, inUse: false, until: null } } as CampState;
-  render(<Header S={idle} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={idle} store={createFeedStore()} conn="live" refresh={() => {}} />);
   expect(screen.queryByText(/On credit/)).toBeNull();
 });
 
@@ -303,7 +315,7 @@ test("what's being read aloud has its controls in the bar, just before the statu
   URL.createObjectURL = vi.fn(() => "blob:speech");
   URL.revokeObjectURL = vi.fn();
   vi.stubGlobal("fetch", vi.fn(async () => new Response(new Blob(["mp3"]))));
-  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   expect(screen.queryByRole("region", { name: "Reading aloud" })).toBeNull();
   act(() => readAloud("Three runs, two quests.", { what: "Debrief" }));
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
@@ -316,11 +328,11 @@ test("what's being read aloud has its controls in the bar, just before the statu
 
 test("an outpost the star chart started links back to it, from this machine only", () => {
   const S = { ...camp(), settings: { ...camp().settings, chart: "http://127.0.0.1:4700/" } } as CampState;
-  const { unmount } = render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  const { unmount } = render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "More" })); // it's in the ··· menu
   expect(screen.getByRole("menuitem", { name: "Outposts" }).getAttribute("href")).toBe("http://127.0.0.1:4700/");
   unmount();
-  render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "More" }));
   expect(screen.queryByRole("menuitem", { name: "Outposts" })).toBeNull();
 });

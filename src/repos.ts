@@ -12,6 +12,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { findLink, loadLinks, type Link } from "./links.js";
 import type { Workspace } from "./context.js";
+import { checkFailed, gh } from "./github.js";
 
 const run = promisify(execFile);
 export async function git(cwd: string, args: string[], timeout = 60_000): Promise<string> {
@@ -142,7 +143,7 @@ export async function openPullRequest(w: Pick<Workspace, "link" | "path">, title
   if (await tryGit(dir, ["status", "--porcelain"])) throw new Error("There are uncommitted changes. Commit them first.");
   try {
     await git(dir, ["push", "-u", "origin", branch], 300_000);
-    const { stdout } = await run("gh", ["pr", "create", "--head", branch, "--title", title.trim() || branch, "--body", body], { cwd: dir, timeout: 120_000 });
+    const stdout = await gh(["pr", "create", "--head", branch, "--title", title.trim() || branch, "--body", body], { cwd: dir, timeout: 120_000 });
     return stdout.trim().split("\n").pop() ?? "";
   } catch (e: any) {
     if (e?.code === "ENOENT") throw new Error("Pushed the branch, but the GitHub CLI (gh) isn't installed, so open the pull request yourself.");
@@ -176,20 +177,20 @@ export async function switchBranch(linkName: string, name: string, create: boole
 export type PrFeedback = { url: string; number: number; title: string; failing: number; comments: number; text: string };
 export async function pullRequestFeedback(w: Pick<Workspace, "link" | "path">): Promise<PrFeedback> {
   const dir = await checked(w);
-  const gh = async (args: string[]) => {
-    try { return (await run("gh", args, { cwd: dir, timeout: 60_000, maxBuffer: 8 * 1024 * 1024 })).stdout; }
+  const read = async (args: string[]) => {
+    try { return await gh(args, { cwd: dir }); }
     catch (e: any) {
       if (e?.code === "ENOENT") throw new Error("The GitHub CLI (gh) isn't installed, so the pull request can't be read from here.");
       throw fail(e);
     }
   };
   let pr: any;
-  try { pr = JSON.parse(await gh(["pr", "view", "--json", "number,url,title,reviews,comments,statusCheckRollup"])); }
+  try { pr = JSON.parse(await read(["pr", "view", "--json", "number,url,title,reviews,comments,statusCheckRollup"])); }
   catch (e: any) { throw new Error(/no pull requests? found/i.test(e.message) ? "There's no pull request for this branch yet." : e.message); }
   let inline: any[] = [];
-  try { inline = JSON.parse(await gh(["api", `repos/{owner}/{repo}/pulls/${pr.number}/comments`, "--paginate"])); } catch { /* reviews and checks still say a lot */ }
+  try { inline = JSON.parse(await read(["api", `repos/{owner}/{repo}/pulls/${pr.number}/comments`, "--paginate"])); } catch { /* reviews and checks still say a lot */ }
   const clip = (s: unknown, n = 1500) => { const t = String(s ?? "").trim(); return t.length > n ? `${t.slice(0, n)}…` : t; };
-  const failing = (pr.statusCheckRollup ?? []).filter((c: any) => /FAIL|ERROR|TIMED_OUT|CANCELLED|ACTION_REQUIRED/i.test(String(c.conclusion ?? c.state ?? "")));
+  const failing = (pr.statusCheckRollup ?? []).filter(checkFailed);
   const reviews = (pr.reviews ?? []).filter((r: any) => String(r.body ?? "").trim() || r.state === "CHANGES_REQUESTED");
   const general = (pr.comments ?? []).filter((c: any) => String(c.body ?? "").trim());
   const parts: string[] = [];

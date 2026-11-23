@@ -17,22 +17,16 @@ import { cClass, cx, when } from "../format.ts";
 import { Drawer, Icon } from "./bits.tsx";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
 import { ask } from "./Confirm.tsx";
+import { usePopover } from "./usePopover.ts";
+import { complain } from "./StatusLine.tsx";
 
+import { w } from "../words.ts";
 const GENERAL = "general";
 const SHOWN = 5; // conversations listed under a project before "View all"
 
 // A "⋯" button with a small menu under it. Closes on a click anywhere else, or Escape.
 function Menu({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (ev: MouseEvent) => { if (!box.current?.contains(ev.target as Node)) setOpen(false); };
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
-  }, [open]);
+  const { open, setOpen, box } = usePopover();
   return (
     <span className="hist-menu" ref={box}>
       <button type="button" className="hist-icon" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open}
@@ -90,7 +84,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
       const r = await api<{ history: HistoryData }>("/api/history", body);
       patch((s) => ({ ...s, history: r.history }));
       return true;
-    } catch (e) { alert(errorText(e)); return false; }
+    } catch (e) { complain(errorText(e)); return false; }
   }
 
   function toggle(id: string) {
@@ -140,27 +134,40 @@ export const History = memo(function History({ S, store, view, setView, patch, o
   const marks = new Map<string, Need[]>();
   for (const n of needs ?? []) if (n.kind !== "decision" && n.kind !== "held") marks.set(n.conversation, [...(marks.get(n.conversation) ?? []), n]);
 
+  // Renaming happens in the row itself: Enter keeps it, Escape leaves it as it was.
+  const [renaming, setRenamingNow] = useState<{ id: string; title: string } | null>(null);
+  const renamingRef = useRef(renaming);
+  const setRenaming = (r: { id: string; title: string } | null) => { renamingRef.current = r; setRenamingNow(r); };
+  const finishRename = (keep: boolean) => {
+    const r = renamingRef.current; // read here, so Enter followed by the field losing focus keeps it once
+    if (!r) return;
+    setRenaming(null);
+    if (keep && r && r.title.trim()) void change({ action: "conversation.rename", id: r.id, title: r.title });
+  };
+
   // grouped: it sits under its crew member's name already, so the title doesn't repeat it.
   const row = (c: Conversation, grouped = false) => {
     const a = activity[c.id];
     return (
       <li key={c.id} className={cx("hist-row", selected === c.id && "selected")}>
-        <button type="button" className="hist-open" title={`${c.title}\n${when(c.updated)}`} aria-current={selected === c.id ? "page" : undefined}
-          onClick={() => setView({ kind: "conversation", id: c.id })}>
-          {a?.running && <span className="dot live" title="Something is running here" />}
-          <span className="hist-title">{c.direct && !grouped ? `@${c.agent} · ` : ""}{c.title}</span>
-          {a?.needs ? <span className="hist-needs" title={`${a.needs} waiting for your decision`}>{a.needs}</span> : null}
-          {!a?.needs && marks.get(c.id)?.map((n) => (
-            <span key={n.key} className={cx("hist-mark", n.kind)} title={n.says}>{n.kind === "pr" ? "PR" : n.kind === "failed" ? "!" : ""}<span className="sr-only">{n.says}</span></span>
-          ))}
-        </button>
+        {renaming?.id === c.id
+          ? <input className="hist-search" autoFocus aria-label="Rename this conversation" value={renaming.title} maxLength={200}
+              onFocus={(ev) => ev.currentTarget.select()} onChange={(ev) => setRenaming({ id: c.id, title: ev.target.value })} onBlur={() => finishRename(true)}
+              onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); finishRename(true); } else if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); finishRename(false); } }} />
+          : (
+          <button type="button" className="hist-open" title={`${c.title}\n${when(c.updated)}`} aria-current={selected === c.id ? "page" : undefined}
+            onClick={() => setView({ kind: "conversation", id: c.id })}>
+            {a?.running && <span className="dot live" title="Something is running here" />}
+            <span className="hist-title">{c.direct && !grouped ? `@${c.agent} · ` : ""}{c.title}</span>
+            {a?.needs ? <span className="hist-needs" title={`${a.needs} waiting for your decision`}>{a.needs}</span> : null}
+            {!a?.needs && marks.get(c.id)?.map((n) => (
+              <span key={n.key} className={cx("hist-mark", n.kind)} title={n.says}>{n.kind === "pr" ? "PR" : n.kind === "failed" ? "!" : ""}<span className="sr-only">{n.says}</span></span>
+            ))}
+          </button>
+          )}
         <Menu label={`Options for ${c.title}`}>{(close) => (
           <>
-            <button type="button" role="menuitem" onClick={async () => {
-              close();
-              const title = prompt("Rename this conversation:", c.title);
-              if (title?.trim()) await change({ action: "conversation.rename", id: c.id, title });
-            }}>Rename…</button>
+            <button type="button" role="menuitem" onClick={() => { close(); setRenaming({ id: c.id, title: c.title }); }}>Rename…</button>
             {projects.filter((p) => p.id !== c.project).length > 0 && <div className="hist-pop-label">Move to</div>}
             {projects.filter((p) => p.id !== c.project).map((p) => (
               <button key={p.id} type="button" role="menuitem" onClick={() => { close(); void change({ action: "conversation.move", id: c.id, project: p.id }); }}>{p.name}</button>
@@ -168,7 +175,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
             <div className="hist-pop-sep" />
             <button type="button" role="menuitem" className="danger" onClick={async () => {
               close();
-              if (!await ask({ title: `Remove "${c.title}" from your history?`, body: "The crew's files and its record in the camp folder stay.", action: "Remove", danger: true })) return;
+              if (!await ask({ title: `Remove "${c.title}" from your history?`, body: `The ${w("crew")}'s files and its record in the ${w("camp")} folder stay.`, action: "Remove", danger: true })) return;
               if (await change({ action: "conversation.remove", id: c.id }) && selected === c.id) setView({ kind: "new" });
             }}>Remove from history</button>
           </>
@@ -293,7 +300,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
         </button>
         {onOpenWiki && (
           <button type="button" className={cx("hist-nav-item", view.kind === "wiki" && "selected")} aria-current={view.kind === "wiki" ? "page" : undefined}
-            title="The camp's wiki: facts you've told the crew, and notes it brought back" onClick={onOpenWiki}>
+            title={`The ${w("camp")}'s wiki: facts you've told the ${w("crew")}, and notes it brought back`} onClick={onOpenWiki}>
             <Icon name="book" />Wiki
           </button>
         )}

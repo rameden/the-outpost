@@ -30,9 +30,9 @@ import { treeQuery } from "./api.ts";
 import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
-import { setCrewColors } from "./format.ts";
+import { cx, setCrewColors } from "./format.ts";
 import { useSeason, wearPack } from "./themes.ts";
-import { setWords } from "./words.ts";
+import { setWords, w, a as an } from "./words.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { Home } from "./components/Home.tsx";
 import { api, errorText } from "./api.ts";
@@ -42,7 +42,7 @@ import { useFeed } from "./feed/store.ts";
 import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
 import { ErrorBoundary, OverlayBoundary, ZoneBoundary } from "./components/ErrorBoundary.tsx";
-import { StatusLine, tell } from "./components/StatusLine.tsx";
+import { StatusLine, tell, complain } from "./components/StatusLine.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
 import { Feed } from "./feed/Feed.tsx";
 import { DETAIL_KEY, parseDetail, type FeedDetail } from "./feed/condense.ts";
@@ -67,6 +67,10 @@ const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ defaul
 const Constellation = lazy(() => import("./constellation/Constellation.tsx").then((m) => ({ default: m.Constellation })));
 // Decorations (Settings → General): only for looks, and loaded only while one is on. If one ever
 // fails to draw, the page simply goes without it.
+// What shows while one of those arrives: a quiet word, in the middle of the page (or of its panel).
+function LazyWait({ inline }: { inline?: boolean }) {
+  return <div className={cx("lazy-wait", inline && "inline")} role="status">Loading…</div>;
+}
 const Decor = lazy(() => import("./components/Decor.tsx").then((m) => ({ default: m.Decor })));
 function Decorations() {
   const season = useSeason();
@@ -116,7 +120,7 @@ export function App({ store }: { store: FeedStore }) {
   const [trail, setTrail] = useState(false);
   // The memory map (constellation/Constellation.tsx): every remembered line a star, over the whole page. /constellation opens it.
   const [constellation, setConstellation] = useState(false);
-  // All three are in the Arcade menu in the top bar, and one is open at a time.
+  // All three are in the Views menu in the top bar, and one is open at a time.
   const toggleOrbit = useCallback(() => { setTrail(false); setConstellation(false); setOrbit((on) => (on ? false : "live")); }, []);
   const closeOrbit = useCallback(() => setOrbit(false), []);
   const toggleTrail = useCallback(() => { setOrbit(false); setConstellation(false); setTrail((on) => !on); }, []);
@@ -165,15 +169,15 @@ export function App({ store }: { store: FeedStore }) {
     const inProject = project && project.id !== "general" && (view.kind === "home" || (view.kind === "new" && !!view.project));
     return {
       project: inProject ? project.id : undefined,
-      placeholder: inProject ? `Start a conversation in ${project.name}…` : "Ask a model anything, or start with @ to bring in the crew…",
+      placeholder: inProject ? `Start a conversation in ${project.name}…` : `Ask a model anything, or start with @ to bring in the ${w("crew")}…`,
       // In a project, the "work in" picker offers that project's folders only.
       ...(inProject ? { folders: project.links ?? [], newWorktree: project.settings?.workIn === "worktree" } : {}),
     };
   }, [view, liveRun, conversation, project]);
   const heading = view.kind === "all" ? "All activity" : view.kind === "new" ? "New conversation" : conversation?.title ?? "Conversation";
   const waiting = view.kind === "conversation" && S && !conversation ? "This one is waiting its turn. It shows up here when it starts."
-    : view.kind === "new" && project && view.project && project.id !== "general" ? `It will be filed under ${project.name}. Ask the Quartermaster for something, or @ a crew member directly.`
-    : view.kind === "new" ? "Outside a project this is a plain chat: what you ask goes straight to the model named beside the message box, with nobody from the crew involved. To put the crew on it, start your message with @ (for example @quartermaster), or work in a project."
+    : view.kind === "new" && project && view.project && project.id !== "general" ? `It will be filed under ${project.name}. Ask the Quartermaster for something, or @ ${an("crew")} member directly.`
+    : view.kind === "new" ? `Outside a project this is a plain chat: what you ask goes straight to the model named beside the message box, with nobody from the ${w("crew")} involved. To put the ${w("crew")} on it, start your message with @ (for example @quartermaster), or work in a project.`
     : undefined;
   // What a blank page offers to start from: a plain question outside a project, crew work inside one.
   const plainPage = view.kind === "new" && !(project && view.project && project.id !== "general");
@@ -360,7 +364,7 @@ export function App({ store }: { store: FeedStore }) {
     for (const t of tries) {
       try { await api(`/api/tree/file?${treeQuery(t.root.link, t.root.path, t.rel)}`); return openFile(t.root, t.rel, line); } catch { /* not there: try the next */ }
     }
-    tell(store, own ? `Couldn't find ${raw} in the camp folder.` : `Couldn't find ${raw} in the folders attached here.`, true);
+    tell(store, own ? `Couldn't find ${raw} in the ${w("camp")} folder.` : `Couldn't find ${raw} in the folders attached here.`, true);
   };
 
   // /good and /bad: rate the latest finished answer in this conversation.
@@ -459,7 +463,7 @@ export function App({ store }: { store: FeedStore }) {
     try {
       const r = await api<{ history: HistoryData }>("/api/history", { action: "conversation.move", id, project: to });
       patch((s) => ({ ...s, history: r.history }));
-    } catch (e) { alert(errorText(e)); }
+    } catch (e) { complain(errorText(e)); }
   }, [patch]);
   const deleteProject = useCallback(async (p: Project) => {
     if (!await ask({ title: `Delete the project "${p.name}"?`, body: "Its conversations move to General. The folder itself isn't touched.", action: "Delete project", danger: true })) return;
@@ -467,7 +471,7 @@ export function App({ store }: { store: FeedStore }) {
       const r = await api<{ history: HistoryData }>("/api/history", { action: "project.remove", id: p.id });
       patch((s) => ({ ...s, history: r.history }));
       setView({ kind: "projects" });
-    } catch (e) { alert(errorText(e)); }
+    } catch (e) { complain(errorText(e)); }
   }, [patch, setView]);
 
   // Where you were last talking (a conversation, or a new one): where "Attach to message" on a page takes you back to.
@@ -526,7 +530,7 @@ export function App({ store }: { store: FeedStore }) {
               // Each zone keeps its own trouble: one that can't be drawn says so in its own space,
               // and the rest of the page (the message box above all) carries on.
               case "roster": return (
-                <ZoneBoundary name="The crew bar">
+                <ZoneBoundary name={`The ${w("crew")} bar`}>
                   <Crew S={S} store={store} pickerFor={picker?.id ?? null} onOpenAgent={setAgentId} onOpenPicker={openPicker} onOpenQuest={openQuest}
                     onAdd={() => setCrewDialog({ member: null })} onEdit={(c) => setCrewDialog({ member: c })} />
                 </ZoneBoundary>
@@ -594,8 +598,8 @@ export function App({ store }: { store: FeedStore }) {
                   <Dock>
                     {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
                     {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} /></ZoneBoundary>}
-                    {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows these in the feed itself. */}
-                    {!inAll && <StatusLine />}
+                    {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows the ones it records in the feed itself. */}
+                    <StatusLine skipFed={inAll} />
                     <ZoneBoundary name="The message box">
                       <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
                         onSent={onSent} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />
@@ -620,7 +624,7 @@ export function App({ store }: { store: FeedStore }) {
                   </ZoneBoundary>;
               case "terminal": return state === "collapsed"
                 ? <TerminalRail onShow={toggleTerminal} />
-                : <ZoneBoundary name="The terminal"><Suspense fallback={null}><TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={setUpTerminal} /></Suspense></ZoneBoundary>;
+                : <ZoneBoundary name="The terminal"><Suspense fallback={<LazyWait inline />}><TerminalPanel project={project?.id} onHide={toggleTerminal} ready={!!S} actions={S?.settings.termActions} onSetUp={setUpTerminal} /></Suspense></ZoneBoundary>;
               default: return (
                 <div className="zone-empty">
                   <b>Empty zone</b>
@@ -634,19 +638,19 @@ export function App({ store }: { store: FeedStore }) {
       {/* Orbit takes the whole page, and sits under what opens over the page: an agent's page opens over it, and it stays. */}
       <Presence>{orbit && (
         <OverlayBoundary name="Orbit" onClose={closeOrbit}>
-          <Suspense fallback={null}><Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
+          <Suspense fallback={<LazyWait />}><Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
             onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       <Presence>{trail && (
         <OverlayBoundary name="The trail map" onClose={closeTrail}>
-          <Suspense fallback={null}><Trail S={S} store={store} onClose={closeTrail} onOpenQuest={(q) => { setTrail(false); openQuest(q); }} /></Suspense>
+          <Suspense fallback={<LazyWait />}><Trail S={S} store={store} onClose={closeTrail} onOpenQuest={(q) => { setTrail(false); openQuest(q); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       {/* The memory map takes the whole page too. A conversation it opens closes it; a merge it drafts is reviewed on the Memory page. */}
       <Presence>{constellation && (
         <OverlayBoundary name="The memory map" onClose={closeConstellation}>
-          <Suspense fallback={null}><Constellation onClose={closeConstellation} onOpenConversation={openConversation}
+          <Suspense fallback={<LazyWait />}><Constellation onClose={closeConstellation} onOpenConversation={openConversation}
             onOpenMemory={() => { setConstellation(false); openSettings("memory"); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
@@ -659,7 +663,7 @@ export function App({ store }: { store: FeedStore }) {
       )}</Presence>
       <Presence>{settings && (
         <OverlayBoundary name="Settings" onClose={closeSettings}>
-          <Suspense fallback={null}><Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} /></Suspense>
+          <Suspense fallback={<LazyWait />}><Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       <Presence>{layoutEditor && (
@@ -668,7 +672,7 @@ export function App({ store }: { store: FeedStore }) {
         </OverlayBoundary>
       )}</Presence>
       <Presence>{crewDialog && (
-        <OverlayBoundary key={crewDialog.member?.id ?? "new"} name="The crew dialog" onClose={closeCrewDialog}>
+        <OverlayBoundary key={crewDialog.member?.id ?? "new"} name={`The ${w("crew")} dialog`} onClose={closeCrewDialog}>
           <CrewDialog member={crewDialog.member} onClose={closeCrewDialog} onSaved={() => { setCrewDialog(null); refresh(); }} />
         </OverlayBoundary>
       )}</Presence>

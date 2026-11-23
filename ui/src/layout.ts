@@ -9,11 +9,12 @@
 
 import { storeGet, storeSet } from "./api.ts";
 
+import { w } from "./words.ts";
 export type Part = "roster" | "history" | "chat" | "files" | "notes" | "terminal";
 export const PARTS: { id: Part; name: string; about: string }[] = [
   { id: "chat", name: "Chat", about: "The conversation and the message box" },
   { id: "history", name: "History", about: "Your conversations and projects" },
-  { id: "roster", name: "Agent roster", about: "The crew, and what each is doing" },
+  { id: "roster", name: "Agent roster", get about() { return `The ${w("crew")}, and what each is doing`; } },
   { id: "files", name: "Files", about: "The attached folder, as a tree" },
   { id: "notes", name: "Notes", about: "Your own notes, beside the conversation" },
   { id: "terminal", name: "Terminal", about: "Your own shell" },

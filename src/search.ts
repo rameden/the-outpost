@@ -15,7 +15,7 @@ import { dirname, join, relative, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { CAMP_ROOT } from "./tools.js";
 
-const SKIP_DIRS = ["node_modules", ".git", "dist", "build", ".next", "coverage"];
+export const SKIP_DIRS = ["node_modules", ".git", "dist", "build", ".next", "coverage"];
 const WALK_CAP = 200_000;
 const MAX_FILE_BYTES = 1_000_000;
 

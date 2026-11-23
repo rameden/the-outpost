@@ -390,7 +390,7 @@ test("the week's record is gathered from the camp's own files, and the Scribe is
   assert.ok(ask.endsWith(facts));
 });
 
-test("a chronicle is kept per week, the newest first, and its plain bullets can be lifted out", () => {
+test("a chronicle is kept per week, the newest first", () => {
   const written = "The week was about the Open button.\n\n## What got done\n- MP-544 shipped.\n\n## In plain terms\n- The Open button now works.\n- One review comment is still open.\n";
   chron.saveChronicle(project.id, "2026-11-02", "An earlier week.\n\n## In plain terms\n- Nothing shipped.");
   chron.saveChronicle(project.id, "2026-11-09", written);
@@ -398,8 +398,6 @@ test("a chronicle is kept per week, the newest first, and its plain bullets can 
   assert.deepEqual(all.map((c) => c.week), ["2026-11-09", "2026-11-02"]);
   assert.equal(all[0].text, written.trim());
   assert.equal(all[0].label, "Nov 9 to Nov 15, 2026");
-  assert.equal(chron.plainTerms(written), "- The Open button now works.\n- One review comment is still open.");
-  assert.equal(chron.plainTerms("No such section."), "");
   assert.throws(() => chron.saveChronicle("../x", "2026-11-09", "x"), /No such project or week/);
   assert.throws(() => chron.saveChronicle(project.id, "../../x", "x"), /No such project or week/);
   const page = chron.chroniclePage(project.id)!;

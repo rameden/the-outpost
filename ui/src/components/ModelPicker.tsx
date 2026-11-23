@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { api, errorText } from "../api.ts";
 import type { Character, ModelList } from "../types.ts";
 import { autoName, isAuto } from "../format.ts";
+import { useDismiss } from "./usePopover.ts";
 
+import { w } from "../words.ts";
 // The model list, per runtime (your subscription and the API offer different models).
 const lists = new Map<string, ModelList>();
 
@@ -63,16 +65,7 @@ export function ModelPicker({ c, runtime, at, onClose, onSaved }: {
   useEffect(() => { if (list) select.current?.focus(); }, [list]);
   useEffect(() => { if (loadError) setError(loadError); }, [loadError]);
 
-  useEffect(() => {
-    const onDown = (ev: MouseEvent) => {
-      const t = ev.target as Element;
-      if (!box.current?.contains(t) && !t.closest?.(".kit-btn")) onClose();
-    };
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [onClose]);
+  useDismiss(true, onClose, box, ".kit-btn");
 
   const m = list?.models.find((x) => x.id === model);
   const efforts: string[] = m?.efforts ?? [];
@@ -117,12 +110,12 @@ export function ModelPicker({ c, runtime, at, onClose, onSaved }: {
       <label className="field">Effort
         <select value={chosenEffort} disabled={efforts.length === 0} onChange={(ev) => { setEffort(ev.target.value); setError(""); }}>
           <option value="">{auto ? "Chosen by Auto" : "Model's own default"}</option>
-          {efforts.map((e) => <option key={e} value={e}>{e}{e === c.defaultEffort ? " (crew default)" : ""}</option>)}
+          {efforts.map((e) => <option key={e} value={e}>{e}{e === c.defaultEffort ? ` (${w("crew")} default)` : ""}</option>)}
         </select>
       </label>
       <label className="field">Max turns per run
         <input type="number" min={5} max={200} step={5} inputMode="numeric" value={turns} placeholder={String(c.defaultMaxTurns)}
-          title={`Each turn is one reply and the tool calls in it. Crew default: ${c.defaultMaxTurns}. Your budget and the Stop button still apply.`}
+          title={`Each turn is one reply and the tool calls in it. ${w("Crew")} default: ${c.defaultMaxTurns}. Your budget and the Stop button still apply.`}
           onChange={(ev) => { setTurns(ev.target.value); setError(""); }} />
       </label>
       <div className={error ? "pick-note warn" : "pick-note"}>{error || notes.join(" ")}</div>

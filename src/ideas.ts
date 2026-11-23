@@ -22,11 +22,11 @@ import type { Project } from "./conversations.js";
 import { addNotes, loadNotes, removeNote, type Note } from "./notes.js";
 import { projectBrief, projectNotes } from "./projects.js";
 import { askSmall } from "./small.js";
+import { flatTrim as flat, jsonIn } from "./helpers.js";
 
 export const PASSED_PATH = "camp/ideas-passed.json";
 export const MAX_IDEAS = 5;
 const MAX_PASSED = 80; // titles remembered per project
-const flat = (s: unknown, n: number) => { const t = String(s ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t; };
 const same = (a: string, b: string) => a.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() === b.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 // ---------- Suggestions you passed on ----------
@@ -73,10 +73,7 @@ const SYSTEM =
 export type Idea = { title: string; why: string; criteria: string[] };
 // The ideas in an answer (JSON, with or without a fence around it). What isn't one is left out.
 export function parseIdeas(raw: string): Idea[] {
-  const m = /\[[\s\S]*\]/.exec(raw.replace(/```(?:json)?/gi, ""));
-  if (!m) return [];
-  let list: unknown;
-  try { list = JSON.parse(m[0]); } catch { return []; }
+  const list = jsonIn(raw, "[");
   if (!Array.isArray(list)) return [];
   const out: Idea[] = [];
   for (const x of list) {

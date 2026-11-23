@@ -1,5 +1,5 @@
 // The camp: talk to the Quartermaster, or straight to one adventurer.
-// Run: npm run cli          (scheduled jobs run separately: npm run watch)
+// Run: npm run cli          (scheduled jobs run in mission control, or with nothing open after npm run watch:install)
 
 import { rl } from "./tools.js";
 import { onInterrupt } from "./terminal.js";
@@ -63,7 +63,7 @@ const HELP = `Commands:
                      How many turns one run of that crew member may take before it stops
   /review            Approve or reject skills the Quartermaster proposed
   /log               Recent quests: who went, how it ended, time, tokens, and cost
-  /jobs              Scheduled jobs (they run while \`npm run watch\` is going)
+  /jobs              Scheduled jobs (they run while mission control is open; npm run watch:install for always)
   /wiki              The camp wiki's index (pages live in camp/wiki/)
   /help              This list
   exit               Break camp`;

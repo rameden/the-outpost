@@ -12,9 +12,10 @@ import { Presence } from "../motion.tsx";
 import type { CampState } from "../types.ts";
 import { Confirm } from "./Confirm.tsx";
 
-const SECTIONS = [
-  ["facts", "Facts", "What you told the crew or decided. Treated as true."],
-  ["notes", "Notes", "What the crew found, with sources. Treated as claims."],
+import { w } from "../words.ts";
+const sections = () => [
+  ["facts", "Facts", `What you told the ${w("crew")} or decided. Treated as true.`],
+  ["notes", "Notes", `What the ${w("crew")} found, with sources. Treated as claims.`],
 ] as const;
 const nameOf = (path: string) => path.split("/").pop()!.replace(/\.md$/, "");
 const stripFrontmatter = (text: string) => text.replace(/^---\n[\s\S]*?\n---\n*/, "");
@@ -44,14 +45,14 @@ export function WikiHome({ S, open, onOpen: setOpen, refresh }: { S: CampState; 
       <header className="proj-head">
         <div>
           <h2>Wiki</h2>
-          <div className="meta">{pages.length} {plural(pages.length, "page")} · what the camp knows between conversations. The crew reads the list of these at the start of every run, and opens the ones that bear on the work.</div>
+          <div className="meta">{pages.length} {plural(pages.length, "page")} · what the {w("camp")} knows between conversations. The {w("crew")} reads the list of these at the start of every run, and opens the ones that bear on the work.</div>
         </div>
-        <div className="proj-actions"><button type="button" className="btn small primary" title="Write a page yourself: something the crew should know from now on" onClick={() => setWriting("new")}><span aria-hidden="true">＋ </span>New page</button></div>
+        <div className="proj-actions"><button type="button" className="btn small primary" title={`Write a page yourself: something the ${w("crew")} should know from now on`} onClick={() => setWriting("new")}><span aria-hidden="true">＋ </span>New page</button></div>
       </header>
       {pages.length > 0 && <input aria-label="Narrow the wiki" className="hist-search" placeholder="Narrow by name or words…" value={words} onChange={(ev) => setWords(ev.target.value)} />}
-      {!pages.length && <div className="hist-empty">The wiki is empty. Facts you share and findings the crew brings back are saved here, as Markdown files in camp/wiki/. <button type="button" className="linkish" onClick={() => setWriting("new")}>Write the first page</button></div>}
+      {!pages.length && <div className="hist-empty">The wiki is empty. Facts you share and findings the {w("crew")} brings back are saved here, as Markdown files in camp/wiki/. <button type="button" className="linkish" onClick={() => setWriting("new")}>Write the first page</button></div>}
       {pages.length > 0 && !shown.length && <div className="hist-empty">Nothing matches. <button type="button" className="linkish" onClick={() => setWords("")}>Show them all</button></div>}
-      {pages.length > 0 && SECTIONS.map(([section, title, blurb]) => {
+      {pages.length > 0 && sections().map(([section, title, blurb]) => {
         const list = shown.filter((p) => p.section === section);
         if (words.trim() && !list.length) return null;
         return (
@@ -111,7 +112,7 @@ function WikiEditor({ page, onCancel, onSaved }: { page?: Page; onCancel: () => 
       <header className="proj-head">
         <div>
           <h2>{page ? <>Edit {name}</> : "A new wiki page"}</h2>
-          <div className="meta">{page ? <code>{page.path}</code> : name ? <>It'll be kept as <code>camp/wiki/{section}/{name}.md</code></> : "Something the crew should know from now on."}</div>
+          <div className="meta">{page ? <code>{page.path}</code> : name ? <>It'll be kept as <code>camp/wiki/{section}/{name}.md</code></> : `Something the ${w("crew")} should know from now on.`}</div>
         </div>
         <div className="proj-actions">
           <button type="button" className="btn small" disabled={busy} onClick={onCancel}>Cancel</button>
@@ -123,10 +124,10 @@ function WikiEditor({ page, onCancel, onSaved }: { page?: Page; onCancel: () => 
         <>
           <label className="field">Title<input aria-label="Title" value={title} maxLength={90} autoFocus placeholder="Release process" onChange={(ev) => setTitle(ev.target.value)} /></label>
           <div className="wiki-kinds" role="radiogroup" aria-label="What kind of page">
-            {SECTIONS.map(([id]) => (
+            {sections().map(([id]) => (
               <label key={id} className={section === id ? "wizard-pick on" : "wizard-pick"}>
                 <input type="radio" name="wiki-kind" checked={section === id} onChange={() => setSection(id)} />
-                <span><b>{id === "facts" ? "A fact" : "A note"}</b><small>{id === "facts" ? "Something you're telling the crew or have decided. They treat it as true." : "Something found or read, worth keeping. They treat it as a claim to weigh: say where it came from."}</small></span>
+                <span><b>{id === "facts" ? "A fact" : "A note"}</b><small>{id === "facts" ? `Something you're telling the ${w("crew")} or have decided. They treat it as true.` : "Something found or read, worth keeping. They treat it as a claim to weigh: say where it came from."}</small></span>
               </label>
             ))}
           </div>
@@ -134,7 +135,7 @@ function WikiEditor({ page, onCancel, onSaved }: { page?: Page; onCancel: () => 
       )}
       <label className="field">Summary
         <input aria-label="Summary" value={summary} maxLength={140} placeholder="One line: what this page is about" onChange={(ev) => setSummary(ev.target.value)} />
-        <span className="field-hint">The crew sees this line in the list at the start of every run. It's how they decide whether to open the page.</span>
+        <span className="field-hint">The {w("crew")} sees this line in the list at the start of every run. It's how they decide whether to open the page.</span>
       </label>
       <label className="field">The page
         {loaded
@@ -175,7 +176,7 @@ function WikiRead({ path, known, onBack, onEdit, onRemoved }: { path: string; kn
       {gone && <div className="form-error" role="alert">{gone}</div>}
       <Presence>{asking && (
         <Confirm title={`Delete ${nameOf(path)}?`} action="Delete the page" danger onConfirm={remove} onCancel={() => setAsking(false)}>
-          <p>The file <code>{path}</code> is deleted, and the crew stops seeing it from their next run. It can't be brought back from here.</p>
+          <p>The file <code>{path}</code> is deleted, and the {w("crew")} stops seeing it from their next run. It can't be brought back from here.</p>
         </Confirm>
       )}</Presence>
       <section className="proj-about">

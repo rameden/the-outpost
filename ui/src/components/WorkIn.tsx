@@ -10,6 +10,7 @@ import type { RepoInfo } from "../types.ts";
 import { cx } from "../format.ts";
 import { Icon } from "./bits.tsx";
 
+import { w } from "../words.ts";
 // link → "new" | "new:<branch>" (a new worktree on a branch by that name) | a worktree's path
 // | "none" (leave the folder out of this conversation altogether) | "use" (outside a project: bring
 // the folder in, in its linked checkout).
@@ -93,8 +94,8 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, worki
 
   const isOut = (l: string) => (followUp ? outOnReply(choice, without, l) : choice[l] === LEFT_OUT);
   // What a "not used" label says on a reply: it's about to be taken out, or it already was.
-  const outSays = (l: string) => (choice[l] === LEFT_OUT ? `From this message on, links/${l} is out of this conversation: the crew is given nothing from it. Click to change.`
-    : `This conversation is without links/${l}: the crew sees nothing of it here. Click to bring it in.`);
+  const outSays = (l: string) => (choice[l] === LEFT_OUT ? `From this message on, links/${l} is out of this conversation: the ${w("crew")} is given nothing from it. Click to change.`
+    : `This conversation is without links/${l}: the ${w("crew")} sees nothing of it here. Click to bring it in.`);
   const plainOut = optIn ? [] : plain.filter(isOut);
   const plainIn = optIn ? plain.filter((l) => !isOut(l)) : [];
   const shown = optIn ? repos.filter((r) => !isOut(r.link)) : repos;
@@ -105,7 +106,7 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, worki
       {optIn && !shown.length && !plainIn.length && (
         <button type="button" className="work-btn none-used" aria-haspopup="dialog" aria-expanded={open} aria-label="Which folders to use: none" onClick={onOpen}
           title={followUp ? "This conversation has no linked folder. Click to bring one in."
-            : "Outside a project the crew is given no linked folder unless you pick one. Click to choose."}><Icon name="folder" /><span>No folder</span></button>
+            : `Outside a project the ${w("crew")} is given no linked folder unless you pick one. Click to choose.`}><Icon name="folder" /><span>No folder</span></button>
       )}
       {plainIn.map((l) => (
         <button key={l} type="button" className="work-btn" aria-haspopup="dialog" aria-expanded={open} aria-label={`Folder ${l}: used`} onClick={onOpen}
@@ -118,7 +119,7 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, worki
       )}
       {plainOut.map((l) => (
         <button key={l} type="button" className="work-btn left-out" aria-haspopup="dialog" aria-expanded={open} aria-label={`Folder ${l}: not used`} onClick={onOpen}
-          title={followUp ? outSays(l) : `The next request leaves links/${l} out: the crew is given nothing from it. Click to change.`}>
+          title={followUp ? outSays(l) : `The next request leaves links/${l} out: the ${w("crew")} is given nothing from it. Click to change.`}>
           <Icon name="folder" /><span>{l}</span><b>not used</b>
         </button>
       ))}
@@ -131,7 +132,7 @@ export function WorkIn({ repos, choice, setChoice, followUp, open, onOpen, worki
           <button key={r.link} type="button" className={cx("work-btn", (value || there) && !out && "changed", out && "left-out")} aria-haspopup="dialog" aria-expanded={open}
             aria-label={`Where to work in ${r.link}: ${now}`} onClick={onOpen}
             title={out ? (followUp ? outSays(r.link)
-                : `The next request leaves links/${r.link} out: the crew is given nothing from it. Click to change.`)
+                : `The next request leaves links/${r.link} out: the ${w("crew")} is given nothing from it. Click to change.`)
               : followUp ? (value === USED ? `From this message on, this conversation uses links/${r.link}, on ${now}. Click to change.`
                 : `A follow-up keeps working where its conversation was${there ? `: its own worktree, on ${there}` : ""}. Click to take the folder out.`)
               : value ? `The next request works on ${now} in ${r.link}, not your linked checkout. Click to change.`
@@ -259,7 +260,7 @@ function WorktreePicker({ r, value, onPick, onClose }: { r: RepoInfo; value: str
         {matches.length > SHOWN_WORKTREES && <div className="menu-tip">{matches.length - SHOWN_WORKTREES} more: type to narrow them down.</div>}
         {!matches.length && (!name || !canMake || exact) && <div className="menu-tip">{name ? "No worktree matches that." : "No worktrees yet. Type a name to make one."}</div>}
       </div>
-      <div className="work-branch-foot">The crew works there; your checkout isn't touched.</div>
+      <div className="work-branch-foot">The {w("crew")} works there; your checkout isn't touched.</div>
     </div>
   );
 }
@@ -276,7 +277,7 @@ function Pick({ on, name, title, onClick }: { on: boolean; name: string; title: 
 // Whether a folder is used at all: on or off, so a switch (a tick box is for picking among things).
 function UseSwitch({ link, on, onChange }: { link: string; on: boolean; onChange: (on: boolean) => void }) {
   return (
-    <label className="switch work-use" title={on ? `In use. Turn off to give the crew nothing from links/${link}.` : `Not used. Turn on to use links/${link}.`}>
+    <label className="switch work-use" title={on ? `In use. Turn off to give the ${w("crew")} nothing from links/${link}.` : `Not used. Turn on to use links/${link}.`}>
       <input type="checkbox" role="switch" aria-label={`Use ${link}`} checked={on} onChange={(ev) => onChange(ev.target.checked)} />
     </label>
   );
@@ -317,8 +318,8 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
     if (!on) { before.current[link] = valueOf(link); return onPick(link, LEFT_OUT); }
     onPick(link, locked ? home(link) : before.current[link] ?? "");
   };
-  const offNote = (link: string) => (locked && stands(link) !== LEFT_OUT ? "Taken out from this message on: the crew is given nothing from it."
-    : locked ? "Not part of this conversation. Turn it on to bring it in." : "Not used: the crew is given nothing from it.");
+  const offNote = (link: string) => (locked && stands(link) !== LEFT_OUT ? `Taken out from this message on: the ${w("crew")} is given nothing from it.`
+    : locked ? "Not part of this conversation. Turn it on to bring it in." : `Not used: the ${w("crew")} is given nothing from it.`);
   const bulk = !!(canLeaveOut && onPickAll && (optIn ? inUse > 1 : every.length > 1));
   const showPlain = canLeaveOut || locked || plain.some((l) => valueOf(l) === LEFT_OUT);
   return (
@@ -327,7 +328,7 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
       {bulk && (
         <div className="work-bar">
           <button type="button" className="work-all" onClick={() => onPickAll!(allOut ? "" : LEFT_OUT)}
-            title={allOut ? "Use all of this project's folders again" : optIn ? `Take out the ${inUse} in use: the crew is given nothing from them` : `Leave out all ${every.length} folders: the crew is given nothing from them`}>
+            title={allOut ? "Use all of this project's folders again" : optIn ? `Take out the ${inUse} in use: the ${w("crew")} is given nothing from them` : `Leave out all ${every.length} folders: the ${w("crew")} is given nothing from them`}>
             {allOut ? "Use all" : "Use none"}
           </button>
         </div>
@@ -369,7 +370,7 @@ export function WorkOptions({ repos, choice, locked, onPick, onBranch, canLeaveO
                 ) : (
                   <div className="work-choices" role="radiogroup" aria-label={`Where to work in ${r.link}`}>
                     <div className="work-row">
-                      <Pick on={value === ""} name="Branch" title={`Your own checkout of ${r.link}, on the branch beside it: the crew's changes land where you work`} onClick={() => onPick(r.link, "")} />
+                      <Pick on={value === ""} name="Branch" title={`Your own checkout of ${r.link}, on the branch beside it: the ${w("crew")}'s changes land where you work`} onClick={() => onPick(r.link, "")} />
                       {branch}
                     </div>
                     {picker}

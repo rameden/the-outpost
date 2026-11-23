@@ -22,10 +22,12 @@ import { cardsFor, type View } from "./conversation.ts";
 import { condense, summarize, type FeedDetail, type StepsNode } from "./condense.ts";
 import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type StepState } from "./reducer.ts";
 import { useFeed, type FeedStore } from "./store.ts";
+import { complain } from "../components/StatusLine.tsx";
 
-const EXAMPLES = [
+import { w, a as an } from "../words.ts";
+const examples = () => [
   "Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.",
-  "Every weekday at 08:00, summarize anything new in the camp wiki's notes.",
+  `Every weekday at 08:00, summarize anything new in the ${w("camp")} wiki's notes.`,
   "@scout What's new in agent memory research this month?",
 ];
 
@@ -111,6 +113,8 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
 // The plan you approved, as a list that fills in while the run goes: each step says whether it's
 // not started, out (and with whom), done, or didn't make it. A step with a quest goes to that
 // quest's block when clicked. Steps nobody was sent on are the Quartermaster's own.
+// A step's pill: lit while it is out, ticked when done, plain before it starts, red when it went wrong.
+export const stepPill = (state: StepState) => cx("pill", state === "out" ? "live" : state === "done" ? "done" : state === "todo" ? "" : "bad");
 export const STEP_SAYS: Record<StepState, string> = { todo: "Not started", out: "Out", done: "Done", failed: "Didn't finish", stopped: "Cut short" };
 export const STEP_MARK: Record<StepState, string> = { todo: "○", out: "●", done: "✓", failed: "!", stopped: "–" };
 function PlanList({ plan }: { plan: PlanNode }) {
@@ -131,13 +135,13 @@ function PlanList({ plan }: { plan: PlanNode }) {
               <span className="plan-n">{s.n}</span>
               <span className="plan-text">{s.text}</span>
               {who.length > 0 && <span className="plan-who">{who.map((q) => `${q.emoji} ${q.who}${s.quests.filter((x) => x.who === q.who).length > 1 ? ` ×${s.quests.filter((x) => x.who === q.who).length}` : ""}`).join(", ")}</span>}
-              <span className={cx("pill", state === "out" ? "live" : state === "done" ? "done" : state === "todo" ? "" : "bad")}>{STEP_SAYS[state]}</span>
+              <span className={stepPill(state)}>{STEP_SAYS[state]}</span>
             </>
           );
           return (
             <li key={s.n} className={cx("plan-step", state)}>
               {target
-                ? <button type="button" title="Go to this step's quest" onClick={() => goTo(target.node)}>{row}</button>
+                ? <button type="button" title={`Go to this step's ${w("quest")}`} onClick={() => goTo(target.node)}>{row}</button>
                 : <div title={state === "todo" ? "Nobody has been sent on this yet: it may be the Quartermaster's own to do" : undefined}>{row}</div>}
             </li>
           );
@@ -155,7 +159,7 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
         <span>{quest.emoji} {quest.who} sets out</span>
         {quest.step && <span className="quest-step" title={`Step ${quest.step} of the plan`}>Step {quest.step}</span>}
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
-        {quest.status === null ? <span className="pill live">On quest</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
+        {quest.status === null ? <span className="pill live">On {w("quest")}</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
       </div>
       <div className="quest-body"><Nodes nodes={quest.nodes} onReply={onReply} live={quest.status === null} /></div>
     </section>
@@ -210,7 +214,7 @@ function FeedbackBar({ expId, given }: { expId: string; given?: Given }) {
       const r = await api<{ rating: "up" | "down"; note: string; kept: string | null }>("/api/feedback", { id: expId, rating, ...(withNote ? { note, keep } : { note: mine?.note ?? "" }) });
       setMine({ rating: r.rating, note: r.note || undefined, kept: r.kept ?? undefined });
       if (withNote) setOpen(false);
-    } catch (e) { alert(errorText(e)); }
+    } catch (e) { complain(errorText(e)); }
     setBusy(false);
   }
   const rate = (rating: "up" | "down") => { setOpen(true); void send(rating, false); };
@@ -265,7 +269,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
   // Cut off, stopped, failed, or out of turns: start again from what it had done.
   async function resume() {
     setResuming(true);
-    try { await api("/api/send", { resume: exp.expId }); } catch (e) { setResuming(false); alert(errorText(e)); }
+    try { await api("/api/send", { resume: exp.expId }); } catch (e) { setResuming(false); complain(errorText(e)); }
   }
 
   return (
@@ -305,7 +309,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
       </div>
       {!end && !stopInBox && <RunFoot job={exp.source === "job"} stop={stop !== "gone" && (
         <button type="button" className="stop-btn" aria-label={stop === "stopping" ? "Stopping…" : "Stop"}
-          title={stop === "stopping" ? "Stopping…" : "Stop this expedition and every quest in it"} disabled={stop === "stopping"} onClick={stopIt}>
+          title={stop === "stopping" ? "Stopping…" : `Stop this ${w("expedition")} and every ${w("quest")} in it`} disabled={stop === "stopping"} onClick={stopIt}>
           <Icon name="stop" />
         </button>
       )} />}
@@ -379,10 +383,10 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
         <div className="empty-feed">
           {/* The camp at rest: the camp's crew circling the Quartermaster, taking turns with a quest. Outside a project, the orbits are empty. */}
           <MaeSystem crew={plain ? [] : inRotation()} />
-          <h2>{plain ? "Ask anything" : view.kind === "new" ? "A new conversation" : "The camp is quiet"}</h2>
-          <div>{waiting ?? `Send the ${leadName()} on an expedition. You'll approve the plan before anyone leaves camp, then watch the crew work here.`}</div>
+          <h2>{plain ? "Ask anything" : view.kind === "new" ? "A new conversation" : `The ${w("camp")} is quiet`}</h2>
+          <div>{waiting ?? `Send the ${leadName()} on ${an("expedition")}. You'll approve the plan before anyone leaves ${w("camp")}, then watch the ${w("crew")} work here.`}</div>
           <div className="examples">
-            {(plain ? PLAIN_EXAMPLES : EXAMPLES).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
+            {(plain ? PLAIN_EXAMPLES : examples()).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>
         </div>
       ) : <Detail.Provider value={detail}><StopInBox.Provider value={stopInBox}><Nodes nodes={items} onReply={onReply} /></StopInBox.Provider></Detail.Provider>}

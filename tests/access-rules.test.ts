@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
-enterSandbox("boundaries");
+enterSandbox("access-rules");
 writeFileSync(".env", "SECRET=nope\n");
 const { campPath, rl } = await import("../src/tools.ts");
 const { isAutoApproved } = await import("../src/shell.ts");

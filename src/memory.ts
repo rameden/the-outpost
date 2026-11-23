@@ -12,10 +12,11 @@ import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
 import { addAbout, logKept, type KeptHow } from "./memlog.js";
 import type { Tool } from "./tools.js";
-import { writeAtomic } from "./atomic.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { PIN, alike, fitMemory, parseEntry } from "./memfit.js";
 import { norm } from "./memlog.js";
 import { logRelevant } from "./recalllog.js";
+import { flat as clip, today } from "./helpers.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -37,7 +38,6 @@ export function workspace(id: CrewId) {
   };
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 // Workspaces already set up by this process (per camp folder), so reads don't rewrite files.
 const ready = new Set<string>();
@@ -170,10 +170,6 @@ export type SessionSource = "user" | "direct" | "brief" | "job" | "discord";
 // project: the project the session was part of (recall keeps one project's sessions out of another's search).
 export type SessionLine = { time: string; source: SessionSource; task: string; result: string; status: string; file: string; project?: string };
 
-const clip = (s: string, n: number) => {
-  const flat = s.replace(/\s+/g, " ").trim();
-  return flat.length > n ? flat.slice(0, n - 1) + "…" : flat;
-};
 // The same length, with its lines kept: for what's shown back to you as it was written (a reply
 // with a table or a list in it). Runs of blank lines are closed up.
 const clipLines = (s: string, n: number) => {
@@ -195,7 +191,7 @@ export function recordSession(
   pruneTranscripts(ws.sessions);
   const project = currentProjectId();
   const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clipLines(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
-  appendFileSync(ws.index, JSON.stringify(line) + "\n");
+  appendLine(ws.index, JSON.stringify(line));
   return file;
 }
 
@@ -264,7 +260,7 @@ export function recentSessions(id: CrewId, n = 8): SessionLine[] {
   const key = `${st.mtimeMs}:${st.size}`;
   let hit = indexCache.get(at);
   if (hit?.key !== key) {
-    hit = { key, lines: readFileSync(index, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l) as SessionLine]; } catch { return []; } }) };
+    hit = { key, lines: readJsonl<SessionLine>(index) };
     indexCache.set(at, hit);
   }
   return hit.lines.slice(-n);

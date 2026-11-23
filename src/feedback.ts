@@ -10,13 +10,15 @@
 //     in the project's notes if the conversation is filed under a project, otherwise in the
 //     memory of whoever answered. It then stays for good instead of ageing out of the recent list.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { appendLine } from "./atomic.js";
 import { GENERAL, getProject, projectOf } from "./conversations.js";
 import { CREW } from "./crew.js";
 import { emit } from "./events.js";
 import { appendMemory } from "./memory.js";
 import { addProjectNote } from "./projects.js";
 import { allTurns } from "./threads.js";
+import { flat as clip } from "./helpers.js";
 
 export const FEEDBACK_PATH = "camp/feedback.jsonl";
 const SHOWN = 8;        // items in a prompt
@@ -47,7 +49,6 @@ export function allFeedback(): Feedback[] {
 }
 export const feedbackFor = (expedition: string) => allFeedback().find((f) => f.expedition === expedition);
 
-const clip = (s: string, n: number) => { const flat = s.replace(/\s+/g, " ").trim(); return flat.length > n ? flat.slice(0, n - 1) + "…" : flat; };
 
 // Rate a finished run. keep: also save the note as a standing note (see the top of this file).
 export function giveFeedback(expedition: string, o: { rating: unknown; note?: unknown; keep?: unknown }): Feedback {
@@ -71,8 +72,7 @@ export function giveFeedback(expedition: string, o: { rating: unknown; note?: un
     if (inProject) { addProjectNote(project.id, entry, "feedback", expedition); f.kept = `${project.name}'s notes`; }
     else { appendMemory(who.id, entry, "feedback", expedition); f.kept = `the ${who.name}'s memory`; }
   }
-  mkdirSync("camp", { recursive: true });
-  appendFileSync(FEEDBACK_PATH, JSON.stringify(f) + "\n");
+  appendLine(FEEDBACK_PATH, JSON.stringify(f));
   emit({ type: "feedback", id: expedition, rating: f.rating, note: f.note, kept: f.kept, expeditionId: expedition });
   return f;
 }

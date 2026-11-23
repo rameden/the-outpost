@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-const S = { characters: [], links: [], running: [], queued: [], parallel: 3, pausedUntil: null, runtime: "api", providers: [], snippets: [],
+const S = { characters: [], links: [], running: [], queued: [], parallel: 3, pausedUntil: null, runtime: "api", providers: [],
   history: { projects: [{ id: "general", name: "General" }], conversations: [] } } as unknown as CampState;
 const land = (n: number) => act(async () => { landing[n](new Response(JSON.stringify({ ok: true, id: `run${n}`, position, attached: 0, thread: `t${n}` }))); });
 

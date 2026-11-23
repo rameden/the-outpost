@@ -19,7 +19,6 @@
 // notes and a run's request and answer: content to work on, never instructions, and whatever
 // comes back is shown to you before it touches anything.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { CREW, CREW_IDS, type CrewId } from "./crew.js";
@@ -32,8 +31,9 @@ import { NOTES_MAX, addProjectNote, projectNotes, setProjectNotes } from "./proj
 import { memoryCare } from "./settings.js";
 import { askSmall } from "./small.js";
 import { allTurns } from "./threads.js";
-import { writeJsonAtomic } from "./atomic.js";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { PIN, alike, fitMemory, parseEntry, withPin } from "./memfit.js";
+import { jsonIn } from "./helpers.js";
 
 const PROPOSALS = join("camp", "memory-proposals.json");
 const FULL_AT = 0.8;                 // of what a prompt loads: past this, a tidy is worth offering
@@ -147,7 +147,8 @@ export type Proposal =
   | { id: string; kind: "merge"; where: Where; name: string; created: string; lines: [string, string]; text: string };
 
 function load(): Proposal[] {
-  try { const l = JSON.parse(readFileSync(PROPOSALS, "utf8")); return Array.isArray(l) ? l : []; } catch { return []; }
+  const l = readJsonFile(PROPOSALS, []);
+  return Array.isArray(l) ? l : [];
 }
 function save(list: Proposal[]) {
   writeJsonAtomic(PROPOSALS, list);
@@ -270,9 +271,8 @@ const KEEP_SYSTEM =
 
 // What came back, as suggestions: at most three, one line each, nothing that's already kept.
 const itemsIn = (raw: string): any[] => {
-  const m = raw.match(/\[[\s\S]*\]/);
-  if (!m) return [];
-  try { const list: unknown = JSON.parse(m[0]); return Array.isArray(list) ? list : []; } catch { return []; }
+  const list = jsonIn(raw, "[");
+  return Array.isArray(list) ? list : [];
 };
 const lineIn = (x: any): string => {
   const text = String(x?.text ?? "").replace(/\s+/g, " ").trim();

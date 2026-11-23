@@ -19,7 +19,9 @@ import { AttachmentChip } from "./AttachmentChip.tsx";
 import { Icon } from "./bits.tsx";
 import { startBrief, ticketBranch } from "./JiraPage.tsx";
 import { STATUS_NAMES, isMaeKey, useTickets } from "../tickets.ts";
-
+import { Dialog } from "./Dialog.tsx";
+import { useJiraSearch } from "./useJiraSearch.ts";
+import { w } from "../words.ts";
 export const WIZARD_STEPS = ["Ticket", "Details", "Where", "Who", "Start"] as const;
 type Criterion = { text: string; on: boolean };
 // What the details step shows: a Jira ticket's, or a Mae ticket's made to look the same.
@@ -49,7 +51,6 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
 
   // ---------- 1: the ticket ----------
   const [query, setQuery] = useState("");
-  const [issues, setIssues] = useState<JiraRef[] | null>(null);
   const [ticket, setTicket] = useState<{ key: string; summary: string } | null>(start ?? null);
   const jiraOn = !!S.jira?.connected;
   const { tickets: mae } = useTickets();
@@ -60,15 +61,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
     return mae.filter((t) => t.status !== "done" && w.every((x) => `${t.key} ${t.title} ${t.labels.join(" ")}`.toLowerCase().includes(x)))
       .sort((a, b) => (a.status === b.status ? 0 : a.status === "todo" ? -1 : 1)).slice(0, 30);
   }, [mae, query]);
-  useEffect(() => {
-    if (step !== 0 || !jiraOn) return;
-    let gone = false;
-    const t = setTimeout(() => {
-      api<{ issues: JiraRef[] }>(`/api/jira/issues?q=${encodeURIComponent(query.trim())}`)
-        .then((r) => { if (!gone) { setIssues(r.issues); setError(""); } }, (e) => { if (!gone) { setIssues([]); setError(errorText(e)); } });
-    }, query ? 250 : 0);
-    return () => { gone = true; clearTimeout(t); };
-  }, [query, step, jiraOn]);
+  const { issues } = useJiraSearch(query, step === 0 && jiraOn, setError);
 
   // ---------- 2: its details ----------
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -153,11 +146,6 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
   const [busy, setBusy] = useState(false);
 
   const close = useCallback(() => { if (!busy) onClose(); }, [busy, onClose]);
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") close(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [close]);
 
   async function startWork() {
     if (!ticket) return;
@@ -178,9 +166,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
   const included = criteria.filter((c) => c.on && c.text.trim()).length;
 
   return (
-    <>
-      <div className="drawer-backdrop" onClick={close} />
-      <form className={cx("dialog file-view wizard", dragging && "dragging")} role="dialog" aria-modal="true" aria-label="Start a ticket"
+    <Dialog as="form" className={cx("dialog file-view wizard", dragging && "dragging")} label="Start a ticket" onClose={close}
         onDragOver={(ev) => { if (step === 1 && [...ev.dataTransfer.types].includes("Files")) { ev.preventDefault(); setDragging(true); } }}
         onDragLeave={() => setDragging(false)}
         onDrop={(ev) => { if (step !== 1) return; ev.preventDefault(); setDragging(false); void addFiles([...ev.dataTransfer.files].filter((f) => f.type || f.size > 0)); }}
@@ -236,7 +222,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
                   <div className="meta">{[detail.type, detail.status, detail.priority, mine ? null : detail.assignee ?? "Unassigned"].filter(Boolean).join(" · ")}{detail.epic ? ` · in ${detail.epic.key} ${detail.epic.summary}` : ""}</div>
                   <details className="wizard-desc"><summary>What the ticket says</summary>{detail.description ? <Markdown text={detail.description} /> : <div className="meta">It has no description.</div>}</details>
                   <h3>What "done" means</h3>
-                  <div className="meta">{detail.criteria.length ? "From the ticket's acceptance criteria. Untick, reword or add to them: the crew is asked to go through these one by one at the end." : "The ticket lists no acceptance criteria. Add your own, or leave it and the crew is asked to say what it takes \"done\" to mean before changing anything."}</div>
+                  <div className="meta">{detail.criteria.length ? `From the ticket's acceptance criteria. Untick, reword or add to them: the ${w("crew")} is asked to go through these one by one at the end.` : `The ticket lists no acceptance criteria. Add your own, or leave it and the ${w("crew")} is asked to say what it takes "done" to mean before changing anything.`}</div>
                   <ul className="wizard-criteria">
                     {criteria.map((c, i) => (
                       <li key={i}>
@@ -246,11 +232,11 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
                     ))}
                   </ul>
                   <button type="button" className="linkish" onClick={() => { setCriteria((l) => [...l, { text: "", on: true }]); setBrief(null); }}>Add one</button>
-                  <label className="field">Anything else the crew should know
-                    <textarea aria-label="Anything else the crew should know" rows={3} value={notes} placeholder="Where to look, what to leave alone, how you want it done… (optional)" onChange={(ev) => { setNotes(ev.target.value); setBrief(null); }} />
+                  <label className="field">Anything else the {w("crew")} should know
+                    <textarea aria-label={`Anything else the ${w("crew")} should know`} rows={3} value={notes} placeholder="Where to look, what to leave alone, how you want it done… (optional)" onChange={(ev) => { setNotes(ev.target.value); setBrief(null); }} />
                   </label>
                   <h3>Extra context</h3>
-                  <div className="meta">Designs, screenshots, a spec, a link to the Figma page: anything the ticket doesn't carry. The crew gets them with the ticket and is told to look before it plans. Drop files here, paste an image, or:</div>
+                  <div className="meta">Designs, screenshots, a spec, a link to the Figma page: anything the ticket doesn't carry. The {w("crew")} gets them with the ticket and is told to look before it plans. Drop files here, paste an image, or:</div>
                   <div className="wizard-extras">
                     <input ref={pick} type="file" multiple hidden aria-label="Files to attach" onChange={(ev) => { void addFiles([...(ev.target.files ?? [])]); ev.target.value = ""; }} />
                     <button type="button" className="btn small" onClick={() => pick.current?.click()}><Icon name="plus" /> Files or images…</button>
@@ -274,16 +260,16 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
             <section aria-label="Where the work happens">
               <label className="field">Project
                 <select aria-label="Project" value={project} onChange={(ev) => setProject(ev.target.value)}>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}{p.links?.length ? ` (${p.links.map((l) => `links/${l}`).join(", ")})` : ""}</option>)}</select>
-                <span className="field-hint">The conversation is filed there, and the crew sees that project's folders, notes and defaults.</span>
+                <span className="field-hint">The conversation is filed there, and the {w("crew")} sees that project's folders, notes and defaults.</span>
               </label>
               {editable.length > 0 ? (
                 <>
                   <label className="dialog-check"><input type="checkbox" checked={ownBranch || always} disabled={always} onChange={(ev) => setOwnBranch(ev.target.checked)} />
                     In a new worktree and branch of {editable.map((l) => `links/${l}`).join(", ")}</label>
-                  <div className="field-hint">{always ? "This project starts every conversation in its own worktree." : "Ticked, your own checkout isn't touched and the work can become a pull request. Unticked, the crew works in your checkout as it stands."}</div>
+                  <div className="field-hint">{always ? "This project starts every conversation in its own worktree." : `Ticked, your own checkout isn't touched and the work can become a pull request. Unticked, the ${w("crew")} works in your checkout as it stands.`}</div>
                   {inWorktree && <label className="field">Branch<input aria-label="Branch" className="mono" spellCheck={false} autoCapitalize="off" value={branchTyped} placeholder={ticket ? ticketBranch(ticket.key, detail?.summary ?? ticket.summary) : ""} onChange={(ev) => setBranchTyped(ev.target.value)} /></label>}
                 </>
-              ) : <div className="meta">{chosen?.links?.length ? "This project has no git repository the crew may edit, so there's no branch to make." : "This project has no folder. The crew can still read the ticket and answer, but has no code to work in."} The conversation is tied to the ticket either way.</div>}
+              ) : <div className="meta">{chosen?.links?.length ? `This project has no git repository the ${w("crew")} may edit, so there's no branch to make.` : `This project has no folder. The ${w("crew")} can still read the ticket and answer, but has no code to work in.`} The conversation is tied to the ticket either way.</div>}
             </section>
           )}
 
@@ -310,7 +296,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
               <dl className="wizard-summary">
                 <div><dt>Ticket</dt><dd><span className="jira-key">{ticket.key}</span> {detail?.summary ?? ticket.summary} <span className="meta">· attached as it stands now</span></dd></div>
                 {ready.length > 0 && <div><dt>Also attached</dt><dd>{ready.map((a) => a.name).join(", ")}</dd></div>}
-                <div><dt>Done means</dt><dd>{included ? `${included} ${plural(included, "criterion").replace("criterions", "criteria")}` : "the crew says what it takes \"done\" to mean first"}</dd></div>
+                <div><dt>Done means</dt><dd>{included ? `${included} ${plural(included, "criterion").replace("criterions", "criteria")}` : `the ${w("crew")} says what it takes "done" to mean first`}</dd></div>
                 <div><dt>Where</dt><dd>{chosen?.name ?? "General"}{inWorktree ? <> · a new worktree on <code>{branch}</code></> : editable.length ? " · your own checkout" : ""}</dd></div>
                 <div><dt>Who</dt><dd>{member ? `${member.emoji} ${member.name}` : who}{who === "quartermaster" ? (review ? ` · the ${nameNow("Warden")} reviews the changes before it reports` : " · no review before it reports") : ""}</dd></div>
                 {mine && <div><dt>Ticket</dt><dd>moves to In progress as the work starts, and to Done when its pull request merges</dd></div>}
@@ -334,7 +320,6 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
             ? <button type="submit" className="btn primary" disabled={!canNext}>Next: {WIZARD_STEPS[step + 1]}</button>
             : <button type="submit" className="btn primary" disabled={busy || uploading || !(brief ?? drafted).trim()}>{busy ? "Starting…" : uploading ? "Uploading…" : "Start the work"}</button>}
         </div>
-      </form>
-    </>
+    </Dialog>
   );
 }

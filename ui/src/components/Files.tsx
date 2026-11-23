@@ -19,6 +19,7 @@ import { Presence } from "../motion.tsx";
 import { FileViewer } from "./FileViewer.tsx";
 import { Changes, type Change } from "./Changes.tsx";
 
+import { w } from "../words.ts";
 // path and branch: a worktree of that linked folder, shown in its place.
 export type FileRoot = { link: string; path?: string; branch?: string };
 
@@ -223,7 +224,7 @@ export const FilesPanel = memo(function FilesPanel({ roots: asked, refreshKey = 
             const e = row.entry;
             const locked = !!e?.secret || !!e?.outside;
             const ref = refOf(row.root, row.rel, folder);
-            const title = e?.secret ? "A secret (keys, .env, credentials): listed, but not opened here or by the crew"
+            const title = e?.secret ? `A secret (keys, .env, credentials): listed, but not opened here or by the ${w("crew")}`
               : e?.outside ? "A link that leads outside this folder, so it isn't followed"
               : row.kind === "root" ? `${row.root.path ?? ref}${row.root.branch ? ` (worktree on ${row.root.branch})` : ""}`
               : `${ref}${e?.size != null ? ` · ${sizeText(e.size)}` : ""}`;

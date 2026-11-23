@@ -14,6 +14,7 @@ import { ask } from "../components/Confirm.tsx";
 import { autoName, money } from "../format.ts";
 import type { CampState, ModelList, ProviderState } from "../types.ts";
 
+import { w, a as an, cap } from "../words.ts";
 type ModelProvider = Omit<ProviderState, "id"> & { id: ProviderState["id"] | "anthropic"; environment?: boolean };
 
 function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
@@ -54,7 +55,7 @@ function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
             onChange={(ev) => { setError(""); api("/api/providers/approve", { id: p.id, on: ev.target.checked }).then(refresh, (e) => setError(errorText(e))); }} />
           {p.name} is approved for confidential projects
           <span className="field-hint">{p.approved
-            ? `Projects marked confidential (web: careful or off) may be sent to ${p.name}. This is your say-so: the camp can't check your agreement with them.`
+            ? `Projects marked confidential (web: careful or off) may be sent to ${p.name}. This is your say-so: the ${w("camp")} can't check your agreement with them.`
             : `Until you tick this, a project marked confidential is never sent to ${p.name}.`}</span>
         </label>
       )}
@@ -62,7 +63,7 @@ function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
         <div className="set-actions">
           {p.from === "env"
             ? <>
-              <span className="meta">Its key comes from where the camp was started, so it's changed there.</span>
+              <span className="meta">Its key comes from where the {w("camp")} was started, so it's changed there.</span>
               {anthropic && <button type="button" className="btn small" disabled={busy} onClick={() => connect(true)}>{busy ? "Checking…" : "Import environment key"}</button>}
             </>
             : <button type="button" className="btn small danger" disabled={busy} onClick={disconnect}>Disconnect and forget the key</button>}
@@ -88,10 +89,10 @@ function AutoInfo({ models, subscription }: { models?: number; subscription: boo
   return (
     <>
       <h4 className="set-sub">Auto</h4>
-      <p className="set-note">Instead of one fixed model, a crew member or a conversation can run on Auto. For each task it looks at how hard the work is, how much rides on it and how big the request is, then picks a model and an effort from the ones you can use{models ? ` (${models} right now)` : ""}. It moves to another when the one it chose keeps failing, is rate limited, or is too small for the conversation, waits out an outage rather than giving up, and says in the feed which model it used and why.{subscription ? " On your Claude subscription it chooses at the start of a run; moving to another model part-way needs the API." : ""}</p>
+      <p className="set-note">Instead of one fixed model, {an("crew")} member or a conversation can run on Auto. For each task it looks at how hard the work is, how much rides on it and how big the request is, then picks a model and an effort from the ones you can use{models ? ` (${models} right now)` : ""}. It moves to another when the one it chose keeps failing, is rate limited, or is too small for the conversation, waits out an outage rather than giving up, and says in the feed which model it used and why.{subscription ? " On your Claude subscription it chooses at the start of a run; moving to another model part-way needs the API." : ""}</p>
       <ul className="prov-notes">
         {AUTO_CHOICES.map((a) => <li key={a.id}><b>{autoName(a.id)}{a.id === "auto:balanced" ? " (recommended)" : ""}.</b> {a.tip[0].toUpperCase()}{a.tip.slice(1)}.</li>)}
-        <li><b>Where it's turned on.</b> Per crew member under Settings → Crew (Model), or for one conversation in the model picker beside the message box. Small jobs can use it too, below.</li>
+        <li><b>Where it's turned on.</b> Per {w("crew")} member under Settings → {w("Crew")} (Model), or for one conversation in the model picker beside the message box. Small jobs can use it too, below.</li>
         <li><b>It keeps to your rules.</b> A confidential project only goes to providers you've approved, and a run's budget is a hard limit on what it picks.</li>
         <li><b>It learns from how runs end.</b> A run whose last check passed counts for the model that did it, and one that failed counts against it, in <code>camp/routing-evidence.json</code>. Every choice, with its reason, is written to <code>camp/routing.jsonl</code>.</li>
       </ul>
@@ -127,7 +128,7 @@ function AutoModels({ models, excluded, refresh, onError }: { models: Models; ex
   return (
     <>
       <h4 className="set-sub">Models Auto may use</h4>
-      <p className="set-note">Switch a model off to keep Auto from ever choosing it. You can still pick it yourself for a crew member or a conversation.</p>
+      <p className="set-note">Switch a model off to keep Auto from ever choosing it. You can still pick it yourself for {an("crew")} member or a conversation.</p>
       <div className="auto-models" role="list">
         {claude.map((m) => (
           <div key={m.id} className="auto-row" role="listitem">
@@ -188,7 +189,7 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
   const other = small === "auto" || /^(deepseek|gemini|groq|openrouter):/.test(small);
   return (
     <>
-      <p className="set-note">Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no crew member can open, and are never shown again.</p>
+      <p className="set-note">Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no {w("crew")} member can open, and are never shown again.</p>
       <Provider p={{ id: "anthropic", name: "Anthropic", connected: S.anthropic?.connected ?? false, from: S.anthropic?.from ?? undefined, environment: S.anthropic?.environment, keysAt: "https://console.anthropic.com/settings/keys", privacy: "Claude API usage is billed separately from your Claude subscription and has its own limits.", models: 0, free: 0, approved: true }} refresh={refresh} />
       {providers.map((p) => <Provider key={p.id} p={p} refresh={refresh} />)}
 
@@ -209,7 +210,7 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
       {(error || listError) && <div className="form-error" role="alert">{error || listError}</div>}
 
       <h4 className="set-sub">Models guide</h4>
-      <p className="set-note">A page in the wiki that lays out every model you can use, by cost, speed, and what each is good for. It's rewritten whenever you connect or disconnect a provider; the crew can read it too.</p>
+      <p className="set-note">A page in the wiki that lays out every model you can use, by cost, speed, and what each is good for. It's rewritten whenever you connect or disconnect a provider; the {w("crew")} can read it too.</p>
       <div className="set-actions">
         <button type="button" className="btn small" disabled={guide === "writing"} onClick={writeGuide}>{guide === "writing" ? "Writing…" : "Update the guide"}</button>
         <button type="button" className="btn small" onClick={() => say({ do: "open-file", path: "camp/wiki/notes/models-guide.md" })}>Open the guide</button>
@@ -218,11 +219,11 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
 
       <h4 className="set-sub">What to know</h4>
       <ul className="prov-notes">
-        <li><b>Confidential projects stay with Claude unless you approve a provider.</b> In a project whose web setting is "careful" or "off", a crew member set to another provider's model won't run, and that project's small jobs go to Claude whatever you chose{other ? " above" : ""}. Ticking "approved for confidential projects" on a provider's card lifts that for that provider only.</li>
-        <li><b>These models don't have Claude's web search or fetch.</b> A crew member running on one works from files and the tools the camp gives it.</li>
+        <li><b>Confidential projects stay with Claude unless you approve a provider.</b> In a project whose web setting is "careful" or "off", {an("crew")} member set to another provider's model won't run, and that project's small jobs go to Claude whatever you chose{other ? " above" : ""}. Ticking "approved for confidential projects" on a provider's card lifts that for that provider only.</li>
+        <li><b>These models don't have Claude's web search or fetch.</b> {cap(an("crew"))} member running on one works from files and the tools the {w("camp")} gives it.</li>
         <li><b>Long, many-step work is where they struggle.</b> Planning and editing code depend on calling tools reliably over many turns. Summaries, lookups and reviews are a better fit.</li>
-        <li><b>Only DeepSeek's cost is estimated.</b> It's counted at DeepSeek's listed peak-hour prices; off-peak is half that, so the estimate runs high. The camp doesn't know the others' prices, so their usage counts as $0 in its estimates; free tiers also limit how many requests you can make a minute.</li>
-        <li><b>DeepSeek thinks before it answers.</b> That thinking is billed as output and isn't shown in the feed, so a reply can take a while to start. The camp's small jobs ask it not to.</li>
+        <li><b>Only DeepSeek's cost is estimated.</b> It's counted at DeepSeek's listed peak-hour prices; off-peak is half that, so the estimate runs high. The {w("camp")} doesn't know the others' prices, so their usage counts as $0 in its estimates; free tiers also limit how many requests you can make a minute.</li>
+        <li><b>DeepSeek thinks before it answers.</b> That thinking is billed as output and isn't shown in the feed, so a reply can take a while to start. The {w("camp")}'s small jobs ask it not to.</li>
         <li><b>OpenRouter lists hundreds of models.</b> Only its free ones are offered in the pickers.</li>
       </ul>
     </>

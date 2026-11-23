@@ -2,11 +2,12 @@
 
 import type { AskKind } from "../types.ts";
 
+import { w } from "../words.ts";
 export const ASK_LABELS: Record<AskKind, { note: string; yes?: string; done?: string }> = {
-  plan: { note: "Nobody leaves camp until you approve.", yes: "Approve and start" },
+  plan: { get note() { return `Nobody leaves ${w("camp")} until you approve.`; }, yes: "Approve and start" },
   shell: { note: "This runs on your machine.", yes: "Run command", done: "✓ Command allowed" },
-  job: { note: "It runs on schedule while mission control (or npm run watch) is open.", yes: "Schedule it", done: "✓ Job scheduled" },
-  tool: { note: "This connector tool makes changes outside the camp.", yes: "Allow", done: "✓ Allowed" },
+  job: { note: "It runs on schedule while mission control is open.", yes: "Schedule it", done: "✓ Job scheduled" },
+  tool: { get note() { return `This connector tool makes changes outside the ${w("camp")}.`; }, yes: "Allow", done: "✓ Allowed" },
   question: { note: "The Quartermaster is waiting for your answer before planning." },
   describe: { note: "This replaces the pull request's description on GitHub, under your name, with exactly what's written here. Nothing else about the pull request changes.", yes: "Update as me", done: "✓ Updated as you" },
   post: { note: "This goes on GitHub under your name, exactly as written here, where everyone on the pull request can read it. It is a comment only: it doesn't approve or block.", yes: "Post as me", done: "✓ Posted as you" },
@@ -31,7 +32,7 @@ export const heldAnswer = (answer: string) => [START_LATER, REPLACE_LATER].inclu
 
 // What to show once an approval has been answered (from the page, the terminal, or a phone).
 export function askOutcome(kind: AskKind, answer: string, lapsed?: boolean): string {
-  if (lapsed) return "Not answered (the camp was restarted)";
+  if (lapsed) return `Not answered (the ${w("camp")} was restarted)`;
   const a = answer.toLowerCase();
   if (kind === "plan") {
     if (a === REPLACE_START) return "✓ Plan approved, in place of the one that was waiting";

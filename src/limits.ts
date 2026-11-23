@@ -3,8 +3,8 @@
 // camp pauses instead of failing: queued expeditions and scheduled jobs wait for the reset.
 // Kept in camp/limits.json so a restart (or a `watch --once` run) still knows about a pause.
 
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { writeJsonAtomic } from "./atomic.js";
+import { statSync } from "node:fs";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { emit } from "./events.js";
 import { campRuntime } from "./settings.js";
 
@@ -40,8 +40,7 @@ const fileKey = () => { try { const st = statSync(LIMITS_PATH); return `${proces
 function load(): Saved {
   const key = fileKey();
   if (cache && cacheKey === key) return cache;
-  try { cache = existsSync(LIMITS_PATH) ? (JSON.parse(readFileSync(LIMITS_PATH, "utf8")) as Saved) : { limits: {} }; }
-  catch { cache = { limits: {} }; }
+  cache = (readJsonFile(LIMITS_PATH, null) as Saved | null) ?? { limits: {} };
   cache.limits ??= {};
   cacheKey = key;
   return cache;

@@ -9,7 +9,9 @@ import { cx, when } from "../format.ts";
 import { ASK_LABELS, REPLACE_LATER, REPLACE_START, START_LATER, heldAnswer } from "./asks.ts";
 import type { AskNode } from "./reducer.ts";
 import { turnIntoTickets } from "../tickets.ts";
+import { complain } from "../components/StatusLine.tsx";
 
+import { w } from "../words.ts";
 export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
@@ -23,7 +25,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   async function answer(value: string) {
     setSending(true);
     try { await api("/api/answer", { id: ask.askId, answer: value }); }
-    catch (e) { setSending(false); alert(errorText(e)); }
+    catch (e) { setSending(false); complain(errorText(e)); }
   }
   const typed = draft.trim();
   // A typed "y", "n" or "later" would read as approve, stop or hold, so those go through the buttons.
@@ -34,7 +36,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   async function start() {
     setStarting(true);
     try { await api("/api/send", { start: ask.askId }); }
-    catch (e) { setStarting(false); alert(errorText(e)); }
+    catch (e) { setStarting(false); complain(errorText(e)); }
   }
   const waiting = !!ask.held && !ask.started && !ask.aside; // approved, and waiting for you to start it
   const sendAnswer = () => { if (typed) void answer(typed); };
@@ -84,7 +86,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
           {waiting && (
             <div className="ask-start">
               <button type="button" className="btn primary" disabled={starting} onClick={start}>{starting ? "Starting…" : "Start plan"}</button>
-              <span className="ask-note">It carries on this conversation. Nobody has left camp yet.</span>
+              <span className="ask-note">It carries on this conversation. Nobody has left {w("camp")} yet.</span>
             </div>
           )}
         </>

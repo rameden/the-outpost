@@ -4,13 +4,14 @@ import { when } from "../format.ts";
 import { holdDebrief, loadDebrief, type Debrief } from "../tickets.ts";
 import { ReadAloud } from "./ReadAloud.tsx";
 
+import { w } from "../words.ts";
 const n = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 // The debrief as it's read aloud: the same things in the same order as the page, in sentences.
 export function debriefSpeech(d: Debrief): string {
   const say = (x: string) => (/[.!?]$/.test(x.trim()) ? x.trim() : `${x.trim()}.`);
   const list = (title: string, items: string[]) => (items.length ? [`${title}:`, ...items.map(say)] : []);
   return [
-    `How the crew did. ${n(d.runs, "run")} and ${n(d.quests, "quest")}, costing $${d.cost.toFixed(2)}.`,
+    `How the ${w("crew")} did. ${n(d.runs, "run")} and ${n(d.quests, w("quest"))}, costing $${d.cost.toFixed(2)}.`,
     ...list("Went well", d.well),
     ...list("Could have gone better", d.better),
     ...(!d.well.length && !d.better.length ? ["Nothing stood out either way."] : []),
@@ -39,12 +40,12 @@ export function TicketDebrief({ ticketKey, stamp, jira }: { ticketKey: string; s
   }
   if (jira && !d && !worked) return null;
   return (
-    <section className="ticket-debrief" aria-label="How the crew did">
-      <h3>How the crew did</h3>
+    <section className="ticket-debrief" aria-label={`How the ${w("crew")} did`}>
+      <h3>How the {w("crew")} did</h3>
       {error && <div className="form-error" role="alert">{error}</div>}
-      {!d ? <div className="meta">Not debriefed yet. The camp does it within a couple of minutes of {jira ? "the ticket's pull request merging" : "a ticket being done"}, if debriefs are on (Settings, What Mae does unasked).</div> : (
+      {!d ? <div className="meta">Not debriefed yet. The {w("camp")} does it within a couple of minutes of {jira ? "the ticket's pull request merging" : "a ticket being done"}, if debriefs are on (Settings, What Mae does unasked).</div> : (
         <>
-          <div className="meta">{n(d.runs, "run")} ({d.asks} typed by you) and {n(d.quests, "quest")}, costing ${d.cost.toFixed(2)}. Read {when(d.written)}.</div>
+          <div className="meta">{n(d.runs, "run")} ({d.asks} typed by you) and {n(d.quests, w("quest"))}, costing ${d.cost.toFixed(2)}. Read {when(d.written)}.</div>
           {d.well.length > 0 && <><h4>Went well</h4><ul className="jira-criteria">{d.well.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
           {d.better.length > 0 && <><h4>Could have gone better</h4><ul className="jira-criteria">{d.better.map((x, i) => <li key={i}>{x}</li>)}</ul></>}
           {!d.well.length && !d.better.length && <div className="meta">Nothing stood out either way.</div>}
@@ -52,7 +53,7 @@ export function TicketDebrief({ ticketKey, stamp, jira }: { ticketKey: string; s
             <>
               <h4>Lessons proposed</h4>
               <ul className="jira-criteria">{d.proposed.map((l, i) => <li key={i}><b>{l.name}:</b> {l.text}</li>)}</ul>
-              <div className="meta">None is kept until you approve it, in Settings under Memory. Once kept, it's in every prompt that crew member or project gets.</div>
+              <div className="meta">None is kept until you approve it, in Settings under Memory. Once kept, it's in every prompt that {w("crew")} member or project gets.</div>
             </>
           )}
         </>

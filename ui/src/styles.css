@@ -599,11 +599,6 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .jira-children button:hover { background: var(--surface-2); }
 .dialog.jira-ticket { width: min(820px, calc(100vw - 32px)); }
 .jira-criteria { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 14px; }
-.jira-start { display: grid; gap: 10px; padding: 12px 16px 14px; border-top: 1px solid var(--border); background: var(--surface-2); }
-.jira-start label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
-.jira-start label.check { display: flex; gap: 8px; align-items: center; color: var(--text); font-size: 14px; }
-.jira-start select, .jira-start input:not([type="checkbox"]) { padding: 7px 9px; border: 1px solid var(--field); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 14px; }
-.jira-start-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .conv-head .jira-key { font-family: var(--mono); font-size: 12px; }
 .jira-ticket .file-head b { font: 600 15px var(--sans); }
 .jira-ticket .file-head .pill { margin-left: auto; flex: none; }
@@ -1077,6 +1072,7 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 
 /* ---------- Dialog ---------- */
 .dialog { position: fixed; z-index: 50; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 20px 22px 18px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-dialog); }
+.dialog:focus { outline: none; }
 .dialog h2 { margin: 0 0 14px; font: 600 20px/1.3 var(--serif); }
 .dialog .field textarea { font: 14px/1.5 var(--sans); color: var(--text); padding: 8px 9px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); font-weight: 400; resize: vertical; min-height: 96px; }
 .field-hint { font-size: 12px; font-weight: 400; color: var(--faint); line-height: 1.4; }
@@ -1498,7 +1494,6 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .send-menu .mention-item:disabled { opacity: .5; cursor: default; }
 .send-menu .mention-item:focus-visible { outline: none; } /* the highlight shows where you are */
 .popover.send-menu { position: absolute; bottom: calc(100% + 2px); right: 8px; left: auto; width: min(280px, 80vw); padding: 6px; z-index: 30; display: grid; }
-.hints { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--faint); }
 .hint { border: 0; background: none; border-radius: 6px; padding: 4px 7px; color: var(--muted); font-size: 13px; }
 .hint:hover { color: var(--text); background: var(--surface-2); }
 .form-error { color: var(--bad); font-size: 13px; margin-top: 6px; }
@@ -1549,7 +1544,6 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .fly-head small { font-size: 12px; font-weight: 400; color: var(--faint); }
 .composer .fly > .menu-form { padding: 0 12px 12px; }
 .fly > .snippet-list { padding: 0 6px 6px; }
-.fly > .menu-footer { margin: 0; padding: 8px 10px; }
 @media (max-width: 760px) { .fly { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: var(--room, none); overflow-y: auto; } }
 .menu-tip { font-size: 13px; color: var(--faint); padding: 6px 10px 6px; }
 kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 5px; background: var(--surface-2); color: var(--muted); }
@@ -1566,7 +1560,6 @@ kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--border-
 .snippet strong { display: block; font-size: 14px; }
 .snippet span { font-size: 13px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .snippet .att-x { margin-top: 6px; }
-.menu-footer { padding: 6px 4px 2px; border-top: 1px solid var(--border); margin-top: 4px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .chip-att { display: inline-flex; align-items: center; gap: 7px; max-width: 260px; min-width: 0; padding: 3px 4px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg); font-size: 13px; }
 .chip-att img { width: 28px; height: 28px; object-fit: cover; border-radius: 6px; flex: none; }
@@ -1702,6 +1695,8 @@ a.att-name { color: var(--accent); }
 .card-top time, .meta { color: var(--faint); font-size: 12px; }
 .card-top time { margin-left: auto; white-space: nowrap; }
 .meta { margin-top: 3px; }
+.lazy-wait { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; pointer-events: none; }
+.lazy-wait.inline { position: static; padding: 16px; place-items: start; }
 .clamp { font-size: 13px; color: var(--muted); margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; cursor: pointer; }
 .clamp.open { -webkit-line-clamp: unset; display: block; }
 .clamp b { color: var(--text); font-weight: 600; }
@@ -1874,10 +1869,6 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .checks-edit { margin-top: 8px; display: grid; gap: 6px; }
 .checks-edit summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 .checks-edit textarea { width: 100%; min-height: 54px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--field); background: var(--surface); color: var(--text); font: 13px var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); resize: vertical; }
-.sandbox-form { align-items: flex-start; flex-wrap: nowrap; }
-.sandbox-form input { width: auto; padding: 0; margin: 2px 0 0; flex: none; } /* not the 90px budget box */
-.sandbox-form span { flex: 1; min-width: 0; }
-.sandbox-form b { color: var(--text); }
 
 /* ---------- Settings ---------- */
 .icon-btn { position: relative; }
@@ -2031,10 +2022,6 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .pr-dialog .field input, .pr-dialog .field textarea { padding: 8px 9px; border: 1px solid var(--field); border-radius: 8px; background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); }
 .pr-dialog textarea.pr-body { font: 13px/1.5 var(--mono); min-height: 280px; resize: vertical; }
 .pr-dialog .dialog-actions { margin-top: 4px; }
-.pr-chip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
-.pr-chip a.pill { text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
-.pr-chip a.pill:hover { text-decoration: underline; }
-.pr-chip .linkish { white-space: nowrap; font-size: 13px; }
 
 .findings { margin: 10px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
 .findings.none { padding: 10px 12px; color: var(--muted); font-size: 14px; }

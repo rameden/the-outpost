@@ -13,6 +13,7 @@
 
 import { askSmall } from "./small.js";
 import { shellSettings } from "./settings.js";
+import { jsonIn } from "./helpers.js";
 
 export const NEVER_CLEARED = /(^|[\s;&|(`])(sudo|su|doas|rm\s+-\w*[rRf]|git\s+(push|reset\s+--hard|clean|checkout\s+--|filter-branch)|npm\s+(publish|install|i|add|ci)|pnpm\s+(add|install|publish)|yarn\s+(add|publish)|pip3?\s+install|brew|curl|wget|ssh|scp|rsync|nc|ncat|telnet|gh|docker|kubectl|chmod|chown|dd|mkfs|launchctl|crontab|osascript|open)(\s|$)|\|\s*(sh|bash|zsh|python3?|node)\b|>\s*\/|~\/\.|\.env|\.ssh|\.aws/;
 
@@ -41,12 +42,8 @@ export async function reviewCommand(command: string, where: string, who: string,
   } catch (e: any) {
     return { cleared: false, reason: `The reviewer couldn't be reached (${String(e?.message ?? e).slice(0, 120)}).` };
   }
-  const json = raw.match(/\{[\s\S]*\}/)?.[0];
-  try {
-    const v = JSON.parse(json ?? "");
-    const reason = String(v.reason ?? "").replace(/\s+/g, " ").trim().slice(0, 200) || "No reason given.";
-    return { cleared: v.verdict === "clear", reason };
-  } catch {
-    return { cleared: false, reason: "The reviewer's answer couldn't be read." };
-  }
+  const v = jsonIn(raw, "{") as { verdict?: unknown; reason?: unknown } | undefined;
+  if (!v) return { cleared: false, reason: "The reviewer's answer couldn't be read." };
+  const reason = String(v.reason ?? "").replace(/\s+/g, " ").trim().slice(0, 200) || "No reason given.";
+  return { cleared: v.verdict === "clear", reason };
 }

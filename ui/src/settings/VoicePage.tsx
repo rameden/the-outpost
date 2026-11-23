@@ -10,8 +10,9 @@ import { ask } from "../components/Confirm.tsx";
 import { ReadAloud } from "../components/ReadAloud.tsx";
 import type { CampState } from "../types.ts";
 
+import { w } from "../words.ts";
 type Voice = { id: string; name: string; about: string };
-const SAMPLE = "This is the voice Mae reads in. A debrief sounds like this: three runs, two quests, and one lesson worth keeping.";
+const sample = () => `This is the voice Mae reads in. A debrief sounds like this: three runs, two ${w("quests")}, and one lesson worth keeping.`;
 
 export function VoicePage({ S, refresh }: { S: CampState; refresh: () => void }) {
   // (A camp server started before reading aloud existed doesn't send this: say so rather than fall over.)
@@ -37,7 +38,7 @@ export function VoicePage({ S, refresh }: { S: CampState; refresh: () => void })
     void run("/api/voice/disconnect", {});
   };
   const listed = voices?.voices ?? [];
-  if ("stale" in v) return <p className="set-note">Restart the camp to turn on reading aloud: the one that's running started before it was added.</p>;
+  if ("stale" in v) return <p className="set-note">Restart the {w("camp")} to turn on reading aloud: the one that's running started before it was added.</p>;
 
   return (
     <div>
@@ -51,7 +52,7 @@ export function VoicePage({ S, refresh }: { S: CampState; refresh: () => void })
         {v.connected ? (
           <div className="set-actions">
             {v.from === "env"
-              ? <span className="meta">Its key comes from where the camp was started (ELEVENLABS_API_KEY), so it's changed there.</span>
+              ? <span className="meta">Its key comes from where the {w("camp")} was started (ELEVENLABS_API_KEY), so it's changed there.</span>
               : <button type="button" className="btn small danger" disabled={busy} onClick={disconnect}>Disconnect and forget the key</button>}
           </div>
         ) : (
@@ -81,7 +82,7 @@ export function VoicePage({ S, refresh }: { S: CampState; refresh: () => void })
             </select>
           </label>
           <div className="set-actions">
-            <ReadAloud text={SAMPLE} what="Voice test" label="Test voice" />
+            <ReadAloud text={sample()} what="Voice test" label="Test voice" />
           </div>
         </>
       )}

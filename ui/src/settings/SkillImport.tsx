@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { api, errorText } from "../api.ts";
 import type { CampState, PackPreview } from "../types.ts";
 
+import { w, a as an } from "../words.ts";
 const MAX = 8 * 1024 * 1024;
 const kb = (n: number) => (n < 1024 ? `${n} B` : `${Math.round(n / 102.4) / 10} KB`);
 function toBase64(file: File) {
@@ -75,7 +76,7 @@ export function SkillImport({ S, refresh }: { S: CampState; refresh: () => void 
           {pack.scripts.length > 0 && (
             <fieldset className="skill-scripts">
               <legend>Its scripts</legend>
-              <div className="field-hint">Ticked, a script runs without asking whenever a crew member calls it exactly as written, for as long as the file stays as it is now. Unticked, it asks you each time, like any other command. Read a script before you tick it: it runs as you, outside the sandbox.</div>
+              <div className="field-hint">Ticked, a script runs without asking whenever {an("crew")} member calls it exactly as written, for as long as the file stays as it is now. Unticked, it asks you each time, like any other command. Read a script before you tick it: it runs as you, outside the sandbox.</div>
               {pack.scripts.map((s) => (
                 <div key={s.file} className="skill-script">
                   <label className="dialog-check"><input type="checkbox" checked={scripts.includes(s.file)} onChange={(ev) => setScripts((l) => (ev.target.checked ? [...l, s.file] : l.filter((x) => x !== s.file)))} />
@@ -87,7 +88,7 @@ export function SkillImport({ S, refresh }: { S: CampState; refresh: () => void 
           )}
           <label className="field">Other commands it may run without asking
             <textarea aria-label="Other commands it may run without asking" rows={2} spellCheck={false} placeholder={"One per line, like: pnpm add"} value={commands} onChange={(ev) => setCommands(ev.target.value)} />
-            <span className="field-hint">Each is the start of a command. They apply to the whole crew while the skill is installed, and go when it's removed. A command still has to be one simple command that stays inside the camp; anything else asks as usual.</span>
+            <span className="field-hint">Each is the start of a command. They apply to the whole {w("crew")} while the skill is installed, and go when it's removed. A command still has to be one simple command that stays inside the {w("camp")}; anything else asks as usual.</span>
           </label>
           {error && <div className="form-error" role="alert">{error}</div>}
           <div className="card-actions">

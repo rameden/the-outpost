@@ -31,7 +31,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { Icon } from "../components/bits.tsx";
-import { STEP_MARK, STEP_SAYS } from "../feed/Feed.tsx";
+import { STEP_MARK, STEP_SAYS, stepPill } from "../feed/Feed.tsx";
 import { stepState, type FeedNode, type PlanNode, type PlanQuest, type StepState } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, clock, cx } from "../format.ts";
@@ -43,6 +43,7 @@ import { motionOK, useLingering } from "../motion.tsx";
 import { layoutOf, PAD, STEP_H, STEP_W } from "./layout.ts";
 import { DISC, MOON, moonsOf, ringsOf } from "./rings.ts";
 
+import { w } from "../words.ts";
 // A plan in the feed: the run it belongs to (and the conversation that run is in, if any), and the
 // quests of that run that are on none of its steps.
 export type Trailhead = { expId: string; thread?: string; task: string; time: string; running: boolean; plan: PlanNode; loose: PlanQuest[] };
@@ -74,7 +75,6 @@ const brief = (task: string) => task.replace(/\s+/g, " ").slice(0, 60);
 // A step, said aloud: "Step 4, not started: I read the diffs. Waits for steps 2 and 3."
 const stepSays = (n: number, state: StepState, text: string, after: number[]) =>
   `Step ${n}, ${STEP_SAYS[state].toLowerCase()}: ${text.replace(/\.$/, "")}.${after.length ? ` Waits for step${after.length > 1 ? "s" : ""} ${listed(after)}.` : ""}`;
-const pillOf = (state: StepState) => cx("pill", state === "out" ? "live" : state === "done" ? "done" : state === "todo" ? "" : "bad");
 // The whole map's tree. BOUGH: how far left of a plan's ground the trunk's middle is (styles.css
 // leaves that much room). RISE: how far below its first step a bough leaves the trunk.
 const BOUGH = 32, RISE = 44;
@@ -150,7 +150,7 @@ function Chip({ q, ended, expId, crewId, onOpen }: { q: PlanQuest; ended?: strin
   const inner = <><span aria-hidden="true">{q.emoji}</span><b>{q.who}</b><i aria-hidden="true">{STEP_MARK[state]}</i></>;
   if (!onOpen) return <span className={cls} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}`}>{inner}<span className="sr-only">, {QUEST_SAYS[state]}</span></span>;
   return (
-    <button type="button" className={cls} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}. Go to this quest`} aria-label={`${q.who}, ${QUEST_SAYS[state]}: go to this quest`}
+    <button type="button" className={cls} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}. Go to this ${w("quest")}`} aria-label={`${q.who}, ${QUEST_SAYS[state]}: go to this ${w("quest")}`}
       onClick={() => onOpen(expId, q.node)}>{inner}</button>
   );
 }
@@ -198,7 +198,7 @@ const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, lab
               style={{ left: spot.x, top: spot.y, "--col": spot.col } as CSSProperties} aria-label={stepSays(spot.n, state, step.text, spot.after)}>
               <div className="trail-step-head">
                 <span className="trail-n">{spot.n}</span>
-                <span className={pillOf(state)}><i aria-hidden="true">{STEP_MARK[state]}</i> {STEP_SAYS[state]}</span>
+                <span className={stepPill(state)}><i aria-hidden="true">{STEP_MARK[state]}</i> {STEP_SAYS[state]}</span>
               </div>
               <p className="trail-text" title={step.text}>{step.text}</p>
               <div className="trail-crew">
@@ -218,7 +218,7 @@ const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, lab
 function Loose({ at, crewId, onOpen }: { at: Trailhead; crewId: CrewId; onOpen?: Open }) {
   if (!at.loose.length) return null;
   return (
-    <div className="trail-loose" role="group" aria-label="Quests sent without a step">
+    <div className="trail-loose" role="group" aria-label={`${w("Quests")} sent without a step`}>
       <span>Off the trail (sent without a step)</span>
       {at.loose.map((q) => <Chip key={q.node} q={q} ended={at.plan.ended} expId={at.expId} crewId={crewId} onOpen={onOpen} />)}
     </div>
@@ -233,7 +233,7 @@ function Moon({ q, at, ended, expId, crewId, onOpen }: { q: PlanQuest; at: { dx:
   const inner = <><span aria-hidden="true">{q.emoji}</span><i aria-hidden="true">{STEP_MARK[state]}</i></>;
   if (!onOpen) return <span className={cls} style={style} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}`}>{inner}<span className="sr-only">{q.who}, {QUEST_SAYS[state]}</span></span>;
   return (
-    <button type="button" className={cls} style={style} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}. Go to this quest`} aria-label={`${q.who}, ${QUEST_SAYS[state]}: go to this quest`}
+    <button type="button" className={cls} style={style} data-who={id} title={`${q.who}: ${QUEST_SAYS[state]}. Go to this ${w("quest")}`} aria-label={`${q.who}, ${QUEST_SAYS[state]}: go to this ${w("quest")}`}
       onClick={() => onOpen(expId, q.node)}>{inner}</button>
   );
 }
@@ -358,7 +358,7 @@ function TrailRings({ plans, going, crewId, openIn, onOnly, zoom, sky }: {
         {/* What's under the pointer or the keyboard, in full. Not read out: the waypoint itself says all of it. */}
         <p className="trail-readout" aria-hidden="true">
           {hotPlan && hotStep && hotState ? (
-            <><b>Ring {ringNo.get(hotPlan.expId)} · Step {hotStep.n}</b><span className={pillOf(hotState)}><i>{STEP_MARK[hotState]}</i> {STEP_SAYS[hotState]}</span>
+            <><b>Ring {ringNo.get(hotPlan.expId)} · Step {hotStep.n}</b><span className={stepPill(hotState)}><i>{STEP_MARK[hotState]}</i> {STEP_SAYS[hotState]}</span>
               <span className="trail-readout-text">{hotStep.text}</span>
               <span className="trail-readout-who">{hotStep.quests.length ? [...new Set(hotStep.quests.map((q) => `${q.emoji} ${q.who}`))].join(", ") : hotState === "todo" ? "Nobody sent yet" : "The Quartermaster's own"}</span></>
           ) : hotPlan ? (
@@ -513,7 +513,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
         <div className="trail-title"><h2>Trail map</h2>
           {replay ? <span className="trail-note" role="status">Replay: the last day, played back. None of this is happening now.</span>
             : told ? <span className="trail-note" role="status">{told}</span>
-            : <span>The Quartermaster's plan, as the crew walks it</span>}</div>
+            : <span>The Quartermaster's plan, as the {w("crew")} walks it</span>}</div>
         <div className="trail-tools">
           {whole && (
             <span className="trail-zoom" role="group" aria-label="How big the map is drawn">
@@ -581,7 +581,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
         <div className="trail-empty">
           <Icon name="trail" />
           <b>{replay ? "No plan yet at this point in the day" : "No plan yet"}</b>
-          <p>{replay ? "Plans appear here as the day plays on." : "When the Quartermaster's plan is approved, its steps appear here as a trail, and fill in as the crew works."}</p>
+          <p>{replay ? "Plans appear here as the day plays on." : `When the Quartermaster's plan is approved, its steps appear here as a trail, and fill in as the ${w("crew")} works.`}</p>
         </div>
       )}
       {replay && <Timeline reel={replay.reel} store={replay.store} time={time} onLeave={leaveReplay} />}

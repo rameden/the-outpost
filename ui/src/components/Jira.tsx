@@ -6,8 +6,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import type { CampState, JiraPull, JiraRef, JiraStatus } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { useJiraSearch } from "./useJiraSearch.ts";
 import { ask } from "./Confirm.tsx";
 
+import { w as word } from "../words.ts";
 // The usual filters. The first is where the camp starts.
 export const JIRA_PRESETS: { name: string; jql: string }[] = [
   { name: "Assigned to me, not done", jql: "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC" },
@@ -93,10 +95,10 @@ export function JiraWriteBack({ S, refresh }: { S: CampState; refresh: () => voi
   const changed = MOMENTS.some((m) => names[m.key].trim() !== now[m.key]);
   return (
     <form className="jira-write" aria-label="Writing back to Jira" onSubmit={(ev) => { ev.preventDefault(); void save(w.on); }}>
-      <label className="switch"><input type="checkbox" checked={w.on} aria-label="Let the camp write to Jira"
+      <label className="switch"><input type="checkbox" checked={w.on} aria-label={`Let the ${word("camp")} write to Jira`}
         onChange={(ev) => save(ev.target.checked)} /> Write back to tickets: {w.on ? "On" : "Off"}</label>
       <div className="field-hint">Off, nothing is ever written to Jira. On, a ticket you start work from gets a comment at four moments: when work starts (and on which branch), when a run finishes with changes for you to look over,
-        when you open its pull request (with the link), and when that pull request is merged. The comments are posted as you, in the camp's own words. The crew still can't write to Jira: this is the camp, at those moments only.</div>
+        when you open its pull request (with the link), and when that pull request is merged. The comments are posted as you, in the {word("camp")}'s own words. The {word("crew")} still can't write to Jira: this is the {word("camp")}, at those moments only.</div>
       {w.on && (
         <>
           <div className="jira-write-row">
@@ -130,20 +132,20 @@ export function JiraConnection({ S, refresh }: { S: CampState; refresh: () => vo
     setBusy(false);
   }
   async function disconnect() {
-    if (!await ask({ title: "Unlink Jira?", body: "The camp forgets the API token. Tickets already attached to conversations stay as they are.", action: "Unlink", danger: true })) return;
+    if (!await ask({ title: "Unlink Jira?", body: `The ${word("camp")} forgets the API token. Tickets already attached to conversations stay as they are.`, action: "Unlink", danger: true })) return;
     try { await api("/api/jira", { disconnect: true }); refresh(); } catch (e) { setError(errorText(e)); }
   }
 
   return (
     <div className="wiki-group">
       <h4>Jira</h4>
-      <p>Link your Jira Cloud account to attach tickets to a message, and to let the crew read a ticket or search. The crew can only read, and only what your account can see. Nothing is written to Jira unless you turn on writing back below.</p>
+      <p>Link your Jira Cloud account to attach tickets to a message, and to let the {word("crew")} read a ticket or search. The {word("crew")} can only read, and only what your account can see. Nothing is written to Jira unless you turn on writing back below.</p>
       {j?.connected ? (
         <div className="card">
           <div className="card-top"><span className="who"><Icon name="link" /> {j.siteUrl?.replace(/^https?:\/\//, "")}</span><span className="pill done">Linked</span></div>
           <div className="meta">{j.displayName ? `${j.displayName} · ` : ""}{j.email}</div>
           {j.source === "environment"
-            ? <div className="meta">Set with JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN where the camp was started. Remove them there to unlink.</div>
+            ? <div className="meta">Set with JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN where the {word("camp")} was started. Remove them there to unlink.</div>
             : <div className="card-actions"><button type="button" className="btn small danger" onClick={disconnect}>Unlink</button></div>}
           {error && <div className="form-error" role="alert">{error}</div>}
           <JiraFilter kept={j.filter} refresh={refresh} />
@@ -160,7 +162,7 @@ export function JiraConnection({ S, refresh }: { S: CampState; refresh: () => vo
           <label className="field">API token
             <input aria-label="API token" type="password" value={apiToken} autoComplete="off" spellCheck={false} onChange={(ev) => setApiToken(ev.target.value)} />
             <span className="field-hint">Make one at <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer">id.atlassian.com → Security → API tokens</a>.
-              It's checked with Jira, then kept in camp/jira.json on this machine, readable only by you; no crew member can open that file.</span>
+              It's checked with Jira, then kept in camp/jira.json on this machine, readable only by you; no {word("crew")} member can open that file.</span>
           </label>
           {error && <div className="form-error" role="alert">{error}</div>}
           <div className="card-actions"><button type="submit" className="btn small primary" disabled={busy || !siteUrl.trim() || !email.trim() || !apiToken.trim()}>{busy ? "Checking with Jira…" : "Link Jira"}</button></div>
@@ -174,17 +176,7 @@ export function JiraConnection({ S, refresh }: { S: CampState; refresh: () => vo
 // attaches it to the message.
 export function JiraPicker({ connected, onPick, onConnect }: { connected: boolean; onPick: (issue: JiraRef) => void; onConnect: () => void }) {
   const [query, setQuery] = useState("");
-  const [issues, setIssues] = useState<JiraRef[] | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    if (!connected) return;
-    let gone = false;
-    const t = setTimeout(() => {
-      api<{ issues: JiraRef[] }>(`/api/jira/issues?q=${encodeURIComponent(query.trim())}`)
-        .then((r) => { if (!gone) { setIssues(r.issues); setError(""); } }, (e) => { if (!gone) { setIssues([]); setError(errorText(e)); } });
-    }, query ? 250 : 0);
-    return () => { gone = true; clearTimeout(t); };
-  }, [query, connected]);
+  const { issues, error } = useJiraSearch(query, connected);
 
   if (!connected) {
     return (

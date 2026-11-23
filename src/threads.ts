@@ -3,10 +3,10 @@
 // joins the thread of the run it answers, and the agent gets every earlier request and its
 // full answer (the newest ~40,000 characters when a thread grows long).
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import type { Workspace } from "./context.js";
 import { expeditionDigest } from "./feed.js";
-import { appendLine, writeAtomic } from "./atomic.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 
 export const THREADS_PATH = "camp/threads.jsonl";
 const MAX_HISTORY_CHARS = 40_000;
@@ -51,9 +51,7 @@ function all(): Turn[] {
   const st = statSync(THREADS_PATH);
   const key = `${st.mtimeMs}:${st.size}`;
   if (cache?.key === key) return cache.turns;
-  const turns = readFileSync(THREADS_PATH, "utf8").split("\n").filter(Boolean).flatMap((l) => {
-    try { return [JSON.parse(l) as Turn]; } catch { return []; }
-  });
+  const turns = readJsonl<Turn>(THREADS_PATH);
   // The last line for each run wins (its ending, if it got that far).
   const last = new Map<string, Turn>();
   for (const t of turns) last.set(t.expedition, last.has(t.expedition) ? { ...t, time: last.get(t.expedition)!.time } : t);

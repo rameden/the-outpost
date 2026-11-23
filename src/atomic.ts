@@ -76,6 +76,18 @@ export function readJsonFile<T>(path: string, fallback: T): T | unknown {
   }
 }
 
+// Read a log of one JSON value per line (feed, threads, quest log…), oldest first. No file: no
+// lines. A blank line, or one that can't be parsed (torn by a crash mid-append), is skipped.
+export function readJsonl<T>(path: string): T[] {
+  if (!existsSync(path)) return [];
+  const out: T[] = [];
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    if (!line) continue;
+    try { out.push(JSON.parse(line) as T); } catch { /* a torn line */ }
+  }
+  return out;
+}
+
 // Append one line to a log (feed, threads, quest log). If the camp died mid-append, the file ends
 // without a newline and the next line would run into the torn one, losing both: so the first
 // append to each file in this process checks the last byte and closes the line off first.

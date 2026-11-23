@@ -1,4 +1,4 @@
-// Scheduled jobs: expeditions that run on their own while `npm run watch` is going.
+// Scheduled jobs: expeditions that run on their own while the outpost is running.
 // Jobs live in camp/jobs.json. The Quartermaster can add them (you confirm each one),
 // and you can edit the file by hand too.
 
@@ -97,8 +97,8 @@ export const scheduleJob: Tool = {
   def: {
     name: "schedule_job",
     description:
-      "Schedule an expedition to run on its own while the user's watcher (`npm run watch`) is " +
-      "running. Each run starts fresh with only `task` to go on, so make it self-contained: what " +
+      "Schedule an expedition to run on its own, on time, while the user's outpost is running. " +
+      "Each run starts fresh with only `task` to go on, so make it self-contained: what " +
       "to check or produce, where to save it, and what counts as worth reporting. Runs cannot " +
       "use the shell. The user confirms every new job. Schedules: 'every 30m', 'every 2h', " +
       "'daily 08:00', 'weekdays 08:00' (local time, at most every 5 minutes).",
@@ -132,7 +132,7 @@ export const scheduleJob: Tool = {
     // name, so it takes that name's place if one is there now, and is added if not.
     const jobs = loadJobs();
     saveJobs(jobs.some((j) => j.name === name) ? jobs.map((j) => (j.name === name ? job : j)) : [...jobs, job]);
-    return `Scheduled "${name}" (${schedule}). It runs while \`npm run watch\` is going.`;
+    return `Scheduled "${name}" (${schedule}). It runs on schedule while the outpost is running.`;
   },
 };
 

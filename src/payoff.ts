@@ -10,6 +10,7 @@ import { allFeedback } from "./feedback.js";
 import { prStates } from "./prs.js";
 import { questCost, recentQuests } from "./questlog.js";
 import { allTurns } from "./threads.js";
+import { median } from "./helpers.js";
 
 export type Spent = "work" | "review" | "opinion" | "fixup" | "feedback" | "chronicle";
 // What a request was for, from how it starts (the page's and the camp's own standing briefs).
@@ -33,7 +34,6 @@ export function findingsIn(reply: string): { n: number; blockers: number } {
     return { n: real.length, blockers: real.filter((f) => String(f.severity).toLowerCase() === "blocker").length };
   } catch { return { n: 0, blockers: 0 }; }
 }
-const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
 
 export type Payoff = NonNullable<ReturnType<typeof projectPayoff>>;
 export function projectPayoff(id: string, days = 30, now = Date.now()) {

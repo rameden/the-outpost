@@ -8,6 +8,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { storeGet, storeRemove } from "../api.ts";
 
+import { w } from "../words.ts";
 type Props = {
   children: ReactNode;
   // What to show instead. `retry` draws the children again (they may well throw again).
@@ -75,7 +76,7 @@ export function PageBoundary({ children }: { children: ReactNode }) {
       <div className="page-broken" role="alert">
         <h1>The page hit a problem</h1>
         <p>{error.message || "Something went wrong while drawing it."}</p>
-        <p className="meta">The camp itself is unaffected: anything that was running still is.</p>
+        <p className="meta">The {w("camp")} itself is unaffected: anything that was running still is.</p>
         <div className="dialog-actions">
           {SAVED_PLACE.some((k) => storeGet(k) !== null) && (
             <button type="button" className="btn" title="Forget which conversation was open and how the page was arranged (in this browser), then reload. Use this if a plain reload ends up here again."

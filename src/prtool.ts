@@ -31,29 +31,27 @@ import { currentSignal } from "./context.js";
 import { CREW } from "./crew.js";
 import { SECRET_NAME } from "./links.js";
 import { campMode, campPath, clipOutput, type Tool } from "./tools.js";
+import { checkFailed, checkPending, gh } from "./github.js";
 
 export const PR_ACTIONS = ["view", "diff", "list"] as const;
 type Action = (typeof PR_ACTIONS)[number];
 
 const TIMEOUT_MS = 60_000;
 const MAX_BYTES = 8_000_000;
-const ghPath = () => process.env.CAMP_GH || "gh";
 
-function run(cmd: string, args: string[], dir: string, signal?: AbortSignal, input?: string): Promise<{ ok: boolean; out: string }> {
-  return new Promise((done) => {
-    const child = execFile(cmd, args, {
-      cwd: dir, timeout: TIMEOUT_MS, maxBuffer: MAX_BYTES, signal, encoding: "utf8",
-      env: { ...process.env, GH_PROMPT_DISABLED: "1", NO_COLOR: "1", GH_PAGER: "cat", PAGER: "cat", GIT_TERMINAL_PROMPT: "0" },
-    }, (err, stdout, stderr) => {
-      if (err && (err as NodeJS.ErrnoException).code === "ENOENT") return done({ ok: false, out: `${cmd === "git" ? "git" : "The GitHub CLI (gh)"} isn't installed, so pull requests can't be read from here.` });
-      if (err && signal?.aborted) return done({ ok: false, out: "Not run: the expedition was stopped." });
-      if (err) return done({ ok: false, out: `Couldn't read it: ${(stderr || err.message).trim().slice(0, 600)}` });
-      done({ ok: true, out: stdout });
-    });
-    child.stdin?.on("error", () => { /* it exited before reading: the callback reports why */ });
-    child.stdin?.end(input ?? "");
-  });
-}
+// gh, or git for a repository's remotes: what it printed, or why it couldn't be run, in words the crew can pass on.
+type Ran = { ok: boolean; out: string };
+const whyNot = (err: any, program: string, signal?: AbortSignal): Ran => {
+  if (err?.code === "ENOENT") return { ok: false, out: `${program} isn't installed, so pull requests can't be read from here.` };
+  if (signal?.aborted) return { ok: false, out: "Not run: the expedition was stopped." };
+  return { ok: false, out: `Couldn't read it: ${String(err?.stderr || err?.message).trim().slice(0, 600)}` };
+};
+const runGh = (args: string[], dir: string, signal?: AbortSignal, input?: string): Promise<Ran> =>
+  gh(args, { cwd: dir, timeout: TIMEOUT_MS, maxBuffer: MAX_BYTES, signal, input }).then((out) => ({ ok: true, out }), (err) => whyNot(err, "The GitHub CLI (gh)", signal));
+const gitRemotes = (dir: string, signal?: AbortSignal): Promise<Ran> => new Promise((done) => {
+  execFile("git", ["-C", dir, "remote", "-v"], { cwd: dir, timeout: TIMEOUT_MS, maxBuffer: MAX_BYTES, signal, encoding: "utf8", env: { ...process.env, PAGER: "cat", GIT_TERMINAL_PROMPT: "0" } },
+    (err, stdout, stderr) => done(err ? whyNot(Object.assign(err, { stderr }), "git", signal) : { ok: true, out: stdout }));
+});
 
 // Which pull request was meant: its number, plus the repository when a link named one.
 export function prRef(pr: unknown): { number: string; repo?: string } | { error: string } {
@@ -104,9 +102,8 @@ const said = (s: unknown, n: number) => { const t = String(s ?? "").replace(/\r\
 export function describePr(pr: any): string {
   const files: any[] = pr.files ?? [];
   const checks: any[] = pr.statusCheckRollup ?? [];
-  const result = (c: any) => String(c.conclusion || c.state || c.status || "").toUpperCase();
-  const failing = checks.filter((c) => /FAIL|ERROR|TIMED_OUT|CANCELLED|ACTION_REQUIRED/.test(result(c)));
-  const pending = checks.filter((c) => /PENDING|QUEUED|IN_PROGRESS|EXPECTED|WAITING/.test(result(c)));
+  const failing = checks.filter(checkFailed);
+  const pending = checks.filter(checkPending);
   const lines = [
     `#${pr.number} ${pr.title ?? ""}`,
     `${pr.url ?? ""}`,
@@ -163,7 +160,7 @@ export function pullRequestFor(self: string): Tool {
       if (!statSync(dir).isDirectory()) return `${where} is a file. Put the repository folder in "in".`;
       const signal = currentSignal();
       if ((action as Action) === "list") {
-        const r = await run(ghPath(), ["pr", "list", "--state", "open", "--limit", "30", "--json", "number,title,author,headRefName,isDraft,updatedAt"], dir, signal);
+        const r = await runGh(["pr", "list", "--state", "open", "--limit", "30", "--json", "number,title,author,headRefName,isDraft,updatedAt"], dir, signal);
         if (!r.ok) return r.out;
         let list: any[] = [];
         try { list = JSON.parse(r.out); } catch { return "GitHub's answer couldn't be read."; }
@@ -176,17 +173,17 @@ export function pullRequestFor(self: string): Tool {
         const ref = prRef(pr);
         if ("error" in ref) return ref.error;
         if (ref.repo) {
-          const remotes = await run("git", ["-C", dir, "remote", "-v"], dir, signal);
+          const remotes = await gitRemotes(dir, signal);
           if (!remotes.ok || !remoteMatches(remotes.out, ref.repo)) return `That link is to ${ref.repo}, which isn't the repository in ${where}. Ask the user to link that repository's folder, then read it with in: "links/<name>".`;
         }
         which.push(ref.number);
       }
       if ((action as Action) === "view") {
-        const r = await run(ghPath(), ["pr", "view", ...which, "--json", VIEW_FIELDS], dir, signal);
+        const r = await runGh(["pr", "view", ...which, "--json", VIEW_FIELDS], dir, signal);
         if (!r.ok) return r.out;
         try { return clipOutput(describePr(JSON.parse(r.out))); } catch { return "GitHub's answer couldn't be read."; }
       }
-      const r = await run(ghPath(), ["pr", "diff", ...which], dir, signal);
+      const r = await runGh(["pr", "diff", ...which], dir, signal);
       if (!r.ok) return r.out;
       const diff = withoutSecrets(r.out);
       return clipOutput(path !== undefined && String(path).trim() ? onlyPath(diff, String(path).trim()) : diff.trim() ? diff : "(this pull request changes nothing)");
@@ -264,17 +261,17 @@ export function postReviewFor(self: string, name = "Warden"): Tool {
       if (!statSync(dir).isDirectory()) return `${where} is a file. Put the repository folder in "in".`;
       const signal = currentSignal();
       if (ref.repo) {
-        const remotes = await run("git", ["-C", dir, "remote", "-v"], dir, signal);
+        const remotes = await gitRemotes(dir, signal);
         if (!remotes.ok || !remoteMatches(remotes.out, ref.repo)) return `Not posted: that link is to ${ref.repo}, which isn't the repository in ${where}.`;
       }
-      const seen = await run(ghPath(), ["pr", "view", ref.number, "--json", "number,title,url,state,headRefOid"], dir, signal);
+      const seen = await runGh(["pr", "view", ref.number, "--json", "number,title,url,state,headRefOid"], dir, signal);
       if (!seen.ok) return seen.out;
       let found: any;
       try { found = JSON.parse(seen.out); } catch { return "GitHub's answer couldn't be read."; }
       if (found.state !== "OPEN") return `Not posted: pull request #${found.number} is ${String(found.state).toLowerCase()}, not open.`;
       const repo = String(found.url ?? "").match(/github\.com\/([\w.-]+\/[\w.-]+)\/pull\//i)?.[1];
       if (!repo) return "Not posted: couldn't tell which repository that pull request is in.";
-      const who = await run(ghPath(), ["api", "user", "--jq", ".login"], dir, signal);
+      const who = await runGh(["api", "user", "--jq", ".login"], dir, signal);
       const login = who.ok && /^[\w-]{1,40}$/.test(who.out.trim()) ? who.out.trim() : "";
 
       const answer = await ask({
@@ -286,7 +283,7 @@ export function postReviewFor(self: string, name = "Warden"): Tool {
       if (a === "" || a === "n") return "Not posted: the user declined. Don't ask again unless they tell you to.";
       if (a !== "y") return `Not posted. The user wants changes first: ${answer}\nRedraft with that and call post_review again; they'll see the new text before anything is posted.`;
 
-      const send = (payload: object) => run(ghPath(), ["api", "--method", "POST", `repos/${repo}/pulls/${found.number}/reviews`, "--input", "-"], dir, signal, JSON.stringify(payload));
+      const send = (payload: object) => runGh(["api", "--method", "POST", `repos/${repo}/pulls/${found.number}/reviews`, "--input", "-"], dir, signal, JSON.stringify(payload));
       const link = (out: string) => { try { return String(JSON.parse(out).html_url ?? ""); } catch { return ""; } };
       let sent = await send({
         event: "COMMENT", ...(draft.body ? { body: draft.body } : {}), ...(found.headRefOid ? { commit_id: found.headRefOid } : {}),
@@ -353,10 +350,10 @@ export function describePrFor(self: string, name = "Scribe"): Tool {
       if (!statSync(dir).isDirectory()) return `${where} is a file. Put the repository folder in "in".`;
       const signal = currentSignal();
       if (ref.repo) {
-        const remotes = await run("git", ["-C", dir, "remote", "-v"], dir, signal);
+        const remotes = await gitRemotes(dir, signal);
         if (!remotes.ok || !remoteMatches(remotes.out, ref.repo)) return `Not updated: that link is to ${ref.repo}, which isn't the repository in ${where}.`;
       }
-      const seen = await run(ghPath(), ["pr", "view", ref.number, "--json", "number,title,url,state,body"], dir, signal);
+      const seen = await runGh(["pr", "view", ref.number, "--json", "number,title,url,state,body"], dir, signal);
       if (!seen.ok) return seen.out;
       let found: any;
       try { found = JSON.parse(seen.out); } catch { return "GitHub's answer couldn't be read."; }
@@ -366,7 +363,7 @@ export function describePrFor(self: string, name = "Scribe"): Tool {
       const current = { number: found.number as number, title: String(found.title ?? ""), url: String(found.url ?? "") };
       const retitled = !!next.title && next.title !== current.title;
       if (!retitled && String(found.body ?? "").replace(/\r\n/g, "\n").trim() === next.body) return `Nothing to update: pull request #${found.number} already says exactly that.`;
-      const who = await run(ghPath(), ["api", "user", "--jq", ".login"], dir, signal);
+      const who = await runGh(["api", "user", "--jq", ".login"], dir, signal);
       const login = who.ok && /^[\w-]{1,40}$/.test(who.out.trim()) ? who.out.trim() : "";
 
       const answer = await ask({
@@ -378,7 +375,7 @@ export function describePrFor(self: string, name = "Scribe"): Tool {
       if (a === "" || a === "n") return "Not updated: the user declined. Don't ask again unless they tell you to.";
       if (a !== "y") return `Not updated. The user wants changes first: ${answer}\nRedraft with that and call describe_pull_request again; they'll see the new text before anything changes.`;
 
-      const sent = await run(ghPath(), ["api", "--method", "PATCH", `repos/${repo}/pulls/${found.number}`, "--input", "-"], dir, signal,
+      const sent = await runGh(["api", "--method", "PATCH", `repos/${repo}/pulls/${found.number}`, "--input", "-"], dir, signal,
         JSON.stringify({ body: next.body, ...(retitled ? { title: next.title } : {}) }));
       if (!sent.ok) return `Not updated: GitHub refused it. ${sent.out}`;
       return `Updated the description${retitled ? " and title" : ""} of pull request #${found.number}${login ? ` as ${login}` : ""}. ${current.url}`;

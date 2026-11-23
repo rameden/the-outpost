@@ -1,5 +1,5 @@
 // Quests: what the camp has spent and your plan's limits (the budget and how many run at once
-// are changed in Settings), then the log of every quest, expedition, and job run.
+// are changed in Settings), then the log of every expedition and job run.
 
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
@@ -7,9 +7,10 @@ import { Clamp, Empty } from "../components/bits.tsx";
 import { autoName, cash, cClass, cx, kTok, money, nameNow, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
 import { w } from "../words.ts";
 import type { CampState } from "../types.ts";
+import { complain } from "../components/StatusLine.tsx";
 
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
-  try { await work(); then(); } catch (e) { alert(errorText(e)); }
+  try { await work(); then(); } catch (e) { complain(errorText(e)); }
 };
 
 // Your plan's usage windows, as Claude Code last reported them.
@@ -73,7 +74,7 @@ function Credit({ S }: { S: CampState }) {
         <span>{left}</span>
       </div>
       {pct != null && <div className={cx("meter", level)}><i style={{ width: `${c.out ? 100 : pct}%` }} /></div>}
-      {c.inUse && !c.out && <div className="meta">Your plan's limit is used up, so the crew is carrying on with credit{c.until ? ` until it resets in ${resetIn(c.until)}` : ""}. This is charged.</div>}
+      {c.inUse && !c.out && <div className="meta">Your plan's limit is used up, so the {w("crew")} is carrying on with credit{c.until ? ` until it resets in ${resetIn(c.until)}` : ""}. This is charged.</div>}
       {c.out && <div className="meta">Your extra-usage credit is used up for this month.</div>}
     </div>
   );
@@ -89,11 +90,11 @@ function SpendCard({ S, refresh, onOpenSettings }: { S: CampState; refresh: () =
         <div><b>{money(S.spend.total)}</b><span>All time</span></div>
       </div>
       {sub && <div className="meta" style={{ marginTop: 8 }}>{S.credit?.inUse
-        ? "On your Claude subscription these are estimates at API prices. Right now the crew is running on credit, which is charged: see Extra usage below."
+        ? `On your Claude subscription these are estimates at API prices. Right now the ${w("crew")} is running on credit, which is charged: see Extra usage below.`
         : "On your Claude subscription these are estimates at API prices, not charges; your plan's usage limits apply."}</div>}
       <Limits S={S} refresh={refresh} />
       <div className="budget-form">
-        <span>{S.budgetUsd ? `Budget ${money(S.budgetUsd)} per expedition` : "No budget"} · up to {S.parallel} at once</span>
+        <span>{S.budgetUsd ? `Budget ${money(S.budgetUsd)} per ${w("expedition")}` : "No budget"} · up to {S.parallel} at once</span>
         {onOpenSettings && <button type="button" className="btn small" onClick={onOpenSettings}>Change limits</button>}
       </div>
     </div>
@@ -106,7 +107,7 @@ export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: 
   return (
     <>
       <SpendCard S={S} refresh={refresh} onOpenSettings={onOpenSettings} />
-      {!S.quests.length ? <Empty title={`No ${w("quests")} yet`}>Every dispatch, {w("expedition")}, and job run is logged here with its time and cost.</Empty> : (
+      {!S.quests.length ? <Empty title={`No ${w("expeditions")} yet`}>Every {w("expedition")} and job run is logged here with its time and cost.</Empty> : (
         <>
           <p className="panel-note">Newest first. Costs are estimates from token counts. Click a line to expand it.</p>
           <ul className="list">

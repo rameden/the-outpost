@@ -20,6 +20,7 @@ import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { emit } from "./events.js";
 import { askSmall } from "./small.js";
 import type { Tool } from "./tools.js";
+import { flatTrim as flat, jsonIn } from "./helpers.js";
 
 export const TICKETS_PATH = "camp/tickets.json";
 export const MAE_KEY = /^MAE-\d{1,7}$/;
@@ -41,7 +42,6 @@ type Kept = { next: number; tickets: MaeTicket[] };
 export const MAX_TICKETS = 2000;
 const MAX_TITLE = 200, MAX_DESCRIPTION = 50_000, MAX_CRITERIA = 12, MAX_CRITERION = 300, MAX_LABELS = 8, MAX_LABEL = 32;
 const fixable = (message: string) => Object.assign(new Error(message), { fixable: true });
-const flat = (s: unknown, n: number) => { const t = String(s ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t; };
 const keyNumber = (key: string) => Number(key.slice(4)) || 0;
 
 const isTicket = (t: any): t is MaeTicket => !!t && typeof t === "object" && typeof t.key === "string" && MAE_KEY.test(t.key)
@@ -146,10 +146,7 @@ export const MAX_DRAFTS = 10;
 
 // The model's answer → the drafts in it (a JSON list). Anything that isn't one is left out.
 export function parseDrafts(raw: string): TicketDraft[] {
-  const m = /\[[\s\S]*\]/.exec(raw.replace(/```(?:json)?/gi, ""));
-  if (!m) return [];
-  let list: unknown;
-  try { list = JSON.parse(m[0]); } catch { return []; }
+  const list = jsonIn(raw, "[");
   if (!Array.isArray(list)) return [];
   const out: TicketDraft[] = [];
   for (const x of list) {

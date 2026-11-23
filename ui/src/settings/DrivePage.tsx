@@ -16,6 +16,7 @@ import { Icon } from "../components/bits.tsx";
 import { money, plural, when } from "../format.ts";
 import type { CampState, HomePage, Kind, Offer, WeekScore } from "../types.ts";
 
+import { w } from "../words.ts";
 export const KIND: Record<Kind, string> = {
   work: "Building and changing", feedback: "Bringing in review feedback", writeup: "Asking for a write-up",
   goahead: "Saying “go ahead”", question: "Asking how something is", review: "Asking for a review",
@@ -72,7 +73,7 @@ export function StatsPage({ S }: { S: CampState }) {
   const shown = home ? shownWeek(home.board.weeks) : null;
   return (
     <div className="stats-page">
-      <p className="panel-note">How much of what you type is deciding something, and how much is operating the pipeline: counted from the camp's own record, week by week. What kind a request is, is read from how it's worded: a rough sort, good for a trend.</p>
+      <p className="panel-note">How much of what you type is deciding something, and how much is operating the pipeline: counted from the {w("camp")}'s own record, week by week. What kind a request is, is read from how it's worded: a rough sort, good for a trend.</p>
       {projects.length > 0 && (
         <label className="stats-pick">Show{" "}
           <select value={project} onChange={(ev) => setProject(ev.target.value)}>
@@ -82,7 +83,7 @@ export function StatsPage({ S }: { S: CampState }) {
         </label>
       )}
       {note && <div className="meta bad" role="alert">{note}</div>}
-      {!home ? <div className="meta">Counting…</div> : !shown ? <div className="meta">Nothing has been asked of the crew in the last five weeks, so there's nothing to count yet.</div> : (
+      {!home ? <div className="meta">Counting…</div> : !shown ? <div className="meta">Nothing has been asked of the {w("crew")} in the last five weeks, so there's nothing to count yet.</div> : (
         <>
           <div className="section-label">The week of {shown.week.label}</div>
           <div className="home-tiles">
@@ -93,7 +94,7 @@ export function StatsPage({ S }: { S: CampState }) {
             {shown.week.perTicket !== null && <Tile label="Requests per ticket" value={String(Math.round(shown.week.perTicket * 10) / 10)} note="the typical ticket this week" />}
             <Tile label="Pull requests merged" value={String(shown.week.prs.merged)}
               note={shown.week.prs.merged ? [shown.week.prs.rounds !== null ? `${shown.week.prs.rounds} ${plural(shown.week.prs.rounds, "round")} of review` : "", shown.week.prs.hoursToMerge !== null ? `${Math.round(shown.week.prs.hoursToMerge)} h open` : ""].filter(Boolean).join(", ") : `${shown.week.prs.opened} opened`} />
-            <Tile label="Crew time" value={hours(shown.week.seconds)} note={`${money(shown.week.cost)} at API prices`} />
+            <Tile label={`${w("Crew")} time`} value={hours(shown.week.seconds)} note={`${money(shown.week.cost)} at API prices`} />
           </div>
           <div className="home-breakdown">
             <div>
@@ -107,7 +108,7 @@ export function StatsPage({ S }: { S: CampState }) {
           </div>
           <div className="section-label">Week by week</div>
           <table className="payoff stats-weeks">
-            <thead><tr><th scope="col">Week of</th><th scope="col">You typed</th><th scope="col">Operating</th><th scope="col">Started by Mae</th><th scope="col">Merged</th><th scope="col">Crew time</th><th scope="col">Used</th></tr></thead>
+            <thead><tr><th scope="col">Week of</th><th scope="col">You typed</th><th scope="col">Operating</th><th scope="col">Started by Mae</th><th scope="col">Merged</th><th scope="col">{w("Crew")} time</th><th scope="col">Used</th></tr></thead>
             <tbody>
               {[...home.board.weeks].reverse().map((w) => (
                 <tr key={w.week}><th scope="row">{w.label.replace(/,.*$/, "")}</th><td>{w.requests}</td><td>{w.requests ? `${w.operating}%` : "–"}</td><td>{w.byMae}</td><td>{w.prs.merged}</td><td>{w.seconds ? hours(w.seconds) : "–"}</td><td>{w.cost ? money(w.cost) : "–"}</td></tr>
@@ -156,12 +157,12 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
   const d = home.drive;
   return (
     <div className="unasked-page">
-      <p className="panel-note">What the camp does before you ask, while mission control is open. All of it prepares and proposes: work it starts still waits for your OK on its plan, and nothing is kept in memory or put on GitHub until you approve it.</p>
+      <p className="panel-note">What the {w("camp")} does before you ask, while mission control is open. All of it prepares and proposes: work it starts still waits for your OK on its plan, and nothing is kept in memory or put on GitHub until you approve it.</p>
       {note && <div className="meta bad" role="alert">{note}</div>}
 
       <div className="set-row">
         <div className="set-label"><b>Morning brief</b>
-          <p>Each weekday, where your work stands: what's waiting on you, your tickets, what's upcoming, your latest notes. Written from the camp's record and one look at GitHub and Jira; no model is called. It opens on Today, and goes to the inbox and your phone (without your notes).</p></div>
+          <p>Each weekday, where your work stands: what's waiting on you, your tickets, what's upcoming, your latest notes. Written from the {w("camp")}'s record and one look at GitHub and Jira; no model is called. It opens on Today, and goes to the inbox and your phone (without your notes).</p></div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={d.brief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { brief: ev.target.checked }))} /> {d.brief ? "On, at" : "Off"}</label>
           {d.brief && <input type="time" aria-label="When the morning brief is written" value={d.briefAt} disabled={busy === "drive"} onChange={(ev) => ev.target.value && doing("drive", () => api("/api/drive", { briefAt: ev.target.value }))} />}
@@ -188,7 +189,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Ticket debrief</b>
-          <p>When a ticket is done (a Mae ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the crew did on it (the plan, each quest and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the Quartermaster, the crew or the project. One small call per ticket; nothing is kept until you approve it under Memory.</p>
+          <p>When a ticket is done (a Mae ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the {w("crew")} did on it (the plan, each {w("quest")} and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the Quartermaster, the {w("crew")} or the project. One small call per ticket; nothing is kept until you approve it under Memory.</p>
         </div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={d.debrief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { debrief: ev.target.checked }))} /> {d.debrief ? "On" : "Off"}</label>
@@ -197,7 +198,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Night shift</b>
-          <p>Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts shorter versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</p>
+          <p>Off unless you turn it on. Between these hours, once the {w("camp")} has sat idle for half an hour, it drafts shorter versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</p>
           {home.lastNight && <p className="night-last">Last night shift, {when(home.lastNight.finished)}: {home.lastNight.line}</p>}
         </div>
         <div className="set-control unasked-control">
@@ -213,7 +214,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Your pull requests</b>
-          <p>The camp follows the pull requests you opened in linked repositories, wherever their branches live, reading them again every ten minutes. {home.pulls.error ? `They couldn't be read: ${home.pulls.error}` : home.pulls.fetched ? `Last read ${when(home.pulls.fetched)}: ${home.pulls.count} open.` : "They haven't been read yet."}</p></div>
+          <p>The {w("camp")} follows the pull requests you opened in linked repositories, wherever their branches live, reading them again every ten minutes. {home.pulls.error ? `They couldn't be read: ${home.pulls.error}` : home.pulls.fetched ? `Last read ${when(home.pulls.fetched)}: ${home.pulls.count} open.` : "They haven't been read yet."}</p></div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={S.settings.prWatch} disabled={busy === "watch"} onChange={(ev) => doing("watch", () => api("/api/pr-watch", { on: ev.target.checked }))} /> {S.settings.prWatch ? "Watching" : "Not watching"}</label>
         </div>
@@ -237,7 +238,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
             </ul>
           )}
           {home.offers.map((o) => <OfferCard key={o.key} offer={o} onDone={() => { void load(); refresh(); }} />)}
-          {!watching.length && !home.offers.length && <div className="meta">No repository has one yet. The camp offers it here once it sees you bringing review comments in by hand.</div>}
+          {!watching.length && !home.offers.length && <div className="meta">No repository has one yet. The {w("camp")} offers it here once it sees you bringing review comments in by hand.</div>}
           <div className="meta">Change what a trigger says, or add one for issues or Jira tickets, under <button type="button" className="linkish" onClick={() => onOpenSection("jobs")}>Scheduled jobs</button>.</div>
         </div>
       </div>

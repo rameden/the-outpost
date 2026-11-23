@@ -31,6 +31,7 @@ import { VoiceOn } from "./ReadAloud.tsx";
 import { readAloud, spokenLines } from "../readaloud.ts";
 import { ask } from "./Confirm.tsx";
 
+import { w } from "../words.ts";
 // The slim tab down the edge that brings the panel back.
 export function NotesRail({ onShow }: { onShow: () => void }) {
   return (
@@ -88,7 +89,7 @@ export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach,
             </div>
             <div className="notes-ideas">
               <button type="button" className="btn small" disabled={!project || thinking}
-                title={project ? `Ask the camp what ${project.name}'s record points at next. What it suggests lands here, marked as suggested.` : "Open a project, or a conversation in one, first: ideas are suggested for a project."}
+                title={project ? `Ask the ${w("camp")} what ${project.name}'s record points at next. What it suggests lands here, marked as suggested.` : "Open a project, or a conversation in one, first: ideas are suggested for a project."}
                 onClick={() => ideas(false)}>{thinking ? "Thinking…" : "Suggest ideas"}</button>
               {unkept > 0 && !thinking && <button type="button" className="linkish" title="Clear out the suggestions you haven't kept (they won't be suggested again) and ask for others" onClick={() => ideas(true)}>Replace the {unkept} you haven't kept</button>}
               {came && <span className="meta" role="status">{came}</span>}
@@ -98,7 +99,7 @@ export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach,
                 <div className="notes-empty">
                   <b>Nothing noted yet.</b>
                   <p>Write things down here as you work: what to ask next, a decision, a command worth keeping. Select text in the thread to add it to a note, or press Note under an answer.</p>
-                  <p>Notes are yours. The crew sees one only when you put it in a message.</p>
+                  <p>Notes are yours. The {w("crew")} sees one only when you put it in a message.</p>
                 </div>
               ) : !shown.length ? <div className="notes-empty">Nothing matches. <button type="button" className="linkish" onClick={() => setWords("")}>Show them all</button></div>
               : (
@@ -196,7 +197,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
       )}
       {suggested && !showTicket && (
         <div className="note-idea" role="note">
-          <span>The camp suggested this. Keep it and it's yours; delete it and it won't be suggested again.</span>
+          <span>The {w("camp")} suggested this. Keep it and it's yours; delete it and it won't be suggested again.</span>
           <button type="button" className="btn small" onClick={() => void keepIdea(note.id)}>Keep</button>
         </div>
       )}
@@ -246,7 +247,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
           <button type="button" className="btn small" disabled={empty || !onAttach} title={onAttach ? "Attach this note to your message as a file, as it stands now" : noBox}
             onClick={() => onAttach?.(note)}>Attach as a file</button>
           {!ticket && <button type="button" className="btn small" disabled={blank || writing || unsaved && failed}
-            title={project ? `Have the Scout read ${project.name}'s code and write this up as a ticket the crew can work from: a title, acceptance criteria, and where it goes` : "Have the Scout write this up as a ticket the crew can work from. Outside a project it can't read any code, so its technical notes will be guesses: open a project first for a grounded one."}
+            title={project ? `Have the Scout read ${project.name}'s code and write this up as a ticket the ${w("crew")} can work from: a title, acceptance criteria, and where it goes` : `Have the Scout write this up as a ticket the ${w("crew")} can work from. Outside a project it can't read any code, so its technical notes will be guesses: open a project first for a grounded one.`}
             onClick={write}>Write up as a ticket</button>}
           <button type="button" className="btn small" disabled={empty} title="Split this note into Mae tickets, one per piece of work: you choose which to file" onClick={turn}>Turn into tickets</button>
         </div>

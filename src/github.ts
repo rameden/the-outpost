@@ -13,23 +13,43 @@ const TIMEOUT_MS = 15_000;
 export type GithubAccount = { login: string; active: boolean; ok: boolean };
 export type GithubStatus = { available: true; accounts: GithubAccount[] } | { available: false; reason: string };
 
-// CAMP_GH points at another gh (the tests use a stand-in).
+// ---------- Running gh ----------
+// Every place the camp runs the GitHub CLI goes through here: the same program (CAMP_GH points at
+// another gh; the tests use a stand-in), and the same environment (it never stops to ask, pages
+// nothing, and prints no colour codes).
 const ghPath = () => process.env.CAMP_GH || "gh";
-
-function gh(args: string[]): Promise<string> {
+const ghEnv = (): NodeJS.ProcessEnv => ({ ...process.env, GH_PROMPT_DISABLED: "1", NO_COLOR: "1", GH_PAGER: "cat", PAGER: "cat", GIT_TERMINAL_PROMPT: "0" });
+export type GhOptions = { cwd?: string; timeout?: number; maxBuffer?: number; signal?: AbortSignal; input?: string };
+// What gh printed. A failure is the error as node gives it (code "ENOENT" when gh isn't installed),
+// with stdout and stderr on it: each caller says what that means where it's shown.
+export function gh(args: string[], o: GhOptions = {}): Promise<string> {
   return new Promise((done, fail) => {
-    execFile(ghPath(), args, { timeout: TIMEOUT_MS, encoding: "utf8", env: { ...process.env, GH_PROMPT_DISABLED: "1", NO_COLOR: "1" } }, (err, stdout, stderr) => {
-      if (err && (err as NodeJS.ErrnoException).code === "ENOENT") return fail(new Error("The GitHub CLI (gh) isn't installed."));
-      // `gh auth status` exits 1 when an account's token has a problem, but still prints its JSON.
-      if (err && !stdout.trim()) return fail(new Error((stderr || err.message).trim()));
-      done(stdout);
-    });
+    const child = execFile(ghPath(), args, { cwd: o.cwd, timeout: o.timeout ?? 60_000, maxBuffer: o.maxBuffer ?? 8 * 1024 * 1024, signal: o.signal, encoding: "utf8", env: ghEnv() },
+      (err, stdout, stderr) => (err ? fail(Object.assign(err, { stdout, stderr })) : done(stdout)));
+    child.stdin?.on("error", () => { /* it exited before reading: the callback reports why */ });
+    child.stdin?.end(o.input ?? "");
   });
+}
+
+// A check on a pull request, as gh or GitHub's API describes it: did it fail, and is it still going?
+const checkResult = (c: any) => String(c?.conclusion || c?.state || c?.status || "");
+export const checkFailed = (c: any) => /FAIL|ERROR|TIMED_OUT|CANCELLED|ACTION_REQUIRED/i.test(checkResult(c));
+export const checkPending = (c: any) => /PENDING|QUEUED|IN_PROGRESS|EXPECTED|WAITING/i.test(checkResult(c));
+
+// ---------- Which account ----------
+async function ghAuth(args: string[]): Promise<string> {
+  try { return await gh(args, { timeout: TIMEOUT_MS }); }
+  catch (e: any) {
+    if (e?.code === "ENOENT") throw new Error("The GitHub CLI (gh) isn't installed.");
+    // `gh auth status` exits 1 when an account's token has a problem, but still prints its JSON.
+    if (!String(e?.stdout ?? "").trim()) throw new Error(String(e?.stderr || e?.message).trim());
+    return e.stdout;
+  }
 }
 
 export async function githubStatus(): Promise<GithubStatus> {
   try {
-    const out = JSON.parse(await gh(["auth", "status", "--json", "hosts", "--hostname", HOST]));
+    const out = JSON.parse(await ghAuth(["auth", "status", "--json", "hosts", "--hostname", HOST]));
     const list: any[] = out?.hosts?.[HOST] ?? [];
     const accounts = list
       .filter((a) => typeof a?.login === "string" && a.login)
@@ -52,7 +72,7 @@ export async function switchGithub(login?: string): Promise<GithubStatus> {
       ? `${login} isn't one of the accounts gh is signed in to (${now.accounts.map((a) => a.login).join(", ")}). Add it with \`gh auth login\`.`
       : "Say which account to switch to.");
   }
-  if (!target.active) await gh(["auth", "switch", "--hostname", HOST, "--user", target.login]);
+  if (!target.active) await ghAuth(["auth", "switch", "--hostname", HOST, "--user", target.login]);
   const after = await githubStatus();
   if (after.available && !after.accounts.find((a) => a.login === target.login)?.active) throw new Error(`gh didn't switch to ${target.login}.`);
   return after;

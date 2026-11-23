@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState, ProviderState } from "../types.ts";
+import { ConfirmHost } from "../components/Confirm.tsx";
 import { forgetModelLists } from "../components/ModelPicker.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 
@@ -59,7 +60,7 @@ test("a failed Anthropic connection preserves the input and shows the error", as
 test("Anthropic's environment key can be imported without displaying or sending it to the page", async () => {
   const refresh = vi.fn();
   const S = { ...state([]), anthropic: { connected: true, saved: false, environment: true, from: "env" as const } };
-  render(<ModelsPage S={S} refresh={refresh} />);
+  render(<><ModelsPage S={S} refresh={refresh} /><ConfirmHost /></>);
   const anthropic = within(screen.getByRole("region", { name: "Anthropic" }));
   expect(anthropic.getByText("Connected")).toBeTruthy();
   expect(anthropic.queryByLabelText("Anthropic API key")).toBeNull();
@@ -71,17 +72,17 @@ test("Anthropic's environment key can be imported without displaying or sending 
 test("a saved Anthropic connection can be forgotten after confirmation, without an extra approval checkbox", async () => {
   const refresh = vi.fn();
   const S = { ...state([]), anthropic: { connected: true, saved: true, environment: false, from: "camp" as const } };
-  render(<ModelsPage S={S} refresh={refresh} />);
+  render(<><ModelsPage S={S} refresh={refresh} /><ConfirmHost /></>);
   const anthropic = within(screen.getByRole("region", { name: "Anthropic" }));
   expect(anthropic.getByText("Connected")).toBeTruthy();
   expect(anthropic.queryByLabelText("Anthropic API key")).toBeNull();
   expect(anthropic.queryByRole("checkbox")).toBeNull();
-  vi.stubGlobal("confirm", vi.fn(() => false));
   fireEvent.click(anthropic.getByRole("button", { name: "Disconnect and forget the key" }));
-  await waitFor(() => expect(confirm).toHaveBeenCalled());
+  fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(posts.some((p) => p.path === "/api/anthropic/key")).toBe(false);
-  vi.stubGlobal("confirm", vi.fn(() => true));
   fireEvent.click(anthropic.getByRole("button", { name: "Disconnect and forget the key" }));
+  fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Disconnect and forget the key" }));
   await waitFor(() => expect(refresh).toHaveBeenCalled());
   expect(posts).toContainEqual({ path: "/api/anthropic/key", body: { key: null } });
 });
