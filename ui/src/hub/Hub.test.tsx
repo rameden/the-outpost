@@ -44,6 +44,28 @@ describe("the star chart page", () => {
     expect(calls.find((c) => c.path === "/api/launch")?.body).toEqual({ id: "work" });
   });
 
+  it("launches an outpost on a double-click, though the chart moves under the second click", async () => {
+    const calls = serve([outpost({}), outpost({ id: "work", name: "Work", port: 4748, here: false })], {
+      "/api/launch": () => ({ json: { url: "http://127.0.0.1:4748/#k=abc" } }),
+    });
+    const go = vi.fn();
+    render(<Hub go={go} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Outpost Work, stopped" }), { clientX: 300, clientY: 200 });
+    // The panel opened and the chart moved over: the second click lands on the sky where Work was.
+    fireEvent.click(screen.getByRole("main"), { clientX: 302, clientY: 201 });
+    await waitFor(() => expect(go).toHaveBeenCalledWith("http://127.0.0.1:4748/#k=abc"));
+    expect(calls.find((c) => c.path === "/api/launch")?.body).toEqual({ id: "work" });
+  });
+
+  it("doesn't launch when two clicks are far apart", async () => {
+    const calls = serve([outpost({})]);
+    render(<Hub />);
+    fireEvent.click(await screen.findByRole("button", { name: "Outpost Mae, stopped" }), { clientX: 300, clientY: 200 });
+    fireEvent.click(screen.getByRole("main"), { clientX: 500, clientY: 400 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls.find((c) => c.path === "/api/launch")).toBeUndefined();
+  });
+
   it("offers Enter for one that's running, and Stop only when the chart started it", async () => {
     serve([outpost({ running: true }), outpost({ id: "work", name: "Work", here: false, running: true, ours: true })]);
     render(<Hub />);
