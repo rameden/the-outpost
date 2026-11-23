@@ -34,7 +34,7 @@ import type { SettingsSection } from "./sections.ts";
 export { isSettingsSection, type SettingsSection } from "./sections.ts";
 const GROUPS: { title: string; items: [SettingsSection, string, IconName][] }[] = [
   { title: "Camp", items: [
-    ["general", "General", "gear"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["models", "Models", "spark"], ["voice", "Voice", "speaker"],["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
+    ["general", "General", "gear"], ["appearance", "Appearance", "theme"], ["notifications", "Notifications", "bell"], ["devices", "Devices & uploads", "link"], ["crew", "Crew", "users"], ["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"], ["models", "Models", "spark"], ["voice", "Voice", "speaker"],["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"],
   ] },
   { title: "Activity", items: [["unasked", "What Mae does unasked", "spark"], ["stats", "Stats", "gauge"], ["usage", "Usage & quests", "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
   { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"], ["connectors", "Connectors", "plug"]] },
@@ -202,14 +202,10 @@ const DECOR_CHOICES: { id: SeasonChoice; name: string; about: string }[] = [
   ...SEASONS,
 ];
 
+// General: the outpost's name, what runs the crew, and a couple of small switches. How the page
+// looks, notifications, and other devices and uploads each have a page of their own.
 function General({ S, refresh }: { S: CampState; refresh: () => void }) {
-  const [theme, setTheme] = useState<Mode>(modeNow);
-  const [palette, setPaletteShown] = useState<PaletteId>(paletteNow);
-  const [season, setSeasonShown] = useState<SeasonChoice>(seasonChoice);
-  const inSeason = seasonById(seasonNow())?.name;
-  const decorNow = season === "auto" ? (inSeason ? `Today that's ${inSeason}.` : "Nothing is in season today.") : season ? seasonById(season)?.about ?? "" : "";
   const costShown = showCost.use();
-  const [, redraw] = useState(0);
   const locked = S.settings.runtimeLocked;
   const plan = S.login?.plan ? S.login.plan[0].toUpperCase() + S.login.plan.slice(1) : "";
   async function setRuntime(next: string) {
@@ -219,6 +215,33 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
       : { title: "Switch the crew to your Claude subscription (through Claude Code)?", body: "Usage will count against your plan's limits.", action: "Switch to my subscription" };
     if (await ask(question)) await tryIt(() => api("/api/runtime", { runtime: next }), refresh);
   }
+  return (
+    <>
+      <OutpostName S={S} refresh={refresh} />
+      <Row label="What runs the crew" help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
+        <Choices name="Runtime" value={S.runtime} onChange={setRuntime} options={[
+          { id: "claude-code", label: `Claude subscription${plan ? ` (${plan})` : ""}`, help: S.login && !S.login.ok ? S.login.problem ?? "Not signed in" : "Through Claude Code. Counts against your plan's usage limits.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
+          { id: "api", label: "API key", help: "Billed per token to your Anthropic API account.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
+        ]} />
+      </Row>
+      <Row label="Name conversations automatically" help="After a new conversation's first answer, the smallest model writes it a short title. Each one uses a little of your plan (or a fraction of a cent on the API). Off, a conversation is named after its first request.">
+        <label className="switch"><input type="checkbox" checked={S.settings.autoTitles}
+          onChange={(ev) => tryIt(() => api("/api/auto-titles", { on: ev.target.checked }), refresh)} /> {S.settings.autoTitles ? "On" : "Off"}</label>
+      </Row>
+      <Row label="Today's cost in the status menu" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. It's in the menu under the top bar's status chip (Idle, or what's running). Remembered in this browser. Usage & quests, in this menu, always shows it.`}>
+        <label className="switch"><input type="checkbox" checked={costShown} onChange={(ev) => showCost.set(ev.target.checked)} /> {costShown ? "Shown" : "Hidden"}</label>
+      </Row>
+    </>
+  );
+}
+
+// Appearance: light or dark, the theme pack, colours and decorations.
+function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
+  const [theme, setTheme] = useState<Mode>(modeNow);
+  const [palette, setPaletteShown] = useState<PaletteId>(paletteNow);
+  const [season, setSeasonShown] = useState<SeasonChoice>(seasonChoice);
+  const inSeason = seasonById(seasonNow())?.name;
+  const decorNow = season === "auto" ? (inSeason ? `Today that's ${inSeason}.` : "Nothing is in season today.") : season ? seasonById(season)?.about ?? "" : "";
   // The camp keeps the pack (the crew is renamed in what they read and write too); the page wears
   // it at once, and takes the colours it suggests unless you've chosen your own.
   const packs = S.packs ?? [];
@@ -235,13 +258,6 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   const renamed = S.characters.filter((c) => c.custom && cameAs(packs[0]?.extras?.[c.id], c.own?.name ?? c.name));
   return (
     <>
-      <OutpostName S={S} refresh={refresh} />
-      <Row label="What runs the crew" help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
-        <Choices name="Runtime" value={S.runtime} onChange={setRuntime} options={[
-          { id: "claude-code", label: `Claude subscription${plan ? ` (${plan})` : ""}`, help: S.login && !S.login.ok ? S.login.problem ?? "Not signed in" : "Through Claude Code. Counts against your plan's usage limits.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
-          { id: "api", label: "API key", help: "Billed per token to your Anthropic API account.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },
-        ]} />
-      </Row>
       <Row label="Theme" help="Light or dark. Remembered in this browser.">
         <select aria-label="Theme" value={theme} onChange={(ev) => { const t = ev.target.value as Mode; setTheme(t); setMode(t); }}>
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
@@ -286,13 +302,15 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           ))}
         </div>
       </Row>
-      <Row label="Today's cost in the status menu" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. It's in the menu under the top bar's status chip (Idle, or what's running). Remembered in this browser. Usage & quests, in this menu, always shows it.`}>
-        <label className="switch"><input type="checkbox" checked={costShown} onChange={(ev) => showCost.set(ev.target.checked)} /> {costShown ? "Shown" : "Hidden"}</label>
-      </Row>
-      <Row label="Name conversations automatically" help="After a new conversation's first answer, the smallest model writes it a short title. Each one uses a little of your plan (or a fraction of a cent on the API). Off, a conversation is named after its first request.">
-        <label className="switch"><input type="checkbox" checked={S.settings.autoTitles}
-          onChange={(ev) => tryIt(() => api("/api/auto-titles", { on: ev.target.checked }), refresh)} /> {S.settings.autoTitles ? "On" : "Off"}</label>
-      </Row>
+    </>
+  );
+}
+
+// Notifications: a ping in this browser when the camp needs you, and the chime that goes with it.
+function Notifications() {
+  const [, redraw] = useState(0);
+  return (
+    <>
       <Row label="Browser notifications" help={!canNotify() ? "This browser can't show notifications." : Notification.permission === "denied" ? "Blocked for this page in your browser's settings." : "A ping when the camp needs a decision."}>
         {canNotify() && (
           <label className="switch"><input type="checkbox" checked={notificationsOn()} disabled={Notification.permission === "denied"}
@@ -308,8 +326,6 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
           <button type="button" className="btn small" onClick={() => playChime("fail")}>Failed</button>
         </Row>
       )}
-      <Uploads S={S} refresh={refresh} />
-      <OtherDevices S={S} />
     </>
   );
 }
@@ -674,6 +690,9 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
         <div className="set-body">
           {!S ? <div className="meta">Loading…</div>
             : section === "general" ? <General S={S} refresh={refresh} />
+            : section === "appearance" ? <Appearance S={S} refresh={refresh} />
+            : section === "notifications" ? <Notifications />
+            : section === "devices" ? <><OtherDevices S={S} /><Uploads S={S} refresh={refresh} /></>
             : section === "crew" ? <Crew S={S} refresh={refresh} />
             : section === "approvals" ? <Approvals S={S} refresh={refresh} />
             : section === "limits" ? <Limits S={S} refresh={refresh} />
