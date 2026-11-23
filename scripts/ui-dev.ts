@@ -17,11 +17,13 @@ import { spawn } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type ViteDevServer } from "vite";
+import { OUTPOST, withOutpost } from "../src/outpost.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-// The camp server, with the environment this was started with (.env included).
-const camp = spawn(process.execPath, ["--import", "tsx", join(ROOT, "src", "server.ts")], { env: process.env, stdio: ["inherit", "pipe", "inherit"] });
+// The camp server, with the environment this was started with (.env included). tsx is named by
+// where it's installed, not by name: an outpost runs in a folder of its own, with no node_modules.
+const camp = spawn(process.execPath, ["--import", import.meta.resolve("tsx"), join(ROOT, "src", "server.ts")], { env: process.env, stdio: ["inherit", "pipe", "inherit"] });
 let vite: ViteDevServer | null = null;
 let starting = false;
 let pending = "";
@@ -45,9 +47,13 @@ camp.stdout.on("end", () => { if (pending) process.stdout.write(pending); });
 
 async function startVite(code: string) {
   try {
-    vite = await createServer({ configFile: join(ROOT, "ui", "vite.config.ts") });
+    vite = await createServer({
+      configFile: join(ROOT, "ui", "vite.config.ts"),
+      // The outpost's name in the page, as the camp server puts it there (src/outpost.ts).
+      plugins: [{ name: "outpost-name", transformIndexHtml: (html) => withOutpost(html) }],
+    });
     await vite.listen();
-    console.log(`🏕️  Mission control is up: http://127.0.0.1:${vite.config.server.port}/#k=${code}`);
+    console.log(`🏕️  Outpost ${OUTPOST.name} is up: http://127.0.0.1:${vite.config.server.port}/#k=${code}`);
     console.log("   The page reloads as you edit ui/src.");
     for (const line of held ?? []) console.log(ours(line));
     held = null;

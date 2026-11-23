@@ -8,6 +8,8 @@
 // are kept in camp/packs.json, checked by packFrom below, and joined on after these five by
 // crew.ts, which reads and writes the file.
 
+import { OUTPOST } from "./outpost.js"; // the packs' places are named for the outpost
+
 export const PACK_CREW = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
 export type PackCrewId = (typeof PACK_CREW)[number];
 
@@ -77,7 +79,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Test Pilot", emoji: "🛸", short: ["pilot"] } },
     words: { crew: "crew", quest: "mission", quests: "missions", camp: "ship", expedition: "voyage" },
-    place: "the starship Mae",
+    place: `the starship ${OUTPOST.name}`,
     palette: "harbor",
     orb: true,
   },
@@ -94,7 +96,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Stringer", emoji: "⚡" } },
     words: { crew: "staff", quest: "story", quests: "stories", camp: "newsroom", expedition: "assignment" },
-    place: "the Mae newsroom",
+    place: `the ${OUTPOST.name} newsroom`,
     palette: "ochre",
     orb: true,
   },
@@ -111,7 +113,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Stunt Double", emoji: "🤸", short: ["stunt"] } },
     words: { crew: "crew", quest: "scene", quests: "scenes", camp: "studio", expedition: "shoot" },
-    place: "the Mae film studio",
+    place: `the ${OUTPOST.name} film studio`,
     palette: "heather",
     orb: true,
   },
@@ -128,7 +130,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Tinkerer", emoji: "⚗️" } },
     words: { crew: "team", quest: "experiment", quests: "experiments", camp: "lab", expedition: "study" },
-    place: "the Mae research lab",
+    place: `the ${OUTPOST.name} research lab`,
     palette: "moss",
     orb: true,
   },
@@ -145,7 +147,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Powder Monkey", emoji: "🧨", short: ["monkey"] } },
     words: { crew: "crew", quest: "raid", quests: "raids", camp: "ship", expedition: "voyage" },
-    place: "the pirate ship Mae",
+    place: `the pirate ship ${OUTPOST.name}`,
     palette: "harbor",
     orb: true,
   },
@@ -276,7 +278,7 @@ export function packFrom(input: PackInput, opts: { packs: Pack[]; taken?: Taken[
     crew,
     ...(Object.keys(extras).length ? { extras } : {}),
     words,
-    place: line(raw.place, 60) || `the Mae ${words.camp}`,
+    place: line(raw.place, 60) || `the ${OUTPOST.name} ${words.camp}`,
     ...(palette && palette !== "camp" ? { palette } : {}),
     custom: true,
   };
