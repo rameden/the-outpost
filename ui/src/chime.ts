@@ -69,7 +69,7 @@ function note(a: AudioContext, freq: number, t: number, ring: number, peak: numb
 
 // The orbit lines in the camp at rest (MaeSystem) can be strummed, and each sounds its own note as
 // the pointer crosses it: the nearest line highest, as a shorter string is, falling outwards through
-// A minor's five-note scale, so any sweep across them is in tune, and a little dark. It's meant to
+// E minor's five-note scale, so any sweep across them is in tune, and a little dark. It's meant to
 // sound like a working ship's sonar heard over the comms, not a chime: each ping starts with a
 // relay's click and a clang of metal (a second tone, 1.4 times as high, bends the note hard and then
 // lets go, as struck plate does), starts a touch sharp and slides onto its note, and goes through
@@ -77,7 +77,7 @@ function note(a: AudioContext, freq: number, t: number, ring: number, peak: numb
 // a dark reverb, like a hull. Each line sits at its own place from left to right, so a sweep moves
 // across. Nothing in it beats or repeats (no out-of-tune twin, no echo taps), so the tail fades
 // away evenly instead of pulsing. Silent when the notification sound is off.
-export const STRUM_NOTES = [440, 392, 329.63, 293.66, 261.63, 220, 196, 164.81]; // A4 G4 E4 D4 C4 A3 G3 E3
+export const STRUM_NOTES = [659.25, 587.33, 493.88, 440, 392, 329.63, 293.66, 246.94]; // E5 D5 B4 A4 G4 E4 D4 B3
 const STRUM_RING = 4.5; // seconds the note itself rings; the reverb carries it on past that
 const HALL = 5; // seconds the reverb takes to die away
 let strumBus: AudioNode | null = null;
@@ -92,7 +92,7 @@ function hall(a: AudioContext): AudioBuffer {
     let dark = 0;
     for (let k = 0; k < n; k++) {
       const left = Math.exp((-6.9 * k) / n); // down 60 dB by the end
-      dark += (Math.random() * 2 - 1 - dark) * (0.05 + 0.4 * left); // smoother (darker) as it fades
+      dark += (Math.random() * 2 - 1 - dark) * (0.12 + 0.5 * left); // smoother (darker) as it fades
       data[k] = dark * left;
     }
   }
@@ -112,9 +112,9 @@ function strumOut(a: AudioContext): AudioNode {
   grit.oversample = "2x";
   level.gain.value = 0.06;
   lows.type = "highpass";
-  lows.frequency.value = 140;
+  lows.frequency.value = 180;
   highs.type = "lowpass";
-  highs.frequency.value = 2600;
+  highs.frequency.value = 4200;
   dry.gain.value = 0.6;
   wet.gain.value = 1.3;
   room.buffer = hall(a);
