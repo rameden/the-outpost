@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- Mae's promotional page. Standalone: open it in a browser, or serve docs/ with GitHub Pages. -->
+<!-- Outpost's promotional page. Standalone: open it in a browser, or serve docs/ with GitHub Pages. -->
 <title>Outpost Mae</title>
 <!-- The outpost's name: the camp server fills in its own as it serves the Tour (src/outpost.ts). -->
 <meta name="outpost" content="Mae">
@@ -33,8 +33,8 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; }
 img { max-width: 100%; }
-/* Layout: a field guide for a camp. The logo and a live expedition up top, then the name (Mae is
-   My Alter Ego, with the orb at size), the crew roster, the route an expedition takes, the kit,
+/* Layout: a field guide for a camp. The logo and a live expedition up top, then the name (the tagline,
+   with the orb at size), the crew roster, the route an expedition takes, the kit,
    the outpost rules, and how to set it up. */
 :root {
   --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
@@ -312,7 +312,7 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .doc { margin-top: 8px; display: inline-flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--bg); color: var(--text); }
 .doc::before { content: ""; width: 10px; height: 12px; border: 1.5px solid var(--muted); border-radius: 2px; }
 
-/* The name: the orb at size, and what each word of "My Alter Ego" means here. */
+/* The name: the orb at size, and what each part of the tagline means here. */
 .alter { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: center; }
 .alter .mae-orb { --orb: 148px; margin: 46px 52px; } /* the margin is room for its rings */
 .alter .sec-head { margin: 0; }
@@ -323,7 +323,6 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .words { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin-top: 40px; }
 .word { border-top: 2px solid var(--border-strong); padding-top: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
 .word h3 { font-size: 26px; }
-.word h3::first-letter { color: var(--accent); }
 .word p { color: var(--muted); font-size: 15px; }
 
 /* Crew */
@@ -693,7 +692,7 @@ footer .outpost-sub { font-size: 10px; }
     <div class="hero-copy" data-speed="0.12" data-fade>
       <div class="eyebrow">Outpost</div>
       <h1>Your outpost. Your crew. <em>Your call.</em></h1>
-      <p class="lede">Outpost is where a small crew of agents takes on your work the way you'd want it done, in outposts of your own: Mae to begin with, and one for work or home whenever you want another. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
+      <p class="lede">Outpost is where a small crew of agents takes on your work the way you'd want it done, in outposts of your own: one for work, one for home, each with the name you give it. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
       <div class="cta">
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the crew</a>
@@ -732,11 +731,11 @@ footer .outpost-sub { font-size: 10px; }
 <section id="name">
   <div class="wrap">
     <div class="alter">
-      <span class="mae-orb" id="orb-demo" data-state="idle" role="img" aria-label="The Mae orb"><span class="orb-glow"></span><span class="orb-ripple"></span><span class="orb-ripple late"></span><span class="orb-ripple busy"></span><span class="orb-dial"><i></i><i></i><i></i></span><span class="orb-dial inner"></span><span class="orb-core"><i></i></span><span class="orb-light"></span></span>
+      <span class="mae-orb" id="orb-demo" data-state="idle" role="img" aria-label="The Outpost orb"><span class="orb-glow"></span><span class="orb-ripple"></span><span class="orb-ripple late"></span><span class="orb-ripple busy"></span><span class="orb-dial"><i></i><i></i><i></i></span><span class="orb-dial inner"></span><span class="orb-core"><i></i></span><span class="orb-light"></span></span>
       <div class="sec-head">
         <div class="eyebrow">The name</div>
-        <h2>Outpost, and Mae, the first outpost. Mae is short for My Alter Ego.</h2>
-        <p class="lede">The app is Outpost, and each camp it runs is an outpost: a place you go, where the crew stationed there does the work. Mae is the first, and each one you make takes a name of its own. It's the crew you'd be if there were more of you. They plan before they act, show you the plan, and nothing leaves the camp without your click. The orb is Mae's own light. It meets you at the door when you sign in to mission control, and it has two moods: at rest and at work.</p>
+        <h2>Outpost is the app. Each outpost takes the name you give it.</h2>
+        <p class="lede">The app is Outpost, and each camp it runs is an outpost: a place you go, where the crew stationed there does the work. It's the crew you'd be if there were more of you. They plan before they act, show you the plan, and nothing leaves the outpost without your click. The orb is the outpost's own light. It meets you at the door when you sign in to mission control, and it has two moods: at rest and at work.</p>
         <div class="orb-switch" role="group" aria-label="The orb">
           <span>See the orb</span>
           <button type="button" data-orb="idle" aria-pressed="true">At rest</button>
@@ -745,9 +744,9 @@ footer .outpost-sub { font-size: 10px; }
       </div>
     </div>
     <div class="words">
-      <div class="word"><h3>My</h3><p>It runs on your machine, on your Claude subscription or your own API key. The camp is a folder of files you can open and read, and one note about you is shared by the whole crew.</p></div>
-      <div class="word"><h3>Alter</h3><p>Not one assistant but six other pairs of hands: a planner, a researcher, a writer, a coder, a reviewer and a Test Pilot for the most challenging missions, with up to four out at once.</p></div>
-      <div class="word"><h3>Ego</h3><p>Each one has a fixed identity. It grows its memory, but it can't rewrite who it is, and it can't talk its way past the outpost rules.</p></div>
+      <div class="word"><h3>Your outpost</h3><p>It runs on your machine, on your Claude subscription or your own API key. An outpost is a folder of files you can open and read, and one note about you is shared by the whole crew.</p></div>
+      <div class="word"><h3>Your crew</h3><p>Not one assistant but six other pairs of hands: a planner, a researcher, a writer, a coder, a reviewer and a Test Pilot for the most challenging missions, with up to four out at once.</p></div>
+      <div class="word"><h3>Your call</h3><p>You approve the plan before anyone sets out, and again before anything is sent, merged or deleted. Each crew member grows its memory, but it can't rewrite who it is or talk its way past the outpost rules.</p></div>
     </div>
   </div>
 </section>
@@ -989,7 +988,7 @@ footer .outpost-sub { font-size: 10px; }
       <div class="item solo">
         <span class="tag">Voice</span>
         <h3>Read aloud</h3>
-        <p>Connect an ElevenLabs key under Settings → Voice and Mae reads to you in the voice you choose: an answer, a job's report, an inbox item, a ticket's debrief, or text you select. One player in the top bar pauses, skips and changes speed, and stays as you move around. Each piece is kept, so hearing it again costs nothing.</p>
+        <p>Connect an ElevenLabs key under Settings → Voice and Outpost reads to you in the voice you choose: an answer, a job's report, an inbox item, a ticket's debrief, or text you select. One player in the top bar pauses, skips and changes speed, and stays as you move around. Each piece is kept, so hearing it again costs nothing.</p>
       </div>
       <div class="item wide">
         <div class="phone">
@@ -999,7 +998,7 @@ footer .outpost-sub { font-size: 10px; }
             <p>Hook up <a href="https://ntfy.sh">ntfy</a> and each plan, job report and long expedition pings your phone, with Approve and Decline buttons for the kinds you choose. Shell commands only notify unless you opt in.</p>
           </div>
           <div class="notif" aria-hidden="true">
-            <small>MAE · now</small>
+            <small>OUTPOST · now</small>
             <div><b>Plan ready:</b> 2 quests for "memory survey"</div>
             <div class="btns"><span>Approve</span><span>Decline</span></div>
           </div>
@@ -1039,8 +1038,8 @@ footer .outpost-sub { font-size: 10px; }
       <div class="item wide">
         <span class="tag">Tickets &amp; debriefs</span>
         <h3>Tickets of its own, and a look back when one's done</h3>
-        <p>No Jira? Mae keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the Quartermaster make them.</p>
-        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, a Mae ticket or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
+        <p>No Jira? Outpost keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the Quartermaster make them.</p>
+        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
       </div>
     </div>
     <div class="kit" id="kit-away" role="tabpanel" aria-labelledby="kit-tab-away" hidden>
@@ -1138,7 +1137,7 @@ footer .outpost-sub { font-size: 10px; }
 <div class="wrap">
   <footer>
     <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
-    <span>My Alter Ego. Small, hackable, and built on the Claude API.</span>
+    <span>Small, hackable, and built on the Claude API.</span>
   </footer>
 </div>
 
@@ -1575,12 +1574,12 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </style></template>
 <template id="film-whole-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the camp sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
-    <input type="range" id="scrub" min="0" max="77" step="0.01" value="0" aria-label="Scrub through the film">
-    <output id="clock" for="scrub">0:00 / 1:17</output>
+    <input type="range" id="scrub" min="0" max="86" step="0.01" value="0" aria-label="Scrub through the film">
+    <output id="clock" for="scrub">0:00 / 1:26</output>
   </div>
 </template>
 <template id="film-ticket-stage">
@@ -2705,7 +2704,7 @@ const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
 const rng = (seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; })(7);
 
-const DUR = 77;
+const PRE = 9, MAIN = 77, DUR = PRE + MAIN;   // the star chart, then the film proper (its times are its own, from 0)
 const SUN = { x: 640, y: 360 };
 const K = 1.1;                                   // lockup scale
 const LOCK = { x: 640 - 342.5 * K, y: 360 - 100 * K };
@@ -3115,6 +3114,71 @@ T(night, 'd f-text', 21, 24, 62, 'Two drafts, ready by morning.');
 T(night, 'b f-muted', 14, 24, 90, 'Nothing applied, nothing deleted.');
 T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
 
+// ---- the star chart: the opening, before the film proper ----
+// Three outposts side by side, each with what is its own, and a line between them. One is picked and its mark becomes the lockup.
+const gIntro = el('g', {}, gHud);
+const MARK_D = 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z';
+const smallMark = parent => {
+  const g = el('g', {}, parent);
+  el('path', { class: 'logo-f', d: MARK_D }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, g);
+  el('circle', { class: 'dot-f', cx: 100, cy: 100, r: 20 }, g);
+  return g;
+};
+const TILE = { w: 250, h: 300, y: 168, xs: [215, 515, 815] };
+const OWN = ['Its own crew', 'Its own memory', 'Its own keys and settings'];
+const tiles = [['Work', 'c-scout'], ['Home', 'c-scribe'], ['Side project', 'c-art']].map(([name, tone], k) => {
+  const g = el('g', { class: tone }, gIntro);
+  const slot = k === 2 ? el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:6 7' }, g) : null;
+  const chrome = el('g', {}, g);
+  el('rect', { class: 'card', width: TILE.w, height: TILE.h, rx: 14 }, chrome);
+  const sel = el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
+  const plus = k === 2 ? el('path', { d: 'M125 68 V104 M107 86 H143', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, g) : null;
+  const ghost = k === 2 ? T(g, 'b f-faint', 17, 125, 178, 'New outpost', { 'text-anchor': 'middle' }) : null;
+  const label = T(g, 'd f-text', 25, 125, 180, name, { 'text-anchor': 'middle' });
+  const rows = OWN.map((s, r) => { const rg = el('g', { transform: `translate(40 ${218 + r * 26})` }, g); el('circle', { class: 'tone-f', cx: 4, cy: -5, r: 4 }, rg); T(rg, 'b f-muted', 14.5, 18, 0, s); return rg; });
+  return { g, slot, chrome, sel, plus, ghost, label, rows, name };
+});
+// the marks sit above the cards, so the picked one can leave its card and become the lockup
+const tileMarks = tiles.map(() => smallMark(gIntro));
+const fences = [490, 790].map(x => el('line', { x1: x, x2: x, y1: 318, y2: 318, style: 'stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:3 7;stroke-linecap:round' }, gIntro));
+const icG = el('g', {}, gIntro);
+const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, icG);
+const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
+const ICAPS = [
+  [1.7, 4.9, 'It starts on the star chart.', 'An outpost for each part of your life: work, home, a side project.'],
+  [5.1, 7.9, 'Each outpost keeps to itself.', 'Its own crew, memory, settings and keys. Work never reads home.'],
+];
+function intro(tt) {
+  if (tt >= PRE) { O(gIntro, 0); O(gLock, 1); O(sunCore, 1); return; }
+  O(gIntro, 1);
+  // the lockup steps aside for the chart, and comes back as the picked outpost
+  const lockA = Math.max(1 - prog(tt, 1.0, 1.7), prog(tt, 8.3, 8.9));
+  O(gLock, lockA); O(tagline, lockA); O(sunCore, lockA); sunGlow.style.opacity = .25 * lockA;
+  const leave = prog(tt, 7.6, 8.1), fly = ease.inOut(prog(tt, 7.8, 8.45));
+  tiles.forEach((c, k) => {
+    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), x = TILE.xs[k], y = TILE.y + (1 - ease.out(inn)) * 14;
+    const made = k < 2 ? 1 : prog(tt, 4.2, 4.7), away = k === 0 ? prog(tt, 7.9, 8.35) : leave;
+    c.g.setAttribute('transform', `translate(${x} ${f1(y)})`);
+    O(c.g, inn * (1 - away));
+    O(c.chrome, made);
+    if (c.slot) { O(c.slot, 1 - made); O(c.plus, 1 - prog(tt, 4.2, 4.5)); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
+    c.rows.forEach((r, j) => O(r, prog(tt, 5.0 + j * .45 + k * .12, 5.4 + j * .45 + k * .12)));
+    O(c.sel, k === 0 ? prog(tt, 7.3, 7.5) : 0);
+    // its mark: on the card, then (for Work) across to where the lockup's mark sits
+    const mk = tileMarks[k], f = k === 0 ? fly : 0;
+    const cx = lerp(x + 125, DOT0.x, f), cy = lerp(y + 86, 360, f), sc = lerp(.5, K, f);
+    mk.setAttribute('transform', `translate(${f2(cx)} ${f2(cy)}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+    O(mk, k === 0 ? inn * (1 - prog(tt, 8.6, 8.95)) : inn * made * (1 - leave));
+  });
+  fences.forEach((l, k) => { const u = ease.out(prog(tt, 4.9 + k * .2, 5.7 + k * .2)); put(l, { y1: f1(318 - 130 * u), y2: f1(318 + 130 * u) }); O(l, Math.min(u * 3, 1 - leave)); });
+  let ci = -1, cv = 0;
+  ICAPS.forEach((c, k) => { const v = win(tt, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv = v; } });
+  if (ci >= 0) { txt(icT, ICAPS[ci][2]); txt(icS, ICAPS[ci][3]); }
+  O(icG, cv); icG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv))) * 8)})`);
+}
+
 // ---- timeline ----
 const CAPS = [
   [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, each on its own orbit.'],
@@ -3130,8 +3194,9 @@ const CAPS = [
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
   [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
-const CHAPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
-const CHIPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
 const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
 const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
 const ZOOM = 5.2;
@@ -3171,10 +3236,10 @@ const comet = (c, a, b, from, to, bend, t, step = .032, n = 13) => {
   return true;
 };
 
-let lastCap = -1, lastChap = -1, duskA = .64;
+let lastCap = -1, lastChap = -1, duskA = .64, filmT = 0, pingT = 0;
 const readDusk = () => { duskA = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dusk-a')) || .64; };
 readDusk(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readDusk(); render(t); });
-function render(t) {
+function renderMain(t) {
   const m = logoM(t), s = clamp(m / .4), e = clamp((m - .32) / .68), lp = 1 - clamp(m / .3);
   const cam = camera(t), z = cam.z;
   gWorld.setAttribute('transform', `translate(640 360) scale(${z.toFixed(4)}) translate(${f2(-cam.x)} ${f2(-cam.y)})`);
@@ -3186,7 +3251,7 @@ function render(t) {
   const nightA = ease.inOut(win(t, 66.9, 72, 1.1, 1.3));
   dusk.style.opacity = nightA * duskA;
   O(starsNight, nightA); starsDay.style.opacity = 1 - nightA * .7;
-  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(t * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
+  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(filmT * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
   O(moon, nightA);
 
   // sun and logo
@@ -3212,7 +3277,7 @@ function render(t) {
 
   // pings light the ground as they pass
   let pr = null;
-  for (const p of PINGS) { let dt = t - p.t; if (dt < 0) dt += DUR; if (dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
+  for (const p of PINGS) { const dt = pingT - p.t; if (dt >= 0 && dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
   if (pr) { put(pingEl, { cx: f1(sp.x), r: f1(pr.r) }); O(pingEl, pr.a * .85); } else O(pingEl, 0);
   for (const c of CONTOURS) { const v = pr ? pr.a * Math.exp(-Math.pow((pr.r - c.R) / 24, 2)) : 0; O(c.lit, v * .95); }
 
@@ -3329,8 +3394,16 @@ function render(t) {
   if (ci !== lastCap && ci >= 0) { txt(capT, CAPS[ci][2]); txt(capS, CAPS[ci][3]); }
   if (ci >= 0) lastCap = ci;
   O(capG, cv2); capG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv2))) * 8)})`);
-  let ch = 0; CHAPS.forEach((c, k) => { if (t >= c[0]) ch = k; });
-  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(t); }
+  let ch = 0; CHAPS.forEach((c, k) => { if (filmT >= c[0]) ch = k; });
+  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(filmT); }
+}
+
+// The film's clock: the star chart first, then the film proper on its own clock. The last ping of the loop runs on into the chart.
+function render(tt) {
+  filmT = tt;
+  const t = Math.max(0, tt - PRE);
+  pingT = tt < PRE ? MAIN + tt : t;
+  renderMain(t); intro(tt);
 }
 
 // ---- transport ----

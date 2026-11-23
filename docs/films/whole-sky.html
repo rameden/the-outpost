@@ -6,10 +6,14 @@
 <title>Outpost Whole Sky</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <!--
-  THE WHOLE SKY: Outpost's master film. One continuous camera, 77 seconds, looping without a seam.
+  THE WHOLE SKY: Outpost's master film. One continuous camera, 86 seconds, looping without a seam.
 
   Storyboard
-   0:00  The mark      The Outpost lockup sits on topographic ground. The name fades, the mark slides to centre,
+   0:00  The star chart  The Outpost lockup gives way to three outposts side by side: Work, Home and a new one
+                       being named. Each lists what is its own (crew, memory, keys), with a line drawn between
+                       them. Work is picked and its mark becomes the lockup. Everything after this runs on its
+                       own clock, 9 seconds behind the film's (PRE).
+   0:09  The mark      The Outpost lockup sits on topographic ground. The name fades, the mark slides to centre,
                        and its nested arcs open out into contour-line orbits. The amber dot is the sun.
    0:05  The crew      Four topographic planets come up on their orbits: Scout, Scribe, Artificer, Warden.
    0:13  A request     A falling star carries a request into the sun. A ping runs out across the ground,
@@ -126,15 +130,15 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
   <header class="head">
     <div class="eyebrow">Outpost · on film</div>
     <h1>The whole sky</h1>
-    <p class="lede">One request, all the way round the outpost: from the mark to the crew, through the work, into memory and out the other side of the night.</p>
+    <p class="lede">Pick an outpost on the star chart, then follow one request all the way round it: from the mark to the crew, through the work, into memory and out the other side of the night.</p>
   </header>
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the camp sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
-    <input type="range" id="scrub" min="0" max="77" step="0.01" value="0" aria-label="Scrub through the film">
-    <output id="clock" for="scrub">0:00 / 1:17</output>
+    <input type="range" id="scrub" min="0" max="86" step="0.01" value="0" aria-label="Scrub through the film">
+    <output id="clock" for="scrub">0:00 / 1:26</output>
   </div>
   <ol class="chapters" id="chapters" aria-label="Chapters"></ol>
   <p class="note">Drawn live in this page, in Outpost's own colours. It loops, follows your light or dark theme, and stays still if you've asked your system to reduce motion. Click the stage to pause, or jump to a chapter.</p>
@@ -162,7 +166,7 @@ const TAU = Math.PI * 2, DEG = Math.PI / 180;
 const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
 const rng = (seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; })(7);
 
-const DUR = 77;
+const PRE = 9, MAIN = 77, DUR = PRE + MAIN;   // the star chart, then the film proper (its times are its own, from 0)
 const SUN = { x: 640, y: 360 };
 const K = 1.1;                                   // lockup scale
 const LOCK = { x: 640 - 342.5 * K, y: 360 - 100 * K };
@@ -572,6 +576,71 @@ T(night, 'd f-text', 21, 24, 62, 'Two drafts, ready by morning.');
 T(night, 'b f-muted', 14, 24, 90, 'Nothing applied, nothing deleted.');
 T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
 
+// ---- the star chart: the opening, before the film proper ----
+// Three outposts side by side, each with what is its own, and a line between them. One is picked and its mark becomes the lockup.
+const gIntro = el('g', {}, gHud);
+const MARK_D = 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z';
+const smallMark = parent => {
+  const g = el('g', {}, parent);
+  el('path', { class: 'logo-f', d: MARK_D }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, g);
+  el('circle', { class: 'dot-f', cx: 100, cy: 100, r: 20 }, g);
+  return g;
+};
+const TILE = { w: 250, h: 300, y: 168, xs: [215, 515, 815] };
+const OWN = ['Its own crew', 'Its own memory', 'Its own keys and settings'];
+const tiles = [['Work', 'c-scout'], ['Home', 'c-scribe'], ['Side project', 'c-art']].map(([name, tone], k) => {
+  const g = el('g', { class: tone }, gIntro);
+  const slot = k === 2 ? el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:6 7' }, g) : null;
+  const chrome = el('g', {}, g);
+  el('rect', { class: 'card', width: TILE.w, height: TILE.h, rx: 14 }, chrome);
+  const sel = el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
+  const plus = k === 2 ? el('path', { d: 'M125 68 V104 M107 86 H143', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, g) : null;
+  const ghost = k === 2 ? T(g, 'b f-faint', 17, 125, 178, 'New outpost', { 'text-anchor': 'middle' }) : null;
+  const label = T(g, 'd f-text', 25, 125, 180, name, { 'text-anchor': 'middle' });
+  const rows = OWN.map((s, r) => { const rg = el('g', { transform: `translate(40 ${218 + r * 26})` }, g); el('circle', { class: 'tone-f', cx: 4, cy: -5, r: 4 }, rg); T(rg, 'b f-muted', 14.5, 18, 0, s); return rg; });
+  return { g, slot, chrome, sel, plus, ghost, label, rows, name };
+});
+// the marks sit above the cards, so the picked one can leave its card and become the lockup
+const tileMarks = tiles.map(() => smallMark(gIntro));
+const fences = [490, 790].map(x => el('line', { x1: x, x2: x, y1: 318, y2: 318, style: 'stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:3 7;stroke-linecap:round' }, gIntro));
+const icG = el('g', {}, gIntro);
+const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, icG);
+const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
+const ICAPS = [
+  [1.7, 4.9, 'It starts on the star chart.', 'An outpost for each part of your life: work, home, a side project.'],
+  [5.1, 7.9, 'Each outpost keeps to itself.', 'Its own crew, memory, settings and keys. Work never reads home.'],
+];
+function intro(tt) {
+  if (tt >= PRE) { O(gIntro, 0); O(gLock, 1); O(sunCore, 1); return; }
+  O(gIntro, 1);
+  // the lockup steps aside for the chart, and comes back as the picked outpost
+  const lockA = Math.max(1 - prog(tt, 1.0, 1.7), prog(tt, 8.3, 8.9));
+  O(gLock, lockA); O(tagline, lockA); O(sunCore, lockA); sunGlow.style.opacity = .25 * lockA;
+  const leave = prog(tt, 7.6, 8.1), fly = ease.inOut(prog(tt, 7.8, 8.45));
+  tiles.forEach((c, k) => {
+    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), x = TILE.xs[k], y = TILE.y + (1 - ease.out(inn)) * 14;
+    const made = k < 2 ? 1 : prog(tt, 4.2, 4.7), away = k === 0 ? prog(tt, 7.9, 8.35) : leave;
+    c.g.setAttribute('transform', `translate(${x} ${f1(y)})`);
+    O(c.g, inn * (1 - away));
+    O(c.chrome, made);
+    if (c.slot) { O(c.slot, 1 - made); O(c.plus, 1 - prog(tt, 4.2, 4.5)); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
+    c.rows.forEach((r, j) => O(r, prog(tt, 5.0 + j * .45 + k * .12, 5.4 + j * .45 + k * .12)));
+    O(c.sel, k === 0 ? prog(tt, 7.3, 7.5) : 0);
+    // its mark: on the card, then (for Work) across to where the lockup's mark sits
+    const mk = tileMarks[k], f = k === 0 ? fly : 0;
+    const cx = lerp(x + 125, DOT0.x, f), cy = lerp(y + 86, 360, f), sc = lerp(.5, K, f);
+    mk.setAttribute('transform', `translate(${f2(cx)} ${f2(cy)}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+    O(mk, k === 0 ? inn * (1 - prog(tt, 8.6, 8.95)) : inn * made * (1 - leave));
+  });
+  fences.forEach((l, k) => { const u = ease.out(prog(tt, 4.9 + k * .2, 5.7 + k * .2)); put(l, { y1: f1(318 - 130 * u), y2: f1(318 + 130 * u) }); O(l, Math.min(u * 3, 1 - leave)); });
+  let ci = -1, cv = 0;
+  ICAPS.forEach((c, k) => { const v = win(tt, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv = v; } });
+  if (ci >= 0) { txt(icT, ICAPS[ci][2]); txt(icS, ICAPS[ci][3]); }
+  O(icG, cv); icG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv))) * 8)})`);
+}
+
 // ---- timeline ----
 const CAPS = [
   [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, each on its own orbit.'],
@@ -587,8 +656,9 @@ const CAPS = [
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
   [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
-const CHAPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
-const CHIPS = [[0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
 const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
 const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
 const ZOOM = 5.2;
@@ -628,10 +698,10 @@ const comet = (c, a, b, from, to, bend, t, step = .032, n = 13) => {
   return true;
 };
 
-let lastCap = -1, lastChap = -1, duskA = .64;
+let lastCap = -1, lastChap = -1, duskA = .64, filmT = 0, pingT = 0;
 const readDusk = () => { duskA = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dusk-a')) || .64; };
 readDusk(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readDusk(); render(t); });
-function render(t) {
+function renderMain(t) {
   const m = logoM(t), s = clamp(m / .4), e = clamp((m - .32) / .68), lp = 1 - clamp(m / .3);
   const cam = camera(t), z = cam.z;
   gWorld.setAttribute('transform', `translate(640 360) scale(${z.toFixed(4)}) translate(${f2(-cam.x)} ${f2(-cam.y)})`);
@@ -643,7 +713,7 @@ function render(t) {
   const nightA = ease.inOut(win(t, 66.9, 72, 1.1, 1.3));
   dusk.style.opacity = nightA * duskA;
   O(starsNight, nightA); starsDay.style.opacity = 1 - nightA * .7;
-  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(t * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
+  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(filmT * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
   O(moon, nightA);
 
   // sun and logo
@@ -669,7 +739,7 @@ function render(t) {
 
   // pings light the ground as they pass
   let pr = null;
-  for (const p of PINGS) { let dt = t - p.t; if (dt < 0) dt += DUR; if (dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
+  for (const p of PINGS) { const dt = pingT - p.t; if (dt >= 0 && dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
   if (pr) { put(pingEl, { cx: f1(sp.x), r: f1(pr.r) }); O(pingEl, pr.a * .85); } else O(pingEl, 0);
   for (const c of CONTOURS) { const v = pr ? pr.a * Math.exp(-Math.pow((pr.r - c.R) / 24, 2)) : 0; O(c.lit, v * .95); }
 
@@ -786,8 +856,16 @@ function render(t) {
   if (ci !== lastCap && ci >= 0) { txt(capT, CAPS[ci][2]); txt(capS, CAPS[ci][3]); }
   if (ci >= 0) lastCap = ci;
   O(capG, cv2); capG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv2))) * 8)})`);
-  let ch = 0; CHAPS.forEach((c, k) => { if (t >= c[0]) ch = k; });
-  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(t); }
+  let ch = 0; CHAPS.forEach((c, k) => { if (filmT >= c[0]) ch = k; });
+  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(filmT); }
+}
+
+// The film's clock: the star chart first, then the film proper on its own clock. The last ping of the loop runs on into the chart.
+function render(tt) {
+  filmT = tt;
+  const t = Math.max(0, tt - PRE);
+  pingT = tt < PRE ? MAIN + tt : t;
+  renderMain(t); intro(tt);
 }
 
 // ---- transport ----

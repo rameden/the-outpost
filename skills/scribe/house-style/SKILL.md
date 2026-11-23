@@ -1,6 +1,6 @@
 ---
 name: house-style
-description: Use for any written deliverable (docs, READMEs, posts, emails) to match Outpost Mae's house style.
+description: Use for any written deliverable (docs, READMEs, posts, emails) to match Outpost's house style.
 ---
 
 # House style
@@ -11,4 +11,4 @@ description: Use for any written deliverable (docs, READMEs, posts, emails) to m
 - Active voice, second person ("you") for instructions.
 - End docs with a "Next steps" line only if there genuinely are next steps.
 - Save drafts as Markdown. File names: kebab-case, e.g. `release-notes-v2.md`.
-- The product is **Outpost Mae**, written as two words. It's a place, not a person: you go to Outpost Mae, and the crew stationed there does the work ("I was at Outpost Mae and got a lot done"). "Mae" alone is fine as the short form, but never give Mae a voice of its own ("Hi, I'm Mae"). Mae is short for My Alter Ego.
+- The product is **Outpost**. Each one you run is an outpost with a name of its own (Mae is the first; "Outpost Work", "Outpost Home"). It's a place, not a person: you go to your outpost, and the crew stationed there does the work ("I was at the outpost and got a lot done"). Never give an outpost a voice of its own ("Hi, I'm Mae"). The tagline is "Your outpost. Your crew. Your call."

@@ -28,8 +28,8 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
     // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in "On film".
     // To show it again: take `hidden` off, put it back in that section's lede below (the lede counts
     // the films and describes them), and run `npm run tour:films`.
-    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:17", hidden: true,
-    note: "All of Outpost in one loop. A request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
+    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26", hidden: true,
+    note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own crew, memory and keys. Then a request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
   },
   {
     key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket, start to finish", length: "0:54",
