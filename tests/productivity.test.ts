@@ -15,6 +15,7 @@ process.env.ANTHROPIC_BASE_URL = api.url; // must be set before src/agent.ts loa
 const folder = realpathSync.native(mkdtempSync(join(tmpdir(), "mae-fix-")));
 
 const { runDirect, runExpedition, checksFailed, fixBrief, REVIEW_RULE } = await import("../src/quartermaster.ts");
+const { say } = await import("../src/words.ts"); // a rule is written with {tokens} for the pack's words: say() fills them
 const { setAsker } = await import("../src/ask.ts");
 const { onEvent } = await import("../src/events.ts");
 const { addLink, setLinkVerify } = await import("../src/links.ts");
@@ -89,7 +90,7 @@ test("with review on, the Quartermaster is told to have changes looked over befo
   api.seen.length = 0;
   await runExpedition("Say hello again");
   assert.equal(whoAsks(api.seen[0].body), "Quartermaster");
-  assert.ok(system(0).includes(REVIEW_RULE));
+  assert.ok(system(0).includes(say(REVIEW_RULE)));
   assert.match(REVIEW_RULE, /dispatch the Warden once/);
   // One run can ask for it, or go without, whatever the camp is set to (the ticket stepper does).
   api.seen.length = 0;
@@ -98,7 +99,7 @@ test("with review on, the Quartermaster is told to have changes looked over befo
   setReviewChanges(false);
   api.seen.length = 0;
   await runExpedition("Say hello with a review", { review: true });
-  assert.ok(system(0).includes(REVIEW_RULE));
+  assert.ok(system(0).includes(say(REVIEW_RULE)));
 });
 
 test("a skill that's always on for a crew member is in every one of their prompts, in full", async () => {

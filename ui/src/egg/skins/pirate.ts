@@ -198,5 +198,6 @@ export const pirate: Skin = {
     boat: { paint: { D: "#2a1608", H: "#a8743a", K: "#7a5226", I: "#3e2410", Y: "#ffd84a", T: RED } },
   },
   // Deckhands: a red bandana, a cream shirt, navy breeches.
+  builders: "deckhands",
   builder: { H: "#c8402f", D: "#8a2a1e", S: "#f0b98a", K: "#14181f", N: "#d9866a", B: "#f3ead2", T: "#2a3a5a", F: "#3e2410" },
 };

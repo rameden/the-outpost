@@ -107,7 +107,7 @@ export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: 
   return (
     <>
       <SpendCard S={S} refresh={refresh} onOpenSettings={onOpenSettings} />
-      {!S.quests.length ? <Empty title={`No ${w("expeditions")} yet`}>Every {w("expedition")} and job run is logged here with its time and cost.</Empty> : (
+      {!S.quests.length ? <Empty title={`Nothing in the ${w("log")} yet`}>Every {w("expedition")}, {w("quest")} and job run is logged here with its time and cost.</Empty> : (
         <>
           <p className="panel-note">Newest first. Costs are estimates from token counts. Click a line to expand it.</p>
           <ul className="list">

@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
-import { autoName, isAuto, shortModel } from "../format.ts";
+import { autoName, isAuto, nameNow, shortModel } from "../format.ts";
 import type { CampState, History, PickResult, Project, ProjectSettings } from "../types.ts";
 import { AUTO_CHOICES, useModelList } from "./ModelPicker.tsx";
 import { Icon } from "./bits.tsx";
@@ -196,7 +196,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
           <label className="field">Review changes before reporting
             <select value={review} onChange={(ev) => setReview(ev.target.value as typeof review)}>
               <option value="">Same as the {w("camp")} ({S?.settings.reviewChanges ? "on" : "off"})</option>
-              <option value="on">Always here: the Scout reads the diff first</option>
+              <option value="on">Always here: the {nameNow("Warden")} reads the diff first</option>
               <option value="off">Never here</option>
             </select>
             <span className="field-hint">Each review is another {w("quest")}'s worth of usage. This project's page shows what its reviews have been finding.</span>

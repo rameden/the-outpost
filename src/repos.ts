@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import { findLink, loadLinks, type Link } from "./links.js";
 import type { Workspace } from "./context.js";
 import { checkFailed, gh } from "./github.js";
+import { w } from "./words.js";
 
 const run = promisify(execFile);
 export async function git(cwd: string, args: string[], timeout = 60_000): Promise<string> {
@@ -77,7 +78,7 @@ export async function prepareWorkspaces(choices: Record<string, WorkspaceChoice>
       out[name] = { link: name, path: w.path, branch: w.branch, base: await tryGit(w.path, ["rev-parse", "HEAD"]) };
       continue;
     }
-    if (link.access !== "write") throw new Error(`links/${name} is linked read-only, so the crew couldn't change a new worktree. Re-link it with edit access.`);
+    if (link.access !== "write") throw new Error(`links/${name} is linked read-only, so the ${w("crew")} couldn't change a new worktree. Re-link it with edit access.`);
     const wanted = (choice.branch ?? "").trim().replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/^[-/.]+|[-/.]+$/g, "");
     let branch = wanted || `camp/${slugify(task)}-${id.slice(0, 4)}`;
     const taken = new Set((await tryGit(link.path, ["branch", "--format=%(refname:short)"])).split("\n"));

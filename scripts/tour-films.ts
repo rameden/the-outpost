@@ -22,14 +22,14 @@ const FILMS_DIR = join(ROOT, "docs", "films");
 const FILMS: { key: string; section: string; file: string; tab: string; length: string; note: string; hidden?: boolean }[] = [
   {
     key: "sky", section: "films", file: "ground-to-sky.html", tab: "Ground to sky", length: "1:15",
-    note: "Outpost in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
+    note: "Outpost in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
   },
   {
     // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in "On film".
     // To show it again: take `hidden` off, put it back in that section's lede below (the lede counts
     // the films and describes them), and run `npm run tour:films`.
     key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26", hidden: true,
-    note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own crew, memory and keys. Then a request comes in and goes round the crew as comets, the Test Pilot flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
+    note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own <span data-word='crew'>crew</span>, memory and keys. Then a request comes in and goes round the <span data-word='crew'>crew</span> as comets, the <span data-crew='5'>Test Pilot</span> flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
   },
   {
     key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket, start to finish", length: "0:54",
@@ -41,11 +41,11 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
   },
   {
     key: "trail", section: "videos", file: "trail-map.html", tab: "The trail map", length: "0:36",
-    note: "The trail map: one plan as waypoints, lit as the crew reaches each one, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>.",
+    note: "The trail map: one plan as waypoints, lit as the <span data-word='crew'>crew</span> reaches each one, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>.",
   },
   {
     key: "stars", section: "videos", file: "constellation.html", tab: "The constellation", length: "0:39",
-    note: "The constellation: every line the crew remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Views menu in the top bar or with <code>/constellation</code>.",
+    note: "The constellation: every line the <span data-word='crew'>crew</span> remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Views menu in the top bar or with <code>/constellation</code>.",
   },
   {
     key: "night", section: "videos", file: "night-shift.html", tab: "The night shift", length: "0:35",
@@ -56,7 +56,7 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
 const SECTIONS = [
   {
     id: "films", name: "On film", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.",
+    lede: "Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it.",
     before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
   },
   {
@@ -82,6 +82,99 @@ const EXTRA: Record<"light" | "dark", Record<string, string>> = {
 };
 // Set by the films' own classes, not by the page.
 const OWN = ["tone", "sw"];
+
+// The films are written with names and words (Commander, Navigator, "the crew", "missions"…) that
+// belong to no one pack. In the tour they read the one active pack, window.TOUR_PACK (the page's
+// script sets it up: name(role), an(role), w(word), W(word), a(word), A(word)): every string in a
+// film's code that has a crew name or one of the pack's nouns becomes a template literal that asks
+// the pack, so all the films and the picker agree. Names are matched in the capitals they're written
+// in (Scout, SCOUT), so ids like 'scout' and 'c-scout' stay as they are.
+const NAME_ROLES: [string, string[]][] = [
+  ["qm", ["Quartermaster", "Commander"]], ["scout", ["Scout", "Navigator"]], ["scribe", ["Scribe", "Comms Officer"]],
+  ["art", ["Artificer", "Engineer"]], ["warden", ["Warden", "Security Chief"]], ["pilot", ["Test Pilot"]],
+];
+const roleOf = new Map<string, string>();
+for (const [role, names] of NAME_ROLES) for (const n of names) { roleOf.set(n, role); roleOf.set(n.toUpperCase(), role); }
+const NAME_ALT = [...roleOf.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+const WORD_TOKEN = new RegExp(
+  `(?:\\b(a|an) )?\\b(${NAME_ALT})\\b|\\b([Aa]n?) (?:(crew|camp|quest|expedition|mission))\\b|(?<![-\\w])(mission control|missions?|crews?|camps?|quests?|expeditions?)(?![-\\w])`,
+  "gi",
+);
+const NOUN_KEY: Record<string, string> = { "mission control": "hq", mission: "quest", missions: "quests" };
+const allCaps = (s: string) => s.length > 1 && s === s.toUpperCase();
+function packString(content: string): string | null {
+  if (content.includes("`") || content.includes("${") || content.includes("\n") || /^[a-z]+$/.test(content)) return null;
+  let changed = false;
+  const out = content.replace(WORD_TOKEN, (m, art: string | undefined, name: string | undefined, art2: string | undefined, nn: string | undefined, noun: string | undefined) => {
+    // The names are only those written with their capitals: the regex is case-blind for the nouns, so check here.
+    if (name !== undefined) {
+      const role = roleOf.get(name);
+      if (!role) return m;
+      changed = true;
+      const e = art ? `TP.an('${role}')` : `TP.name('${role}')`;
+      return "${" + e + (allCaps(name) ? ".toUpperCase()" : "") + "}";
+    }
+    if (nn !== undefined) {
+      changed = true;
+      const k = NOUN_KEY[nn.toLowerCase()] ?? nn.toLowerCase();
+      return "${TP." + (art2![0] === "A" ? "A" : "a") + `('${k}')` + (allCaps(nn) ? ".toUpperCase()" : "") + "}";
+    }
+    changed = true;
+    const k = NOUN_KEY[noun!.toLowerCase()] ?? noun!.toLowerCase();
+    if (allCaps(noun!)) return "${TP.w('" + k + "').toUpperCase()}";
+    return "${TP." + (noun![0] === noun![0].toUpperCase() ? "W" : "w") + `('${k}')}`;
+  });
+  return changed ? out : null;
+}
+/** A film's code with its names and nouns asking the pack (see above). Comments, regexes and template literals are left as they are. */
+export function packWords(code: string): string {
+  const n = code.length;
+  let out = "", i = 0, prev = "";
+  const skipTemplate = (from: number): number => {
+    let j = from + 1;
+    while (j < n) {
+      const c = code[j];
+      if (c === "\\") { j += 2; continue; }
+      if (c === "`") return j + 1;
+      if (c === "$" && code[j + 1] === "{") {
+        let depth = 1; j += 2;
+        while (j < n && depth) {
+          const d = code[j];
+          if (d === "{") depth++;
+          else if (d === "}") depth--;
+          else if (d === "'" || d === '"') { j++; while (code[j] !== d) { if (code[j] === "\\") j++; j++; } }
+          else if (d === "`") j = skipTemplate(j) - 1;
+          j++;
+        }
+        continue;
+      }
+      j++;
+    }
+    return j;
+  };
+  while (i < n) {
+    const c = code[i];
+    if (c === "/" && code[i + 1] === "/") { const j = code.indexOf("\n", i); out += code.slice(i, j); i = j; continue; }
+    if (c === "/" && code[i + 1] === "*") { const j = code.indexOf("*/", i) + 2; out += code.slice(i, j); i = j; continue; }
+    if (c === "`") { const j = skipTemplate(i); out += code.slice(i, j); i = j; continue; }
+    if (c === "'" || c === '"') {
+      let j = i + 1;
+      while (code[j] !== c) { if (code[j] === "\\") j++; j++; }
+      const made = packString(code.slice(i + 1, j));
+      out += made === null ? code.slice(i, j + 1) : "`" + made + "`";
+      i = j + 1; prev = c; continue;
+    }
+    if (c === "/" && "(,=:[!&|?{;".includes(prev)) {
+      let j = i + 1;
+      while (code[j] !== "/") { if (code[j] === "\\") j++; j++; }
+      out += code.slice(i, j + 1); i = j + 1; prev = "/"; continue;
+    }
+    out += c;
+    if (!/\s/.test(c)) prev = c;
+    i++;
+  }
+  return out;
+}
 
 function cut(text: string, from: string, to: string): string {
   const i = text.indexOf(from);
@@ -126,7 +219,18 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
     js = swap(js, "if (playing && last != null) {", "if (playing && shown && last != null) {");
     // No frame in the tour, so no darkening toward the edges either: it would show where the film stops.
     js = js.split(" vignette();").join("");
-    js += "// the page says when this film can be seen: it only runs then\nreturn { show: v => { shown = !!v; } };\n";
+    js = packWords(js);
+    // It can be stopped for good (the tour builds it again when a pack is picked): its frame loop, its resize and colour-scheme listeners.
+    const FRAME = "requestAnimationFrame(frame)";
+    if (!js.includes(FRAME)) throw new Error(`${f.file} has no frame loop`);
+    js = js.split(FRAME).join(`(dead || (raf = ${FRAME}))`);
+    const STOP_VARS = "let dead = false, raf = 0; const cleanups = [];";
+    js = js.includes("'use strict';") ? js.replace("'use strict';", `'use strict';\n${STOP_VARS}`) : `${STOP_VARS}\n${js}`;
+    js = js.replace(/if \(window\.ResizeObserver\) new ResizeObserver\(redraw\)\.observe\(cv\); else addEventListener\('resize', redraw\);/,
+      "if (window.ResizeObserver) { const ro = new ResizeObserver(redraw); ro.observe(cv); cleanups.push(() => ro.disconnect()); } else { addEventListener('resize', redraw); cleanups.push(() => removeEventListener('resize', redraw)); }");
+    js = js.replace(/matchMedia\('\(prefers-color-scheme: dark\)'\)\.addEventListener\('change', (redraw|\(\) => \{ readDusk\(\); render\(t\); \})\);/,
+      "{ const mq = matchMedia('(prefers-color-scheme: dark)'), onScheme = $1; mq.addEventListener('change', onScheme); cleanups.push(() => mq.removeEventListener('change', onScheme)); }");
+    js += "// the page says when this film can be seen: it only runs then; stop() ends it for good\nreturn { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };\n";
     if (/<\/script/i.test(js)) throw new Error(`${f.file}: its code would end the tour's script early`);
     // The rules this film has that the shared styles don't.
     const own = f.file === STYLES_FROM ? "" : stageCss(f.file).filter((line) => line.trim() && !shared.includes(line)).join("\n");
@@ -199,6 +303,8 @@ ${parts.map((f) => `${f.own ? `<template id="film-${f.key}-css"><style>\n${f.own
 <script>
 (function () {
   if (!Element.prototype.attachShadow || !('content' in document.createElement('template'))) return;
+  // The pack's names and words (window.TOUR_PACK, made by the tour's pack picker): each film reads them as TP.
+  var TP = window.TOUR_PACK;
   // The code that draws each film, given the shadow root its stage is in. It answers with show(yes or no).
   var DRAW = {
 ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
@@ -211,7 +317,16 @@ ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
     var own = document.getElementById('film-' + key + '-css');
     if (own) root.appendChild(own.content.cloneNode(true));
     root.appendChild(document.getElementById('film-' + key + '-stage').content.cloneNode(true));
+    // the stage's own description, in the pack's names and words
+    root.querySelectorAll('[aria-label]').forEach(function (el) { el.setAttribute('aria-label', TP.tr(el.getAttribute('aria-label'))); });
     f.ctl = DRAW[key](root);
+  }
+  // A film is drawn from the names the pack had when it was built: after a pick, one that was built is built again.
+  function rebuild(f) {
+    var stage = f.panel.querySelector('.film-stage'), fresh = stage.cloneNode(false);
+    if (f.ctl) { f.ctl.show(false); f.ctl.stop(); }
+    f.ctl = null;
+    stage.parentNode.replaceChild(fresh, stage);
   }
   // Each section has its own tabs, and its films move only while that section is on screen.
   [${SECTIONS.map((s) => `{ id: '${s.id}', keys: [${shownIn(s.id).map((f) => `'${f.key}'`).join(", ")}] }`).join(", ")}].forEach(function (sec) {
@@ -224,6 +339,10 @@ ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
         if (f.ctl) f.ctl.show(on && inView);
       });
     }
+    window.addEventListener('tour-pack', function () {
+      keys.forEach(function (key) { if (film[key] && film[key].ctl) rebuild(film[key]); });
+      update();
+    });
     keys.forEach(function (key) {
       film[key] = { panel: document.getElementById('film-' + key), tab: document.getElementById('film-tab-' + key), ctl: null };
       film[key].tab.addEventListener('click', function () { active = key; update(); });

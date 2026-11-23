@@ -21,7 +21,7 @@
 // A note that's been filed says so, and opens its tickets.
 
 import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { cx, plural, when } from "../format.ts";
+import { cx, nameNow, plural, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import { editNote, isWriting, keepIdea, loadNotes, newNote, openNote, removeNote, suggestIdeas, ticketBrief, ticketText, titleOf, useNotes, writeTicket } from "../notes.ts";
 import type { Note } from "../types.ts";
@@ -229,7 +229,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
       </div>
       {writing && (
         <div className="note-writing" role="status">
-          <span>Writing the ticket{project ? `: the Scout is reading ${project.name}'s code first` : ""}. It takes a minute or two.</span>
+          <span>Writing the ticket{project ? `: the ${nameNow("Scout")} is reading ${project.name}'s code first` : ""}. It takes a minute or two.</span>
           {onOpenConversation && <button type="button" className="linkish" onClick={() => onOpenConversation(note.writing!.run)}>Watch</button>}
         </div>
       )}
@@ -238,7 +238,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
           <button type="button" className="btn small primary" disabled={!onInsert || !onAttach} title={onInsert ? "Put the brief in your message, with the ticket attached. Nothing is sent until you send it." : noBox} onClick={start}>Start work</button>
           <button type="button" className="btn small" disabled={writing || blank} title="Have it written again from the note as it stands now" onClick={write}>Write it again</button>
           <button type="button" className="btn small" disabled={filing} title="File this as a Mae ticket, to track on the Tickets page" onClick={addTicket}>{filing ? "Adding…" : "Add to tickets"}</button>
-          {ticket!.conversation && onOpenConversation && <button type="button" className="linkish" title="The conversation in which the Scout read the code and wrote this" onClick={() => onOpenConversation(ticket!.conversation!)}>How it was written</button>}
+          {ticket!.conversation && onOpenConversation && <button type="button" className="linkish" title={`The conversation in which the ${nameNow("Scout")} read the code and wrote this`} onClick={() => onOpenConversation(ticket!.conversation!)}>How it was written</button>}
         </div>
       ) : (
         <div className="note-actions">
@@ -247,7 +247,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
           <button type="button" className="btn small" disabled={empty || !onAttach} title={onAttach ? "Attach this note to your message as a file, as it stands now" : noBox}
             onClick={() => onAttach?.(note)}>Attach as a file</button>
           {!ticket && <button type="button" className="btn small" disabled={blank || writing || unsaved && failed}
-            title={project ? `Have the Scout read ${project.name}'s code and write this up as a ticket the ${w("crew")} can work from: a title, acceptance criteria, and where it goes` : `Have the Scout write this up as a ticket the ${w("crew")} can work from. Outside a project it can't read any code, so its technical notes will be guesses: open a project first for a grounded one.`}
+            title={project ? `Have the ${nameNow("Scout")} read ${project.name}'s code and write this up as a ticket the ${w("crew")} can work from: a title, acceptance criteria, and where it goes` : `Have the ${nameNow("Scout")} write this up as a ticket the ${w("crew")} can work from. Outside a project it can't read any code, so its technical notes will be guesses: open a project first for a grounded one.`}
             onClick={write}>Write up as a ticket</button>}
           <button type="button" className="btn small" disabled={empty} title="Split this note into Mae tickets, one per piece of work: you choose which to file" onClick={turn}>Turn into tickets</button>
         </div>

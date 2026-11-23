@@ -50,7 +50,7 @@ function QuestsOut({ quests, onOpen, onHide }: { quests: QuestOut[]; onOpen?: (q
   }, [out]);
   const waiting = quests.filter((q) => q.waiting).length;
   const hide = <button type="button" className="hist-icon half-hide" aria-label="Hide who's running" title={`Fold this half away to a rail, and give the ${w("crew")} the room`} onClick={onHide}><Icon name="chevronRight" /></button>;
-  if (!quests.length) return <div className="crew-out idle" role="group" aria-label={`${w("Quests")} out now`}><span className="co-none">No agents running</span>{hide}</div>;
+  if (!quests.length) return <div className="crew-out idle" role="group" aria-label={`${w("Quests")} out now`}><span className="co-none">No {w("quests")} out</span>{hide}</div>;
   return (
     <div className="crew-out" role="group" aria-label={`${w("Quests")} out now`}>
       <span className="co-head"><b>{quests.length} out</b>{waiting > 0 && <span>· {waiting} {waiting === 1 ? "needs" : "need"} your OK</span>}</span>
@@ -164,7 +164,7 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
         );
       })}
     </section>
-    {S && onAdd && <button type="button" className="hist-icon crew-add" aria-label="Add a crew member" title={`Add ${an("crew")} member`} onClick={onAdd}>+</button>}
+    {S && onAdd && <button type="button" className="hist-icon crew-add" aria-label={`Add ${an("crew")} member`} title={`Add ${an("crew")} member`} onClick={onAdd}>+</button>}
     {S && <button type="button" className="hist-icon half-hide" aria-label={`Hide the ${w("crew")}`} title="Fold this half away to a rail, and give who's running the room" onClick={() => folded("crew")}><Icon name="chevronLeft" /></button>}
     </div>
     )}
@@ -175,7 +175,7 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
     )}
     {fold === "out" ? (
       <button type="button" className={cx("zone-rail half-rail", waiting > 0 && "waiting")} aria-expanded="false" aria-label="Show who's running" onClick={() => folded(null)}
-        title={`${quests.length ? `${quests.length} out${waiting ? `, ${waiting} ${waiting === 1 ? "needs" : "need"} your OK` : ""}` : "No agents running"}.\n\nShow who's running.`}>
+        title={`${quests.length ? `${quests.length} out${waiting ? `, ${waiting} ${waiting === 1 ? "needs" : "need"} your OK` : ""}` : `No ${w("quests")} out`}.\n\nShow who's running.`}>
         <Icon name="list" />{quests.length > 0 && <b>{quests.length}</b>}
       </button>
     ) : <QuestsOut quests={quests} onOpen={onOpenQuest} onHide={() => folded("out")} />}

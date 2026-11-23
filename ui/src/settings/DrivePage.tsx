@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { Icon } from "../components/bits.tsx";
-import { money, plural, when } from "../format.ts";
+import { leadName, money, nameNow, plural, when } from "../format.ts";
 import type { CampState, HomePage, Kind, Offer, WeekScore } from "../types.ts";
 
 import { w } from "../words.ts";
@@ -157,7 +157,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
   const d = home.drive;
   return (
     <div className="unasked-page">
-      <p className="panel-note">What the {w("camp")} does before you ask, while mission control is open. All of it prepares and proposes: work it starts still waits for your OK on its plan, and nothing is kept in memory or put on GitHub until you approve it.</p>
+      <p className="panel-note">What the {w("camp")} does before you ask, while {w("hq")} is open. All of it prepares and proposes: work it starts still waits for your OK on its plan, and nothing is kept in memory or put on GitHub until you approve it.</p>
       {note && <div className="meta bad" role="alert">{note}</div>}
 
       <div className="set-row">
@@ -189,7 +189,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Ticket debrief</b>
-          <p>When a ticket is done (a Mae ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the {w("crew")} did on it (the plan, each {w("quest")} and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the Quartermaster, the {w("crew")} or the project. One small call per ticket; nothing is kept until you approve it under Memory.</p>
+          <p>When a ticket is done (a Mae ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the {w("crew")} did on it (the plan, each {w("quest")} and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the {leadName()}, the {w("crew")} or the project. One small call per ticket; nothing is kept until you approve it under Memory.</p>
         </div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={d.debrief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { debrief: ev.target.checked }))} /> {d.debrief ? "On" : "Off"}</label>
@@ -222,7 +222,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row wide">
         <div className="set-label"><b>Feedback on a pull request starts work</b>
-          <p>A trigger per repository: new review comments or a failed check carry on the conversation that did the work, as a plan for you to approve. It can also have the Scribe redraft the description after each push, for you to approve.</p></div>
+          <p>A trigger per repository: new review comments or a failed check carry on the conversation that did the work, as a plan for you to approve. It can also have the {nameNow("Scribe")} redraft the description after each push, for you to approve.</p></div>
         <div className="set-control">
           {watching.length > 0 && (
             <ul className="list">

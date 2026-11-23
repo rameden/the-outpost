@@ -9,6 +9,8 @@ import { costOf, usd } from "./costs.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
 import { appendLine, readJsonl } from "./atomic.js";
 import { flat as clip } from "./helpers.js";
+import { currentName } from "./crew.js";
+import { w } from "./words.js";
 
 export const QUEST_LOG_PATH = "camp/quest-log.jsonl";
 
@@ -94,14 +96,15 @@ export function recentQuests(n = 15): QuestEntry[] {
 
 // For /log: a compact view, newest last.
 export function formatQuests(entries = recentQuests()): string {
-  if (entries.length === 0) return "The quest log is empty.";
+  if (entries.length === 0) return `The ${w("log")} is empty.`;
   return entries
     .map((e) => {
       const when = new Date(e.time).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
       const u = e.usage;
       const cached = u.input + u.cacheRead > 0 ? Math.round((100 * u.cacheRead) / (u.input + u.cacheRead + u.cacheWrite)) : 0;
       const tokens = `${((u.input + u.cacheRead + u.cacheWrite) / 1000).toFixed(1)}k in (${cached}% cached), ${(u.output / 1000).toFixed(1)}k out`;
-      const who = e.job ? `${e.character} [job: ${e.job}]` : e.character;
+      const name = currentName(e.character); // the log keeps the name of the day: show who that is now
+      const who = e.job ? `${name} [job: ${e.job}]` : name;
       const cost = `${usd(questCost(e))}${e.runtime === "claude-code" ? " est. (subscription)" : ""} on ${e.model.replace(/^claude-/, "")}`;
       return `${when}  ${who.padEnd(14)} ${e.status.padEnd(12)} ${e.seconds}s, ${e.turns} turns, ${tokens}, ${cost}\n` +
         `      asked: ${e.task}\n      result: ${e.result}`;

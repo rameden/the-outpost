@@ -6,6 +6,8 @@
 // this browser); what it draws is components/Decor.tsx; how it's coloured is "Decorations" in
 // styles.css.
 
+import { a as an } from "./words.ts";
+
 export type Effect = "snow" | "bats" | "confetti";
 export interface Season {
   id: string;
@@ -20,7 +22,7 @@ export interface Season {
 export const SEASONS = [
   { id: "winter", name: "Winter", about: "Snow, a string of lights and a frosty orb.", from: "12-01", to: "01-06", effect: "snow", lights: true },
   { id: "halloween", name: "Halloween", about: "A few bats, lights and a pumpkin-and-plum orb.", from: "10-24", to: "10-31", effect: "bats", lights: true },
-  { id: "newyear", name: "New Year", about: "Lights and a gold orb, and confetti each time an expedition finishes.", from: "12-31", to: "01-01", effect: "confetti", lights: true },
+  { id: "newyear", name: "New Year", get about() { return `Lights and a gold orb, and confetti each time ${an("expedition")} finishes.`; }, from: "12-31", to: "01-01", effect: "confetti", lights: true },
 ] as const satisfies readonly Season[];
 export type SeasonId = (typeof SEASONS)[number]["id"];
 

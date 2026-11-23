@@ -208,5 +208,6 @@ export const newsroom: Skin = {
     boat: { paint: { D: "#1b1b1f", H: "#d8d2c4", K: "#a8a294", I: "#3a3f4b", Y: "#ffd84a", T: "#c8402f" } },
   },
   // The old men of the street: a flat cap, a white beard, a brown cardigan.
+  builders: "pressmen",
   builder: { H: "#6b6f7a", D: "#4a4e58", S: SKIN, K: "#14181f", N: "#d9866a", B: "#f3f0e6", T: "#8a5a2b", F: "#1b1b1f" },
 };

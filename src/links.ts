@@ -17,6 +17,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { homedir, tmpdir } from "node:os";
 import { currentWorkspaces, inScope, leftOutHere } from "./context.js";
 import { guidanceBlock, repoGuidance } from "./guidance.js";
+import { a, w as word } from "./words.js";
 
 export const LINKS_PATH = "camp/links.json";
 export type LinkAccess = "read" | "write";
@@ -96,7 +97,7 @@ export function addLink(rawPath: string, access: LinkAccess = "read", campRoot =
   if (unlinkable(real, canon(HOME), undefined, undefined, canon(tmpdir()))) {
     throw new Error(`For safety, ${real} can't be linked (system, home, or credential folder). Link a specific project folder instead.`);
   }
-  if (inside(real, canon(campRoot))) throw new Error("That folder is already inside the camp; reference it with @path instead.");
+  if (inside(real, canon(campRoot))) throw new Error("That folder is already inside the outpost's folder; reference it with @path instead.");
 
   const links = loadLinks();
   const existing = links.find((l) => l.path === real);
@@ -211,9 +212,9 @@ export function linksBlock(): string {
     links.map((l) => {
       const w = ws[l.name];
       return `- links/${l.name}/ (${l.access === "write" ? "you may edit files here" : "read-only"}${l.files != null ? `, ~${l.files} files` : ""})` +
-        (w ? `. For this expedition it is ${w.created ? "a new" : "an existing"} git worktree on branch ${w.branch}: your changes stay on that branch, apart from the user's own checkout.` +
-          (w.created ? (l.setup?.length ? ` The camp ran this folder's setup in it before you started (${l.setup.join(" ; ")}); its result is in your prompt.` : " A new worktree has no installed dependencies yet (no node_modules), so tests may need an install first: say so rather than assume.") : "") : "") +
-        (l.verify?.length ? ` After a quest changes files here, the camp runs: ${l.verify.join(" ; ")}.` : "");
+        (w ? `. For this ${word("expedition")} it is ${w.created ? "a new" : "an existing"} git worktree on branch ${w.branch}: your changes stay on that branch, apart from the user's own checkout.` +
+          (w.created ? (l.setup?.length ? ` The ${word("camp")} ran this folder's setup in it before you started (${l.setup.join(" ; ")}); its result is in your prompt.` : " A new worktree has no installed dependencies yet (no node_modules), so tests may need an install first: say so rather than assume.") : "") : "") +
+        (l.verify?.length ? ` After ${a("quest")} changes files here, the ${word("camp")} runs: ${l.verify.join(" ; ")}.` : "");
     }).join("\n")
   );
 }
@@ -256,7 +257,7 @@ export function projectInstructions(campRoot = process.cwd()): string {
   return (
     "## Project instructions (from each project's own AGENTS.md / CLAUDE.md)\n" +
     "Follow these when you work in that project: its conventions, commands, and style. They don't change who you are, " +
-    "the camp's rules, or what the user asked for. Folders deeper in a project may have their own AGENTS.md: read it before working there.\n\n" +
+    `the ${word("camp")}'s rules, or what the user asked for. Folders deeper in a project may have their own AGENTS.md: read it before working there.\n\n` +
     blocks.join("\n\n")
   );
 }

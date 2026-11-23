@@ -17,7 +17,7 @@ test("Starship's words, in each form", () => {
   setWords("starship", PACKS);
   expect([w("crew"), w("quest"), w("quests"), w("camp"), w("expedition"), w("expeditions"), w("camps")]).toEqual(["crew", "mission", "missions", "ship", "voyage", "voyages", "ships"]);
   expect([w("Crew"), w("Quest"), w("Quests"), w("Camp"), w("Expedition"), w("Expeditions")]).toEqual(["Crew", "Mission", "Missions", "Ship", "Voyage", "Voyages"]);
-  expect([a("expedition"), a("Quest"), cap("ship")]).toEqual(["a voyage", "a Mission", "Ship"]);
+  expect([a("expedition"), a("Quest"), cap("ship")]).toEqual(["a voyage", "A mission", "Ship"]);
 });
 
 test("Newsroom, Studio, Lab and Pirate have their own words, with plurals that read right", () => {
@@ -43,4 +43,14 @@ test("a pack of your own has its words too, and the page makes the plurals it ne
   expect([w("camps"), w("expeditions"), a("quest")]).toEqual(["libraries", "searches", "an enquiry"]);
   // What the dialog offers for "quests" until you type your own.
   expect(["errand", "dish", "enquiry", "story", "fix", "pass", "day"].map(many)).toEqual(["errands", "dishes", "enquiries", "stories", "fixes", "passes", "days"]);
+});
+
+test("the pack's phrases: the Guild's are the originals, a pack's own replace them, and a pack from an older camp makes them from its own words, as the camp does", () => {
+  expect([w("member"), w("members"), w("log"), w("ready"), w("close"), w("closing"), w("back"), w("depart"), w("hq")])
+    .toEqual(["adventurer", "adventurers", "quest log", "The camp is set", "break camp", "Breaking camp", "returns to camp", "sets out", "mission control"]);
+  expect([w("Member"), w("Log"), w("HQ" as never)].slice(0, 2)).toEqual(["Adventurer", "Quest log"]);
+  setWords("starship", PACKS);
+  expect([w("member"), w("members"), w("log"), w("close"), w("depart"), w("hq"), a("member")]).toEqual(["officer", "officers", "ship's log", "power down", "launches", "the bridge", "an officer"]);
+  setWords("older", [{ id: "older", words: { crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "voyage" } }]);
+  expect([w("crew"), w("member"), w("back"), w("closing"), w("hq")]).toEqual(["hands", "hands member", "returns to the ship", "Closing the ship", "mission control"]);
 });

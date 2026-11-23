@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../api.ts";
-import { money, plural } from "../format.ts";
+import { leadName, money, plural } from "../format.ts";
 import type { Payoff } from "../types.ts";
 
 import { a as an } from "../words.ts";
@@ -53,7 +53,7 @@ export function PayoffSection({ project, reloadKey, estimated }: { project: { id
       </table>
       {p.total > 0 && (
         <div className="meta">{p.checkingShare}% of this project's usage went on checking the work (reviews, second opinions, sent-back checks){estimated ? "; amounts are estimates at API prices" : ""}.
-          A review the Quartermaster runs by itself counts under the work. If the checking rarely finds anything, it can be turned down in Settings or in this project's own defaults.</div>
+          A review the {leadName()} runs by itself counts under the work. If the checking rarely finds anything, it can be turned down in Settings or in this project's own defaults.</div>
       )}
     </section>
   );

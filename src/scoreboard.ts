@@ -22,10 +22,11 @@ import { allFeedback } from "./feedback.js";
 import { spentOn } from "./payoff.js";
 import { conversationOf, pulls as knownPulls, type Pull } from "./pulls.js";
 import { questCost, recentQuests } from "./questlog.js";
-import { currentName } from "./crew.js";
+import { CREW, currentName } from "./crew.js";
 import { allTurns } from "./threads.js";
 import { loadTriggers, type Trigger } from "./triggers.js";
 import { median, weekSpan as span } from "./helpers.js";
+import { w } from "./words.js";
 
 // work: asking for something to be built, changed or fixed. feedback: bringing a pull request's
 // review comments or failing checks to the crew. writeup: asking for a description or a write-up
@@ -146,11 +147,11 @@ export function offers(board: Scoreboard, o: { triggers?: Trigger[]; pulls?: Pul
   const n = (c: number, one: string) => `${c} ${one}${c === 1 ? "" : "s"}`;
   return links.map((link) => {
     const project = (board.project ? projects.find((p) => p.id === board.project) : projects.find((p) => p.links?.includes(link)))?.id;
-    const why = [feedback >= ENOUGH ? `${n(feedback, "time")} you brought a pull request's review comments to the crew yourself` : "", writeup >= ENOUGH ? `${n(writeup, "time")} you asked for a description to be written or brought up to date` : ""].filter(Boolean).join(", and ");
+    const why = [feedback >= ENOUGH ? `${n(feedback, "time")} you brought a pull request's review comments to the ${w("crew")} yourself` : "", writeup >= ENOUGH ? `${n(writeup, "time")} you asked for a description to be written or brought up to date` : ""].filter(Boolean).join(", and ");
     return {
       key: `github-pr:${link}`,
       what: `Watch your pull requests in links/${link}`,
-      why: `In the last two weeks: ${why}. With this on, new feedback starts a plan for you to approve${writeup >= ENOUGH ? ", and new commits have the Scribe draft the updated description for you to approve" : ""}.`,
+      why: `In the last two weeks: ${why}. With this on, new feedback starts a plan for you to approve${writeup >= ENOUGH ? `, and new commits have the ${CREW.scribe.name} draft the updated description for you to approve` : ""}.`,
       trigger: { name: `my-pull-requests-${link}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), kind: "github-pr" as const, link, describe: writeup >= ENOUGH, ...(project && project !== GENERAL ? { project } : {}) },
     };
   });

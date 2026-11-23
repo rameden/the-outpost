@@ -18,6 +18,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { cx, money, plural, when } from "../format.ts";
+import { outpostName } from "../outpost.ts";
 import { w } from "../words.ts";
 import type { View } from "../feed/conversation.ts";
 import { OfferCard } from "../settings/DrivePage.tsx";
@@ -269,7 +270,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
                 {brief.done.finished.map((f) => <button type="button" key={f.conversation} className="pill pill-link" onClick={() => setView({ kind: "conversation", id: f.conversation })}>{f.title} · {f.runs} {plural(f.runs, "run")} finished</button>)}
                 {brief.done.merged.map((m) => <a key={m.url} className="pill pill-link" href={m.url} target="_blank" rel="noopener noreferrer">{m.title} · merged</a>)}
               </div>
-              <div className="meta">{brief.done.requests} {plural(brief.done.requests, "request")}{brief.done.byMae ? `, ${brief.done.byMae} of them started by Mae` : ""}{brief.done.cost ? ` · ${money(brief.done.cost)} at API prices` : ""}</div>
+              <div className="meta">{brief.done.requests} {plural(brief.done.requests, "request")}{brief.done.byMae ? `, ${brief.done.byMae} of them started by ${outpostName()}` : ""}{brief.done.cost ? ` · ${money(brief.done.cost)} at API prices` : ""}</div>
             </section>
           )}
           {waiting > 0 && !day && (

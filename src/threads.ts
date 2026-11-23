@@ -7,6 +7,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import type { Workspace } from "./context.js";
 import { expeditionDigest } from "./feed.js";
 import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
+import { w } from "./words.js";
 
 export const THREADS_PATH = "camp/threads.jsonl";
 const MAX_HISTORY_CHARS = 40_000;
@@ -141,7 +142,7 @@ export function threadFor(replyTo: string | undefined, stillRunning: (expedition
     const block = cutOff && stillRunning(t.expedition)
       ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run is still going, in parallel with this one. What it has done so far:\n${expeditionDigest(t.expedition) || "(nothing recorded yet)"}`
       : cutOff
-      ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run was cut off before it finished (the camp stopped or restarted). What it had done by then:\n${expeditionDigest(t.expedition) || "(nothing was recorded)"}`
+      ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run was cut off before it finished (the ${w("camp")} stopped or restarted). What it had done by then:\n${expeditionDigest(t.expedition) || "(nothing was recorded)"}`
       : `### ${when}\nThe user asked${t.aside ? ` @${t.agent} to step in` : ""}:\n${t.task.trim()}\n\n${(reader ? t.agent !== reader : t.aside) ? `@${t.agent} answered` : "You answered"} (${t.status}):\n${answer}`;
     if (blocks.length && used + block.length > MAX_HISTORY_CHARS) break;
     blocks.unshift(block.slice(0, MAX_HISTORY_CHARS));

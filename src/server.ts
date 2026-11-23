@@ -34,7 +34,7 @@ import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
 import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, ownOf, activePack, setPack, addPack, updatePack, removePack, packsLeftOut, currentName, type CrewId } from "./crew.js";
 import { PACKS, RETIRED } from "./packs.js";
-import { withPack } from "./words.js";
+import { w as word, withPack } from "./words.js"; // "word": w is what a piece of queued work is called here
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
@@ -88,7 +88,7 @@ import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError
 import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
-import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
+import { uiPage, uiAsset, uiCsp, uiNotBuilt, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
 import { OUTPOST, renameOutpost, withOutpost } from "./outpost.js";
 import { chartAddress } from "./hub.js";
 
@@ -147,7 +147,7 @@ const BUFFER_SIZE = 800;
 const TICK_MS = 30_000;
 const STREAM_BACKLOG_MAX = 8_000_000;
 
-attachConsole(); // the terminal still shows everything
+attachConsole(() => ({ lead: CREW.quartermaster.name, back: word("back") })); // the terminal still shows everything
 
 // ---------- Event buffer + live streams ----------
 // The feed is saved to camp/feed.jsonl and reloaded here, so it survives a restart.
@@ -370,7 +370,7 @@ setInterval(() => {
           for (const key of due) {
             try {
               const d = await runDebrief(key);
-              emit({ type: "notice", who: "Tickets", emoji: "🎫", depth: 0, text: `${key} is debriefed: how the crew did on it is on the ticket.${lessonsLine(d.proposed.length)}` });
+              emit({ type: "notice", who: "Tickets", emoji: "🎫", depth: 0, text: `${key} is debriefed: how the ${word("crew")} did on it is on the ticket.${lessonsLine(d.proposed.length)}` });
             } catch (e: any) { debriefFailed.set(key, Date.now()); console.error(`💥 debrief ${key}: ${e?.message ?? e}`); }
           }
         })().finally(() => { debriefing = false; });
@@ -679,7 +679,11 @@ function hostOk(req: http.IncomingMessage) {
 // Did this request come from the camp's own machine? Asked of the connection; a proxy's headers
 // (a Cloudflare Tunnel's, say) can only say no, since the tunnel itself connects from here.
 const fromHere = (req: http.IncomingMessage) => isLocal(req.socket.remoteAddress) && !relayed(req.headers);
-const NOT_FROM_HERE = "The terminal is a shell on the camp's own machine, so it only opens in a browser on that machine. Everything else works from here.";
+// Said in the pack's words (words.ts), so they're made when they're needed, never at import.
+const noSuch = () => `No such ${word("crew")} member`;
+// The mark on the terminal's own lines: the Guild's tent, or whoever leads under another pack.
+const sign = () => (activePack().id === "guild" ? "🏕️" : CREW.quartermaster.emoji);
+const notFromHere = () => `The terminal is a shell on the ${word("camp")}'s own machine, so it only opens in a browser on that machine. Everything else works from here.`;
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -691,7 +695,7 @@ const server = http.createServer(async (req, res) => {
     // camp in them, so they need no key. What the page then asks for does.
     if (req.method === "GET" && url.pathname === "/") {
       const page = uiPage(undefined, STYLE_NONCE);
-      if (!page) return send(res, 503, UI_NOT_BUILT, "text/plain; charset=utf-8");
+      if (!page) return send(res, 503, uiNotBuilt(word("Hq")), "text/plain; charset=utf-8");
       res.setHeader("content-security-policy", uiCsp(STYLE_NONCE));
       return send(res, 200, page, "text/html; charset=utf-8");
     }
@@ -708,7 +712,7 @@ const server = http.createServer(async (req, res) => {
     // A sign-in code for the key: once. { code } → { token }.
     if (req.method === "POST" && url.pathname === "/api/login") {
       const code = String((await readJson(req)).code ?? "");
-      if (!takeSignInCode(code)) return send(res, 401, { error: "That sign-in link has been used, has lapsed, or is from an earlier start. Press Enter in the camp's terminal for a new one, or make one under Settings → General in a browser that's signed in." });
+      if (!takeSignInCode(code)) return send(res, 401, { error: `That sign-in link has been used, has lapsed, or is from an earlier start. Press Enter in the ${word("camp")}'s terminal for a new one, or make one under Settings → General in a browser that's signed in.` });
       return send(res, 200, { token: TOKEN });
     }
     // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
@@ -782,7 +786,7 @@ const server = http.createServer(async (req, res) => {
     // One crew member's page: identity, model, stats, runs, chat history, memory, outputs, tools, skills.
     if (req.method === "GET" && url.pathname === "/api/agent") {
       const id = String(url.searchParams.get("id")) as CrewId;
-      if (!CREW[id]) return send(res, 404, { error: "No such crew member" });
+      if (!CREW[id]) return send(res, 404, { error: noSuch() });
       return send(res, 200, await agentDetail(id));
     }
 
@@ -796,7 +800,7 @@ const server = http.createServer(async (req, res) => {
     // A file from an agent's outputs folder: images as images, text as JSON.
     if (req.method === "GET" && url.pathname === "/api/agent/output") {
       const id = String(url.searchParams.get("id")) as CrewId;
-      if (!CREW[id]) return send(res, 404, { error: "No such crew member" });
+      if (!CREW[id]) return send(res, 404, { error: noSuch() });
       const abs = resolve(CAMP_ROOT, normalize(url.searchParams.get("path") ?? ""));
       if (!abs.startsWith(resolve(CAMP_ROOT, workspace(id).outputs) + sep) || !existsSync(abs)) return send(res, 404, { error: "No such file" });
       const media = imageType(abs);
@@ -828,7 +832,7 @@ const server = http.createServer(async (req, res) => {
     // The terminal pane: your own shell sessions (term.ts). No agent has a tool that reaches these.
     // And no other machine does: a shell on this one isn't handed out over the network (access.ts).
     if (url.pathname === "/api/term" || url.pathname.startsWith("/api/term/")) {
-      if (!fromHere(req)) return send(res, 403, { error: NOT_FROM_HERE });
+      if (!fromHere(req)) return send(res, 403, { error: notFromHere() });
     }
     if (req.method === "GET" && url.pathname === "/api/term") return send(res, 200, { terminals: listTerminals() });
     if (req.method === "GET" && url.pathname === "/api/term/stream") {
@@ -902,7 +906,7 @@ const server = http.createServer(async (req, res) => {
       try {
         // link "@camp": a file the camp keeps for you (a crew member's output, a wiki page, an upload). Opened, never listed.
         const own = q.get("link") === CAMP_FILES ? campFile(q.get("path") ?? "", CAMP_ROOT) : null;
-        if (own && url.pathname !== "/api/tree/file" && url.pathname !== "/api/tree/raw") return send(res, 400, { error: "The camp's own files can be opened, not listed." });
+        if (own && url.pathname !== "/api/tree/file" && url.pathname !== "/api/tree/raw") return send(res, 400, { error: `The ${word("camp")}'s own files can be opened, not listed.` });
         const root = own?.root ?? await explorerRoot(String(q.get("link") ?? ""), q.get("root") || undefined);
         const path = own?.path ?? q.get("path") ?? "";
         if (url.pathname === "/api/tree") return send(res, 200, { ...listFolder(root, path), ...(path ? {} : { changed: await changedFiles(root) }) });
@@ -1039,7 +1043,7 @@ const server = http.createServer(async (req, res) => {
       if (!text) text = "Take a look at what I attached.";
       const direct = text.match(/^@(\w+)\s+([\s\S]+)$/) ?? (attachments.length ? text.match(/^@(\w+)$/) : null);
       let who = direct ? findCrew(direct[1]) : undefined;
-      if (direct && !who) return send(res, 400, { error: `No crew member named "${direct[1]}"` });
+      if (direct && !who) return send(res, 400, { error: `No ${word("crew")} member named "${direct[1]}"` });
       const { content, attached } = buildRequest(direct ? direct[2] ?? "Take a look at what I attached." : text, attachments);
       // A follow-up: { replyTo: <expedition id> } continues that conversation with whoever it was
       // with (unless the message names someone else). An agent's chat page sends { chat: true }
@@ -1171,7 +1175,7 @@ const server = http.createServer(async (req, res) => {
     // Pick an agent's model and effort. { id, model, effort } sets them; { id, reset: true } goes back to defaults.
     if (url.pathname === "/api/agents") {
       const id = String(body.id) as keyof typeof CREW;
-      if (!CREW[id]) return send(res, 404, { error: "No such crew member" });
+      if (!CREW[id]) return send(res, 404, { error: noSuch() });
       if (body.reset) {
         setAgentSettings(id, { model: null, effort: null, maxTurns: null });
         return send(res, 200, { ok: true });
@@ -1262,7 +1266,7 @@ const server = http.createServer(async (req, res) => {
         const id = String(body.id ?? "");
         if (body.action === "remove") {
           if ([...running.values(), ...queue].some((w) => w.label === `@${id}`)) return send(res, 409, { error: "They're in the middle of something. Wait for it to finish, or stop it first." });
-          if (!removeMember(id)) return send(res, 404, { error: "No such crew member (the original ones can't be removed)." });
+          if (!removeMember(id)) return send(res, 404, { error: `${noSuch()} (the original ones can't be removed).` });
         } else if (body.action === "update") updateMember(id, body.member ?? {});
         else if (body.action === "add") addMember(body.member ?? {});
         else return send(res, 400, { error: "Unknown action" });
@@ -1319,7 +1323,7 @@ const server = http.createServer(async (req, res) => {
     // Open the system's folder dialog on this machine and return the chosen path (not linked yet).
     if (url.pathname === "/api/links/pick") {
       // The dialog opens on the camp's machine: no use to someone sitting at another one.
-      if (!fromHere(req)) return send(res, 200, { unsupported: "The folder dialog opens on the camp's own machine, not this one. Paste the folder's full path (as it is on the camp's machine) instead." });
+      if (!fromHere(req)) return send(res, 200, { unsupported: `The folder dialog opens on the ${word("camp")}'s own machine, not this one. Paste the folder's full path (as it is on the ${word("camp")}'s machine) instead.` });
       try {
         return send(res, 200, await pickFolder());
       } catch (e: any) {
@@ -1343,7 +1347,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/steer") {
       const w = running.get(String(body.id));
       const said = String(body.text ?? "").trim();
-      if (!w) return send(res, 409, { error: "That expedition isn't running any more. Use Reply to follow up." });
+      if (!w) return send(res, 409, { error: `That ${word("expedition")} isn't running any more. Use Reply to follow up.` });
       if (!said) return send(res, 400, { error: "Nothing to send" });
       steer(w.steering, said.slice(0, 8000));
       emit({ type: "steer", id: w.id, text: said.slice(0, 8000), expeditionId: w.id });
@@ -1499,7 +1503,7 @@ const server = http.createServer(async (req, res) => {
         const id = String(body.id ?? "");
         let made = id;
         if (body.action === "remove") {
-          if (!removePack(id)) return send(res, 404, { error: "No such pack of yours (the ones the camp comes with can't be deleted)." });
+          if (!removePack(id)) return send(res, 404, { error: `No such pack of yours (the ones the ${word("camp")} comes with can't be deleted).` });
         } else if (body.action === "update") updatePack(id, body.pack ?? {});
         else if (body.action === "add") made = addPack(body.pack ?? {}).id;
         else return send(res, 400, { error: "Unknown action" });
@@ -1746,7 +1750,7 @@ const server = http.createServer(async (req, res) => {
     // Edit a crew member's memory by hand ({ id, text }).
     if (url.pathname === "/api/agent/memory") {
       const id = String(body.id) as CrewId;
-      if (!CREW[id]) return send(res, 404, { error: "No such crew member" });
+      if (!CREW[id]) return send(res, 404, { error: noSuch() });
       if (typeof body.text !== "string" || body.text.length > 50_000) return send(res, 400, { error: "Memory must be text under 50,000 characters" });
       writeMemory(id, body.text);
       return send(res, 200, { ok: true });
@@ -1755,7 +1759,7 @@ const server = http.createServer(async (req, res) => {
     // Put back every file an expedition's file tools changed ({ id }).
     if (url.pathname === "/api/checkpoint/undo") {
       const id = String(body.id ?? "");
-      if (running.has(id)) return send(res, 409, { error: "That expedition is still running. Stop it first." });
+      if (running.has(id)) return send(res, 409, { error: `That ${word("expedition")} is still running. Stop it first.` });
       const r = undoCheckpoint(id);
       emit({ type: "changed", what: "checkpoints" });
       return send(res, 200, { ok: true, ...r });
@@ -1763,7 +1767,7 @@ const server = http.createServer(async (req, res) => {
 
     // Read your plan's usage figures now (it sends no message, so it uses none of your plan).
     if (url.pathname === "/api/limits/refresh") {
-      if (campRuntime() !== "claude-code") return send(res, 400, { error: "Plan limits only apply when the crew runs on your Claude subscription." });
+      if (campRuntime() !== "claude-code") return send(res, 400, { error: `Plan limits only apply when the ${word("crew")} runs on your Claude subscription.` });
       const ok = await refreshPlanUsage(true);
       return send(res, ok ? 200 : 502, ok ? { ok: true } : { error: "Claude Code didn't report your plan's usage. Check that you're signed in (claude /login), then try again." });
     }
@@ -1860,7 +1864,7 @@ const server = http.createServer(async (req, res) => {
       noteAsked();
       const read = await checkPulls();
       const p = read.pulls.find((x) => x.url === body.url);
-      if (!p) return send(res, 404, { error: read.error ?? "That pull request isn't one the camp knows of any more." });
+      if (!p) return send(res, 404, { error: read.error ?? `That pull request isn't one the ${word("camp")} knows of any more.` });
       const item = pullItems([p], false)[0];
       if (!item) return send(res, 400, { error: "Nothing is waiting on that pull request right now." });
       const watching = loadTriggers().find((t) => t.kind === "github-pr" && t.link === p.link);
@@ -1918,8 +1922,8 @@ const server = http.createServer(async (req, res) => {
 // ---------- Staying up, and going down cleanly ----------
 // The camp runs for days with work in flight, so one stray error (a socket that reset, a bug in
 // a timer) is logged and the camp carries on, instead of every running expedition dying with it.
-process.on("uncaughtException", (err) => console.error("💥 Unexpected error (the camp keeps running):", err));
-process.on("unhandledRejection", (err) => console.error("💥 Unhandled rejection (the camp keeps running):", err));
+process.on("uncaughtException", (err) => console.error(`💥 Unexpected error (the ${word("camp")} keeps running):`, err));
+process.on("unhandledRejection", (err) => console.error(`💥 Unhandled rejection (the ${word("camp")} keeps running):`, err));
 
 // However the camp ends (Ctrl+C, a closed terminal window, `kill`), the work it started ends with
 // it: stopping each run also ends the commands it spawned, which run in their own process groups
@@ -1933,7 +1937,7 @@ function shutDown(signal: string) {
   if (closing) process.exit(1); // asked twice: go now
   closing = true;
   const stopped = stopWork();
-  if (stopped.length || queue.length) console.log(`\n🏕️  Breaking camp (${signal}): stopped ${stopped.length} running, ${queue.length} waiting. Reply "resume" in a conversation to pick its work back up.`);
+  if (stopped.length || queue.length) console.log(`\n${sign()}  ${word("closing")} (${signal}): stopped ${stopped.length} running, ${queue.length} waiting. Reply "resume" in a conversation to pick its work back up.`);
   queue.length = 0;
   for (const res of streams) res.end();
   server.close();
@@ -1960,19 +1964,19 @@ const USAGE_STALE = 5 * 60_000;
 const freshenUsage = () => { if (campRuntime() === "claude-code" && Date.now() - usageMeasuredAt() > USAGE_STALE) void refreshPlanUsage(); };
 server.on("error", (err: NodeJS.ErrnoException) => {
   console.error(err.code === "EADDRINUSE"
-    ? `💥 Port ${PORT} is taken: another camp may be running. Stop it, or set CAMP_PORT to a free port.`
-    : `💥 Mission control couldn't start: ${err.message}`);
+    ? `💥 Port ${PORT} is taken: another ${word("camp")} may be running. Stop it, or set CAMP_PORT to a free port.`
+    : `💥 ${word("Hq")} couldn't start: ${err.message}`);
   process.exit(1);
 });
 server.listen(PORT, ACCESS.listen, () => {
   freshenUsage();
-  console.log(`🏕️  Outpost ${OUTPOST.name} is up: ${newSignInLink()}`);
+  console.log(`${sign()}  Outpost ${OUTPOST.name} is up: ${newSignInLink()}`);
   console.log(`   That link signs one browser in, once. After that, the plain address opens by itself there.`);
   if (ACCESS.lan) {
     console.log(`   ⚠️  LAN mode: other machines on this network can reach it${fromElsewhere() ? ` (${ACCESS.names.map((n) => addressOf(n, PORT)).join(", ")})` : ", but this machine has no network address just now"}.`);
     console.log(`      It's plain HTTP: for a home network you trust, never a port forwarded to the internet. The terminal pane only opens on this machine.`);
   }
-  console.log(`   Press Enter here for another sign-in link. Scheduled jobs run while this is open. Ctrl+C to break camp.`);
+  console.log(`   Press Enter here for another sign-in link. Scheduled jobs run while this is open. Ctrl+C to ${word("close")}.`);
   void announceRuntime();
 });
 
@@ -1981,9 +1985,9 @@ rl.on("line", () => console.log(`   Sign in with: ${newSignInLink()}`));
 
 // Say up front what the crew runs on, and warn if the subscription login isn't usable.
 async function announceRuntime() {
-  if (campRuntime() === "api") return console.log("   Crew runs on: the API (ANTHROPIC_API_KEY).");
+  if (campRuntime() === "api") return console.log(`   ${word("Crew")} runs on: the API (ANTHROPIC_API_KEY).`);
   const login = await claudeLogin();
   console.log(login.ok
-    ? `   Crew runs on: your Claude ${login.plan ? login.plan[0].toUpperCase() + login.plan.slice(1) + " " : ""}subscription, through Claude Code${login.version ? ` ${login.version}` : ""}.`
+    ? `   ${word("Crew")} runs on: your Claude ${login.plan ? login.plan[0].toUpperCase() + login.plan.slice(1) + " " : ""}subscription, through Claude Code${login.version ? ` ${login.version}` : ""}.`
     : `   ⚠️  ${login.problem}`);
 }

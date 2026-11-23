@@ -49,7 +49,7 @@ test("shell commands run inside a linked repo, and read-only git there doesn't a
   assert.equal(asked.length, 0, "neither asked");
   assert.match(String(await bash({ command: "touch made.txt", cwd: L })), /declined/);
   assert.match(asked[0], new RegExp(`touch made\\.txt\\n\\(in ${L}\\)`), "the approval says where it would run");
-  assert.throws(() => shellDir("/etc"), /outside the camp/);
+  assert.throws(() => shellDir("/etc"), /outside the outpost's folder/);
 });
 
 test("an expedition can work in its own worktree and branch; file tools and the shell follow it", async () => {

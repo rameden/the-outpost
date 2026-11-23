@@ -32,6 +32,7 @@ import { CREW } from "./crew.js";
 import { SECRET_NAME } from "./links.js";
 import { campMode, campPath, clipOutput, type Tool } from "./tools.js";
 import { checkFailed, checkPending, gh } from "./github.js";
+import { w } from "./words.js";
 
 export const PR_ACTIONS = ["view", "diff", "list"] as const;
 type Action = (typeof PR_ACTIONS)[number];
@@ -43,7 +44,7 @@ const MAX_BYTES = 8_000_000;
 type Ran = { ok: boolean; out: string };
 const whyNot = (err: any, program: string, signal?: AbortSignal): Ran => {
   if (err?.code === "ENOENT") return { ok: false, out: `${program} isn't installed, so pull requests can't be read from here.` };
-  if (signal?.aborted) return { ok: false, out: "Not run: the expedition was stopped." };
+  if (signal?.aborted) return { ok: false, out: `Not run: the ${w("expedition")} was stopped.` };
   return { ok: false, out: `Couldn't read it: ${String(err?.stderr || err?.message).trim().slice(0, 600)}` };
 };
 const runGh = (args: string[], dir: string, signal?: AbortSignal, input?: string): Promise<Ran> =>

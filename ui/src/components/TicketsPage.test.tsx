@@ -147,7 +147,7 @@ test("a done ticket the crew worked on shows how they did, and can be debriefed 
   fireEvent.click(screen.getByRole("button", { name: "Debrief now" }));
   expect(await screen.findByText("The test was left out until the review.")).toBeTruthy();
   expect(posted).toEqual(['{"key":"MAE-4"}']);
-  expect(screen.getByText(/3 runs \(2 typed by you\) and 2 quests, costing \$1\.00/)).toBeTruthy();
+  expect(screen.getByText(/3 expeditions \(2 typed by you\) and 2 quests, costing \$1\.00/)).toBeTruthy();
   expect(screen.getByText("Brief a test as its own step.", { exact: false }).textContent).toBe("Quartermaster's memory: Brief a test as its own step.");
   expect(screen.getByRole("button", { name: "Debrief again" })).toBeTruthy();
 });

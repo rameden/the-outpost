@@ -10,7 +10,7 @@ import { api, errorText } from "../api.ts";
 import { activityOf, type View } from "../feed/conversation.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { WorkspaceBox } from "../feed/Workspaces.tsx";
-import { money, plural, shortModel, spaced, when } from "../format.ts";
+import { money, nameNow, plural, shortModel, spaced, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Conversation, History, Project, ProjectPageData, SendResult } from "../types.ts";
 import { Icon } from "./bits.tsx";
@@ -114,10 +114,10 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
       <Presence>{askSurvey && (
         <Confirm title={page?.brief ? `Survey ${project.name} again?` : `Survey ${project.name}?`} action={page?.brief ? "Survey again" : "Survey"} busy={surveying}
           onConfirm={survey} onCancel={() => setAskSurvey(false)}>
-          <p>The Scout reads through {(project.links ?? []).map((l) => `links/${l}/`).join(", ") || "the project's folders"} and writes up the stack, the layout and the commands that work.
-            The ${w("crew")} is given that at the start of every conversation here, so it stops rediscovering them.</p>
+          <p>The {nameNow("Scout")} reads through {(project.links ?? []).map((l) => `links/${l}/`).join(", ") || "the project's folders"} and writes up the stack, the layout and the commands that work.
+            The {w("crew")} is given that at the start of every conversation here, so it stops rediscovering them.</p>
           {page?.brief ? <p><b>The survey you have now is replaced</b> when the new one comes back.</p> : null}
-          <p className="meta">It runs as a conversation with the Scout, which opens when you start it, and uses some of your plan.</p>
+          <p className="meta">It runs as a conversation with the {nameNow("Scout")}, which opens when you start it, and uses some of your plan.</p>
         </Confirm>
       )}</Presence>
       <header className="proj-head">
@@ -127,7 +127,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
         </div>
         <div className="proj-actions">
           <button type="button" className="btn small primary" onClick={() => setView({ kind: "new", project: general ? undefined : project.id })}>New conversation</button>
-          {hasFolders && <button type="button" className="btn small" disabled={surveying} title={`The Scout reads through the project's folders and writes a brief for the ${w("crew")}`} onClick={() => setAskSurvey(true)}>{page?.brief ? "Survey again" : "Survey this project"}</button>}
+          {hasFolders && <button type="button" className="btn small" disabled={surveying} title={`The ${nameNow("Scout")} reads through the project's folders and writes a brief for the ${w("crew")}`} onClick={() => setAskSurvey(true)}>{page?.brief ? "Survey again" : "Survey this project"}</button>}
           <button type="button" className="btn small" onClick={() => onEdit(project)}>Edit…</button>
           {!general && <button type="button" className="btn small danger quiet" onClick={() => onDelete(project)}>Delete</button>}
         </div>
@@ -151,7 +151,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
       {!general && hasFolders && (
         <Editable label="Survey of the project" text={page?.brief ?? ""} onSave={save("project.brief", {})}
           hint={`Markdown. The ${w("crew")} sees this in every conversation in the project.`}
-          empty={<>Not surveyed yet. <button type="button" className="linkish" disabled={surveying} onClick={() => setAskSurvey(true)}>Survey this project</button> and the Scout will write up its stack, layout, and commands, so the {w("crew")} stops rediscovering them.</>} />
+          empty={<>Not surveyed yet. <button type="button" className="linkish" disabled={surveying} onClick={() => setAskSurvey(true)}>Survey this project</button> and the {nameNow("Scout")} will write up its stack, layout, and commands, so the {w("crew")} stops rediscovering them.</>} />
       )}
       {!general && (
         <Editable label={`What the ${w("crew")} has learned here`} text={page?.notes ?? ""} onSave={save("project.notes", {})}
@@ -221,7 +221,7 @@ function ConversationRow({ c, activity, onOpen }: { c: Conversation; activity?: 
         <span className="proj-row-title">{c.direct ? `@${c.agent} · ` : ""}{c.title}</span>
         {activity?.needs ? <span className="hist-needs" title={`${activity.needs} waiting for your decision`}>{activity.needs}</span> : null}
         {running ? <span className="pill live">Running</span> : !ok && <span className="pill bad">{spaced(c.status === "running" ? "interrupted" : c.status)}</span>}
-        <span className="meta">{c.expeditions.length > 1 ? `${c.expeditions.length} runs · ` : ""}{when(c.updated)}</span>
+        <span className="meta">{c.expeditions.length > 1 ? `${c.expeditions.length} ${w("expeditions")} · ` : ""}{when(c.updated)}</span>
       </button>
     </li>
   );

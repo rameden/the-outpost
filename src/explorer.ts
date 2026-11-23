@@ -16,6 +16,7 @@ import { findLink, inside, SECRET_NAME } from "./links.js";
 import { listWorktrees } from "./repos.js";
 import { samePath } from "./platform.js";
 import { gitFilterOverrides, gitSafeEnv } from "./sandbox.js";
+import { w } from "./words.js";
 
 // secret: listed, but not opened. outside: a symlink that leads out of the folder.
 export type TreeEntry = { name: string; dir: boolean; size?: number; secret?: true; outside?: true };
@@ -50,7 +51,7 @@ export const CAMP_FILES = "@camp";
 const CAMP_READABLE = /^(agents\/[A-Za-z0-9_-]+\/outputs|wiki|uploads)\/./;
 export function campFile(rel: string, campRoot = process.cwd()): { root: string; path: string } {
   const path = posix.normalize(String(rel).replace(/\\/g, "/")).replace(/^\.\//, "");
-  if (!CAMP_READABLE.test(path)) throw new Error("Only the crew's outputs, the wiki and your uploads are opened from the camp folder.");
+  if (!CAMP_READABLE.test(path)) throw new Error(`Only the ${w("crew")}'s outputs, the wiki and your uploads are opened from the outpost's folder.`);
   return { root: resolve(campRoot, "camp"), path };
 }
 

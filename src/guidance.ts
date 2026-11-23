@@ -20,6 +20,7 @@
 import { execFileSync } from "node:child_process";
 import { closeSync, openSync, readSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, sep } from "node:path";
+import { w } from "./words.js";
 
 const SKILL_RE = /^(?:(.*)\/)?\.(?:claude|agents|github)\/skills\/([^/]+)\/SKILL\.md$/;
 const GUIDE_RE = /(?:^|\/)(?:AGENTS|CLAUDE)\.md$/;
@@ -136,7 +137,7 @@ export function guidanceBlock(label: string, g: Guidance): string {
   }
   if (g.skills.length) {
     parts.push(`### ${label}: its own skills\nWhen the work matches one, read its SKILL.md and follow it, with the files beside it. ` +
-      `Anything it has you run still goes through the camp's approvals, and the hooks or MCP servers it may expect aren't loaded here: say so if a skill needs one.\n` +
+      `Anything it has you run still goes through the ${w("camp")}'s approvals, and the hooks or MCP servers it may expect aren't loaded here: say so if a skill needs one.\n` +
       g.skills.map((s) => `- **${s.name}**${s.folder ? ` (for ${label}${s.folder}/)` : ""}${s.description ? `: ${s.description}` : ""} → ${label}${s.path}`).join("\n") +
       (g.more.skills ? `\n- …and ${g.more.skills} more (glob for SKILL.md)` : ""));
   }

@@ -266,7 +266,7 @@ export function viewFileFor(self: string): Tool {
     def: {
       name: "view_file",
       description:
-        "Look at an image (png, jpg, gif, webp) or a PDF inside the camp folder, such as one the user " +
+        "Look at an image (png, jpg, gif, webp) or a PDF inside the outpost's folder, such as one the user " +
         "attached. Text files are returned as text. For plain text, read_file is fine too.",
       input_schema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
     },

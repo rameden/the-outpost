@@ -13,36 +13,15 @@
 // Ids, file paths (camp/…), event names and JSON keys are never words: leave them as they are.
 
 import { activePack, inPack } from "./crew.js";
+import { fill, wordOf, withArticle, type Noun } from "./wordfill.js";
 
-export type Noun = "crew" | "quest" | "quests" | "camp" | "camps" | "expedition" | "expeditions"
-  | "member" | "members" | "log" | "ready" | "close" | "closing" | "back" | "depart" | "hq";
+export { cap, many, type Noun } from "./wordfill.js";
 
-export const cap = (word: string) => (word ? word[0].toUpperCase() + word.slice(1) : word);
-// More than one of a word, as English usually has it: "voyage" → "voyages", "story" → "stories".
-export const many = (word: string) => (/[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : /(s|x|ch|sh)$/.test(word) ? `${word}es` : `${word}s`);
-
-export function w(noun: Noun | Capitalize<Noun>): string {
-  const words = activePack().words;
-  const key = noun.toLowerCase() as Noun;
-  const word = key === "camps" ? many(words.camp) : key === "expeditions" ? many(words.expedition) : key === "members" ? many(words.member) : words[key];
-  return noun[0] === noun[0].toUpperCase() ? cap(word) : word;
-}
-
-// a("Quest") starts a sentence: "A mission".
-export function a(noun: Noun | Capitalize<Noun>): string {
-  const word = w(noun.toLowerCase() as Noun);
-  const an = /^[aeiou]/i.test(word) ? "an" : "a";
-  return `${noun[0] === noun[0].toUpperCase() ? cap(an) : an} ${word}`;
-}
-
-const NOUNS = "crew|quests?|camps?|expeditions?|members?|log|ready|close|closing|back|depart|hq";
-const TOKEN = new RegExp(`\\{(an? |An? )?(${NOUNS}|${NOUNS.replace(/(^|\|)(\w)/g, (_m, bar, c) => bar + c.toUpperCase())})\\}`, "g");
+export const w = (noun: Noun | Capitalize<Noun>): string => wordOf(activePack().words, noun);
+export const a = (noun: Noun | Capitalize<Noun>): string => withArticle(activePack().words, noun);
 
 // Fill {crew}, {Quest}, {a quest}, {An expedition}, {members}, {hq}… and put the pack's names in.
-export function say(text: string): string {
-  const filled = text.replace(TOKEN, (_m, art: string | undefined, noun: string) => (art ? a((art[0] === "A" ? cap(noun) : noun) as Noun) : w(noun as Noun)));
-  return inPack(filled);
-}
+export const say = (text: string): string => inPack(fill(activePack().words, text));
 
 // The pack for a static page the camp serves (the tour, docs/index.html), as JSON in the page:
 // <script type="application/json" id="mae-pack">{ id, crew: { scout: { name, emoji }… }, words }</script>,

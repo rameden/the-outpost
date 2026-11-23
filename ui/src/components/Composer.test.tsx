@@ -142,7 +142,7 @@ test("while the conversation's run works, Send is a red Stop, and Enter queues b
   expect(sends[0]).toMatchObject({ text: "Then write the docs", replyTo: "run-1", after: "run-1" });
   expect(steers).toEqual([]);
   await act(async () => { landing[0](new Response(JSON.stringify({ ok: true, id: "run2", position: 0, attached: 0, thread: "t", after: "run-1" }))); });
-  expect((await screen.findByRole("status")).textContent).toContain("Queued: it goes once this run has finished.");
+  expect((await screen.findByRole("status")).textContent).toContain("Queued: it goes once the expedition has finished.");
 });
 
 test("a second queued message waits behind the first, not beside it", async () => {

@@ -1,5 +1,7 @@
 // The terminal's readline interface, shared by everything that talks to you in the terminal.
 import * as readline from "node:readline/promises";
+import { CREW, activePack } from "./crew.js";
+import { w } from "./words.js";
 
 export const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
@@ -12,10 +14,10 @@ export function onInterrupt(handler: (() => boolean) | null) {
 
 rl.on("SIGINT", () => {
   if (stopRunning?.()) {
-    console.log("\n🛑 Stopping the expedition… (Ctrl+C again to break camp)");
+    console.log(`\n🛑 Stopping the ${w("expedition")}… (Ctrl+C again to ${w("close")})`);
     stopRunning = null;
     return;
   }
-  console.log("\n🏕️  Breaking camp.");
+  console.log(`\n${activePack().id === "guild" ? "🏕️" : CREW.quartermaster.emoji}  ${w("closing")}.`);
   process.exit(130);
 });

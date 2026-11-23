@@ -7,6 +7,7 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import type { CampEvent } from "./events.js";
 import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
+import { a, w } from "./words.js";
 
 export const FEED_PATH = "camp/feed.jsonl";
 // History reads conversations back from this file, so it keeps a lot before trimming.
@@ -45,7 +46,7 @@ export function loadFeed(limit: number): CampEvent[] {
   const closing: CampEvent[] = [];
   for (const a of openAsks.values()) closing.push({ type: "answered", id: (a as any).id, answer: "n", lapsed: true, expeditionId: a.expeditionId, time, seq: ++seq } as CampEvent);
   for (const q of openQuests.values()) closing.push({ type: "return", who: q.who, emoji: q.emoji, status: "interrupted", questId: q.questId, expeditionId: q.expeditionId, time, seq: ++seq } as CampEvent);
-  for (const id of openExps) closing.push({ type: "expedition_end", id, status: "interrupted", text: "The camp was restarted while this was running.", expeditionId: id, time, seq: ++seq } as CampEvent);
+  for (const id of openExps) closing.push({ type: "expedition_end", id, status: "interrupted", text: `The ${w("camp")} was restarted while this was running.`, expeditionId: id, time, seq: ++seq } as CampEvent);
   const all = [...recent, ...closing];
 
   // Keep the file from growing forever: once it's large, drop the older half. Conversations
@@ -175,7 +176,7 @@ export function expeditionDigest(id: string, maxChars = 14_000): string {
     if (e.type === "text") lines.push(`${e.who} said: ${clip(e.text, 1500)}`);
     else if (e.type === "tool") lines.push(`${e.who} used ${e.tool} ${clip(e.input, 160)}`);
     else if (e.type === "file") lines.push(`${e.who} ${e.change} ${e.path}.`);
-    else if (e.type === "dispatch") lines.push(`${e.who} was sent on a quest.`);
+    else if (e.type === "dispatch") lines.push(`${e.who} was sent on ${a("quest")}.`);
     else if (e.type === "return") lines.push(`${e.who} came back (${e.status}).`);
     else if (e.type === "steer") lines.push(`The user added: ${clip(e.text, 600)}`);
     else if (e.type === "ask") { asks.set(e.id, e.kind); if (e.kind === "plan") lines.push(`Plan submitted:\n${clip(e.body, 2000)}`); }

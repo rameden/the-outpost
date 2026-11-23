@@ -23,7 +23,10 @@ export const UI_CSP =
 export const uiCsp = (styleNonce: string) =>
   /^[A-Za-z0-9+/=_-]{16,}$/.test(styleNonce) ? UI_CSP.replace("style-src 'self'", `style-src 'self' 'nonce-${styleNonce}'`) : UI_CSP;
 
-export const UI_NOT_BUILT = "Mission control's page hasn't been built yet. Open the link `npm run ui` prints (it serves the page as you edit it), or build it with `npm run ui:build`.";
+// hq: what the active pack calls mission control ("The bridge"). It's handed in, since this file is
+// also the star chart's (scripts/launch.ts), which runs outside any one outpost and its pack.
+export const uiNotBuilt = (hq = "Mission control") => `${hq}'s page hasn't been built yet. Open the link \`npm run ui\` prints (it serves the page as you edit it), or build it with \`npm run ui:build\`.`;
+export const UI_NOT_BUILT = uiNotBuilt();
 
 // The tour: Mae's one-page introduction (docs/index.html), served at /splash. It's the same
 // static page that's in the repo, so it needs no token and reads nothing of the camp. Its own

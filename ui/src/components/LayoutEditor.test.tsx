@@ -106,7 +106,7 @@ const showsSelect = () => screen.getByLabelText("This zone shows") as HTMLSelect
 test("the editor maps the zones, and starts on chat", () => {
   editor();
   const map = document.querySelector<HTMLElement>(".layout-map")!;
-  expect(within(map).getAllByRole("button").map((b) => b.textContent)).toEqual(["Agent roster", "History", "Chat", "Files", "Notes", "Terminal"]);
+  expect(within(map).getAllByRole("button").map((b) => b.textContent)).toEqual(["Crew roster", "History", "Chat", "Files", "Notes", "Terminal"]);
   expect(mapZone("Chat").getAttribute("aria-pressed")).toBe("true");
   expect(showsSelect().value).toBe("chat");
   expect((screen.getByRole("button", { name: "Remove zone" }) as HTMLButtonElement).disabled).toBe(true);
@@ -139,7 +139,7 @@ test("add a zone beside one, say what goes in it, and remove it again", () => {
 
 test("the roster's bar has no size to choose", () => {
   editor();
-  fireEvent.click(mapZone("Agent roster"));
+  fireEvent.click(mapZone("Crew roster"));
   const size = screen.getByLabelText("Its size") as HTMLSelectElement;
   expect([size.disabled, size.value]).toEqual([true, "auto"]);
   fireEvent.click(mapZone("Terminal"));

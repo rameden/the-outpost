@@ -1,5 +1,8 @@
 // The demo's pretend camp: a feed of its own, played one expedition after another, each in stages.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { setCrewColors } from "../format.ts";
+import { setWords } from "../words.ts";
+import { PACKS } from "../../../src/packs.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { createFeedStore } from "../feed/store.ts";
 import { DEMO_CREW, castFor, demoCamp, demoRun, runDemo } from "./demo.ts";
@@ -128,4 +131,26 @@ test("the pretend camp is the same every time, and copes with a crew of any size
   expect(camp.kit.c0).toEqual([]);
   expect(camp.kit.c13.length).toBeGreaterThan(1);
   expect(demoCamp([])).toMatchObject({ xp: {}, kit: {}, spend: { today: 0, byAgent: {} } });
+});
+
+test("under another theme pack the parts are cast by who they are, not by what they're called, and the narration uses the new names", () => {
+  const starship = PACKS.find((p) => p.id === "starship")!;
+  const crewLine = (id: string) => ({ id, name: (starship.crew as Record<string, { name: string; emoji: string }>)[id].name, emoji: (starship.crew as Record<string, { name: string; emoji: string }>)[id].emoji, role: "" });
+  const ids = ["quartermaster", "scout", "artificer", "scribe", "warden", "wizard"];
+  setCrewColors(ids.map(crewLine), PACKS as never);
+  setWords("starship", PACKS);
+  try {
+    const [boss, ...rest] = ids.map(crewLine);
+    // By id, when the actor has one: the Navigator plays the Scout, and nobody is a stand-in.
+    const cast = castFor(rest);
+    expect(Object.entries(cast).map(([role, a]) => [role, a?.name])).toEqual([["scout", "Navigator"], ["artificer", "Engineer"], ["wizard", "Test Pilot"], ["warden", "Security Chief"], ["scribe", "Comms Officer"]]);
+    // And by the name they go by now, for an actor with no id.
+    expect(castFor([{ name: "Navigator" }, { name: "Cook" }]).scout).toEqual({ name: "Navigator" });
+    const run = demoRun(0, boss, rest);
+    expect(of<{ who: string }>(run.events, "dispatch").map(([, e]) => e.who)).toEqual(["Navigator", "Engineer", "Engineer", "Test Pilot", "Security Chief", "Comms Officer"]);
+    const said = of<{ text: string }>(run.events, "text").map(([, e]) => e.text).join("\n");
+    expect(said).toContain("The Navigator goes first");
+    expect(said).not.toMatch(/\b(Scout|Artificer|Warden|Scribe)\b|\{/);
+    expect(DEMO_CREW[0]).toMatchObject({ name: "Commander", emoji: "🚀", role: "Plans the voyage and sends the crew" });
+  } finally { setCrewColors([]); setWords(undefined); }
 });

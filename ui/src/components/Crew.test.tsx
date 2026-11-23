@@ -102,7 +102,7 @@ test("under the crew bar, while anyone is out: one row per quest, and a row take
   const scout = { who: "Scout", emoji: "🏹", depth: 1 };
   send({ type: "expedition_start", id: "A", task: "Two things", source: "user" });
   // Nobody's out: the right half of the roster says so, and keeps its place.
-  expect(screen.getByRole("group", { name: "Quests out now" }).textContent).toBe("No agents running");
+  expect(screen.getByRole("group", { name: "Quests out now" }).textContent).toBe("No quests out");
   expect(screen.getByRole("group", { name: "Quests out now" }).parentElement!.className).toBe("crew-area");
   send({ type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "Backend: thread links" },
     { type: "dispatch", ...scout, questId: "q2", expeditionId: "A", brief: "Studio UI: Share in the menu" },
@@ -125,7 +125,7 @@ test("under the crew bar, while anyone is out: one row per quest, and a row take
   send({ type: "return", ...scout, status: "done", questId: "q1", expeditionId: "A" });
   expect(rows().length).toBe(1);
   send({ type: "expedition_end", id: "A", status: "done", text: "Done." });
-  expect(screen.getByRole("group", { name: "Quests out now" }).textContent).toBe("No agents running");
+  expect(screen.getByRole("group", { name: "Quests out now" }).textContent).toBe("No quests out");
 });
 
 test("the clock that counts how long each quest has been out only runs while someone is out", () => {
@@ -218,7 +218,7 @@ test("a folded half's rail still counts: crew who are busy, and quests that are 
   fireEvent.click(screen.getByRole("button", { name: "Hide who's running" }));
   const out = () => screen.getByRole("button", { name: "Show who's running" });
   expect(out().textContent).toBe("");
-  expect(out().title).toContain("No agents running");
+  expect(out().title).toContain("No quests out");
   send({ type: "expedition_start", id: "A", task: "Two things", source: "user" },
     { type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "Backend: thread links" },
     { type: "dispatch", ...scout, questId: "q2", expeditionId: "A", brief: "Studio UI: Share in the menu" });

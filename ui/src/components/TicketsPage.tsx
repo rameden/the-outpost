@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
-import { cx, when } from "../format.ts";
+import { cx, leadName, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import { Presence } from "../motion.tsx";
 import { loadNotes, titleOf, useNotes } from "../notes.ts";
@@ -149,7 +149,7 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
         <div>
           <h2>Tickets</h2>
           <div className="meta">Mae's own tickets, for work that isn't in Jira: starting work on one moves it to In progress, and its pull request merging moves it to Done.</div>
-          {jiraOn && <div className="meta">Jira: {S.jira?.siteUrl?.replace(/^https?:\/\//, "")}{S.jira?.displayName ? ` · ${S.jira.displayName}` : ""} · {S.settings?.jiraWrite?.on ? "the camp comments on a ticket as its work moves along (started, ready to look over, pull request opened, merged)." : "read-only: nothing here changes a ticket."}</div>}
+          {jiraOn && <div className="meta">Jira: {S.jira?.siteUrl?.replace(/^https?:\/\//, "")}{S.jira?.displayName ? ` · ${S.jira.displayName}` : ""} · {S.settings?.jiraWrite?.on ? `the ${w("camp")} comments on a ticket as its work moves along (started, ready to look over, pull request opened, merged).` : "read-only: nothing here changes a ticket."}</div>}
         </div>
         <div className="proj-actions">
           {onKickoff && <button type="button" className="btn small" title="Pick up a ticket: choose it, check its details, say where and who, and start" onClick={onKickoff}>Start a ticket…</button>}
@@ -216,7 +216,7 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
       {nothing && (
         <div className="hist-empty tickets-empty">
           <b>No tickets yet.</b>
-          <span>Write one with New ticket, turn a note or a plan into tickets (Turn into tickets, on the note or the plan), or ask the Quartermaster to file them.{jiraOn ? " Jira's filter matches nothing right now." : ""}</span>
+          <span>Write one with New ticket, turn a note or a plan into tickets (Turn into tickets, on the note or the plan), or ask the {leadName()} to file them.{jiraOn ? " Jira's filter matches nothing right now." : ""}</span>
         </div>
       )}
       {all.length > 0 && !shown.length && <div className="hist-empty">Nothing on the page matches. <button type="button" className="linkish" onClick={clear}>Show them all</button></div>}

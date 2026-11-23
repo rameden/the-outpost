@@ -28,10 +28,19 @@ export const cap = (word: string) => (word ? word[0].toUpperCase() + word.slice(
 // More than one of a word, as English usually has it: "voyage" → "voyages", "story" → "stories".
 export const many = (word: string) => (/[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : /(s|x|ch|sh)$/.test(word) ? `${word}es` : `${word}s`);
 
+// The phrases a pack's words make when it doesn't give its own: phrasesFor in src/packs.ts, which the
+// camp uses when a pack is saved, so the page and the camp say the same.
+export const phrasesFor = (w: { crew: string; quest: string; camp: string }): Omit<Words, "crew" | "quest" | "quests" | "camp" | "expedition"> => ({
+  member: `${w.crew} member`, log: `${w.quest} log`, ready: `The ${w.camp} is set`, close: `close the ${w.camp}`,
+  closing: `Closing the ${w.camp}`, back: `returns to the ${w.camp}`, depart: "sets out", hq: "mission control",
+});
+
 // The active pack, from the camp's state. An id the page doesn't know leaves the Guild's words.
 export function setWords(pack: string | undefined, packs: PackLine[] = []) {
   const words = packs.find((p) => p.id === pack)?.words;
-  now = words ? { ...GUILD, ...words } : GUILD; // a pack from an older camp may not have every phrase
+  if (!words) { now = GUILD; return; }
+  const core = { ...GUILD, ...words }; // a pack from an older camp may not have every phrase: its words make them
+  now = { ...core, ...phrasesFor(core), ...Object.fromEntries(Object.entries(words).filter(([, v]) => v)) };
 }
 export const wordsNow = (): Words => now;
 

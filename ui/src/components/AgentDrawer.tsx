@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useReducer, useRef, 
 import { api, errorText, outputUrl } from "../api.ts";
 import { liveKey, type CrewStatus } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
-import { cClass, clock, cx, dayLabel, isImagePath, kTok, money, plural, shortModel, spaced, stripFrontmatter, took, when } from "../format.ts";
+import { cClass, clock, cx, dayLabel, isImagePath, kTok, leadEmoji, leadName, money, plural, shortModel, spaced, stripFrontmatter, took, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { AgentDetail, CampEvent, CampState, SendResult, Transcript, TranscriptPart } from "../types.ts";
 import type { OpenPicker } from "./Crew.tsx";
@@ -15,7 +15,7 @@ import { Dialog } from "./Dialog.tsx";
 import { w, a as an } from "../words.ts";
 export type AgentTab = "chat" | "runs" | "memory" | "outputs" | "about";
 const TABS: [AgentTab, string][] = [["chat", "Chat"], ["runs", "Runs"], ["memory", "Memory"], ["outputs", "Outputs"], ["about", "About"]];
-const SOURCE_LABEL: Record<string, string> = { user: "You", direct: "You", discord: "You (Discord)", brief: "🧭 Quartermaster's brief", job: "⏰ Scheduled job" };
+const sourceLabel = (source: string): string | undefined => ({ user: "You", direct: "You", discord: "You (Discord)", brief: `${leadEmoji()} ${leadName()}'s brief`, job: "⏰ Scheduled job" } as Record<string, string>)[source];
 
 // ---------- A run's steps: what they were asked, what they said, each tool call and its result ----------
 const short = (v: unknown, n = 600) => { const t = typeof v === "string" ? v : JSON.stringify(v, null, 2) ?? ""; return t.length > n ? t.slice(0, n) + "…" : t; };
@@ -104,7 +104,7 @@ function SessionBubbles({ a, s }: { a: AgentDetail; s: AgentDetail["sessions"][n
   const fromYou = ["user", "direct", "discord"].includes(s.source);
   return (
     <>
-      <div className={cx("bubble", fromYou ? "you" : "brief")}>{fromYou ? s.task : `${SOURCE_LABEL[s.source] ?? s.source}: ${s.task}`}</div>
+      <div className={cx("bubble", fromYou ? "you" : "brief")}>{fromYou ? s.task : `${sourceLabel(s.source) ?? s.source}: ${s.task}`}</div>
       <div className="bubble agent">
         <Markdown text={s.result || "(no reply)"} />
         <div className="bubble-meta">
@@ -132,7 +132,7 @@ function Chat({ a, live }: { a: AgentDetail; live: LiveItem[] }) {
       {live.map((it) =>
         it.kind === "you" ? <div key={it.id} className="bubble you">{it.text}</div>
         : it.kind === "note" ? <div key={it.id} className="thread-day">{it.text}</div>
-        : it.kind === "brief" ? <div key={it.id} className="bubble brief">🧭 The Quartermaster sent them on {an("quest")}…</div>
+        : it.kind === "brief" ? <div key={it.id} className="bubble brief">{leadEmoji()} The {leadName()} sent them on {an("quest")}…</div>
         : it.kind === "tool" ? <div key={it.id} className="tool"><b>{it.tool}</b><code>{it.input}</code></div>
         : <div key={it.id} className="bubble agent">{it.streaming ? <div className="md streaming">{it.text}</div> : <Markdown text={it.text} />}</div>)}
     </div>
@@ -383,7 +383,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, onOpenPicker, onCl
         {tab === "chat" && (
           <div className="drawer-composer">
             <form onSubmit={send}>
-              <textarea ref={input} rows={1} aria-label="Message" placeholder={isQm ? "Ask the Quartermaster…" : `Message the ${name}…`} value={draft}
+              <textarea ref={input} rows={1} aria-label="Message" placeholder={isQm ? `Ask the ${leadName()}…` : `Message the ${name}…`} value={draft}
                 onChange={(ev) => setDraft(ev.target.value)}
                 onKeyDown={(ev) => { if (ev.key === "Enter" && !ev.shiftKey && !ev.nativeEvent.isComposing) { ev.preventDefault(); ev.currentTarget.form?.requestSubmit(); } }} />
               <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>
@@ -391,7 +391,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, onOpenPicker, onCl
             <div className="drawer-hint">
               {hint || (isQm
                 ? `Starts ${an("expedition")}. You'll approve the plan in the main feed. Enter to send.`
-                : `Goes straight to the ${name}, skipping the Quartermaster. It continues your last chat with them if that was in the past 6 hours. Enter to send.`)}
+                : `Goes straight to the ${name}, skipping the ${leadName()}. It continues your last chat with them if that was in the past 6 hours. Enter to send.`)}
             </div>
           </div>
         )}

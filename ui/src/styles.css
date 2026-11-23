@@ -1672,6 +1672,8 @@ a.att-name { color: var(--accent); }
 .pack-names { display: grid; gap: 6px; }
 .pack-name { display: grid; grid-template-columns: 112px 52px minmax(0, 1fr); gap: 8px; align-items: center; }
 .pack-words .pack-name { grid-template-columns: 112px minmax(0, 1fr); }
+.pack-more > summary { cursor: pointer; }
+.pack-more[open] > summary { margin-bottom: 6px; }
 .pack-name > span { font-size: 14px; font-weight: 400; color: var(--text); }
 .pack-name .pack-emoji { text-align: center; font-size: 18px; padding: 4px; }
 .signin-link { width: min(420px, 100%); font: 13px var(--mono); padding: 5px 8px; border: 1px solid var(--field); border-radius: 6px; background: var(--bg); color: var(--text); }

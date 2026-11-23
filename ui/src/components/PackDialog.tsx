@@ -1,6 +1,6 @@
 // The pack dialog: make a theme pack of your own, or change one you made.
 //
-// A pack is a set of names: what it calls each of the camp's own six, five of the page's words,
+// A pack is a set of names: what it calls each of the camp's own six, five of the page's words and eight phrases that go with them,
 // the line the crew reads about where they work, and the colours
 // it suggests. The camp keeps yours in camp/packs.json, beside the ones it comes with, and checks
 // that no name in it is already someone else's; what it says when one is, is shown here as it is.
@@ -9,7 +9,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import { cx } from "../format.ts";
 import { PALETTES } from "../themes.ts";
-import { many, w } from "../words.ts";
+import { many, phrasesFor, w } from "../words.ts";
+export { phrasesFor };
 import type { CampState } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 import { Dialog } from "./Dialog.tsx";
@@ -17,10 +18,26 @@ import { Dialog } from "./Dialog.tsx";
 export type PackLine = NonNullable<CampState["packs"]>[number];
 type Named = { name: string; emoji: string };
 type WordKey = "crew" | "quest" | "quests" | "camp" | "expedition";
+type PhraseKey = "member" | "log" | "ready" | "close" | "closing" | "back" | "depart" | "hq";
 
 const CREW = ["quartermaster", "scout", "artificer", "scribe", "warden", "wizard"] as const; // in the order the crew is listed
 const WORDS: WordKey[] = ["crew", "quest", "quests", "camp", "expedition"];
 const GUILD_WORDS: Record<WordKey, string> = { crew: "crew", quest: "quest", quests: "quests", camp: "camp", expedition: "expedition" };
+// The phrases that go with the words, each optional: what a pack that leaves it out gets. This mirrors
+// phrasesFor in src/packs.ts, which makes the same ones when the pack is saved.
+export const PHRASES: [PhraseKey, string][] = [
+  ["member", "One member"], ["log", "Past work"], ["ready", "It's up"], ["close", "Shut down"],
+  ["closing", "Shutting down"], ["back", "Comes back"], ["depart", "Heads out"], ["hq", "Watch from"],
+];
+// Just the five words (a pack's words also carry its phrases, which have a place of their own).
+const wordsOf = (from: Partial<Record<WordKey, string>> | undefined): Record<WordKey, string> => Object.fromEntries(WORDS.map((k) => [k, from?.[k] ?? GUILD_WORDS[k]])) as Record<WordKey, string>;
+const NO_PHRASES: Record<PhraseKey, string> = { member: "", log: "", ready: "", close: "", closing: "", back: "", depart: "", hq: "" };
+// The phrases a pack gave itself: those that aren't just what its words would make.
+const givenBy = (words: Record<string, string> | undefined): Record<PhraseKey, string> => {
+  if (!words) return NO_PHRASES;
+  const made = phrasesFor({ crew: words.crew ?? "", quest: words.quest ?? "", camp: words.camp ?? "" });
+  return Object.fromEntries(PHRASES.map(([k]) => [k, words[k] && words[k] !== made[k] ? words[k] : ""])) as Record<PhraseKey, string>;
+};
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
@@ -43,7 +60,8 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
   const [name, setName] = useState(pack?.name ?? "");
   const [about, setAbout] = useState(pack?.about ?? "");
   const [names, setNames] = useState(() => namesFrom(pack ?? guild, !pack));
-  const [words, setWords] = useState<Record<WordKey, string>>(() => ({ ...GUILD_WORDS, ...(pack?.words ?? guild?.words) }));
+  const [words, setWords] = useState<Record<WordKey, string>>(() => wordsOf(pack?.words ?? guild?.words));
+  const [phrases, setPhrases] = useState<Record<PhraseKey, string>>(() => givenBy(pack?.words as Record<string, string> | undefined));
   const [typedMany, setTypedMany] = useState(!!pack && pack.words.quests !== many(pack.words.quest));
   const [place, setPlace] = useState(pack?.place ?? "");
   const [palette, setPalette] = useState<string>(pack?.palette ?? "camp");
@@ -62,8 +80,9 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
     const p = packs.find((x) => x.id === id) ?? null;
     setBase(p);
     setNames(namesFrom(p ?? guild, !p));
-    setWords({ ...GUILD_WORDS, ...(p?.words ?? guild?.words) });
+    setWords(wordsOf(p?.words ?? guild?.words));
     setTypedMany(!!p && p.words.quests !== many(p.words.quest));
+    setPhrases(givenBy(p?.words as Record<string, string> | undefined));
     setPlace(p?.place ?? "");
     setPalette(p?.palette ?? "camp");
   }
@@ -71,6 +90,12 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
   function setWord(key: WordKey, value: string) {
     setWords((all) => ({ ...all, [key]: value, ...(key === "quest" && !typedMany ? { quests: value.trim() ? many(value.trim()) : "" } : {}) }));
     if (key === "quests") setTypedMany(true);
+    // A phrase still as the pack you started from had it was made for that pack's place ("returns to the
+    // ship"): once the place, the crew or the quest is renamed, it goes back to what the new words make.
+    if (key === "camp" || key === "crew" || key === "quest") {
+      const was = base?.words as Record<string, string> | undefined;
+      if (was) setPhrases((all) => Object.fromEntries(PHRASES.map(([k]) => [k, all[k] && all[k] === was[k] ? "" : all[k]])) as Record<PhraseKey, string>);
+    }
   }
 
   async function send(body: object) {
@@ -90,7 +115,8 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
       return { name: n.name, emoji: n.emoji, ...(was?.short && was.name === n.name.trim() ? { short: was.short } : {}) };
     };
     const details = {
-      name, about, place, palette, words,
+      name, about, place, palette,
+      words: { ...words, ...Object.fromEntries(PHRASES.map(([k]) => [k, phrases[k].trim()]).filter(([, v]) => v)) }, // (a phrase left blank is made from the words)
       crew: Object.fromEntries(CREW.map((who) => [who, line(who)])),
     };
     void send(pack ? { action: "update", id: pack.id, pack: details } : { action: "add", pack: details });
@@ -143,6 +169,19 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
             ))}
           </div>
         </div>
+
+        <details className="field pack-more">
+          <summary>More phrases</summary>
+          <span className="field-hint">Where a word alone won't read ("break camp" isn't "break ship"). Leave any blank and it's made from the words above, as shown.</span>
+          <div className="pack-names pack-words">
+            {PHRASES.map(([key, what]) => (
+              <div key={key} className="pack-name">
+                <span>{what}</span>
+                <input value={phrases[key]} maxLength={40} aria-label={`Phrase for ${key}`} placeholder={phrasesFor(words)[key]} onChange={(ev) => setPhrases((all) => ({ ...all, [key]: ev.target.value }))} />
+              </div>
+            ))}
+          </div>
+        </details>
 
         <label className="field">Where the {w("crew")} works
           <input value={place} maxLength={60} placeholder={`the Mae ${words.camp.trim() || "camp"}`} onChange={(ev) => setPlace(ev.target.value)} />

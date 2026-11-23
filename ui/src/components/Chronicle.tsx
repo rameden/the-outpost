@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
-import { when } from "../format.ts";
+import { nameNow, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { ChroniclePage, SendResult } from "../types.ts";
 
@@ -62,7 +62,7 @@ export function ChronicleSection({ project, reloadKey, onOpen }: { project: { id
           {plain && <button type="button" className="linkish" title="Copy the bullets under “In plain terms”, to paste into a status update" onClick={copy}>Copy the plain bullets</button>}
           {(happened > 0 || !written) && (
             <button type="button" className="btn small" disabled={busy || happened === 0}
-              title={`The ${w("camp")} gathers what its record says happened that week, and the Scribe writes it up from that alone. It runs as a conversation and uses a little of your plan.`}
+              title={`The ${w("camp")} gathers what its record says happened that week, and the ${nameNow("Scribe")} writes it up from that alone. It runs as a conversation and uses a little of your plan.`}
               onClick={write}>{busy ? "Starting…" : written ? "Write it again" : "Write it up"}</button>
           )}
         </span>

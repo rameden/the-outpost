@@ -22,6 +22,7 @@ import { SECRET_NAME } from "./links.js";
 import { campPath, clipOutput, type Tool } from "./tools.js";
 import { currentSignal } from "./context.js";
 import { gitFilterOverrides, gitSafeEnv } from "./sandbox.js";
+import { w } from "./words.js";
 
 export const GIT_SUBCOMMANDS = ["status", "diff", "log", "show", "blame"] as const;
 type Sub = (typeof GIT_SUBCOMMANDS)[number];
@@ -51,7 +52,7 @@ export function refusedArg(arg: string, sub?: string): string | null {
   const path = arg.includes(":") ? arg.slice(arg.indexOf(":") + 1) : arg;
   if (path.startsWith("/") || path.startsWith("~") || /(^|\/)\.\.(\/|$)/.test(path)) return `${arg} points outside the repository.`;
   if (path.split("/").some((seg) => SECRET_NAME.test(seg))) return `${arg} looks like a secret (keys, .env, credentials) and is off limits.`;
-  if (/^camp(\/|$)/.test(path)) return `${arg} is the camp's private record, not part of the project's history.`;
+  if (/^camp(\/|$)/.test(path)) return `${arg} is the ${w("camp")}'s private record, not part of the project's history.`;
   return null;
 }
 
@@ -80,7 +81,7 @@ function runGit(argv: string[], signal?: AbortSignal, env: NodeJS.ProcessEnv = g
       timeout: TIMEOUT_MS, maxBuffer: MAX_BYTES, signal, encoding: "utf8", env,
     }, (err, stdout, stderr) => {
       if (err && (err as NodeJS.ErrnoException).code === "ENOENT") return done("git isn't installed on this machine.");
-      if (err && signal?.aborted) return done("Not run: the expedition was stopped.");
+      if (err && signal?.aborted) return done(`Not run: the ${w("expedition")} was stopped.`);
       if (err && (err as any).killed) return done(`git took longer than ${TIMEOUT_MS / 1000}s and was stopped. Narrow it (a path, -n 20, a revision range).`);
       if (err) return done(`git failed: ${(stderr || err.message).trim()}`);
       done(stdout.trim() ? stdout : "(no output)");
@@ -92,19 +93,18 @@ export function gitFor(self: string): Tool {
   return {
     def: {
       name: "git",
-      description:
-        "Read-only git, for seeing what changed: status, diff, log, show, blame. Runs in the camp, or in a linked repository " +
-        "with in: \"links/<name>\" (the worktree your expedition works in, if it has one). Examples: " +
+      get description() { return "Read-only git, for seeing what changed: status, diff, log, show, blame. Runs in the outpost's folder, or in a linked repository " +
+        `with in: "links/<name>" (the worktree your ${w("expedition")} works in, if it has one). Examples: ` +
         "{subcommand: \"diff\", args: [\"HEAD\"]} (everything uncommitted), {subcommand: \"log\", args: [\"--oneline\", \"-n\", \"10\"]}, " +
         "{subcommand: \"show\", args: [\"--stat\", \"HEAD\"]}, {subcommand: \"diff\", args: [\"main...HEAD\", \"--\", \"src/app.tsx\"]}, " +
         "{subcommand: \"blame\", args: [\"-L\", \"10,40\", \"src/app.tsx\"]}. Paths are relative to the repository. " +
-        "It can't change anything, and secret files (.env, keys) are left out.",
+        "It can't change anything, and secret files (.env, keys) are left out."; },
       input_schema: {
         type: "object",
         properties: {
           subcommand: { type: "string", enum: [...GIT_SUBCOMMANDS] },
           args: { type: "array", items: { type: "string" }, description: "Flags, revisions, and paths, one per item." },
-          in: { type: "string", description: "The repository: \".\" (the camp, default) or links/<name>, or a folder inside one." },
+          in: { type: "string", description: "The repository: \".\" (the outpost's folder, default) or links/<name>, or a folder inside one." },
         },
         required: ["subcommand"],
       },

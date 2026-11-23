@@ -23,6 +23,7 @@ import { readArchive as readZip, type ArchiveLimits, type Entry } from "./zip.js
 import { emit } from "./events.js";
 import { ROSTER } from "./roster.js";
 import { alwaysSkills, setAlwaysSkills, setSkillCommands, skillCommands, type SkillCommand } from "./settings.js";
+import { w } from "./words.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -104,7 +105,7 @@ export function inspectPack(buf: Buffer, filename = ""): PackPreview {
   const fallback = (prefix.slice(0, -1) || filename.replace(/\.(skill|zip)$/i, "")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const name = NAME_RE.test(fm.name) ? fm.name : NAME_RE.test(fallback) ? fallback : "";
   if (!name || name.length > 60) throw bad("SKILL.md needs a `name:` in its front matter, in kebab-case (like research-brief).");
-  if (!fm.description) throw bad("SKILL.md needs a `description:` in its front matter: one line saying when to use the skill. It's all a crew member sees until they open it.");
+  if (!fm.description) throw bad(`SKILL.md needs a \`description:\` in its front matter: one line saying when to use the skill. It's all a ${w("crew")} member sees until they open it.`);
   const scripts = files.filter((f) => RUNNERS[f.path.split(".").pop() ?? ""] && !f.data.includes(0))
     .map((f) => ({ file: f.path, runner: RUNNERS[f.path.split(".").pop()!], text: f.data.toString("utf8").slice(0, 20_000) }));
   const id = createHash("sha256").update(buf).digest("hex").slice(0, 24);
@@ -140,7 +141,7 @@ export function installPack(id: string, input: { owner?: unknown; scripts?: unkn
   const h = held.get(id);
   if (!h) throw bad("That import has lapsed. Choose the .skill file again.");
   const owner = String(input.owner ?? "shared");
-  if (!owners().includes(owner)) throw bad(`There's no crew member "${owner}" to give the skill to.`);
+  if (!owners().includes(owner)) throw bad(`There's no ${w("crew")} member "${owner}" to give the skill to.`);
   const { name } = h.preview;
   const dir = join("skills", owner, name);
   if (existsSync(dir) && input.replace !== true) throw bad(`${owner} already has a skill called ${name}. Install it again with "replace" to swap it for this one.`);
@@ -245,7 +246,7 @@ export function saveSkillFile(owner: string, name: string, path: string, text: u
   if (create && existsSync(file)) throw bad(`There's already a ${rel} in this skill.`);
   if (rel === "SKILL.md") {
     const fm = frontmatter(body);
-    if (!fm.description) throw bad("SKILL.md needs its front matter: a first line of ---, then `name:` and `description:`, then --- again. The description is all a crew member sees until they open the skill.");
+    if (!fm.description) throw bad(`SKILL.md needs its front matter: a first line of ---, then \`name:\` and \`description:\`, then --- again. The description is all a ${w("crew")} member sees until they open the skill.`);
     if (fm.name !== name) throw bad(`The \`name:\` in SKILL.md has to stay "${name}" (it's the skill's folder). To rename a skill, import or propose it under the new name.`);
   }
   mkdirSync(dirname(file), { recursive: true });
@@ -272,7 +273,7 @@ export function setSkillAlways(owner: string, name: string, agents: unknown, gon
   const crew = ["quartermaster", ...Object.keys(ROSTER)];
   const asked = [...new Set((Array.isArray(agents) ? agents : []).map(String))];
   for (const id of asked) {
-    if (!crew.includes(id)) throw bad(`There's no crew member "${id}".`);
+    if (!crew.includes(id)) throw bad(`There's no ${w("crew")} member "${id}".`);
     if (owner !== "shared" && id !== owner) throw bad(`${owner}/${name} belongs to ${owner}: only they can use it. Import or propose it as shared to give it to others.`);
   }
   const key = `${owner}/${name}`;

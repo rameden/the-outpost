@@ -84,7 +84,7 @@ test("nothing that changes the repository, runs a program, or reads outside it",
   ];
   for (const args of refused) assert.doesNotMatch(await run({ subcommand: "diff", args, in: "links/site" }), /^diff --git/m, `diff ${args.join(" ")}`);
   assert.match(await run({ subcommand: "blame", args: ["--contents", "/etc/hosts", "src/canvas.tsx"], in: "links/site" }), /isn't available/);
-  await assert.rejects(() => run({ subcommand: "log", args: [], in: "/etc" }), /outside the camp/); // the agent sees this error
+  await assert.rejects(() => run({ subcommand: "log", args: [], in: "/etc" }), /outside the outpost's folder/); // the agent sees this error
   const before = git("rev-parse", "HEAD") + git("status", "--porcelain");
   await run({ subcommand: "status", in: "links/site" });
   assert.equal(git("rev-parse", "HEAD") + git("status", "--porcelain"), before, "reading changed nothing");

@@ -23,6 +23,7 @@ import { addNotes, loadNotes, removeNote, type Note } from "./notes.js";
 import { projectBrief, projectNotes } from "./projects.js";
 import { askSmall } from "./small.js";
 import { flatTrim as flat, jsonIn } from "./helpers.js";
+import { w } from "./words.js";
 
 export const PASSED_PATH = "camp/ideas-passed.json";
 export const MAX_IDEAS = 5;
@@ -54,7 +55,7 @@ export function ideaFacts(p: Project, now = new Date()): string {
     `Project: ${p.name}`,
     p.description?.trim() ? `What its owner says about it:\n${flat(p.description, 1200)}` : "",
     brief ? `The survey of its code:\n${brief.slice(0, 4000)}` : "",
-    crew ? `Notes the crew keeps about it:\n${crew.slice(-3000)}` : "",
+    crew ? `Notes the ${w("crew")} keeps about it:\n${crew.slice(-3000)}` : "",
     work.length ? `The last two weeks of work, oldest first:\n\n${work.join("\n\n")}` : "No work is on record for it in the last two weeks.",
     noted.length ? `Already noted (don't suggest these again):\n${noted.join("\n")}` : "",
     passedIdeas(p.id).length ? `Passed on (never suggest these, or the same thing in other words):\n${passedIdeas(p.id).map((t) => `- ${t}`).join("\n")}` : "",

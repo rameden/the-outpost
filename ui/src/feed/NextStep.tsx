@@ -105,7 +105,7 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun, repo
 
   const says: Record<Stage, string> = {
     working: `The ${w("crew")} is working.`,
-    failed: `The last run ended as ${status === "running" ? "interrupted" : status.replace(/_/g, " ")}.`,
+    failed: `The last ${w("expedition")} ended as ${status === "running" ? "interrupted" : status.replace(/_/g, " ")}.`,
     changes: `${st?.changed} uncommitted ${plural(st?.changed ?? 0, "file")}.`,
     committed: `${st?.commits} ${plural(st?.commits ?? 0, "commit")}, and no pull request yet.`,
     unpushed: pr ? `${st?.ahead} ${plural(st?.ahead ?? 0, "commit")} not pushed to pull request #${pr.number} yet.` : "",
@@ -149,7 +149,7 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun, repo
     push: "Push the new commits to where this branch already goes, so its pull request has them",
     pr: pr?.state === "OPEN" ? "Change this pull request's title and description" : "Push the branch and open a pull request, with the description drafted from the record",
     feedback: "Read the review comments and failing checks into the message box, for you to send on",
-    resume: "Start again from what the last run had done, without redoing finished work",
+    resume: `Start again from what the last ${w("expedition")} had done, without redoing finished work`,
     remove: "Remove this worktree's folder (its branch is kept). Git refuses if there are uncommitted changes.",
   };
 
