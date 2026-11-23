@@ -13,7 +13,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEFAULT_NAME, OUTPOST_FILE, cleanName, outpostSlug, outpostsHome, readOutpost, type Outpost } from "../src/outpost.ts";
 
@@ -34,7 +34,8 @@ export function outposts(home = outpostsHome()): Place[] {
 
 const find = (name: string) => {
   const want = cleanName(name).toLowerCase();
-  return outposts().find((o) => o.name.toLowerCase() === want || outpostSlug(o.name) === outpostSlug(name));
+  // By its name, or by its folder's (a renamed outpost keeps the folder it was made with).
+  return outposts().find((o) => o.name.toLowerCase() === want || outpostSlug(o.name) === outpostSlug(name) || (o.dir !== ROOT && basename(o.dir) === outpostSlug(name)));
 };
 
 const listening = (port: number) => new Promise<boolean>((done) => {

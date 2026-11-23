@@ -15,6 +15,7 @@ import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { chimeOn, playChime, setChime } from "../chime.ts";
 import { showCost } from "../prefs.ts";
+import { outpostName } from "../outpost.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
 import { SEASONS, seasonById } from "../seasons.ts";
 import { autoName, cameAs, cClass, cx, isAuto, money } from "../format.ts";
@@ -164,6 +165,35 @@ function OtherDevices({ S }: { S: CampState }) {
   );
 }
 
+// This outpost's name: "Outpost <name>" in the header, the tab's title and notifications. Kept in
+// camp/outpost.json; the folder it lives in stays where it is.
+function OutpostName({ S, refresh }: { S: CampState; refresh: () => void }) {
+  const now = S.settings.outpost ?? outpostName();
+  const [name, setName] = useState(now);
+  const [note, setNote] = useState("");
+  useEffect(() => { setName(now); }, [now]);
+  const save = async (ev: FormEvent) => {
+    ev.preventDefault();
+    setNote("");
+    try {
+      const r = await api<{ name?: string }>("/api/outpost/name", { name });
+      const saved = r.name ?? name.trim();
+      setName(saved);
+      setNote(saved === now ? "" : "Saved.");
+      refresh();
+    } catch (e) { setNote(errorText(e)); }
+  };
+  return (
+    <Row label="Outpost name" help={<>Shown under "Outpost" in the header and in the tab's title, notifications and the theme packs' places, so you can tell your outposts apart (say, Work and Home). Letters, digits and spaces, up to 24 characters. Kept in <code>camp/outpost.json</code>.</>}>
+      <form className="inline-form" onSubmit={save}>
+        <input aria-label="Outpost name" value={name} maxLength={24} onChange={(ev) => { setName(ev.target.value); setNote(""); }} />
+        <button className="btn small primary" type="submit" disabled={!name.trim() || name.trim() === now}>Save</button>
+        {note && <span className="meta" role="status"> {note}</span>}
+      </form>
+    </Row>
+  );
+}
+
 // Decorations (seasons.ts): off, whatever the calendar says, or one by name.
 const monthDay = (mmdd: string) => { const [m, d] = mmdd.split("-").map(Number); return new Date(2024, m - 1, d).toLocaleDateString([], { month: "short", day: "numeric" }); };
 const DECOR_CHOICES: { id: SeasonChoice; name: string; about: string }[] = [
@@ -205,6 +235,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   const renamed = S.characters.filter((c) => c.custom && cameAs(packs[0]?.extras?.[c.id], c.own?.name ?? c.name));
   return (
     <>
+      <OutpostName S={S} refresh={refresh} />
       <Row label="What runs the crew" help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
         <Choices name="Runtime" value={S.runtime} onChange={setRuntime} options={[
           { id: "claude-code", label: `Claude subscription${plan ? ` (${plan})` : ""}`, help: S.login && !S.login.ok ? S.login.problem ?? "Not signed in" : "Through Claude Code. Counts against your plan's usage limits.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },

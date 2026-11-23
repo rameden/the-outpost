@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { cleanName, outpostSlug, readOutpost, withOutpost, OUTPOST_FILE } from "../src/outpost.ts";
+import { cleanName, outpostSlug, readOutpost, renameOutpost, withOutpost, OUTPOST, OUTPOST_FILE } from "../src/outpost.ts";
+import { packById } from "../src/packs.ts";
 import { uiPage } from "../src/ui-files.ts";
 
 const at = (outpost?: object | string) => {
@@ -48,4 +49,26 @@ test("the page wears the outpost's name, in its title and the meta the page read
   writeFileSync(join(dist, "index.html"), html);
   assert.match(uiPage(dist, "", "Home lab")!, /<title>Outpost Home lab<\/title>/);
   assert.match(uiPage(dist, "")!, /<title>Outpost Mae<\/title>/, "the tests run in this checkout: Mae");
+});
+
+test("renaming keeps the new name in outpost.json with the port it had, and the running outpost takes it", () => {
+  const mae = at();
+  const live = { name: "Mae", port: 4747 };
+  renameOutpost("  Home   lab! ", mae, live);
+  assert.deepEqual(JSON.parse(readFileSync(join(mae, OUTPOST_FILE), "utf8")), { name: "Home lab", port: 4747 });
+  assert.equal(live.name, "Home lab");
+  const work = at({ name: "Work", port: 4801, note: "kept" });
+  renameOutpost("Office", work, { name: "Work", port: 4801 });
+  assert.deepEqual(JSON.parse(readFileSync(join(work, OUTPOST_FILE), "utf8")), { name: "Office", port: 4801, note: "kept" });
+  assert.throws(() => renameOutpost("!!!", work, { name: "Office", port: 4801 }), /letter or digit/);
+  assert.equal(readOutpost(work).name, "Office");
+});
+
+test("the packs' places follow a rename without a restart", () => {
+  const was = OUTPOST.name;
+  try {
+    OUTPOST.name = "Home";
+    assert.equal(packById("starship").place, "the starship Home");
+    assert.equal(withOutpost('<meta name="outpost" content="Mae"><title>Outpost Mae</title>'), '<meta name="outpost" content="Home"><title>Outpost Home</title>');
+  } finally { OUTPOST.name = was; }
 });

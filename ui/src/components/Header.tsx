@@ -14,7 +14,7 @@ import { w } from "../words.ts";
 import { Icon, type IconName } from "./bits.tsx";
 import { ReadingPlayer } from "./ReadAloud.tsx";
 import { MaeLogo } from "./MaeLogo.tsx";
-import { outpostName } from "../outpost.ts";
+import { outpostName, setOutpostName } from "../outpost.ts";
 import { needsDoing, needsLabel, type Need } from "../needs.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
@@ -245,7 +245,11 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   const gh = useGithub();
 
   // The tab's title: the name and its tag, behind the count of what needs you.
-  const outpost = `Outpost ${outpostName()}`;
+  // The name comes in the page, and with the camp's state once it's here (it can be renamed).
+  const renamed = S?.settings?.outpost;
+  const name = renamed || outpostName();
+  useEffect(() => { if (renamed) setOutpostName(renamed); }, [renamed]);
+  const outpost = `Outpost ${name}`;
   useEffect(() => { document.title = asks.length ? `(${asks.length}) ${outpost}` : outpost; }, [asks.length, outpost]);
 
   return (
@@ -254,8 +258,8 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         {/* The logo, as the logo kit draws it: the mark and the name. */}
         {/* It's also the way home: to Today, the page the camp opens on. */}
         <h1>{onHome
-          ? <button type="button" className="brand-home" title="Today: your brief, and where things stand" onClick={onHome}><MaeLogo /></button>
-          : <MaeLogo />}</h1>
+          ? <button type="button" className="brand-home" title="Today: your brief, and where things stand" onClick={onHome}><MaeLogo name={name} /></button>
+          : <MaeLogo name={name} />}</h1>
         {/* The tour (docs/index.html, served at /splash), in its own tab so nothing here is interrupted. */}
         <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Outpost (opens in a new tab)">Tour</a>
       </div>

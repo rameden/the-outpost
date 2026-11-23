@@ -88,7 +88,7 @@ import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
-import { OUTPOST } from "./outpost.js";
+import { OUTPOST, renameOutpost } from "./outpost.js";
 
 // CAMP_PORT wins; else the port this outpost was given (camp/outpost.json); else 4747.
 const PORT = Number(process.env.CAMP_PORT ?? OUTPOST.port);
@@ -604,6 +604,7 @@ async function fullState(full: boolean, historySeen?: string) {
       jiraWrite: writeBackSettings(),
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
+      outpost: OUTPOST.name, // this outpost's name ("Outpost Mae"); Settings, General renames it
       // Where it can be reached from: only here, or (LAN mode) your other machines, at these addresses.
       lan: ACCESS.lan ? ACCESS.names.map((n) => addressOf(n, PORT)) : null,
     },
@@ -1513,6 +1514,14 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) {
         return send(res, 400, { error: e.message });
       }
+    }
+    // Rename this outpost ({ name }): the header, the page's title, notifications and the packs'
+    // places all take the new name. It's kept in camp/outpost.json.
+    if (url.pathname === "/api/outpost/name") {
+      try { renameOutpost(body.name); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+      emit({ type: "changed", what: "settings" });
+      return send(res, 200, { ok: true, name: OUTPOST.name });
     }
     if (url.pathname === "/api/auto-titles") {
       setAutoTitles(!!body.on);

@@ -25,7 +25,7 @@ const camp = (over: Partial<CampState["settings"]> = {}) => ({
   settings: {
     approval: "safe", allow: ["npm run build"], exact: ["npm test -- --watch=false"], deny: ["git push*"], askAlways: [], reviewer: false, allowHosts: [], defaultAllow: ["ls", "git status"],
     questsAtOnce: 4, questsMax: 16, parallelMax: 8, selfEdit: false,
-    phone: { topic: "", server: "", approve: null, on: false }, runtimeLocked: null, ...over,
+    phone: { topic: "", server: "", approve: null, on: false }, runtimeLocked: null, outpost: "Home", ...over,
   },
 }) as unknown as CampState;
 
@@ -166,6 +166,19 @@ test("today's cost can be taken out of the top bar's status menu, at once, and s
   fireEvent.click(screen.getByRole("checkbox", { name: /Hidden/ }));
   expect(spend()).toBeTruthy();
   localStorage.clear();
+});
+
+test("General renames the outpost: the name is first on the page, and Save sends it to the camp", async () => {
+  show("general");
+  const input = screen.getByRole("textbox", { name: "Outpost name" });
+  expect(input.closest(".set-row")!.previousElementSibling).toBeNull();
+  expect((input as HTMLInputElement).value).toBe("Home");
+  const save = within(input.closest("form")!).getByRole("button", { name: "Save" });
+  expect((save as HTMLButtonElement).disabled).toBe(true); // nothing changed yet
+  fireEvent.change(input, { target: { value: "Work" } });
+  await act(async () => { fireEvent.click(save); });
+  expect(posts).toContainEqual({ path: "/api/outpost/name", body: { name: "Work" } });
+  expect(screen.getByRole("status").textContent).toMatch(/Saved/);
 });
 
 test("General has a Decorations row right under the colours: only for looks, kept in this browser, and nothing is sent to the camp", () => {

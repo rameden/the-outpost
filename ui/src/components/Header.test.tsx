@@ -187,7 +187,7 @@ test("what needs you is one chip: several things open a list, and each row goes 
   expect(screen.queryByRole("button", { name: /need/ })).toBeNull();
 });
 
-test("another outpost's logo is the same mark with its own name set beside it, and the tab says so", () => {
+test("the title is Outpost, with the outpost's name under it, and the tab says both", () => {
   const meta = document.createElement("meta");
   meta.name = "outpost"; meta.content = "Work";
   document.head.append(meta);
@@ -195,19 +195,33 @@ test("another outpost's logo is the same mark with its own name set beside it, a
     render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
     const logo = within(screen.getByRole("heading", { level: 1 })).getByRole("img", { name: "Outpost Work" });
     expect(logo.querySelector(".mae-mark")).toBeTruthy();
-    expect(logo.textContent).toBe("Work");
+    expect(logo.querySelector(".outpost-title")!.textContent).toBe("Outpost");
+    expect(logo.querySelector(".outpost-sub")!.textContent).toBe("Work");
     expect(document.title).toBe("Outpost Work");
   } finally { meta.remove(); }
 });
 
-test("the name is the logo kit's logo, with no subtitle and no orb beside it", () => {
+test("a rename in the camp's state shows at once, and the page keeps the new name", () => {
+  const meta = document.createElement("meta");
+  meta.name = "outpost"; meta.content = "Mae";
+  document.head.append(meta);
+  try {
+    const S = { ...camp(), settings: { ...camp().settings, outpost: "Home" } } as CampState;
+    render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
+    expect(within(screen.getByRole("heading", { level: 1 })).getByRole("img", { name: "Outpost Home" }).querySelector(".outpost-sub")!.textContent).toBe("Home");
+    expect(document.title).toBe("Outpost Home");
+    expect(meta.content).toBe("Home");
+  } finally { meta.remove(); }
+});
+
+test("the logo is the kit's mark and the words, with no orb beside it", () => {
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   const name = screen.getByRole("heading", { level: 1 });
-  // The logo is one drawing, the mark and the name, in the colour of the text around it (the kit's ink for the theme), read as "Outpost Mae" (the drawing says Mae, the short form).
   const logo = within(name).getByRole("img", { name: "Outpost Mae" });
-  expect([...logo.querySelectorAll("path")].every((p) => [p.getAttribute("fill"), p.parentElement!.getAttribute("stroke")].includes("currentColor"))).toBe(true);
-  expect(logo.querySelector("circle.logo-dot")).toBeTruthy(); // the amber centre, coloured by the stylesheet
-  expect(name.textContent).toBe(""); // no words beside the drawing
+  const mark = logo.querySelector("svg.mae-mark")!;
+  expect([...mark.querySelectorAll("path")].every((p) => [p.getAttribute("fill"), p.parentElement!.getAttribute("stroke")].includes("currentColor"))).toBe(true);
+  expect(mark.querySelector("circle.logo-dot")).toBeTruthy(); // the amber centre, coloured by the stylesheet
+  expect(name.textContent).toBe("OutpostMae");
   expect(screen.queryByText("Mission control")).toBeNull();
   // The header has the static logo only: the orb is the sign-in page's.
   expect(document.querySelector(".mae-orb")).toBeNull();

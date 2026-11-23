@@ -53,7 +53,7 @@ npm run outpost -- start Work         # run it, serving the built page (like ui:
 npm run outpost -- start Work --dev   # run it with the page reloading as you edit (like npm run ui)
 ```
 
-A new outpost starts empty: connect its models and accounts from its own Settings. The crew's built-in skills are copied from this checkout and brought up to date each time an outpost starts, while skills an outpost learns stay in that outpost. The relay and Tailscale scripts (`scripts/relay`, `scripts/tailscale.sh`) reach Mae.
+The header reads "Outpost" with the outpost's name under it. Rename an outpost from its Settings, General: the new name is kept in its `camp/outpost.json` and shows at once, while its folder stays where it is (`start` finds it by either name). A new outpost starts empty: connect its models and accounts from its own Settings. The crew's built-in skills are copied from this checkout and brought up to date each time an outpost starts, while skills an outpost learns stay in that outpost. The relay and Tailscale scripts (`scripts/relay`, `scripts/tailscale.sh`) reach Mae.
 
 ## Terminal commands
 
