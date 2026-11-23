@@ -6,7 +6,7 @@
 // (scripts/launch.ts) starts that outpost and this page goes to it, signed in. One that's running
 // glows; one that's stopped is dim.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from "react";
 import { Icon } from "../components/bits.tsx";
 import { contour } from "../components/MaeSystem.tsx";
 import { cx, plural } from "../format.ts";
@@ -50,6 +50,7 @@ const day = (t: number) => new Date(t).toLocaleDateString([], { year: "numeric",
 const tone = (line: number) => ({ "--c": `var(--c-${toneOf(line)})` }) as CSSProperties;
 const lap = (line: number) => ({ "--lap": `${lapOf(line)}s` }) as CSSProperties;
 const PANEL = 400, NARROW = 760; // the panel's room beside the chart, and the width under which it sits below instead (as the stylesheet has it)
+const DOUBLE_MS = 500, DOUBLE_PX = 10; // how soon and how near a second click counts as a double-click
 const windowSize = () => ({ w: window.innerWidth || 1024, h: window.innerHeight || 768 });
 
 // Orbit's sun, with its corona and dials. It is scenery: the outposts go round it.
@@ -110,6 +111,27 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
   const pick = (id: string) => { setPicked(id); setError(""); setNaming(false); };
   const shut = () => { setPicked(null); setNaming(false); setError(""); };
 
+  // A double-click on an outpost launches it. The first click opens the panel, which moves the chart
+  // over, so the second click lands where the planet was, not on it, and the browser never calls that
+  // a double-click. So it's counted here by time and place: a second click soon after, close to the
+  // first, unless it's on another outpost.
+  const lastClick = useRef<{ id: string; t: number; x: number; y: number } | null>(null);
+  const onPlanetClick = (ev: MouseEvent, o: HubOutpost) => {
+    lastClick.current = { id: o.id, t: ev.timeStamp, x: ev.clientX, y: ev.clientY };
+    pick(o.id);
+  };
+  const onAnyClick = (ev: MouseEvent) => {
+    const prev = lastClick.current;
+    if (!prev) return;
+    const on = (ev.target as Element | null)?.closest?.("[data-outpost]")?.getAttribute("data-outpost");
+    const double = ev.timeStamp - prev.t < DOUBLE_MS && Math.hypot(ev.clientX - prev.x, ev.clientY - prev.y) < DOUBLE_PX && (!on || on === prev.id);
+    if (!double) return;
+    lastClick.current = null;
+    ev.stopPropagation(); // it's the launch, not another pick
+    const o = outposts?.find((x) => x.id === prev.id);
+    if (o && busy === null) void launch(o);
+  };
+
   // Esc steps back: out of the panel that's open.
   const open = naming || !!sel;
   useEffect(() => {
@@ -154,7 +176,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
   }
 
   return (
-    <main className={cx("constellation", "hub", open && "has-panel")} aria-label="Star chart of your outposts">
+    <main className={cx("constellation", "hub", open && "has-panel")} aria-label="Star chart of your outposts" onClickCapture={onAnyClick}>
       {STARS.map((_, j) => <div key={j} className={`orb-stars s${j + 1}`} aria-hidden="true" />)}
       <svg className="hub-sky">
         <g transform={`translate(${mid.x.toFixed(1)} ${mid.y.toFixed(1)}) scale(${k.toFixed(4)})`} style={{ "--k": k.toFixed(4) } as CSSProperties}>
@@ -172,7 +194,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
               <g className={cx("con-star", "hub-body", "orb-planet", o.running ? "st-active" : "off", o.starting && "starting", o.id === picked && "sel")}
                 style={tone(b.line)} transform={`translate(${b.x.toFixed(1)} ${b.y.toFixed(1)})`} role="button" tabIndex={0} aria-pressed={o.id === picked}
                 aria-label={`Outpost ${o.name}, ${o.running ? "running" : o.starting ? "starting" : "stopped"}`}
-                onClick={() => pick(o.id)} onDoubleClick={() => void launch(o)}
+                data-outpost={o.id} onClick={(ev) => onPlanetClick(ev, o)}
                 onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(o.id); } }}>
                 <g className="hub-level">
                   <circle className="con-hit" r={Math.max(reach, 22 / k)} />
