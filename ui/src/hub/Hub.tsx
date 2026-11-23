@@ -1,7 +1,8 @@
 // The star chart: every outpost on this machine, drawn as Orbit draws a camp and standing on the
 // same night sky (the memory map's page, .constellation, with Orbit's star sheets and bodies). The
 // sun at the middle is just the sun; every outpost is a planet on a contour line of its own, each
-// treated the same. Pick one to read about it in the panel, then launch it: the chart's server
+// treated the same, and each going slowly round the sun with its line (the stylesheet turns them:
+// .hub-turn, and .hub-level to keep a planet and its name upright as it goes). Pick one to read about it in the panel, then launch it: the chart's server
 // (scripts/launch.ts) starts that outpost and this page goes to it, signed in. One that's running
 // glows; one that's stopped is dim.
 
@@ -10,7 +11,7 @@ import { Icon } from "../components/bits.tsx";
 import { contour } from "../components/MaeSystem.tsx";
 import { cx, plural } from "../format.ts";
 import { PLANET_R, STARS, SUN_R } from "../orbit/scene.ts";
-import { chart, lineAt, toneOf } from "./chart.ts";
+import { chart, lapOf, lineAt, toneOf } from "./chart.ts";
 
 export type HubOutpost = {
   id: string; name: string; port: number; dir: string;
@@ -47,6 +48,7 @@ export function ago(then: number, now = Date.now()): string {
 
 const day = (t: number) => new Date(t).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
 const tone = (line: number) => ({ "--c": `var(--c-${toneOf(line)})` }) as CSSProperties;
+const lap = (line: number) => ({ "--lap": `${lapOf(line)}s` }) as CSSProperties;
 const PANEL = 400, NARROW = 760; // the panel's room beside the chart, and the width under which it sits below instead (as the stylesheet has it)
 const windowSize = () => ({ w: window.innerWidth || 1024, h: window.innerHeight || 768 });
 
@@ -157,7 +159,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
       <svg className="hub-sky">
         <g transform={`translate(${mid.x.toFixed(1)} ${mid.y.toFixed(1)}) scale(${k.toFixed(4)})`} style={{ "--k": k.toFixed(4) } as CSSProperties}>
           {outposts && <g aria-hidden="true">
-            {Array.from({ length: map.lines }, (_, i) => <path key={i} className="con-line" transform={`rotate(${map.bodies.find((b) => b.line === i)?.deg ?? i * 97})`} d={contour(lineAt(i), i)} />)}
+            {Array.from({ length: map.lines }, (_, i) => <g key={i} className="hub-turn" style={lap(i)}><path className="con-line" transform={`rotate(${map.bodies.find((b) => b.line === i)?.deg ?? i * 97})`} d={contour(lineAt(i), i)} /></g>)}
             <path className="con-line hub-far" d={contour(lineAt(map.lines - 1) + 30, map.lines)} />
           </g>}
           <Sun />
@@ -166,16 +168,20 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
             if (!b) return null;
             const reach = PLANET_R + 6;
             return (
-              <g key={o.id} className={cx("con-star", "hub-body", "orb-planet", o.running ? "st-active" : "off", o.starting && "starting", o.id === picked && "sel")}
+              <g key={o.id} className="hub-turn" style={lap(b.line)}>
+              <g className={cx("con-star", "hub-body", "orb-planet", o.running ? "st-active" : "off", o.starting && "starting", o.id === picked && "sel")}
                 style={tone(b.line)} transform={`translate(${b.x.toFixed(1)} ${b.y.toFixed(1)})`} role="button" tabIndex={0} aria-pressed={o.id === picked}
                 aria-label={`Outpost ${o.name}, ${o.running ? "running" : o.starting ? "starting" : "stopped"}`}
                 onClick={() => pick(o.id)} onDoubleClick={() => void launch(o)}
                 onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(o.id); } }}>
-                <circle className="con-hit" r={Math.max(reach, 22 / k)} />
-                <Planet id={`hub-glow-${i}`} name={o.name} />
-                <circle className="con-ring" r={reach} />
-                <text className="hub-name" y={reach} textAnchor="middle">{o.name}</text>
-                <text className="hub-says" y={reach} textAnchor="middle">{o.running ? "running" : o.starting ? "starting…" : "stopped"}</text>
+                <g className="hub-level">
+                  <circle className="con-hit" r={Math.max(reach, 22 / k)} />
+                  <Planet id={`hub-glow-${i}`} name={o.name} />
+                  <circle className="con-ring" r={reach} />
+                  <text className="hub-name" y={reach} textAnchor="middle">{o.name}</text>
+                  <text className="hub-says" y={reach} textAnchor="middle">{o.running ? "running" : o.starting ? "starting…" : "stopped"}</text>
+                </g>
+              </g>
               </g>
             );
           })}

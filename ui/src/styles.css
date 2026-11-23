@@ -3165,6 +3165,14 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .hub-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
 .hub .con-title h1 { margin: 0; font: 600 20px/1.2 var(--serif); }
 .hub-far { opacity: .4; }
+/* Every outpost goes slowly round the sun, and its line with it (a line is uneven, so the two turn
+   as one); .hub-level turns the planet back as far, so it and its name stay upright. They hold still
+   while you point at one or reach it with the keyboard. */
+@media (prefers-reduced-motion: no-preference) {
+  .hub-turn { animation: orb-turn var(--lap, 300s) linear infinite; }
+  .hub-level { animation: orb-turn-back var(--lap, 300s) linear infinite; }
+  .hub-sky:has(.hub-body:hover, .hub-body:focus-visible) :is(.hub-turn, .hub-level) { animation-play-state: paused; }
+}
 .hub-body text { pointer-events: none; }
 .hub-body text.hub-initial { fill: var(--c, var(--c-other)); font: 600 10.5px var(--sans); }
 .hub-name { fill: var(--text); font: 600 calc(13px / var(--k, 1)) var(--sans); transform: translateY(calc(17px / var(--k, 1))); }

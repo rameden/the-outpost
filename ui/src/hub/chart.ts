@@ -7,6 +7,9 @@ import { startOf } from "../components/MaeSystem.tsx";
 const FIRST = 66, APART = 40; // the first line's distance from the sun, and the gap between lines
 const FEWEST = 3;             // lines drawn at least, so a chart with one outpost still has its map
 export const lineAt = (i: number) => FIRST + APART * i;
+// How long a line takes to go round the sun once, in seconds: slowly, and more slowly further out
+// (as planets do: the lap grows as the distance to the power of one and a half).
+export const lapOf = (i: number) => Math.round(200 * (lineAt(i) / FIRST) ** 1.5);
 
 export type Body = { id: string; x: number; y: number; r: number; deg: number; line: number };
 export type Chart = { bodies: Body[]; lines: number; half: number };
