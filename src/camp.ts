@@ -1,5 +1,5 @@
 // The camp: talk to the Quartermaster, or straight to one adventurer.
-// Run: npm start            (scheduled jobs run separately: npm run watch)
+// Run: npm run cli          (scheduled jobs run separately: npm run watch)
 
 import { rl } from "./tools.js";
 import { onInterrupt } from "./terminal.js";

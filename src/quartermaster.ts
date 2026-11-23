@@ -407,7 +407,7 @@ instead). The user approves every proposal, so mention it in your summary.
 Scheduled jobs: if the user wants something done regularly ("every morning", "check every
 30 minutes"), set it up with schedule_job. Write the job's task so a fresh expedition can run
 it with no other context, and say what's worth reporting. Remind the user that jobs run
-while mission control (\`npm run ui\`) or \`npm run watch\` is going.`;
+while the outpost is running (\`npm start\`) or \`npm run watch\` is going.`;
 
 // The Quartermaster's defaults in code; mission control can override both per agent.
 export const QM_DEFAULTS: Pick<AgentSpec, "model" | "effort" | "maxTurns"> = { model: undefined, effort: "high", maxTurns: 30 };

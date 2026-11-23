@@ -21,7 +21,7 @@ Requires Node 22.9 or later, and either a Claude subscription (Pro or Max) or an
 ```bash
 npm install
 claude auth login   # once: the crew runs through Claude Code on your subscription
-npm run ui          # mission control in your browser: open the link it prints
+npm start           # the star chart: pick an outpost (Mae, to begin with) and launch it; you land in mission control, signed in
 ```
 
 On your subscription, usage counts against your plan's limits, and costs in the camp are estimates at API prices. Your own Claude Code settings, hooks, `CLAUDE.md` and MCP servers aren't loaded for the crew.
@@ -31,7 +31,7 @@ On your subscription, usage counts against your plan's limits, and costs in the 
 Other ways in:
 
 ```bash
-npm start           # the camp in your terminal
+npm run cli         # the camp in your terminal
 npm run headless -- "…"   # one request, nobody at the keyboard (see below)
 npm run watch       # scheduled jobs from the terminal (mission control runs them too)
 ```
@@ -45,6 +45,8 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 ## Outposts
 
 The app is Outpost, and each camp it runs is an outpost with a name of its own: one for work and one for home, say, that know nothing of each other. This checkout is the first outpost, Mae, with the `camp/` it has always had. The others live in `~/Outposts/<name>/` (set `OUTPOSTS_DIR` to put them elsewhere), each with its own crew, memory, settings, keys, jobs, skills and `.env`, and each runs as its own server on its own port.
+
+`npm start` opens the star chart: every outpost on this machine, each a planet round the sun. Pick one to read about it, then launch it; **New outpost** makes another. Outposts started from the chart stop when you stop `npm start` (Ctrl-C). The same from the terminal:
 
 ```
 npm run outpost                       # list them, and which are running
@@ -69,7 +71,7 @@ On the relay each outpost gets a subdomain of its own (`work.outpostmae.app`), i
 
 ## Terminal commands
 
-In `npm start`, type a request for the Quartermaster, or:
+In `npm run cli`, type a request for the Quartermaster, or:
 
 | Command | What it does |
 |---|---|
@@ -166,7 +168,8 @@ Environment: `CAMP_PORT` for another port, `CAMP_NEW_TOKEN=1` for a new key, `CA
 The page is a React app in `ui/` (React 19, TypeScript, plain CSS, Vite).
 
 ```bash
-npm run ui          # the camp plus Vite: page edits reload live (restart it for edits under src/)
+npm start -- --dev  # the star chart, with each outpost's page reloading as you edit
+npm run ui          # Mae alone, plus Vite: page edits reload live (restart it for edits under src/)
 npm run ui:serve    # the camp alone, serving the built page
 npm run prod        # production: typecheck, build the page and the server (dist/server.js), run it with plain node
 npm run prod:start  # run the last prod build again, without rebuilding (a restart in ~0.3 s)

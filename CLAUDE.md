@@ -4,7 +4,7 @@ A multi-agent harness on Claude: a Quartermaster plans and dispatches a crew (Sc
 
 ## Where things live
 
-- `src/` — Node/TS backend. `server.ts` is the mission-control HTTP/SSE server (big: grep it, don't read it whole). `quartermaster.ts` plans and dispatches; `agent.ts` runs a crew member; `claude-code.ts` is the Claude Code subscription path; `tools.ts` holds agent tools; `memory.ts`, `memfit.ts`, `recall.ts` handle memory; `scheduler.ts` and `jobs.ts` handle recurring jobs; `providers.ts` handles other model providers; `routing.ts` (pure decisions) and `autoroute.ts` (registry, health, log) are Auto model selection; `oplog.ts` journals side-effecting tool calls so a resumed task never repeats them; `outpost.ts` names the outpost the server runs in (its working folder: Mae is this checkout, others live in `~/Outposts`, made and started by `scripts/outpost.ts`).
+- `src/` — Node/TS backend. `server.ts` is the mission-control HTTP/SSE server (big: grep it, don't read it whole). `quartermaster.ts` plans and dispatches; `agent.ts` runs a crew member; `claude-code.ts` is the Claude Code subscription path; `tools.ts` holds agent tools; `memory.ts`, `memfit.ts`, `recall.ts` handle memory; `scheduler.ts` and `jobs.ts` handle recurring jobs; `providers.ts` handles other model providers; `routing.ts` (pure decisions) and `autoroute.ts` (registry, health, log) are Auto model selection; `oplog.ts` journals side-effecting tool calls so a resumed task never repeats them; `outpost.ts` names the outpost the server runs in (its working folder: Mae is this checkout, others live in `~/Outposts`, made and started by `scripts/outpost.ts`; `scripts/launch.ts` with `src/hub.ts` is the star chart, one page that lists them all and starts the one you pick; its page is `ui/hub.html` and `ui/src/hub/`).
 - `ui/src/` — React app, built into `ui/dist`. `App.tsx` is the shell; `components/` holds UI pieces (Header, Composer, Crew, Terminal, Files…); `panels/` holds Quests and Records; `settings/` holds the Settings pages; `orbit/` holds the full-screen crew view. `styles.css` is ~2,400 lines: grep it for the selector you need.
 - `tests/` — node `--test` backend tests; UI tests sit beside components as `*.test.tsx` (vitest).
 - `camp/` — runtime state (crew, memory, feeds). It's data, not code, so don't explore it unless the task is about it.
@@ -12,7 +12,7 @@ A multi-agent harness on Claude: a Quartermaster plans and dispatches a crew (Sc
 
 ## Commands
 
-- `npm run ui` — dev server. `npm test` — all tests. `npm run typecheck` — all three tsconfigs.
+- `npm start` — the star chart of outposts: the way into the app. `npm run ui` — one outpost's dev server (Mae, page reloading as you edit). `npm run cli` — the camp in the terminal. `npm test` — all tests. `npm run typecheck` — all three tsconfigs.
 
 ## Keeping context small
 

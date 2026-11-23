@@ -7,21 +7,24 @@
 //   npm run outpost -- where Work        name, slug, port, folder and mae|other, tab-separated
 //                                        (for scripts/relay/relay.sh and scripts/tailscale.sh)
 //
+// `npm start` (scripts/launch.ts) is the same from a page: a star chart of them all, where
+// you pick the one to enter.
+//
 // Each outpost keeps its own camp/ (crew, memory, settings, keys, jobs), its own skills/ and its
 // own .env, so connect its models and accounts from its own Settings. The crew's built-in skills
 // come from this checkout and are brought up to date in each outpost as it starts; skills an
 // outpost learns or installs stay in that outpost.
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess, type StdioOptions } from "node:child_process";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEFAULT_NAME, OUTPOST_FILE, cleanName, outpostSlug, outpostsHome, readOutpost, type Outpost } from "../src/outpost.ts";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-type Place = Outpost & { dir: string };
+export type Place = Outpost & { dir: string };
 
 // Mae first (this checkout), then the rest by name.
 export function outposts(home = outpostsHome()): Place[] {
@@ -34,13 +37,13 @@ export function outposts(home = outpostsHome()): Place[] {
   return [{ ...readOutpost(ROOT), dir: ROOT }, ...others];
 }
 
-const find = (name: string) => {
+export const find = (name: string) => {
   const want = cleanName(name).toLowerCase();
   // By its name, or by its folder's (a renamed outpost keeps the folder it was made with).
   return outposts().find((o) => o.name.toLowerCase() === want || outpostSlug(o.name) === outpostSlug(name) || (o.dir !== ROOT && basename(o.dir) === outpostSlug(name)));
 };
 
-const listening = (port: number) => new Promise<boolean>((done) => {
+export const listening = (port: number) => new Promise<boolean>((done) => {
   const s = createConnection({ host: "127.0.0.1", port });
   s.setTimeout(400);
   s.once("connect", () => { s.destroy(); done(true); });
@@ -60,7 +63,7 @@ function syncSkills(dir: string) {
   }
 }
 
-function create(rawName: string, port?: number): Place {
+export function create(rawName: string, port?: number): Place {
   const name = cleanName(rawName);
   const slug = outpostSlug(name);
   if (!name || !slug) throw new Error("Give the outpost a name with a letter or digit in it: npm run outpost -- new Work");
@@ -78,19 +81,26 @@ function create(rawName: string, port?: number): Place {
   return { name, port: p, dir };
 }
 
-async function start(o: Place, dev: boolean) {
-  if (await listening(o.port)) throw new Error(`Something is already on port ${o.port}: is Outpost ${o.name} running?`);
+// Bring the page's build up to date (when it's stale), as `npm run ui:serve` does before it serves.
+export function buildPage(): number {
+  return spawnSync(process.execPath, ["--import", import.meta.resolve("tsx"), join(ROOT, "scripts", "ui-build.ts"), "--if-stale"], { cwd: ROOT, stdio: "inherit" }).status ?? 1;
+}
+
+// The outpost's own server, running in its own folder: the camp alone, or (dev) with Vite in front.
+export function spawnOutpost(o: Place, dev: boolean, stdio: StdioOptions = "inherit"): ChildProcess {
   syncSkills(o.dir);
   const tsx = import.meta.resolve("tsx");
   const env = pathToFileURL(join(ROOT, "scripts", "env.mjs")).href; // loads the outpost's own .env
   // Each outpost's dev page gets its own port too, so two can be open at once.
   const vars = { ...process.env, CAMP_PORT: String(o.port), ...(dev && !process.env.CAMP_UI_PORT ? { CAMP_UI_PORT: String(5173 + o.port - 4747) } : {}) };
-  if (!dev) {
-    const built = spawnSync(process.execPath, ["--import", tsx, join(ROOT, "scripts", "ui-build.ts"), "--if-stale"], { cwd: ROOT, stdio: "inherit" });
-    if (built.status !== 0) process.exit(built.status ?? 1);
-  }
   const entry = dev ? join(ROOT, "scripts", "ui-dev.ts") : join(ROOT, "src", "server.ts");
-  const child = spawn(process.execPath, ["--import", env, "--import", tsx, entry], { cwd: o.dir, env: vars, stdio: "inherit" });
+  return spawn(process.execPath, ["--import", env, "--import", tsx, entry], { cwd: o.dir, env: vars, stdio });
+}
+
+async function start(o: Place, dev: boolean) {
+  if (await listening(o.port)) throw new Error(`Something is already on port ${o.port}: is Outpost ${o.name} running?`);
+  if (!dev) { const built = buildPage(); if (built !== 0) process.exit(built); }
+  const child = spawnOutpost(o, dev);
   for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => child.kill(sig));
   child.on("exit", (code) => process.exit(code ?? 0));
 }

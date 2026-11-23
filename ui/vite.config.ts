@@ -3,6 +3,7 @@
 // passes /api and /events through to the camp server, token and all.
 
 import { defineConfig } from "vitest/config";
+import { join } from "node:path";
 import react from "@vitejs/plugin-react";
 
 const CAMP = `http://127.0.0.1:${process.env.CAMP_PORT ?? 4747}`;
@@ -18,6 +19,8 @@ export default defineConfig({
     // opened (the terminal, Orbit, Settings, the game: see App.tsx); those are fetched by the
     // script itself, as built files that need no key, so the policy allows them as it is.
     // No module preload: Vite's preload helper would add an inline script.
+    // Two pages: mission control, and the star chart of outposts (`npm start`, src/hub.ts).
+    rollupOptions: { input: { index: join(import.meta.dirname, "index.html"), hub: join(import.meta.dirname, "hub.html") } },
     cssCodeSplit: false,
     modulePreload: false,
     assetsInlineLimit: 0,
