@@ -25,6 +25,7 @@ import { LinePanel, type Merge } from "./LinePanel.tsx";
 import { RunsPanel } from "./RunsPanel.tsx";
 import { Synapse, type End } from "./Synapse.tsx";
 
+import { w } from "../words.ts";
 const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"];
 // The class that colours a place's stars. A crew member's is theirs, found by their id (never by
 // the name they're shown under); a project's notes and the note about you have their own.
@@ -255,7 +256,7 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
   const owner = ownerSize(view.k);
   const near = new Set(node ? edges.flatMap((e) => (e.a === node.id ? [e.b] : e.b === node.id ? [e.a] : [])) : []);
   return (
-    <div className={cx("constellation", picking && "picking", lit && "isolating", listing && "runs-open")} ref={root} role="dialog" aria-modal="true" aria-label="Memory constellation: what the crew remembers, as a map" tabIndex={-1} onKeyDown={onKey}>
+    <div className={cx("constellation", picking && "picking", lit && "isolating", listing && "runs-open")} ref={root} role="dialog" aria-modal="true" aria-label={`Memory constellation: what the ${w("crew")} remembers, as a map`} tabIndex={-1} onKeyDown={onKey}>
       {STARS.map(([tile, depth], j) => (
         <div key={j} className={`orb-stars s${j + 1}`} aria-hidden="true"
           style={{ transform: `translate3d(${wrap(-view.x * view.k * depth, tile).toFixed(1)}px, ${wrap(-view.y * view.k * depth, tile).toFixed(1)}px, 0)` }} />
@@ -330,7 +331,7 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
       ) : count === 0 ? (
         <div className="con-empty">
           <b>Nothing's remembered yet</b>
-          <p>When the crew notes a lesson, or you tell them something worth keeping, it appears here as a star, with the other lines of the place it lives in.</p>
+          <p>When the {w("crew")} notes a lesson, or you tell them something worth keeping, it appears here as a star, with the other lines of the place it lives in.</p>
         </div>
       ) : null}
 

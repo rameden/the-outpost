@@ -14,7 +14,6 @@ import type { Rate } from "./costs.js";
 
 // ---------- What you picked ----------
 export type AutoPreference = "economy" | "balanced" | "quality";
-export const AUTO_PREFERENCES: AutoPreference[] = ["economy", "balanced", "quality"];
 export type ModelChoice = { kind: "manual"; model: string } | { kind: "auto"; preference: AutoPreference };
 // Stored as a plain string wherever a model is stored, so old sessions load as they were:
 // "auto" (Balanced), "auto:economy", "auto:balanced", "auto:quality"; anything else is a model.
@@ -24,7 +23,6 @@ export function parseChoice(s: string): ModelChoice {
   const m = s.match(AUTO_RE);
   return m ? { kind: "auto", preference: (m[1] as AutoPreference | undefined) ?? "balanced" } : { kind: "manual", model: s };
 }
-export const autoChoiceId = (p: AutoPreference) => `auto:${p}`;
 export const autoLabel = (p: AutoPreference) => `Auto · ${p[0].toUpperCase()}${p.slice(1)}`;
 
 // ---------- Routes ----------

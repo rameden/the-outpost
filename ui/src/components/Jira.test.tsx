@@ -1,8 +1,9 @@
 // Jira on the page: linking the account (the token goes to the camp once and isn't kept in the
 // form), and picking a ticket to attach.
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
+import { ConfirmHost } from "./Confirm.tsx";
 import { JIRA_PRESETS, JiraConnection, JiraPicker } from "./Jira.tsx";
 
 const calls: { url: string; body?: any }[] = [];
@@ -15,7 +16,6 @@ beforeEach(() => {
     const a = answer(url, body);
     return new Response(JSON.stringify(a.json), { status: a.status ?? 200 });
   }));
-  vi.stubGlobal("confirm", vi.fn(() => true));
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -46,14 +46,15 @@ test("linking: the address, email and token are sent to be checked; a refusal is
 
 test("linked: it says where and as whom, and can be unlinked; set in the environment, it says to remove it there", async () => {
   const refresh = vi.fn();
-  const { rerender } = render(<JiraConnection S={on()} refresh={refresh} />);
+  const { rerender } = render(<><JiraConnection S={on()} refresh={refresh} /><ConfirmHost /></>);
   expect(screen.getByText("team.atlassian.net")).toBeTruthy();
   expect(screen.getByText("Ryley A · me@team.com")).toBeTruthy();
   expect(screen.queryByLabelText("API token")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Unlink" }));
+  fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Unlink" }));
   await waitFor(() => expect(refresh).toHaveBeenCalled());
   expect(calls.at(-1)).toEqual({ url: "/api/jira", body: { disconnect: true } });
-  rerender(<JiraConnection S={on("environment")} refresh={refresh} />);
+  rerender(<><JiraConnection S={on("environment")} refresh={refresh} /><ConfirmHost /></>);
   expect(screen.queryByRole("button", { name: "Unlink" })).toBeNull();
   expect(screen.getByText(/JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN/)).toBeTruthy();
 });
@@ -66,7 +67,7 @@ test("which tickets are pulled in is set here, with the account: try a filter, t
     if (jql.includes("BROKEN")) return { status: 400, json: { error: "Jira refused the request. Error in the JQL Query." } };
     return pull(jql, url === "/api/jira/filter" ? jql : MINE, jql.includes("MP") ? ["MP-544", "MP-601"] : []);
   };
-  const { rerender } = render(<JiraConnection S={on()} refresh={refresh} />);
+  const { rerender } = render(<><JiraConnection S={on()} refresh={refresh} /><ConfirmHost /></>);
   const box = screen.getByLabelText("Filter (JQL)") as HTMLInputElement;
   expect(box.value).toBe(MINE);
   expect((screen.getByLabelText("A usual filter") as HTMLSelectElement).value).toBe(MINE);

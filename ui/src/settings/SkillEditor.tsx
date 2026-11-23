@@ -7,7 +7,9 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { api, errorText } from "../api.ts";
 import { cx } from "../format.ts";
 import type { SkillDetail } from "../types.ts";
+import { Dialog } from "../components/Dialog.tsx";
 
+import { w, a as an } from "../words.ts";
 const kb = (n: number) => (n < 1024 ? `${n} B` : `${Math.round(n / 102.4) / 10} KB`);
 const q = (owner: string, name: string, path?: string) => `/api/skills/files?owner=${encodeURIComponent(owner)}&name=${encodeURIComponent(name)}${path ? `&path=${encodeURIComponent(path)}` : ""}`;
 
@@ -42,11 +44,6 @@ export function SkillEditor({ owner, name, onClose, onSaved }: { owner: string; 
     setWarned(false); setNote("");
     go();
   }, [dirty, warned]);
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") { ev.stopPropagation(); leave(onClose); } };
-    document.addEventListener("keydown", esc, true);
-    return () => document.removeEventListener("keydown", esc, true);
-  }, [leave, onClose]);
 
   async function save(ev?: FormEvent) {
     ev?.preventDefault();
@@ -55,7 +52,7 @@ export function SkillEditor({ owner, name, onClose, onSaved }: { owner: string; 
     try {
       const r = await api<SkillDetail & { stillApproved: boolean }>("/api/skills/save", { owner, name, path, text });
       setSkill(r); setKept(text);
-      setNote(r.stillApproved ? "Saved. It still runs without asking, as you've just written it." : "Saved. The crew reads it from their next run.");
+      setNote(r.stillApproved ? "Saved. It still runs without asking, as you've just written it." : `Saved. The ${w("crew")} reads it from their next run.`);
       onSaved();
     } catch (e) { setError(errorText(e)); }
     setBusy(false);
@@ -74,9 +71,7 @@ export function SkillEditor({ owner, name, onClose, onSaved }: { owner: string; 
   const approved = skill?.commands.find((c) => c.endsWith(` skills/${owner}/${name}/${path}`));
 
   return (
-    <>
-      <div className="drawer-backdrop" onClick={() => leave(onClose)} />
-      <form className="dialog file-view skill-editor" role="dialog" aria-modal="true" aria-label={`Edit the skill ${owner}/${name}`} onSubmit={save}>
+    <Dialog as="form" className="dialog file-view skill-editor" label={`Edit the skill ${owner}/${name}`} onClose={() => leave(onClose)} onSubmit={save}>
         <header className="file-head">
           <b>skills/{owner}/{name}/{path}</b>
           <small>{dirty ? "changed, not saved" : kept !== null ? "saved" : ""}</small>
@@ -101,19 +96,17 @@ export function SkillEditor({ owner, name, onClose, onSaved }: { owner: string; 
             : <textarea ref={box} className="skill-editor-text" aria-label={`The text of ${path}`} value={text} spellCheck={false} autoCapitalize="off" autoCorrect="off"
                 onChange={(ev) => { setText(ev.target.value); setNote(""); setWarned(false); }}
                 onKeyDown={(ev) => {
-                  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") { ev.preventDefault(); void save(); }
-                  else if (ev.key === "Tab" && !ev.shiftKey && !ev.metaKey && !ev.ctrlKey && !ev.altKey) { ev.preventDefault(); document.execCommand?.("insertText", false, "  "); } // Tab indents; Esc first, then Tab, to move on
+                  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "s") { ev.preventDefault(); void save(); } // Tab moves on, as in any form: a keyboard user can always leave the text
                 }} />}
         </div>
         {error && <div className="form-error" role="alert">{error}</div>}
         <div className="dialog-actions">
           <span className="meta skill-editor-note" role="status">{note || (path === "SKILL.md"
-            ? "Keep the front matter at the top: the name (the skill's folder) and a one-line description, which is all a crew member sees until they open it."
+            ? `Keep the front matter at the top: the name (the skill's folder) and a one-line description, which is all ${an("crew")} member sees until they open it.`
             : approved ? "You let this script run without asking. It stays that way when you save: the change is yours." : "")}</span>
           {dirty && <button type="button" className="btn" onClick={() => { setText(kept ?? ""); setNote(""); setWarned(false); }}>Undo changes</button>}
           <button type="submit" className="btn primary" disabled={!dirty || busy} title="Save this file (⌘S / Ctrl+S)">{busy ? "Saving…" : "Save"}</button>
         </div>
-      </form>
-    </>
+    </Dialog>
   );
 }

@@ -4,11 +4,11 @@
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
-import { listFiles, searchText } from "./search.js";
+import { listFiles, searchText, SKIP_DIRS as SKIP } from "./search.js";
 import { campPath, CAMP_ROOT, displayPath, type Tool } from "./tools.js";
 import { afterWrite, beforeWrite } from "./checkpoints.js";
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".next", "coverage"]);
+const SKIP_DIRS = new Set(SKIP);
 // Paths as agents see them: relative in the camp, links/<name>/… in a linked folder.
 const rel = (abs: string) => displayPath(abs);
 

@@ -15,7 +15,8 @@
 // What an outpost says about itself is in its camp/outpost.json: { "name": "Work", "port": 4748 }.
 // With no file it's Mae on 4747, so the checkout as it is needs nothing new.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { writeJsonAtomic } from "./atomic.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -63,8 +64,7 @@ export function renameOutpost(raw: unknown, dir = process.cwd(), now: Outpost = 
   if (existsSync(file)) {
     try { kept = JSON.parse(readFileSync(file, "utf8")) ?? {}; } catch { kept = {}; }
   }
-  mkdirSync(join(dir, "camp"), { recursive: true });
-  writeFileSync(file, JSON.stringify({ ...kept, name, port: readOutpost(dir).port }, null, 2) + "\n");
+  writeJsonAtomic(file, { ...kept, name, port: readOutpost(dir).port });
   now.name = name;
   return now;
 }

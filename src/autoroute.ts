@@ -6,8 +6,8 @@
 // exclusions, the route chosen, the policy version, estimates, usage, latency, switches and how it
 // ended. Never a prompt, never a key. It keeps its newest ROUTING_MAX records.
 
-import { readFileSync, statSync } from "node:fs";
-import { appendLine, readJsonFile, writeAtomic, writeJsonAtomic } from "./atomic.js";
+import { statSync } from "node:fs";
+import { appendLine, readJsonFile, readJsonl, writeAtomic, writeJsonAtomic } from "./atomic.js";
 import { rateOf } from "./costs.js";
 import { anthropicKey, providersState } from "./providers.js";
 import { autoExcluded, campRuntime, type Effort } from "./settings.js";
@@ -196,9 +196,7 @@ function loadLog(): NonNullable<typeof logCache> {
   const st = statSync(ROUTING_LOG, { throwIfNoEntry: false });
   const stamp = `${process.cwd()}|${st ? `${st.mtimeMs}:${st.size}` : "none"}`;
   if (logCache?.stamp === stamp) return logCache;
-  const list: Logged[] = st
-    ? readFileSync(ROUTING_LOG, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return r && typeof r === "object" ? [r] : []; } catch { return []; } })
-    : [];
+  const list = st ? readJsonl<Logged>(ROUTING_LOG).filter((r) => r && typeof r === "object") : [];
   return (logCache = { stamp, size: st?.size ?? 0, list });
 }
 function record(rec: Logged) {

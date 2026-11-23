@@ -170,21 +170,21 @@ test("typing the Konami code starts it, wherever the keyboard is", () => {
   expect(start).toHaveBeenCalledTimes(1);
 });
 
-test("the plane in the top bar's Arcade menu starts it, then is its play and pause", () => {
+test("the plane at the end of the top bar's ··· menu starts it, then is its play and pause", () => {
   const S = { characters: [], quests: [], queued: [], parallel: 3, limits: [], skills: [], spend: { today: 0, week: 0, total: 0 }, runtime: "api", login: null } as unknown as CampState;
   const toggle = vi.fn();
-  const arcade = () => screen.getByRole("button", { name: "Arcade" });
-  const row = (name: string) => { fireEvent.click(arcade()); return screen.getByRole("menuitemcheckbox", { name }); };
-  const { rerender } = render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} />);
+  const more = () => screen.getByRole("button", { name: "More" });
+  const row = (name: string) => { fireEvent.click(more()); return screen.getByRole("menuitemcheckbox", { name }); };
+  const { rerender } = render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} />);
   fireEvent.click(row("Barnstorm"));
   expect(toggle).toHaveBeenCalledTimes(1);
-  rerender(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="on" />);
-  expect(arcade().classList.contains("on")).toBe(true); // lit while the game is up
+  rerender(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="on" />);
+  expect(more().classList.contains("on")).toBe(true); // lit while the game is up
   const pause = row("Pause Barnstorm");
   expect(pause.getAttribute("aria-checked")).toBe("true");
   fireEvent.click(pause);
-  rerender(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="paused" />);
-  expect([...arcade().classList]).toEqual(["icon-btn", "egg-paused"]); // not running, but there to come back to
+  rerender(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="paused" />);
+  expect([...more().classList]).toEqual(["icon-btn", "egg-paused"]); // not running, but there to come back to
   const resume = row("Resume Barnstorm");
   expect(resume.getAttribute("aria-checked")).toBe("false");
   fireEvent.click(resume);

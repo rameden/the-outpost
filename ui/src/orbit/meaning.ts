@@ -7,6 +7,7 @@ import { statusLine, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 import { money, plural, took } from "../format.ts";
 import type { CampState } from "../types.ts";
 
+import { w } from "../words.ts";
 // ---------- Quiet ----------
 // A quest that has done nothing for this long is shown as quiet: it may be on a long command, or it may be stuck.
 export const STALL_MS = 3 * 60_000;
@@ -48,7 +49,7 @@ export function spendOf(spend: Spend, name: string): { cost: number; share: numb
   const cost = spend?.byAgent?.[name] ?? 0;
   return { cost, share: spend && spend.today > 0 ? Math.min(1, cost / spend.today) : 0 };
 }
-export const spendLine = (s: { cost: number; share: number }) => (s.cost > 0 ? `${money(s.cost)} · ${Math.round(s.share * 100)}% of the camp's day` : "Nothing yet");
+export const spendLine = (s: { cost: number; share: number }) => (s.cost > 0 ? `${money(s.cost)} · ${Math.round(s.share * 100)}% of the ${w("camp")}'s day` : "Nothing yet");
 // The plan limit that's nearest to full (the sun's gauge), if the camp is on a plan that has them.
 export function tightest(limits: { label?: string; type: string; utilization?: number }[] | null | undefined): { label: string; used: number } | null {
   const known = (limits ?? []).filter((l) => typeof l.utilization === "number");

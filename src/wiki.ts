@@ -12,6 +12,7 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, wr
 import { posix } from "node:path";
 import type { Tool } from "./tools.js";
 import { emit } from "./events.js";
+import { today } from "./helpers.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -21,7 +22,6 @@ export type WikiSection = "facts" | "notes";
 const PAGE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const MAX_INDEX_PAGES = 80;
 
-const today = () => new Date().toISOString().slice(0, 10);
 
 function pageSummary(path: string): string {
   const text = readFileSync(path, "utf8");

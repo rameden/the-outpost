@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createFeedStore } from "../feed/store.ts";
 import { cClass, setCrewColors } from "../format.ts";
 import type { CampState, Character } from "../types.ts";
+import { ConfirmHost } from "./Confirm.tsx";
 import { Crew } from "./Crew.tsx";
 import { CrewDialog } from "./CrewDialog.tsx";
 
@@ -23,7 +24,6 @@ beforeEach(() => {
     posts.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     return new Response(JSON.stringify(reply.body), { status: reply.status });
   }));
-  vi.stubGlobal("confirm", vi.fn(() => true));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -102,8 +102,9 @@ test("the camp's objection is shown; editing keeps the handle; removing asks fir
   expect(posts[0].body).toMatchObject({ action: "update", id: "testpilot", member: { name: "Test Pilot", role: "Testing, with flight checks.", abilities: { write: "project", shell: true } } });
   cleanup();
 
-  render(<CrewDialog member={PILOT} onClose={() => {}} onSaved={onSaved} />);
+  render(<><CrewDialog member={PILOT} onClose={() => {}} onSaved={onSaved} /><ConfirmHost /></>);
   fireEvent.click(screen.getByRole("button", { name: "Remove from the crew" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
   await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
   expect(posts.at(-1)!.body).toEqual({ action: "remove", id: "testpilot" });
 });

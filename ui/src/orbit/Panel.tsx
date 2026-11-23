@@ -14,6 +14,7 @@ import { levelOf, questsDone, type KitItem } from "./kit.ts";
 import { quietFor, sayOf, spendLine, stalled, NEAR_FULL } from "./meaning.ts";
 import { lapOf } from "./scene.ts";
 
+import { w, a as an, cap } from "../words.ts";
 export type Body = { id: string; name: string; emoji?: string; role?: string; model?: string; effort?: string };
 
 // The time, ticking, for as long as there's something to time. clock: what time it is (a replay has its own).
@@ -104,7 +105,7 @@ export function Panel({ body, lead, nth, xp, store, st, bearing, make, live, clo
       <dl className="orb-facts">
         <div><dt>Now</dt><dd className="orb-state">{sayOf(st, out, now).text}</dd></div>
         {body.model && <div><dt>Model</dt><dd>{shortModel(body.model)}{body.effort ? ` · ${body.effort}` : ""}</dd></div>}
-        {xp !== null && <div><dt>Level</dt><dd>{levelOf(xp)}{questsDone(xp) > 0 ? ` · ${questsDone(xp)} ${questsDone(xp) === 1 ? "quest" : "quests"} done` : ""}</dd></div>}
+        {xp !== null && <div><dt>Level</dt><dd>{levelOf(xp)}{questsDone(xp) > 0 ? ` · ${questsDone(xp)} ${questsDone(xp) === 1 ? w("quest") : w("quests")} done` : ""}</dd></div>}
         {spend && <div><dt>Today</dt><dd>{spendLine(spend)}</dd></div>}
         {lead && limit && <div className={limit.used >= NEAR_FULL ? "warn" : undefined}><dt>Plan limit</dt><dd>{limit.label} · {Math.round(limit.used * 100)}% used</dd></div>}
         {lead ? <div><dt>Place</dt><dd>The sun</dd></div>
@@ -113,12 +114,12 @@ export function Panel({ body, lead, nth, xp, store, st, bearing, make, live, clo
       <div className="orb-p-body">
         <Decisions asks={asks} />
         {make}
-        {out.length > 0 && <h4>{out.length === 1 ? "Out on a quest" : `${out.length} quests out`}</h4>}
+        {out.length > 0 && <h4>{out.length === 1 ? `Out on ${an("quest")}` : `${out.length} ${w("quests")} out`}</h4>}
         {out.map((q) => {
           const quiet = stalled(q, now);
           return (
             <article key={`${q.expId}|${q.id}`} className={cx("orb-work-card", q.waiting && "st-waiting", quiet && "st-stalled")}>
-              <div className="orb-w-head">{q.step ? <b className="orb-step" title={`Step ${q.step} of the plan`}>{q.step}</b> : null}<span>{q.brief || "A quest"}</span><time>{took((now - q.started) / 1000)}</time></div>
+              <div className="orb-w-head">{q.step ? <b className="orb-step" title={`Step ${q.step} of the plan`}>{q.step}</b> : null}<span>{q.brief || cap(an("quest"))}</span><time>{took((now - q.started) / 1000)}</time></div>
               <p className="orb-w-doing">{q.waiting ? "Waiting for your OK" : quiet ? `${quietFor(q, now)}. ${q.line}` : q.line}</p>
               <Log lines={q.log} />
               {hand(q.expId)}
@@ -126,7 +127,7 @@ export function Panel({ body, lead, nth, xp, store, st, bearing, make, live, clo
             </article>
           );
         })}
-        {runs.length > 0 && <h4>{lead ? (runs.length === 1 ? "An expedition under way" : `${runs.length} expeditions under way`) : "In a conversation with you"}</h4>}
+        {runs.length > 0 && <h4>{lead ? (runs.length === 1 ? `${cap(an("expedition"))} under way` : `${runs.length} ${w("expeditions")} under way`) : "In a conversation with you"}</h4>}
         {runs.map((r) => (
           <article key={r.expId} className="orb-work-card">
             <div className="orb-w-head"><span>{r.task}</span><time>{took((now - r.started) / 1000)}</time></div>
@@ -139,8 +140,8 @@ export function Panel({ body, lead, nth, xp, store, st, bearing, make, live, clo
         ))}
         {!out.length && !runs.length && !asks.length && (
           <p className="orb-quiet">{lead
-            ? `No expedition is under way. When you send the ${body.name} on one, its plan and its progress show here as they happen.`
-            : `At camp, with nothing out. When the ${leadName()} sends ${body.name} on a quest, it shows here as it happens.`}</p>
+            ? `No ${w("expedition")} is under way. When you send the ${body.name} on one, its plan and its progress show here as they happen.`
+            : `At ${w("camp")}, with nothing out. When the ${leadName()} sends ${body.name} on ${an("quest")}, it shows here as it happens.`}</p>
         )}
         <Kit name={body.name} kit={kit} picked={picked} onPick={onPick} />
       </div>

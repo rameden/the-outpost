@@ -18,41 +18,34 @@ import { PROJECTS_DIR } from "./projects.js";
 import { prStates } from "./prs.js";
 import { questCost, recentQuests } from "./questlog.js";
 import { allTurns, shortened } from "./threads.js";
+import { dayOf, flat, SAFE_ID, WEEK, weekSpan } from "./helpers.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
 
-const SAFE_ID = /^[a-z0-9]{1,24}$/;
-const WEEK = /^\d{4}-\d{2}-\d{2}$/;
 const dir = (id: string) => join(PROJECTS_DIR, id, "chronicle");
-const day = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 // The Monday (your local time) of the week a moment falls in, as YYYY-MM-DD.
 export function weekOf(when = new Date()): string {
   const d = new Date(when.getFullYear(), when.getMonth(), when.getDate());
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return day(d);
-}
-function span(week: string): { from: Date; to: Date } {
-  const [y, m, d] = week.split("-").map(Number);
-  return { from: new Date(y, m - 1, d), to: new Date(y, m - 1, d + 7) };
+  return dayOf(d);
 }
 export function weekLabel(week: string): string {
-  const { from, to } = span(week);
-  const last = new Date(to.getTime() - 86_400_000);
+  const { from, to } = weekSpan(week);
+  const last = new Date(to - 86_400_000);
   const fmt = (x: Date) => x.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${fmt(from)} to ${fmt(last)}, ${last.getFullYear()}`;
+  return `${fmt(new Date(from))} to ${fmt(last)}, ${last.getFullYear()}`;
 }
 
 export const OPENING = "Write the chronicle for the project"; // how the request to the Scribe starts (and how such a conversation is told apart)
-const flat = (s: string, n: number) => { const t = s.replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const name = (agent: string) => CREW[agent]?.name ?? agent;
 
 // What the record says happened in the project that week. conversations: how many had any work in it.
 export function weekFacts(project: Project, week = weekOf()): { week: string; conversations: number; facts: string } {
   if (!WEEK.test(week)) throw new Error("A week is named by its Monday, like 2026-11-09.");
-  const { from, to } = span(week);
-  const inWeek = (iso: string) => { const t = new Date(iso).getTime(); return t >= from.getTime() && t < to.getTime(); };
+  const { from, to } = weekSpan(week);
+  const inWeek = (iso: string) => { const t = new Date(iso).getTime(); return t >= from && t < to; };
   const mine = history().conversations.filter((c) => c.project === project.id);
   const turns = allTurns();
   const ratings = new Map(allFeedback().map((f) => [f.expedition, f]));
@@ -128,14 +121,6 @@ export function chronicles(id: string): Chronicle[] {
     const file = join(dir(id), f), week = f.slice(0, 10);
     return { week, label: weekLabel(week), text: readFileSync(file, "utf8").trim(), written: statSync(file).mtime.toISOString() };
   });
-}
-// The bullets under "In plain terms", ready to paste somewhere else.
-export function plainTerms(text: string): string {
-  const m = text.match(/^#{1,4}\s*In plain terms\s*$/im);
-  if (!m || m.index === undefined) return "";
-  const rest = text.slice(m.index + m[0].length);
-  const end = rest.search(/^#{1,4}\s/m);
-  return (end < 0 ? rest : rest.slice(0, end)).trim();
 }
 
 // What a project's page shows: the weeks written, and whether this week and last have anything to write up.

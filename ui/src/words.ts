@@ -1,8 +1,9 @@
 // The theme pack's nouns: what this page calls the crew, a quest, the camp and an expedition.
 // The Guild pack's are the originals; another pack (Settings → General → Theme pack) swaps them.
-// Only the most visible labels read from here (the header, the navigation, Today's headings, the
-// message box, the Quests and Crew panels' titles, Orbit's title). Everything else on the page
-// still uses the Guild's words.
+// The whole page reads from here: every label, hint, empty state and message that says crew, quest,
+// expedition or camp as a noun goes through w() or a(), so a pack renames it everywhere. Fixed names
+// (Quartermaster, mission control, Outpost, the crew members' roles) and identifiers are not packs' to change.
+// An expedition is the whole request; a quest is one crew member's piece of it; the camp is the running thing.
 //
 // The page sets the pack when the camp's state loads or changes (App.tsx); until then it's Guild.
 

@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { PACKS } from "../../../src/packs.ts";
+import { ConfirmHost } from "./Confirm.tsx";
 import { PackDialog, type PackLine } from "./PackDialog.tsx";
 
 const packs = PACKS as unknown as PackLine[];
@@ -25,7 +26,6 @@ beforeEach(() => {
     posts.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     return new Response(JSON.stringify(reply.body), { status: reply.status });
   }));
-  vi.stubGlobal("confirm", vi.fn(() => true));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -149,21 +149,23 @@ test("a pack of yours can be changed: it opens as it is, and what the camp says 
 
 test("deleting a pack asks first, and says the camp goes back to the Guild when it's the one that's on", async () => {
   const onSaved = vi.fn();
-  render(<PackDialog pack={PIRATES} packs={[...packs, PIRATES]} on onClose={() => {}} onSaved={onSaved} />);
+  render(<><PackDialog pack={PIRATES} packs={[...packs, PIRATES]} on onClose={() => {}} onSaved={onSaved} /><ConfirmHost /></>);
   fireEvent.click(screen.getByRole("button", { name: "Delete this pack" }));
+  const question = await screen.findByRole("alertdialog");
+  expect(question.textContent).toMatch(/Delete the Pirates pack\?The camp is wearing it now, so it goes back to the Guild pack\. The names it gave still work after @/);
+  fireEvent.click(within(question).getByRole("button", { name: "Delete" }));
   await vi.waitFor(() => expect(onSaved).toHaveBeenCalled());
-  expect(vi.mocked(confirm).mock.calls[0][0]).toMatch(/^Delete the Pirates pack\? The camp is wearing it now, so it goes back to the Guild pack\. The names it gave still work after @/);
   expect(posts).toEqual([{ path: "/api/packs", body: { action: "remove", id: "pirates" } }]);
   cleanup();
 
   // Not the one that's on: nothing about the Guild. And "no" sends nothing.
   posts.length = 0;
-  vi.mocked(confirm).mockClear();
-  vi.mocked(confirm).mockReturnValue(false);
-  render(<PackDialog pack={PIRATES} packs={[...packs, PIRATES]} onClose={() => {}} onSaved={onSaved} />);
+  render(<><PackDialog pack={PIRATES} packs={[...packs, PIRATES]} onClose={() => {}} onSaved={onSaved} /><ConfirmHost /></>);
   fireEvent.click(screen.getByRole("button", { name: "Delete this pack" }));
-  await vi.waitFor(() => expect(confirm).toHaveBeenCalled());
-  expect(vi.mocked(confirm).mock.calls[0][0]).not.toMatch(/goes back to the Guild/);
+  const second = await screen.findByRole("alertdialog");
+  expect(second.textContent).not.toMatch(/goes back to the Guild/);
+  fireEvent.click(within(second).getByRole("button", { name: "Cancel" }));
+  await vi.waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(posts).toEqual([]);
   // The packs the camp comes with have no such button: a new pack has nothing to delete either.
   cleanup();

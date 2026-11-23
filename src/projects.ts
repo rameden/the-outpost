@@ -9,7 +9,7 @@
 // about one project doesn't use up their own memory or leak into another project's work.
 // This file also builds the project's block of the prompt, and the numbers on a project's page.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, appendFileSync, statSync } from "node:fs";
 import { posix } from "node:path";
 import { GENERAL, getProject, history, type Project } from "./conversations.js";
 import { changedFiles } from "./checkpoints.js";
@@ -25,6 +25,7 @@ import { campPath, type Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
 import { fitMemory } from "./memfit.js";
 import { logRelevant } from "./recalllog.js";
+import { SAFE_ID, today } from "./helpers.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -36,9 +37,7 @@ const BRIEF_MAX = 8000;
 const PIN_MAX = 6000;         // per pinned file
 const PINS_MAX = 20_000;      // all pinned files together
 
-const SAFE_ID = /^[a-z0-9]{1,24}$/;
 const dir = (id: string) => join(PROJECTS_DIR, id);
-const today = () => new Date().toISOString().slice(0, 10);
 const read = (file: string) => { try { return readFileSync(file, "utf8").trim(); } catch { return ""; } };
 
 export const projectNotes = (id: string) => (SAFE_ID.test(id) ? read(join(dir(id), "notes.md")) : "");

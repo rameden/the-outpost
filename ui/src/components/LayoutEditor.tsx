@@ -2,11 +2,12 @@
 // a zone beside it, or remove it; drag the lines between zones to resize them. Changes apply to
 // the page behind as you make them, and are remembered in this browser.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { addZone, assign, canAssign, canRemove, defaultLayout, dirOf, fitsContent, isGrow, MAX_ZONES, partName, PARTS, placed, removeZone, setSize, zonesOf, type Layout, type Part, type Side, type Size, type Zone } from "../layout.ts";
 import { cx } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
 import { LayoutFrame } from "./Zones.tsx";
+import { Dialog } from "./Dialog.tsx";
 
 const MAP_WIDTH = 596;
 const PART_ICON: Record<Part, IconName> = { chat: "reply", history: "list", roster: "users", files: "folder", notes: "note", terminal: "terminal" };
@@ -33,11 +34,6 @@ export function LayoutEditor({ layout, onChange, onClose, select }: {
   const unplaced = PARTS.filter((p) => !placed(layout, p.id));
   const fitted = fitsContent(zone, dirOf(layout, zone.id) ?? "row"); // the roster's bar: no size of its own
 
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
 
   // The map has the window's own shape, so what you arrange is what you get.
   const w = typeof innerWidth === "number" && innerWidth > 0 ? innerWidth : 1280, h = typeof innerHeight === "number" && innerHeight > 0 ? innerHeight : 800;
@@ -61,9 +57,7 @@ export function LayoutEditor({ layout, onChange, onClose, select }: {
   }
 
   return (
-    <>
-      <div className="drawer-backdrop layout-backdrop" onClick={onClose} />
-      <div className="dialog layout-editor" role="dialog" aria-modal="true" aria-labelledby="layout-title">
+    <Dialog className="dialog layout-editor" backdropClass="layout-backdrop" labelledBy="layout-title" onClose={onClose}>
         <header className="layout-head">
           <div>
             <h2 id="layout-title">Layout</h2>
@@ -119,7 +113,6 @@ export function LayoutEditor({ layout, onChange, onClose, select }: {
           {unplaced.length ? <>Not on the page: <b>{unplaced.map((p) => p.name).join(", ")}</b>. Pick a zone and choose it to bring it back. </> : null}
           History, Files and the terminal each close to a slim tab on the page, and Files shows only while a folder is attached.
         </p>
-      </div>
-    </>
+    </Dialog>
   );
 }

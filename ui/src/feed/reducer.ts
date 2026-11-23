@@ -9,6 +9,7 @@
 import type { AskKind, Attached, CampEvent, EventOf, Workspaces } from "../types.ts";
 import { askOutcome, heldAnswer } from "./asks.ts";
 
+import { w } from "../words.ts";
 export type CrewStatus = { status: "idle" | "active" | "waiting"; line: string };
 
 export type MsgNode = { kind: "msg"; id: string; who: string; emoji: string; text: string; streaming: boolean };
@@ -71,8 +72,8 @@ export type FeedState = {
 
 // What one of the crew is doing, in a line: their quests if several are out, else what they're on, else where they are.
 export function statusLine(st: CrewStatus, out: QuestOut[]): string {
-  if (out.length > 1) return `${out.length} quests out${out.some((q) => q.waiting) ? " · one needs your OK" : ""}`;
-  return st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : "At camp");
+  if (out.length > 1) return `${out.length} ${w("quests")} out${out.some((q) => q.waiting) ? " · one needs your OK" : ""}`;
+  return st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : (st.line ? `Last: ${st.line}` : `At ${w("camp")}`);
 }
 
 export const emptyFeed: FeedState = { lastSeq: 0, items: [], open: {}, live: {}, asks: [], crew: {}, quests: [], localSeq: 0 };
@@ -165,7 +166,7 @@ function startExpedition(s: FeedState, e: EventOf<"expedition_start">) {
   // A plain chat has nobody from the crew in it: the Quartermaster isn't planning anything.
   const crewless = e.source === "direct" || !!e.chat;
   s.open = { ...s.open, [e.id]: { node: node.id, started: new Date(e.time).getTime(), members: crewless ? [] : [e.lead ?? "Quartermaster"], quests: {} } };
-  if (!crewless) setCrew(s, e.lead ?? "Quartermaster", "active", "Planning the expedition");
+  if (!crewless) setCrew(s, e.lead ?? "Quartermaster", "active", `Planning the ${w("expedition")}`);
 }
 
 function endExpedition(s: FeedState, e: EventOf<"expedition_end">) {

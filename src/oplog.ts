@@ -14,8 +14,8 @@
 // removed once it has sat untouched for a week (pruneJournals, below).
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { appendLine } from "./atomic.js";
+import { mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { appendLine, readJsonl } from "./atomic.js";
 import { autoApproval } from "./shell.js";
 import type { Tool, ToolOutput } from "./tools.js";
 
@@ -58,9 +58,7 @@ export type Reconciled = { state: "done"; result: string } | { state: "not_done"
 const live = new Set<string>(); // runs going right now in this process: never someone else's to take over
 
 // A journal as it's on record. A line torn by a crash, or that isn't a record at all, is skipped.
-const readJournal = (path: string): Rec[] => existsSync(path)
-  ? readFileSync(path, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l) as Rec; return r && typeof r === "object" ? [r] : []; } catch { return []; } })
-  : [];
+const readJournal = (path: string): Rec[] => readJsonl<Rec>(path).filter((r) => r && typeof r === "object");
 // The latest run in a journal (other than `not`: the run that's reading it), and whether it ended.
 // It's the only run anything is ever picked up from, and only if it never ended.
 function latestRun(recs: Rec[], not?: string): { run: string; ended: boolean } | null {

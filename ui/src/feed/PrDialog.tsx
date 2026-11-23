@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, errorText } from "../api.ts";
 import type { PrDraft } from "../types.ts";
+import { Dialog } from "../components/Dialog.tsx";
 
 export type PrDone = { url: string; updated?: boolean; jira?: string };
 
@@ -19,20 +20,13 @@ export function PrDialog({ w, expId, onClose, onDone }: {
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  // The draft is asked for once per branch. (Escape has its own effect: what closes the dialog is
-  // a new function each time the feed behind it is drawn, and tied together that asked for the
-  // draft again each time, and put it back over whatever you'd changed.)
+  // The draft is asked for once per branch.
   useEffect(() => {
     let gone = false;
     api<PrDraft>("/api/repo/pr/draft", { link: w.link, path: w.path, base: w.base, expedition: expId })
       .then((d) => { if (!gone) { setDraft(d); setTitle(d.title); setBody(d.body); } }, (e) => { if (!gone) setError(errorText(e)); });
     return () => { gone = true; };
   }, [w.link, w.path, w.base, expId]);
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
 
   const existing = draft?.existing ?? null;
   // A click outside closes it, but not once you've changed something: that would throw your
@@ -44,10 +38,8 @@ export function PrDialog({ w, expId, onClose, onDone }: {
     catch (e) { setError(errorText(e)); setBusy(false); }
   }
   return createPortal(
-    <>
-      <div className="drawer-backdrop" onClick={() => { if (!edited) onClose(); }} />
-      <form className="dialog pr-dialog" role="dialog" aria-modal="true" aria-label={existing ? `Update pull request #${existing.number}` : "Open a pull request"}
-        onSubmit={(ev) => { ev.preventDefault(); void go(); }}>
+    <Dialog as="form" className="dialog pr-dialog" label={existing ? `Update pull request #${existing.number}` : "Open a pull request"} onClose={onClose} onBackdrop={() => { if (!edited) onClose(); }}
+      onSubmit={(ev) => { ev.preventDefault(); void go(); }}>
         <h2>{existing ? `Update pull request #${existing.number}` : "Open a pull request"}</h2>
         {!draft && !error && <div className="meta">Reading what changed…</div>}
         {draft && (
@@ -67,6 +59,5 @@ export function PrDialog({ w, expId, onClose, onDone }: {
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn primary" disabled={!draft || busy || !title.trim()}>{busy ? "Working…" : existing ? "Update the pull request" : "Push and open it"}</button>
         </div>
-      </form>
-    </>, document.body);
+    </Dialog>, document.body);
 }

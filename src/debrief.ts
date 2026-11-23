@@ -43,6 +43,7 @@ import { drive } from "./settings.js";
 import { askSmall } from "./small.js";
 import { allTurns } from "./threads.js";
 import { MAE_KEY, getTicket, loadTickets, type MaeTicket } from "./tickets.js";
+import { flat, jsonIn } from "./helpers.js";
 
 export const DEBRIEFS_DIR = posix.join("camp", "debriefs");
 const MAX_LESSONS = 4;
@@ -50,7 +51,6 @@ const MAX_POINTS = 5;        // things that went well, and things that could hav
 const DUE_WITHIN = 7 * 86_400_000; // a ticket done longer ago than this isn't debriefed unasked (turning it on doesn't dig up old work)
 const FACTS_MAX = 24_000;    // characters of record handed over: a long ticket keeps its start and its end
 const fileOf = (key: string) => posix.join(DEBRIEFS_DIR, `${key}.json`);
-const flat = (s: string, n: number) => { const t = String(s ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const money = (n: number) => `$${n.toFixed(2)}`;
 
 export type Lesson = { where: string; name: string; text: string };
@@ -169,10 +169,7 @@ const system = () =>
 // What came back: the two lists, and the lessons with who each is for.
 export function parseDebrief(raw: string): { well: string[]; better: string[]; lessons: { for: string; text: string }[] } {
   const none = { well: [], better: [], lessons: [] };
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return none;
-  let o: any;
-  try { o = JSON.parse(m[0]); } catch { return none; }
+  const o = jsonIn(raw, "{") as any;
   if (!o || typeof o !== "object") return none;
   const points = (x: unknown) => (Array.isArray(x) ? x : []).map((s) => flat(String(s ?? ""), 400)).filter((s) => s.length >= 8).slice(0, MAX_POINTS);
   const who = new Set(lessonFor());

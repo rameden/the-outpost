@@ -9,9 +9,7 @@
 // conversation, and brings the feedback into a reply when you ask. Nothing here answers a
 // review, pushes, or merges by itself, and nothing an agent says can trigger any of it.
 
-import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { promisify } from "node:util";
+import { existsSync } from "node:fs";
 import type { Workspace } from "./context.js";
 import { history, titleOf } from "./conversations.js";
 import { emit } from "./events.js";
@@ -23,13 +21,14 @@ import type { askSmall } from "./small.js";
 import { checked, fail, tryGit } from "./repos.js";
 import { prWatchOn } from "./settings.js";
 import { allTurns, shortened } from "./threads.js";
-import { writeJsonAtomic } from "./atomic.js";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
+import { clip } from "./helpers.js";
+import { checkFailed, checkPending, gh as runGh } from "./github.js";
 
-const run = promisify(execFile);
 type Where = Pick<Workspace, "link" | "path">;
 
 async function gh(dir: string, args: string[]): Promise<string> {
-  try { return (await run("gh", args, { cwd: dir, timeout: 60_000, maxBuffer: 8 * 1024 * 1024, env: { ...process.env, GH_PROMPT_DISABLED: "1", NO_COLOR: "1" } })).stdout; }
+  try { return await runGh(args, { cwd: dir }); }
   catch (e: any) {
     if (e?.code === "ENOENT") throw new Error("The GitHub CLI (gh) isn't installed, so pull requests can't be read or changed from here.");
     throw fail(e);
@@ -41,7 +40,6 @@ async function gh(dir: string, args: string[]): Promise<string> {
 // whether the run's notes were rewritten to match them.
 export type PrDraft = { title: string; body: string; branch: string; existing: { number: number; url: string } | null; handEdits?: { files: number; rewritten: boolean } };
 const MAX_FILES = 40;
-const clip = (s: string, n: number) => { const t = s.replace(/\r\n/g, "\n").trim(); return t.length > n ? `${t.slice(0, n).trimEnd()}…` : t; };
 
 // The checks the camp ran for this folder after the last change, as they ended ("✓ npm test").
 export function checksIn(reply: string, link: string): string[] {
@@ -143,7 +141,7 @@ export type PrState = {
 export const needsYou = (p: PrState) => p.state === "OPEN" && (p.conflicts || p.failing > (p.seen?.failing ?? 0) || p.comments > (p.seen?.comments ?? 0) || (p.review === "changes" && !p.seen));
 
 function load(): Record<string, PrState> {
-  try { return existsSync(PRWATCH_PATH) ? JSON.parse(readFileSync(PRWATCH_PATH, "utf8")).prs ?? {} : {}; } catch { return {}; }
+  return (readJsonFile(PRWATCH_PATH, {}) as { prs?: Record<string, PrState> } | null)?.prs ?? {};
 }
 function save(prs: Record<string, PrState>) {
   writeJsonAtomic(PRWATCH_PATH, { prs });
@@ -159,12 +157,11 @@ async function look(w: { conversation: string; link: string; path: string }, bef
   try { pr = JSON.parse(await gh(w.path, ["pr", "view", "--json", "number,url,title,state,mergeable,reviewDecision,statusCheckRollup,comments,reviews,headRefName"])); }
   catch { return before ?? null; } // no pull request, or GitHub couldn't be reached: keep what was known
   const rollup: any[] = pr.statusCheckRollup ?? [];
-  const result = (c: any) => String(c.conclusion || c.state || c.status || "");
   return {
     conversation: w.conversation, link: w.link, path: w.path, branch: String(pr.headRefName ?? before?.branch ?? ""),
     number: pr.number, url: pr.url, title: String(pr.title ?? ""), state: pr.state === "MERGED" ? "MERGED" : pr.state === "CLOSED" ? "CLOSED" : "OPEN",
-    failing: rollup.filter((c) => /FAIL|ERROR|TIMED_OUT|CANCELLED|ACTION_REQUIRED/i.test(result(c))).length,
-    pending: rollup.filter((c) => /PENDING|QUEUED|IN_PROGRESS|EXPECTED|WAITING/i.test(result(c))).length,
+    failing: rollup.filter(checkFailed).length,
+    pending: rollup.filter(checkPending).length,
     comments: (pr.comments ?? []).filter((c: any) => String(c.body ?? "").trim()).length + (pr.reviews ?? []).filter((r: any) => String(r.body ?? "").trim() || r.state === "CHANGES_REQUESTED").length,
     review: pr.reviewDecision === "APPROVED" ? "approved" : pr.reviewDecision === "CHANGES_REQUESTED" ? "changes" : null,
     conflicts: pr.mergeable === "CONFLICTING",

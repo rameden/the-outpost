@@ -9,6 +9,7 @@ import { AskCard } from "../feed/AskCard.tsx";
 import type { AskNode } from "../feed/reducer.ts";
 import type { SendResult } from "../types.ts";
 
+import { w, a as an } from "../words.ts";
 // A line to type and a button to send it. onSay: sends it, and gives back what to say about that
 // (nothing, for the usual "Sent"). What you typed stays if it couldn't be sent.
 export function Say({ label, placeholder, button = "Send", onSay }: { label: string; placeholder: string; button?: string; onSay: (text: string) => Promise<string | void> }) {
@@ -47,7 +48,7 @@ export function Say({ label, placeholder, button = "Send", onSay }: { label: str
 // Quartermaster, and through it whoever is out), which is how the camp takes a word mid-run.
 export function Steer({ expId }: { expId: string }) {
   return (
-    <Say label="Say something to this expedition" placeholder="Say something to it…" button="Say"
+    <Say label={`Say something to this ${w("expedition")}`} placeholder="Say something to it…" button="Say"
       onSay={async (text) => { await api("/api/steer", { id: expId, text }); return "Said. It's taken up at its next step."; }} />
   );
 }
@@ -67,8 +68,8 @@ export function Stop({ expId }: { expId: string }) {
   return (
     <>
       {sure
-        ? <span className="orb-sure" role="group" aria-label="Stop this expedition?"><button type="button" className="orb-btn orb-stop" onClick={stop}>Yes, stop it</button><button type="button" className="orb-btn" onClick={() => setSure(false)}>Keep it going</button></span>
-        : <button type="button" className="orb-btn orb-stop" disabled={busy} onClick={() => setSure(true)}>{busy ? "Stopping…" : "Stop this expedition"}</button>}
+        ? <span className="orb-sure" role="group" aria-label={`Stop this ${w("expedition")}?`}><button type="button" className="orb-btn orb-stop" onClick={stop}>Yes, stop it</button><button type="button" className="orb-btn" onClick={() => setSure(false)}>Keep it going</button></span>
+        : <button type="button" className="orb-btn orb-stop" disabled={busy} onClick={() => setSure(true)}>{busy ? "Stopping…" : `Stop this ${w("expedition")}`}</button>}
       {failed && <p className="orb-say-note bad" role="alert">{failed}</p>}
     </>
   );
@@ -77,8 +78,8 @@ export function Stop({ expId }: { expId: string }) {
 // Send a request: to the Quartermaster (an expedition), or straight to one of the crew.
 export function Dispatch({ id, name, lead, onSent }: { id: string; name: string; lead: boolean; onSent: () => void }) {
   return (
-    <Say label={lead ? `Send the ${name} on an expedition` : `Ask ${name} for something`}
-      placeholder={lead ? "Send the crew on an expedition…" : `Ask ${name} directly…`}
+    <Say label={lead ? `Send the ${name} on ${an("expedition")}` : `Ask ${name} for something`}
+      placeholder={lead ? `Send the ${w("crew")} on ${an("expedition")}…` : `Ask ${name} directly…`}
       onSay={async (text) => {
         const sent = await api<SendResult>("/api/send", { text: lead ? text : `@${id} ${text}`, chat: !lead });
         if (sent.position > 0) return `Queued, with ${sent.position} ahead of it.`;

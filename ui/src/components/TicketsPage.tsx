@@ -27,10 +27,12 @@ import {
 import { Icon } from "./bits.tsx";
 import { ask } from "./Confirm.tsx";
 import { filterName } from "./Jira.tsx";
-import { GROUPS, JiraTicket, pillOf, type TicketStart } from "./JiraPage.tsx";
+import { JiraTicket, pillOf, type TicketStart } from "./JiraPage.tsx";
 import { MaeMark } from "./MaeLogo.tsx";
 import { TicketDebrief } from "./TicketDebrief.tsx";
+import { Dialog } from "./Dialog.tsx";
 
+import { w } from "../words.ts";
 const DONE_SHOWN = 12; // Mae's Done grows for ever: the latest few, and the rest on asking
 const SOURCE_KEY = "camp-tickets-source";
 const EPIC_KEY = "camp-jira-by-epic";
@@ -159,7 +161,7 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
       {jiraShown && (
         <div className="proj-about jira-using">
           <span><span className="section-label">Jira shows</span> {filterName(filter) ?? <code>{filter}</code>}</span>
-          <button type="button" className="linkish" title="Which tickets are pulled in is a setting for the whole camp, kept with the Jira account" onClick={onFilter}>Change the filter in Settings</button>
+          <button type="button" className="linkish" title={`Which tickets are pulled in is a setting for the whole ${w("camp")}, kept with the Jira account`} onClick={onFilter}>Change the filter in Settings</button>
         </div>
       )}
       {maeError && <div className="form-error" role="alert">{maeError}</div>}
@@ -175,7 +177,7 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
             </span>
           )}
           {STATUS_ORDER.filter((g) => counts[g] > 0 || group === g).map((g) => (
-            <button key={g} type="button" className={cx("jira-chip", group === g && "on")} aria-pressed={group === g} onClick={() => setGroup(group === g ? "" : g)}>{GROUPS[g]} <small>{counts[g]}</small></button>
+            <button key={g} type="button" className={cx("jira-chip", group === g && "on")} aria-pressed={group === g} onClick={() => setGroup(group === g ? "" : g)}>{STATUS_NAMES[g]} <small>{counts[g]}</small></button>
           ))}
           {/* The selects sit together and stay on one line: an epic's name can be long, and would otherwise push its dropdown down a row. */}
           {((jiraShown && (types.length > 1 || epics.length > 0)) || (source !== "jira" && maeCount > 0 && projects.length > 0)) && (
@@ -194,7 +196,7 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
                 </select>
               )}
               {source !== "jira" && maeCount > 0 && projects.length > 0 && (
-                <select aria-label="Project" title="The camp project a Mae ticket is filed under" value={project} onChange={(ev) => setProject(ev.target.value)}>
+                <select aria-label="Project" title={`The ${w("camp")} project a Mae ticket is filed under`} value={project} onChange={(ev) => setProject(ev.target.value)}>
                   <option value="">Every project</option>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   <option value="none">In no project</option>
@@ -235,7 +237,7 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
               </button>
             ) : (
               <button key={c.key} type="button" className="proj-card jira-card" aria-label={`${c.key}: ${c.title}`} onClick={() => setOpen(c.key)}>
-                <span className="jira-card-top"><span className="jira-key">{c.key}</span>{c.jira.type && <span className="meta">{c.jira.type}</span>}<span className={pillOf(c.group)}>{c.jira.status ?? GROUPS[c.group]}</span></span>
+                <span className="jira-card-top"><span className="jira-key">{c.key}</span>{c.jira.type && <span className="meta">{c.jira.type}</span>}<span className={pillOf(c.group)}>{c.jira.status ?? STATUS_NAMES[c.group]}</span></span>
                 <b>{c.title}</b>
                 {c.jira.epic && !sec.titled && <span className="jira-epic" title={`In ${c.jira.epic.type ?? "its parent"} ${c.jira.epic.key}`}><Icon name="bookmark" />{c.jira.epic.key}{c.jira.epic.summary ? ` · ${c.jira.epic.summary}` : ""}</span>}
                 <Labels list={c.labels} />
@@ -270,11 +272,6 @@ export function MaeTicketDialog({ S, onAttach, onStart, onOpenConversation }: {
   const [copied, setCopied] = useState(false);
   const projects = S.history.projects.filter((p) => p.id !== "general");
   const nameOf = (id?: string) => (id ? projects.find((p) => p.id === id)?.name ?? id : undefined);
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") closeTicket(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, []);
   if (!showing) return null;
   const gone = !fresh && !t;
 
@@ -302,9 +299,7 @@ export function MaeTicketDialog({ S, onAttach, onStart, onOpenConversation }: {
   const worked = t ? S.history.conversations.filter((c) => c.ticket === t.key) : [];
   const title = t ? `${t.key}: ${t.title}` : "New ticket";
   return (
-    <>
-      <div className="drawer-backdrop" onClick={closeTicket} />
-      <div className="dialog file-view jira-ticket mae-ticket" role="dialog" aria-modal="true" aria-label={title}>
+    <Dialog className="dialog file-view jira-ticket mae-ticket" label={title} onClose={closeTicket}>
         <header className="file-head">
           {t ? <><span className="jira-key">{t.key}</span><b>{t.title}</b></> : <b>{gone ? "That ticket isn't there any more" : "New ticket"}</b>}
           {t && !editing && (
@@ -335,7 +330,7 @@ export function MaeTicketDialog({ S, onAttach, onStart, onOpenConversation }: {
                   </div>
                 )}
                 <h3>Acceptance criteria{t.criteria.length ? ` (${t.criteria.length})` : ""}</h3>
-                {t.criteria.length ? <ul className="jira-criteria">{t.criteria.map((c, i) => <li key={i}>{c}</li>)}</ul> : <div className="meta">None yet: say what done means, so the crew can check its work against it.</div>}
+                {t.criteria.length ? <ul className="jira-criteria">{t.criteria.map((c, i) => <li key={i}>{c}</li>)}</ul> : <div className="meta">None yet: say what done means, so the {w("crew")} can check its work against it.</div>}
                 <h3>Description</h3>
                 {t.description ? <Markdown text={t.description} /> : <div className="meta">No description.</div>}
                 {worked.length > 0 && (
@@ -361,8 +356,7 @@ export function MaeTicketDialog({ S, onAttach, onStart, onOpenConversation }: {
               </div>
             </>
           )}
-      </div>
-    </>
+    </Dialog>
   );
 }
 
@@ -530,11 +524,6 @@ export function DraftTicketsDialog({ S, ask, onFiled }: { S: CampState; ask: Dra
     // Drafted once per ask (and on Try again): changing the project afterwards only says where they're filed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ask, tries]);
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") closeDrafting(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, []);
   const kept = drafts?.filter((d) => d.keep && d.title.trim()) ?? [];
   async function file() {
     setBusy(true); setError("");
@@ -547,9 +536,7 @@ export function DraftTicketsDialog({ S, ask, onFiled }: { S: CampState; ask: Dra
   const change = (i: number, d: Partial<TicketDraft & { keep: boolean }>) => setDrafts((all) => all && all.map((x, j) => (j === i ? { ...x, ...d } : x)));
   const what = ask.kind === "plan" ? "the plan" : "the note";
   return (
-    <>
-      <div className="drawer-backdrop" onClick={closeDrafting} />
-      <div className="dialog file-view jira-ticket draft-tickets" role="dialog" aria-modal="true" aria-label="Turn into tickets">
+    <Dialog className="dialog file-view jira-ticket draft-tickets" label="Turn into tickets" onClose={closeDrafting}>
         <header className="file-head">
           <b>Turn {ask.title ? <>“{ask.title}”</> : what} into tickets</b>
           <button type="button" className="hist-icon" aria-label="Close" title="Close (Esc)" onClick={closeDrafting}>×</button>
@@ -596,7 +583,6 @@ export function DraftTicketsDialog({ S, ask, onFiled }: { S: CampState; ask: Dra
             {busy ? "Filing…" : kept.length ? `File ${kept.length} ${kept.length === 1 ? "ticket" : "tickets"}` : "File tickets"}
           </button>
         </div>
-      </div>
-    </>
+    </Dialog>
   );
 }

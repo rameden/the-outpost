@@ -1,10 +1,12 @@
-// Running scheduled jobs. Shared by `npm run watch` (terminal) and mission control (`npm run ui`).
+// Running scheduled jobs. Mission control runs them while it's open; the watcher (`npm run watch`,
+// which the background agent from `npm run watch:install` calls) runs them when it isn't.
 // Results land in camp/inbox.md (and as a macOS notification). When a run finds nothing
 // new, it stays quiet: nothing is written and nothing pings you.
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { runExpedition } from "./quartermaster.js";
+import { writeJsonAtomic } from "./atomic.js";
 import { isDue, loadJobs, saveJobs, QUIET_TOKEN, type Job } from "./jobs.js";
 import { emit } from "./events.js";
 import { pausedUntil } from "./limits.js";
@@ -179,8 +181,7 @@ export function markInboxSeen(which: { heading?: string; all?: boolean }): boole
   else if (which.heading && all.some((m) => m.heading === which.heading)) seen.add(which.heading);
   else return false;
   const present = new Set(all.map((m) => m.heading));
-  mkdirSync("camp", { recursive: true });
-  writeFileSync(INBOX_SEEN_PATH, JSON.stringify([...seen].filter((h) => present.has(h)), null, 2) + "\n");
+  writeJsonAtomic(INBOX_SEEN_PATH, [...seen].filter((h) => present.has(h)));
   emit({ type: "changed", what: "inbox" });
   return true;
 }

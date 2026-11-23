@@ -3,7 +3,8 @@
 // The page itself is a React app in ui/, built into ui/dist (see src/ui-files.ts).
 //
 // It streams every camp event to the browser, routes approvals (plans, shell commands, new jobs)
-// to buttons on the page, and runs scheduled jobs while it's open (so don't also run `npm run watch`).
+// to buttons on the page, and runs scheduled jobs while it's open. (A watcher started with `npm run watch` shares the
+// lock in camp/scheduler.lock, so only one of them runs jobs at a time.)
 //
 // Safety: it listens on 127.0.0.1 only, checks the Host header (blocks DNS rebinding), and
 // requires a random token on everything that reads or changes the camp, so other websites can't
@@ -26,10 +27,9 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT, heldPlans } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, setShellSandbox, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, autoExcluded, setAutoExcluded, uploadKeepDays, setUploadKeepDays } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, autoExcluded, setAutoExcluded, uploadKeepDays, setUploadKeepDays } from "./settings.js";
 import { pruneUploads, uploadsUsage } from "./uploads.js";
 import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
-import { costOf } from "./costs.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
 import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, ownOf, activePack, setPack, addPack, updatePack, removePack, packsLeftOut, currentName, type CrewId } from "./crew.js";
@@ -38,7 +38,8 @@ import { readMemory, recentSessions, readSession, writeMemory, listOutputs, work
 import { loadJobs, saveJobs } from "./jobs.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
 import { checkPulls, freshPulls, pulls as knownPulls } from "./pulls.js";
-import { briefDays, briefDue, dayOf, readBrief, writeBrief } from "./brief.js";
+import { briefDays, briefDue, readBrief, writeBrief } from "./brief.js";
+import { dayOf } from "./helpers.js";
 import { readRetro, retrosDue, runRetro, type Retro } from "./retro.js";
 import { markNightSeen, nightDue, nightPage, noteAsked, runNight } from "./nightshift.js";
 import { debriefsDue, readDebrief, runDebrief, workedOn } from "./debrief.js";
@@ -62,7 +63,6 @@ import { ASIDE_BRIEFS, isAsideBrief } from "./review.js";
 import { projectPayoff } from "./payoff.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
 import { buildRequest, imageType, saveUpload, saveZipFolder, searchFiles, UPLOADS_DIR, type Attachment } from "./attachments.js";
-import { loadSnippets, addSnippet, deleteSnippet } from "./snippets.js";
 import { loadNotes, saveNote, removeNote, patchNote } from "./notes.js";
 import { noteName, parseTicket, ticketRequest } from "./ticket.js";
 import { advanceTicket, createTicket, createTickets, draftTickets, getTicket, loadTickets, MAE_KEY, MAE_NOTE, maeTicketMarkdown, removeTicket, updateTicket } from "./tickets.js";
@@ -190,6 +190,11 @@ type Work = { id: string; label: string; run: (signal: AbortSignal, id: string, 
   task?: string; after?: string; held?: string };
 const queue: Work[] = [];
 const running = new Map<string, Work>();
+
+// A ticket (Jira's or Mae's) attached to the message being written: saved as a file in that
+// message's uploads, so it's read like any other attachment and stays as it was when attached.
+const attachTicket = (key: string, text: string, batch: unknown) =>
+  ({ ...saveUpload({ name: `${key}.md`, data: Buffer.from(text).toString("base64"), batch: batch as string | undefined }), key });
 
 function enqueue(work: Omit<Work, "id" | "steering">): Work {
   const w = { ...work, id: randomUUID(), steering: newSteering() };
@@ -627,7 +632,6 @@ async function fullState(full: boolean, historySeen?: string) {
     skills: pendingDetails(),
     inboxCount: inboxUnread(), // for the badge in Settings' own menu: what you haven't marked as read
     inbox: none(() => inboxEntries()),
-    snippets: loadSnippets(),
     links: loadLinks(),
     history: sameHistory ? (undefined as unknown as ReturnType<typeof history>) : history(), // your conversations, filed under projects (the sidebar)
     historyVersion: historyNow,
@@ -1361,8 +1365,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/jira/attach") {
       try {
         const t = await readIssue(String(body.key ?? ""));
-        const saved = saveUpload({ name: `${t.key}.md`, data: Buffer.from(`${JIRA_NOTE}\n\n${t.text}\n`).toString("base64"), batch: body.batch });
-        return send(res, 200, { ...saved, key: t.key, summary: t.summary, url: t.url });
+        return send(res, 200, { ...attachTicket(t.key, `${JIRA_NOTE}\n\n${t.text}\n`, body.batch), summary: t.summary, url: t.url });
       } catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
     }
 
@@ -1372,9 +1375,6 @@ const server = http.createServer(async (req, res) => {
       catch (e: any) { return send(res, 400, { error: e.message }); }
     }
 
-    // The pull requests the camp is watching: look again now, or note that you've brought one's feedback in ({ path }).
-    if (url.pathname === "/api/prs/check") return send(res, 200, { prs: (await checkPullRequests()).map((p) => ({ ...p, attention: needsYou(p) })) });
-    if (url.pathname === "/api/prs/seen") return send(res, markSeen(String(body.path ?? "")) ? 200 : 404, { ok: true });
     // Whether recent worktrees' pull requests are looked at now and then ({ on }).
     if (url.pathname === "/api/pr-watch") {
       setPrWatch(!!body.on);
@@ -1413,7 +1413,6 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // The shell sandbox ({ on: true | false }); see sandbox.ts.
     // Switch gh's active GitHub account ({ login }, or {} to swap to the other of two).
     if (url.pathname === "/api/github/switch") {
       try {
@@ -1421,12 +1420,6 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) {
         return send(res, 400, { error: e.message });
       }
-    }
-
-    if (url.pathname === "/api/sandbox") {
-      if (body.on && !sandboxAvailable()) return send(res, 400, { error: SANDBOX_NEEDS });
-      setShellSandbox(!!body.on);
-      return send(res, 200, { ok: true, on: !!body.on });
     }
 
     // The approval level for shell commands ({ level: "ask" | "safe" | "sandbox" | "god" }); see settings.ts.
@@ -1637,8 +1630,7 @@ const server = http.createServer(async (req, res) => {
       const t = getTicket(String(body.key ?? ""));
       if (!t) return send(res, 404, { error: "That ticket isn't there any more." });
       const projectName = t.project ? getProject(t.project)?.name : undefined;
-      const saved = saveUpload({ name: `${t.key}.md`, data: Buffer.from(`${MAE_NOTE}\n\n${maeTicketMarkdown(t, projectName)}`).toString("base64"), batch: body.batch });
-      return send(res, 200, { ...saved, key: t.key, summary: t.title });
+      return send(res, 200, { ...attachTicket(t.key, `${MAE_NOTE}\n\n${maeTicketMarkdown(t, projectName)}`, body.batch), summary: t.title });
     }
 
     // Write a note up as a ticket ({ id, project? }): the Scout reads the project's code and writes
@@ -1682,11 +1674,6 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) { return send(res, 502, { error: `Ideas couldn't be suggested: ${e.message}` }); }
     }
 
-    if (url.pathname === "/api/snippets") {
-      if (body.action === "add") return send(res, 200, addSnippet(String(body.title ?? ""), String(body.text ?? "")));
-      if (body.action === "delete") return send(res, deleteSnippet(String(body.id)) ? 200 : 404, { ok: true });
-      return send(res, 400, { error: "Unknown action" });
-    }
 
     // Other models (providers.ts). connect: keep a provider's key ({ id, key }), once the provider
     // has accepted it. disconnect: forget it ({ id }). small: which model does the camp's own small

@@ -18,15 +18,13 @@
 // new trigger only notes what's already there, so turning one on doesn't start a flood of work.
 // They live in camp/triggers.json, which no crew member can read or change.
 
-import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-import { promisify } from "node:util";
+import { existsSync, readFileSync } from "node:fs";
 import { emit } from "./events.js";
 import { pulledTickets, readIssue } from "./jira.js";
 import { findLink } from "./links.js";
 import { conversationOf, feedbackText, freshPulls, type Pull } from "./pulls.js";
 import { writeJsonAtomic } from "./atomic.js";
+import { gh } from "./github.js";
 
 export const TRIGGERS_PATH = "camp/triggers.json";
 export const POLL_MS = 5 * 60_000;
@@ -98,7 +96,6 @@ export function cleanTrigger(raw: any): Trigger | { error: string } {
 }
 
 // ---------- Reading the sources ----------
-const run = promisify(execFile);
 export type Sources = {
   githubIssues: (repoDir: string, label: string) => Promise<TriggerItem[]>;
   githubPulls: (link: string, describe: boolean) => Promise<TriggerItem[]>;
@@ -107,8 +104,7 @@ export type Sources = {
 };
 export const defaultSources: Sources = {
   async githubIssues(repoDir, label) {
-    const { stdout } = await run("gh", ["issue", "list", "--state", "open", "--label", label, "--limit", "30", "--json", "number,title,body,url"],
-      { cwd: repoDir, timeout: 60_000, maxBuffer: 10_000_000, env: { ...process.env, GH_PROMPT_DISABLED: "1" } });
+    const stdout = await gh(["issue", "list", "--state", "open", "--label", label, "--limit", "30", "--json", "number,title,body,url"], { cwd: repoDir, maxBuffer: 10_000_000 });
     return (JSON.parse(stdout || "[]") as { number: number; title: string; body?: string; url: string }[])
       .map((i) => ({ id: `#${i.number}`, title: i.title, url: i.url, body: (i.body ?? "").slice(0, 20_000) }));
   },

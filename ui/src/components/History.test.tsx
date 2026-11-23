@@ -104,6 +104,26 @@ test("moving a conversation to another project asks the camp, and the list comes
   expect(screen.queryByRole("menu")).toBeNull();
 });
 
+test("renaming happens in the row: Enter keeps the new name once, Escape leaves it", async () => {
+  vi.useRealTimers();
+  const { patch } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "Options for Rebuild the UI" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Rename…" }));
+  const field = screen.getByRole("textbox", { name: "Rename this conversation" });
+  expect((field as HTMLInputElement).value).toBe("Rebuild the UI");
+  fireEvent.change(field, { target: { value: "Rebuild the page" } });
+  fireEvent.keyDown(field, { key: "Enter" });
+  fireEvent.blur(field);
+  await vi.waitFor(() => expect(patch).toHaveBeenCalled());
+  expect(posts).toEqual([{ path: "/api/history", body: { action: "conversation.rename", id: "c1", title: "Rebuild the page" } }]);
+  posts.length = 0;
+  fireEvent.click(screen.getByRole("button", { name: "Options for Rebuild the UI" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Rename…" }));
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Rename this conversation" }), { key: "Escape" });
+  expect(screen.queryByRole("textbox", { name: "Rename this conversation" })).toBeNull();
+  expect(posts).toEqual([]);
+});
+
 test("search looks inside conversations and shows where the words were found", async () => {
   vi.useRealTimers();
   const { setView } = setup();

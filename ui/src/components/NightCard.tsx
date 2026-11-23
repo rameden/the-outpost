@@ -11,6 +11,7 @@ import { plural, when } from "../format.ts";
 import type { HomePage } from "../types.ts";
 import { Icon } from "./bits.tsx";
 
+import { a as an } from "../words.ts";
 export type Night = NonNullable<HomePage["night"]>;
 const names = (list: { name: string }[]) => list.map((x) => x.name).join(", ");
 
@@ -46,7 +47,7 @@ export function NightCard({ night, onOpenMemory, onDone }: { night: Night; onOpe
         )}
         {housekeeping.length > 0 && (
           <li>
-            <span>Housekeeping could {housekeeping.map((f) => f.title).join("; ")}{night.frees ? ` (about ${night.frees})` : ""}. <span className="meta">Nothing was cleared: ask for a camp cleanup when you want it done.</span></span>
+            <span>Housekeeping could {housekeeping.map((f) => f.title).join("; ")}{night.frees ? ` (about ${night.frees})` : ""}. <span className="meta">Nothing was cleared: ask for {an("camp")} cleanup when you want it done.</span></span>
           </li>
         )}
         {night.notes.map((n) => <li key={n}><span className="meta">{n}</span></li>)}

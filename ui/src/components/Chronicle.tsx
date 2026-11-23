@@ -8,6 +8,7 @@ import { when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { ChroniclePage, SendResult } from "../types.ts";
 
+import { w } from "../words.ts";
 // The bullets under "In plain terms".
 export function plainTerms(text: string): string {
   const m = text.match(/^#{1,4}\s*In plain terms\s*$/im);
@@ -61,13 +62,13 @@ export function ChronicleSection({ project, reloadKey, onOpen }: { project: { id
           {plain && <button type="button" className="linkish" title="Copy the bullets under “In plain terms”, to paste into a status update" onClick={copy}>Copy the plain bullets</button>}
           {(happened > 0 || !written) && (
             <button type="button" className="btn small" disabled={busy || happened === 0}
-              title="The camp gathers what its record says happened that week, and the Scribe writes it up from that alone. It runs as a conversation and uses a little of your plan."
+              title={`The ${w("camp")} gathers what its record says happened that week, and the Scribe writes it up from that alone. It runs as a conversation and uses a little of your plan.`}
               onClick={write}>{busy ? "Starting…" : written ? "Write it again" : "Write it up"}</button>
           )}
         </span>
       </div>
       {written
-        ? <><Markdown text={written.text} /><div className="meta">{written.label} · written {when(written.written)} from the camp's record of that week.</div></>
+        ? <><Markdown text={written.text} /><div className="meta">{written.label} · written {when(written.written)} from the {w("camp")}'s record of that week.</div></>
         : <div className="meta">{chosen.label}: {happened} {happened === 1 ? "conversation" : "conversations"} had work in {project.name}. Nothing is written up yet.</div>}
       {note && <div className="meta" role="status">{note}</div>}
     </section>

@@ -11,8 +11,10 @@ import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { cClass, cx } from "../format.ts";
 import type { CampState, MemoryLine, MemoryPlace, Proposal } from "../types.ts";
+import { complain } from "../components/StatusLine.tsx";
 
-const HOW: Record<string, string> = { remember: "the crew noted it", feedback: "your feedback", suggestion: "a suggestion you approved", you: "you", tidy: "a shorter version you approved" };
+import { w } from "../words.ts";
+const HOW: Record<string, string> = { get remember() { return `the ${w("crew")} noted it`; }, feedback: "your feedback", suggestion: "a suggestion you approved", you: "you", tidy: "a shorter version you approved" };
 const linesOf = (text: string) => text.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("-")).map((l) => l.replace(/^-\s*/, ""));
 
 // Where a line came from: the conversation (a link to it), or how it got here.
@@ -133,8 +135,8 @@ function Place({ m, refresh, waiting }: { m: MemoryPlace; refresh: () => void; w
       </div>
       {m.unloaded > 0 && (lists
         ? <div className="mem-warn" role="status">This no longer all fits in a prompt. {m.unloaded} older {m.unloaded === 1 ? "line is" : "lines are"} loaded only when a request is about {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). Pin a line to load it every time; a shorter version makes room.</div>
-        : <div className="mem-warn" role="status">The oldest {m.unloaded} {m.unloaded === 1 ? "line no longer fits" : "lines no longer fit"} in a prompt, so the crew doesn't start with {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). A shorter version makes room.</div>)}
-      {!m.lines.length && <div className="meta">{m.kind === "about" ? "Nothing yet. Write what's true of you whoever you're working with, or let the crew note it as they learn." : "Nothing remembered yet."}</div>}
+        : <div className="mem-warn" role="status">The oldest {m.unloaded} {m.unloaded === 1 ? "line no longer fits" : "lines no longer fit"} in a prompt, so the {w("crew")} doesn't start with {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). A shorter version makes room.</div>)}
+      {!m.lines.length && <div className="meta">{m.kind === "about" ? `Nothing yet. Write what's true of you whoever you're working with, or let the ${w("crew")} note it as they learn.` : "Nothing remembered yet."}</div>}
       <ul className="mem-lines">
         {shown.map((l, i) => (
           <li key={`${l.date}|${l.text}|${i}`} className={cx(!l.loaded && "unloaded")}>
@@ -165,12 +167,12 @@ function AboutYou({ m, refresh }: { m: MemoryPlace; refresh: () => void }) {
   return (
     <section className="mem-place" aria-label="About you">
       <div className="mem-place-head"><h4>About you</h4><span className="mem-meter">{m.size.toLocaleString()} of {m.limit.toLocaleString()} characters</span></div>
-      <p className="set-note">One short note that every crew member starts with: how you like answers, what you call things, what never to do. Write it here, one line each; the crew can add to it too, and you can take any line out.</p>
+      <p className="set-note">One short note that every {w("crew")} member starts with: how you like answers, what you call things, what never to do. Write it here, one line each; the {w("crew")} can add to it too, and you can take any line out.</p>
       <textarea className="mem-about" rows={Math.min(10, Math.max(3, text.split("\n").length + 1))} value={text} aria-label="About you" placeholder={"- Keep answers short, and lead with the answer.\n- I work in Eastern time."}
         onChange={(ev) => { setText(ev.target.value); setSaved(false); }} />
       <div className="set-actions">
         <button type="button" className="btn small primary" disabled={text === seen} onClick={save}>Save</button>
-        {saved && text === seen && <span className="work-done" role="status">Saved. The crew starts with it from their next run.</span>}
+        {saved && text === seen && <span className="work-done" role="status">Saved. The {w("crew")} starts with it from their next run.</span>}
       </div>
       {error && <div className="form-error" role="alert">{error}</div>}
     </section>
@@ -182,10 +184,10 @@ export function MemoryPage({ S, refresh }: { S: CampState; refresh: () => void }
   const waiting = S.memoryProposals ?? [];
   const care = S.settings.memoryCare ?? { tidy: true, suggest: false };
   const about = places.find((p) => p.kind === "about");
-  const setCare = (change: { tidy?: boolean; suggest?: boolean }) => api("/api/memory/care", change).then(refresh, (e) => alert(errorText(e)));
+  const setCare = (change: { tidy?: boolean; suggest?: boolean }) => api("/api/memory/care", change).then(refresh, (e) => complain(errorText(e)));
   return (
     <>
-      <p className="set-note">What the crew starts each run knowing. Only the newest part of each memory fits in a prompt; the rest is still on disk, and the crew can search it with <code>recall</code> (along with past sessions, this project's earlier conversations and the wiki).</p>
+      <p className="set-note">What the {w("crew")} starts each run knowing. Only the newest part of each memory fits in a prompt; the rest is still on disk, and the {w("crew")} can search it with <code>recall</code> (along with past sessions, this project's earlier conversations and the wiki).</p>
       <p className="set-note"><button type="button" className="btn small" onClick={() => say({ do: "command", name: "constellation" })}>Open the map</button> Every line as a star, grouped by where it lives: see what's alike, what gets used, and pin, forget or merge from there.</p>
       {waiting.length > 0 && (
         <section aria-label="Waiting for you">

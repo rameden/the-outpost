@@ -39,20 +39,14 @@ import { conversationOf, pulls as knownPulls, type Pull } from "./pulls.js";
 import { drive } from "./settings.js";
 import { askSmall } from "./small.js";
 import { allTurns } from "./threads.js";
+import { flat, jsonIn, SAFE_ID, WEEK, weekSpan as span } from "./helpers.js";
 
-const SAFE_ID = /^[a-z0-9]{1,24}$/;
-const WEEK = /^\d{4}-\d{2}-\d{2}$/;
 const MIN_REQUESTS = 3;   // a week with less than this has nothing to read a pattern from
 const MAX_KEEPS = 5;
 const SKILL_WEEKS = 4;    // how far back the same kind of work is looked for
 const MIN_REPEATS = 3;    // asked for less often than this, it isn't a pattern yet
 const WEEK_CHARS = 6000;  // of one week's requests, the most recent this much is read
 const fileOf = (id: string, week: string) => posix.join(PROJECTS_DIR, id, "retro", `${week}.json`);
-const flat = (s: string, n: number) => { const t = s.replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
-function span(week: string): { from: number; to: number } {
-  const [y, m, d] = week.split("-").map(Number);
-  return { from: new Date(y, m - 1, d).getTime(), to: new Date(y, m - 1, d + 7).getTime() };
-}
 
 // skill: the how-to it drafted, as "owner/name", when the same work kept coming up.
 export type Retro = { week: string; label: string; written: string; requests: number; heard: number; proposed: string[]; skill?: string };
@@ -103,10 +97,7 @@ const SYSTEM =
 
 // What came back, as suggestions: one line each, at most five.
 export function parseRetro(raw: string): { where: "project" | "user"; text: string }[] {
-  const m = raw.match(/\[[\s\S]*\]/);
-  if (!m) return [];
-  let list: unknown;
-  try { list = JSON.parse(m[0]); } catch { return []; }
+  const list = jsonIn(raw, "[");
   if (!Array.isArray(list)) return [];
   return list.flatMap((x: any) => {
     const text = String(x?.text ?? "").replace(/\s+/g, " ").trim();
@@ -131,6 +122,7 @@ const SKILL_SYSTEM =
 export type RetroSkill = { owner: string; name: string; description: string; instructions: string; why: string; seen: string[] };
 // What came back, as one draft, or null when it isn't one worth showing you.
 export function parseRetroSkill(raw: string, owners: string[] = skillOwners()): RetroSkill | null {
+  // (Not jsonIn: that drops code fences, and the instructions here are Markdown that may have some.)
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) return null;
   let x: any;

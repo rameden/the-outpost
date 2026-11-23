@@ -9,9 +9,10 @@
 //
 // This file depends on nothing else in the camp, so memory.ts and projects.ts can both use it.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { writeAtomic } from "./atomic.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
+import { today } from "./helpers.js";
 
 // A place things are kept: "agent:<id>", "project:<id>", or "about".
 export type Where = string;
@@ -24,9 +25,8 @@ export const norm = (text: string) => text.replace(/^-\s*(\d{4}-\d{2}-\d{2}\s+)?
 
 export function logKept(where: Where, text: string, how: KeptHow, run?: string) {
   try {
-    mkdirSync("camp", { recursive: true });
     const line: KeptLine = { time: new Date().toISOString(), where, text: text.replace(/\s+/g, " ").trim().slice(0, 600), how, ...(run ? { run } : {}) };
-    appendFileSync(LOG, JSON.stringify(line) + "\n");
+    appendLine(LOG, JSON.stringify(line));
   } catch { /* a missing origin is no loss */ }
 }
 
@@ -36,7 +36,7 @@ function all(): KeptLine[] {
   const st = statSync(LOG);
   const key = `${process.cwd()}|${st.mtimeMs}:${st.size}`;
   if (cache?.key === key) return cache.lines;
-  const lines = readFileSync(LOG, "utf8").split("\n").filter(Boolean).flatMap((l) => { try { return [JSON.parse(l) as KeptLine]; } catch { return []; } });
+  const lines = readJsonl<KeptLine>(LOG);
   cache = { key, lines };
   return lines;
 }
@@ -50,7 +50,6 @@ export function originsOf(where: Where): Map<string, KeptLine> {
 // ---------- About you ----------
 export const ABOUT_PATH = join("camp", "about-you.md");
 export const ABOUT_MAX = 2500; // characters loaded into a prompt
-const today = () => new Date().toISOString().slice(0, 10);
 
 export function readAbout(): string {
   try { return readFileSync(ABOUT_PATH, "utf8").trim(); } catch { return ""; }

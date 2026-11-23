@@ -9,6 +9,7 @@ import { api, treeQuery } from "../api.ts";
 import { cx } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
 import type { FileRoot } from "./Files.tsx";
+import { Dialog } from "./Dialog.tsx";
 
 export type PaletteItem = { id: string; group: "Do" | "Conversations" | "Projects" | "Files"; label: string; hint?: string; icon: IconName; run: () => void };
 
@@ -67,9 +68,7 @@ export function Palette({ items, roots, start = "", onOpenFile, onClose }: {
   }
 
   return (
-    <>
-      <div className="drawer-backdrop layout-backdrop" onClick={onClose} />
-      <div className="dialog palette" role="dialog" aria-modal="true" aria-label="Go to anything">
+    <Dialog className="dialog palette" backdropClass="layout-backdrop" label="Go to anything" onClose={onClose}>
         <label className="fly-search">
           <Icon name="search" />
           <input autoFocus role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" aria-label="Go to a conversation, project, file or command"
@@ -88,7 +87,6 @@ export function Palette({ items, roots, start = "", onOpenFile, onClose }: {
           ))}
           {!shown.length && <div className="ft-note">Nothing matches{query.trim().length < 2 && roots.length ? ". Type a little more to look for files." : "."}</div>}
         </div>
-      </div>
-    </>
+    </Dialog>
   );
 }

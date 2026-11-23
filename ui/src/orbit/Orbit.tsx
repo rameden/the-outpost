@@ -843,9 +843,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
         <div className="orb-title"><h2>Orbit</h2>{demo ? <span className="orb-pretend" role="status">Demo: a pretend {w("camp")}. None of this is really happening.</span>
           : replay ? <span className="orb-pretend" role="status">Replay: the last day, played back. None of this is happening now.</span>
           : told ? <span className="orb-pretend" role="status">{told}</span>
-          : <span>The crew at work, as it happens</span>}</div>
+          : <span>The {w("crew")} at work, as it happens</span>}</div>
         <dl className="orb-read">
-          <div><dt>Expeditions</dt><dd>{running}</dd></div>
+          <div><dt>{w("Expeditions")}</dt><dd>{running}</dd></div>
           <div><dt>{w("Quests")} out</dt><dd>{quests.length}</dd></div>
           {waiting > 0 && <div className="warn"><dt>Waiting on you</dt><dd>{waiting}</dd></div>}
           {spend && <div><dt>Spent today</dt><dd>{money(dayCost)}</dd></div>}
@@ -868,9 +868,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           <button type="button" className="orb-tool worded" aria-pressed={hd} disabled={noHd} onClick={toggleHd}
             title={noHd ? "HD needs WebGL 2, which this browser isn't offering" : hd ? "Back to the flat view (H)" : "HD: the same system in three dimensions, as lit worlds round a sun (H). A proof of concept."}>HD</button>
           {hd && <button type="button" className="orb-tool worded" onClick={(ev) => roll(ev.shiftKey ? 0 : newSeed())}
-            title={`Reroll: make up other worlds for the crew (R). Each keeps its crew member's colour, the Artificer keeps a station, and a world you've made your own stays as you made it.${seed ? " Shift-click (or Shift+R) for the camp's own." : ""}`}>Reroll</button>}
-          <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? "End the demo and show the real camp (D)" : "Play a demo: a pretend camp at work, with nobody really sent anywhere (D)"} onClick={toggleDemo}>Demo</button>
-          <button type="button" className="orb-tool worded" aria-pressed={!!replay} title={replay ? "End the replay and show the camp as it is now (P)" : "Replay: watch the last day's expeditions back, in about half a minute (P)"} onClick={toggleReplay}>Replay</button>
+            title={`Reroll: make up other worlds for the ${w("crew")} (R). Each keeps its ${w("crew")} member's colour, the Artificer keeps a station, and a world you've made your own stays as you made it.${seed ? ` Shift-click (or Shift+R) for the ${w("camp")}'s own.` : ""}`}>Reroll</button>}
+          <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? `End the demo and show the real ${w("camp")} (D)` : `Play a demo: a pretend ${w("camp")} at work, with nobody really sent anywhere (D)`} onClick={toggleDemo}>Demo</button>
+          <button type="button" className="orb-tool worded" aria-pressed={!!replay} title={replay ? `End the replay and show the ${w("camp")} as it is now (P)` : `Replay: watch the last day's ${w("expeditions")} back, in about half a minute (P)`} onClick={toggleReplay}>Replay</button>
           <button type="button" className="orb-tool worded" aria-pressed={false} title="Ambient: hands off. The camera goes to whoever just did something, and tells you quietly when a decision needs you (A)" onClick={() => setAmbient(true)}>Ambient</button>
           <button type="button" className="orb-tool" aria-label="Leave Orbit" title="Back to the page (Esc)" onClick={onClose}><Icon name="x" /></button>
         </div>
@@ -897,14 +897,14 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
       {/* Ambient: who the camera is on and what they're doing, and (quietly) that something is waiting on you. */}
       {ambient && (
         <div className="orb-caption">
-          <p>{looking ? <><b>{looking.name}</b>{says.get(looking.id)?.text}</> : <><b>The camp</b>{running ? `${running} ${running === 1 ? "expedition" : "expeditions"} under way, ${quests.length} ${quests.length === 1 ? "quest" : "quests"} out` : "At rest"}</>}</p>
+          <p>{looking ? <><b>{looking.name}</b>{says.get(looking.id)?.text}</> : <><b>The {w("camp")}</b>{running ? `${running} ${running === 1 ? w("expedition") : w("expeditions")} under way, ${quests.length} ${quests.length === 1 ? w("quest") : w("quests")} out` : "At rest"}</>}</p>
           {need > 0 && <button type="button" className="orb-need" onClick={() => { setAmbient(false); lookAt(asker); }}>{need === 1 ? "A decision needs you" : `${need} decisions need you`}</button>}
           <small>Ambient: the camera follows the work. Esc, or a click, takes the controls back.</small>
         </div>
       )}
       {!ambient && <>
       <p className="orb-hint" aria-hidden="true">Scroll to zoom · drag to {hd ? "turn" : "move"} · click a planet to stay with it · Esc to step back</p>
-      <nav className="orb-strip" aria-label="The crew">
+      <nav className="orb-strip" aria-label={`The ${w("crew")}`}>
         {bodies.map((b, n) => {
           const st = statusOf(b), out = outOf(b), say = says.get(b.id), text = say?.text ?? "";
           return (

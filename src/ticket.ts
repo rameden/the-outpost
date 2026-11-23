@@ -12,11 +12,11 @@
 
 import type { Project } from "./conversations.js";
 import type { Note, NoteTicket } from "./notes.js";
+import { flatTrim as flat } from "./helpers.js";
 
 // The description's sections, in order.
 export const TICKET_SECTIONS = ["Summary", "Background", "Requirements", "Technical notes", "Out of scope", "Testing notes"] as const;
 const MAX_CRITERIA = 8;
-const flat = (s: string, n: number) => { const t = s.replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t; };
 
 // What a note is called when it has no title: its first line.
 export function noteName(n: Pick<Note, "title" | "text">): string {
@@ -70,9 +70,4 @@ export function parseTicket(reply: string): Pick<NoteTicket, "title" | "criteria
   const rest = sections.filter((s) => !isCriteria(s.name) && s.text.trim());
   if (!title || !rest.some((s) => TICKET_SECTIONS.some((t) => t.toLowerCase() === s.name.toLowerCase()))) return null;
   return { title, criteria, description: rest.map((s) => `## ${s.name}\n${s.text.trim()}`).join("\n\n") };
-}
-
-// The ticket as one Markdown document: what's attached to a message, or copied out.
-export function ticketMarkdown(t: Pick<NoteTicket, "title" | "criteria" | "description">): string {
-  return `# ${t.title}\n\n` + (t.criteria.length ? `## Acceptance criteria\n${t.criteria.map((c) => `- [ ] ${c}`).join("\n")}\n\n` : "") + `${t.description.trim()}\n`;
 }

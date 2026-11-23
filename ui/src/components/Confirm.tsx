@@ -32,11 +32,11 @@ export function Confirm({ title, children, action, danger, busy, onConfirm, onCa
 
 // The same question from anywhere, without a dialog of your own to keep: `if (await ask({ … }))`.
 // The page has one <ConfirmHost /> (in App) that shows it. A piece of the page drawn on its own,
-// with no host (a test of one component), falls back to the browser's own prompt, with the same words.
+// with no host (a test of one component) has nobody to ask, and the answer is no.
 export type Question = { title: string; body?: string; action: string; danger?: boolean };
 let host: ((q: Question, done: (yes: boolean) => void) => void) | null = null;
 export function ask(q: Question): Promise<boolean> {
-  if (!host) return Promise.resolve(typeof confirm === "function" && confirm(q.body ? `${q.title} ${q.body}` : q.title));
+  if (!host) return Promise.resolve(false); // no host on the page: nothing was asked, so nothing goes ahead
   return new Promise((resolve) => host!(q, resolve));
 }
 

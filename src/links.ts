@@ -10,7 +10,8 @@
 //  - If a link contains this camp, paths into the camp still follow the camp's own rules
 //    (so a link can't be used to read .env or another agent's memory).
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, statSync, readdirSync, lstatSync, readlinkSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync, readdirSync, lstatSync, readlinkSync } from "node:fs";
+import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { canon, isWindows, unlinkable } from "./platform.js";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { homedir, tmpdir } from "node:os";
@@ -41,17 +42,11 @@ export const inside = (child: string, parent: string) => {
 };
 
 export function loadLinks(): Link[] {
-  if (!existsSync(LINKS_PATH)) return [];
-  try {
-    return JSON.parse(readFileSync(LINKS_PATH, "utf8")) as Link[];
-  } catch {
-    return [];
-  }
+  return readJsonFile(LINKS_PATH, []) as Link[];
 }
 
 function saveLinks(links: Link[]) {
-  mkdirSync(dirname(LINKS_PATH), { recursive: true });
-  writeFileSync(LINKS_PATH, JSON.stringify(links, null, 2) + "\n");
+  writeJsonAtomic(LINKS_PATH, links);
 }
 
 export const findLink = (name: string) => loadLinks().find((l) => l.name === name);

@@ -8,6 +8,7 @@ import { api } from "../api.ts";
 import { money, plural } from "../format.ts";
 import type { Payoff } from "../types.ts";
 
+import { a as an } from "../words.ts";
 // One line per thing, in plain words: what it was used for, what came of it, what it used.
 export function payoffRows(p: Payoff): { what: string; came: string; cost: number | null }[] {
   const rows: { what: string; came: string; cost: number | null }[] = [];
@@ -20,7 +21,7 @@ export function payoffRows(p: Payoff): { what: string; came: string; cost: numbe
         `${r.sentBack ? `, sent back to be fixed ${r.sentBack === 1 ? "once" : `${r.sentBack} times`}` : r.findings ? ", none sent back" : ""}${r.clean ? `; ${r.clean} found nothing` : ""}` });
   }
   if (p.opinions || u.opinion.runs) rows.push({ what: "Second opinions", came: `${p.opinions} asked for`, cost: u.opinion.cost });
-  if (p.fixups) rows.push({ what: "Failed checks sent back", came: `${p.fixups} ${plural(p.fixups, "time")} a crew member was sent back to fix what its change broke`, cost: u.fixup.cost });
+  if (p.fixups) rows.push({ what: "Failed checks sent back", came: `${p.fixups} ${plural(p.fixups, "time")} ${an("crew")} member was sent back to fix what its change broke`, cost: u.fixup.cost });
   if (u.feedback.runs || p.prs.feedbackRounds) rows.push({ what: "Pull request feedback", came: `${p.prs.feedbackRounds} ${plural(p.prs.feedbackRounds, "round")} brought in and answered`, cost: u.feedback.cost });
   if (u.chronicle.runs) rows.push({ what: "Chronicles", came: `${u.chronicle.runs} written`, cost: u.chronicle.cost });
   if (p.prs.seen) {

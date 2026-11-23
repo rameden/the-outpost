@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import type { CampState, TermAction } from "../types.ts";
 
+import { w } from "../words.ts";
 export const TERM_ACTIONS_MAX = 5;
 // One being edited: its commands as the text in the box, one to a line.
 type Draft = Omit<TermAction, "commands"> & { commands: string };
@@ -48,7 +49,7 @@ export function TerminalActions({ S, refresh }: { S: CampState; refresh: () => v
   const full = list.length >= TERM_ACTIONS_MAX;
   return (
     <>
-      <p className="set-note">Quick actions are chips at the top of the terminal: one click runs a command of yours, in the terminal you're looking at or in a new one. Up to {TERM_ACTIONS_MAX}, shown in this order. They're kept in <code>camp/settings.json</code>, which no crew member can read or change.</p>
+      <p className="set-note">Quick actions are chips at the top of the terminal: one click runs a command of yours, in the terminal you're looking at or in a new one. Up to {TERM_ACTIONS_MAX}, shown in this order. They're kept in <code>camp/settings.json</code>, which no {w("crew")} member can read or change.</p>
       {list.map((a, i) => {
         const n = `Quick action ${i + 1}`;
         const chain = asTyped(a.commands);

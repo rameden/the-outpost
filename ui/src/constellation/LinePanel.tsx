@@ -7,7 +7,8 @@ import { Icon } from "../components/bits.tsx";
 import { cx, plural, when } from "../format.ts";
 import type { GraphEdge, GraphNode, Why } from "../types.ts";
 
-const HOW: Record<string, string> = { remember: "the crew noted it", feedback: "your feedback", suggestion: "a suggestion you approved", you: "you", tidy: "a shorter version you approved" };
+import { w } from "../words.ts";
+const HOW: Record<string, string> = { get remember() { return `the ${w("crew")} noted it`; }, feedback: "your feedback", suggestion: "a suggestion you approved", you: "you", tidy: "a shorter version you approved" };
 const USED: Record<Why["how"], string> = { relevant: "Loaded: it bore on the request", recall: "Found with recall" };
 const day = (iso: string) => new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
 

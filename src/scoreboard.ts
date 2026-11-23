@@ -25,6 +25,7 @@ import { questCost, recentQuests } from "./questlog.js";
 import { currentName } from "./crew.js";
 import { allTurns } from "./threads.js";
 import { loadTriggers, type Trigger } from "./triggers.js";
+import { median, weekSpan as span } from "./helpers.js";
 
 // work: asking for something to be built, changed or fixed. feedback: bringing a pull request's
 // review comments or failing checks to the crew. writeup: asking for a description or a write-up
@@ -54,11 +55,6 @@ export function kindOf(task: string): Kind {
   return "work";
 }
 
-const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
-function span(week: string): { from: number; to: number } {
-  const [y, m, d] = week.split("-").map(Number);
-  return { from: new Date(y, m - 1, d).getTime(), to: new Date(y, m - 1, d + 7).getTime() };
-}
 
 export type WeekScore = {
   week: string; label: string;

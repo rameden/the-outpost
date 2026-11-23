@@ -10,8 +10,8 @@ import { Markdown } from "../markdown.tsx";
 import type { CampState, JiraCard, JiraDetail, JiraRef } from "../types.ts";
 import { Icon } from "./bits.tsx";
 import { TicketDebrief } from "./TicketDebrief.tsx";
-
-export const GROUPS = { todo: "To do", doing: "In progress", done: "Done" } as const;
+import { Dialog } from "./Dialog.tsx";
+import { STATUS_NAMES } from "../tickets.ts";
 export const pillOf = (g: JiraCard["group"]) => (g === "done" ? "pill done" : g === "doing" ? "pill live" : "pill");
 
 // The ticket to start work on: "Start work…" hands it to the kickoff stepper (TicketWizard.tsx).
@@ -41,28 +41,20 @@ export function JiraTicket({ id, summary, onClose, onAttach, onOpen, onStart }: 
 }) {
   const [t, setT] = useState<JiraDetail | null>(null);
   const [error, setError] = useState("");
-  // Jira is asked once per ticket. (Escape has its own effect: what closes the ticket is a new
-  // function each time the page behind it is drawn, and tied together that asked Jira again each time.)
+  // Jira is asked once per ticket.
   useEffect(() => {
     let gone = false;
     api<JiraDetail>(`/api/jira/ticket?key=${encodeURIComponent(id)}`).then((d) => { if (!gone) setT(d); }, (e) => { if (!gone) setError(errorText(e)); });
     return () => { gone = true; };
   }, [id]);
-  useEffect(() => {
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
   const facts: [string, string | null | undefined][] = t ? [["Status", t.status], ["Type", t.type], ["Priority", t.priority], ["Assignee", t.assignee ?? "Unassigned"], ["Reporter", t.reporter],
     ["Project", t.project], ["Changed", t.updated ? when(t.updated) : null]] : [];
   return (
-    <>
-      <div className="drawer-backdrop" onClick={onClose} />
-      <div className="dialog file-view jira-ticket" role="dialog" aria-modal="true" aria-label={`${id}: ${t?.summary ?? summary}`}>
+    <Dialog className="dialog file-view jira-ticket" label={`${id}: ${t?.summary ?? summary}`} onClose={onClose}>
         <header className="file-head">
           <span className="jira-key">{id}</span>
           <b>{t?.summary ?? summary}</b>
-          {t && <span className={pillOf(t.group)}>{t.status ?? GROUPS[t.group]}</span>}
+          {t && <span className={pillOf(t.group)}>{t.status ?? STATUS_NAMES[t.group]}</span>}
           <button type="button" className="hist-icon" aria-label="Close the ticket" title="Close (Esc)" onClick={onClose}>×</button>
         </header>
         <div className="file-body jira-body">
@@ -90,7 +82,7 @@ export function JiraTicket({ id, summary, onClose, onAttach, onOpen, onStart }: 
                     {t.children.map((c) => (
                       <li key={c.key}>
                         <button type="button" title={`Open ${c.key}`} onClick={() => onOpen(c.key)}>
-                          <span className="jira-key">{c.key}</span><span className="jira-summary">{c.summary}</span><span className={pillOf(c.group)}>{c.status ?? GROUPS[c.group]}</span>
+                          <span className="jira-key">{c.key}</span><span className="jira-summary">{c.summary}</span><span className={pillOf(c.group)}>{c.status ?? STATUS_NAMES[c.group]}</span>
                         </button>
                       </li>
                     ))}
@@ -116,7 +108,6 @@ export function JiraTicket({ id, summary, onClose, onAttach, onOpen, onStart }: 
             {onAttach && <button type="button" className="btn" disabled={!t} title="Attach this ticket to the message you're writing" onClick={() => t && onAttach(t)}>Attach to message</button>}
             {onStart && <button type="button" className="btn primary" disabled={!t} title="Pick this ticket up: check what done means, say where and who, and start" onClick={() => t && onStart({ key: t.key, summary: t.summary })}>Start work…</button>}
           </div>
-      </div>
-    </>
+    </Dialog>
   );
 }

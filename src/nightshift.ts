@@ -27,7 +27,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { posix } from "node:path";
 import { writeJsonAtomic } from "./atomic.js";
-import { dayOf } from "./brief.js";
+import { dayOf } from "./helpers.js";
 import { emit } from "./events.js";
 import { findings, size, type Finding, type Step } from "./housekeeping.js";
 import { memoryOverview, nameOf, proposals, proposeTidy, type MemoryLine } from "./keeping.js";

@@ -10,7 +10,9 @@ import { Markdown } from "../markdown.tsx";
 import type { AgentDetail, CampEvent, CampState, SendResult, Transcript, TranscriptPart } from "../types.ts";
 import type { OpenPicker } from "./Crew.tsx";
 import { Clamp, Empty, Icon } from "./bits.tsx";
+import { Dialog } from "./Dialog.tsx";
 
+import { w, a as an } from "../words.ts";
 export type AgentTab = "chat" | "runs" | "memory" | "outputs" | "about";
 const TABS: [AgentTab, string][] = [["chat", "Chat"], ["runs", "Runs"], ["memory", "Memory"], ["outputs", "Outputs"], ["about", "About"]];
 const SOURCE_LABEL: Record<string, string> = { user: "You", direct: "You", discord: "You (Discord)", brief: "🧭 Quartermaster's brief", job: "⏰ Scheduled job" };
@@ -130,7 +132,7 @@ function Chat({ a, live }: { a: AgentDetail; live: LiveItem[] }) {
       {live.map((it) =>
         it.kind === "you" ? <div key={it.id} className="bubble you">{it.text}</div>
         : it.kind === "note" ? <div key={it.id} className="thread-day">{it.text}</div>
-        : it.kind === "brief" ? <div key={it.id} className="bubble brief">🧭 The Quartermaster sent them on a quest…</div>
+        : it.kind === "brief" ? <div key={it.id} className="bubble brief">🧭 The Quartermaster sent them on {an("quest")}…</div>
         : it.kind === "tool" ? <div key={it.id} className="tool"><b>{it.tool}</b><code>{it.input}</code></div>
         : <div key={it.id} className="bubble agent">{it.streaming ? <div className="md streaming">{it.text}</div> : <Markdown text={it.text} />}</div>)}
     </div>
@@ -146,7 +148,7 @@ function Run({ a, q }: { a: AgentDetail; q: AgentDetail["runs"][number] }) {
     <li className="card">
       <div className="card-top">
         <span className={cx("pill", ok ? "done" : "bad")}>{spaced(q.status)}</span>
-        <span className="meta" style={{ margin: 0 }}>{q.kind === "job" ? `⏰ ${q.job ?? "job"}` : q.kind === "expedition" ? "Expedition" : "Quest"}</span>
+        <span className="meta" style={{ margin: 0 }}>{q.kind === "job" ? `⏰ ${q.job ?? "job"}` : q.kind === "expedition" ? w("Expedition") : w("Quest")}</span>
         <time>{when(q.time)}</time>
       </div>
       <div className="meta">
@@ -243,7 +245,7 @@ export function About({ a }: { a: AgentDetail }) {
       <Row label="Also called"><span>{a.aliases.map((x) => `@${x}`).join(", ") || "–"}</span></Row>
       <Row label="Last active"><span>{s.lastActive ? when(s.lastActive) : "Not yet"}</span></Row>
       <Row label="Tools"><span className="tool-chips" style={{ margin: 0 }}>{a.tools.map((t, i) => <code key={i} className={t.startsWith("mcp__") ? "write" : ""}>{t}</code>)}</span></Row>
-      <Row label="Skills"><span>{a.skills.length ? a.skills.map((k) => <div key={`${k.owner}/${k.name}`}><b>{k.owner === "shared" ? "shared/" : ""}{k.name}</b>{k.always && <span className="pill live" title="Its instructions are in every one of this crew member's prompts (set under Settings → Skills)">Always on</span>} <span className="meta">{k.description}</span></div>) : "None yet"}</span></Row>
+      <Row label="Skills"><span>{a.skills.length ? a.skills.map((k) => <div key={`${k.owner}/${k.name}`}><b>{k.owner === "shared" ? "shared/" : ""}{k.name}</b>{k.always && <span className="pill live" title={`Its instructions are in every one of this ${w("crew")} member's prompts (set under Settings → Skills)`}>Always on</span>} <span className="meta">{k.description}</span></div>) : "None yet"}</span></Row>
       <Row label="Workspace"><span><code>camp/agents/{a.id}/</code></span></Row>
     </>
   );
@@ -251,7 +253,7 @@ export function About({ a }: { a: AgentDetail }) {
 
 // ---------- The drawer ----------
 // project: the project you're in when you open the page; a new chat from here is filed under it.
-export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpenPicker, onClose, project }: {
+export function AgentDrawer({ agentId, tab, setTab, S, store, onOpenPicker, onClose, project }: {
   agentId: string; tab: AgentTab; setTab: (t: AgentTab) => void; S: CampState | null; store: FeedStore; project?: string;
   pickerOpen: boolean; onOpenPicker: OpenPicker; onClose: () => void;
 }) {
@@ -297,12 +299,6 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
     return () => { off(); clearTimeout(timer); };
   }, [store, load]);
 
-  // Esc closes the page (unless the model picker is open on top of it: Esc closes that first).
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape" && !pickerOpen) onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [pickerOpen, onClose]);
 
   const loaded = !!a;
   useEffect(() => { if (loaded) (tab === "chat" ? input.current : closeBtn.current)?.focus(); }, [loaded, agentId]);
@@ -336,7 +332,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
       const r = await api<SendResult>("/api/send", { text: isQm ? text : `@${a.id} ${text}`, chat: !isQm, project });
       setDraft((now) => (now.startsWith(draft) ? now.slice(draft.length) : now)); // keep anything typed while it was sending
       setHint("");
-      dispatchLive({ type: "you", text, note: r.position > 0 ? `Queued (#${r.position}): starts when one of the running expeditions finishes` : undefined });
+      dispatchLive({ type: "you", text, note: r.position > 0 ? `Queued (#${r.position}): starts when one of the running ${w("expeditions")} finishes` : undefined });
       setTimeout(() => { if (body.current) body.current.scrollTop = body.current.scrollHeight; }, 0);
     } catch (e) { setHint(errorText(e)); }
     finally { sendingNow.current = false; setSending(false); }
@@ -344,12 +340,10 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
 
   const name = a?.name ?? character?.name ?? "";
   const st: CrewStatus = crew[name] ?? { status: "idle", line: "" };
-  const status = st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : "At camp";
+  const status = st.status === "active" ? (st.line || "Working…") : st.status === "waiting" ? "Waiting for your OK" : `At ${w("camp")}`;
 
   return (
-    <>
-      <div className="drawer-backdrop" onClick={onClose} />
-      <aside className={cx("drawer", cClass(name))} role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+    <Dialog as="aside" className={cx("drawer", cClass(name))} labelledBy="drawerTitle" onClose={onClose}>
         <header className="drawer-head">
           <div className="avatar" aria-hidden="true">{a?.emoji ?? character?.emoji}</div>
           <div style={{ minWidth: 0 }}>
@@ -396,12 +390,11 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, pickerOpen, onOpen
             </form>
             <div className="drawer-hint">
               {hint || (isQm
-                ? "Starts an expedition. You'll approve the plan in the main feed. Enter to send."
+                ? `Starts ${an("expedition")}. You'll approve the plan in the main feed. Enter to send.`
                 : `Goes straight to the ${name}, skipping the Quartermaster. It continues your last chat with them if that was in the past 6 hours. Enter to send.`)}
             </div>
           </div>
         )}
-      </aside>
-    </>
+    </Dialog>
   );
 }

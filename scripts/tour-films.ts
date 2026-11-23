@@ -45,7 +45,7 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
   },
   {
     key: "stars", section: "videos", file: "constellation.html", tab: "The constellation", length: "0:39",
-    note: "The constellation: every line the crew remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Arcade menu in the top bar or with <code>/constellation</code>.",
+    note: "The constellation: every line the crew remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Views menu in the top bar or with <code>/constellation</code>.",
   },
   {
     key: "night", section: "videos", file: "night-shift.html", tab: "The night shift", length: "0:35",

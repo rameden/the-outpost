@@ -2,13 +2,13 @@
 // Who went, what they were asked, how it ended, which model, how long, and what it cost in tokens.
 // Mission control reads it for run history, usage, and XP.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, statSync } from "node:fs";
 import type { AgentResult } from "./agent.js";
 import { emit } from "./events.js";
 import { costOf, usd } from "./costs.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
-import { appendLine } from "./atomic.js";
+import { appendLine, readJsonl } from "./atomic.js";
+import { flat as clip } from "./helpers.js";
 
 export const QUEST_LOG_PATH = "camp/quest-log.jsonl";
 
@@ -40,10 +40,6 @@ export function questCost(q: Pick<QuestEntry, "model" | "usage" | "costUsd">): n
   return q.costUsd ?? costOf(q.model, q.usage);
 }
 
-const clip = (s: string, n: number) => {
-  const flat = s.replace(/\s+/g, " ").trim();
-  return flat.length > n ? flat.slice(0, n - 1) + "…" : flat;
-};
 
 export function logQuest(
   kind: QuestEntry["kind"],
@@ -87,9 +83,7 @@ function allQuests(): QuestEntry[] {
   const key = `${st.mtimeMs}:${st.size}`;
   const path = process.cwd() + "/" + QUEST_LOG_PATH;
   if (cache?.key === key && cache.path === path) return cache.entries;
-  const entries = readFileSync(QUEST_LOG_PATH, "utf8").split("\n").filter(Boolean).flatMap((line) => {
-    try { return [JSON.parse(line) as QuestEntry]; } catch { return []; } // a half-written line
-  });
+  const entries = readJsonl<QuestEntry>(QUEST_LOG_PATH);
   cache = { path, key, entries };
   return entries;
 }

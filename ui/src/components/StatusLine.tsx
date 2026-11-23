@@ -15,19 +15,26 @@ const KEPT = 3; // at most this many at once: the oldest makes way
 // Say it in both places: the feed (All activity) and the line by the message box.
 export function tell(store: FeedStore, text: string, error?: boolean) {
   store.addSys(text);
-  say({ do: "tell", text, error });
+  say({ do: "tell", text, error, inFeed: true });
+}
+
+// The same line when there's no feed to hand: a failed save, a button that didn't work. It
+// shows by the message box, and in Settings, until you dismiss it.
+export function complain(text: string) {
+  say({ do: "tell", text, error: true });
 }
 
 type Line = { id: number; text: string; error: boolean; until: number };
 let nextId = 1;
 
-export function StatusLine() {
+// skipFed: leave out lines the feed already shows (All activity).
+export function StatusLine({ skipFed }: { skipFed?: boolean } = {}) {
   const [lines, setLines] = useState<Line[]>([]);
   useEffect(() => hear((ask) => {
-    if (ask.do !== "tell") return;
+    if (ask.do !== "tell" || (skipFed && ask.inFeed)) return;
     const line = { id: nextId++, text: ask.text, error: !!ask.error, until: Date.now() + SHOWN_MS };
     setLines((list) => [...list, line].slice(-KEPT));
-  }), []);
+  }), [skipFed]);
   // One clock, for the plain line that's due to go first.
   const due = lines.find((l) => !l.error);
   useEffect(() => {

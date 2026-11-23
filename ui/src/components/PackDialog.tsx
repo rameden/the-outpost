@@ -9,9 +9,10 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, errorText } from "../api.ts";
 import { cx } from "../format.ts";
 import { PALETTES } from "../themes.ts";
-import { many } from "../words.ts";
+import { many, w } from "../words.ts";
 import type { CampState } from "../types.ts";
 import { ask } from "./Confirm.tsx";
+import { Dialog } from "./Dialog.tsx";
 
 export type PackLine = NonNullable<CampState["packs"]>[number];
 type Named = { name: string; emoji: string };
@@ -52,10 +53,7 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
 
   useEffect(() => {
     nameInput.current?.focus();
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
+  }, []);
 
   // "Start from": another pack's names, words, place and colours, to change from there. The pack's
   // own name and its line about itself stay as you've typed them.
@@ -99,14 +97,12 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
   }
   async function remove() {
     if (!pack) return;
-    const body = `${on ? "The camp is wearing it now, so it goes back to the Guild pack. " : ""}The names it gave still work after @, and history keeps them.`;
+    const body = `${on ? `The ${w("camp")} is wearing it now, so it goes back to the Guild pack. ` : ""}The names it gave still work after @, and history keeps them.`;
     if (await ask({ title: `Delete the ${pack.name} pack?`, body, action: "Delete", danger: true })) void send({ action: "remove", id: pack.id });
   }
 
   return (
-    <>
-      <div className="drawer-backdrop" onClick={onClose} />
-      <form className="dialog" role="dialog" aria-modal="true" aria-labelledby="pack-dialog-title" onSubmit={save}>
+    <Dialog as="form" className="dialog" labelledBy="pack-dialog-title" onClose={onClose} onSubmit={save}>
         <h2 id="pack-dialog-title">{pack ? `Edit the ${pack.name} pack` : "New theme pack"}</h2>
         {!pack && (
           <label className="field">Start from
@@ -123,8 +119,8 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
           <input value={about} maxLength={80} placeholder="One line, shown when you point at the pack in Settings." onChange={(ev) => setAbout(ev.target.value)} />
         </label>
 
-        <div className="field" role="group" aria-label="What it calls the crew">What it calls the crew
-          <span className="field-hint">An icon and a name for each. A name can't be one another crew member has, in this pack or any other: every pack's names keep working after @.</span>
+        <div className="field" role="group" aria-label={`What it calls the ${w("crew")}`}>What it calls the crew
+          <span className="field-hint">An icon and a name for each. A name can't be one another {w("crew")} member has, in this pack or any other: every pack's names keep working after @.</span>
           <div className="pack-names">
             {everyone.map((who) => (
               <div key={who} className="pack-name">
@@ -148,10 +144,10 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
           </div>
         </div>
 
-        <label className="field">Where the crew works
+        <label className="field">Where the {w("crew")} works
           <input value={place} maxLength={60} placeholder={`the Mae ${words.camp.trim() || "camp"}`} onChange={(ev) => setPlace(ev.target.value)} />
         </label>
-        <div className="field-hint dialog-under">The crew reads this: "You are the {names.scout?.name.trim() || "Scout"} of {place.trim() || `the Mae ${words.camp.trim() || "camp"}`}."</div>
+        <div className="field-hint dialog-under">The {w("crew")} reads this: "You are the {names.scout?.name.trim() || "Scout"} of {place.trim() || `the Mae ${words.camp.trim() || "camp"}`}."</div>
 
         <div className="field" role="group" aria-label="Colours it suggests">Colours it suggests
           <div className="looks">
@@ -168,7 +164,6 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : pack ? "Save" : "Add pack"}</button>
         </div>
-      </form>
-    </>
+    </Dialog>
   );
 }

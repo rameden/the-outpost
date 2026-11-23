@@ -11,6 +11,7 @@ import { Icon } from "../components/bits.tsx";
 import { PrDialog } from "./PrDialog.tsx";
 import { CommitDialog } from "./CommitDialog.tsx";
 import { ask } from "../components/Confirm.tsx";
+import { complain } from "../components/StatusLine.tsx";
 
 type Workspace = Workspaces[number];
 
@@ -45,7 +46,7 @@ function WorkspaceRow({ w, task, expId }: { w: Workspace; task: string; expId?: 
   };
   const act = (fn: () => Promise<void>) => async () => {
     setBusy(true);
-    try { await fn(); } catch (e) { alert(errorText(e)); }
+    try { await fn(); } catch (e) { complain(errorText(e)); }
     setBusy(false);
   };
 

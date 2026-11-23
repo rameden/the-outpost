@@ -14,15 +14,15 @@
 // What you said yourself is left out, and so is anything a bot said: the crew answers reviews
 // under your name, so counting your own comments as news would have it answering itself.
 
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { promisify } from "node:util";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { history } from "./conversations.js";
 import { emit } from "./events.js";
 import { loadLinks } from "./links.js";
 import { tryGit } from "./repos.js";
 import { allTurns, type Turn } from "./threads.js";
+import { clip as clipTo } from "./helpers.js";
+import { checkFailed, gh } from "./github.js";
 
 export const PULLS_PATH = "camp/pulls.json";
 const WINDOW_DAYS = 45;      // pull requests touched since then
@@ -65,14 +65,11 @@ const QUERY = `query($q: String!) {
   }
 }`;
 
-// The GraphQL call itself (swapped out in tests). CAMP_GH points at another gh.
+// The GraphQL call itself (swapped out in tests).
 export type Fetcher = (query: string, search: string) => Promise<any>;
-const run = promisify(execFile);
 export const ghFetcher: Fetcher = async (query, search) => {
   try {
-    const { stdout } = await run(process.env.CAMP_GH || "gh", ["api", "graphql", "-f", `query=${query}`, "-f", `q=${search}`],
-      { timeout: 60_000, maxBuffer: 32 * 1024 * 1024, env: { ...process.env, GH_PROMPT_DISABLED: "1", NO_COLOR: "1" } });
-    return JSON.parse(stdout);
+    return JSON.parse(await gh(["api", "graphql", "-f", `query=${query}`, "-f", `q=${search}`], { maxBuffer: 32 * 1024 * 1024 }));
   } catch (e: any) {
     if (e?.code === "ENOENT") throw new Error("The GitHub CLI (gh) isn't installed, so your pull requests can't be read from here.");
     throw new Error(String(e?.stderr || e?.message || e).trim().split("\n").slice(-2).join(" ").slice(0, 300));
@@ -95,8 +92,7 @@ export async function linkedRepositories(): Promise<Map<string, string>> {
 }
 
 const NO_SUMMARY = "(no summary)"; // a review that asked for changes without saying anything itself
-const clip = (s: unknown, n = SAID_CHARS) => { const t = String(s ?? "").replace(/\r\n/g, "\n").trim(); return t.length > n ? `${t.slice(0, n).trimEnd()}…` : t; };
-const BAD = /^(FAILURE|ERROR|TIMED_OUT|CANCELLED|ACTION_REQUIRED|STARTUP_FAILURE)$/;
+const clip = (s: unknown, n = SAID_CHARS) => clipTo(s, n);
 
 // One pull request as GitHub describes it, read into what the camp keeps. me: your login.
 export function readPull(n: any, me: string, link: string): Pull {
@@ -105,7 +101,7 @@ export function readPull(n: any, me: string, link: string): Pull {
   const pushed = commits[commits.length - 1] ?? "";
   const checks: any[] = n.commits?.nodes?.at(-1)?.commit?.statusCheckRollup?.contexts?.nodes ?? [];
   const pending = checks.filter((c) => (c.__typename === "CheckRun" ? c.status !== "COMPLETED" : /^(PENDING|EXPECTED)$/.test(String(c.state)))).length;
-  const failed = checks.filter((c) => BAD.test(String(c.conclusion ?? c.state ?? ""))).map((c) => String(c.name ?? c.context ?? "check"));
+  const failed = checks.filter(checkFailed).map((c) => String(c.name ?? c.context ?? "check"));
 
   const threads: any[] = n.reviewThreads?.nodes ?? [];
   const lines = (t: any): Said[] => (t.comments?.nodes ?? []).filter((c: any) => other(c.author))

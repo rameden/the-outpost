@@ -19,6 +19,8 @@ import { Confirm } from "./Confirm.tsx";
 import { ChronicleSection } from "./Chronicle.tsx";
 import { PayoffSection } from "./Payoff.tsx";
 import { Presence } from "../motion.tsx";
+import { complain } from "./StatusLine.tsx";
+import { w } from "../words.ts";
 
 // A description as one plain line, for a card (the project's page shows it formatted).
 const plain = (text?: string) => (text ?? "").replace(/[*_`#>]+/g, "").replace(/^\s*[-•]\s+/gm, "").replace(/\s+/g, " ").trim();
@@ -31,7 +33,7 @@ function defaultsOf(p: Project): string[] {
     s.workIn === "worktree" ? "New worktree per conversation" : "",
     s.web === "careful" ? "Confidential web searches" : s.web === "off" ? "Web off" : "",
     s.approval ? `Shell: ${s.approval === "ask" ? "ask every time" : s.approval === "sandbox" ? "sandboxed" : s.approval === "god" ? "god mode" : "read-only runs"}` : "",
-    s.budgetUsd ? `Budget ${money(s.budgetUsd)} per expedition` : "",
+    s.budgetUsd ? `Budget ${money(s.budgetUsd)} per ${w("expedition")}` : "",
     s.review ? `Changes reviewed before reporting: ${s.review === "on" ? "always" : "never"}` : "",
     ...Object.entries(s.agents ?? {}).map(([id, a]) => `${id}: ${shortModel(a.model ?? "")}${a.effort ? ` · ${a.effort}` : ""}`),
   ].filter(Boolean);
@@ -42,7 +44,7 @@ function Folder({ S, name, refresh }: { S: CampState; name: string; refresh: () 
   if (!link) return <div className="proj-folder"><Icon name="folder" /> <code>links/{name}/</code><span>This folder isn't linked any more.</span></div>;
   return (
     <div className="proj-folder" title={link.path}>
-      <Icon name="folder" /> <code>links/{name}/</code><span>{link.path} · {link.access === "write" ? "the crew can edit" : "read-only"}</span>
+      <Icon name="folder" /> <code>links/{name}/</code><span>{link.path} · {link.access === "write" ? `the ${w("crew")} can edit` : "read-only"}</span>
       <LinkCommands link={link} kind="verify" refresh={refresh} open={false} />
       <LinkCommands link={link} kind="setup" refresh={refresh} open={false} />
     </div>
@@ -60,7 +62,7 @@ function Editable({ label, hint, text, empty, onSave }: { label: string; hint: s
           ? <button type="button" className="linkish" onClick={() => setDraft(text)}>Edit</button>
           : <span className="proj-edit-actions">
               <button type="button" className="linkish" onClick={() => setDraft(null)}>Cancel</button>
-              <button type="button" className="btn small primary" onClick={async () => { try { await onSave(draft); setDraft(null); } catch (e) { alert(errorText(e)); } }}>Save</button>
+              <button type="button" className="btn small primary" onClick={async () => { try { await onSave(draft); setDraft(null); } catch (e) { complain(errorText(e)); } }}>Save</button>
             </span>}
       </div>
       {draft !== null
@@ -102,7 +104,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
       const r = await api<SendResult>("/api/project/survey", { id: project.id });
       refresh();
       setView({ kind: "conversation", id: r.thread });
-    } catch (e) { alert(errorText(e)); setSurveying(false); }
+    } catch (e) { complain(errorText(e)); setSurveying(false); }
   }
   const defaults = defaultsOf(project);
   const hasFolders = !!project.links?.length;
@@ -113,7 +115,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
         <Confirm title={page?.brief ? `Survey ${project.name} again?` : `Survey ${project.name}?`} action={page?.brief ? "Survey again" : "Survey"} busy={surveying}
           onConfirm={survey} onCancel={() => setAskSurvey(false)}>
           <p>The Scout reads through {(project.links ?? []).map((l) => `links/${l}/`).join(", ") || "the project's folders"} and writes up the stack, the layout and the commands that work.
-            The crew is given that at the start of every conversation here, so it stops rediscovering them.</p>
+            The ${w("crew")} is given that at the start of every conversation here, so it stops rediscovering them.</p>
           {page?.brief ? <p><b>The survey you have now is replaced</b> when the new one comes back.</p> : null}
           <p className="meta">It runs as a conversation with the Scout, which opens when you start it, and uses some of your plan.</p>
         </Confirm>
@@ -125,7 +127,7 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
         </div>
         <div className="proj-actions">
           <button type="button" className="btn small primary" onClick={() => setView({ kind: "new", project: general ? undefined : project.id })}>New conversation</button>
-          {hasFolders && <button type="button" className="btn small" disabled={surveying} title="The Scout reads through the project's folders and writes a brief for the crew" onClick={() => setAskSurvey(true)}>{page?.brief ? "Survey again" : "Survey this project"}</button>}
+          {hasFolders && <button type="button" className="btn small" disabled={surveying} title={`The Scout reads through the project's folders and writes a brief for the ${w("crew")}`} onClick={() => setAskSurvey(true)}>{page?.brief ? "Survey again" : "Survey this project"}</button>}
           <button type="button" className="btn small" onClick={() => onEdit(project)}>Edit…</button>
           {!general && <button type="button" className="btn small danger quiet" onClick={() => onDelete(project)}>Delete</button>}
         </div>
@@ -135,10 +137,10 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
       {defaults.length > 0 && <div className="tool-chips proj-defaults" aria-label="This project's defaults">{defaults.map((d) => <code key={d}>{d}</code>)}</div>}
 
       <section className="proj-about">
-        <div className="proj-section-head"><div className="section-label">What you've told the crew</div><button type="button" className="linkish" onClick={() => onEdit(project)}>Edit</button></div>
+        <div className="proj-section-head"><div className="section-label">What you've told the {w("crew")}</div><button type="button" className="linkish" onClick={() => onEdit(project)}>Edit</button></div>
         {project.description
           ? <Markdown text={project.description} />
-          : <div className="meta">Nothing yet. Add a description and the crew will have it at the start of every conversation here.</div>}
+          : <div className="meta">Nothing yet. Add a description and the {w("crew")} will have it at the start of every conversation here.</div>}
         {!!project.pins?.length && (
           <div className="proj-pins"><b>Pinned references</b>{project.pins.map((p) => /^https?:\/\//i.test(p)
             ? <a key={p} href={p} target="_blank" rel="noopener noreferrer">{p}</a>
@@ -148,13 +150,13 @@ export function ProjectPage({ S, store, project, setView, refresh, patch, onEdit
 
       {!general && hasFolders && (
         <Editable label="Survey of the project" text={page?.brief ?? ""} onSave={save("project.brief", {})}
-          hint="Markdown. The crew sees this in every conversation in the project."
-          empty={<>Not surveyed yet. <button type="button" className="linkish" disabled={surveying} onClick={() => setAskSurvey(true)}>Survey this project</button> and the Scout will write up its stack, layout, and commands, so the crew stops rediscovering them.</>} />
+          hint={`Markdown. The ${w("crew")} sees this in every conversation in the project.`}
+          empty={<>Not surveyed yet. <button type="button" className="linkish" disabled={surveying} onClick={() => setAskSurvey(true)}>Survey this project</button> and the Scout will write up its stack, layout, and commands, so the {w("crew")} stops rediscovering them.</>} />
       )}
       {!general && (
-        <Editable label="What the crew has learned here" text={page?.notes ?? ""} onSave={save("project.notes", {})}
-          hint="One lesson per line. The crew adds to this with project_remember; it's loaded only in this project."
-          empty="Nothing yet. As the crew works here they keep what's worth remembering about this project: its layout, the commands that work, how you like things done." />
+        <Editable label={`What the ${w("crew")} has learned here`} text={page?.notes ?? ""} onSave={save("project.notes", {})}
+          hint={`One lesson per line. The ${w("crew")} adds to this with project_remember; it's loaded only in this project.`}
+          empty={`Nothing yet. As the ${w("crew")} works here they keep what's worth remembering about this project: its layout, the commands that work, how you like things done.`} />
       )}
 
       {!general && <ChronicleSection project={project} reloadKey={stamp} onOpen={(thread) => { refresh(); setView({ kind: "conversation", id: thread }); }} />}
@@ -231,7 +233,7 @@ export function ProjectsOverview({ S, setView, onNew }: { S: CampState; setView:
       <header className="proj-head">
         <div>
           <h2>Projects</h2>
-          <div className="meta">Each project keeps its conversations together and decides what the crew sees: its folders, your notes, and what they've learned there.</div>
+          <div className="meta">Each project keeps its conversations together and decides what the {w("crew")} sees: its folders, your notes, and what they've learned there.</div>
         </div>
         <div className="proj-actions"><button type="button" className="btn small primary" onClick={onNew}><span aria-hidden="true">＋ </span>New project</button></div>
       </header>

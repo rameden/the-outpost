@@ -16,7 +16,9 @@ import type { CampState, WorkspaceStatus } from "../types.ts";
 import { CommitDialog } from "./CommitDialog.tsx";
 import { PrDialog } from "./PrDialog.tsx";
 import { bringFeedback } from "./Workspaces.tsx";
+import { useDismiss } from "../components/usePopover.ts";
 
+import { w } from "../words.ts";
 type Pr = CampState["prs"][number];
 export type Stage = "working" | "failed" | "changes" | "committed" | "unpushed" | "feedback" | "open" | "merged" | "closed" | "clean";
 export const STEPS = ["Work", "Commit", "Pull request", "Review", "Merged"] as const;
@@ -92,12 +94,7 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun, repo
   }, [stamp]);
   // What your last click came to is said in place of the stage, until things move on by themselves.
   useEffect(() => { setNote(""); }, [pr?.checked, pr?.state, status, running]);
-  useEffect(() => {
-    if (!more) return;
-    const away = (ev: MouseEvent) => { if (!menu.current?.contains(ev.target as Node)) setMore(false); };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [more]);
+  useDismiss(more, () => setMore(false), menu);
 
   const ok = status === "done";
   if (!ws && (running || ok)) return null; // nothing to step through
@@ -107,7 +104,7 @@ export function NextStep({ ws, pr, running, status, title, ticket, lastRun, repo
   const branch = st?.branch || ws?.branch || "";
 
   const says: Record<Stage, string> = {
-    working: "The crew is working.",
+    working: `The ${w("crew")} is working.`,
     failed: `The last run ended as ${status === "running" ? "interrupted" : status.replace(/_/g, " ")}.`,
     changes: `${st?.changed} uncommitted ${plural(st?.changed ?? 0, "file")}.`,
     committed: `${st?.commits} ${plural(st?.commits ?? 0, "commit")}, and no pull request yet.`,

@@ -11,7 +11,9 @@ import { api, errorText } from "../api.ts";
 import { cx, nameNow } from "../format.ts";
 import type { Character } from "../types.ts";
 import { ask } from "./Confirm.tsx";
+import { Dialog } from "./Dialog.tsx";
 
+import { w, a as an } from "../words.ts";
 export const CREW_COLORS = ["teal", "rose", "blue", "gold", "green", "violet", "slate"];
 const handleFrom = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
 
@@ -41,10 +43,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
 
   useEffect(() => {
     nameInput.current?.focus();
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    document.addEventListener("keydown", esc);
-    return () => document.removeEventListener("keydown", esc);
-  }, [onClose]);
+  }, []);
 
   async function send(body: object) {
     setSaving(true);
@@ -54,7 +53,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
   }
   function save(ev: FormEvent) {
     ev.preventDefault();
-    if (!name.trim()) { setError("Give the crew member a name."); nameInput.current?.focus(); return; }
+    if (!name.trim()) { setError(`Give the ${w("crew")} member a name.`); nameInput.current?.focus(); return; }
     if (!role.trim()) { setError("Say in one line what they're for."); return; }
     const details = {
       id: handle, name, emoji, color, role, personality, handles, notFor, persona,
@@ -64,17 +63,15 @@ export function CrewDialog({ member, onClose, onSaved }: {
   }
   async function remove() {
     if (!member) return;
-    if (await ask({ title: `Remove ${member.name} from the crew?`, body: `Their memory and files stay in camp/agents/${member.id}/, and adding a crew member with the same handle later picks those up.`, action: "Remove", danger: true })) void send({ action: "remove", id: member.id });
+    if (await ask({ title: `Remove ${member.name} from the ${w("crew")}?`, body: `Their memory and files stay in camp/agents/${member.id}/, and adding ${an("crew")} member with the same handle later picks those up.`, action: "Remove", danger: true })) void send({ action: "remove", id: member.id });
   }
 
   // Reading the web and being able to change things is the combination to think twice about.
   const risky = web && (write === "project" || shell);
 
   return (
-    <>
-      <div className="drawer-backdrop" onClick={onClose} />
-      <form className="dialog" role="dialog" aria-modal="true" aria-labelledby="crew-dialog-title" onSubmit={save}>
-        <h2 id="crew-dialog-title">{member ? `Edit ${member.name}` : "New crew member"}</h2>
+    <Dialog as="form" className="dialog" labelledBy="crew-dialog-title" onClose={onClose} onSubmit={save}>
+        <h2 id="crew-dialog-title">{member ? `Edit ${member.name}` : `New ${w("crew")} member`}</h2>
         <div className="dialog-row">
           <label className="field dialog-emoji">Icon
             <input value={emoji} maxLength={8} placeholder="✦" aria-label="Icon (an emoji)" onChange={(ev) => setEmoji(ev.target.value)} />
@@ -118,7 +115,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
           </label>
           <label className="field">Not theirs
             <input value={notFor} maxLength={300} placeholder={`fixing the code under test (the ${nameNow("Artificer")}), prose (the ${nameNow("Scribe")})`} onChange={(ev) => setNotFor(ev.target.value)} />
-            <span className="field-hint">Asked for something outside their job, a crew member declines in one line and names who should take it.</span>
+            <span className="field-hint">Asked for something outside their job, {an("crew")} member declines in one line and names who should take it.</span>
           </label>
         </details>
 
@@ -133,10 +130,10 @@ export function CrewDialog({ member, onClose, onSaved }: {
             </select>
           </label>
           <label className="dialog-check"><input type="checkbox" checked={shell} onChange={(ev) => setShell(ev.target.checked)} /> Run shell commands (they ask you first, as the {nameNow("Artificer")} does)</label>
-          <label className="dialog-check"><input type="checkbox" checked={wiki} onChange={(ev) => setWiki(ev.target.checked)} /> Save findings to the camp wiki's notes</label>
+          <label className="dialog-check"><input type="checkbox" checked={wiki} onChange={(ev) => setWiki(ev.target.checked)} /> Save findings to the {w("camp")} wiki's notes</label>
           {risky && (
             <div className="dialog-warn" role="note">
-              This crew member reads the web and can also change things. A page they read could try to talk them into a change you didn't ask for.
+              This {w("crew")} member reads the web and can also change things. A page they read could try to talk them into a change you didn't ask for.
               The {nameNow("Scout")} is limited to its own outputs folder for that reason. If you keep both, read their plans and approvals with that in mind.
             </div>
           )}
@@ -145,11 +142,10 @@ export function CrewDialog({ member, onClose, onSaved }: {
 
         {error && <div className="form-error" role="alert">{error}</div>}
         <div className="dialog-actions">
-          {member && <button type="button" className="btn danger dialog-remove" disabled={saving} onClick={remove}>Remove from the crew</button>}
+          {member && <button type="button" className="btn danger dialog-remove" disabled={saving} onClick={remove}>Remove from the {w("crew")}</button>}
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : member ? "Save" : "Add to the crew"}</button>
+          <button type="submit" className="btn primary" disabled={saving}>{saving ? "Saving…" : member ? "Save" : `Add to the ${w("crew")}`}</button>
         </div>
-      </form>
-    </>
+    </Dialog>
   );
 }

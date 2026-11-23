@@ -4,9 +4,9 @@
 // down is closed off: an unanswered approval is marked as lapsed, and an unfinished expedition as
 // interrupted, so nothing in the reloaded feed looks like it's still waiting or running.
 
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import type { CampEvent } from "./events.js";
-import { appendLine, writeAtomic } from "./atomic.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 
 export const FEED_PATH = "camp/feed.jsonl";
 // History reads conversations back from this file, so it keeps a lot before trimming.
@@ -23,9 +23,7 @@ export function saveToFeed(e: CampEvent) {
 
 export function loadFeed(limit: number): CampEvent[] {
   if (!existsSync(FEED_PATH)) return [];
-  const events = readFileSync(FEED_PATH, "utf8").split("\n").filter(Boolean).flatMap((l) => {
-    try { return [JSON.parse(l) as CampEvent]; } catch { return []; }
-  });
+  const events = readJsonl<CampEvent>(FEED_PATH);
   // Don't start the reloaded feed in the middle of an expedition.
   let recent = events.slice(-limit);
   const firstStart = recent.findIndex((e) => e.type === "expedition_start");

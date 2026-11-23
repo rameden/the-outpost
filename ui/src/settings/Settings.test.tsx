@@ -15,7 +15,6 @@ beforeEach(() => {
     if (init?.body) posts.push({ path, body: JSON.parse(String(init.body)) });
     return new Response(JSON.stringify({ ok: true, models: [], live: false }), { status: 200 });
   }));
-  vi.stubGlobal("confirm", vi.fn(() => true));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -165,7 +164,7 @@ test("General keeps to the camp's basics: looks, notifications and other devices
 test("today's cost can be taken out of the top bar's status menu, at once, and stays out in this browser", () => {
   localStorage.clear();
   const S = { ...camp(), spend: { today: 1.5 } } as unknown as CampState;
-  render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
   show("general", S);
   // The spend is in the menu under the status chip; a click elsewhere (on the setting) shuts it, so it's opened each time.
   const spend = () => { fireEvent.click(screen.getByRole("button", { name: /^Idle/ })); const there = screen.queryByText("$1.50 today"); fireEvent.click(screen.getByRole("button", { name: /^Idle/ })); return there; };
@@ -191,7 +190,7 @@ test("General renames the outpost: the name is first on the page, and Save sends
   fireEvent.change(input, { target: { value: "Work" } });
   await act(async () => { fireEvent.click(save); });
   expect(posts).toContainEqual({ path: "/api/outpost/name", body: { name: "Work" } });
-  expect(screen.getByRole("status").textContent).toMatch(/Saved/);
+  expect(screen.getAllByRole("status").map((s) => s.textContent).join(" ")).toMatch(/Saved/);
 });
 
 test("Appearance has a Decorations row right under the colours: only for looks, kept in this browser, and nothing is sent to the camp", () => {
@@ -312,4 +311,13 @@ test("the notification sound row shows once notifications are on: a switch kept 
   fireEvent.click(within(row).getByRole("button", { name: "Failed" }));
   expect(started.length).toBeGreaterThan(0); // the preview plays even with the sound off
   localStorage.clear();
+});
+
+test("the nav is grouped as Camp, Look & sound, Safety, Access, Activity, Knowledge, in that order", () => {
+  show("general");
+  const nav = screen.getByRole("navigation", { name: "Settings sections" });
+  const titles = [...nav.querySelectorAll(".set-group-title")].map((e) => e.textContent);
+  expect(titles).toEqual(["Camp", "Look & sound", "Safety", "Access", "Activity", "Knowledge"]);
+  expect(within(nav).getByRole("button", { name: /What Home does unasked|What Mae does unasked/ })).toBeTruthy();
+  expect(within(nav).getByRole("button", { name: /Usage & expeditions/ })).toBeTruthy();
 });

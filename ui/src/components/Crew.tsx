@@ -22,7 +22,7 @@ import { glide } from "../motion.tsx";
 import { Icon } from "./bits.tsx";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, shortModel, took } from "../format.ts";
-import { w } from "../words.ts";
+import { w, a as an, cap } from "../words.ts";
 import type { CampState, Character } from "../types.ts";
 import { statusLine, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 
@@ -49,7 +49,7 @@ function QuestsOut({ quests, onOpen, onHide }: { quests: QuestOut[]; onOpen?: (q
     return () => clearInterval(t);
   }, [out]);
   const waiting = quests.filter((q) => q.waiting).length;
-  const hide = <button type="button" className="hist-icon half-hide" aria-label="Hide who's running" title="Fold this half away to a rail, and give the crew the room" onClick={onHide}><Icon name="chevronRight" /></button>;
+  const hide = <button type="button" className="hist-icon half-hide" aria-label="Hide who's running" title={`Fold this half away to a rail, and give the ${w("crew")} the room`} onClick={onHide}><Icon name="chevronRight" /></button>;
   if (!quests.length) return <div className="crew-out idle" role="group" aria-label={`${w("Quests")} out now`}><span className="co-none">No agents running</span>{hide}</div>;
   return (
     <div className="crew-out" role="group" aria-label={`${w("Quests")} out now`}>
@@ -58,9 +58,9 @@ function QuestsOut({ quests, onOpen, onHide }: { quests: QuestOut[]; onOpen?: (q
       <ul style={{ "--co-who": `${Math.max(...quests.map((q) => q.who.length)) + 4}ch` } as CSSProperties}>
         {quests.map((q) => (
           <li key={`${q.expId}|${q.id}`}>
-            <button type="button" className={cx("co-row", cClass(q.who), q.waiting && "waiting")} title={`${q.who}: ${q.brief || "a quest"}\nClick to go to it.`} onClick={() => onOpen?.(q)}>
+            <button type="button" className={cx("co-row", cClass(q.who), q.waiting && "waiting")} title={`${q.who}: ${q.brief || an("quest")}\nClick to go to it.`} onClick={() => onOpen?.(q)}>
               <span className="co-who"><span aria-hidden="true">{q.emoji}</span> {q.who}</span>
-              <span className="co-brief">{q.step ? <b className="co-step" title={`Step ${q.step} of the plan`}>{q.step}</b> : null}{q.brief || "A quest"}</span>
+              <span className="co-brief">{q.step ? <b className="co-step" title={`Step ${q.step} of the plan`}>{q.step}</b> : null}{q.brief || cap(an("quest"))}</span>
               <span className="co-doing">{q.waiting ? "Waiting for your OK" : q.line}</span>
               <time className="co-time">{outFor(now - q.started)}</time>
             </button>
@@ -122,19 +122,19 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
     <div className="crew-zone">
     <div className={cx("crew-area", fold && `fold-${fold}`)} ref={area} style={{ "--crew-share": share } as CSSProperties}>
     {fold === "crew" ? (
-      <button type="button" className="zone-rail half-rail" aria-expanded="false" aria-label="Show the crew" onClick={() => folded(null)}
-        title={`${busy ? `${busy} of the crew ${busy === 1 ? "is" : "are"} busy.\n\n` : ""}Show the crew.`}>
+      <button type="button" className="zone-rail half-rail" aria-expanded="false" aria-label={`Show the ${w("crew")}`} onClick={() => folded(null)}
+        title={`${busy ? `${busy} of the ${w("crew")} ${busy === 1 ? "is" : "are"} busy.\n\n` : ""}Show the ${w("crew")}.`}>
         <Icon name="users" />{busy > 0 && <b>{busy}</b>}
       </button>
     ) : (
     <div className="crew-half">
-    <section className={cx("crew", slim && "slim")} aria-label="The crew" ref={bar}>
+    <section className={cx("crew", slim && "slim")} aria-label={`The ${w("crew")}`} ref={bar}>
       {S?.characters.map((c) => {
         const st: CrewStatus = crew[c.name] ?? { status: "idle", line: "" };
         const xp = S.xp[c.name] ?? 0;
         const out = quests.filter((q) => q.who === c.name);
         const several = out.length > 1;
-        const outLines = several ? `\n${out.map((q) => `• ${q.brief || "A quest"}: ${q.waiting ? "waiting for your OK" : q.line || "working"}`).join("\n")}` : "";
+        const outLines = several ? `\n${out.map((q) => `• ${q.brief || cap(an("quest"))}: ${q.waiting ? "waiting for your OK" : q.line || "working"}`).join("\n")}` : "";
         const statusText = statusLine(st, out);
         return (
           <div key={c.id} className={cx("member", cClass(c.name), st.status !== "idle" && st.status)} role="button" tabIndex={0}
@@ -146,7 +146,7 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
             <div className="member-main">
               <div className="member-name">
                 <span>{c.name}</span>
-                {several && <span className="member-count" aria-label={`${out.length} quests out`}>×{out.length}</span>}
+                {several && <span className="member-count" aria-label={`${out.length} ${w("quests")} out`}>×{out.length}</span>}
                 {c.custom && onEdit && (
                   <button type="button" className="member-edit" aria-label={`Edit ${c.name}`} title={`Edit ${c.name}`}
                     onClick={(ev) => { ev.stopPropagation(); onEdit(c); }}>✎</button>
@@ -164,12 +164,12 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
         );
       })}
     </section>
-    {S && onAdd && <button type="button" className="hist-icon crew-add" aria-label="Add a crew member" title="Add a crew member" onClick={onAdd}>+</button>}
-    {S && <button type="button" className="hist-icon half-hide" aria-label="Hide the crew" title="Fold this half away to a rail, and give who's running the room" onClick={() => folded("crew")}><Icon name="chevronLeft" /></button>}
+    {S && onAdd && <button type="button" className="hist-icon crew-add" aria-label="Add a crew member" title={`Add ${an("crew")} member`} onClick={onAdd}>+</button>}
+    {S && <button type="button" className="hist-icon half-hide" aria-label={`Hide the ${w("crew")}`} title="Fold this half away to a rail, and give who's running the room" onClick={() => folded("crew")}><Icon name="chevronLeft" /></button>}
     </div>
     )}
     {!fold && (
-      <div className="crew-line" role="separator" tabIndex={0} aria-orientation="vertical" aria-label="Resize the crew and who's running" title="Drag to resize"
+      <div className="crew-line" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={`Resize the ${w("crew")} and who's running`} title="Drag to resize"
         aria-valuenow={Math.round(share * 100)} aria-valuemin={MIN_SHARE * 100} aria-valuemax={MAX_SHARE * 100}
         onPointerDown={startDrag} onKeyDown={onLineKey} />
     )}
@@ -181,12 +181,12 @@ export function Crew({ S, store, pickerFor, onOpenAgent, onOpenPicker, onAdd, on
     ) : <QuestsOut quests={quests} onOpen={onOpenQuest} onHide={() => folded("out")} />}
     </div>
     {S && fold === "crew" ? (
-      <button type="button" className="zone-rail crew-rail" aria-expanded="false" aria-label="Show the crew" title="Show the crew" onClick={toggle}>
+      <button type="button" className="zone-rail crew-rail" aria-expanded="false" aria-label={`Show the ${w("crew")}`} title={`Show the ${w("crew")}`} onClick={toggle}>
         <Icon name="users" /><span>{w("Crew")}</span><Icon name="chevronRight" />
       </button>
     ) : S && (
-      <button type="button" className="zone-rail crew-rail" aria-expanded={!slim} aria-label={slim ? "Show more about the crew" : "Show less about the crew"}
-        title={slim ? "Open the crew up into cards: level, model, and what each is doing" : "Fold the crew down to a slim strip"} onClick={toggle}>
+      <button type="button" className="zone-rail crew-rail" aria-expanded={!slim} aria-label={slim ? `Show more about the ${w("crew")}` : `Show less about the ${w("crew")}`}
+        title={slim ? `Open the ${w("crew")} up into cards: level, model, and what each is doing` : `Fold the ${w("crew")} down to a slim strip`} onClick={toggle}>
         <Icon name="users" /><span>{w("Crew")}</span><Icon name={slim ? "chevron" : "chevronUp"} />
       </button>
     )}

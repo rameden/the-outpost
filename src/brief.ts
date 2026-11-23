@@ -37,6 +37,7 @@ import { questCost, recentQuests } from "./questlog.js";
 import { notify, toInbox } from "./scheduler.js";
 import { drive, type Drive } from "./settings.js";
 import { allTurns } from "./threads.js";
+import { dayOf } from "./helpers.js";
 
 export const BRIEFS_DIR = posix.join("camp", "briefs");
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -65,7 +66,6 @@ export type Brief = {
   notes: string[];        // what couldn't be read, and why
 };
 
-export const dayOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const fileOf = (day: string) => posix.join(BRIEFS_DIR, `${day}.json`);
 
 // ---------- Kept briefs ----------

@@ -1,9 +1,9 @@
 // The top bar, kept to what you look at often: what needs you, how busy the camp is (a menu with
-// what runs the crew, GitHub and today's spend), the connection (only when it drops), the Arcade
-// menu (Orbit, the trail map, the constellation and Barnstorm), a ··· menu for the page's occasional
-// switches, and Settings. A problem shows by itself.
+// what runs the crew, GitHub and today's spend), the connection (only when it drops), the Views
+// menu (Orbit, the trail map and the constellation), a ··· menu for the page's occasional
+// switches and Barnstorm, and Settings. A problem shows by itself.
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
 import { toggleMode } from "../themes.ts";
 import type { Connection } from "../camp.ts";
@@ -21,6 +21,9 @@ import { showCost } from "../prefs.ts";
 import type { SettingsSection } from "../settings/sections.ts";
 import type { CampState, GithubStatus } from "../types.ts";
 import { ask } from "./Confirm.tsx";
+import { usePopover } from "./usePopover.ts";
+import { complain } from "./StatusLine.tsx";
+import { switchRuntime } from "../runtime.ts";
 
 const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
 
@@ -31,19 +34,14 @@ function useRuntime(S: CampState | null, refresh: () => void) {
   const plan = S?.login?.plan ? capital(S.login.plan) : "";
   const label = !S ? "…" : sub ? `Claude ${plan || "subscription"}` : "API key";
   const title = problem || (sub
-    ? `The crew runs on your Claude ${plan || ""} subscription through Claude Code. Click to switch to the API.`
-    : "The crew runs on the API (ANTHROPIC_API_KEY). Click to switch to your Claude subscription.");
-  async function switchRuntime() {
+    ? `The ${w("crew")} runs on your Claude ${plan || ""} subscription through Claude Code. Click to switch to the API.`
+    : `The ${w("crew")} runs on the API (ANTHROPIC_API_KEY). Click to switch to your Claude subscription.`);
+  async function toggleRuntime() {
     if (!S) return;
-    if (problem) return alert(problem);
-    const next = sub ? "api" : "claude-code";
-    const question = next === "api"
-      ? { title: "Switch the crew to the API?", body: "Usage will be billed to your API key.", action: "Switch to the API" }
-      : { title: "Switch the crew to your Claude subscription (through Claude Code)?", body: "Usage will count against your plan's limits.", action: "Switch to my subscription" };
-    if (!await ask(question)) return;
-    try { await api("/api/runtime", { runtime: next }); refresh(); } catch (e) { alert(errorText(e)); }
+    if (problem) return complain(problem);
+    await switchRuntime(sub ? "api" : "claude-code", refresh);
   }
-  return { sub, problem, label, title, switchRuntime };
+  return { sub, problem, label, title, switchRuntime: toggleRuntime };
 }
 
 // Which GitHub account gh is using (pull requests, and git pushes if gh is your credential
@@ -72,7 +70,7 @@ function useGithub() {
     if (!canSwitch || busy) return;
     setBusy(true);
     try { setSt(await api<GithubStatus>("/api/github/switch", { login: next.login })); }
-    catch (e) { alert(errorText(e)); }
+    catch (e) { complain(errorText(e)); }
     setBusy(false);
   }
   return { available: !!st?.available, active, next, canSwitch, busy, title, swap, problem: !!active && !active.ok };
@@ -81,13 +79,8 @@ function useGithub() {
 const GH_MARK = <svg className="gh-mark" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>;
 
 // Which GitHub account gh is using (pull requests, and git pushes if gh is your credential
-// helper). Click to swap to your other account, like `gh auth switch`. Hidden without gh. In the
-// top bar it shows only when its sign-in has a problem; otherwise it's a row of the status menu.
-export function GithubChip() {
-  const gh = useGithub();
-  if (!gh.available) return null;
-  return <GithubButton gh={gh} />;
-}
+// helper). Click to swap to your other account, like `gh auth switch`. In the top bar it shows
+// only when its sign-in has a problem; otherwise it's a row of the status menu.
 function GithubButton({ gh }: { gh: ReturnType<typeof useGithub> }) {
   return (
     <button className={cx("chip", gh.problem && "needs")} type="button" title={gh.title} aria-label={gh.title} disabled={gh.busy} onClick={gh.swap}>
@@ -96,21 +89,6 @@ function GithubButton({ gh }: { gh: ReturnType<typeof useGithub> }) {
       {gh.canSwitch && !gh.busy && <span className="gh-swap" aria-hidden="true">⇄</span>}
     </button>
   );
-}
-
-// A menu under a button in the top bar: open and shut, and shut by a click elsewhere or Esc.
-function usePopover() {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (ev: MouseEvent) => { if (!box.current?.contains(ev.target as Node)) setOpen(false); };
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
-  }, [open]);
-  return { open, setOpen, box };
 }
 
 // How busy the camp is, as the one status chip in the bar; open, it holds what's set once and
@@ -149,7 +127,7 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
           {costShown && (
             <button type="button" role="menuitem" className="top-item" onClick={shut(() => onOpenSettings?.("usage"))}
               title={rt.sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}>
-              <Icon name="gauge" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the {w("quest")} log</small></span>
+              <Icon name="gauge" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the {w("expedition")} log</small></span>
             </button>
           )}
           <div className="top-menu-foot">Up to {S?.parallel ?? 3} {w("expeditions")} run at once; the rest wait their turn. Change it in Settings.</div>
@@ -161,8 +139,8 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
 
 // A menu under an icon in the bar: rows with an icon and a name, and a tick on what's on. Two of
 // them use it. ···  holds the page's occasional switches: focus, how it's laid out, light or dark,
-// and notifications. (The files and notes are /files and /notes.) The Arcade holds the camp's
-// full-screen views and its game: Orbit, the trail map, the constellation and Barnstorm.
+// and notifications. (The files and notes are /files and /notes.) Views holds the camp's
+// full-screen views: Orbit, the trail map and the constellation. Barnstorm, the game, is the last row of ···.
 // A row with an href is a link to another page (newTab: in its own tab) rather than a switch.
 type MenuItem = { label: string; icon: IconName; title: string; onClick?: () => void; href?: string; newTab?: boolean; checked?: boolean; wide?: boolean; says?: string; quiet?: boolean };
 function ToolMenu({ name, title, icon, groups, className, waiting }: {
@@ -225,17 +203,17 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
   );
 }
 
-// needs / onNeed: everything waiting on you and how to get to one (without them, the chip counts decisions only).
+// needs / onNeed: everything waiting on you and how to get to one.
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
 export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail, constellation, onConstellation }: {
   onHome?: () => void; // the logo takes you to Today
-  needs?: Need[]; onNeed?: (n: Need) => void; onSeenAll?: () => void;
+  needs: Need[]; onNeed: (n: Need) => void; onSeenAll?: () => void;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
   // conversation; again brings back the ones it closed.
   focused?: boolean; onToggleFocus?: () => void;
   onOpenLayout?: () => void;
-  // The Arcade menu's four. Each is left out of the menu when it has no way to be opened.
+  // The Views menu's three. Each is left out of the menu when it has no way to be opened.
   orbit?: boolean; onOrbit?: () => void; // the crew at work as a solar system, full screen (orbit/Orbit.tsx)
   trail?: boolean; onTrail?: () => void; // the plan as a trail of steps, full screen (trail/Trail.tsx)
   constellation?: boolean; onConstellation?: () => void; // the memory as a map of stars, full screen (constellation/Constellation.tsx)
@@ -272,18 +250,14 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
       <div className="top-right">
         {/* What the camp is doing, then the page's own switches. On a phone the first group scrolls sideways and the second stays put (styles.css). */}
         <div className="top-chips">
-        {needs && onNeed ? <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} /> : asks.length > 0 && (
-          <button className="chip needs" type="button" onClick={() => document.getElementById(`ask-${asks[0].id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-            {asks.length === 1 ? "1 decision needs you" : `${asks.length} decisions need you`}
-          </button>
-        )}
+        <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} />
         {S?.pausedUntil && (
           <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={() => onOpenSettings?.("usage")}>
             ⏸ Plan limit · resets in {resetIn(S.pausedUntil)}
           </button>
         )}
         {S?.credit?.inUse && !S.pausedUntil && (
-          <button className="chip credit" type="button" title="Your plan's usage limit is used up, so the crew is running on extra-usage credit, which is charged. Click for details." onClick={() => onOpenSettings?.("usage")}>
+          <button className="chip credit" type="button" title={`Your plan's usage limit is used up, so the ${w("crew")} is running on extra-usage credit, which is charged. Click for details.`} onClick={() => onOpenSettings?.("usage")}>
             💳 On credit{S.credit.left != null ? ` · ${cash(S.credit.left, S.credit.currency)} left` : ""}
           </button>
         )}
@@ -293,7 +267,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         {/* Connected is the normal state and says nothing; only a lost or not-yet-made connection shows. */}
         {conn === "offline" ? (
           // Down for a while: most likely the camp was stopped. The page keeps trying by itself.
-          <span className="chip offline" role="status" title="The page keeps trying, and picks up by itself once the camp is running again. If it doesn't, open the link the camp prints in the terminal when it starts.">
+          <span className="chip offline" role="status" title={`The page keeps trying, and picks up by itself once the ${w("camp")} is running again. If it doesn't, open the link the ${w("camp")} prints in the terminal when it starts.`}>
             <span className="dot warn" />
             <span>The {w("camp")} isn't running. Start it again, or reopen the link it prints in the terminal.</span>
           </span>
@@ -304,7 +278,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
           </span>
         ) : stale && (
           // Connected, but the last reload of the panels failed: say so, and offer another go.
-          <button className="chip" type="button" title="The last reload of the page's panels (crew, history, spend) failed, so they may be behind. Click to try again." onClick={refresh}>
+          <button className="chip" type="button" title={`The last reload of the page's panels (${w("crew")}, history, spend) failed, so they may be behind. Click to try again.`} onClick={refresh}>
             <span className="dot warn" />
             <span>Out of date · retry</span>
           </button>
@@ -315,27 +289,21 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <ReadingPlayer />
         {/* With the icons, so it sits as close to them as they do to each other. */}
         <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} gh={gh} running={running} questsOut={questsOut} queued={queued} />
-        {/* The full-screen views and the game are in the Arcade; the page's occasional switches are behind ···. */}
-        <ToolMenu name="Arcade" icon="arcade" waiting={barnstorm === "paused"}
-          title={barnstorm === "paused" ? "Arcade: Barnstorm is paused, and here to come back to" : "Arcade: Orbit, the trail map, the constellation and Barnstorm"}
+        {/* The full-screen views are in Views; the page's occasional switches, and the game, are behind ···. */}
+        <ToolMenu name="Views" icon="views"
+          title="Views: Orbit, the trail map and the constellation, each full screen"
           groups={[
             [
-              onOrbit && { label: orbit ? "Leave Orbit" : "Orbit", icon: "orbit", checked: !!orbit, onClick: onOrbit, says: "The crew at work, as a solar system",
-                title: "Orbit: watch the crew at work as a solar system, full screen" },
+              onOrbit && { label: orbit ? "Leave Orbit" : "Orbit", icon: "orbit", checked: !!orbit, onClick: onOrbit, says: `The ${w("crew")} at work, as a solar system`,
+                title: `Orbit: watch the ${w("crew")} at work as a solar system, full screen` },
               onTrail && { label: trail ? "Leave the trail map" : "Trail map", icon: "trail", checked: !!trail, onClick: onTrail, says: "The plan, step by step",
                 title: "Trail map: the plan step by step, and who's on each, full screen" },
               onConstellation && { label: constellation ? "Leave the constellation" : "Constellation", icon: "spark", checked: !!constellation, onClick: onConstellation, says: "The memory, as a map of stars",
-                title: "Constellation: every line the crew remembers as a star, to pin, forget or merge, full screen" },
-            ],
-            [
-              onBarnstorm && { label: barnstorm === "on" ? "Pause Barnstorm" : barnstorm === "paused" ? "Resume Barnstorm" : "Barnstorm", icon: "plane", checked: barnstorm === "on", wide: true, onClick: onBarnstorm,
-                says: barnstorm === "on" ? "Stop where it is, to carry on later" : barnstorm === "paused" ? "Carry on from where you paused" : "Fly a plane over the page",
-                title: barnstorm === "on" ? "Pause: stop the game where it is and get the page back, to carry on later"
-                  : barnstorm === "paused" ? "Resume: carry on with the game from where you paused it"
-                  : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)" },
+                title: `Constellation: every line the ${w("crew")} remembers as a star, to pin, forget or merge, full screen` },
             ],
           ]} />
-        <ToolMenu name="More" icon="more" className="top-more" title="More: focus, layout, light or dark, notifications, and the way to the other outposts and the tour" groups={[
+        <ToolMenu name="More" icon="more" className="top-more" waiting={barnstorm === "paused"}
+          title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : "More: focus, layout, light or dark, notifications, the other outposts, the tour and Barnstorm"} groups={[
           [
             onToggleFocus && { label: "Focus mode", icon: "focus", checked: !!focused, wide: true, onClick: onToggleFocus,
               title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files, notes and terminal, leaving the conversation" },
@@ -343,12 +311,19 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             { label: "Light or dark", icon: "theme", onClick: toggleMode, title: "Switch between the light and dark theme" },
             canNotify() && { label: "Notifications", icon: "bell", checked: notificationsOn(), quiet: true, onClick: () => void toggleNotifications(),
               title: Notification.permission === "denied" ? "Notifications are blocked for this page in your browser's settings"
-                : notificationsOn() ? "On: you're pinged when the camp needs a decision. Click to turn off." : "Get pinged when the camp needs a decision" },
+                : notificationsOn() ? `On: you're pinged when the ${w("camp")} needs a decision. Click to turn off.` : `Get pinged when the ${w("camp")} needs a decision` },
           ],
           // The ways out of this page: the star chart, and the tour (docs/index.html, served at /splash) in its own tab so nothing here is interrupted.
           [
             !!chart && { label: "Outposts", icon: "orbit", href: chart, says: "Back to the star chart", title: "Back to the star chart, to pick another outpost. This one keeps running." },
             { label: "Tour", icon: "book", href: "/splash", newTab: true, says: "A one-page tour, in a new tab", title: "A one-page tour of Outpost (opens in a new tab)" },
+          ],
+          [
+            onBarnstorm && { label: barnstorm === "on" ? "Pause Barnstorm" : barnstorm === "paused" ? "Resume Barnstorm" : "Barnstorm", icon: "plane", checked: barnstorm === "on", wide: true, onClick: onBarnstorm,
+              says: barnstorm === "on" ? "Stop where it is, to carry on later" : barnstorm === "paused" ? "Carry on from where you paused" : "Fly a plane over the page",
+              title: barnstorm === "on" ? "Pause: stop the game where it is and get the page back, to carry on later"
+                : barnstorm === "paused" ? "Resume: carry on with the game from where you paused it"
+                : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)" },
           ],
         ]} />
         {onOpenSettings && (

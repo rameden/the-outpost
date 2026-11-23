@@ -10,6 +10,7 @@ import { JiraPicker } from "./Jira.tsx";
 import { WorkOptions, outOnReply, workingOn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon as LineIcon } from "./bits.tsx";
 
+import { w, a as an } from "../words.ts";
 export type MenuView = "main" | "crew" | "work" | "url" | "jira" | "notes";
 type Fly = Exclude<MenuView, "main">;
 
@@ -131,7 +132,7 @@ export function AttachMenu({ S, view, setView, repos, work, workLocked, workOpti
         {onNote && <button type="button" {...flyRow("notes")}><LineIcon name="note" />Note<LineIcon name="chevronRight" /></button>}
         {/* Who answers and where they work: one group, below what's attached. */}
         {(crew.length > 1 || showWork) && <div className="menu-sep" />}
-        {crew.length > 1 && <button type="button" {...flyRow("crew")}><LineIcon name="users" />Crew<LineIcon name="chevronRight" /></button>}
+        {crew.length > 1 && <button type="button" {...flyRow("crew")}><LineIcon name="users" />{w("Crew")}<LineIcon name="chevronRight" /></button>}
         {showWork && (
           <button type="button" {...flyRow("work")}>
             <LineIcon name={oneRepo ? "branch" : "folder"} />{oneRepo ? "Branch" : "Folders"}
@@ -147,13 +148,13 @@ export function AttachMenu({ S, view, setView, repos, work, workLocked, workOpti
       </div>
 
       {view === "crew" && (
-        <div className="fly" role="dialog" aria-label="Talk to a crew member" onKeyDown={onFlyKeys}>
+        <div className="fly" role="dialog" aria-label={`Talk to ${an("crew")} member`} onKeyDown={onFlyKeys}>
           <label className="fly-search">
             <LineIcon name="search" />
-            <input role="combobox" aria-expanded="true" aria-controls="fly-crew" aria-autocomplete="list" aria-label="Find a crew member" placeholder="Enter a crew member's name"
+            <input role="combobox" aria-expanded="true" aria-controls="fly-crew" aria-autocomplete="list" aria-label={`Find ${an("crew")} member`} placeholder={`Enter ${an("crew")} member's name`}
               autoComplete="off" value={q} onChange={(ev) => { setQ(ev.target.value); setAt(0); }} onKeyDown={onCrewKey} />
           </label>
-          <div className="menu-label">Crew</div>
+          <div className="menu-label">{w("Crew")}</div>
           <div className="fly-list" id="fly-crew" role="listbox">
             {found.map((c, i) => (
               <button key={c.id} type="button" role="option" aria-selected={i === at} className={i === at ? "fly-item active" : "fly-item"}
@@ -164,7 +165,7 @@ export function AttachMenu({ S, view, setView, repos, work, workLocked, workOpti
                 {i === at && <kbd aria-hidden="true">↵</kbd>}
               </button>
             ))}
-            {!found.length && <div className="menu-tip">No one in the crew by that name.</div>}
+            {!found.length && <div className="menu-tip">No one in the {w("crew")} by that name.</div>}
           </div>
           <div className="fly-foot" aria-hidden="true"><span><kbd>↑↓</kbd> Navigate</span><span><kbd>↵</kbd> Select</span><span><kbd>esc</kbd> Dismiss</span></div>
         </div>

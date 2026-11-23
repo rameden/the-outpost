@@ -7,7 +7,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("ideas");
 const { loadNotes, saveNote, patchNote, removeNote } = await import("../src/notes.ts");
-const { ticketRequest, parseTicket, ticketMarkdown, noteName, TICKET_SECTIONS } = await import("../src/ticket.ts");
+const { ticketRequest, parseTicket, noteName, TICKET_SECTIONS } = await import("../src/ticket.ts");
 const ideas = await import("../src/ideas.ts");
 const conv = await import("../src/conversations.ts");
 const { setProjectBrief } = await import("../src/projects.ts");
@@ -71,7 +71,6 @@ test("a ticket is read out of the answer: title, criteria, and the sections in o
   assert.ok(at[0] === 0 && at.every((n, i) => n >= 0 && (i === 0 || n > at[i - 1])), "every section, in order");
   assert.match(t.description, /```ts\n## not a heading\n```/, "a heading inside a code block is the block's own text");
   assert.doesNotMatch(t.description, /Acceptance criteria|Here's the ticket/);
-  assert.match(ticketMarkdown(t), /^# Add a Copy link button to report cards\n\n## Acceptance criteria\n- \[ \] Each report card has a Copy link button\n[\s\S]*## Summary\nReport cards get/);
   assert.equal(parseTicket("I couldn't find the code for that."), null);
   assert.equal(parseTicket("# A title\n\nSome prose but none of the sections."), null);
 });

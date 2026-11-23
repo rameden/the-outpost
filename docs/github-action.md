@@ -22,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
         with: { path: app }
       - uses: actions/checkout@v4
+        # While this repository is private, the checkout also needs `token:` with a
+        # personal access token (a repository secret) that can read it.
         with: { repository: rameden/Guild-Harness, path: mae }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
