@@ -687,7 +687,7 @@ footer .mae-word { height: 16px; }
       <h1>Your alter ego <em>has a crew.</em></h1>
       <p class="lede">Outpost Mae is where a small crew of agents takes on your work the way you'd want it done. The Quartermaster turns your request into a plan, waits for your OK, then sends a Scout, a Scribe and an Artificer out on quests, several at once, with a Warden to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
       <div class="cta">
-        <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm run ui</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
+        <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the crew</a>
       </div>
       <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack.</p>
@@ -974,7 +974,7 @@ footer .mae-word { height: 16px; }
       <div class="item full">
         <span class="tag">Mission control</span>
         <h3>A local dashboard for the whole outpost</h3>
-        <p><code>npm run ui</code> opens it on <code>127.0.0.1</code>. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
+        <p><code>npm start</code> opens it on <code>127.0.0.1</code>. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
         <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Tool calls fold into one line per stretch ("Read 5 files, ran 2 commands"), and a Condensed/Detailed switch brings back every line</li><li>Attach a file, a folder, or a .zip that arrives as the folder it holds, up to 5,000 files</li><li>Mention <code>@scribe</code> anywhere in a plain chat and the Scribe takes that turn</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
       </div>
       <div class="item solo">
@@ -1101,8 +1101,8 @@ footer .mae-word { height: 16px; }
         <div class="line"><code id="c1">npm install</code><button class="copy" type="button" data-copy="c1">Copy</button></div>
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
         <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
-        <div class="line"><code id="c3">npm run ui</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
-        <div class="note">Mission control in your browser: open the link it prints, which signs that browser in. Or npm start for the camp in your terminal, npm run watch for scheduled jobs, and npm run prod for a built camp that starts in about half the time.</div>
+        <div class="line"><code id="c3">npm start</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
+        <div class="note">It opens the star chart in your browser: pick an outpost and launch it, and you land in mission control, signed in. Or npm run cli for the camp in your terminal, npm run watch for scheduled jobs, and npm run prod for a built camp that starts in about half the time.</div>
       </div>
     </div>
   </div>
@@ -3798,7 +3798,7 @@ el('tspan', { class: 'f-accent' }, tag, 'has a crew.');
 el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'p' }, cmd, '$ ');
-el('tspan', null, cmd, 'npm install && npm run ui');
+el('tspan', null, cmd, 'npm install && npm start');
 const gW = el('g', { class: 'wm' });
 el('path', { d: LETTERS }, gW);
 // a shine that crosses the letters as the logo lands

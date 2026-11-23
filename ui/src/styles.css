@@ -3154,3 +3154,30 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .home-bar { display: block; height: 100%; min-width: 2px; background: var(--accent); border-radius: 0 4px 4px 0; }
 .home-bar-n { font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
 .home .meta.bad, .stats-page .meta.bad, .unasked-page .meta.bad { color: var(--bad); }
+
+/* ---------- The star chart (hub/Hub.tsx): `npm start`'s page ----------
+   A page of its own that stands on the memory map's sky (.constellation above: Orbit's night,
+   whatever the theme) and is drawn with its parts and Orbit's: the star sheets, contour lines, the
+   sun and planets, the top bar, the panel and the key. Only what those don't cover is here.
+   --k is how far the chart is scaled, so names stay the same size on the page. */
+.hub-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
+.hub .con-title h1 { margin: 0; font: 600 20px/1.2 var(--serif); }
+.hub-far { opacity: .4; }
+.hub-body text { pointer-events: none; }
+.hub-body text.hub-initial { fill: var(--c, var(--c-other)); font: 600 10.5px var(--sans); }
+.hub-name { fill: var(--text); font: 600 calc(13px / var(--k, 1)) var(--sans); transform: translateY(calc(17px / var(--k, 1))); }
+.hub-says { fill: var(--faint); font: 400 calc(11px / var(--k, 1)) var(--sans); transform: translateY(calc(31px / var(--k, 1))); }
+.hub-body.off .hub-name { fill: var(--muted); }
+.hub-body.starting:not(.sel) .con-ring { stroke: var(--muted); stroke-dasharray: 3 4; }
+.hub-key-halo { fill: var(--c); opacity: .3; }
+.hub-mono { font-family: var(--mono); font-size: 12px; }
+.hub code { font: 12px var(--mono); color: var(--text); }
+.hub-new { display: grid; gap: 6px; }
+.hub-new label { font-size: 13px; font-weight: 600; }
+.hub-new input { min-width: 0; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); font: 15px/1.4 var(--sans); }
+.hub-new input:focus-visible { outline: 2px solid var(--text); outline-offset: 0; }
+.hub-new input::placeholder { color: var(--faint); }
+.hub :is(button, [tabindex]):focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.hub .hub-body:focus-visible { outline: none; } /* its ring says so */
+@media (min-width: 761px) { .hub.has-panel .con-foot { right: 400px; } }
+@media (max-width: 760px) { .hub .con-panel { height: 50%; } .hub.has-panel .con-foot { display: none; } }

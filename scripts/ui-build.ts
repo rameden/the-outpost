@@ -25,7 +25,7 @@ function newest(path: string): number {
 function uiIsStale(): boolean {
   if (!existsSync(BUILT)) return true;
   const built = statSync(BUILT).mtimeMs;
-  const sources = [join(UI, "src"), join(UI, "index.html"), join(UI, "vite.config.ts"), join(ROOT, "package-lock.json")];
+  const sources = [join(UI, "src"), join(UI, "index.html"), join(UI, "hub.html"), join(UI, "vite.config.ts"), join(ROOT, "package-lock.json")];
   return sources.some((s) => newest(s) > built);
 }
 
