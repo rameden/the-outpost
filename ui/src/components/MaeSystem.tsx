@@ -23,7 +23,7 @@
 // And it can be strummed: a line the pointer crosses is plucked, flashing amber and shivering out from
 // the sun and back as it settles, harder the faster the pointer was going, and it plays out after the
 // pointer has moved on, so a sweep across the lines rings each in turn. (Less motion: just the flash.)
-// Each line sounds its own note as it's plucked, the nearest highest (chime.ts's strum).
+// Each line sounds its own note as it's plucked, the nearest highest (chime.ts's strum), when the strum sound is on in Settings → Appearance.
 //
 // Decoration: the words beside it say what the page is.
 
