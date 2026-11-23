@@ -10,14 +10,17 @@ class FakeAudio {
   destination = {};
   resume = vi.fn(async () => {});
   createOscillator() {
-    const osc = { type: "", frequency: { value: 0 }, connect: (g: unknown) => g, start: () => played.push(osc.frequency.value), stop: () => {} };
+    const osc = { type: "", frequency: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (g: unknown) => g, start: () => played.push(osc.frequency.value), stop: () => {} };
     return osc;
   }
   createGain() {
     return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
   }
   sampleRate = 8000;
-  createBiquadFilter() { return { type: "", frequency: { value: 0 }, connect: (d: unknown) => d }; }
+  createBiquadFilter() { return { type: "", frequency: { value: 0 }, Q: { value: 0 }, connect: (d: unknown) => d }; }
+  createWaveShaper() { return { curve: null, oversample: "", connect: (d: unknown) => d }; }
+  createBufferSource() { return { buffer: null, connect: (d: unknown) => d, start: () => {} }; }
+  createStereoPanner() { return { pan: { value: 0 }, connect: (d: unknown) => d }; }
   createConvolver() { return { buffer: null, connect: (d: unknown) => d }; }
   createBuffer(channels: number, length: number) { const data = Array.from({ length: channels }, () => new Float32Array(length)); return { getChannelData: (c: number) => data[c] }; }
 }
