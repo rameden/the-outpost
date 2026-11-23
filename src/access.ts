@@ -25,6 +25,14 @@
 //   CAMP_HOST=192.168.1.20   listen on this one address instead of all of them
 //   CAMP_NAMES=camp.home     more names this machine is reached by, comma-separated
 //
+// Through a proxy on this machine (Tailscale Serve, say): the camp stays on 127.0.0.1, and the
+// proxy hands it requests addressed to the proxy's own HTTPS name, with no port. Those names go in
+//
+//   CAMP_PROXY_NAMES=mac.tail1234.ts.net
+//
+// and need no LAN mode. Only something on this machine can deliver them, and what it delivers
+// carries the proxy's forwarding headers, so it never counts as local (see relayed below).
+//
 // Everything here takes its inputs as arguments, so it can be tested without a network. No
 // imports from the rest of the camp.
 
@@ -35,6 +43,7 @@ export type Access = {
   lan: boolean;
   listen: string;     // the address the server binds
   names: string[];    // what this machine is reached by, besides 127.0.0.1 and localhost (first: the one to show)
+  proxied: string[];  // HTTPS names a proxy on this machine passes on to the camp (no port, or :443)
 };
 
 const clean = (name: string) => name.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/[:/].*$/, "");
@@ -42,7 +51,8 @@ const NAME = /^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/; // a host name or an IPv4
 
 export function accessFrom(env: Env, hostname: string, interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>): Access {
   const on = /^(1|true|yes|on)$/i.test(env.CAMP_LAN?.trim() ?? "");
-  if (!on) return { lan: false, listen: "127.0.0.1", names: [] };
+  const proxied = [...new Set((env.CAMP_PROXY_NAMES ?? "").split(",").map(clean).filter((n) => NAME.test(n) && n !== "localhost" && n !== "127.0.0.1"))];
+  if (!on) return { lan: false, listen: "127.0.0.1", names: [], proxied };
   const listen = env.CAMP_HOST?.trim() || "0.0.0.0";
   const addresses = Object.values(interfaces).flatMap((list) => (list ?? []).filter((i) => i.family === "IPv4" && !i.internal).map((i) => i.address));
   const host = clean(hostname);
@@ -52,13 +62,14 @@ export function accessFrom(env: Env, hostname: string, interfaces: NodeJS.Dict<N
     ...(listen !== "0.0.0.0" ? [clean(listen)] : []),
     ...addresses,
   ].filter((n) => NAME.test(n) && n !== "localhost" && n !== "127.0.0.1");
-  return { lan: true, listen, names: [...new Set(names)] };
+  return { lan: true, listen, names: [...new Set(names)], proxied };
 }
 
 // Is this request addressed to a name the camp answers to? (The Host header, with the port.)
 export function hostAllowed(host: string | undefined, port: number, access: Access): boolean {
   const h = (host ?? "").toLowerCase();
-  return h === `127.0.0.1:${port}` || h === `localhost:${port}` || access.names.some((n) => h === `${n}:${port}`);
+  return h === `127.0.0.1:${port}` || h === `localhost:${port}` || access.names.some((n) => h === `${n}:${port}`)
+    || access.proxied.some((n) => h === n || h === `${n}:443`);
 }
 
 // Did the connection come from this machine itself?

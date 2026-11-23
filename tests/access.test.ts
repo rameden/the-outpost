@@ -11,7 +11,7 @@ const nics = {
 
 test("by default the camp is this machine's alone", () => {
   for (const env of [{}, { CAMP_LAN: "" }, { CAMP_LAN: "0" }, { CAMP_LAN: "no" }, { CAMP_HOST: "0.0.0.0" }, { CAMP_NAMES: "winbox" }]) {
-    assert.deepEqual(accessFrom(env, "winbox", nics), { lan: false, listen: "127.0.0.1", names: [] }, JSON.stringify(env));
+    assert.deepEqual(accessFrom(env, "winbox", nics), { lan: false, listen: "127.0.0.1", names: [], proxied: [] }, JSON.stringify(env));
   }
   const here = accessFrom({}, "winbox", nics);
   assert.equal(hostAllowed("127.0.0.1:4747", 4747, here), true);
@@ -49,4 +49,11 @@ test("a request a proxy passed on is not from this machine, whatever the connect
   }
   assert.equal(relayed({ host: "127.0.0.1:4747", "user-agent": "x" }), false);
   assert.equal(relayed({}), false);
+});
+
+test("a proxy's HTTPS name is answered without LAN mode, and only as that name", () => {
+  const a = accessFrom({ CAMP_PROXY_NAMES: " Mac.tail1234.ts.net , https://mac.tail1234.ts.net/, bad name!, localhost" }, "winbox", nics);
+  assert.deepEqual(a, { lan: false, listen: "127.0.0.1", names: [], proxied: ["mac.tail1234.ts.net"] });
+  for (const h of ["mac.tail1234.ts.net", "MAC.tail1234.ts.net:443", "127.0.0.1:4747"]) assert.equal(hostAllowed(h, 4747, a), true, h);
+  for (const h of ["mac.tail1234.ts.net:4747", "mac.tail1234.ts.net:80", "evil.ts.net", "tail1234.ts.net", ""]) assert.equal(hostAllowed(h, 4747, a), false, h);
 });
