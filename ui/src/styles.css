@@ -222,10 +222,6 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 .outpost-title { font-family: var(--sans); font-weight: 700; font-size: 17px; line-height: 1.05; letter-spacing: -.01em; color: var(--wordmark); }
 .outpost-sub { font-family: var(--sans); font-weight: 600; font-size: 11px; line-height: 1.2; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .logo-dot { fill: var(--logo-dot); }
-.tour-link { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; position: relative; top: 4px; }
-/* top: 4px sits "Tour" on the same baseline as the drawn "Mae" beside it (flex centring alone leaves it 4px high). */
-.tour-link:hover { color: var(--text); border-bottom-color: var(--accent); }
-.tour-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 /* The logo kit's ink and its amber (docs/brand): navy on a light page, cream on a dark one. */
 :root { --wordmark: #14233F; --logo-dot: #B97A12; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wordmark: #F3EDE0; --logo-dot: #D9982B; } }
@@ -1786,9 +1782,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .outpost-logo .mae-mark { width: 24px; height: 24px; }
   .outpost-title { font-size: 15px; }
   .outpost-sub { font-size: 10px; }
-  .tour-link, .wide-only { display: none; }
-  /* The way back to the star chart stays: on a narrow window it is still the only way to the other outposts. */
-  .tour-link.chart-link { display: inline; }
+  .wide-only { display: none; }
   .top-right { flex: 1; gap: 6px; }
   .top-chips { flex: 1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
   .top-chips > .chip-status { order: -1; }
@@ -2126,8 +2120,9 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .popover.top-menu { position: absolute; top: calc(100% + 8px); right: 0; left: auto; bottom: auto; width: 280px; max-height: 70dvh; overflow-y: auto; padding: 6px; z-index: 45; display: grid; gap: 1px; }
 .popover.top-more { width: 230px; }
 .top-item { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 9px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; font-size: 13px; }
-button.top-item:hover, button.top-item:focus-visible { background: var(--surface-2); }
-button.top-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+a.top-item { text-decoration: none; }
+button.top-item:hover, button.top-item:focus-visible, a.top-item:hover, a.top-item:focus-visible { background: var(--surface-2); }
+button.top-item:focus-visible, a.top-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .top-item > .icon, .top-item > .gh-mark { width: 15px; height: 15px; color: var(--muted); justify-self: center; }
 .top-item > .dot { justify-self: center; }
 .top-item > span { display: grid; min-width: 0; }

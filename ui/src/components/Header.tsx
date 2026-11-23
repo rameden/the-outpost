@@ -163,7 +163,8 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
 // them use it. ···  holds the page's occasional switches: focus, how it's laid out, light or dark,
 // and notifications. (The files and notes are /files and /notes.) The Arcade holds the camp's
 // full-screen views and its game: Orbit, the trail map, the constellation and Barnstorm.
-type MenuItem = { label: string; icon: IconName; title: string; onClick: () => void; checked?: boolean; wide?: boolean; says?: string; quiet?: boolean };
+// A row with an href is a link to another page (newTab: in its own tab) rather than a switch.
+type MenuItem = { label: string; icon: IconName; title: string; onClick?: () => void; href?: string; newTab?: boolean; checked?: boolean; wide?: boolean; says?: string; quiet?: boolean };
 function ToolMenu({ name, title, icon, groups, className, waiting }: {
   name: string; title: string; icon: IconName; groups: (MenuItem | false | undefined)[][];
   className?: string;
@@ -182,13 +183,17 @@ function ToolMenu({ name, title, icon, groups, className, waiting }: {
       </button>
       {open && (
         <div className={cx("popover", "top-menu", className)} role="menu" aria-label={name}>
-          {shown.map((g, gi) => g.map((i, ii) => (
-            <button key={i.icon} type="button" role={i.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={i.checked} aria-label={i.label}
-              className={cx("top-item", "top-tool", i.wide && "wide-only", gi > 0 && ii === 0 && "top-item-sep")} title={i.title}
-              onClick={() => { setOpen(false); i.onClick(); }}>
-              <Icon name={i.icon} /><span><b>{i.label}</b>{i.says && <small>{i.says}</small>}</span>{i.checked && <Icon name="check" />}
-            </button>
-          )))}
+          {shown.map((g, gi) => g.map((i, ii) => {
+            const cls = cx("top-item", "top-tool", i.wide && "wide-only", gi > 0 && ii === 0 && "top-item-sep");
+            const body = <><Icon name={i.icon} /><span><b>{i.label}</b>{i.says && <small>{i.says}</small>}</span>{i.checked && <Icon name="check" />}</>;
+            return i.href ? (
+              <a key={i.icon} role="menuitem" aria-label={i.label} className={cls} title={i.title} href={i.href}
+                {...(i.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})} onClick={() => setOpen(false)}>{body}</a>
+            ) : (
+              <button key={i.icon} type="button" role={i.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={i.checked} aria-label={i.label}
+                className={cls} title={i.title} onClick={() => { setOpen(false); i.onClick?.(); }}>{body}</button>
+            );
+          }))}
         </div>
       )}
     </span>
@@ -263,9 +268,6 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <h1>{onHome
           ? <button type="button" className="brand-home" title="Today: your brief, and where things stand" onClick={onHome}><MaeLogo name={name} /></button>
           : <MaeLogo name={name} />}</h1>
-        {chart && <a className="tour-link chart-link" href={chart} title="Back to the star chart, to pick another outpost. This one keeps running.">Outposts</a>}
-        {/* The tour (docs/index.html, served at /splash), in its own tab so nothing here is interrupted. */}
-        <a className="tour-link" href="/splash" target="_blank" rel="noopener noreferrer" title="A one-page tour of Outpost (opens in a new tab)">Tour</a>
       </div>
       <div className="top-right">
         {/* What the camp is doing, then the page's own switches. On a phone the first group scrolls sideways and the second stays put (styles.css). */}
@@ -333,7 +335,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
                   : "Barnstorm: fly a plane over the page and shoot it to bits (it all comes back)" },
             ],
           ]} />
-        <ToolMenu name="More" icon="more" className="top-more" title="More: focus, layout, light or dark, and notifications" groups={[
+        <ToolMenu name="More" icon="more" className="top-more" title="More: focus, layout, light or dark, notifications, and the way to the other outposts and the tour" groups={[
           [
             onToggleFocus && { label: "Focus mode", icon: "focus", checked: !!focused, wide: true, onClick: onToggleFocus,
               title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files, notes and terminal, leaving the conversation" },
@@ -342,6 +344,11 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             canNotify() && { label: "Notifications", icon: "bell", checked: notificationsOn(), quiet: true, onClick: () => void toggleNotifications(),
               title: Notification.permission === "denied" ? "Notifications are blocked for this page in your browser's settings"
                 : notificationsOn() ? "On: you're pinged when the camp needs a decision. Click to turn off." : "Get pinged when the camp needs a decision" },
+          ],
+          // The ways out of this page: the star chart, and the tour (docs/index.html, served at /splash) in its own tab so nothing here is interrupted.
+          [
+            !!chart && { label: "Outposts", icon: "orbit", href: chart, says: "Back to the star chart", title: "Back to the star chart, to pick another outpost. This one keeps running." },
+            { label: "Tour", icon: "book", href: "/splash", newTab: true, says: "A one-page tour, in a new tab", title: "A one-page tour of Outpost (opens in a new tab)" },
           ],
         ]} />
         {onOpenSettings && (
