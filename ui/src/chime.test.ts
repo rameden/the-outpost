@@ -10,12 +10,19 @@ class FakeAudio {
   destination = {};
   resume = vi.fn(async () => {});
   createOscillator() {
-    const osc = { type: "", frequency: { value: 0 }, connect: (g: unknown) => g, start: () => played.push(osc.frequency.value), stop: () => {} };
+    const osc = { type: "", frequency: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (g: unknown) => g, start: () => played.push(osc.frequency.value), stop: () => {} };
     return osc;
   }
   createGain() {
-    return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
+    return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
   }
+  sampleRate = 8000;
+  createBiquadFilter() { return { type: "", frequency: { value: 0 }, Q: { value: 0 }, connect: (d: unknown) => d }; }
+  createWaveShaper() { return { curve: null, oversample: "", connect: (d: unknown) => d }; }
+  createBufferSource() { return { buffer: null, connect: (d: unknown) => d, start: () => {} }; }
+  createStereoPanner() { return { pan: { value: 0 }, connect: (d: unknown) => d }; }
+  createConvolver() { return { buffer: null, connect: (d: unknown) => d }; }
+  createBuffer(channels: number, length: number) { const data = Array.from({ length: channels }, () => new Float32Array(length)); return { getChannelData: (c: number) => data[c] }; }
 }
 class FakeNotification {
   static permission = "granted";
@@ -26,7 +33,7 @@ class FakeNotification {
 vi.stubGlobal("AudioContext", FakeAudio);
 vi.stubGlobal("Notification", FakeNotification);
 
-const { CHIME_NOTES, playChime, setChime, chimeOn } = await import("./chime.ts");
+const { CHIME_NOTES, STRUM_NOTES, playChime, setChime, chimeOn, strum, setStrum, strumOn } = await import("./chime.ts");
 const { notify } = await import("./notifications.ts");
 
 // The tab is in the background, which is the only time a notification shows.
@@ -34,18 +41,21 @@ const background = (hidden: boolean) => {
   Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
   vi.spyOn(document, "hasFocus").mockReturnValue(!hidden);
 };
-const fundamentals = () => played.filter((_, i) => i % 2 === 0); // each note also plays a quiet octave
+const fundamentals = () => played.filter((_, i) => i % 2 === 0); // each ping also starts the tone that gives it its metal
 
 beforeEach(() => { localStorage.clear(); played = []; shown = []; background(true); });
 
-test("each kind has its own shape: rising for a decision, falling for a failure", () => {
-  const [a1, a2] = CHIME_NOTES.ask;
+test("a notification is the innermost line's ping: alone for a decision, rising to it for finished, falling from it for failed", () => {
+  expect(CHIME_NOTES.ask).toEqual([STRUM_NOTES[0]]);
+  const [d1, d2] = CHIME_NOTES.done;
   const [f1, f2] = CHIME_NOTES.fail;
-  expect(a2).toBeGreaterThan(a1);
+  expect(d2).toBe(STRUM_NOTES[0]);
+  expect(d1).toBeLessThan(d2);
+  expect(f1).toBe(STRUM_NOTES[0]);
   expect(f2).toBeLessThan(f1);
   playChime("done");
   expect(fundamentals()).toEqual(CHIME_NOTES.done);
-  expect(played.filter((_, i) => i % 2 === 1)).toEqual(CHIME_NOTES.done.map((f) => f * 2));
+  expect(played.filter((_, i) => i % 2 === 1)).toEqual(CHIME_NOTES.done.map((f) => f * 1.4)); // each ping's metal
 });
 
 test("a notification plays its chime and asks the browser to keep its own sound quiet", () => {
@@ -74,5 +84,28 @@ test("no chime when the tab is in front, or when notifications are switched off"
   localStorage.setItem("camp-notify", "off");
   notify("Mae: Decision needed", "Which way?");
   expect(shown).toEqual([]);
+  expect(played).toEqual([]);
+});
+
+test("each orbit line strums its own note, the nearest highest, only once the strum sound is turned on", () => {
+  expect(new Set(STRUM_NOTES).size).toBe(STRUM_NOTES.length);
+  expect([...STRUM_NOTES].sort((x, y) => y - x)).toEqual(STRUM_NOTES);
+  expect(strumOn()).toBe(false); // off unless you turn it on
+  strum(0);
+  expect(played).toEqual([]);
+  setStrum(true);
+  strum(0);
+  strum(3, 1);
+  expect(played.filter((f) => STRUM_NOTES.includes(f))).toEqual([STRUM_NOTES[0], STRUM_NOTES[3]]);
+  played = [];
+  strum(99); // a line further out than there are notes takes the lowest
+  expect(played[0]).toBe(STRUM_NOTES.at(-1));
+  played = [];
+  setChime(false); // the notification sound has its own switch
+  strum(1);
+  expect(played[0]).toBe(STRUM_NOTES[1]);
+  played = [];
+  setStrum(false);
+  strum(1);
   expect(played).toEqual([]);
 });

@@ -20,11 +20,16 @@
 // and its colours for each theme, and stops it for anyone who has asked their system for less
 // motion (the planets then rest where they start). The only script is whose turn it is.
 // Point at a line and it turns the sun's amber: each has a wider, unseen line over it to catch the pointer.
+// And it can be strummed: a line the pointer crosses is plucked, flashing amber and shivering out from
+// the sun and back as it settles, harder the faster the pointer was going, and it plays out after the
+// pointer has moved on, so a sweep across the lines rings each in turn. (Less motion: just the flash.)
+// Each line sounds its own note as it's plucked, the nearest highest (chime.ts's strum), when the strum sound is on in Settings → Appearance.
 //
 // Decoration: the words beside it say what the page is.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { cClass } from "../format.ts";
+import { strum } from "../chime.ts";
 import { motionOK } from "../motion.tsx";
 
 export type Orbiter = { id: string; name: string; emoji?: string };
@@ -79,6 +84,13 @@ export const stretch = (r: number, k: number) => Math.round(((2600 / r) * k * LA
 // A quest or a report in flight: a head and three smaller dots that follow it a moment behind.
 const COMET = [3.2, 2.6, 2, 1.4];
 
+// A plucked line: how far it swings out (as a share of its size) and how long it takes to settle.
+// It swings out, back in a little less, and so on, each swing smaller.
+export const PLUCK_MS = 900;
+const SWINGS = [0, 1, -0.7, 0.45, -0.28, 0.15, -0.06, 0];
+// How hard: a slow pass barely moves it, a quick sweep makes it ring (speed in px per ms).
+export const pluckReach = (speed: number) => Math.min(0.05, 0.01 + 0.02 * speed);
+
 // crew: who circles the sun, in order from the nearest orbit out. Left out, it's the camp's own four.
 export function MaeSystem({ crew = BUILT_IN, className }: { crew?: Orbiter[]; className?: string }) {
   const planets = crew.slice(0, MOST);
@@ -87,6 +99,31 @@ export function MaeSystem({ crew = BUILT_IN, className }: { crew?: Orbiter[]; cl
   const lines = Math.max(n, 4);
   const contours = useMemo(() => Array.from({ length: lines + 1 }, (_, i) => contour(i < lines ? orbit(i) : orbit(lines - 1) + 19, i)), [lines]);
   const half = orbit(lines - 1) + 18;
+
+  // How fast the pointer is going, so a quick strum rings harder than a slow pass.
+  const pointer = useRef({ x: 0, y: 0, t: 0, speed: 0 });
+  const track = (e: PointerEvent<SVGSVGElement>) => {
+    const p = pointer.current, dt = e.timeStamp - p.t;
+    if (dt > 0 && dt < 100) p.speed = 0.6 * p.speed + 0.4 * (Math.hypot(e.clientX - p.x, e.clientY - p.y) / dt);
+    else if (dt >= 100) p.speed = 0;
+    Object.assign(p, { x: e.clientX, y: e.clientY, t: e.timeStamp });
+  };
+  // Pluck line `i` as the pointer crosses it (the visible line beside the unseen one that caught it).
+  // A pointer wavering on the edge of a line doesn't keep plucking it: once a line has gone, it waits a moment.
+  const plucked = useRef<number[]>([]);
+  const pluck = (e: PointerEvent<SVGPathElement>, i: number) => {
+    if (e.timeStamp - (plucked.current[i] ?? -Infinity) < 120) return;
+    plucked.current[i] = e.timeStamp;
+    strum(i, pluckReach(pointer.current.speed) / 0.05);
+    const line = e.currentTarget.parentElement?.querySelector<SVGPathElement>(":scope > .sys-ring");
+    if (!line?.animate) return;
+    const amber = getComputedStyle(line).getPropertyValue("--logo-dot").trim() || "#d9982b";
+    // From amber back to however the line is drawn now (still amber while the pointer rests on it).
+    line.animate([{ offset: 0, stroke: amber, opacity: 1, strokeWidth: "2.4px" }], { duration: PLUCK_MS, easing: "ease-out" });
+    if (!motionOK()) return;
+    const reach = pluckReach(pointer.current.speed);
+    line.animate(SWINGS.map((k) => ({ transform: `scale(${1 + k * reach})` })), { duration: PLUCK_MS * 0.8, easing: "ease-out" });
+  };
 
   // Whose turn it is to take a quest: nobody at first, then each in order, and round again.
   const [turn, setTurn] = useState(-1);
@@ -106,13 +143,13 @@ export function MaeSystem({ crew = BUILT_IN, className }: { crew?: Orbiter[]; cl
   const lit = (d: string, i: number) => <path key={`lit${turn}`} className={`sys-lit sys-l${i + 1}${n ? (turn >= 0 ? " sys-on" : "") : " sys-alone"}`} d={d} />;
 
   return (
-    <svg className={["mae-system", lines > 4 && `sys-n${lines}`, className].filter(Boolean).join(" ")} xmlns="http://www.w3.org/2000/svg" viewBox={`${-half} ${-half} ${2 * half} ${2 * half}`} aria-hidden="true">
+    <svg className={["mae-system", lines > 4 && `sys-n${lines}`, className].filter(Boolean).join(" ")} xmlns="http://www.w3.org/2000/svg" viewBox={`${-half} ${-half} ${2 * half} ${2 * half}`} aria-hidden="true" onPointerMove={track}>
       {/* The lines nobody is on drift round slowly by themselves. A planet's own line is drawn with it, below. */}
       {contours.map((d, i) => (
         <g key={i} className={`sys-drift sys-c${i + 1}`}>
           <path className={i < lines ? "sys-ring" : "sys-ring sys-far"} d={d} />
           {lit(d, i)}
-          <path className="sys-hit" d={d} />
+          <path className="sys-hit" d={d} onPointerEnter={(e) => pluck(e, i)} />
         </g>
       )).filter((_, i) => !planets[i])}
       {/* The ring the sun sends out: as a report lands, or just now and then when there is no crew. */}
@@ -129,7 +166,7 @@ export function MaeSystem({ crew = BUILT_IN, className }: { crew?: Orbiter[]; cl
             <g className={`sys-orbit sys-o${i + 1}`}>
               <path className="sys-ring" d={contours[i]} />
               {lit(contours[i], i)}
-              <path className="sys-hit" d={contours[i]} />
+              <path className="sys-hit" d={contours[i]} onPointerEnter={(e) => pluck(e, i)} />
               {/* The same line in the planet's colour, lit while it has the quest. */}
               <path className="sys-tone" d={contours[i]} />
               {TAIL.map((k) => { const len = stretch(r, k); return <path key={k} className="sys-tail" d={contours[i]} pathLength={LAP} strokeDasharray={`${len} ${LAP - len}`} strokeDashoffset={len} />; })}

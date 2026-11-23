@@ -293,10 +293,18 @@ test("the notification sound row shows once notifications are on: a switch kept 
   cleanup();
   const started: number[] = [];
   vi.stubGlobal("Notification", class { static permission = "granted"; });
+  const node = () => ({ connect: (d: unknown) => d });
+  const param = () => ({ value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} });
   vi.stubGlobal("AudioContext", class {
-    state = "running"; currentTime = 0; destination = {};
-    createOscillator() { const o = { frequency: { value: 0 }, connect: (g: unknown) => g, start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
-    createGain() { return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d }; }
+    state = "running"; currentTime = 0; destination = {}; sampleRate = 8000;
+    createOscillator() { const o = { ...node(), frequency: param(), start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
+    createGain() { return { ...node(), gain: param() }; }
+    createBiquadFilter() { return { ...node(), frequency: param(), Q: param() }; }
+    createWaveShaper() { return node(); }
+    createStereoPanner() { return { ...node(), pan: param() }; }
+    createConvolver() { return node(); }
+    createBufferSource() { return { ...node(), start: () => {} }; }
+    createBuffer(channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
   });
   show("notifications");
   const row = screen.getByText("Notification sound").closest(".set-row") as HTMLElement;
@@ -310,6 +318,18 @@ test("the notification sound row shows once notifications are on: a switch kept 
 
   fireEvent.click(within(row).getByRole("button", { name: "Failed" }));
   expect(started.length).toBeGreaterThan(0); // the preview plays even with the sound off
+  localStorage.clear();
+});
+
+test("the strum sound is a switch in Appearance, off until you turn it on, kept in this browser", () => {
+  localStorage.clear();
+  show("appearance");
+  const row = screen.getByText("Strum sound").closest(".set-row") as HTMLElement;
+  const box = within(row).getByRole("checkbox");
+  expect(box).toHaveProperty("checked", false);
+  fireEvent.click(box);
+  expect(localStorage.getItem("camp-strum-sound")).toBe("on");
+  expect(within(row).getByRole("checkbox")).toHaveProperty("checked", true);
   localStorage.clear();
 });
 
