@@ -23,6 +23,7 @@ import { dirname } from "node:path";
 import { jiraWrite, setJiraWrite, jiraFilter, setJiraFilter } from "./settings.js";
 import type { Tool } from "./tools.js";
 import { writeJsonAtomic } from "./atomic.js";
+import { OUTPOST } from "./outpost.js";
 
 export const JIRA_PATH = "camp/jira.json";
 export type JiraCredentials = { siteUrl: string; email: string; apiToken: string };
@@ -439,8 +440,8 @@ const link = (url: string | undefined) => (url && /^https:\/\//.test(url) ? link
 
 // What the camp says on the ticket at each moment.
 function commentFor(event: WriteEvent, detail: { branch?: string; url?: string }) {
-  if (event === "start") return para(plain(`Work started in Mae${detail.branch ? ` on branch ${detail.branch}` : ""}.`));
-  if (event === "review") return para(plain(`The work in Mae has finished${detail.branch ? ` on branch ${detail.branch}` : ""} and is ready to be looked over.`));
+  if (event === "start") return para(plain(`Work started in Outpost ${OUTPOST.name}${detail.branch ? ` on branch ${detail.branch}` : ""}.`));
+  if (event === "review") return para(plain(`The work in Outpost ${OUTPOST.name} has finished${detail.branch ? ` on branch ${detail.branch}` : ""} and is ready to be looked over.`));
   if (event === "pr") return para(plain("Pull request opened: "), link(detail.url));
   return para(plain("Pull request merged: "), link(detail.url));
 }

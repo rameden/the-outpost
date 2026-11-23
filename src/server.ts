@@ -88,8 +88,10 @@ import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, UI_NOT_BUILT, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
+import { OUTPOST } from "./outpost.js";
 
-const PORT = Number(process.env.CAMP_PORT ?? 4747);
+// CAMP_PORT wins; else the port this outpost was given (camp/outpost.json); else 4747.
+const PORT = Number(process.env.CAMP_PORT ?? OUTPOST.port);
 // The page's key. It's kept in camp/.token (yours alone to read, and off limits to the crew's
 // tools) and used again on the next start, so a tab you left open carries on after the camp
 // restarts instead of being locked out. Start with CAMP_NEW_TOKEN=1 (or delete the file) for a new one.
@@ -1967,7 +1969,7 @@ server.on("error", (err: NodeJS.ErrnoException) => {
 });
 server.listen(PORT, ACCESS.listen, () => {
   freshenUsage();
-  console.log(`🏕️  Mission control is up: ${newSignInLink()}`);
+  console.log(`🏕️  Outpost ${OUTPOST.name} is up: ${newSignInLink()}`);
   console.log(`   That link signs one browser in, once. After that, the plain address opens by itself there.`);
   if (ACCESS.lan) {
     console.log(`   ⚠️  LAN mode: other machines on this network can reach it${fromElsewhere() ? ` (${ACCESS.names.map((n) => addressOf(n, PORT)).join(", ")})` : ", but this machine has no network address just now"}.`);

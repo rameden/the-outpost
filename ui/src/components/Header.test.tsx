@@ -187,6 +187,19 @@ test("what needs you is one chip: several things open a list, and each row goes 
   expect(screen.queryByRole("button", { name: /need/ })).toBeNull();
 });
 
+test("another outpost's logo is the same mark with its own name set beside it, and the tab says so", () => {
+  const meta = document.createElement("meta");
+  meta.name = "outpost"; meta.content = "Work";
+  document.head.append(meta);
+  try {
+    render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
+    const logo = within(screen.getByRole("heading", { level: 1 })).getByRole("img", { name: "Outpost Work" });
+    expect(logo.querySelector(".mae-mark")).toBeTruthy();
+    expect(logo.textContent).toBe("Work");
+    expect(document.title).toBe("Outpost Work");
+  } finally { meta.remove(); }
+});
+
 test("the name is the logo kit's logo, with no subtitle and no orb beside it", () => {
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   const name = screen.getByRole("heading", { level: 1 });

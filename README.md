@@ -42,6 +42,19 @@ Try: *"Scout how other agent harnesses handle memory, then have the Scribe write
 
 **From your other machines at home (LAN mode):** by default only the machine the camp runs on can reach it. Put `CAMP_LAN=1` in `.env` and start it with `npm run ui:serve`: it prints the address your other machines use (for example `http://winbox:4747/`) and a sign-in link for it. It's plain HTTP, so it's for a home network you trust: never an office or shared network, and never a port forwarded to the internet. The terminal pane only opens on the camp's own machine (it's a shell there), and from another machine you paste a folder's path instead of using the folder dialog. Each browser signs in once with a one-time link: the camp's terminal prints one, or make one under Settings → General → Other devices. On Windows, allow Node through the firewall for private networks when it asks.
 
+## Outposts
+
+The app is Outpost, and each camp it runs is an outpost with a name of its own: one for work and one for home, say, that know nothing of each other. This checkout is the first outpost, Mae, with the `camp/` it has always had. The others live in `~/Outposts/<name>/` (set `OUTPOSTS_DIR` to put them elsewhere), each with its own crew, memory, settings, keys, jobs, skills and `.env`, and each runs as its own server on its own port.
+
+```
+npm run outpost                       # list them, and which are running
+npm run outpost -- new Work           # make one, on the next free port (--port 4800 to choose)
+npm run outpost -- start Work         # run it, serving the built page (like ui:serve)
+npm run outpost -- start Work --dev   # run it with the page reloading as you edit (like npm run ui)
+```
+
+A new outpost starts empty: connect its models and accounts from its own Settings. The crew's built-in skills are copied from this checkout and brought up to date each time an outpost starts, while skills an outpost learns stay in that outpost. The relay and Tailscale scripts (`scripts/relay`, `scripts/tailscale.sh`) reach Mae.
+
 ## Terminal commands
 
 In `npm start`, type a request for the Quartermaster, or:

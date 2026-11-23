@@ -10,6 +10,7 @@
     "watch:install": "tsx scripts/watch-agent.ts",
     "watch:uninstall": "tsx scripts/watch-agent.ts --uninstall",
     "ui": "tsx --import ./scripts/env.mjs scripts/ui-dev.ts",
+    "outpost": "tsx scripts/outpost.ts",
     "ui:serve": "tsx scripts/ui-build.ts --if-stale && tsx --import ./scripts/env.mjs src/server.ts",
     "build": "npm run typecheck && tsx scripts/ui-build.ts && tsx scripts/server-build.ts",
     "prod": "npm run build && npm run prod:start",

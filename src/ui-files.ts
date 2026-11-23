@@ -9,6 +9,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { withOutpost } from "./outpost.js";
 
 export const UI_DIST = join(fileURLToPath(new URL("..", import.meta.url)), "ui", "dist");
 
@@ -47,12 +48,13 @@ const ASSET_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 
-// The page, or null when ui/dist hasn't been built. The only thing filled in is this launch's
-// style nonce: the camp's key is never written into the page or onto a link.
-export function uiPage(dist = UI_DIST, styleNonce = ""): string | null {
+// The page, or null when ui/dist hasn't been built. The only things filled in are this launch's
+// style nonce and the outpost's name (outpost.ts): the camp's key is never written into the page
+// or onto a link.
+export function uiPage(dist = UI_DIST, styleNonce = "", outpost?: string): string | null {
   const file = join(dist, "index.html");
   if (!existsSync(file)) return null;
-  return readFileSync(file, "utf8").replace("__CAMP_NONCE__", styleNonce);
+  return withOutpost(readFileSync(file, "utf8").replace("__CAMP_NONCE__", styleNonce), outpost);
 }
 
 // Built files are named by what's in them (index-abc123.js), so a browser can keep them for good:

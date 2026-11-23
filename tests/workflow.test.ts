@@ -270,7 +270,7 @@ test("nothing is written to Jira unless you turn it on; then it comments, and mo
   j.saveWriteBack({ on: true });
   assert.equal(await j.writeBack("start", "MP-544", { branch: "MP-544-open-button" }), "Commented on MP-544.");
   assert.deepEqual(seen.map((s) => `${s.method} ${s.url}`), ["POST /rest/api/3/issue/MP-544/comment"]);
-  assert.deepEqual(seen[0].body, { body: { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text: "Work started in Mae on branch MP-544-open-button." }] }] } });
+  assert.deepEqual(seen[0].body, { body: { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text: "Work started in Outpost Mae on branch MP-544-open-button." }] }] } });
   assert.equal(await j.writeBack("start", undefined), null, "no ticket: nothing to write");
   assert.equal(await j.writeBack("start", "not a key"), null);
 
@@ -291,7 +291,7 @@ test("nothing is written to Jira unless you turn it on; then it comments, and mo
   j.saveWriteBack({ on: true, doneStatus: "done" });
   seen.length = 0;
   assert.equal(await j.writeBack("review", "MP-544", { branch: "MP-544-open-button" }), "Commented on MP-544.");
-  assert.deepEqual(seen[0].body.body.content[0].content, [{ type: "text", text: "The work in Mae has finished on branch MP-544-open-button and is ready to be looked over." }]);
+  assert.deepEqual(seen[0].body.body.content[0].content, [{ type: "text", text: "The work in Outpost Mae has finished on branch MP-544-open-button and is ready to be looked over." }]);
   assert.equal(await j.writeBack("merged", "MP-544", { url: "https://github.com/o/r/pull/7" }), "Commented on MP-544 and moved it to Done.");
   assert.equal(seen[1].body.body.content[0].content[0].text, "Pull request merged: ");
   // The crew's own Jira tool still can't write.
