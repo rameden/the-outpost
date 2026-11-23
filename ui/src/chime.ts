@@ -20,6 +20,10 @@ const STEP = 0.2; // seconds between pings
 
 export const chimeOn = () => storeGet("camp-notify-sound") !== "off";
 export const setChime = (on: boolean) => storeSet("camp-notify-sound", on ? "on" : "off");
+// The strum has its own switch, off unless you turn it on (Settings → Appearance), as it sounds
+// whenever the pointer crosses the orbit.
+export const strumOn = () => storeGet("camp-strum-sound") === "on";
+export const setStrum = (on: boolean) => storeSet("camp-strum-sound", on ? "on" : "off");
 
 let ctx: AudioContext | null = null;
 
@@ -115,7 +119,7 @@ function strumOut(a: AudioContext, out: Out): AudioNode {
 
 // Line `i` (0 is nearest the sun) at `strength` from 0 (a slow pass) to 1 (a quick sweep).
 export function strum(i: number, strength = 0.5) {
-  if (!chimeOn()) return;
+  if (!strumOn()) return;
   const a = audio();
   if (!a) return;
   if (a.state === "suspended") void a.resume().catch(() => {});
