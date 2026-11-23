@@ -55,7 +55,19 @@ npm run outpost -- start Work         # run it, serving the built page (like ui:
 npm run outpost -- start Work --dev   # run it with the page reloading as you edit (like npm run ui)
 ```
 
-The header reads "Outpost" with the outpost's name under it. Rename an outpost from its Settings, General: the new name is kept in its `camp/outpost.json` and shows at once, while its folder stays where it is (`start` finds it by either name). A new outpost starts empty: connect its models and accounts from its own Settings. The crew's built-in skills are copied from this checkout and brought up to date each time an outpost starts, while skills an outpost learns stay in that outpost. The relay and Tailscale scripts (`scripts/relay`, `scripts/tailscale.sh`) reach Mae.
+The header reads "Outpost" with the outpost's name under it. Rename an outpost from its Settings, General: the new name is kept in its `camp/outpost.json` and shows at once, while its folder stays where it is (`start` finds it by either name). A new outpost starts empty: connect its models and accounts from its own Settings. The crew's built-in skills are copied from this checkout and brought up to date each time an outpost starts, while skills an outpost learns stay in that outpost. 
+**From anywhere.** Two ways in, both on at once: the Lightsail relay (`scripts/relay/relay.sh`: your own small server with Caddy and Google sign-in at the door, reached through an SSH tunnel from this Mac) and Tailscale as the backup (`scripts/tailscale.sh`: tailnet only, no public address). Each keeps the camp running under launchd, and each script's header lists its steps. With no name they reach Mae, as they always have. Name an outpost after the command (or set `OUTPOST=Work`) to reach that one too:
+
+```
+scripts/relay/relay.sh create Work    # its DNS record (the server is shared)
+scripts/relay/relay.sh server Work    # its tunnel key and an empty Caddy site
+scripts/relay/relay.sh google Work    # Google sign-in, shared with Mae's (or: password Work)
+scripts/relay/relay.sh install Work   # its camp and tunnel under launchd
+scripts/relay/relay.sh link Work      # a sign-in link for a phone
+scripts/tailscale.sh install Work     # and on the tailnet
+```
+
+On the relay each outpost gets a subdomain of its own (`work.outpostmae.app`), its own tunnel key and port on the server (its port + 1000), its own Caddy site in `/etc/caddy/sites/` and its own launchd jobs (`app.outpostmae.work.camp`, `…tunnel`), which run `npm run outpost -- start Work` from this checkout. A subdomain needs no change to the page or Caddy's routing, where a path per outpost would. Google sign-in is set up once, for Mae: the other outposts' doors send you through Mae's address to sign in, with the same allowed addresses, and one sign-in then covers them all. Each outpost still has its own key behind the door. On Tailscale a machine has one name, so each outpost but Mae is served on its own port there: `https://<this-mac>.<tailnet>.ts.net:4748/` for an outpost on 4748.
 
 ## Terminal commands
 

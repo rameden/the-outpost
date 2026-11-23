@@ -26,25 +26,45 @@
 #
 # Tailscale is the backup way in (scripts/tailscale.sh): the same Mae job answers to its tailnet
 # name too whenever Tailscale is connected, so both routes work at once.
+#
+# Other outposts: name one after the command (or OUTPOST=Work) and every command works on it
+# instead of Mae, on the same server: scripts/relay/relay.sh create Work, then server, google
+# and install the same way. Each gets its own address (work.outpostmae.app: a subdomain, so the
+# page's own paths need nothing new), its own tunnel key, server-side port (its port + 1000) and
+# launchd jobs (app.outpostmae.work.camp, …tunnel), and its own Caddy site in
+# /etc/caddy/sites/. Google sign-in is shared: set it up for Mae first; the outpost's door then
+# sends you through Mae's address to sign in once for all of them, with the same allowed list.
+# Its camp job runs `npm run outpost -- start Work` from this checkout. Mae, with no name given,
+# is set up exactly as before.
 
 set -euo pipefail
 
+OUTPOST="${2:-${OUTPOST:-}}"
+source "$(dirname "$0")/outpost.sh"   # OUTPOST_NAME, SLUG, CAMP_PORT, CAMP_DIR, IS_MAE, LABEL_PREFIX, TS_PORT
+
 NAME="${RELAY_NAME:-mae-relay}"
-DOMAIN="${RELAY_DOMAIN:-mae.outpostmae.app}"
 ZONE="${RELAY_ZONE:-outpostmae.app}"
 REGION="${RELAY_REGION:-eu-west-1}"
 BUNDLE="${RELAY_BUNDLE:-nano_3_0}"           # the smallest Lightsail plan
 BLUEPRINT="${RELAY_BLUEPRINT:-ubuntu_24_04}"
-CAMP_PORT="${CAMP_PORT:-4747}"
-RELAY_PORT="${RELAY_PORT:-4748}"             # on the server, loopback only
 DIR="$HOME/.mae-relay"
 ADMIN_KEY="$DIR/admin_rsa"                    # full SSH access to the server, for setup (RSA: Lightsail imports it)
-TUNNEL_KEY="$DIR/tunnel_ed25519"              # can only hold open the one port forward
-REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+if [[ -n "$IS_MAE" ]]; then
+  DOMAIN="${RELAY_DOMAIN:-mae.outpostmae.app}"
+  RELAY_PORT="${RELAY_PORT:-4748}"           # on the server, loopback only
+  TUNNEL_KEY="$DIR/tunnel_ed25519"            # can only hold open the one port forward
+  DOOR_USER=mae; FOR=""
+else
+  DOMAIN="${RELAY_DOMAIN:-$SLUG.$ZONE}"
+  RELAY_PORT="$((CAMP_PORT + 1000))"          # on the server, one per outpost (Mae's is 4748)
+  TUNNEL_KEY="$DIR/tunnel-${SLUG}_ed25519"
+  DOOR_USER="$SLUG"; FOR=" '$OUTPOST_NAME'"   # for the "Next:" hints
+fi
 AGENTS="$HOME/Library/LaunchAgents"
-LABEL_CAMP="app.outpostmae.camp"
+LABEL_CAMP="$LABEL_PREFIX.camp"
 OAUTH2_PROXY_VERSION="${OAUTH2_PROXY_VERSION:-v7.15.6}"
-LABEL_TUNNEL="app.outpostmae.tunnel"
+LABEL_TUNNEL="$LABEL_PREFIX.tunnel"
+SITES=/etc/caddy/sites                        # one Caddy site per outpost but Mae, imported by the Caddyfile
 
 say() { printf '\033[1m%s\033[0m\n' "$*"; }
 ip_of() { [[ -f "$DIR/ip" ]] || { echo "No server yet: run '$0 create' first." >&2; exit 1; }; cat "$DIR/ip"; }
@@ -53,7 +73,7 @@ admin() { ssh -i "$ADMIN_KEY" -o StrictHostKeyChecking=accept-new -o UserKnownHo
 create() {
   mkdir -p "$DIR"; chmod 700 "$DIR"
   [[ -f "$ADMIN_KEY" ]] || ssh-keygen -q -t rsa -b 4096 -N "" -C "$NAME-admin" -f "$ADMIN_KEY"
-  [[ -f "$TUNNEL_KEY" ]] || ssh-keygen -q -t ed25519 -N "" -C "$NAME-tunnel" -f "$TUNNEL_KEY"
+  [[ -f "$TUNNEL_KEY" ]] || ssh-keygen -q -t ed25519 -N "" -C "$NAME-$([[ -n "$IS_MAE" ]] || printf '%s-' "$SLUG")tunnel" -f "$TUNNEL_KEY"
 
   if ! aws lightsail get-key-pair --region "$REGION" --key-pair-name "$NAME-key" >/dev/null 2>&1; then
     say "Uploading the admin key to Lightsail"
@@ -82,13 +102,13 @@ create() {
   say "DNS: $DOMAIN → $(ip_of)"
   local zone_id; zone_id="$(aws route53 list-hosted-zones-by-name --dns-name "$ZONE" --max-items 1 --query 'HostedZones[0].Id' --output text)"
   aws route53 change-resource-record-sets --hosted-zone-id "$zone_id" --change-batch "{\"Changes\":[{\"Action\":\"UPSERT\",\"ResourceRecordSet\":{\"Name\":\"$DOMAIN\",\"Type\":\"A\",\"TTL\":300,\"ResourceRecords\":[{\"Value\":\"$(ip_of)\"}]}}]}" >/dev/null
-  say "Done. Next: $0 server"
+  say "Done. Next: $0 server$FOR"
 }
 
 server() {
   say "Waiting for SSH on $(ip_of)"
   until admin true 2>/dev/null; do sleep 5; done
-  local pub; pub="$(cat "$TUNNEL_KEY.pub")"
+  local pub key; pub="$(cat "$TUNNEL_KEY.pub")"; key="$(awk '{print $2}' "$TUNNEL_KEY.pub")"
   admin "sudo bash -s" <<EOF
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -101,11 +121,14 @@ if ! command -v caddy >/dev/null; then
 fi
 apt-get install -yq unattended-upgrades >/dev/null
 
-# The tunnel's own account: its key may hold open the one forward and do nothing else.
+# The tunnel's own account: each outpost's key may hold open its one forward and do nothing else.
+# This outpost's line is replaced; the other outposts' lines are kept.
 id tunnel >/dev/null 2>&1 || useradd --create-home --shell /usr/sbin/nologin tunnel
 install -d -m 700 -o tunnel -g tunnel /home/tunnel/.ssh
-echo 'restrict,port-forwarding,permitlisten="127.0.0.1:$RELAY_PORT",command="/bin/false" $pub' > /home/tunnel/.ssh/authorized_keys
-chown tunnel:tunnel /home/tunnel/.ssh/authorized_keys; chmod 600 /home/tunnel/.ssh/authorized_keys
+f=/home/tunnel/.ssh/authorized_keys; touch "\$f"
+{ grep -vF "$key" "\$f" || true; echo 'restrict,port-forwarding,permitlisten="127.0.0.1:$RELAY_PORT",command="/bin/false" $pub'; } > "\$f.new"
+mv "\$f.new" "\$f"
+chown tunnel:tunnel "\$f"; chmod 600 "\$f"
 cat > /etc/ssh/sshd_config.d/50-mae-relay.conf <<'SSHD'
 PasswordAuthentication no
 ClientAliveInterval 30
@@ -113,17 +136,28 @@ ClientAliveCountMax 3
 SSHD
 systemctl reload ssh
 
-# Until a password is set, the door is shut: every request gets 503.
-if [[ ! -f /etc/caddy/mae-password ]]; then
+# Until a door is set, it's shut: every request gets 503.
+if [[ "$IS_MAE" == 1 && ! -f /etc/caddy/mae-password ]]; then
   cat > /etc/caddy/Caddyfile <<'CADDY'
 $DOMAIN {
 	respond "Set a password first: scripts/relay/relay.sh password" 503
 }
 CADDY
-  systemctl reload caddy || systemctl restart caddy
 fi
+# The other outposts' sites, each in a file of its own.
+mkdir -p $SITES
+grep -q '^import $SITES/' /etc/caddy/Caddyfile || printf '\nimport $SITES/*.caddy\n' >> /etc/caddy/Caddyfile
+if [[ "$IS_MAE" != 1 && ! -f $SITES/$SLUG.caddy ]]; then
+  cat > $SITES/$SLUG.caddy <<'CADDY'
+$DOMAIN {
+	respond "Set a door first: scripts/relay/relay.sh google$FOR" 503
+}
+CADDY
+fi
+systemctl reload caddy || systemctl restart caddy
 EOF
-  say "Done. Next: $0 password"
+  if [[ -n "$IS_MAE" ]]; then say "Done. Next: $0 password (or $0 google)"
+  else say "Done. Next: $0 google$FOR (or $0 password$FOR)"; fi
 }
 
 # The part of the site that hands requests to Mae, the same whichever door is in front.
@@ -139,12 +173,70 @@ EOF
 site_headers() {
   printf '\theader {\n\t\tStrict-Transport-Security "max-age=31536000"\n\t\t-Server\n\t}\n'
 }
-# Write the Caddyfile on the server (from stdin), check it, and reload.
+# Write Mae's Caddyfile on the server (from stdin), with the other outposts' sites imported after
+# it, check it, and reload.
 put_caddyfile() {
-  admin "sudo bash -c 'cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile >/dev/null 2>&1 && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy'"
+  { cat; printf '\nimport %s/*.caddy\n' "$SITES"; } \
+    | admin "sudo bash -c 'mkdir -p $SITES && cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile >/dev/null 2>&1 && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy'"
+}
+# Write this outpost's site (from stdin) into $SITES, check the whole config with it, and reload;
+# if Caddy refuses it, put back what was there.
+put_site() {
+  admin "sudo bash -s" <<EOF
+set -euo pipefail
+mkdir -p $SITES
+grep -q '^import $SITES/' /etc/caddy/Caddyfile || printf '\nimport $SITES/*.caddy\n' >> /etc/caddy/Caddyfile
+EOF
+  admin "sudo bash -c 'f=$SITES/$SLUG.caddy; [[ -f \$f ]] && cp \$f \$f.old; cat > \$f; if caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then rm -f \$f.old; systemctl reload caddy; else echo \"Caddy refused the new site.\" >&2; if [[ -f \$f.old ]]; then mv \$f.old \$f; else rm -f \$f; fi; exit 1; fi'"
+}
+# Mae's Caddyfile, or this outpost's site.
+put_door() { if [[ -n "$IS_MAE" ]]; then put_caddyfile; else put_site; fi; }
+
+# The site with Google sign-in at the door: Caddy asks oauth2-proxy about every request; without a
+# session it sends you to Google.
+google_site() {
+  cat <<EOF
+$DOMAIN {
+	handle /oauth2/* {
+		reverse_proxy 127.0.0.1:4180 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-Uri {uri}
+		}
+	}
+	handle {
+		forward_auth 127.0.0.1:4180 {
+			uri /oauth2/auth
+			header_up X-Real-IP {remote_host}
+			@out status 401
+			handle_response @out {
+				redir * /oauth2/start?rd={scheme}://{host}{uri}
+			}
+		}
+EOF
+  to_mae
+  printf '\t}\n'
+  site_headers
+  printf '}\n'
+}
+
+# Another outpost behind the Google sign-in Mae already has: oauth2-proxy's cookie is made to cover
+# every name under the zone, and it may send you back to any of them after signing in. Google
+# still returns to Mae's address, so the Google client needs nothing new.
+google_outpost() {
+  admin "systemctl is-active --quiet oauth2-proxy" || { echo "Google sign-in isn't on for Mae yet: run '$0 google' first." >&2; exit 1; }
+  admin "sudo bash -s" <<EOF
+set -euo pipefail
+f=/etc/oauth2-proxy/oauth2-proxy.cfg
+grep -q '^cookie_domains' "\$f" || echo 'cookie_domains = [".$ZONE"]' >> "\$f"
+grep -q '^whitelist_domains' "\$f" || echo 'whitelist_domains = [".$ZONE"]' >> "\$f"
+systemctl restart oauth2-proxy
+EOF
+  google_site | put_site
+  say "Google sign-in is on at https://$DOMAIN (the same Google addresses as Mae). Next (if not yet): $0 install$FOR"
 }
 
 google() {
+  [[ -n "$IS_MAE" ]] || { google_outpost; return; }
   local id secret emails cookie
   cat <<EOF
 In Google Cloud Console (https://console.cloud.google.com/apis/credentials):
@@ -203,6 +295,8 @@ cookie_secure = true
 cookie_samesite = "lax"
 cookie_expire = "168h"
 redirect_url = "https://$DOMAIN/oauth2/callback"
+cookie_domains = [".$ZONE"]
+whitelist_domains = [".$ZONE"]
 authenticated_emails_file = "/etc/oauth2-proxy/emails"
 upstreams = ["static://202"]
 skip_provider_button = true
@@ -212,44 +306,22 @@ EOF
     | admin "sudo bash -c 'umask 027; cat > /etc/oauth2-proxy/emails; chgrp oauth2-proxy /etc/oauth2-proxy/emails'"
   admin "sudo systemctl enable --now oauth2-proxy >/dev/null 2>&1; sudo systemctl restart oauth2-proxy; sleep 2; systemctl is-active oauth2-proxy"
 
-  # Caddy asks oauth2-proxy about every request; without a session it sends you to Google.
-  { cat <<EOF
-$DOMAIN {
-	handle /oauth2/* {
-		reverse_proxy 127.0.0.1:4180 {
-			header_up X-Real-IP {remote_host}
-			header_up X-Forwarded-Uri {uri}
-		}
-	}
-	handle {
-		forward_auth 127.0.0.1:4180 {
-			uri /oauth2/auth
-			header_up X-Real-IP {remote_host}
-			@out status 401
-			handle_response @out {
-				redir * /oauth2/start?rd={scheme}://{host}{uri}
-			}
-		}
-EOF
-  to_mae
-  printf '\t}\n'
-  site_headers
-  printf '}\n'
-  } | put_caddyfile
+  google_site | put_caddyfile
   say "Google sign-in is on at https://$DOMAIN. Next (if not yet): $0 install"
 }
 
 password() {
   local pw pw2 hash
-  read -rsp "Password for $DOMAIN (user: mae): " pw; echo
+  read -rsp "Password for $DOMAIN (user: $DOOR_USER): " pw; echo
   read -rsp "Again: " pw2; echo
   [[ "$pw" == "$pw2" ]] || { echo "They don't match." >&2; exit 1; }
   [[ ${#pw} -ge 12 ]] || { echo "Use at least 12 characters." >&2; exit 1; }
   hash="$(printf '%s' "$pw" | admin "caddy hash-password")"
-  admin "sudo systemctl disable --now oauth2-proxy >/dev/null 2>&1 || true"
-  { printf '%s {\n\tbasic_auth {\n\t\tmae %s\n\t}\n' "$DOMAIN" "$hash"; to_mae; site_headers; printf '}\n'; } | put_caddyfile
-  admin "sudo touch /etc/caddy/mae-password"
-  say "Password set. Next: $0 install"
+  # Mae's password replaces the Google sign-in; another outpost's leaves it on for the rest.
+  [[ -n "$IS_MAE" ]] && admin "sudo systemctl disable --now oauth2-proxy >/dev/null 2>&1 || true"
+  { printf '%s {\n\tbasic_auth {\n\t\t%s %s\n\t}\n' "$DOMAIN" "$DOOR_USER" "$hash"; to_mae; site_headers; printf '}\n'; } | put_door
+  [[ -n "$IS_MAE" ]] && admin "sudo touch /etc/caddy/mae-password"
+  say "Password set. Next: $0 install$FOR"
 }
 
 plist() { # label, then the program and its arguments
@@ -260,6 +332,8 @@ plist() { # label, then the program and its arguments
   printf '  </array>\n  <key>WorkingDirectory</key><string>%s</string>\n' "$REPO"
   printf '  <key>EnvironmentVariables</key><dict>\n    <key>PATH</key><string>%s</string>\n' "$(dirname "$(command -v node)"):$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
   [[ -n "${CAMP_PROXY_NAMES:-}" ]] && printf '    <key>CAMP_PROXY_NAMES</key><string>%s</string>\n' "$CAMP_PROXY_NAMES"
+  # So `npm run outpost -- start` finds the outpost where this shell does.
+  [[ -z "$IS_MAE" && -n "${OUTPOSTS_DIR:-}" ]] && printf '    <key>OUTPOSTS_DIR</key><string>%s</string>\n' "$OUTPOSTS_DIR"
   printf '  </dict>\n'
   printf '  <key>RunAtLoad</key><true/>\n  <key>KeepAlive</key><true/>\n  <key>ThrottleInterval</key><integer>15</integer>\n'
   printf '  <key>StandardOutPath</key><string>%s/%s.log</string>\n  <key>StandardErrorPath</key><string>%s/%s.log</string>\n' "$DIR" "$label" "$DIR" "$label"
@@ -275,15 +349,23 @@ tailnet_name() {
 
 camp() {
   mkdir -p "$DIR" "$AGENTS"
-  launchctl bootout "gui/$(id -u)/app.outpostmae.tailnet" 2>/dev/null || true   # the old Tailscale-only job
-  rm -f "$AGENTS/app.outpostmae.tailnet.plist"
+  if [[ -n "$IS_MAE" ]]; then
+    launchctl bootout "gui/$(id -u)/app.outpostmae.tailnet" 2>/dev/null || true   # the old Tailscale-only job
+    rm -f "$AGENTS/app.outpostmae.tailnet.plist"
+  fi
   if lsof -nP -iTCP:"$CAMP_PORT" -sTCP:LISTEN >/dev/null && ! launchctl print "gui/$(id -u)/$LABEL_CAMP" >/dev/null 2>&1; then
     sleep 3
-    lsof -nP -iTCP:"$CAMP_PORT" -sTCP:LISTEN >/dev/null && { echo "Something else is on port $CAMP_PORT (npm run ui?). Stop it first." >&2; exit 1; }
+    lsof -nP -iTCP:"$CAMP_PORT" -sTCP:LISTEN >/dev/null && { echo "Something else is on port $CAMP_PORT ($([[ -n "$IS_MAE" ]] && echo "npm run ui" || echo "npm run outpost -- start $OUTPOST_NAME")?). Stop it first." >&2; exit 1; }
   fi
-  # Mae: the built page, kept awake (caffeinate -s holds off sleep while on mains power), and
-  # answering to its tailnet name too when Tailscale is up.
-  CAMP_PROXY_NAMES="$(tailnet_name)" plist "$LABEL_CAMP" /usr/bin/caffeinate -is "$(command -v npm)" run ui:serve > "$AGENTS/$LABEL_CAMP.plist"
+  # The built page, kept awake (caffeinate -s holds off sleep while on mains power), and
+  # answering to its tailnet name too when Tailscale is up (with its own Serve port, but Mae).
+  local names; names="$(tailnet_name)"
+  [[ -n "$names" && -z "$IS_MAE" ]] && names="$names:$TS_PORT"
+  if [[ -n "$IS_MAE" ]]; then
+    CAMP_PROXY_NAMES="$names" plist "$LABEL_CAMP" /usr/bin/caffeinate -is "$(command -v npm)" run ui:serve > "$AGENTS/$LABEL_CAMP.plist"
+  else
+    CAMP_PROXY_NAMES="$names" plist "$LABEL_CAMP" /usr/bin/caffeinate -is "$(command -v npm)" run outpost -- start "$OUTPOST_NAME" > "$AGENTS/$LABEL_CAMP.plist"
+  fi
   launchctl bootout "gui/$(id -u)/$LABEL_CAMP" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$AGENTS/$LABEL_CAMP.plist"
 }
@@ -309,20 +391,20 @@ uninstall() {
 }
 
 link() {
-  local token; token="$(cat "$REPO/camp/.token")"
+  local token; token="$(cat "$CAMP_DIR/camp/.token")"
   curl -fsS -X POST -H "x-camp-token: $token" -H "content-type: application/json" -d '{}' "http://127.0.0.1:$CAMP_PORT/api/login/link" \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const l=JSON.parse(s).link;console.log(l.replace(/^[^#]*/,"https://'"$DOMAIN"'/"))})'
 }
 
 status() {
   for l in "$LABEL_CAMP" "$LABEL_TUNNEL"; do
-    printf '%-22s %s\n' "$l" "$(launchctl print "gui/$(id -u)/$l" 2>/dev/null | awk '/state =/{print $3; exit}' || echo 'not loaded')"
+    printf '%-28s %s\n' "$l" "$(launchctl print "gui/$(id -u)/$l" 2>/dev/null | awk '/state =/{print $3; exit}' || echo 'not loaded')"
   done
-  printf '%-22s %s\n' "Mae on this Mac" "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$CAMP_PORT/")"
-  printf '%-22s %s\n' "https://$DOMAIN" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "https://$DOMAIN/" | cut -c1-60) (302 to /oauth2 = Google sign-in; 401 = password)"
+  printf '%-28s %s\n' "$OUTPOST_NAME on this Mac (:$CAMP_PORT)" "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$CAMP_PORT/")"
+  printf '%-28s %s\n' "https://$DOMAIN" "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "https://$DOMAIN/" | cut -c1-60) (302 to /oauth2 = Google sign-in; 401 = password)"
 }
 
 case "${1:-}" in
   create|server|google|password|install|camp|uninstall|link|status) "$1" ;;
-  *) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

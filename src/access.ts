@@ -30,6 +30,8 @@
 //
 //   CAMP_PROXY_NAMES=mac.tail1234.ts.net
 //
+// (or mac.tail1234.ts.net:4748 when the proxy serves this camp on a port of its own, as Tailscale
+// Serve does for every outpost but Mae: then only that name with that port is answered),
 // and need no LAN mode. Only something on this machine can deliver them, and what it delivers
 // carries the proxy's forwarding headers, so it never counts as local (see relayed below).
 //
@@ -43,15 +45,22 @@ export type Access = {
   lan: boolean;
   listen: string;     // the address the server binds
   names: string[];    // what this machine is reached by, besides 127.0.0.1 and localhost (first: the one to show)
-  proxied: string[];  // HTTPS names a proxy on this machine passes on to the camp (no port, or :443)
+  proxied: string[];  // HTTPS names a proxy on this machine passes on to the camp (no port, or :443), or name:port
 };
 
 const clean = (name: string) => name.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/[:/].*$/, "");
 const NAME = /^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/; // a host name or an IPv4 address
+// A proxy's name, keeping a port other than 443 (a port is part of where the proxy serves it).
+const proxyName = (raw: string) => {
+  const m = /^([^:/]*)(?::(\d{1,5}))?(?:\/.*)?$/.exec(raw.trim().toLowerCase().replace(/^https?:\/\//, ""));
+  if (!m || !NAME.test(m[1]) || m[1] === "localhost" || m[1] === "127.0.0.1") return "";
+  const port = Number(m[2] ?? 443);
+  return port === 443 ? m[1] : port > 0 && port < 65536 ? `${m[1]}:${port}` : "";
+};
 
 export function accessFrom(env: Env, hostname: string, interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>): Access {
   const on = /^(1|true|yes|on)$/i.test(env.CAMP_LAN?.trim() ?? "");
-  const proxied = [...new Set((env.CAMP_PROXY_NAMES ?? "").split(",").map(clean).filter((n) => NAME.test(n) && n !== "localhost" && n !== "127.0.0.1"))];
+  const proxied = [...new Set((env.CAMP_PROXY_NAMES ?? "").split(",").map(proxyName).filter(Boolean))];
   if (!on) return { lan: false, listen: "127.0.0.1", names: [], proxied };
   const listen = env.CAMP_HOST?.trim() || "0.0.0.0";
   const addresses = Object.values(interfaces).flatMap((list) => (list ?? []).filter((i) => i.family === "IPv4" && !i.internal).map((i) => i.address));

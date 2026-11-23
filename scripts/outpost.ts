@@ -4,6 +4,8 @@
 //   npm run outpost -- new Work          make one, on the next free port (--port 4800 to choose)
 //   npm run outpost -- start Work        run it, serving the last build of the page (like ui:serve)
 //   npm run outpost -- start Work --dev  run it with the page reloading as you edit (like npm run ui)
+//   npm run outpost -- where Work        name, slug, port, folder and mae|other, tab-separated
+//                                        (for scripts/relay/relay.sh and scripts/tailscale.sh)
 //
 // `npm start` (scripts/launch.ts) is the same from a page: a star chart of them all, where
 // you pick the one to enter.
@@ -124,13 +126,19 @@ async function main(args: string[]) {
     console.log(`It starts empty: its own crew, memory and settings. Start it with: npm run outpost -- start ${o.name.includes(" ") ? `"${o.name}"` : o.name}`);
     return;
   }
+  if (cmd === "where") {
+    const name = words.join(" ") || DEFAULT_NAME;
+    const o = find(name);
+    if (!o) throw new Error(`No outpost called ${name}. These are: ${outposts().map((x) => x.name).join(", ")}.`);
+    return void process.stdout.write([o.name, outpostSlug(o.name), o.port, o.dir, o.dir === ROOT ? "mae" : "other"].join("\t") + "\n");
+  }
   if (cmd === "start") {
     const name = words.join(" ") || DEFAULT_NAME;
     const o = find(name);
     if (!o) throw new Error(`No outpost called ${name}. These are: ${outposts().map((x) => x.name).join(", ")}.`);
     return start(o, rest.includes("--dev"));
   }
-  throw new Error(`Unknown: ${cmd}. Try list, new <name> or start <name> [--dev].`);
+  throw new Error(`Unknown: ${cmd}. Try list, new <name>, start <name> [--dev] or where <name>.`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
