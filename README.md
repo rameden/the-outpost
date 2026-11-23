@@ -53,7 +53,7 @@ npm run outpost -- start Work         # run it, serving the built page (like ui:
 npm run outpost -- start Work --dev   # run it with the page reloading as you edit (like npm run ui)
 ```
 
-A new outpost starts empty: connect its models and accounts from its own Settings. The crew's built-in skills are copied from this checkout and brought up to date each time an outpost starts, while skills an outpost learns stay in that outpost. 
+The header reads "Outpost" with the outpost's name under it. Rename an outpost from its Settings, General: the new name is kept in its `camp/outpost.json` and shows at once, while its folder stays where it is (`start` finds it by either name). A new outpost starts empty: connect its models and accounts from its own Settings. The crew's built-in skills are copied from this checkout and brought up to date each time an outpost starts, while skills an outpost learns stay in that outpost. 
 **From anywhere.** Two ways in, both on at once: the Lightsail relay (`scripts/relay/relay.sh`: your own small server with Caddy and Google sign-in at the door, reached through an SSH tunnel from this Mac) and Tailscale as the backup (`scripts/tailscale.sh`: tailnet only, no public address). Each keeps the camp running under launchd, and each script's header lists its steps. With no name they reach Mae, as they always have. Name an outpost after the command (or set `OUTPOST=Work`) to reach that one too:
 
 ```

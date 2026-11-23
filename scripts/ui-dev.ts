@@ -17,7 +17,7 @@ import { spawn } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type ViteDevServer } from "vite";
-import { OUTPOST, withOutpost } from "../src/outpost.ts";
+import { OUTPOST, readOutpost, withOutpost } from "../src/outpost.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -50,7 +50,7 @@ async function startVite(code: string) {
     vite = await createServer({
       configFile: join(ROOT, "ui", "vite.config.ts"),
       // The outpost's name in the page, as the camp server puts it there (src/outpost.ts).
-      plugins: [{ name: "outpost-name", transformIndexHtml: (html) => withOutpost(html) }],
+      plugins: [{ name: "outpost-name", transformIndexHtml: (html) => withOutpost(html, readOutpost().name) }],
     });
     await vite.listen();
     console.log(`🏕️  Outpost ${OUTPOST.name} is up: http://127.0.0.1:${vite.config.server.port}/#k=${code}`);

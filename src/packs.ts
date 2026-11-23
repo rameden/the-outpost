@@ -8,7 +8,7 @@
 // are kept in camp/packs.json, checked by packFrom below, and joined on after these five by
 // crew.ts, which reads and writes the file.
 
-import { OUTPOST } from "./outpost.js"; // the packs' places are named for the outpost
+import { OUTPOST } from "./outpost.js"; // the packs' places are named for the outpost (read as they're used, so a rename shows at once)
 
 export const PACK_CREW = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
 export type PackCrewId = (typeof PACK_CREW)[number];
@@ -79,7 +79,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Test Pilot", emoji: "🛸", short: ["pilot"] } },
     words: { crew: "crew", quest: "mission", quests: "missions", camp: "ship", expedition: "voyage" },
-    place: `the starship ${OUTPOST.name}`,
+    get place() { return `the starship ${OUTPOST.name}`; },
     palette: "harbor",
     orb: true,
   },
@@ -96,7 +96,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Stringer", emoji: "⚡" } },
     words: { crew: "staff", quest: "story", quests: "stories", camp: "newsroom", expedition: "assignment" },
-    place: `the ${OUTPOST.name} newsroom`,
+    get place() { return `the ${OUTPOST.name} newsroom`; },
     palette: "ochre",
     orb: true,
   },
@@ -113,7 +113,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Stunt Double", emoji: "🤸", short: ["stunt"] } },
     words: { crew: "crew", quest: "scene", quests: "scenes", camp: "studio", expedition: "shoot" },
-    place: `the ${OUTPOST.name} film studio`,
+    get place() { return `the ${OUTPOST.name} film studio`; },
     palette: "heather",
     orb: true,
   },
@@ -130,7 +130,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Tinkerer", emoji: "⚗️" } },
     words: { crew: "team", quest: "experiment", quests: "experiments", camp: "lab", expedition: "study" },
-    place: `the ${OUTPOST.name} research lab`,
+    get place() { return `the ${OUTPOST.name} research lab`; },
     palette: "moss",
     orb: true,
   },
@@ -147,7 +147,7 @@ export const PACKS: Pack[] = [
     },
     extras: { wizard: { name: "Powder Monkey", emoji: "🧨", short: ["monkey"] } },
     words: { crew: "crew", quest: "raid", quests: "raids", camp: "ship", expedition: "voyage" },
-    place: `the pirate ship ${OUTPOST.name}`,
+    get place() { return `the pirate ship ${OUTPOST.name}`; },
     palette: "harbor",
     orb: true,
   },

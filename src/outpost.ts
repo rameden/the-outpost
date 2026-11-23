@@ -15,7 +15,7 @@
 // What an outpost says about itself is in its camp/outpost.json: { "name": "Work", "port": 4748 }.
 // With no file it's Mae on 4747, so the checkout as it is needs nothing new.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -48,8 +48,26 @@ export function readOutpost(dir = process.cwd()): Outpost {
   return { name: cleanName(raw.name) || DEFAULT_NAME, port: Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_PORT };
 }
 
-// This server's outpost, read once as it starts.
+// This server's outpost, read as it starts. Renaming it (Settings, General) changes it in place, so
+// whatever reads OUTPOST.name when it needs it has the new name at once.
 export const OUTPOST: Outpost = readOutpost();
+
+// Give the outpost in this folder a new name: kept in its camp/outpost.json (with the port it has),
+// and this server's OUTPOST takes it. The folder isn't moved, so `npm run outpost -- start` finds
+// it by its folder name as well as by its new name.
+export function renameOutpost(raw: unknown, dir = process.cwd(), now: Outpost = OUTPOST): Outpost {
+  const name = cleanName(raw);
+  if (!name || !outpostSlug(name)) throw new Error("Give the outpost a name with a letter or digit in it (24 characters at most).");
+  const file = join(dir, OUTPOST_FILE);
+  let kept: Record<string, unknown> = {};
+  if (existsSync(file)) {
+    try { kept = JSON.parse(readFileSync(file, "utf8")) ?? {}; } catch { kept = {}; }
+  }
+  mkdirSync(join(dir, "camp"), { recursive: true });
+  writeFileSync(file, JSON.stringify({ ...kept, name, port: readOutpost(dir).port }, null, 2) + "\n");
+  now.name = name;
+  return now;
+}
 
 // Where outposts other than Mae live.
 export const outpostsHome = () => process.env.OUTPOSTS_DIR || join(homedir(), "Outposts");

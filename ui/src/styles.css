@@ -216,12 +216,12 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 .top { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 9px 16px 9px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand h1 { margin: 0; display: flex; align-items: center; color: var(--wordmark); }
-.mae-logo { display: block; height: 26px; width: auto; flex: none; } /* the logo (MaeLogo.tsx): the kit's mark and the name, one drawing */
-.outpost-logo { display: flex; align-items: center; gap: 8px; min-width: 0; } /* another outpost's logo (MaeLogo.tsx): the mark, then its name in type */
-.outpost-logo .mae-mark { width: 26px; height: 26px; }
-.outpost-name { font-family: var(--sans); font-weight: 700; font-size: 21px; line-height: 1; letter-spacing: -.01em; color: var(--wordmark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.outpost-logo { display: flex; align-items: center; gap: 9px; min-width: 0; } /* the logo (MaeLogo.tsx): the mark, then "Outpost" over this outpost's name */
+.outpost-logo .mae-mark { width: 28px; height: 28px; }
+.outpost-words { display: flex; flex-direction: column; min-width: 0; text-align: left; }
+.outpost-title { font-family: var(--sans); font-weight: 700; font-size: 17px; line-height: 1.05; letter-spacing: -.01em; color: var(--wordmark); }
+.outpost-sub { font-family: var(--sans); font-weight: 600; font-size: 11px; line-height: 1.2; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .logo-dot { fill: var(--logo-dot); }
-.mae-word { display: block; height: 16px; width: auto; flex: none; } /* the name, drawn (MaeWord.tsx): the logo kit's letters, as tall beside the orb as they are beside the kit's mark */
 .tour-link { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 2px 0; border-bottom: 2px solid transparent; white-space: nowrap; position: relative; top: 4px; }
 /* top: 4px sits "Tour" on the same baseline as the drawn "Mae" beside it (flex centring alone leaves it 4px high). */
 .tour-link:hover { color: var(--text); border-bottom-color: var(--accent); }
@@ -1683,9 +1683,9 @@ a.att-name { color: var(--accent); }
 /* Not signed in: one quiet card in the middle of the page */
 .sign-in { max-width: 460px; margin: 18vh auto 0; padding: 0 24px; display: grid; gap: 10px; color: var(--text); font-size: 15px; line-height: 1.5; }
 .sign-in h1 { margin: 0 0 10px; color: var(--wordmark); }
-.sign-in .mae-word { height: 26px; }
-.sign-in .outpost-name { font-size: 30px; }
-.sign-in .tag { margin: -12px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); } /* the tag, close under the name */
+.sign-in h1 { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sign-in .outpost-title { font-size: 30px; }
+.sign-in .outpost-sub { font-size: 12px; }
 .sign-in .mae-orb { --orb: 72px; margin: 0 0 14px 6px; }
 .sign-in p { margin: 0; }
 .sign-in kbd { font: 600 12px var(--mono); padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; }
@@ -1781,9 +1781,9 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   /* The header is one row: the name, what the camp is doing (it scrolls sideways, what needs you
      first), and the switches that still mean something when the zones are stacked. */
   .top { padding: 8px 12px; gap: 10px; flex-wrap: nowrap; }
-  .mae-logo { height: 23px; }
-  .outpost-logo .mae-mark { width: 23px; height: 23px; }
-  .outpost-name { font-size: 18px; }
+  .outpost-logo .mae-mark { width: 24px; height: 24px; }
+  .outpost-title { font-size: 15px; }
+  .outpost-sub { font-size: 10px; }
   .tour-link, .wide-only { display: none; }
   .top-right { flex: 1; gap: 6px; }
   .top-chips { flex: 1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }

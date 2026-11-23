@@ -8,5 +8,9 @@ export function outpostName(doc: Document = document): string {
   return doc.querySelector('meta[name="outpost"]')?.getAttribute("content")?.trim() || DEFAULT_OUTPOST;
 }
 
-// Mae's name is drawn (the logo kit's letters); any other outpost's is set in type.
-export const isMae = (name: string) => name === DEFAULT_OUTPOST;
+// After the outpost is renamed (Settings, General), the page carries the new name from then on.
+export function setOutpostName(name: string, doc: Document = document) {
+  let meta = doc.querySelector('meta[name="outpost"]');
+  if (!meta) { meta = doc.createElement("meta"); meta.setAttribute("name", "outpost"); doc.head.append(meta); }
+  if (meta.getAttribute("content") !== name) meta.setAttribute("content", name);
+}
