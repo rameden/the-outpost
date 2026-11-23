@@ -293,8 +293,9 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
 // the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
 tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'TRAIL MAP', { 'text-anchor': 'end' });

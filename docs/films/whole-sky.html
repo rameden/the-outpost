@@ -499,7 +499,8 @@ const gLock = el('g', { transform: `translate(${f2(LOCK.x)} ${f2(LOCK.y)}) scale
 const gMark = el('g', {}, gLock);
 el('path', { class: 'logo-f', d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z' }, gMark);
 el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, gMark);
-el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, gMark);
+el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, gMark);
+el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, gMark);   // an outpost, in a gap in the outer ring
 // the app's name beside the mark, set a little smaller than the kit's letters were so mark and name fit the stage: an outline first, then filled
 const word = cls => { const n = el('text', { class: 'b ' + cls, x: 247, y: 142, 'font-size': 120, 'font-weight': 700 }, gLock); n.textContent = 'Outpost'; return n; };
 const letters = word('logo-s'); letters.setAttribute('stroke-width', 1.3);
@@ -584,8 +585,9 @@ const smallMark = parent => {
   const g = el('g', {}, parent);
   el('path', { class: 'logo-f', d: MARK_D }, g);
   el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, g);
-  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, g);
   el('circle', { class: 'dot-f', cx: 100, cy: 100, r: 20 }, g);
+  el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, g);
   return g;
 };
 const TILE = { w: 250, h: 300, y: 168, xs: [215, 515, 815] };

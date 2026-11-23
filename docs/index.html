@@ -8,7 +8,7 @@
 <!-- The outpost's name: the camp server fills in its own as it serves the Tour (src/outpost.ts). -->
 <meta name="outpost" content="Mae">
 <meta name="description" content="Outpost: a small, hackable multi-agent harness on Claude. A Quartermaster plans, you approve, and a crew of specialists does the work.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314233F'/%3E%3Cg transform='translate(9 9) scale(0.23)'%3E%3Cpath fill='%23F3EDE0' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg fill='none' stroke='%23F3EDE0' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle cx='100' cy='100' r='20' fill='%23D9982B'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314233F'/%3E%3Cg transform='translate(9 9) scale(0.23)'%3E%3Cpath fill='%23F3EDE0' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg fill='none' stroke='%23F3EDE0' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle cx='100' cy='100' r='20' fill='%23D9982B'/%3E%3Ccircle cx='160.81' cy='39.19' r='13' fill='%23D9982B'/%3E%3C/g%3E%3C/svg%3E">
 <script>
 // The tour wears the look you picked in mission control. The camp serves this page at its own
 // address, so the two choices kept there are readable here: "camp-theme" (light, dark, or
@@ -645,7 +645,7 @@ footer .outpost-sub { font-size: 10px; }
 
 <!-- The logo kit's artwork (docs/brand): the wordmark's letters, and the small mark. Drawn where they're used, in the kit's ink for the theme. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="mae-mark" viewBox="0 0 200 200"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z"/><g fill="none" stroke="currentColor" stroke-width="8"><path d="M100 48 A52 52 0 0 1 100 152"/><path d="M100 14 A86 86 0 0 1 100 186"/></g><circle class="logo-dot" cx="100" cy="100" r="20"/></symbol>
+  <symbol id="mae-mark" viewBox="0 0 200 200"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z"/><g fill="none" stroke="currentColor" stroke-width="8"><path d="M100 48 A52 52 0 0 1 100 152"/><path d="M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186"/></g><circle class="logo-dot" cx="100" cy="100" r="20"/><circle class="logo-dot" cx="160.81" cy="39.19" r="13"/></symbol>
 </svg>
 
 <!-- The sky: the page opens on the camp's own picture of the work, a sun with the crew round it, in
@@ -2003,7 +2003,7 @@ const starAt = (p, e5, zs) => {
 // the app's name beside the mark, in the kit's coordinates: in the corner its capitals stand as tall as the kit's letters did, and on the last card it is set smaller, so mark and name fit the stage
 function wordmark(size, base) { setFont('b', size, 700); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('Outpost', 247, base); }
 const SMALL_SOLID = new Path2D('M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z');
-const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 100 186');
+const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186');
 
 // ---- words ----
 const ASK = 'Fix the flaky sign-in test';
@@ -2504,7 +2504,15 @@ function mark(t) {
     ARCS.forEach((q, n) => {
       const p = outCubic(prog(t, T.mark + 3.6 + n * .22, T.mark + 5.1 + n * .22));
       if (p <= 0) return;
-      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath(); ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p); ctx.stroke();
+      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath();
+      if (n) ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p);
+      else {   // the outer ring leaves a gap, and an outpost sits in it
+        ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * Math.min(p, .2));
+        if (p > .3) { ctx.moveTo(q * Math.cos(-PI * .2), q * Math.sin(-PI * .2)); ctx.arc(0, 0, q, -PI * .2, -PI / 2 + PI * p); }
+      }
+      ctx.stroke();
+      const op = n ? 0 : outBack(prog(p, .25, .5));
+      if (op > 0) { ctx.fillStyle = col('dot'); disc(q * Math.SQRT1_2, -q * Math.SQRT1_2, 9 * op); }
     });
     ctx.restore();
   }
@@ -2530,7 +2538,7 @@ function mark(t) {
       label(s, pts[2][0] + (align === 'right' ? -7 : 7), pts[2][1] + 4, { align, sp: 1.7, fill: col('muted') });
     };
     lead([[fx - 95, fy - 34.5], [fx - 150, fy - 72], [fx - 176, fy - 72]], 'GROUND', 'right');
-    lead([[fx + 90.6, fy - 70.8], [fx + 124, fy - 104], [fx + 150, fy - 104]], 'SKY', 'left');
+    lead([[fx + 109.4, fy - 35.5], [fx + 150, fy - 72], [fx + 176, fy - 72]], 'SKY', 'left');   // from further round the ring than the outpost, so it isn't the outpost it names
   }
   // the line, and the roll call
   const ta = smooth(prog(t, T.mark + 6.3, T.mark + 7.2)) * card;
@@ -2625,7 +2633,7 @@ function hud(t) {
   if (ca > 0) {
     ctx.save(); ctx.translate(56, 36); ctx.scale(.19, .19); ctx.globalAlpha = ca;
     ctx.fillStyle = col('ink'); ctx.fill(SMALL_SOLID); ctx.strokeStyle = col('ink'); ctx.lineWidth = 8; ctx.stroke(SMALL_ARCS);
-    ctx.fillStyle = col('dot'); disc(100, 100, 20); ctx.fillStyle = col('ink'); wordmark(158, 156); ctx.restore();
+    ctx.fillStyle = col('dot'); disc(100, 100, 20); disc(160.81, 39.19, 13); ctx.fillStyle = col('ink'); wordmark(158, 156); ctx.restore();
   }
   setFont('m', 12, 500); ctx.globalAlpha = 1; label('GROUND TO SKY', 1226, 61, { align: 'right', sp: 1.7, fill: col('faint'), halo: 4 });
   // the altimeter: how high the camera has climbed, on a scale that runs from metres to light years
@@ -3037,7 +3045,8 @@ const gLock = el('g', { transform: `translate(${f2(LOCK.x)} ${f2(LOCK.y)}) scale
 const gMark = el('g', {}, gLock);
 el('path', { class: 'logo-f', d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z' }, gMark);
 el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, gMark);
-el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, gMark);
+el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, gMark);
+el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, gMark);   // an outpost, in a gap in the outer ring
 // the app's name beside the mark, set a little smaller than the kit's letters were so mark and name fit the stage: an outline first, then filled
 const word = cls => { const n = el('text', { class: 'b ' + cls, x: 247, y: 142, 'font-size': 120, 'font-weight': 700 }, gLock); n.textContent = 'Outpost'; return n; };
 const letters = word('logo-s'); letters.setAttribute('stroke-width', 1.3);
@@ -3122,8 +3131,9 @@ const smallMark = parent => {
   const g = el('g', {}, parent);
   el('path', { class: 'logo-f', d: MARK_D }, g);
   el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, g);
-  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 100 186' }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, g);
   el('circle', { class: 'dot-f', cx: 100, cy: 100, r: 20 }, g);
+  el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, g);
   return g;
 };
 const TILE = { w: 250, h: 300, y: 168, xs: [215, 515, 815] };
@@ -3611,23 +3621,25 @@ CREW.forEach(c => {
 const RING_ART = [
   ['M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z', ['M100 60 A40 40 0 0 1 100 140']],
   ['M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z', ['M100 36 A64 64 0 0 1 100 164']],
-  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 100 188.5']],
+  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 151.73 28.81 M171.19 48.27 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5'], [162.4, 37.6, 9]],
 ];
 function makeMark(parent) {
   const g = el('g', null, parent);
   const halo = el('circle', { cx: 100, cy: 100, r: 46, fill: 'url(#dotGlow)' }, g);
   const ripple = el('circle', { cx: 100, cy: 100, class: 'mk-ripple' }, g);
   const full = el('g', null, g);
-  const rings = RING_ART.map(([solid, arcs]) => {
+  const rings = RING_ART.map(([solid, arcs, post]) => {
     const r = el('g', null, full);
     el('path', { d: solid, class: 'mk-solid' }, r);
     arcs.forEach((d, i) => el('path', { d, class: 'mk-arc' + (arcs.length > 1 ? (i ? ' on-dark' : ' on-light') : '') }, r));
+    if (post) el('circle', { cx: post[0], cy: post[1], r: post[2], class: 'mk-dot' }, r);   // an outpost, in a gap in the outer ring
     return r;
   });
   const small = el('g', null, g);
   el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, small);
   el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, small);
-  el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, small);
   const dotG = el('g', null, g);
   return { g, halo, ripple, full, rings, small, dotG, dot: el('circle', { class: 'mk-dot' }, dotG) };
 }
@@ -4391,23 +4403,25 @@ CREW.forEach(c => {
 const RING_ART = [
   ['M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z', ['M100 60 A40 40 0 0 1 100 140']],
   ['M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z', ['M100 36 A64 64 0 0 1 100 164']],
-  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 100 188.5']],
+  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 151.73 28.81 M171.19 48.27 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5'], [162.4, 37.6, 9]],
 ];
 function makeMark(parent) {
   const g = el('g', null, parent);
   const halo = el('circle', { cx: 100, cy: 100, r: 46, fill: 'url(#dotGlow)' }, g);
   const ripple = el('circle', { cx: 100, cy: 100, class: 'mk-ripple' }, g);
   const full = el('g', null, g);
-  const rings = RING_ART.map(([solid, arcs]) => {
+  const rings = RING_ART.map(([solid, arcs, post]) => {
     const r = el('g', null, full);
     el('path', { d: solid, class: 'mk-solid' }, r);
     arcs.forEach((d, i) => el('path', { d, class: 'mk-arc' + (arcs.length > 1 ? (i ? ' on-dark' : ' on-light') : '') }, r));
+    if (post) el('circle', { cx: post[0], cy: post[1], r: post[2], class: 'mk-dot' }, r);   // an outpost, in a gap in the outer ring
     return r;
   });
   const small = el('g', null, g);
   el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, small);
   el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, small);
-  el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, small);
   const dotG = el('g', null, g);
   return { g, halo, ripple, full, rings, small, dotG, dot: el('circle', { class: 'mk-dot' }, dotG) };
 }
@@ -5113,8 +5127,9 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
 // the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
 tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'TRAIL MAP', { 'text-anchor': 'end' });
@@ -5537,8 +5552,9 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
 // the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
 tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'CONSTELLATION', { 'text-anchor': 'end' });
@@ -5942,8 +5958,9 @@ const defs = svg.querySelector('defs');
 const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
 el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
 el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
 el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
 // the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
 tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
 tx(svg, 1216, 61, 'm scene-l', 'NIGHT SHIFT', { 'text-anchor': 'end' });

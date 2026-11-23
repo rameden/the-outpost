@@ -365,23 +365,25 @@ CREW.forEach(c => {
 const RING_ART = [
   ['M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z', ['M100 60 A40 40 0 0 1 100 140']],
   ['M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z', ['M100 36 A64 64 0 0 1 100 164']],
-  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 100 188.5']],
+  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 151.73 28.81 M171.19 48.27 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5'], [162.4, 37.6, 9]],
 ];
 function makeMark(parent) {
   const g = el('g', null, parent);
   const halo = el('circle', { cx: 100, cy: 100, r: 46, fill: 'url(#dotGlow)' }, g);
   const ripple = el('circle', { cx: 100, cy: 100, class: 'mk-ripple' }, g);
   const full = el('g', null, g);
-  const rings = RING_ART.map(([solid, arcs]) => {
+  const rings = RING_ART.map(([solid, arcs, post]) => {
     const r = el('g', null, full);
     el('path', { d: solid, class: 'mk-solid' }, r);
     arcs.forEach((d, i) => el('path', { d, class: 'mk-arc' + (arcs.length > 1 ? (i ? ' on-dark' : ' on-light') : '') }, r));
+    if (post) el('circle', { cx: post[0], cy: post[1], r: post[2], class: 'mk-dot' }, r);   // an outpost, in a gap in the outer ring
     return r;
   });
   const small = el('g', null, g);
   el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, small);
   el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, small);
-  el('path', { d: 'M100 14 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, small);
   const dotG = el('g', null, g);
   return { g, halo, ripple, full, rings, small, dotG, dot: el('circle', { class: 'mk-dot' }, dotG) };
 }

@@ -285,7 +285,7 @@ const starAt = (p, e5, zs) => {
 // the app's name beside the mark, in the kit's coordinates: in the corner its capitals stand as tall as the kit's letters did, and on the last card it is set smaller, so mark and name fit the stage
 function wordmark(size, base) { setFont('b', size, 700); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('Outpost', 247, base); }
 const SMALL_SOLID = new Path2D('M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z');
-const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 100 186');
+const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186');
 
 // ---- words ----
 const ASK = 'Fix the flaky sign-in test';
@@ -786,7 +786,15 @@ function mark(t) {
     ARCS.forEach((q, n) => {
       const p = outCubic(prog(t, T.mark + 3.6 + n * .22, T.mark + 5.1 + n * .22));
       if (p <= 0) return;
-      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath(); ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p); ctx.stroke();
+      ctx.globalAlpha = A0 * smooth(prog(p, 0, .3)); ctx.beginPath();
+      if (n) ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * p);
+      else {   // the outer ring leaves a gap, and an outpost sits in it
+        ctx.arc(0, 0, q, -PI / 2, -PI / 2 + PI * Math.min(p, .2));
+        if (p > .3) { ctx.moveTo(q * Math.cos(-PI * .2), q * Math.sin(-PI * .2)); ctx.arc(0, 0, q, -PI * .2, -PI / 2 + PI * p); }
+      }
+      ctx.stroke();
+      const op = n ? 0 : outBack(prog(p, .25, .5));
+      if (op > 0) { ctx.fillStyle = col('dot'); disc(q * Math.SQRT1_2, -q * Math.SQRT1_2, 9 * op); }
     });
     ctx.restore();
   }
@@ -812,7 +820,7 @@ function mark(t) {
       label(s, pts[2][0] + (align === 'right' ? -7 : 7), pts[2][1] + 4, { align, sp: 1.7, fill: col('muted') });
     };
     lead([[fx - 95, fy - 34.5], [fx - 150, fy - 72], [fx - 176, fy - 72]], 'GROUND', 'right');
-    lead([[fx + 90.6, fy - 70.8], [fx + 124, fy - 104], [fx + 150, fy - 104]], 'SKY', 'left');
+    lead([[fx + 109.4, fy - 35.5], [fx + 150, fy - 72], [fx + 176, fy - 72]], 'SKY', 'left');   // from further round the ring than the outpost, so it isn't the outpost it names
   }
   // the line, and the roll call
   const ta = smooth(prog(t, T.mark + 6.3, T.mark + 7.2)) * card;
@@ -907,7 +915,7 @@ function hud(t) {
   if (ca > 0) {
     ctx.save(); ctx.translate(56, 36); ctx.scale(.19, .19); ctx.globalAlpha = ca;
     ctx.fillStyle = col('ink'); ctx.fill(SMALL_SOLID); ctx.strokeStyle = col('ink'); ctx.lineWidth = 8; ctx.stroke(SMALL_ARCS);
-    ctx.fillStyle = col('dot'); disc(100, 100, 20); ctx.fillStyle = col('ink'); wordmark(158, 156); ctx.restore();
+    ctx.fillStyle = col('dot'); disc(100, 100, 20); disc(160.81, 39.19, 13); ctx.fillStyle = col('ink'); wordmark(158, 156); ctx.restore();
   }
   setFont('m', 12, 500); ctx.globalAlpha = 1; label('GROUND TO SKY', 1226, 61, { align: 'right', sp: 1.7, fill: col('faint'), halo: 4 });
   // the altimeter: how high the camera has climbed, on a scale that runs from metres to light years
