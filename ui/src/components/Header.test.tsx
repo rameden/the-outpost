@@ -237,9 +237,11 @@ test("the connection only shows when it's lost or not made yet", () => {
   expect(screen.getByText("Connecting…")).toBeTruthy();
 });
 
-test("a Tour link beside the name opens the splash page in a new tab", () => {
+test("Tour, in the ··· menu, opens the splash page in a new tab", () => {
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
-  const link = screen.getByRole("link", { name: "Tour" });
+  expect(screen.queryByRole("link")).toBeNull(); // nothing beside the name
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  const link = screen.getByRole("menuitem", { name: "Tour" });
   expect(link.getAttribute("href")).toBe("/splash");
   expect(link.getAttribute("target")).toBe("_blank");
   expect(link.getAttribute("rel")).toContain("noopener");
@@ -315,8 +317,10 @@ test("what's being read aloud has its controls in the bar, just before the statu
 test("an outpost the star chart started links back to it, from this machine only", () => {
   const S = { ...camp(), settings: { ...camp().settings, chart: "http://127.0.0.1:4700/" } } as CampState;
   const { unmount } = render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
-  expect(screen.getByRole("link", { name: "Outposts" }).getAttribute("href")).toBe("http://127.0.0.1:4700/");
+  fireEvent.click(screen.getByRole("button", { name: "More" })); // it's in the ··· menu
+  expect(screen.getByRole("menuitem", { name: "Outposts" }).getAttribute("href")).toBe("http://127.0.0.1:4700/");
   unmount();
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
-  expect(screen.queryByRole("link", { name: "Outposts" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  expect(screen.queryByRole("menuitem", { name: "Outposts" })).toBeNull();
 });
