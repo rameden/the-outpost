@@ -17,7 +17,7 @@
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
   --accent: #9e5c0c; --accent-ink: #fffaf2;
   --good: #397034; --good-soft: #e1eedb; --bad: #a94630; --bad-soft: #f5dfd8;
-  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-pilot: #9b4ea3;
   --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a; --night-good: #93c47d;
   --shade: rgba(60, 40, 20, .13);
   --logo-ink: #14233F; --logo-dot: #B97A12; --logo-stroke: 4; --on-light: 1; --on-dark: 0;
@@ -31,7 +31,7 @@
     --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
     --accent: #f0a640; --accent-ink: #1b1308;
     --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
-    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #d79be0;
     --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
     --shade: rgba(0, 0, 0, .5);
   --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
@@ -43,7 +43,7 @@
   --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
   --accent: #f0a640; --accent-ink: #1b1308;
   --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a;
-  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #d79be0;
   --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520; --night-good: #93c47d;
   --shade: rgba(0, 0, 0, .5);
   --logo-ink: #F3EDE0; --logo-dot: #D9982B; --logo-stroke: 3; --on-light: 0; --on-dark: 1;
@@ -69,7 +69,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 .f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); }
 .f-accent { fill: var(--accent); } .f-ink { fill: var(--ink); } .f-accent-ink { fill: var(--accent-ink); } .f-tone { fill: var(--tone); }
 .f-good { fill: var(--good); } .f-bad { fill: var(--bad); }
-.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
+.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-pilot { --tone: var(--c-pilot); } .c-you { --tone: var(--muted); }
 .bgfill { fill: var(--bg); }
 .contour { fill: none; stroke: var(--border-strong); stroke-width: 1.2; opacity: .5; vector-effect: non-scaling-stroke; }
 .contour.lit { stroke: var(--accent); stroke-width: 1.8; opacity: 0; }
@@ -188,7 +188,7 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
     <input type="range" id="scrub" min="0" max="63.9" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 1:03</output>
   </div>
-  <p class="note">Three example findings from a SOC 2 Type I and ISO 27001 readiness review, as they are in the Outpost demo (<code>npm run demo</code>). The first goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+  <p class="note">Three example findings from a SOC 2 Type I and ISO 27001 readiness review. The first goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
 </main>
 
 <script>
@@ -254,7 +254,7 @@ function chip(parent, x, cy, s) {
 // ---- the system: the sun is the Commander, the planets are the crew, and the camera moves between them ----
 const FIN = 57.3;                                    // when the system folds back into the logo
 const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
-const SLOT = [496, 568, 640, 712, 784], ROWY = 526;
+const SLOT = [460, 532, 604, 676, 748, 820], ROWY = 526;
 const TITLE_ORB = [446.5, 295, 111.6], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120];
 const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring radii, and the orbits they open into
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
@@ -268,6 +268,8 @@ const CREW = [
 const QM = { key: 'qm', name: 'Commander', sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
+// The Test Pilot has no quest on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
+const PILOT = { key: 'pilot', name: 'Test Pilot', slot: 5, i: 4, R: 292 };
 // after the first finding, the next two go round the crew quickly: T is when a finding's tag leaves the list
 const LAPS = [48.2, 51.7].map(T => ({ T }));
 const lapOut = (L, j) => L.T + .7 + .3 * j, lapBack = (L, j) => L.T + 1.8 + .3 * j;   // a quest leaves the sun; its report sets off home
@@ -298,7 +300,8 @@ const expand = (t, j) => seg(t, 1.5 + .1 * (3 - j), 2.5 + .1 * (3 - j)) * (1 - s
 const expandAll = t => seg(t, 1.5, 2.7) * (1 - seg(t, FIN, FIN + 1));
 const baseD = t => lerp(lerp(TITLE_ORB[2], BEAT_ORB[2], seg(t, FIN, FIN + 1)), TITLE_ORB[2], seg(t, FIN + 2.3, FIN + 3.1));
 const orbR = (t, j) => lerp(KR[j] * baseD(t) / 180, ORB[j], expand(t, j));
-const worldPos = (c, t) => { const a = angleOf(c, t), r = orbR(t, c.i); return [r * Math.cos(a), r * Math.sin(a)]; };
+const pilotR = t => lerp(KR[3] * baseD(t) / 180, PILOT.R, expand(t, 3));
+const worldPos = (c, t) => { const a = c === PILOT ? (150 + 60 * wt(t) / wt(DUR)) * PI / 180 : angleOf(c, t), r = c === PILOT ? pilotR(t) : orbR(t, c.i); return [r * Math.cos(a), r * Math.sin(a)]; };
 // where the sun sits on the stage in a wide view: in the logo, then the middle, then the name beat, then the logo again
 function sunAt(t) {
   const k = seg(t, 1.5, 2.6), f = seg(t, FIN, FIN + 1), m2 = seg(t, FIN + 2.3, FIN + 3.1);
@@ -327,10 +330,11 @@ const GLYPH = {
   scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
   art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
   warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
   you: g => { el('circle', { cx: 12, cy: 8.6, r: 3.8 }, g); el('path', { d: 'M5 20 C5 14.4 19 14.4 19 20' }, g); },
 };
 const defs = svg.querySelector('defs');
-CREW.forEach(c => {
+[...CREW, PILOT].forEach(c => {
   const g = el('radialGradient', { id: 'halo-' + c.key, class: 'c-' + c.key }, defs);
   el('stop', { offset: '.5', style: 'stop-color: var(--tone); stop-opacity: .4' }, g);
   el('stop', { offset: '1', style: 'stop-color: var(--tone); stop-opacity: 0' }, g);
@@ -366,6 +370,7 @@ CREW.forEach(c => {
   c.orbit = el('circle', { class: 'sorbit' }, gWorld);
   c.orbitTone = el('circle', { class: 'sorbit tone c-' + c.key }, gWorld);
 });
+PILOT.orbit = el('circle', { class: 'sorbit' }, gWorld);
 CREW.forEach(c => {
   c.trail = [1, .62, .3].map(k => ({ k, n: el('path', { class: 'ptrail c-' + c.key }, gWorld) }));
   c.comet = Array.from({ length: 7 }, (_, j) => el('circle', { r: (7 - j * .8).toFixed(1), class: 'comet c-' + c.key }, gWorld));
@@ -478,6 +483,8 @@ CREW.forEach(c => {
   el('path', { d: 'M-3.8 .3 L-1 3 L4 -2.9', class: 'ok-check' }, c.checkIn);
   c.label = tx(svg, 0, 0, 'm camp-l', c.name.toUpperCase(), { 'text-anchor': 'middle' });
 });
+PILOT.tok = badge('pilot', null, true); PILOT.halo = PILOT.tok.firstChild;
+PILOT.label = tx(svg, 0, 0, 'm camp-l', 'TEST PILOT', { 'text-anchor': 'middle' });
 const qm = badge('qm');
 const sunL = tx(svg, 0, 0, 'm camp-l', 'COMMANDER', { 'text-anchor': 'middle' });
 const gBody = el('g');                                         // who you are looking at, under the close-up
@@ -551,7 +558,7 @@ tx(tkWhere, 352, 432, 'b t15 f-text', 'Ledgerline, in a new worktree');
 tx(tkWhere, 572, 432, 'm code f-muted', BRANCH);
 const tkWho = el('g', null, gTk);
 tx(tkWho, 282, 460, 'm lbl', 'WHO');
-tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander, with the Security Chief reviewing at the end');
+tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander · the Security Chief reviews the changes before it reports');
 tx(gTk, 282, 537, 'm lbl', 'TICKET  ·  DETAILS  ·  WHERE  ·  WHO  ·  START');
 const tkBtnG = el('g', null, gTk);
 const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
@@ -576,8 +583,8 @@ const ROWS = [
   return g;
 });
 const planBtnG = el('g', null, gPlan);
-const planBtn = button(planBtnG, 422, 518, 124, 'Approve plan');
-const planAlt = button(planBtnG, 567, 518, 146, 'Request changes', 'ghost');
+const planBtn = button(planBtnG, 438, 518, 156, 'Approve and start');
+const planAlt = button(planBtnG, 599, 518, 146, 'Request changes', 'ghost');
 
 // ---- close on a planet: one panel, that crew member's work in it ----
 const gPanel = el('g', { class: 'shadow' });
@@ -682,10 +689,10 @@ const sbChip = chip(gSb, 494, 556, 'Pull request #1 is open');
 const gWd = phaseG('warden');
 const wdSt = head(gWd, 'Security Chief', 'reviewing pull request #1', 'working');
 tx(gWd, 494, 302, 'b t16 f-text', 'I read the diff and the code around it, and I think this is good to');
-tx(gWd, 494, 326, 'b t16 f-text', 'merge. I found nothing that needs fixing.');
+tx(gWd, 494, 326, 'b t16 f-text', 'merge. Nothing has to be fixed first. Two small things to know:');
 const wdFind = [
-  ['CHECKED', 'test/access.test.js', 'Only the two LED-105 markers were removed. No expectations changed.'],
-  ['BE AWARE', 'src/access.js', 'Accounts with no role are now locked out of reads too. Check none rely on it.'],
+  ['SMALL', 'test/access.test.js', 'Only the two LED-105 markers were removed. No expectations changed.'],
+  ['SMALL', 'src/access.js', 'Accounts with no role are now locked out of reads too. Check none rely on it.'],
 ].map(([sev, where, s], i) => {
   const y = 346 + i * 74, g = el('g', null, gWd), w = sev.length * 7.6 + 20;
   el('rect', { x: 494, y, width: 682, height: 64, rx: 8, class: 'inset' }, g);
@@ -710,7 +717,7 @@ el('tspan', { class: 'f-accent' }, tag, 'have a crew.');
 el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'p' }, cmd, '$ ');
-el('tspan', null, cmd, 'npm run demo');
+el('tspan', null, cmd, 'npm start');
 // the app's name beside the mark, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
 const gW = el('g');
 tx(gW, 247, 156, 'b wm-word', 'Outpost');
@@ -727,7 +734,7 @@ function drawLogo(t, d, vis) {
   TR(logo.dotG, 100, 100, 1 + .06 * (.5 - .5 * Math.cos(2 * PI * 20 * warp(t))));
 }
 // a badge's place on the ring round the logo once the work is done: they even out and swing round it
-const EVEN = [-100, -28, 44, 116, 188];
+const EVEN = [-100, -40, 20, 80, 140, 200];
 function ringAt(idx, t) {
   const cp = sunAt(t), R = baseD(t) / 2 + 40, a = (EVEN[idx] + 450 * ease.io(clamp((t - FIN) / 3.4))) * PI / 180;
   return [cp[0] + R * Math.cos(a), cp[1] + R * Math.sin(a)];
@@ -770,7 +777,7 @@ const CLICKS = [
 function qmState(t, c0) {
   if (t < 3) { const k = seg(t, 1.5, 2.2); return { x: lerp(SLOT[0], c0[0], k), y: lerp(ROWY, c0[1], k), s: 1 - ease.in(clamp((t - 1.7) / .5)), o: 1 - seg(t, 2.0, 2.2) }; }
   if (t < FIN) return { x: c0[0], y: c0[1], s: 0, o: 0 };
-  const out = seg(t, FIN + .1, FIN + .9), q = ringAt(4, t), e = seg(t, FIN + 2.6, FIN + 3.4);
+  const out = seg(t, FIN + .1, FIN + .9), q = ringAt(5, t), e = seg(t, FIN + 2.6, FIN + 3.4);
   return { x: lerp(lerp(c0[0], q[0], out), SLOT[0], e), y: lerp(lerp(c0[1], q[1], out), ROWY, e), s: seg(t, FIN + .1, FIN + .65, ease.back), o: seg(t, FIN + .1, FIN + .3) * 3 };
 }
 // a planet: from the row to its orbit, then wherever the camera sees it, then the ring round the logo and back to the row
@@ -801,6 +808,7 @@ function render(t) {
     O(n, o);
   });
 
+  PILOT.orbit.setAttribute('r', pilotR(t).toFixed(2)); O(PILOT.orbit, clamp((expand(t, 3) - .1) / .4) * .85);
   // orbits, the planets' tails, quests going out and reports coming home
   const speed = 1 - .94 * anyFocus(t);
   CREW.forEach((c, j) => {
@@ -969,6 +977,9 @@ function render(t) {
     c.label.setAttribute('x', s.x.toFixed(1)); c.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1));
     O(c.label, inSys * wide);
   });
+  { const s = tokState(PILOT, t, cam);
+    TR(PILOT.tok, s.x, s.y, s.s); PILOT.tok.style.setProperty('--sw', (2 / s.s).toFixed(3)); O(PILOT.halo, inSys * .6);
+    PILOT.label.setAttribute('x', s.x.toFixed(1)); PILOT.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1)); O(PILOT.label, inSys * wide); }
   sunL.setAttribute('x', c0[0].toFixed(1)); sunL.setAttribute('y', (c0[1] + RS * z + 23).toFixed(1));
   O(sunL, inSys * wide);
   const q = qmState(t, c0); TR(qm, q.x, q.y, q.s); O(qm, q.o);

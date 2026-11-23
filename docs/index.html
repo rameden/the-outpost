@@ -905,7 +905,7 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="film" id="film-audit" role="tabpanel" aria-labelledby="film-tab-audit" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">Three findings from a SOC 2 Type I and ISO 27001 readiness review, as they are in the demo (<code>npm run demo</code>). The first goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops. Click the stage to pause.</p>
+      <p class="film-note">Three findings from a SOC 2 Type I and ISO 27001 readiness review. The first goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops. Click the stage to pause.</p>
     </div>
   </div>
 </section>
@@ -948,8 +948,8 @@ footer .outpost-sub { font-size: 10px; }
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow">Videos</div>
-      <h2>Three newer parts of the outpost, in motion.</h2>
-      <p class="lede">Three more short films, drawn live in this page. Each shows one newer part of the outpost: the trail map, the constellation and the night shift.</p>
+      <h2>Three parts of the outpost, in motion.</h2>
+      <p class="lede">Three more short films, drawn live in this page. Each shows one part of the outpost: the trail map, the constellation and the night shift.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Videos">
       <button type="button" role="tab" id="film-tab-trail" aria-controls="film-trail" aria-selected="true" data-film="trail">The trail map <span>0:36</span></button>
@@ -1425,7 +1425,7 @@ footer .outpost-sub { font-size: 10px; }
 <template id="film-css"><style>
 :host { display: grid; gap: 14px; }
 * { box-sizing: border-box; }
-.stage { aspect-ratio: 16 / 9; max-width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: var(--shadow); }
+.stage { aspect-ratio: 16 / 9; max-width: 100%; background: var(--bg); overflow: hidden; cursor: pointer; }
 .stage svg { display: block; width: 100%; height: 100%; }
 .controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .controls button { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 14px; cursor: pointer; min-width: 68px; }
@@ -1440,7 +1440,7 @@ footer .outpost-sub { font-size: 10px; }
 .f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); }
 .f-accent { fill: var(--accent); } .f-ink { fill: var(--ink); } .f-accent-ink { fill: var(--accent-ink); } .f-tone { fill: var(--tone); }
 .f-good { fill: var(--good); } .f-bad { fill: var(--bad); }
-.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
+.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-pilot { --tone: var(--c-pilot); } .c-you { --tone: var(--muted); }
 .bgfill { fill: var(--bg); }
 .contour { fill: none; stroke: var(--border-strong); stroke-width: 1.2; opacity: .5; vector-effect: non-scaling-stroke; }
 .contour.lit { stroke: var(--accent); stroke-width: 1.8; opacity: 0; }
@@ -1530,6 +1530,7 @@ footer .outpost-sub { font-size: 10px; }
 .ok-disc { fill: var(--good); }
 .ok-check { fill: none; stroke: var(--surface); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .pointer { fill: var(--ink); stroke: var(--surface); stroke-width: 1.3; stroke-linejoin: round; }
+.stage canvas { -webkit-mask-image: linear-gradient(90deg, transparent, #000 3.5%, #000 96.5%, transparent), linear-gradient(transparent, #000 6%, #000 94%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent, #000 3.5%, #000 96.5%, transparent), linear-gradient(transparent, #000 6%, #000 94%, transparent); mask-composite: intersect; }
 </style></template>
 <template id="film-sky-css"><style>
 .stage canvas { display: block; width: 100%; height: 100%; }
@@ -1581,7 +1582,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </style></template>
 <template id="film-whole-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, planets going round a sun, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail, and you approve the push from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
@@ -1642,6 +1643,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
   </div>
 </template>
 <template id="film-trail-css"><style>
+.c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
 .name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 /* The trail map: waypoints and the lines between them, then the rings and the tree. A step that's out, and a view that's on, has a solid accent border. */
 .t12 { font-size: 12px; }
@@ -1960,6 +1962,7 @@ const CL = [
   { key: 'scribe', name: 'Comms Officer', x: -74, y: -190, n: 19, sp: 66, lines: 28 },
   { key: 'art', name: 'Engineer', x: 250, y: -150, n: 25, sp: 80, lines: 36 },
   { key: 'warden', name: 'Security Chief', x: 300, y: 172, n: 16, sp: 62, lines: 17 },
+  { key: 'pilot', name: 'Test Pilot', x: -300, y: 96, n: 14, sp: 44, lines: 9 },
 ];
 const STARS = [];
 CL.forEach((c, ci) => {
@@ -1983,7 +1986,7 @@ let from = 0; for (const c of CL) { c.all = STARS.slice(from, from + c.n); from 
 const nearest = (list, x, y) => list.reduce((m, s) => Math.hypot(s.x - x, s.y - y) < Math.hypot(m.x - x, m.y - y) ? s : m);
 const SYN = [];
 const synapse = (a, b, t0, bend) => SYN.push({ a, b, t0, cx: (a.x + b.x) / 2 - (b.y - a.y) * bend, cy: (a.y + b.y) / 2 + (b.x - a.x) * bend, per: 2.3 + SYN.length % 4 * .45, off: SYN.length * .37 % 1 });
-[[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3], [3, 4]].forEach(([i, j], n) => synapse(nearest(CL[i].big, CL[j].x, CL[j].y), nearest(CL[j].big, CL[i].x, CL[i].y), T.sky + .5 + n * .26, n % 2 ? -.17 : .17));
+[[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [2, 3], [3, 4]].forEach(([i, j], n) => synapse(nearest(CL[i].big, CL[j].x, CL[j].y), nearest(CL[j].big, CL[i].x, CL[i].y), T.sky + .5 + n * .26, n % 2 ? -.17 : .17));
 CL.forEach((c, ci) => [7, 10, 12].forEach((k, n) => synapse(c.all[k], nearest(c.big, c.all[k].x, c.all[k].y), T.sky + .3 + ci * .2 + n * .3, n % 2 ? .28 : -.28)));
 synapse(NEWSTAR, nearest(CL[4].big, NEWSTAR.x, NEWSTAR.y), NEWSTAR.born + .5, .2);      // the new line finds the ones it belongs with
 synapse(NEWSTAR, nearest(CL[0].big, NEWSTAR.x, NEWSTAR.y), NEWSTAR.born + .9, -.2);
@@ -2017,7 +2020,7 @@ const ASK = 'Fix the flaky sign-in test';
 const CAPS = [
   { a: .5, b: 4.4, eb: 'THE ASK', l: ['It starts with one ask.'] },
   { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Your outpost sets up', 'on your own machine.'] },
-  { a: 16.2, b: 21.8, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, a crew of four.'] },
+  { a: 16.2, b: 21.8, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, the crew in orbit.'] },
   { a: 22.2, b: 25.5, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
   // the missions section runs over two captions, so its eyebrow stays up between them (ebOut, ebIn)
   { a: 25.9, b: T.pilot + .2, eb: 'THE MISSIONS', l: ['The crew sets out,', 'several missions at once.'], ebOut: false },
@@ -2028,8 +2031,8 @@ const CAPS = [
   { a: T.router, b: T.mark + .1, eb: 'THE ROUTER', l: ['A router sizes up each task', 'and picks the model to fit.'] },
 ];
 const BTN = [
-  { a: 23, click: T.ok1, label: 'Approve plan', done: 'Plan approved' },
-  { a: T.back + 1.2, click: T.ok2, label: 'Open pull request', done: 'Pull request opened' },
+  { a: 23, click: T.ok1, label: 'Approve and start', done: 'Plan approved' },
+  { a: T.back + 1.2, click: T.ok2, label: 'Push and open it', done: 'Pull request opened' },
 ];
 const LOGALT = [Math.log10(240), Math.log10(1.496e11), Math.log10(40 * 9.461e15), Math.log10(1e5 * 9.461e15)];
 function altText(a) {
@@ -2433,7 +2436,7 @@ function comet(B, u, tone, k, a) {
   const h = B(u); ctx.globalAlpha = a; glow(h[0], h[1], 18 * k, tone, .7); ctx.fillStyle = col(tone === 'accent' ? 'dot' : tone); disc(h[0], h[1], 3.8 * k); ctx.fillStyle = col('hot'); disc(h[0], h[1], 1.7 * k);
 }
 
-// ---- the router: models of three sizes, and each task goes to the smallest that can carry it ----
+// ---- the router: models of three sizes, and each task goes to the one that fits it ----
 const RT = { x: 48, y: 130 };                      // where the router sits, measured from the gold dot as the stars are
 const T_SIZE = .5, T_PICK = .85, T_LAND = 1.45;    // a task reaches the router, leaves it and lands, in seconds after it sets out
 const MODELS = [
@@ -2580,7 +2583,7 @@ function ask(t, px) {
     ctx.globalAlpha = pa; rr(x, y, w, h, 12); ctx.strokeStyle = col('border'); ctx.lineWidth = 1; ctx.stroke();
     const n = Math.floor(clamp((t - 1.15) * 12.5, 0, ASK.length)), typed = ASK.slice(0, n);
     setFont('b', 16, 500);
-    label(n ? typed : 'Ask the crew…', x + 20, y + 30, { fill: col(n ? 'text' : 'faint') });
+    label(n ? typed : 'Ask the Commander…', x + 20, y + 30, { fill: col(n ? 'text' : 'faint') });
     if (t < T.send && (n < ASK.length ? n > 0 || Math.sin(t * 9) > 0 : Math.sin(t * 9) > 0)) { ctx.fillStyle = col('accent'); ctx.fillRect(x + 21 + (n ? ctx.measureText(typed).width : 0), y + 14, 1.6, 21); }
     const pr = pulse(t, T.send - .14, .42), bs = pr >= 0 ? 1 - .15 * Math.sin(PI * pr) : 1, bx = x + w - 24, by = y + h / 2;
     ctx.fillStyle = mix('line', 'accent', smooth(prog(t, 1.15, 1.7))); disc(bx, by, 15 * bs);
@@ -2665,7 +2668,7 @@ function render(t) {
   V.gs = lerp(1.12, 1, smooth(prog(t, T.ground, T.lift)));
   V.phi = .012 * Math.max(0, t - T.ground);
   V.P = CREW.map((c, j) => planet(j, t));
-  backdrop(t); ground(t); sky(t); router(t); legs(t); pilotWays(t); planets(t, false); dot(t); planets(t, true); pilot(t); crewLabels(t); mark(t); vignette(); ask(t, px); captions(t, px); hud(t);
+  backdrop(t); ground(t); sky(t); router(t); legs(t); pilotWays(t); planets(t, false); dot(t); planets(t, true); pilot(t); crewLabels(t); mark(t); ask(t, px); captions(t, px); hud(t);
 }
 
 // ---- transport ----
@@ -2728,7 +2731,7 @@ const GLYPH = {
   scout: '<path d="M7 3.5 C16.5 6.5 16.5 17.5 7 20.5"/><path d="M7 3.5 V20.5"/><path d="M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15"/>',
   art: '<g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5"/><path d="M12 10 V21.5"/></g>',
   scribe: '<path d="M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z"/><path d="M3.8 20.2 L13 11"/>',
-  wiz: '<path d="M4 20.5 L14.2 10.3"/><path d="M17 2.8 L18.1 5.6 L21 5.9 L18.8 7.8 L19.5 10.7 L17 9.2 L14.5 10.7 L15.2 7.8 L13 5.9 L15.9 5.6 Z"/><path d="M5.5 4 V8 M3.5 6 H7.5"/>',
+  wiz: '<path d="M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z"/><path d="M10.5 13.5 L20.5 3.5"/>',
   warden: '<path d="M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z"/><path d="M8.8 11.9 L11.2 14.3 L15.4 9.9"/>',
 };
 
@@ -2822,7 +2825,7 @@ for (const [cx, cy, n, ph] of [[120, 116, 6, 1.2], [1172, 606, 6, 3.1], [1150, 1
 }
 const pingEl = el('circle', { class: 'ping', cx: 640, cy: 360, r: 0 }, gWorld);
 
-// Faint stars the camp already remembers (they stay all film).
+// Faint stars the outpost already remembers (they stay all film).
 const OLD = [[560, 54], [1110, 70], [86, 250], [1206, 430], [168, 690], [1010, 668], [330, 40]];
 const gMem = el('g', {}, gWorld);
 const oldEls = OLD.map(([x, y]) => el('circle', { class: 'star', cx: x, cy: y, r: 2.1 }, gMem));
@@ -3011,7 +3014,7 @@ const VIG = [];
   } });
 })();
 
-// Wizard: a knot of crossed contour lines, taken apart by the wand into clean rings.
+// Test Pilot: a knot of crossed contour lines, taken apart into clean rings as its plane flies round.
 (() => {
   const g = el('g', { class: 'c-wiz' }, gWorld), CX = 52, CY = 0, N = 84;
   const loops = [0, 1, 2, 3, 4].map(k => {
@@ -3022,26 +3025,27 @@ const VIG = [];
   });
   const tailEl = el('path', { class: 'tone-s', 'stroke-width': .55, opacity: .6, d: 'M0 0' }, g);
   const SPK = [0, 1, 2, 3, 4, 5].map(k => { const n = el('path', { class: 'tone-f', d: 'M0 -2.2 L.5 -.5 L2.2 0 L.5 .5 L0 2.2 L-.5 .5 L-2.2 0 L-.5 -.5 Z' }, g); return { n, u: .1 + k * .15 }; });
-  const wand = el('g', { class: 'glyph toned' }, g); wand.innerHTML = GLYPH.wiz;
-  wand.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.2'; });
+  const plane = el('g', { class: 'glyph toned' }, g); plane.innerHTML = GLYPH.wiz;
+  plane.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.2'; });
   const before = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); before.textContent = 'two searches racing';
   const after = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); after.textContent = 'in order, every time';
   const stamp = el('g', {}, g);
   el('rect', { class: 'tone-f', x: -23, y: -4.2, width: 46, height: 8.4, rx: 4.2 }, stamp);
   const st = el('text', { class: 'm f-ink', 'font-size': 3.4, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'untangled · 2 files';
-  const wandAt = u => { const a = lerp(-400, -40, u) * DEG, r = 32; return [CX + r * Math.cos(a), CY + r * Math.sin(a) * .9]; };
+  const planeAt = u => { const a = lerp(-400, -40, u) * DEG, r = 32; return [CX + r * Math.cos(a), CY + r * Math.sin(a) * .9]; };
   VIG.push({ i: WZ, a: 39.5, b: 44.4, g, update(t) {
     loops.forEach((l, k) => {
       drawTo(l.path, ease.out(prog(t, 39.7 + k * .12, 40.6 + k * .12)));
       const u = ease.inOut(prog(t, l.s, l.s + .9));
       l.path.setAttribute('d', u <= 0 ? dOf(l.from, true, f2) : dOf(l.from.map((p, j) => [lerp(p[0], l.to[j][0], u), lerp(p[1], l.to[j][1], u)]), true, f2));
     });
-    const wu = ease.inOut(prog(t, 40.9, 43.2)), [wx, wy] = wandAt(wu);
-    wand.setAttribute('transform', `translate(${f2(wx)} ${f2(wy)}) scale(.62) translate(-17 -6.4)`);
-    O(wand, win(t, 40.7, 43.6, .3, .4));
-    const pts = []; for (let k = 0; k < 12; k++) { const v = wu - k * .012; if (v < 0) break; pts.push(wandAt(v)); }
+    const wu = ease.inOut(prog(t, 40.9, 43.2)), [wx, wy] = planeAt(wu);
+    const [hx, hy] = planeAt(wu + .004), head = Math.atan2(hy - wy, hx - wx) / DEG + 45;   // nose along the way it flies
+    plane.setAttribute('transform', `translate(${f2(wx)} ${f2(wy)}) rotate(${f1(head)}) scale(.62) translate(-12 -12)`);
+    O(plane, win(t, 40.7, 43.6, .3, .4));
+    const pts = []; for (let k = 0; k < 12; k++) { const v = wu - k * .012; if (v < 0) break; pts.push(planeAt(v)); }
     tailEl.setAttribute('d', pts.length > 1 ? dOf(pts, false, f2) : 'M0 0'); O(tailEl, wu > 0 && wu < 1 ? .6 : 0);
-    SPK.forEach(p => { const v = (wu - p.u) / .16; if (v > 0 && v < 1) { const [x, y] = wandAt(p.u); p.n.setAttribute('transform', `translate(${f2(x)} ${f2(y)}) scale(${f2(Math.sin(Math.PI * v) * 1.2)})`); O(p.n, 1 - v * .5); } else O(p.n, 0); });
+    SPK.forEach(p => { const v = (wu - p.u) / .16; if (v > 0 && v < 1) { const [x, y] = planeAt(p.u); p.n.setAttribute('transform', `translate(${f2(x)} ${f2(y)}) scale(${f2(Math.sin(Math.PI * v) * 1.2)})`); O(p.n, 1 - v * .5); } else O(p.n, 0); });
     O(before, win(t, 40.1, 42.0, .4, .4)); O(after, prog(t, 42.9, 43.3));
     const sv = prog(t, 43.2, 43.5); O(stamp, sv); stamp.setAttribute('transform', `translate(${CX} ${CY + 34}) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
   } });
@@ -3100,7 +3104,7 @@ const bars = [['How hard', .94], ['What’s at stake', .8], ['How big', .52]].ma
 const pick = el('g', { class: 'c-wiz', transform: 'translate(24 164)' }, router);
 el('rect', { class: 'tone-f', width: 304, height: 36, rx: 18 }, pick);
 const pgl = el('g', { class: 'glyph', transform: 'translate(12 6) scale(1)' }, pick); pgl.innerHTML = GLYPH.wiz;
-T(pick, 'b f-ink', 14, 44, 23, 'Quality · the strongest model', { 'font-weight': 600 });
+T(pick, 'b f-ink', 14, 44, 23, 'Test Pilot · the strongest model', { 'font-weight': 600 });
 // Approvals from your phone
 const phone = el('g', { transform: 'translate(944 126)' }, gHud);
 el('rect', { class: 'card', width: 216, height: 392, rx: 32, style: 'stroke:var(--border-strong);stroke-width:1.5' }, phone);
@@ -3112,9 +3116,9 @@ const banner = el('g', {}, phone);
 el('rect', { class: 'card', x: 18, y: 146, width: 180, height: 152, rx: 16 }, banner);
 el('circle', { class: 'dot-f', cx: 36, cy: 167, r: 6 }, banner);
 T(banner, 'm f-muted', 10, 48, 170.5, 'OUTPOST · now', { 'letter-spacing': '1' });
-T(banner, 'b f-text', 13.5, 32, 196, 'Ready for your review', { 'font-weight': 600 });
+T(banner, 'b f-text', 13.5, 32, 196, 'Shell command waiting', { 'font-weight': 600 });
 T(banner, 'b f-muted', 12, 32, 215, 'The new search page');
-T(banner, 'b f-muted', 12, 32, 232, '5 of 5 steps, all checked');
+T(banner, 'm f-muted', 11, 32, 232, 'git push origin search');
 const okBtn = el('g', { transform: 'translate(32 248)' }, banner);
 const okRect = el('rect', { class: 'btn', width: 76, height: 34, rx: 9 }, okBtn);
 const okText = T(okBtn, 'b f-ink', 12.5, 38, 21.5, 'Approve', { 'font-weight': 600, 'text-anchor': 'middle' });
@@ -3131,7 +3135,8 @@ T(night, 'b f-muted', 14, 24, 90, 'Nothing applied, nothing deleted.');
 T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
 
 // ---- the star chart: the opening, before the film proper ----
-// Three outposts side by side, each with what is its own, and a line between them. One is picked and its mark becomes the lockup.
+// A sun, and each outpost a planet on a contour line of its own, going slowly round it. A new one takes the next line out.
+// One is picked, and its planet becomes the lockup's mark.
 const gIntro = el('g', {}, gHud);
 const MARK_D = 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z';
 const smallMark = parent => {
@@ -3143,23 +3148,39 @@ const smallMark = parent => {
   el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, g);
   return g;
 };
-const TILE = { w: 250, h: 300, y: 168, xs: [215, 515, 815] };
-const OWN = ['Its own crew', 'Its own memory', 'Its own keys and settings'];
-const tiles = [['Work', 'c-scout'], ['Home', 'c-scribe'], ['Side project', 'c-art']].map(([name, tone], k) => {
+const CH = { x: 600, y: 322, pr: 18 };
+const chartR = (R, k, a) => R * (1 + .025 * Math.sin(3 * a + k * 1.7) + .018 * Math.sin(5 * a - k));
+const chartLine = (R, k) => { let d = ''; for (let q = 0; q < 120; q++) { const a = q / 120 * 2 * Math.PI, r = chartR(R, k, a); d += (q ? 'L' : 'M') + f1(CH.x + r * Math.cos(a)) + ' ' + f1(CH.y + r * Math.sin(a)); } return d + 'Z'; };
+const LINE_S = 'fill:none;stroke:var(--border-strong);stroke-width:1.5';
+const chartLines = el('g', {}, gIntro);
+const chartSun = el('g', { transform: `translate(${CH.x} ${CH.y})` }, gIntro);
+el('circle', { class: 'dot-f', r: 54, style: 'opacity:.12' }, chartSun);
+el('circle', { r: 25, style: LINE_S }, chartSun);
+el('circle', { class: 'dot-f', r: 16 }, chartSun);
+// each outpost: its name, its colour, the line it's on, and where on that line it starts
+const outs = [['Work', 'c-scout', 112, 200], ['Home', 'c-scribe', 178, -42], ['Side project', 'c-art', 244, 150]].map(([name, tone, R, a0], k) => {
+  const line = el('path', { d: chartLine(R, k), style: LINE_S }, chartLines);
+  const dash = k === 2 ? el('path', { d: chartLine(R, k), style: LINE_S + ';stroke-dasharray:5 8;stroke-linecap:round' }, chartLines) : null;
   const g = el('g', { class: tone }, gIntro);
-  const slot = k === 2 ? el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:6 7' }, g) : null;
-  const chrome = el('g', {}, g);
-  el('rect', { class: 'card', width: TILE.w, height: TILE.h, rx: 14 }, chrome);
-  const sel = el('rect', { width: TILE.w, height: TILE.h, rx: 14, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
-  const plus = k === 2 ? el('path', { d: 'M125 68 V104 M107 86 H143', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, g) : null;
-  const ghost = k === 2 ? T(g, 'b f-faint', 17, 125, 178, 'New outpost', { 'text-anchor': 'middle' }) : null;
-  const label = T(g, 'd f-text', 25, 125, 180, name, { 'text-anchor': 'middle' });
-  const rows = OWN.map((s, r) => { const rg = el('g', { transform: `translate(40 ${218 + r * 26})` }, g); el('circle', { class: 'tone-f', cx: 4, cy: -5, r: 4 }, rg); T(rg, 'b f-muted', 14.5, 18, 0, s); return rg; });
-  return { g, slot, chrome, sel, plus, ghost, label, rows, name };
+  const slot = k === 2 ? el('g', {}, g) : null;
+  if (slot) { el('circle', { r: CH.pr, style: LINE_S + ';stroke-dasharray:4 5' }, slot); el('path', { d: 'M0 -7 V7 M-7 0 H7', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, slot); }
+  const body = el('g', {}, g);
+  el('circle', { class: 'tone-f', r: CH.pr * 2.3, style: 'opacity:.14' }, body);
+  el('circle', { class: 'tone-f', r: CH.pr }, body);
+  T(body, 'b f-ink', 17, 0, 6, name[0], { 'text-anchor': 'middle', 'font-weight': 600 });
+  const sel = el('circle', { r: CH.pr + 6, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
+  const ghost = k === 2 ? T(g, 'b f-faint', 15, 0, 46, 'New outpost', { 'text-anchor': 'middle' }) : null;
+  const label = T(g, 'd f-text', 19, 0, 47, name, { 'text-anchor': 'middle' });
+  return { name, R, a0, line, dash, g, slot, body, sel, ghost, label };
 });
-// the marks sit above the cards, so the picked one can leave its card and become the lockup
-const tileMarks = tiles.map(() => smallMark(gIntro));
-const fences = [490, 790].map(x => el('line', { x1: x, x2: x, y1: 318, y2: 318, style: 'stroke:var(--border-strong);stroke-width:1.5;stroke-dasharray:3 7;stroke-linecap:round' }, gIntro));
+// what every outpost has of its own
+const ownCard = card(908, 214, 312, 190);
+T(ownCard, 'm f-muted', 11, 24, 32, 'EVERY OUTPOST', { 'letter-spacing': '1.5' });
+T(ownCard, 'd f-text', 22, 24, 62, 'A camp of its own');
+const ownRows = ['Its own crew', 'Its own memory', 'Its own keys and settings'].map((s, r) => { const rg = el('g', { transform: `translate(24 ${100 + r * 28})` }, ownCard); el('circle', { class: 'dot-f', cx: 5, cy: -5, r: 4 }, rg); T(rg, 'b f-text', 14.5, 20, 0, s); return rg; });
+gIntro.appendChild(ownCard);
+// the picked outpost's mark, drawn over its planet, so it can leave the chart and become the lockup
+const pickMark = smallMark(gIntro);
 const icG = el('g', {}, gIntro);
 const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, icG);
 const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
@@ -3174,22 +3195,25 @@ function intro(tt) {
   const lockA = Math.max(1 - prog(tt, 1.0, 1.7), prog(tt, 8.3, 8.9));
   O(gLock, lockA); O(tagline, lockA); O(sunCore, lockA); sunGlow.style.opacity = .25 * lockA;
   const leave = prog(tt, 7.6, 8.1), fly = ease.inOut(prog(tt, 7.8, 8.45));
-  tiles.forEach((c, k) => {
-    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), x = TILE.xs[k], y = TILE.y + (1 - ease.out(inn)) * 14;
-    const made = k < 2 ? 1 : prog(tt, 4.2, 4.7), away = k === 0 ? prog(tt, 7.9, 8.35) : leave;
-    c.g.setAttribute('transform', `translate(${x} ${f1(y)})`);
-    O(c.g, inn * (1 - away));
-    O(c.chrome, made);
-    if (c.slot) { O(c.slot, 1 - made); O(c.plus, 1 - prog(tt, 4.2, 4.5)); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
-    c.rows.forEach((r, j) => O(r, prog(tt, 5.0 + j * .45 + k * .12, 5.4 + j * .45 + k * .12)));
+  O(chartSun, prog(tt, 1.3, 1.9) * (1 - leave));
+  outs.forEach((c, k) => {
+    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), made = k < 2 ? 1 : prog(tt, 4.2, 4.7);
+    const a = (c.a0 + 4 * tt) * Math.PI / 180, r = chartR(c.R, k, a) + (1 - ease.out(inn)) * 14;
+    c.x = CH.x + r * Math.cos(a); c.y = CH.y + r * Math.sin(a);
+    c.g.setAttribute('transform', `translate(${f1(c.x)} ${f1(c.y)})`);
+    O(c.g, inn * (1 - leave));
+    O(c.line, inn * made * (1 - leave) * .85);
+    O(c.body, k === 0 ? made * (1 - prog(tt, 7.6, 7.8)) : made);
+    if (c.slot) { O(c.dash, inn * (1 - made) * (1 - leave)); O(c.slot, 1 - made); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
     O(c.sel, k === 0 ? prog(tt, 7.3, 7.5) : 0);
-    // its mark: on the card, then (for Work) across to where the lockup's mark sits
-    const mk = tileMarks[k], f = k === 0 ? fly : 0;
-    const cx = lerp(x + 125, DOT0.x, f), cy = lerp(y + 86, 360, f), sc = lerp(.5, K, f);
-    mk.setAttribute('transform', `translate(${f2(cx)} ${f2(cy)}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
-    O(mk, k === 0 ? inn * (1 - prog(tt, 8.6, 8.95)) : inn * made * (1 - leave));
   });
-  fences.forEach((l, k) => { const u = ease.out(prog(tt, 4.9 + k * .2, 5.7 + k * .2)); put(l, { y1: f1(318 - 130 * u), y2: f1(318 + 130 * u) }); O(l, Math.min(u * 3, 1 - leave)); });
+  ownRows.forEach((r, j) => O(r, prog(tt, 5.6 + j * .45, 6.0 + j * .45)));
+  const ov = prog(tt, 5.0, 5.5);
+  O(ownCard, ov * (1 - leave)); ownCard.setAttribute('transform', `translate(908 ${f1(214 + (1 - ease.out(ov)) * 12)})`);
+  // Work's planet turns into the mark, and crosses to where the lockup's mark sits
+  const w = outs[0], sc = lerp(2 * CH.pr / 180, K, fly);
+  pickMark.setAttribute('transform', `translate(${f2(lerp(w.x, DOT0.x, fly))} ${f2(lerp(w.y, 360, fly))}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+  O(pickMark, prog(tt, 7.6, 7.8) * (1 - prog(tt, 8.6, 8.95)));
   let ci = -1, cv = 0;
   ICAPS.forEach((c, k) => { const v = win(tt, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv = v; } });
   if (ci >= 0) { txt(icT, ICAPS[ci][2]); txt(icS, ICAPS[ci][3]); }
@@ -3198,16 +3222,16 @@ function intro(tt) {
 
 // ---- timeline ----
 const CAPS = [
-  [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, each on its own orbit.'],
+  [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, with the Test Pilot on call.'],
   [13.9, 19.9, 'You ask. The Quartermaster makes a plan.', 'From the sun at the centre, one request becomes four quests.'],
   [20.7, 25.3, 'Scout reads the ground.', 'It maps the code before anyone touches it.'],
   [25.7, 30.3, 'Scribe writes it down.', 'The spec, line by line, along the contours.'],
   [30.7, 35.3, 'Artificer builds it.', 'Each layer set down and struck into the one below.'],
-  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'Auto sizes up the task and picks the strongest model there is.'],
+  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'It runs on the strongest model by default, and lists every shortcut it took.'],
   [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
   [44.7, 49.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
   [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
-  [54.1, 58.9, 'Say yes from anywhere.', 'The review pings your phone. Nothing ships until you approve.'],
+  [54.1, 58.9, 'Say yes from anywhere.', 'The push pings your phone. Nothing ships until you approve.'],
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
   [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
@@ -3355,7 +3379,7 @@ function renderMain(t) {
     });
   } else { O(trailEl, 0); WAY.forEach(w => O(w.g, 0)); }
 
-  // the review pings your phone, and you approve it there
+  // the push pings your phone, and you approve it there
   const pv = win(t, 53.5, 59.3, .5, .6);
   O(phone, pv); phone.setAttribute('transform', `translate(944 ${f1(126 + (1 - ease.out(prog(t, 53.5, 54.2))) * 30)})`);
   const bv = prog(t, 54.1, 54.5); O(banner, bv); banner.setAttribute('transform', `translate(0 ${f1(-(1 - ease.out(bv)) * 12)})`);
@@ -3367,7 +3391,7 @@ function renderMain(t) {
   if (tv > 0) { const u = ease.inOut(prog(t, 56.2, 57.0)); put(touch, { cx: f1(lerp(TX + 40, TX, u)), cy: f1(lerp(TY + 190, TY, u)), r: f2(15 * (1 - press * .15)) }); O(touch, tv); } else O(touch, 0);
   const rg = prog(t, 57.12, 57.8); if (rg > 0 && rg < 1) { put(tapRing, { cx: TX, cy: TY, r: f1(10 + rg * 34) }); O(tapRing, (1 - rg) * .9); } else O(tapRing, 0);
 
-  // Auto sizes up the hard part
+  // The hard part is sized up
   O(router, win(t, 35.2, 38.8, .5, .6)); router.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 35.2, 35.8))) * 14)})`);
   bars.forEach((b, k) => b.fill.setAttribute('width', f1(176 * b.v * ease.out(prog(t, 35.8 + k * .3, 36.5 + k * .3)))));
   const pk = prog(t, 36.9, 37.3); O(pick, pk); pick.setAttribute('transform', `translate(24 164) translate(152 18) scale(${f2(lerp(.9, 1, ease.back(pk)))}) translate(-152 -18)`);
@@ -3508,7 +3532,7 @@ function chip(parent, x, cy, s) {
 // ---- the system: the sun is the Commander, the planets are the crew, and the camera moves between them ----
 const FIN = 48.1;                                    // when the system folds back into the logo
 const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
-const SLOT = [496, 568, 640, 712, 784], ROWY = 526;
+const SLOT = [460, 532, 604, 676, 748, 820], ROWY = 526;
 const TITLE_ORB = [446.5, 295, 111.6], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120];
 const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring radii, and the orbits they open into
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
@@ -3522,6 +3546,8 @@ const CREW = [
 const QM = { key: 'qm', name: 'Commander', sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
+// The Test Pilot has no quest on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
+const PILOT = { key: 'pilot', name: 'Test Pilot', slot: 5, i: 4, R: 292 };
 // how close the camera is on a body: 0 is the whole system, 1 is the close-up
 const focusOf = (b, t) => seg(t, b.zi, b.zi + 1) * (1 - seg(t, b.zo, b.zo + 1));
 const anyFocus = t => BODIES.reduce((m, b) => Math.max(m, focusOf(b, t)), 0);
@@ -3549,7 +3575,8 @@ const expand = (t, j) => seg(t, 1.5 + .1 * (3 - j), 2.5 + .1 * (3 - j)) * (1 - s
 const expandAll = t => seg(t, 1.5, 2.7) * (1 - seg(t, FIN, FIN + 1));
 const baseD = t => lerp(lerp(TITLE_ORB[2], BEAT_ORB[2], seg(t, FIN, FIN + 1)), TITLE_ORB[2], seg(t, FIN + 2.3, FIN + 3.1));
 const orbR = (t, j) => lerp(KR[j] * baseD(t) / 180, ORB[j], expand(t, j));
-const worldPos = (c, t) => { const a = angleOf(c, t), r = orbR(t, c.i); return [r * Math.cos(a), r * Math.sin(a)]; };
+const pilotR = t => lerp(KR[3] * baseD(t) / 180, PILOT.R, expand(t, 3));
+const worldPos = (c, t) => { const a = c === PILOT ? (150 + 60 * wt(t) / wt(DUR)) * PI / 180 : angleOf(c, t), r = c === PILOT ? pilotR(t) : orbR(t, c.i); return [r * Math.cos(a), r * Math.sin(a)]; };
 // where the sun sits on the stage in a wide view: in the logo, then the middle, then the name beat, then the logo again
 function sunAt(t) {
   const k = seg(t, 1.5, 2.6), f = seg(t, FIN, FIN + 1), m2 = seg(t, FIN + 2.3, FIN + 3.1);
@@ -3578,10 +3605,11 @@ const GLYPH = {
   scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
   art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
   warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
   you: g => { el('circle', { cx: 12, cy: 8.6, r: 3.8 }, g); el('path', { d: 'M5 20 C5 14.4 19 14.4 19 20' }, g); },
 };
 const defs = svg.querySelector('defs');
-CREW.forEach(c => {
+[...CREW, PILOT].forEach(c => {
   const g = el('radialGradient', { id: 'halo-' + c.key, class: 'c-' + c.key }, defs);
   el('stop', { offset: '.5', style: 'stop-color: var(--tone); stop-opacity: .4' }, g);
   el('stop', { offset: '1', style: 'stop-color: var(--tone); stop-opacity: 0' }, g);
@@ -3617,6 +3645,7 @@ CREW.forEach(c => {
   c.orbit = el('circle', { class: 'sorbit' }, gWorld);
   c.orbitTone = el('circle', { class: 'sorbit tone c-' + c.key }, gWorld);
 });
+PILOT.orbit = el('circle', { class: 'sorbit' }, gWorld);
 CREW.forEach(c => {
   c.trail = [1, .62, .3].map(k => ({ k, n: el('path', { class: 'ptrail c-' + c.key }, gWorld) }));
   c.comet = Array.from({ length: 7 }, (_, j) => el('circle', { r: (7 - j * .8).toFixed(1), class: 'comet c-' + c.key }, gWorld));
@@ -3729,6 +3758,8 @@ CREW.forEach(c => {
   el('path', { d: 'M-3.8 .3 L-1 3 L4 -2.9', class: 'ok-check' }, c.checkIn);
   c.label = tx(svg, 0, 0, 'm camp-l', c.name.toUpperCase(), { 'text-anchor': 'middle' });
 });
+PILOT.tok = badge('pilot', null, true); PILOT.halo = PILOT.tok.firstChild;
+PILOT.label = tx(svg, 0, 0, 'm camp-l', 'TEST PILOT', { 'text-anchor': 'middle' });
 const qm = badge('qm');
 const sunL = tx(svg, 0, 0, 'm camp-l', 'COMMANDER', { 'text-anchor': 'middle' });
 const gBody = el('g');                                         // who you are looking at, under the close-up
@@ -3765,7 +3796,7 @@ tx(tkWhere, 352, 432, 'b t15 f-text', 'links/web, on a new branch');
 tx(tkWhere, 560, 432, 'm code f-muted', BRANCH);
 const tkWho = el('g', null, gTk);
 tx(tkWho, 282, 460, 'm lbl', 'WHO');
-tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander, with the Security Chief reviewing at the end');
+tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander · the Security Chief reviews the changes before it reports');
 tx(gTk, 282, 537, 'm lbl', 'TICKET  ·  DETAILS  ·  WHERE  ·  WHO  ·  START');
 const tkBtnG = el('g', null, gTk);
 const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
@@ -3790,8 +3821,8 @@ const ROWS = [
   return g;
 });
 const planBtnG = el('g', null, gPlan);
-const planBtn = button(planBtnG, 422, 518, 124, 'Approve plan');
-const planAlt = button(planBtnG, 567, 518, 146, 'Request changes', 'ghost');
+const planBtn = button(planBtnG, 438, 518, 156, 'Approve and start');
+const planAlt = button(planBtnG, 599, 518, 146, 'Request changes', 'ghost');
 
 // ---- close on a planet: one panel, that crew member's work in it ----
 const gPanel = el('g', { class: 'shadow' });
@@ -3944,7 +3975,7 @@ function drawLogo(t, d, vis) {
   TR(logo.dotG, 100, 100, 1 + .06 * (.5 - .5 * Math.cos(2 * PI * 20 * warp(t))));
 }
 // a badge's place on the ring round the logo once the work is done: they even out and swing round it
-const EVEN = [-100, -28, 44, 116, 188];
+const EVEN = [-100, -40, 20, 80, 140, 200];
 function ringAt(idx, t) {
   const cp = sunAt(t), R = baseD(t) / 2 + 40, a = (EVEN[idx] + 450 * ease.io(clamp((t - FIN) / 3.4))) * PI / 180;
   return [cp[0] + R * Math.cos(a), cp[1] + R * Math.sin(a)];
@@ -3987,7 +4018,7 @@ const CLICKS = [
 function qmState(t, c0) {
   if (t < 3) { const k = seg(t, 1.5, 2.2); return { x: lerp(SLOT[0], c0[0], k), y: lerp(ROWY, c0[1], k), s: 1 - ease.in(clamp((t - 1.7) / .5)), o: 1 - seg(t, 2.0, 2.2) }; }
   if (t < FIN) return { x: c0[0], y: c0[1], s: 0, o: 0 };
-  const out = seg(t, FIN + .1, FIN + .9), q = ringAt(4, t), e = seg(t, FIN + 2.6, FIN + 3.4);
+  const out = seg(t, FIN + .1, FIN + .9), q = ringAt(5, t), e = seg(t, FIN + 2.6, FIN + 3.4);
   return { x: lerp(lerp(c0[0], q[0], out), SLOT[0], e), y: lerp(lerp(c0[1], q[1], out), ROWY, e), s: seg(t, FIN + .1, FIN + .65, ease.back), o: seg(t, FIN + .1, FIN + .3) * 3 };
 }
 // a planet: from the row to its orbit, then wherever the camera sees it, then the ring round the logo and back to the row
@@ -4018,6 +4049,7 @@ function render(t) {
     O(n, o);
   });
 
+  PILOT.orbit.setAttribute('r', pilotR(t).toFixed(2)); O(PILOT.orbit, clamp((expand(t, 3) - .1) / .4) * .85);
   // orbits, the planets' tails, quests going out and reports coming home
   const speed = 1 - .94 * anyFocus(t);
   CREW.forEach((c, j) => {
@@ -4169,6 +4201,9 @@ function render(t) {
     c.label.setAttribute('x', s.x.toFixed(1)); c.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1));
     O(c.label, inSys * wide);
   });
+  { const s = tokState(PILOT, t, cam);
+    TR(PILOT.tok, s.x, s.y, s.s); PILOT.tok.style.setProperty('--sw', (2 / s.s).toFixed(3)); O(PILOT.halo, inSys * .6);
+    PILOT.label.setAttribute('x', s.x.toFixed(1)); PILOT.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1)); O(PILOT.label, inSys * wide); }
   sunL.setAttribute('x', c0[0].toFixed(1)); sunL.setAttribute('y', (c0[1] + RS * z + 23).toFixed(1));
   O(sunL, inSys * wide);
   const q = qmState(t, c0); TR(qm, q.x, q.y, q.s); O(qm, q.o);
@@ -4287,7 +4322,7 @@ function chip(parent, x, cy, s) {
 // ---- the system: the sun is the Commander, the planets are the crew, and the camera moves between them ----
 const FIN = 57.3;                                    // when the system folds back into the logo
 const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
-const SLOT = [496, 568, 640, 712, 784], ROWY = 526;
+const SLOT = [460, 532, 604, 676, 748, 820], ROWY = 526;
 const TITLE_ORB = [446.5, 295, 111.6], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120];
 const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring radii, and the orbits they open into
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
@@ -4301,6 +4336,8 @@ const CREW = [
 const QM = { key: 'qm', name: 'Commander', sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
+// The Test Pilot has no quest on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
+const PILOT = { key: 'pilot', name: 'Test Pilot', slot: 5, i: 4, R: 292 };
 // after the first finding, the next two go round the crew quickly: T is when a finding's tag leaves the list
 const LAPS = [48.2, 51.7].map(T => ({ T }));
 const lapOut = (L, j) => L.T + .7 + .3 * j, lapBack = (L, j) => L.T + 1.8 + .3 * j;   // a quest leaves the sun; its report sets off home
@@ -4331,7 +4368,8 @@ const expand = (t, j) => seg(t, 1.5 + .1 * (3 - j), 2.5 + .1 * (3 - j)) * (1 - s
 const expandAll = t => seg(t, 1.5, 2.7) * (1 - seg(t, FIN, FIN + 1));
 const baseD = t => lerp(lerp(TITLE_ORB[2], BEAT_ORB[2], seg(t, FIN, FIN + 1)), TITLE_ORB[2], seg(t, FIN + 2.3, FIN + 3.1));
 const orbR = (t, j) => lerp(KR[j] * baseD(t) / 180, ORB[j], expand(t, j));
-const worldPos = (c, t) => { const a = angleOf(c, t), r = orbR(t, c.i); return [r * Math.cos(a), r * Math.sin(a)]; };
+const pilotR = t => lerp(KR[3] * baseD(t) / 180, PILOT.R, expand(t, 3));
+const worldPos = (c, t) => { const a = c === PILOT ? (150 + 60 * wt(t) / wt(DUR)) * PI / 180 : angleOf(c, t), r = c === PILOT ? pilotR(t) : orbR(t, c.i); return [r * Math.cos(a), r * Math.sin(a)]; };
 // where the sun sits on the stage in a wide view: in the logo, then the middle, then the name beat, then the logo again
 function sunAt(t) {
   const k = seg(t, 1.5, 2.6), f = seg(t, FIN, FIN + 1), m2 = seg(t, FIN + 2.3, FIN + 3.1);
@@ -4360,10 +4398,11 @@ const GLYPH = {
   scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
   art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
   warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
   you: g => { el('circle', { cx: 12, cy: 8.6, r: 3.8 }, g); el('path', { d: 'M5 20 C5 14.4 19 14.4 19 20' }, g); },
 };
 const defs = svg.querySelector('defs');
-CREW.forEach(c => {
+[...CREW, PILOT].forEach(c => {
   const g = el('radialGradient', { id: 'halo-' + c.key, class: 'c-' + c.key }, defs);
   el('stop', { offset: '.5', style: 'stop-color: var(--tone); stop-opacity: .4' }, g);
   el('stop', { offset: '1', style: 'stop-color: var(--tone); stop-opacity: 0' }, g);
@@ -4399,6 +4438,7 @@ CREW.forEach(c => {
   c.orbit = el('circle', { class: 'sorbit' }, gWorld);
   c.orbitTone = el('circle', { class: 'sorbit tone c-' + c.key }, gWorld);
 });
+PILOT.orbit = el('circle', { class: 'sorbit' }, gWorld);
 CREW.forEach(c => {
   c.trail = [1, .62, .3].map(k => ({ k, n: el('path', { class: 'ptrail c-' + c.key }, gWorld) }));
   c.comet = Array.from({ length: 7 }, (_, j) => el('circle', { r: (7 - j * .8).toFixed(1), class: 'comet c-' + c.key }, gWorld));
@@ -4511,6 +4551,8 @@ CREW.forEach(c => {
   el('path', { d: 'M-3.8 .3 L-1 3 L4 -2.9', class: 'ok-check' }, c.checkIn);
   c.label = tx(svg, 0, 0, 'm camp-l', c.name.toUpperCase(), { 'text-anchor': 'middle' });
 });
+PILOT.tok = badge('pilot', null, true); PILOT.halo = PILOT.tok.firstChild;
+PILOT.label = tx(svg, 0, 0, 'm camp-l', 'TEST PILOT', { 'text-anchor': 'middle' });
 const qm = badge('qm');
 const sunL = tx(svg, 0, 0, 'm camp-l', 'COMMANDER', { 'text-anchor': 'middle' });
 const gBody = el('g');                                         // who you are looking at, under the close-up
@@ -4584,7 +4626,7 @@ tx(tkWhere, 352, 432, 'b t15 f-text', 'Ledgerline, in a new worktree');
 tx(tkWhere, 572, 432, 'm code f-muted', BRANCH);
 const tkWho = el('g', null, gTk);
 tx(tkWho, 282, 460, 'm lbl', 'WHO');
-tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander, with the Security Chief reviewing at the end');
+tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander · the Security Chief reviews the changes before it reports');
 tx(gTk, 282, 537, 'm lbl', 'TICKET  ·  DETAILS  ·  WHERE  ·  WHO  ·  START');
 const tkBtnG = el('g', null, gTk);
 const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
@@ -4609,8 +4651,8 @@ const ROWS = [
   return g;
 });
 const planBtnG = el('g', null, gPlan);
-const planBtn = button(planBtnG, 422, 518, 124, 'Approve plan');
-const planAlt = button(planBtnG, 567, 518, 146, 'Request changes', 'ghost');
+const planBtn = button(planBtnG, 438, 518, 156, 'Approve and start');
+const planAlt = button(planBtnG, 599, 518, 146, 'Request changes', 'ghost');
 
 // ---- close on a planet: one panel, that crew member's work in it ----
 const gPanel = el('g', { class: 'shadow' });
@@ -4715,10 +4757,10 @@ const sbChip = chip(gSb, 494, 556, 'Pull request #1 is open');
 const gWd = phaseG('warden');
 const wdSt = head(gWd, 'Security Chief', 'reviewing pull request #1', 'working');
 tx(gWd, 494, 302, 'b t16 f-text', 'I read the diff and the code around it, and I think this is good to');
-tx(gWd, 494, 326, 'b t16 f-text', 'merge. I found nothing that needs fixing.');
+tx(gWd, 494, 326, 'b t16 f-text', 'merge. Nothing has to be fixed first. Two small things to know:');
 const wdFind = [
-  ['CHECKED', 'test/access.test.js', 'Only the two LED-105 markers were removed. No expectations changed.'],
-  ['BE AWARE', 'src/access.js', 'Accounts with no role are now locked out of reads too. Check none rely on it.'],
+  ['SMALL', 'test/access.test.js', 'Only the two LED-105 markers were removed. No expectations changed.'],
+  ['SMALL', 'src/access.js', 'Accounts with no role are now locked out of reads too. Check none rely on it.'],
 ].map(([sev, where, s], i) => {
   const y = 346 + i * 74, g = el('g', null, gWd), w = sev.length * 7.6 + 20;
   el('rect', { x: 494, y, width: 682, height: 64, rx: 8, class: 'inset' }, g);
@@ -4743,7 +4785,7 @@ el('tspan', { class: 'f-accent' }, tag, 'have a crew.');
 el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'p' }, cmd, '$ ');
-el('tspan', null, cmd, 'npm run demo');
+el('tspan', null, cmd, 'npm start');
 // the app's name beside the mark, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
 const gW = el('g');
 tx(gW, 247, 156, 'b wm-word', 'Outpost');
@@ -4760,7 +4802,7 @@ function drawLogo(t, d, vis) {
   TR(logo.dotG, 100, 100, 1 + .06 * (.5 - .5 * Math.cos(2 * PI * 20 * warp(t))));
 }
 // a badge's place on the ring round the logo once the work is done: they even out and swing round it
-const EVEN = [-100, -28, 44, 116, 188];
+const EVEN = [-100, -40, 20, 80, 140, 200];
 function ringAt(idx, t) {
   const cp = sunAt(t), R = baseD(t) / 2 + 40, a = (EVEN[idx] + 450 * ease.io(clamp((t - FIN) / 3.4))) * PI / 180;
   return [cp[0] + R * Math.cos(a), cp[1] + R * Math.sin(a)];
@@ -4803,7 +4845,7 @@ const CLICKS = [
 function qmState(t, c0) {
   if (t < 3) { const k = seg(t, 1.5, 2.2); return { x: lerp(SLOT[0], c0[0], k), y: lerp(ROWY, c0[1], k), s: 1 - ease.in(clamp((t - 1.7) / .5)), o: 1 - seg(t, 2.0, 2.2) }; }
   if (t < FIN) return { x: c0[0], y: c0[1], s: 0, o: 0 };
-  const out = seg(t, FIN + .1, FIN + .9), q = ringAt(4, t), e = seg(t, FIN + 2.6, FIN + 3.4);
+  const out = seg(t, FIN + .1, FIN + .9), q = ringAt(5, t), e = seg(t, FIN + 2.6, FIN + 3.4);
   return { x: lerp(lerp(c0[0], q[0], out), SLOT[0], e), y: lerp(lerp(c0[1], q[1], out), ROWY, e), s: seg(t, FIN + .1, FIN + .65, ease.back), o: seg(t, FIN + .1, FIN + .3) * 3 };
 }
 // a planet: from the row to its orbit, then wherever the camera sees it, then the ring round the logo and back to the row
@@ -4834,6 +4876,7 @@ function render(t) {
     O(n, o);
   });
 
+  PILOT.orbit.setAttribute('r', pilotR(t).toFixed(2)); O(PILOT.orbit, clamp((expand(t, 3) - .1) / .4) * .85);
   // orbits, the planets' tails, quests going out and reports coming home
   const speed = 1 - .94 * anyFocus(t);
   CREW.forEach((c, j) => {
@@ -5002,6 +5045,9 @@ function render(t) {
     c.label.setAttribute('x', s.x.toFixed(1)); c.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1));
     O(c.label, inSys * wide);
   });
+  { const s = tokState(PILOT, t, cam);
+    TR(PILOT.tok, s.x, s.y, s.s); PILOT.tok.style.setProperty('--sw', (2 / s.s).toFixed(3)); O(PILOT.halo, inSys * .6);
+    PILOT.label.setAttribute('x', s.x.toFixed(1)); PILOT.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1)); O(PILOT.label, inSys * wide); }
   sunL.setAttribute('x', c0[0].toFixed(1)); sunL.setAttribute('y', (c0[1] + RS * z + 23).toFixed(1));
   O(sunL, inSys * wide);
   const q = qmState(t, c0); TR(qm, q.x, q.y, q.s); O(qm, q.o);
@@ -5537,13 +5583,14 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief' };
+const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief', pilot: 'Test Pilot' };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
   scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
   art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
   warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
 };
 // a badge at any size: its lines stay as heavy as they are at full size
 function badge(key, parent, s = 1) {
@@ -5635,7 +5682,7 @@ const CLICKS = [];
 
 // ---- the story: the map of stars, stars that grow as they're used, then a pin, a merge and a forget ----
 const T = { used: 9.8, pick: 17.4, pin: 20.0, merge: 23.4, pickB: 25.6, drafted: 27.6, pickF: 30.4, forget: 32.2, sure: 33.9 }, END = 36.0;
-const MC = [400, 412], rad = d => d * PI / 180;
+const MC = [388, 412], rad = d => d * PI / 180;
 // Where a star sits in its place, before the place is turned so that the first faces the middle of the map.
 const SPOTS = [[0, -36], [31, -17], [33, 20], [2, 38], [-31, 21], [-35, -15], [1, 1]];
 // Each place and how often each of its lines has been used.
@@ -5646,17 +5693,19 @@ const PLACES = [
   { key: 'scout', name: 'Navigator', n: [3, 0, 1, 7, 2, 1] },
   { key: 'warden', name: 'Security Chief', n: [1, 4, 0, 2, 0] },
   { key: 'about', name: 'About you', n: [6, 2, 3, 1] },
+  { key: 'pilot', name: 'Test Pilot', n: [2, 0, 1, 3] },
 ];
 const gScene = el('g'), gPlaces = el('g', null, gScene), gLines = el('g', null, gScene), gStars = el('g', null, gScene);
 const STARS = [], star = (key, i) => STARS.find(s => s.p.key === key && s.i === i);
+const placeName = p => p.key === 'about' ? p.name : p.name + "'s memory";     // a crew member's place is named as the app names it
 PLACES.forEach((p, pi) => {
-  const th = -90 + 60 * pi, r = rad(th + 270);
+  const th = -90 + 360 / PLACES.length * pi, r = rad(th + 270);
   p.x = MC[0] + 150 * Math.cos(rad(th)); p.y = MC[1] + 150 * Math.sin(rad(th));
   p.g = el('g', { class: 'c-' + p.key }, gPlaces);
   el('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 60, class: 'place' }, p.g);
   const side = Math.cos(rad(th));
-  if (Math.abs(side) < .1) tx(p.g, p.x, p.y - 70, 'b t13 w6 f-tone', p.name, { 'text-anchor': 'middle' });
-  else tx(p.g, p.x + (side > 0 ? 70 : -70), p.y + 4.5, 'b t13 w6 f-tone', p.name, { 'text-anchor': side > 0 ? 'start' : 'end' });
+  if (Math.abs(side) < .1) tx(p.g, p.x, p.y - 70, 'b t13 w6 f-tone', placeName(p), { 'text-anchor': 'middle' });
+  else tx(p.g, p.x + (side > 0 ? 70 : -70), p.y + 4.5, 'b t13 w6 f-tone', placeName(p), { 'text-anchor': side > 0 ? 'start' : 'end' });
   p.n.forEach((n, i) => {
     const [sx, sy] = SPOTS[i], s = { p, i, base: n, uses: [], x: p.x + sx * Math.cos(r) - sy * Math.sin(r), y: p.y + sx * Math.sin(r) + sy * Math.cos(r) };
     s.g = el('g', { class: 'c-' + p.key }, gStars);
@@ -5707,23 +5756,23 @@ el('line', { x1: IX, y1: PY + 100, x2: PX + PW - 24, y2: PY + 100, class: 'hr' }
 tx(pLegend, IX, PY + PH - 28, 'b t12 f-faint', 'Scroll to zoom · drag to move · click a star to read it');
 // the requests
 const pReq = el('g', null, gCard);
-tx(pReq, IX, PY + 40, 'm lbl', 'ASKED TODAY');
+tx(pReq, IX, PY + 40, 'm lbl', 'RUNS');
 USES.forEach((u, i) => {
   u.g = el('g', null, pReq);
   const y = PY + 78 + i * 62;
   if (i === 0) { u.typed = typer(u.g, IX, y, 'b t15 w6 f-text', u.ask); u.caret = el('rect', { y: y - 13, width: 2, height: 17, class: 'caret' }, u.g); }
   else tx(u.g, IX, y, 'b t15 w6 f-text', u.ask);
-  u.sub = tx(u.g, IX, y + 21, 'm t12 f-faint', `${u.stars.length} line${u.stars.length > 1 ? 's' : ''} loaded with it`);
+  u.sub = tx(u.g, IX, y + 21, 'm t12 f-faint', `${u.stars.length} line${u.stars.length > 1 ? 's' : ''} used`);
 });
 // one line, read: where it's kept, where it came from and how often it has been used
-function linePanel(key, name, lines, from, used) {
+function linePanel(key, name, lines, kept, from, used) {
   const g = el('g', { class: 'c-' + key }, gCard), o = { g };
   el('circle', { cx: IX + 5, cy: PY + 37, r: 5, class: 'moon' }, g);
-  tx(g, IX + 18, PY + 42, 'b t15 w6 f-tone', name);
+  tx(g, IX + 18, PY + 42, 'b t15 w6 f-tone', name + "'s memory");
   lines.forEach((l, i) => tx(g, IX, PY + 82 + i * 26, 'b t19 w6 f-text', l));
   el('line', { x1: IX, y1: PY + 130, x2: PX + PW - 24, y2: PY + 130, class: 'hr' }, g);
   o.detail = el('g', null, g);
-  [['KEPT', `In ${name}'s memory`], ['FROM', from], ['USED', used]].forEach(([k, v], i) => {
+  [['KEPT', kept], ['FROM', from], ['USED', used]].forEach(([k, v], i) => {
     tx(o.detail, IX, PY + 164 + i * 30, 'm lbl', k); tx(o.detail, IX + 62, PY + 164 + i * 30, 'b t15 f-text', v);
   });
   o.pin = button(o.detail, IX + 44, PY + PH - 42, 88, 'Pin', 'ghost');
@@ -5732,14 +5781,14 @@ function linePanel(key, name, lines, from, used) {
   o.forget.box.setAttribute('class', 'btn-bad'); o.forget.tn.setAttribute('class', 'b btn-t f-bad');
   return o;
 }
-const pA = linePanel('art', 'Engineer', ['Dates from the API are UTC: never', 'format them in local time.'], 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
+const pA = linePanel('art', 'Engineer', ['Dates from the API are UTC: never', 'format them in local time.'], '2026-10-06', 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
 const pinned = el('g', null, pA.g);
 el('rect', { x: PX + PW - 24 - 78, y: PY + 26, width: 78, height: 22, rx: 11, class: 'pill-a' }, pinned);
 tx(pinned, PX + PW - 24 - 39, PY + 41, 'm pill-t', 'PINNED', { 'text-anchor': 'middle' });
 // the merge: which line, then the draft of the one line
 const aMerge = el('g', null, pA.g);
 tx(aMerge, IX, PY + 166, 'b t16 w6 f-text', 'Merge with which line?');
-tx(aMerge, IX, PY + 190, 'b t13 f-muted', 'Pick another star in Engineer, or one from this list.');
+tx(aMerge, IX, PY + 190, 'b t13 f-muted', "Pick another star in Engineer's memory, or one from this list.");
 ['API dates are in UTC, so show them as UTC.', 'Run the date tests in three time zones.'].forEach((l, i) => {
   el('rect', { x: IX, y: PY + 208 + i * 50, width: PW - 48, height: 40, rx: 8, class: 'inset' }, aMerge);
   el('circle', { cx: IX + 17, cy: PY + 228 + i * 50, r: 4, class: 'moon' }, aMerge);
@@ -5755,14 +5804,14 @@ const draft1 = typer(aDraft, IX + 16, PY + 259, 'b t15 f-text', 'Dates from the 
 const draft2 = typer(aDraft, IX + 16, PY + 282, 'b t15 f-text', 'as UTC, never in local time.');
 const draftCaret = el('rect', { width: 2, height: 17, class: 'caret' }, aDraft);
 const bReview = button(aDraft, IX + 52, PY + PH - 42, 104, 'Review it');
-const pF = linePanel('scribe', 'Comms Officer', ['Use the old changelog template', 'until March.'], 'the crew noted it', 'Not recalled yet');
+const pF = linePanel('scribe', 'Comms Officer', ['Use the old changelog template', 'until March.'], '2026-09-14', 'the crew noted it', 'Not recalled yet');
 // the forget asks first
 const gAsk = el('g', null, gScene);
 el('rect', { width: 1280, height: 720, class: 'scrim', opacity: .62 }, gAsk);
 const dlg = el('g', null, gAsk);
 el('rect', { x: -220, y: -100, width: 440, height: 200, rx: 14, class: 'card shadow' }, dlg);
 tx(dlg, -192, -52, 'd tk-title', 'Forget this line?');
-tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Comms Officer for good:");
+tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Comms Officer's memory for good:");
 tx(dlg, -192, 4, 'b t15 f-text', '"Use the old changelog template until March."');
 const bCancel = button(dlg, -144, 58, 96, 'Cancel', 'ghost'), bSure = button(dlg, -36, 58, 96, 'Forget');
 bSure.box.setAttribute('class', 'btn-badfill');
@@ -5943,13 +5992,14 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief' };
+const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief', pilot: 'Test Pilot' };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
   scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
   art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
   warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
 };
 // a badge at any size: its lines stay as heavy as they are at full size
 function badge(key, parent, s = 1) {
@@ -6098,7 +6148,7 @@ el('circle', { r: 19, class: 'sunb' }, gSunQ);
 GLYPH.qm(el('g', { class: 'sun-q', transform: 'translate(-14.4 -14.4) scale(1.2)' }, gSunQ));
 const sunZ = tx(gSys, 0, 0, 'm zz', 'z');
 // each planet: its orbit, where it comes to rest for the night, and how fast it goes round by day
-const PLANETS = [['scout', 1, 205, .94], ['scribe', 2, 318, .74], ['art', 3, 128, .46], ['warden', 4, 28, .32]].map(([key, orb, rest, sp], i) =>
+const PLANETS = [['scout', 1, 205, .94], ['scribe', 2, 318, .74], ['art', 3, 128, .46], ['warden', 4, 28, .32], ['pilot', 5, 262, .24]].map(([key, orb, rest, sp], i) =>
   ({ orb, rest: rest * PI / 180, sp, i: i + 1, g: badge(key, gSys, .46), z: tx(gSys, 0, 0, 'm zz', 'z') }));
 // how far the system has turned: it slows to a stop as night falls, and starts again in the morning
 const ramp = (t, a, b) => t < a ? 0 : t > b ? (b - a) / 2 + t - b : (t - a) ** 2 / (2 * (b - a));
@@ -6167,7 +6217,7 @@ const RX = 630, RW = 578;
 const ROWS = [
   { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: "Navigator's and Engineer's, both more than 60% full", pill: 'DRAFT · WAITS FOR YOUR OK' },
   { at: 16.5, label: 'OLD LINES', title: 'Listed 5 old lines worth a look', sub: 'Not pinned, and more than 90 days old', pill: 'LISTED · NOTHING TOUCHED' },
-  { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: 'Finished run logs, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
+  { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: '2 finished worktrees, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
 ];
 const gRows = el('g'), gSparks = el('g');
 ROWS.forEach((r, i) => {
@@ -6195,7 +6245,7 @@ el('line', { x1: JX, y1: TY + 70, x2: TX0 + TW - 26, y2: TY + 70, class: 'hr' },
 const ITEMS = [
   ['Drafted shorter versions of 2 memories', 'Navigator and Engineer. Nothing changes until you approve them.'],
   ['5 old lines worth a look', 'Not pinned, and more than 90 days old. Nothing was changed.'],
-  ['Housekeeping could clear finished run logs (about 48 MB)', 'Nothing was cleared: ask for a camp cleanup when you want it done.'],
+  ['Housekeeping could remove 2 finished worktrees the camp made', 'About 48 MB. Nothing was cleared: ask for a camp cleanup when you want it done.'],
 ].map(([title, sub], i) => {
   const y = TY + 106 + i * 82, g = el('g', null, gToday);
   el('circle', { cx: JX + 5, cy: y - 5, r: 4, class: 'dot-a' }, g);

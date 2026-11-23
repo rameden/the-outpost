@@ -37,7 +37,7 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
   },
   {
     key: "audit", section: "films", file: "three-audit-findings.html", tab: "Three audit findings", length: "1:03",
-    note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review, as they are in the demo (<code>npm run demo</code>). The first goes from ticket to reviewed pull request step by step; the other two follow the same route.",
+    note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review. The first goes from ticket to reviewed pull request step by step; the other two follow the same route.",
   },
   {
     key: "trail", section: "videos", file: "trail-map.html", tab: "The trail map", length: "0:36",
@@ -60,8 +60,8 @@ const SECTIONS = [
     before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
   },
   {
-    id: "videos", name: "Videos", label: "Videos", title: "Three newer parts of the outpost, in motion.",
-    lede: "Three more short films, drawn live in this page. Each shows one newer part of the outpost: the trail map, the constellation and the night shift.",
+    id: "videos", name: "Videos", label: "Videos", title: "Three parts of the outpost, in motion.",
+    lede: "Three more short films, drawn live in this page. Each shows one part of the outpost: the trail map, the constellation and the night shift.",
     before: '<section id="kit">', linkBefore: '        <a href="#kit">The kit</a>', // after Orbit, ahead of the kit they belong to
   },
 ];
@@ -106,8 +106,11 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
     return all.slice(all.indexOf("* { box-sizing: border-box; }")).split("\n").filter((line) => !/^(body|\.wrap|\.note) \{/.test(line));
   };
   const shared = stageCss(STYLES_FROM);
-  let css = swap(shared.join("\n"), "box-shadow: 0 16px 40px var(--shade);", "box-shadow: var(--shadow);");
-  css = ":host { display: grid; gap: 14px; }\n" + css.trim();
+  // In the tour a film has no frame: no border, corners or shadow, so it sits straight on the page, which is the same colour.
+  let css = swap(shared.join("\n"), " border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 16px 40px var(--shade);", " overflow: hidden; cursor: pointer;");
+  // A film painted on a canvas fills its stage with sky, so its last few percent fade out into the page.
+  const fade = "linear-gradient(90deg, transparent, #000 3.5%, #000 96.5%, transparent), linear-gradient(transparent, #000 6%, #000 94%, transparent)";
+  css = ":host { display: grid; gap: 14px; }\n" + css.trim() + `\n.stage canvas { -webkit-mask-image: ${fade}; -webkit-mask-composite: source-in; mask-image: ${fade}; mask-composite: intersect; }`;
 
   const parts = FILMS.map((f) => {
     const page = film(f.file);
@@ -121,6 +124,8 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
     js = js.split("document.getElementById(").join("root.getElementById(");
     js = swap(js, "playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;", "playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;");
     js = swap(js, "if (playing && last != null) {", "if (playing && shown && last != null) {");
+    // No frame in the tour, so no darkening toward the edges either: it would show where the film stops.
+    js = js.split(" vignette();").join("");
     js += "// the page says when this film can be seen: it only runs then\nreturn { show: v => { shown = !!v; } };\n";
     if (/<\/script/i.test(js)) throw new Error(`${f.file}: its code would end the tour's script early`);
     // The rules this film has that the shared styles don't.
