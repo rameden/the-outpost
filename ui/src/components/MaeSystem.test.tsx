@@ -1,10 +1,13 @@
 // The camp at rest: the crew as planets round the Quartermaster's sun, taking turns with a quest.
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { setCrewColors } from "../format.ts";
 import { LAPS, MaeSystem, MOST, TURN_MS } from "./MaeSystem.tsx";
+
+const strummed = vi.hoisted(() => [] as number[]);
+vi.mock("../chime.ts", () => ({ strum: (i: number) => strummed.push(i) }));
 
 const css = readFileSync(join(__dirname, "..", "styles.css"), "utf8");
 const moving = (yes: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: !yes && q.includes("reduce") }));
@@ -144,4 +147,23 @@ test("for less motion it rests: nobody takes a turn, and the stylesheet stops th
   expect(turn(container)).toBe(null);
   expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.mae-system \* \{ animation: none; \} \}/);
   expect(css).toMatch(/\.sys-drift \{ animation: sys-turn \d+s linear infinite; \}/); // otherwise the contour lines drift
+});
+
+test("the lines can be strummed: crossing one plucks it and sounds its note, once however the pointer wavers", () => {
+  strummed.length = 0;
+  const animate = vi.fn();
+  (SVGElement.prototype as unknown as { animate: unknown }).animate = animate;
+  const { container } = render(<MaeSystem crew={[]} />);
+  const hits = [...container.querySelectorAll(".sys-hit")];
+  expect(hits.length).toBe(5); // one over each line, the faint outer one too
+  fireEvent.pointerEnter(hits[2]);
+  fireEvent.pointerEnter(hits[2], { timeStamp: 1 }); // wavering on its edge
+  expect(strummed).toEqual([2]);
+  // The visible line beside it is the one that flashes and shivers.
+  const plucked = animate.mock.contexts as Element[];
+  expect(plucked.length).toBe(2);
+  for (const el of plucked) expect(el).toBe(hits[2].parentElement!.querySelector(".sys-ring"));
+  fireEvent.pointerEnter(hits[0]);
+  expect(strummed).toEqual([2, 0]);
+  delete (SVGElement.prototype as unknown as { animate?: unknown }).animate;
 });
