@@ -3,7 +3,7 @@
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
   --accent: #9e5c0c; --accent-soft: #f6e3c6; --accent-ink: #fffaf2;
   --good: #397034; --good-soft: #e1eedb; --bad: #a94630; --bad-soft: #f5dfd8; --info: #2f6f7d; --info-soft: #dcecef;
-  --c-quartermaster: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-artificer: #b4572a; --c-warden: #3d5f9e; --c-other: #2f6f7d;
+  --c-quartermaster: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-artificer: #b4572a; --c-warden: #3d5f9e; --c-wizard: #9b4ea3; --c-other: #2f6f7d;
   --shadow: 0 1px 2px rgba(60, 40, 20, .06), 0 4px 16px rgba(60, 40, 20, .05);
   --shadow-lg: 0 1px 2px rgba(60, 40, 20, .06), 0 12px 32px rgba(60, 40, 20, .09);
   --radius: 12px;
@@ -18,7 +18,7 @@
     --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
     --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
     --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a; --info: #7cb7c4; --info-soft: #18282b;
-    --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-other: #7cb7c4;
+    --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-wizard: #d79be0; --c-other: #7cb7c4;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
     --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
     color-scheme: dark;
@@ -29,7 +29,7 @@
   --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
   --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
   --good: #93c47d; --good-soft: #1f2a1b; --bad: #e88468; --bad-soft: #33201a; --info: #7cb7c4; --info-soft: #18282b;
-  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-other: #7cb7c4;
+  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-wizard: #d79be0; --c-other: #7cb7c4;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
   --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
   color-scheme: dark;
@@ -323,6 +323,7 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
 .decor-bulb.b2 ellipse { fill: var(--c-scribe); animation-delay: -3s; }
 .decor-bulb.b3 ellipse { fill: var(--c-artificer); animation-delay: -.8s; }
 .decor-bulb.b4 ellipse { fill: var(--c-warden); animation-delay: -2.3s; }
+.decor-bulb.b5 ellipse { fill: var(--c-wizard); animation-delay: -1.1s; }
 @keyframes decor-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 @media (prefers-reduced-motion: reduce) { .decor-bulb ellipse { animation: none; } }
 /* A small flat mark after Today's date: a snowflake, a pumpkin, a star. */
@@ -1741,6 +1742,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
 .c-scribe { --c: var(--c-scribe); }
 .c-artificer { --c: var(--c-artificer); }
 .c-warden { --c: var(--c-warden); }
+.c-wizard { --c: var(--c-wizard); }
 /* Crew members you added pick one of these. */
 .c-x-teal { --c: #3c8f9f; }
 .c-x-rose { --c: #c2577a; }
@@ -2551,7 +2553,7 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
   --bg: #05070c; --surface: #0a0d15; --surface-2: #141a28; --border: #262e3e; --border-strong: #3d485e;
   --text: #ece6d9; --muted: #98a0b2; --faint: #7f889b;
   --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308; --bad: #e88468; --bad-soft: #33201a;
-  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-other: #7cb7c4;
+  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-wizard: #d79be0; --c-other: #7cb7c4;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
   --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
   --o-sun: #e6a53a; /* Orbit's sun, for the Quartermaster's place (the orb-sun-* rules read it) */
@@ -2698,7 +2700,7 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
    Nothing here is rounded: a mark on a planet or a panel is a straight 2px line or a square bracket. */
 .orbit {
   --o-bg: #05070c; --o-ink: #ece6d9; --o-dim: #98a0b2; --o-faint: #626b7d; --o-line: #262e3e; --o-line-2: #3d485e; --o-panel: #0a0d15; --o-sun: #e6a53a; --o-warn: #f0b24a; --o-bad: #e5604d;
-  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-other: #7cb7c4;
+  --c-quartermaster: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-artificer: #e8935f; --c-warden: #8fb0ea; --c-wizard: #d79be0; --c-other: #7cb7c4;
   position: fixed; inset: 0; z-index: 44; overflow: clip; outline: none; user-select: none; color: var(--o-ink); font: 12px/1.45 var(--mono); color-scheme: dark;
   background: radial-gradient(120% 95% at 50% 42%, #101627 0%, #090c15 48%, var(--o-bg) 100%);
 }

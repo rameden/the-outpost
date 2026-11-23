@@ -21,6 +21,6 @@ describe("the star chart's layout", () => {
 
   it("gives neighbours different colours", () => {
     expect(toneOf(0)).not.toBe(toneOf(1));
-    expect(toneOf(5)).toBe(toneOf(0));
+    expect(toneOf(6)).toBe(toneOf(0));
   });
 });

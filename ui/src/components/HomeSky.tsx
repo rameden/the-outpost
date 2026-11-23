@@ -18,8 +18,9 @@ const CREW: { id: string; x: number; y: number; r: number }[] = [
   { id: "scribe", x: 330, y: 44, r: 2.6 },
   { id: "artificer", x: 372, y: 168, r: 2.6 },
   { id: "warden", x: 120, y: 186, r: 2.6 },
+  { id: "wizard", x: 236, y: 26, r: 2.6 },
 ];
-const CREW_JOINS: [number, number][] = [[0, 1], [0, 2], [0, 3], [0, 4], [1, 4], [2, 3]];
+const CREW_JOINS: [number, number][] = [[0, 1], [0, 2], [0, 3], [0, 4], [1, 4], [2, 3], [0, 5], [1, 5]];
 // Two quieter figures in the page's ink, for company.
 const FIGURES: { at: [number, number][]; joins: [number, number][] }[] = [
   { at: [[18, 132], [44, 104], [36, 70], [64, 22]], joins: [[0, 1], [1, 2], [2, 3]] },

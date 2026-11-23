@@ -4,7 +4,7 @@ import { beforeEach, expect, test } from "vitest";
 import { PACKS } from "../../src/packs.ts";
 import { calledEver, cClass, crewId, isLead, leadName, nameNow, setCrewColors } from "./format.ts";
 
-const five = (pack: string) => {
+const crewOf = (pack: string) => {
   const p = PACKS.find((x) => x.id === pack)!;
   return Object.entries(p.crew).map(([id, c]) => ({ id, name: c.name, emoji: c.emoji, role: "" }));
 };
@@ -19,7 +19,7 @@ test("before the page knows its crew, the Guild's names and the ids still find t
 });
 
 test("under Starship, the new names and the old ones both give the member's own colour", () => {
-  setCrewColors(five("starship"), PACKS);
+  setCrewColors(crewOf("starship"), PACKS);
   expect(["Commander", "Navigator", "Comms Officer", "Engineer", "Security Chief"].map(cClass))
     .toEqual(["c-quartermaster", "c-scout", "c-scribe", "c-artificer", "c-warden"]);
   // History written under the Guild pack keeps its colours.
@@ -32,47 +32,41 @@ test("under Starship, the new names and the old ones both give the member's own 
 });
 
 test("back under Guild, a name from the Starship pack still finds its colour", () => {
-  setCrewColors(five("guild"), PACKS);
+  setCrewColors(crewOf("guild"), PACKS);
   expect([cClass("Engineer"), cClass("Artificer"), nameNow("Engineer")]).toEqual(["c-artificer", "c-artificer", "Artificer"]);
 });
 
 test("someone you added keeps their own name and colour, even when a pack uses the name", () => {
-  setCrewColors([...five("guild"), { id: "nav", name: "Navigator", emoji: "🧿", role: "", custom: true, color: "teal" },
-    { id: "wizard", name: "Wizard", emoji: "🪄", role: "", custom: true, color: null }], PACKS);
+  setCrewColors([...crewOf("guild"), { id: "nav", name: "Navigator", emoji: "🧿", role: "", custom: true, color: "teal" },
+    { id: "mage", name: "Wizard", emoji: "🪄", role: "", custom: true, color: "gold" }], PACKS);
   expect(cClass("Navigator")).toBe("c-x-teal");
   expect(crewId("Navigator")).toBeUndefined();
   expect(calledEver("scout")).toEqual(["Scout", "Reporter", "Location Scout", "Field Researcher", "Spyglass"]);
-  expect(cClass("Wizard")).toBe("");
+  // "Wizard" is what the Guild called the Test Pilot once; someone you added with that name is not them.
+  expect([cClass("Wizard"), crewId("Wizard"), nameNow("Wizard")]).toEqual(["c-x-gold", undefined, "Wizard"]);
   expect(cClass("Scout")).toBe("c-scout");
 });
 
-test("the Test Pilot's names from every pack find their colour and who they are now, while they still have the name they came with", () => {
-  const wizard = { id: "wizard", name: "Test Pilot", emoji: "🛸", role: "", custom: true, color: "violet", own: { name: "Wizard", emoji: "🪄" } };
-  setCrewColors([...five("starship"), wizard], PACKS);
-  expect(["Wizard", "Test Pilot", "Stringer", "Stunt Double", "Tinkerer", "Powder Monkey"].map(cClass)).toEqual(Array(6).fill("c-x-violet"));
+test("the Test Pilot is the sixth of the camp's own: every name any pack has given them, old ones too, finds their colour and who they are now", () => {
+  const all = ["wizard", "Wizard", "Test Pilot", "pilot", "Stringer", "Stunt Double", "stunt", "Tinkerer", "Powder Monkey", "monkey"];
+  setCrewColors(crewOf("starship"), PACKS);
+  expect(all.map(cClass)).toEqual(Array(all.length).fill("c-wizard"));
+  expect(all.map((n) => crewId(n))).toEqual(Array(all.length).fill("wizard"));
   expect(["Wizard", "Tinkerer", "Test Pilot"].map(nameNow)).toEqual(Array(3).fill("Test Pilot"));
   expect(calledEver("wizard")).toEqual(["Test Pilot", "Wizard", "Stringer", "Stunt Double", "Tinkerer", "Powder Monkey"]);
-  expect(crewId("Test Pilot")).toBeUndefined();      // not one of the five
-  // Under Guild they're the Test Pilot too (it called them the Wizard once), and an old "Wizard" still means them.
-  setCrewColors([...five("guild"), wizard], PACKS);
-  expect([nameNow("Wizard"), nameNow("Stringer"), cClass("Wizard"), cClass("Stringer")]).toEqual(["Test Pilot", "Test Pilot", "c-x-violet", "c-x-violet"]);
-  // A camp that named them Test Pilot itself is the same.
-  setCrewColors([...five("newsroom"), { ...wizard, name: "Stringer", emoji: "⚡", own: { name: "Test Pilot", emoji: "🛸" } }], PACKS);
-  expect([nameNow("Test Pilot"), nameNow("Wizard"), cClass("Tinkerer")]).toEqual(["Stringer", "Stringer", "c-x-violet"]);
-  // Called something of your own, the packs' names aren't theirs.
-  setCrewColors([...five("starship"), { ...wizard, name: "Merlin", own: undefined }], PACKS);
-  expect([cClass("Merlin"), cClass("Test Pilot"), nameNow("Wizard"), calledEver("wizard")]).toEqual(["c-x-violet", "", "Wizard", []]);
-  // And a name someone else you added already has stays theirs.
-  setCrewColors([...five("newsroom"), { ...wizard, name: "Stringer", emoji: "⚡" }, { id: "pilot", name: "Test Pilot", emoji: "✈️", role: "", custom: true, color: "gold" }], PACKS);
-  expect([cClass("Test Pilot"), nameNow("Test Pilot"), nameNow("Wizard")]).toEqual(["c-x-gold", "Test Pilot", "Stringer"]);
+  // Under Newsroom, the old "Wizard" and the Guild's "Test Pilot" are the Stringer.
+  setCrewColors(crewOf("newsroom"), PACKS);
+  expect([nameNow("Test Pilot"), nameNow("Wizard"), cClass("Stringer"), isLead("Stringer")]).toEqual(["Stringer", "Stringer", "c-wizard", false]);
+  // Before the page knows its crew, the Guild's name for them still finds the colour.
+  setCrewColors([]);
+  expect([cClass("wizard"), calledEver("wizard")]).toEqual(["c-wizard", ["Test Pilot"]]);
 });
 
-// A pack of your own (camp/packs.json) comes to the page in the same list as the camp's five, and
+// A pack of your own (camp/packs.json) comes to the page in the same list as the camp's own, and
 // the names it gave before it was changed or deleted come beside it.
 const PIRATES = {
   id: "pirates", name: "Pirates", custom: true,
-  crew: { quartermaster: { name: "Captain", emoji: "🦜" }, scout: { name: "Lookout", emoji: "🔭", short: ["spy"] }, scribe: { name: "Chronicler", emoji: "📜" }, artificer: { name: "Shipwright", emoji: "🪚" }, warden: { name: "Bosun", emoji: "⚓" } },
-  extras: { wizard: { name: "Sea Witch", emoji: "🌊" } },
+  crew: { quartermaster: { name: "Captain", emoji: "🦜" }, scout: { name: "Lookout", emoji: "🔭", short: ["spy"] }, scribe: { name: "Chronicler", emoji: "📜" }, artificer: { name: "Shipwright", emoji: "🪚" }, warden: { name: "Bosun", emoji: "⚓" }, wizard: { name: "Sea Witch", emoji: "🌊" } },
 };
 
 test("a pack of your own gives its names the crew's colours, whichever pack is on", () => {
@@ -82,27 +76,25 @@ test("a pack of your own gives its names the crew's colours, whichever pack is o
     .toEqual(["c-quartermaster", "c-scout", "c-scribe", "c-artificer", "c-warden", "c-scout", "c-scout", "c-scout"]);
   expect([leadName(), isLead("Captain"), nameNow("Navigator"), nameNow("Scout")]).toEqual(["Captain", true, "Lookout", "Lookout"]);
   // Back under the Guild, history written as the Lookout is still the Scout's.
-  setCrewColors(five("guild"), withMine);
+  setCrewColors(crewOf("guild"), withMine);
   expect([cClass("Lookout"), nameNow("Lookout"), crewId("Bosun")]).toEqual(["c-scout", "Scout", "warden"]);
   expect(calledEver("scout")).toContain("Lookout");
   // The Test Pilot's name in it, too.
-  setCrewColors([...five("guild"), { id: "wizard", name: "Test Pilot", emoji: "🛸", role: "", custom: true, color: "violet", own: { name: "Wizard", emoji: "🪄" } }], withMine);
-  expect([cClass("Sea Witch"), nameNow("Sea Witch")]).toEqual(["c-x-violet", "Test Pilot"]);
+  expect([cClass("Sea Witch"), nameNow("Sea Witch"), crewId("Sea Witch")]).toEqual(["c-wizard", "Test Pilot", "wizard"]);
 });
 
 test("names a pack of yours gave before it was changed or deleted keep their colour in history", () => {
-  const wizard = { id: "wizard", name: "Wizard", emoji: "🪄", role: "", custom: true, color: "violet" };
   const before = { scout: ["Lookout", "spy"], quartermaster: ["Captain"], wizard: ["Sea Witch"], gone: ["Cabin Boy"], scribe: ["Navigator", "Wizard"] };
-  setCrewColors([...five("guild"), wizard], PACKS, before);
-  expect(["Lookout", "Captain", "Sea Witch"].map(cClass)).toEqual(["c-scout", "c-quartermaster", "c-x-violet"]);
-  expect(["Lookout", "Captain", "Sea Witch"].map(nameNow)).toEqual(["Scout", "Quartermaster", "Wizard"]);
+  setCrewColors(crewOf("guild"), PACKS, before);
+  expect(["Lookout", "Captain", "Sea Witch"].map(cClass)).toEqual(["c-scout", "c-quartermaster", "c-wizard"]);
+  expect(["Lookout", "Captain", "Sea Witch"].map(nameNow)).toEqual(["Scout", "Quartermaster", "Test Pilot"]);
   expect(calledEver("scout")).toContain("Lookout");
   expect(calledEver("wizard")).toContain("Sea Witch");
   // Someone who isn't in the camp any more has no colour to give; and an old name never takes one
   // that somebody has now (a pack's, or someone you added).
   expect(cClass("Cabin Boy")).toBe("");
-  expect([crewId("Navigator"), cClass("Wizard"), nameNow("Wizard")]).toEqual(["scout", "c-x-violet", "Wizard"]);
+  expect([crewId("Navigator"), cClass("Wizard"), nameNow("Wizard")]).toEqual(["scout", "c-wizard", "Test Pilot"]);
   // Without them (an older camp), nothing changes.
-  setCrewColors(five("guild"), PACKS);
+  setCrewColors(crewOf("guild"), PACKS);
   expect(cClass("Lookout")).toBe("");
 });

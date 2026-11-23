@@ -72,11 +72,11 @@ test("a planet's mark is turned back by as much as its orbit turns it, so it sta
   }
 });
 
-test("someone you added joins the rotation on the next orbit out, in the colour you gave them", () => {
+test("the Test Pilot is one of the camp's own, and someone you added joins the rotation after them, in the colour you gave them", () => {
   const crew = [
     { id: "scout", name: "Scout", emoji: "🏹", role: "" }, { id: "artificer", name: "Artificer", emoji: "🔨", role: "" },
     { id: "scribe", name: "Scribe", emoji: "🪶", role: "" }, { id: "warden", name: "Warden", emoji: "🛡️", role: "" },
-    { id: "wizard", name: "Wizard", emoji: "🪄", role: "", custom: true, color: "rose" },
+    { id: "wizard", name: "Test Pilot", emoji: "🛸", role: "" },
     { id: "cook", name: "Cook", emoji: "🍳", role: "", custom: true, color: "teal" },
   ];
   setCrewColors(crew);
@@ -86,9 +86,9 @@ test("someone you added joins the rotation on the next orbit out, in the colour 
   expect(svg.classList.contains("sys-n6")).toBe(true); // wider, so the planets stay the same size
   expect(svg.querySelectorAll("path.sys-ring").length).toBe(7);
   const wizard = svg.querySelector('[data-who="wizard"]')!;
-  expect(wizard.classList.contains("c-x-rose")).toBe(true);
+  expect(wizard.classList.contains("c-wizard")).toBe(true); // one of the camp's own, so the crew colour, not one you picked
   expect(wizard.querySelector(".sys-orbit")!.classList.contains("sys-o5")).toBe(true);
-  expect(wizard.querySelectorAll(".sys-mark").length).toBe(1); // the Wizard has a mark of their own
+  expect(wizard.querySelectorAll(".sys-mark").length).toBe(1); // the Test Pilot has a mark of their own
   // Anyone else shows their emoji.
   const cook = svg.querySelector('[data-who="cook"]')!;
   expect(cook.classList.contains("c-x-teal")).toBe(true);

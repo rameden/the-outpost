@@ -172,7 +172,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const clock = useCallback(() => time.now ?? Date.now(), [time]);
   const live = !demo && !replay; // the real camp as it is now: the only one that can be acted on
   // Who's in the sky: the Quartermaster in the middle, then everyone else from the nearest orbit out.
-  // The demo is played by your own crew, or by the camp's own five if there's nobody yet to play it.
+  // The demo is played by your own crew, or by the camp's own crew if there's nobody yet to play it.
   const bodies = useMemo<Body[]>(() => {
     const mine = S?.characters ?? [];
     const all: Body[] = demo && !mine.some((c) => c.id !== LEAD) ? DEMO_CREW : mine;

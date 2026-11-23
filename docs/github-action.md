@@ -51,8 +51,8 @@ Notes:
   Add `--approve-plan` (and link the folder with `"access": "write"`) to let the crew make changes.
   Then open a pull request from the result in a later step.
 - Shell commands aren't approved in a headless run. Only your allow list (`"shell": {"allow": [...]}`
-  in `camp/settings.json`) and, on macOS, the sandbox let commands run.
+  in `camp/settings.json`) and the sandbox (macOS, or Linux with bubblewrap) let commands run.
 - The issue's text goes in through the environment, never pasted into the script, so it can't
   change the command. The prompt also tells the crew it's someone else's words.
-- The JSON has `status`, `text`, `costUsd`, `changed`, `worktrees` and `declined`. The exit code is 0
+- The JSON has `id`, `status`, `text`, `costUsd`, `changed`, `worktrees` and `declined`. The exit code is 0
   when the run finished, 1 when it failed, and 2 when it stopped short (budget, turn limit).

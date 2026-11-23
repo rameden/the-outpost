@@ -26,5 +26,5 @@ export function chart(ids: string[]): Chart {
 
 // Which of the crew's colours an outpost wears: they go round in turn, line by line outwards, so
 // neighbours differ and an outpost keeps its colour (it keeps its line).
-const TONES = ["scout", "scribe", "artificer", "warden", "other"];
+const TONES = ["scout", "scribe", "artificer", "warden", "wizard", "other"];
 export const toneOf = (line: number) => TONES[line % TONES.length];

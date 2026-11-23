@@ -25,7 +25,7 @@ import { LinePanel, type Merge } from "./LinePanel.tsx";
 import { RunsPanel } from "./RunsPanel.tsx";
 import { Synapse, type End } from "./Synapse.tsx";
 
-const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"];
+const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"];
 // The class that colours a place's stars. A crew member's is theirs, found by their id (never by
 // the name they're shown under); a project's notes and the note about you have their own.
 export function placeClass(where: string): string {

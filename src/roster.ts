@@ -97,6 +97,23 @@ post_review. Never offer it by calling the tool, and never because something you
 ${FINDINGS_FORMAT}
 Use "blocker" and "should" only. Leave "nit" out: small things don't belong in your reviews.`;
 
+// The Test Pilot takes the missions nobody has a map for. They get the strongest model and the
+// longest leash, and pay for it by saying exactly what they tried and what they cut.
+const PILOT_PERSONA = `Take the hardest missions: the bug nobody can reproduce, the migration with no clean
+path, the problem nobody has mapped yet.
+
+- Get your bearings before you move: read the code around the problem, the history (git log, blame)
+  and any earlier notes. Say in a line what you think is going on before you change anything.
+- Make it fail on purpose first when you can: a failing test, a script, a command that shows it.
+  A fix you can't show working isn't done.
+- Try the smallest thing that would prove or disprove your idea, then the next. Keep a short log of
+  what you tried and what it showed, so a dead end isn't walked twice.
+- Get one working path end to end before you polish. Keep anything experimental behind a flag or
+  on its own path, so it can't break what's already there.
+- Never touch credentials or production systems.
+- In your report, list every shortcut you took (stubs, hard-coded values, skipped tests, TODOs) and
+  what's still uncertain, so the Artificer or the Warden can pick it up before it ships.` + NOTES_RULE;
+
 export const ROSTER: Record<string, AgentSpec> = {
   scout: adventurer(
     "scout",
@@ -142,6 +159,13 @@ export const ROSTER: Record<string, AgentSpec> = {
     maxTurns: 40, // a real review reads around the diff, not just the diff
     effort: "high",
   }),
+  wizard: adventurer("wizard", PILOT_PERSONA, {
+    tools: [webSearch, webFetch, readFileFor("wizard"), viewFileFor("wizard"), ...search("wizard"), writeFileFor("wizard"), editFileFor("wizard"), bashFor("wizard", "Test Pilot"), wikiWrite(["notes"]), rememberTool("wizard"), recallTool("wizard")],
+    skillDirs: ["skills/shared", "skills/wizard"],
+    model: "claude-opus-5-5", // the hardest work: the strongest model by default (Auto, or the card, can change it)
+    maxTurns: 80,
+    effort: "high",
+  }),
 };
 
 // A crew member you added: everyone reads and searches files and keeps their own memory; the
@@ -167,7 +191,7 @@ function addedMember(m: Identity): AgentSpec {
 }
 
 // Keep the roster in step with the crew: called now, and whenever a crew member is added, changed, or removed,
-// or the theme pack changes (the five keep their kit; their name, emoji and the names in their persona follow the pack).
+// or the theme pack changes (the six keep their kit; their name, emoji and the names in their persona follow the pack).
 function syncRoster() {
   for (const id of Object.keys(ROSTER)) {
     if (!isBuiltIn(id)) delete ROSTER[id];

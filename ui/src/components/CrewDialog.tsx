@@ -21,10 +21,8 @@ export function CrewDialog({ member, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const a = member?.abilities ?? {};
-  // own: the name and icon you gave them, when the theme pack is calling them something else. It's
-  // yours that is edited here, so saving never writes the pack's name over it.
-  const [name, setName] = useState(member?.own?.name ?? member?.name ?? "");
-  const [emoji, setEmoji] = useState(member?.own?.emoji ?? member?.emoji ?? "");
+  const [name, setName] = useState(member?.name ?? "");
+  const [emoji, setEmoji] = useState(member?.emoji ?? "");
   const [handle, setHandle] = useState(member?.id ?? "");
   const [typedHandle, setTypedHandle] = useState(!!member);
   const [color, setColor] = useState(member?.color ?? CREW_COLORS[0]);
@@ -90,7 +88,6 @@ export function CrewDialog({ member, onClose, onSaved }: {
               onChange={(ev) => { setTypedHandle(true); setHandle(handleFrom(ev.target.value)); }} />
           </label>
         </div>
-        {member?.own ? <div className="field-hint dialog-under">The theme pack calls them {member.emoji} {member.name} for now. Give them another name here and they keep it under every pack.</div> : null}
         <div className="field-hint dialog-under">{member ? `You message them with @${member.id}. The handle can't change: their memory and history are filed under it.` : `You'll message them with @${handle || "handle"}.`}</div>
 
         <div className="field" role="group" aria-label="Colour">Colour

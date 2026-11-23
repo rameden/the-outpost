@@ -83,7 +83,7 @@ const FAMILY_RULES: [TaskFamily, RegExp][] = [
   ["search", /\b(find|where is|where are|search|look up|grep|which files?|locate|list)\b/i],
   ["explanation", /\b(explain|what is|what are|how does|how do|why does|why do|walk me through|describe)\b/i],
 ];
-const ROLE_FAMILY: Record<string, TaskFamily> = { scout: "search", scribe: "summarization", artificer: "editing", warden: "review", quartermaster: "planning" };
+const ROLE_FAMILY: Record<string, TaskFamily> = { scout: "search", scribe: "summarization", artificer: "editing", warden: "review", quartermaster: "planning", wizard: "debugging" };
 const FOLLOW_UP = /^(ok(ay)?|yes|yep|sure|go( ahead)?|do it|implement it|build it|ship it|continue|proceed|carry on|sounds good|lgtm|please do|approved?)\b[\s\S]{0,40}$/i;
 const CRITICAL = /\b(drop (table|database)|destructive|migrations?|rm -rf|force[- ]push|production|prod\b|permissions?|secrets?|credentials?|iam\b|chmod|delete all|data loss)\b/i;
 // "lock" on its own, not package-lock.json or a lockfile; "auth", not "author".

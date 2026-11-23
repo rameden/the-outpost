@@ -10,9 +10,8 @@ const PIRATES = {
   id: "pirates", name: "Pirates", about: "A ship and her hands.", custom: true,
   crew: {
     quartermaster: { name: "Captain", emoji: "🦜" }, scout: { name: "Lookout", emoji: "🔭", short: ["spy"] }, scribe: { name: "Chronicler", emoji: "📜" },
-    artificer: { name: "Shipwright", emoji: "🪚" }, warden: { name: "Bosun", emoji: "⚓" },
+    artificer: { name: "Shipwright", emoji: "🪚" }, warden: { name: "Bosun", emoji: "⚓"}, wizard: { name: "Sea Witch", emoji: "🌊" },
   },
-  extras: { wizard: { name: "Sea Witch", emoji: "🌊" }, cook: { name: "Galley Hand", emoji: "🍲" } },
   words: { crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "voyage" },
   place: "the good ship Mae", palette: "harbor",
 } as unknown as PackLine;
@@ -33,20 +32,20 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const field = (d: HTMLElement, label: string | RegExp) => within(d).getByLabelText(label) as HTMLInputElement;
 const type = (d: HTMLElement, label: string | RegExp, value: string) => fireEvent.change(field(d, label), { target: { value } });
 
-test("a new pack: a name for it and for each of the five, its words and colours, and what you fill in is sent", async () => {
+test("a new pack: a name for it and for each of the six, its words and colours, and what you fill in is sent", async () => {
   const onSaved = vi.fn();
   render(<PackDialog pack={null} packs={packs} onClose={() => {}} onSaved={onSaved} />);
   const d = screen.getByRole("dialog", { name: "New theme pack" });
-  // Each of the five is labelled with their Guild name, in the order the crew is listed, with the
-  // Guild's icon to start from and no name yet. No Test Pilot: this camp hasn't one.
+  // Each of the six is labelled with their Guild name, in the order the crew is listed, with the
+  // Guild's icon to start from and no name yet; the Test Pilot has a row like the others.
   const names = within(within(d).getByRole("group", { name: "What it calls the crew" }));
   expect(names.getAllByLabelText(/^Name for the /).map((i) => [i.getAttribute("aria-label"), (i as HTMLInputElement).value]))
-    .toEqual([["Name for the Quartermaster", ""], ["Name for the Scout", ""], ["Name for the Artificer", ""], ["Name for the Scribe", ""], ["Name for the Warden", ""]]);
+    .toEqual([["Name for the Quartermaster", ""], ["Name for the Scout", ""], ["Name for the Artificer", ""], ["Name for the Scribe", ""], ["Name for the Warden", ""], ["Name for the Test Pilot", ""]]);
   expect(field(d, "Icon for the Scout").value).toBe("🏹");
   expect(WORDS.map((k) => field(d, `Word for ${k}`).value)).toEqual(["crew", "quest", "quests", "camp", "expedition"]);
   expect(within(d).getByRole("button", { name: "Camp" }).getAttribute("aria-pressed")).toBe("true");
 
-  // Nothing is sent until the pack and all five have a name.
+  // Nothing is sent until the pack and all six have a name.
   fireEvent.click(within(d).getByRole("button", { name: "Add pack" }));
   expect(within(d).getByRole("alert").textContent).toBe("Give the pack a name.");
   type(d, "Pack name", "Pirates");
@@ -58,6 +57,9 @@ test("a new pack: a name for it and for each of the five, its words and colours,
   type(d, "About it", "A ship and her hands.");
   type(d, "Name for the Scout", "Lookout"); type(d, "Icon for the Scout", "🔭");
   type(d, "Name for the Scribe", "Chronicler"); type(d, "Name for the Artificer", "Shipwright"); type(d, "Name for the Warden", "Bosun");
+  fireEvent.click(within(d).getByRole("button", { name: "Add pack" }));
+  expect(within(d).getByRole("alert").textContent).toBe("The Test Pilot needs a name in this pack.");
+  type(d, "Name for the Test Pilot", "Sea Witch");
   // More than one quest follows the word for one, until you say otherwise.
   type(d, "Word for quest", "story");
   expect(field(d, "Word for quests").value).toBe("stories");
@@ -78,14 +80,13 @@ test("a new pack: a name for it and for each of the five, its words and colours,
   expect(posts).toEqual([{ path: "/api/packs", body: { action: "add", pack: {
     name: "Pirates", about: "A ship and her hands.", place: "the good ship Mae", palette: "moss",
     words: { crew: "crew", quest: "errand", quests: "tales", camp: "ship", expedition: "expedition" },
-    crew: { quartermaster: { name: "Captain", emoji: "🧭" }, scout: { name: "Lookout", emoji: "🔭" }, artificer: { name: "Shipwright", emoji: "🔨" }, scribe: { name: "Chronicler", emoji: "🪶" }, warden: { name: "Bosun", emoji: "🛡️" } },
-    extras: {},
+    crew: { quartermaster: { name: "Captain", emoji: "🧭" }, scout: { name: "Lookout", emoji: "🔭" }, artificer: { name: "Shipwright", emoji: "🔨" }, scribe: { name: "Chronicler", emoji: "🪶" }, warden: { name: "Bosun", emoji: "🛡️" }, wizard: { name: "Sea Witch", emoji: "🛸" } },
   } } }]);
 });
 const WORDS = ["crew", "quest", "quests", "camp", "expedition"];
 
-test("Start from another pack fills in its names, words, place and colours, and the Test Pilot's name when the camp has one", async () => {
-  render(<PackDialog pack={null} packs={packs} extras={["wizard"]} onClose={() => {}} onSaved={() => {}} />);
+test("Start from another pack fills in its names, words, place and colours, the Test Pilot's too", async () => {
+  render(<PackDialog pack={null} packs={packs} onClose={() => {}} onSaved={() => {}} />);
   const d = screen.getByRole("dialog", { name: "New theme pack" });
   type(d, "Pack name", "My Ship");
   expect(field(d, "Name for the Test Pilot").value).toBe("");
@@ -105,7 +106,7 @@ test("Start from another pack fills in its names, words, place and colours, and 
   fireEvent.click(within(d).getByRole("button", { name: "Add pack" }));
   await vi.waitFor(() => expect(posts).toHaveLength(1));
   expect(posts[0].body.pack.crew).toEqual({ ...starship.crew, scribe: { name: "Herald", emoji: "📡" } });
-  expect(posts[0].body.pack.extras).toEqual({ wizard: starship.extras!.wizard });
+  expect(posts[0].body.pack.extras).toBeUndefined();
   expect(posts[0].body.pack).toMatchObject({ name: "My Ship", words: starship.words, place: starship.place, palette: "harbor" });
 
   // Back to nothing: names of your own again, with the Guild's icons and words.
@@ -115,7 +116,7 @@ test("Start from another pack fills in its names, words, place and colours, and 
 
 test("a pack of yours can be changed: it opens as it is, and what the camp says about a name is shown as it is", async () => {
   const onSaved = vi.fn(), onClose = vi.fn();
-  render(<PackDialog pack={PIRATES} packs={[...packs, PIRATES]} extras={["wizard"]} onClose={onClose} onSaved={onSaved} />);
+  render(<PackDialog pack={PIRATES} packs={[...packs, PIRATES]} onClose={onClose} onSaved={onSaved} />);
   const d = screen.getByRole("dialog", { name: "Edit the Pirates pack" });
   expect(within(d).queryByLabelText("Start from")).toBeNull();
   expect([field(d, "Pack name").value, field(d, "About it").value, field(d, "Name for the Scout").value, field(d, "Icon for the Scout").value, field(d, "Name for the Test Pilot").value, field(d, "Word for quests").value, field(d, "Where the crew works").value])
@@ -139,8 +140,8 @@ test("a pack of yours can be changed: it opens as it is, and what the camp says 
   expect(sent.pack.crew.scout).toEqual({ name: "Lookout", emoji: "🔭", short: ["spy"] });
   expect(sent.pack.crew.scribe).toEqual({ name: "Purser", emoji: "📜" });
   expect(sent.pack.words).toMatchObject({ quest: "job", quests: "jobs" });
-  // Its name for someone who isn't in the camp now (written by hand) is kept, not dropped.
-  expect(sent.pack.extras).toEqual({ cook: { name: "Galley Hand", emoji: "🍲" }, wizard: { name: "Sea Witch", emoji: "🌊" } });
+  expect(sent.pack.crew.wizard).toEqual({ name: "Sea Witch", emoji: "🌊" });
+  expect(sent.pack.extras).toBeUndefined();
 
   fireEvent.keyDown(document, { key: "Escape" });
   expect(onClose).toHaveBeenCalled();
