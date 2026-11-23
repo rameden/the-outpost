@@ -14,8 +14,10 @@ class FakeAudio {
     return osc;
   }
   createGain() {
-    return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
+    return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
   }
+  createDelay() { return { delayTime: { value: 0 }, connect: (d: unknown) => d }; }
+  createBiquadFilter() { return { type: "", frequency: { value: 0 }, connect: (d: unknown) => d }; }
 }
 class FakeNotification {
   static permission = "granted";
@@ -26,7 +28,7 @@ class FakeNotification {
 vi.stubGlobal("AudioContext", FakeAudio);
 vi.stubGlobal("Notification", FakeNotification);
 
-const { CHIME_NOTES, playChime, setChime, chimeOn } = await import("./chime.ts");
+const { CHIME_NOTES, STRUM_NOTES, playChime, setChime, chimeOn, strum } = await import("./chime.ts");
 const { notify } = await import("./notifications.ts");
 
 // The tab is in the background, which is the only time a notification shows.
@@ -74,5 +76,20 @@ test("no chime when the tab is in front, or when notifications are switched off"
   localStorage.setItem("camp-notify", "off");
   notify("Mae: Decision needed", "Which way?");
   expect(shown).toEqual([]);
+  expect(played).toEqual([]);
+});
+
+test("each orbit line strums its own note, the nearest highest, and none when the sound is off", () => {
+  expect(new Set(STRUM_NOTES).size).toBe(STRUM_NOTES.length);
+  expect([...STRUM_NOTES].sort((x, y) => y - x)).toEqual(STRUM_NOTES);
+  strum(0);
+  strum(3, 1);
+  expect(played.filter((f) => STRUM_NOTES.includes(f))).toEqual([STRUM_NOTES[0], STRUM_NOTES[3]]);
+  played = [];
+  strum(99); // a line further out than there are notes takes the lowest
+  expect(played[0]).toBe(STRUM_NOTES.at(-1));
+  played = [];
+  setChime(false);
+  strum(1);
   expect(played).toEqual([]);
 });

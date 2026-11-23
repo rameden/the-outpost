@@ -66,3 +66,49 @@ function note(a: AudioContext, freq: number, t: number, ring: number, peak: numb
   osc.start(t);
   osc.stop(t + ring + 0.05);
 }
+
+// The orbit lines in the camp at rest (MaeSystem) can be strummed, and each sounds its own note as
+// the pointer crosses it: the nearest line highest, as a shorter string is, falling outwards through
+// A major's five-note scale, so any sweep across them is in tune. Each note is a soft sine with a
+// slightly out-of-tune twin and a quiet octave over it, so it shimmers, and it rings out long into
+// an echo. Silent when the notification sound is off.
+export const STRUM_NOTES = [880, 739.99, 659.25, 554.37, 493.88, 440, 369.99, 329.63]; // A5 F#5 E5 C#5 B4 A4 F#4 E4
+const STRUM_RING = 2.6; // seconds a strummed line rings
+let strumBus: AudioNode | null = null;
+
+// Where the strum goes: straight out, and round an echo that fades a little each time and loses its top.
+function strumOut(a: AudioContext): AudioNode {
+  if (strumBus) return strumBus;
+  const bus = a.createGain(), delay = a.createDelay(1), feedback = a.createGain(), soften = a.createBiquadFilter(), wet = a.createGain();
+  delay.delayTime.value = 0.31;
+  feedback.gain.value = 0.42;
+  soften.type = "lowpass";
+  soften.frequency.value = 2400;
+  wet.gain.value = 0.45;
+  bus.connect(a.destination);
+  bus.connect(delay).connect(soften).connect(feedback).connect(delay);
+  soften.connect(wet).connect(a.destination);
+  strumBus = bus;
+  return bus;
+}
+
+// Line `i` (0 is nearest the sun) at `strength` from 0 (a slow pass) to 1 (a quick sweep).
+export function strum(i: number, strength = 0.5) {
+  if (!chimeOn()) return;
+  const a = audio();
+  if (!a) return;
+  if (a.state === "suspended") void a.resume().catch(() => {});
+  const f = STRUM_NOTES[Math.min(Math.max(i, 0), STRUM_NOTES.length - 1)];
+  const peak = 0.05 + 0.07 * Math.min(Math.max(strength, 0), 1), out = strumOut(a), t = a.currentTime + 0.01;
+  for (const [freq, share, ring] of [[f, 1, 1], [f * 1.004, 0.6, 0.9], [f * 2, 0.12, 0.45]] as const) {
+    const osc = a.createOscillator(), gain = a.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak * share, t + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + STRUM_RING * ring);
+    osc.connect(gain).connect(out);
+    osc.start(t);
+    osc.stop(t + STRUM_RING * ring + 0.05);
+  }
+}

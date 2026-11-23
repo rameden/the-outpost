@@ -350,6 +350,8 @@ input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-vis
    pointer lights, and stays lit as the lines drift under a pointer that is still. */
 .sys-hit { fill: none; stroke: transparent; stroke-width: 16; vector-effect: non-scaling-stroke; pointer-events: stroke; }
 .sys-drift:has(> .sys-hit:hover) > .sys-ring, .sys-orbit:has(> .sys-hit:hover) > .sys-ring { stroke: var(--logo-dot); stroke-width: 1.7; opacity: .9; }
+/* A plucked line (MaeSystem's pluck) shivers out from the sun and back, so it scales about the sun. */
+.sys-ring { transform-box: view-box; transform-origin: 0 0; }
 .sys-tone { fill: none; stroke: var(--c, var(--c-other)); stroke-width: 1.6; opacity: 0; vector-effect: non-scaling-stroke; stroke-linejoin: round; transition: opacity .6s; }
 .sys-on .sys-tone { opacity: .85; }
 .sys-sun { fill: var(--logo-dot); animation: sys-breathe 5s ease-in-out infinite; }
