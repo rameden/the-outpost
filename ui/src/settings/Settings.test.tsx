@@ -149,6 +149,19 @@ test("inbox entries can be marked as read, one at a time or all at once, and onl
   expect(refresh).toHaveBeenCalledTimes(2);
 });
 
+test("General keeps to the camp's basics: looks, notifications and other devices each have a page of their own", () => {
+  show("general");
+  for (const gone of ["Theme pack", "Colours", "Decorations"]) expect(screen.queryByRole("group", { name: gone })).toBeNull();
+  for (const gone of ["Browser notifications", "Uploads", "Other devices"]) expect(screen.queryByText(gone)).toBeNull();
+  cleanup();
+  show("devices");
+  expect(screen.getByText("Other devices")).toBeTruthy();
+  expect(screen.getByText("Uploads")).toBeTruthy();
+  cleanup();
+  show("notifications");
+  expect(screen.getByText("Browser notifications")).toBeTruthy();
+});
+
 test("today's cost can be taken out of the top bar's status menu, at once, and stays out in this browser", () => {
   localStorage.clear();
   const S = { ...camp(), spend: { today: 1.5 } } as unknown as CampState;
@@ -181,9 +194,9 @@ test("General renames the outpost: the name is first on the page, and Save sends
   expect(screen.getByRole("status").textContent).toMatch(/Saved/);
 });
 
-test("General has a Decorations row right under the colours: only for looks, kept in this browser, and nothing is sent to the camp", () => {
+test("Appearance has a Decorations row right under the colours: only for looks, kept in this browser, and nothing is sent to the camp", () => {
   localStorage.clear();
-  show("general");
+  show("appearance");
   const group = screen.getByRole("group", { name: "Decorations" });
   const row = group.closest(".set-row")!;
   expect(screen.getByRole("group", { name: "Colours" }).closest(".set-row")!.nextElementSibling).toBe(row);
@@ -207,9 +220,9 @@ test("General has a Decorations row right under the colours: only for looks, kep
   localStorage.clear();
 });
 
-test("General has a theme pack row above the colours: it says the crew is renamed for the crew too, and the camp keeps the choice", async () => {
+test("Appearance has a theme pack row above the colours: it says the crew is renamed for the crew too, and the camp keeps the choice", async () => {
   const { PACKS } = await import("../../../src/packs.ts");
-  const { refresh } = show("general", { ...camp(), pack: "guild", packs: PACKS } as CampState);
+  const { refresh } = show("appearance", { ...camp(), pack: "guild", packs: PACKS } as CampState);
   const group = screen.getByRole("group", { name: "Theme pack" });
   expect(group.compareDocumentPosition(screen.getByRole("group", { name: "Colours" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(group.closest(".set-row")?.textContent).toMatch(/and for the crew too/);
@@ -237,7 +250,7 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
     words: { crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "voyage" }, place: "the good ship Mae",
   };
   const S = { ...camp(), pack: "guild", packs: [...PACKS, pirates], packsLeftOut: [{ id: "mutiny", why: "The Scout needs a name in this pack." }] } as unknown as CampState;
-  const { refresh } = show("general", S);
+  const { refresh } = show("appearance", S);
   const group = screen.getByRole("group", { name: "Theme pack" });
   const row = group.closest(".set-row")!;
   expect(row.textContent).toMatch(/You can make a pack of your own: it's kept in camp\/packs\.json, and it leaves the orb's colours as they are\./);
@@ -275,7 +288,7 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
 
 test("the notification sound row shows once notifications are on: a switch kept in this browser, and buttons to hear each chime", () => {
   localStorage.clear();
-  show("general");
+  show("notifications");
   expect(screen.queryByText("Notification sound")).toBeNull(); // jsdom has no notifications: nothing to add a sound to
 
   cleanup();
@@ -286,7 +299,7 @@ test("the notification sound row shows once notifications are on: a switch kept 
     createOscillator() { const o = { frequency: { value: 0 }, connect: (g: unknown) => g, start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
     createGain() { return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d }; }
   });
-  show("general");
+  show("notifications");
   const row = screen.getByText("Notification sound").closest(".set-row") as HTMLElement;
   const box = within(row).getByRole("checkbox");
   expect(box).toHaveProperty("checked", true); // on by default
