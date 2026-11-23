@@ -66,11 +66,11 @@ test("Winter: one canvas over the window that screen readers and clicks skip, an
   expect(all).toHaveLength(1);
   expect([all[0].className, all[0].getAttribute("aria-hidden"), all[0].dataset.effect]).toEqual(["decor-fall", "true", "snow"]);
   expect(raf).toHaveBeenCalledTimes(1);
-  // The lights are inside the top bar, hidden from screen readers, in the crew's five colours.
+  // The lights are inside the top bar, hidden from screen readers, in the crew's six colours.
   const lights = document.querySelector("header.top > .decor-lights")!;
   expect(lights.getAttribute("aria-hidden")).toBe("true");
   expect(lights.querySelectorAll(".decor-wire")).toHaveLength(1);
-  expect(new Set(Array.from(lights.querySelectorAll(".decor-bulb")).map((b) => b.getAttribute("class"))).size).toBe(5);
+  expect(new Set(Array.from(lights.querySelectorAll(".decor-bulb")).map((b) => b.getAttribute("class"))).size).toBe(6);
   expect(document.querySelector("header.top button")?.textContent).toBe("Mae"); // the bar's own things are untouched
   // Turned off: it stops and leaves nothing behind.
   unmount();

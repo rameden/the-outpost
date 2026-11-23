@@ -29,7 +29,7 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
     // To show it again: take `hidden` off, put it back in that section's lede below (the lede counts
     // the films and describes them), and run `npm run tour:films`.
     key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26", hidden: true,
-    note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own crew, memory and keys. Then a request comes in and goes round the crew as comets, the Wizard flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
+    note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own crew, memory and keys. Then a request comes in and goes round the crew as comets, the Test Pilot flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
   },
   {
     key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket, start to finish", length: "0:54",
@@ -74,10 +74,10 @@ const TOUR_TOKENS = ["bg", "surface", "surface-2", "border", "border-strong", "t
 // The few the films use that the tour has no other need of, light and dark.
 const EXTRA: Record<"light" | "dark", Record<string, string>> = {
   light: { bad: "#a94630", "bad-soft": "#f5dfd8", "night-good": "#93c47d", shade: "rgba(60, 40, 20, .13)", "logo-stroke": "4", "on-light": "1", "on-dark": "0", sky: "#1d2b4c",
-    deep: "#e0d2ba", zenith: "#eadcc4", line: "#c2b196", hot: "#fff3d9", "c-pilot": "#2c8486",
+    deep: "#e0d2ba", zenith: "#eadcc4", line: "#c2b196", hot: "#fff3d9", "c-pilot": "#9b4ea3",
     "c-night": "#6f6a78", dusk: "#1b2135", "dusk-a": ".64", "star-night": "#f4ecdc" },
   dark: { bad: "#e88468", "bad-soft": "#33201a", "night-good": "#93c47d", shade: "rgba(0, 0, 0, .5)", "logo-stroke": "3", "on-light": "0", "on-dark": "1", sky: "#111c38",
-    deep: "#070605", zenith: "#14233f", line: "#574c40", hot: "#fff1cf", "c-pilot": "#7ccfcf",
+    deep: "#070605", zenith: "#14233f", line: "#574c40", hot: "#fff1cf", "c-pilot": "#d79be0",
     "c-night": "#a59fb3", dusk: "#04060d", "dusk-a": ".7", "star-night": "#f4ecdc" },
 };
 // Set by the films' own classes, not by the page.

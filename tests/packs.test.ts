@@ -1,4 +1,4 @@
-// Theme packs: the five the camp starts with can go by another set of names (and emoji), on the
+// Theme packs: the six the camp starts with can go by another set of names (and emoji), on the
 // page and in their own prompts. Ids never change, every pack's names keep resolving, and with
 // the Guild pack on the prompts are exactly what they were before packs existed.
 import { test, after } from "node:test";
@@ -21,7 +21,7 @@ const { rl } = await import("../src/tools.ts");
 const started: ChildProcess[] = [];
 after(() => { rl.close(); for (const c of started) if (c.exitCode === null) c.kill("SIGKILL"); });
 
-// Everything about the five that reaches a prompt.
+// Everything about the six that reaches a prompt.
 const prompts = () => JSON.stringify([
   ...crew.BUILT_IN.map((id) => crew.identityBlock(id)),
   ...crew.BUILT_IN.map((id) => (id === "quartermaster" ? quartermasterSpec() : ROSTER[id]).persona),
@@ -43,6 +43,7 @@ If someone asks who you are, answer in one line: your name, your role, and a tou
 - 🪶 Scribe: Writing: drafts and edits docs, posts, emails, and READMEs, saved to files.
 - 🔨 Artificer: Development: reads, writes, runs, and tests code; uses the shell with your approval.
 - 🛡️ Warden: Review: reads a pull request or a change as a whole and says what would matter if it shipped.
+- 🛸 Test Pilot: Takes the hardest missions: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet.
 
 ## Your boundaries
 You handle: finding information, web research, reading and summarizing sources, fact-checking, comparing options.
@@ -55,8 +56,8 @@ test("the Guild pack is the default, and its prompts are byte for byte what they
   assert.equal(settings.packId(), "guild");
   assert.equal(crew.activePack().id, "guild");
   assert.equal(crew.identityBlock("scout"), SCOUT_AS_IT_WAS);
-  assert.deepEqual(crew.BUILT_IN.map((id) => crew.CREW[id].name), ["Quartermaster", "Scout", "Scribe", "Artificer", "Warden"]);
-  assert.deepEqual(crew.BUILT_IN.map((id) => crew.CREW[id].emoji), ["🧭", "🏹", "🪶", "🔨", "🛡️"]);
+  assert.deepEqual(crew.BUILT_IN.map((id) => crew.CREW[id].name), ["Quartermaster", "Scout", "Scribe", "Artificer", "Warden", "Test Pilot"]);
+  assert.deepEqual(crew.BUILT_IN.map((id) => crew.CREW[id].emoji), ["🧭", "🏹", "🪶", "🔨", "🛡️", "🛸"]);
   assert.match(ROSTER.scout.persona, /briefed by the Quartermaster or messaged directly/);
   assert.match(ROSTER.warden.persona, /fixes are the Artificer's/);
   assert.match(quartermasterSpec().persona, /Scout researches before the Scribe writes about it; the Warden reviews/);
@@ -64,10 +65,10 @@ test("the Guild pack is the default, and its prompts are byte for byte what they
   assert.equal(crew.inPack(text), text, "nothing is rewritten under the Guild");
 });
 
-test("Starship renames the five everywhere, prompts included, and leaves ids and everything else alone", () => {
+test("Starship renames the six everywhere, prompts included, and leaves ids and everything else alone", () => {
   assert.equal(crew.setPack("starship").id, "starship");
-  assert.deepEqual(crew.CREW_IDS.slice(0, 5), ["quartermaster", "scout", "scribe", "artificer", "warden"], "ids never change");
-  assert.deepEqual(crew.BUILT_IN.map((id) => crew.CREW[id].name), ["Commander", "Navigator", "Comms Officer", "Engineer", "Security Chief"]);
+  assert.deepEqual(crew.CREW_IDS.slice(0, 6), ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"], "ids never change");
+  assert.deepEqual(crew.BUILT_IN.map((id) => crew.CREW[id].name), ["Commander", "Navigator", "Comms Officer", "Engineer", "Security Chief", "Test Pilot"]);
   assert.deepEqual(crew.BUILT_IN.map((id) => crew.CREW[id].id), [...crew.BUILT_IN]);
   assert.equal(crew.CREW.scout.emoji, "🔭");
   // What they do is the same; only the names inside it follow.
@@ -120,16 +121,16 @@ test("every pack's names find the same crew member, whichever pack is on", () =>
 
 test("crew members you added keep their names, and win when a pack would take one", () => {
   crew.setPack("guild");
-  const pilot = crew.addMember({ name: "Test Pilot", emoji: "🧪", role: "Testing: runs the tests.", persona: "Ask the Scout first." });
+  const pilot = crew.addMember({ name: "Test Runner", emoji: "🧪", role: "Testing: runs the tests.", persona: "Ask the Scout first." });
   assert.throws(() => crew.addMember({ name: "Navigator", role: "Steers." }), /already a crew member/, "a pack's name is spoken for, like an alias");
   crew.setPack("starship");
-  assert.deepEqual([crew.CREW.testpilot.name, crew.CREW.testpilot.emoji, crew.CREW.testpilot.role], [pilot.name, "🧪", "Testing: runs the tests."]);
-  assert.match(ROSTER.testpilot.persona, /^Ask the Scout first\./, "what you wrote is left as you wrote it");
-  assert.match(ROSTER.testpilot.persona, /briefed by the Commander/, "the camp's own rules use the names in use");
-  assert.match(crew.identityBlock("testpilot"), /^- 🧪 Test Pilot \(you\): Testing: runs the tests\.$/m);
+  assert.deepEqual([crew.CREW.testrunner.name, crew.CREW.testrunner.emoji, crew.CREW.testrunner.role], [pilot.name, "🧪", "Testing: runs the tests."]);
+  assert.match(ROSTER.testrunner.persona, /^Ask the Scout first\./, "what you wrote is left as you wrote it");
+  assert.match(ROSTER.testrunner.persona, /briefed by the Commander/, "the camp's own rules use the names in use");
+  assert.match(crew.identityBlock("testrunner"), /^- 🧪 Test Runner \(you\): Testing: runs the tests\.$/m);
 
-  // Someone you added before packs existed who is already called what a pack calls one of the five:
-  // yours keeps the name and the handle, and that one of the five keeps their Guild name.
+  // Someone you added before packs existed who is already called what a pack calls one of the six:
+  // yours keeps the name and the handle, and that one of the six keeps their Guild name.
   writeFileSync(crew.CREW_PATH, JSON.stringify({ crew: [{ name: "Navigator", role: "Steers the release train.", aliases: "comms" }] }));
   crew.loadCrew();
   assert.equal(crew.CREW.navigator?.name, "Navigator", "still there");
@@ -164,7 +165,7 @@ test("the choice is kept in camp/settings.json, and going back to the Guild rest
   assert.deepEqual(crew.CREW.scout.aliases.slice(0, 2), ["research", "researcher"]);
 });
 
-test("packs say what the page needs: names for all five, the nouns, and a palette that exists", () => {
+test("packs say what the page needs: names for all six, the nouns, and a palette that exists", () => {
   assert.deepEqual(PACKS.map((p) => p.id), ["guild", "starship", "newsroom", "studio", "lab", "pirate"]);
   for (const p of PACKS) {
     assert.deepEqual(Object.keys(p.crew), [...crew.BUILT_IN], p.id);
@@ -177,9 +178,8 @@ test("packs say what the page needs: names for all five, the nouns, and a palett
 
 test("no two crew members share a name or a handle in any pack, and every pack's names find their owner under every pack", () => {
   crew.setPack("guild");
-  crew.addMember({ name: "Wizard", emoji: "🪄", role: "Hackathon work: a rough, working version, fast." });
-  const everyone = [...crew.BUILT_IN, "wizard"];
-  const said = (id: string, p: (typeof PACKS)[number]) => { const c = (p.crew as Record<string, { name: string; short?: string[] }>)[id] ?? p.extras![id]; return [c.name, c.name.replace(/ /g, ""), ...(c.short ?? [])]; };
+  const everyone = [...crew.BUILT_IN];
+  const said = (id: string, p: (typeof PACKS)[number]) => { const c = (p.crew as Record<string, { name: string; short?: string[] }>)[id]; return [c.name, c.name.replace(/ /g, ""), ...(c.short ?? [])]; };
   const owner = new Map<string, string>();
   for (const p of PACKS) for (const id of everyone) for (const n of said(id, p)) {
     const key = n.toLowerCase();
@@ -190,7 +190,7 @@ test("no two crew members share a name or a handle in any pack, and every pack's
     crew.setPack(on.id);
     for (const p of PACKS) for (const id of everyone) for (const n of said(id, p)) assert.equal(crew.findCrew(n)?.id, id, `"${n}" under ${on.id}`);
     assert.deepEqual(everyone.map((id) => crew.CREW[id].name), everyone.map((id) => said(id, on)[0]), on.id);
-    for (const id of crew.BUILT_IN) assert.doesNotMatch(crew.identityBlock(id).split("(Older notes")[0], on.id === "guild" ? /$^/ : /\b(Quartermaster|Scribe|Artificer|Warden|Wizard)\b/, `${on.id}: ${id}`);
+    for (const id of crew.BUILT_IN) assert.doesNotMatch(crew.identityBlock(id).split("(Older notes")[0], on.id === "guild" ? /$^/ : /\b(Quartermaster|Scribe|Artificer|Warden)\b/, `${on.id}: ${id}`);
   }
   crew.setPack("lab");
   assert.match(crew.identityBlock("scout"), /^You are the Peer Reviewer|^- 🧐 Peer Reviewer: Review/m);
@@ -198,64 +198,31 @@ test("no two crew members share a name or a handle in any pack, and every pack's
   crew.setPack("studio");
   assert.match(crew.identityBlock("scribe"), /open-ended research \(the Location Scout\)|\(the Location Scout\)/);
   assert.doesNotMatch(crew.identityBlock("scribe"), /Location Location/);
-  crew.removeMember("wizard");
   crew.setPack("guild");
   assert.equal(prompts(), asWritten);
 });
 
-test("a pack renames the Test Pilot too, while they still have the name they came with", () => {
+test("the Test Pilot is one of the crew: every pack names them, and an old added Test Pilot gives way", () => {
   crew.setPack("guild");
-  const mine = { name: "Wizard", emoji: "🧙", role: "Hackathon work: a rough, working version, fast.", persona: "You are the Wizard. Hand anything slow to the Artificer.", aliases: "hacker" };
-  crew.addMember(mine);
-  const saved = () => JSON.parse(readFileSync(crew.CREW_PATH, "utf8")).crew as { id: string; name: string; emoji: string; aliases: string[]; persona: string }[];
-  // They came as the Wizard, which is what the Guild called them then. It calls them the Test Pilot now, and so are they.
-  assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.emoji, crew.CREW.wizard.persona], ["Test Pilot", "🛸", "You are the Test Pilot. Hand anything slow to the Artificer."]);
-  assert.deepEqual([crew.currentName("Wizard"), crew.findCrew("Wizard")?.id, crew.ownOf("wizard")?.name], ["Test Pilot", "wizard", "Wizard"]);
-
+  assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.emoji, crew.CREW.wizard.custom], ["Test Pilot", "🛸", undefined]);
+  assert.match(ROSTER.wizard.persona, /hardest missions/);
+  assert.equal(ROSTER.wizard.model, "claude-opus-5-5");
   crew.setPack("starship");
-  assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.emoji], ["Test Pilot", "🛸"]);
   assert.match(crew.identityBlock("wizard"), /^You are the Test Pilot 🛸 of the starship Mae\.$/m);
-  assert.match(crew.identityBlock("scout"), /^- 🛸 Test Pilot: Hackathon work/m, "the rest of the crew call them that too");
-  assert.match(crew.identityBlock("scout"), /the Wizard is the Test Pilot/, "and know who old notes mean");
-  assert.match(ROSTER.wizard.persona, /^You are the Test Pilot\. Hand anything slow to the Engineer\./, "their own words use the names in use");
-  assert.equal(ROSTER.wizard.name, "Test Pilot");
-  assert.deepEqual(["@wizard", "Wizard", "hacker", "Test Pilot", "@pilot", "Stringer", "stunt", "Tinkerer", "Powder Monkey", "@monkey"].map((n) => crew.findCrew(n)?.id), Array(10).fill("wizard"));
-  assert.equal(crew.currentName("Wizard"), "Test Pilot");
-
-  // What you wrote is what's kept: the file still says Wizard, whatever is saved while a pack is on.
-  crew.addMember({ name: "Cook", role: "Feeds everyone." });
-  assert.deepEqual(saved().map((c) => [c.id, c.name, c.emoji, c.aliases, c.persona]), [["wizard", "Wizard", "🧙", ["hacker"], mine.persona], ["cook", "Cook", "✦", [], saved()[1].persona]]);
-  assert.deepEqual([crew.ownOf("wizard")?.name, crew.ownOf("cook")?.name, crew.CREW.cook.name], ["Wizard", "Cook", "Cook"]);
-  crew.removeMember("cook");
-  crew.loadCrew();
-  assert.equal(crew.CREW.wizard.name, "Test Pilot", "read again from the file, they wear the pack again");
-
-  // Each pack has its own name for them.
+  assert.match(crew.identityBlock("scout"), /^- 🛸 Test Pilot: Takes the hardest missions/m, "the rest of the crew know them");
+  assert.deepEqual(["@wizard", "Wizard", "Test Pilot", "@pilot", "Stringer", "stunt", "Tinkerer", "Powder Monkey", "@monkey"].map((n) => crew.findCrew(n)?.id), Array(9).fill("wizard"));
   assert.deepEqual(["newsroom", "studio", "lab", "pirate", "guild"].map((id) => { crew.setPack(id); return `${crew.CREW.wizard.emoji} ${crew.CREW.wizard.name}`; }), ["⚡ Stringer", "🤸 Stunt Double", "⚗️ Tinkerer", "🧨 Powder Monkey", "🛸 Test Pilot"]);
   assert.equal(crew.currentName("Stunt Double"), "Test Pilot");
-
-  // Give them a name of your own and packs leave them be.
-  crew.updateMember("wizard", { ...mine, name: "Merlin" });
-  crew.setPack("starship");
-  assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.emoji, crew.CREW.wizard.persona], ["Merlin", "🧙", mine.persona]);
-  assert.equal(crew.findCrew("pilot"), undefined);
-  // Added under the name the Guild gives now, they're renamed like one who came as the Wizard (and keep their own emoji where the name is theirs).
-  crew.updateMember("wizard", { ...mine, name: "Test Pilot" });
-  assert.deepEqual(["starship", "newsroom", "guild"].map((id) => { crew.setPack(id); return `${crew.CREW.wizard.emoji} ${crew.CREW.wizard.name}`; }), ["🧙 Test Pilot", "⚡ Stringer", "🧙 Test Pilot"]);
-  crew.setPack("starship");
-  // The pack's names for them are spoken for, like an alias...
-  crew.updateMember("wizard", mine);
-  assert.equal(crew.CREW.wizard.name, "Test Pilot");
   assert.throws(() => crew.addMember({ name: "Pilot", role: "Flies." }), /already a crew member/);
-  // ...but someone you added earlier who is already called that keeps the name, and the Wizard stays the Wizard.
-  writeFileSync(crew.CREW_PATH, JSON.stringify({ crew: [{ ...mine }, { name: "Test Pilot", role: "Flies." }] }));
+  assert.throws(() => crew.addMember({ name: "Other", id: "wizard", role: "x" }), /already a crew member/);
+
+  // A camp that added them before they were one of the crew: the file's entry goes, the kit is the built-in one.
+  writeFileSync(crew.CREW_PATH, JSON.stringify({ crew: [{ id: "wizard", name: "Wizard", emoji: "🧙", role: "Hackathon work.", persona: "You are the Wizard." }, { name: "Cook", role: "Feeds everyone." }] }));
   crew.loadCrew();
-  assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.emoji, crew.CREW.testpilot.name], ["Wizard", "🧙", "Test Pilot"]);
-  assert.deepEqual(["Test Pilot", "@testpilot", "Wizard", "Stringer"].map((n) => crew.findCrew(n)?.id), ["testpilot", "testpilot", "wizard", "wizard"]);
-  crew.removeMember("testpilot");
-  assert.equal(crew.CREW.wizard.name, "Test Pilot", "once they're gone the name is free again");
-  crew.removeMember("wizard");
-  crew.setPack("guild");
+  assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.custom, crew.CREW.cook.name], ["Test Pilot", undefined, "Cook"]);
+  assert.match(ROSTER.wizard.persona, /hardest missions/);
+  assert.deepEqual(JSON.parse(readFileSync(crew.CREW_PATH, "utf8")).crew.map((c: { id: string }) => c.id), ["cook"], "and the file is tidied");
+  crew.removeMember("cook");
   assert.equal(prompts(), asWritten);
 });
 
@@ -269,7 +236,7 @@ const PIRATES = {
   words: { crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "voyage" },
   place: "the good ship Mae", palette: "harbor",
 };
-// The same pack with some of it changed: other names for some of the five, or anything else.
+// The same pack with some of it changed: other names for some of the six, or anything else.
 const pirates = (names: Record<string, string | { name: string; short?: string[] }> = {}, more: object = {}) => ({
   ...PIRATES, ...more,
   crew: { ...PIRATES.crew, ...Object.fromEntries(Object.entries(names).map(([who, n]) => [who, { emoji: (PIRATES.crew as Record<string, { emoji: string }>)[who].emoji, ...(typeof n === "string" ? { name: n } : n) }])) },
@@ -292,7 +259,7 @@ function logged(work: () => void): string[] {
   return said;
 }
 
-test("a pack of your own in camp/packs.json is read at start, after the five the camp comes with, and is worn like any other", () => {
+test("a pack of your own in camp/packs.json is read at start, after the six the camp comes with, and is worn like any other", () => {
   fresh({ packs: [{ id: "pirates", ...PIRATES }] });
   assert.deepEqual(PACKS.map((p) => p.id), [...BUILT_IN_PACKS, "pirates"]);
   const p = packById("pirates");
@@ -300,7 +267,7 @@ test("a pack of your own in camp/packs.json is read at start, after the five the
   assert.deepEqual(crew.packsLeftOut(), []);
 
   crew.setPack("pirates");
-  assert.deepEqual(crew.BUILT_IN.map((id) => [crew.CREW[id].name, crew.CREW[id].emoji]), [["Captain", "🦜"], ["Lookout", "🔭"], ["Chronicler", "📜"], ["Shipwright", "🪚"], ["Bosun", "⚓"]]);
+  assert.deepEqual(crew.BUILT_IN.map((id) => [crew.CREW[id].name, crew.CREW[id].emoji]), [["Captain", "🦜"], ["Lookout", "🔭"], ["Chronicler", "📜"], ["Shipwright", "🪚"], ["Bosun", "⚓"], ["Test Pilot", "🛸"]], "a pack that leaves one out gives them the Guild's name");
   // The prompts use its names and its place, and none of the Guild's.
   assert.match(crew.identityBlock("scout"), /^You are the Lookout 🔭 of the good ship Mae\.$/m);
   assert.match(crew.identityBlock("artificer"), /open-ended research \(the Lookout\), planning \(the Captain\)/);
@@ -331,7 +298,7 @@ test("a pack that can't be worn is left out with a reason, and never stops the c
   const said = logged(() => fresh({ packs: [
     pirates({ scribe: "Navigator" }, { id: "mutiny", name: "Mutiny" }),   // Starship's name for the Scout
     { id: "pirates", ...PIRATES },
-    { name: "Half", crew: { scout: { name: "Rover" } } },                // four of the five have no name
+    { name: "Half", crew: { scout: { name: "Rover" } } },                // five of the six have no name
     "not a pack at all",
   ] }));
   assert.deepEqual(PACKS.map((p) => p.id), [...BUILT_IN_PACKS, "pirates"], "the good one is there");
@@ -367,7 +334,7 @@ test("what's wrong with a pack is said in words you can act on: names, clashes a
   crew.addMember({ name: "Cartographer", role: "Maps: draws them." });
   const refused = (input: object, why: RegExp | string) => assert.throws(() => crew.addPack(input), (e: Error) => (typeof why === "string" ? e.message === why : why.test(e.message)) || assert.fail(`said: ${e.message}`));
 
-  // Every one of the five needs a name, and one that can be typed after @.
+  // Every one of the six it names needs a name, and one that can be typed after @.
   refused({ ...PIRATES, crew: { ...PIRATES.crew, warden: { name: "  ", emoji: "⚓" } } }, "The Warden needs a name in this pack.");
   refused({ ...PIRATES, crew: { quartermaster: PIRATES.crew.quartermaster } }, "The Scout needs a name in this pack.");
   refused(pirates({ scout: "7 of 9" }), /^The Scout can't be called "7 of 9": a name starts with a letter/);
@@ -387,8 +354,6 @@ test("what's wrong with a pack is said in words you can act on: names, clashes a
   refused(pirates({ scout: "Everyone" }), `The Scout can't be called "Everyone": @everyone is reserved.`);
   // With someone you added: theirs wins, as it does when a pack the camp comes with wants the name.
   refused(pirates({ scout: "Cartographer" }), `The Scout can't be called "Cartographer": you have a crew member called Cartographer (@cartographer), and they keep the name.`);
-  refused({ ...PIRATES, extras: { scout: { name: "Rover" } } }, /one of the camp's own five: their name goes under "crew", not "extras"/);
-  refused({ ...PIRATES, extras: { "the wizard": { name: "Sea Witch" } } }, /^"the wizard" isn't a crew member's handle/);
   // Ids: lowercase letters, digits and dashes, and never one the camp comes with.
   refused({ ...PIRATES, id: "Pirate Ship!" }, `A pack's id is lowercase letters, digits and dashes, 30 at most, like "pirate-ship". "Pirate Ship!" isn't.`);
   refused({ ...PIRATES, id: "-pirates" }, /lowercase letters, digits and dashes/);
@@ -405,8 +370,8 @@ test("what's wrong with a pack is said in words you can act on: names, clashes a
   // What is fine: the id comes from the name; the same crew member can have the name another pack
   // gives them (so a pack started from Starship saves as it is); and what's left out is filled in.
   const starship = packById("starship");
-  const mine = crew.addPack({ name: "Pirate Ship 2", crew: { ...PIRATES.crew, scout: starship.crew.scout }, extras: starship.extras, words: PIRATES.words });
-  assert.deepEqual([mine.id, mine.about, mine.place, mine.palette, mine.custom, mine.crew.scout.name, mine.crew.scout.short, mine.extras?.wizard?.name],
+  const mine = crew.addPack({ name: "Pirate Ship 2", crew: { ...PIRATES.crew, scout: starship.crew.scout, wizard: starship.crew.wizard }, words: PIRATES.words });
+  assert.deepEqual([mine.id, mine.about, mine.place, mine.palette, mine.custom, mine.crew.scout.name, mine.crew.scout.short, mine.crew.wizard.name],
     ["pirate-ship-2", "A pack of your own.", "the Mae ship", undefined, true, "Navigator", ["nav"], "Test Pilot"]);
   refused({ ...PIRATES, name: "pirate ship 2" }, "There's already a pack called Pirate Ship 2. Give yours another name.");
   refused({ ...PIRATES, id: "pirate-ship-2" }, `There's already a pack with the id "pirate-ship-2". Give this one another id.`);
@@ -505,9 +470,9 @@ test("the page reads the pack from /api/state and sets it with POST /api/pack", 
   assert.equal(before.pack, "guild");
   assert.deepEqual(before.packs.map((p: any) => p.id), ["guild", "starship", "newsroom", "studio", "lab", "pirate"]);
   assert.equal(before.characters.find((c: any) => c.id === "scout").name, "Scout");
-  const wizard = (s: any) => { const c = s.characters.find((c: any) => c.id === "wizard"); return [c.name, c.emoji, c.own, c.persona, c.aliases]; };
-  // Someone who came as the Wizard is the Guild's Test Pilot now; what you wrote is kept beside it.
-  assert.deepEqual(wizard(before), ["Test Pilot", "🛸", { name: "Wizard", emoji: "🧙" }, "You are the Wizard.", []]);
+  const wizard = (s: any) => { const c = s.characters.find((c: any) => c.id === "wizard"); return [c.name, c.emoji, !!c.custom]; };
+  // Someone added as the Wizard before the Test Pilot was one of the crew: the built-in takes their place.
+  assert.deepEqual(wizard(before), ["Test Pilot", "🛸", false]);
 
   const set = await post({ id: "starship" });
   assert.equal(set.status, 200);
@@ -516,8 +481,7 @@ test("the page reads the pack from /api/state and sets it with POST /api/pack", 
   assert.equal(now.pack, "starship");
   assert.deepEqual(now.characters.slice(0, 5).map((c: any) => [c.id, c.name]), [["quartermaster", "Commander"], ["scout", "Navigator"], ["scribe", "Comms Officer"], ["artificer", "Engineer"], ["warden", "Security Chief"]]);
   assert.equal(JSON.parse(readFileSync(join(camp, settings.SETTINGS_PATH), "utf8")).pack, "starship");
-  // Someone you added that the pack renames: what they're called now, and (for the dialog) what you wrote.
-  assert.deepEqual(wizard(now), ["Test Pilot", "🛸", { name: "Wizard", emoji: "🧙" }, "You are the Wizard.", []]);
+  assert.deepEqual(wizard(now), ["Test Pilot", "🛸", false]);
 
   const bad = await post({ id: "pirates" });
   assert.notEqual(bad.status, 200);
@@ -583,8 +547,8 @@ test("POST /api/packs makes, changes and deletes a pack of your own, and it's st
   assert.deepEqual(await c.post("/api/pack", { id: "pirates" }), [200, { ok: true, pack: "pirates" }]);
   s = await c.state();
   assert.deepEqual([s.pack, names(s)], ["pirates", ["Captain", "Lookout", "Chronicler", "Shipwright", "Bosun"]]);
-  const wizard = (st: any) => { const w = st.characters.find((x: any) => x.id === "wizard"); return [w.name, w.emoji, w.own]; };
-  assert.deepEqual(wizard(s), ["Sea Witch", "🌊", { name: "Wizard", emoji: "🧙" }]);
+  const wizard = (st: any) => { const w = st.characters.find((x: any) => x.id === "wizard"); return [w.name, w.emoji]; };
+  assert.deepEqual(wizard(s), ["Sea Witch", "🌊"], "an old pack's extras.wizard is read as its Test Pilot");
 
   // Changed while it's on: renamed at once, and the name it gave before is kept for history.
   assert.deepEqual(await c.post("/api/packs", { action: "update", id: "pirates", pack: { ...pirates({ scout: "Spotter" }), name: "Corsairs" } }), [200, { ok: true, id: "pirates", pack: "pirates" }]);
@@ -604,7 +568,7 @@ test("POST /api/packs makes, changes and deletes a pack of your own, and it's st
   assert.deepEqual(await c.post("/api/packs", { action: "remove", id: "pirates" }), [200, { ok: true, id: "pirates", pack: "guild" }]);
   s = await c.state();
   assert.deepEqual([s.pack, s.packs.map((p: any) => p.id), names(s)], ["guild", BUILT_IN_PACKS, ["Quartermaster", "Scout", "Scribe", "Artificer", "Warden"]]);
-  assert.deepEqual(wizard(s), ["Test Pilot", "🛸", { name: "Wizard", emoji: "🧙" }]);
+  assert.deepEqual(wizard(s), ["Test Pilot", "🛸"]);
   assert.deepEqual([s.packNamesBefore.scout, s.packNamesBefore.quartermaster, s.packNamesBefore.wizard], [["Lookout", "spy", "Spotter"], ["Captain"], ["Sea Witch"]]);
   assert.deepEqual(await c.post("/api/packs", { action: "remove", id: "pirates" }).then(([code]) => code), 404);
   assert.deepEqual(await c.post("/api/pack", { id: "pirates" }).then(([code]) => code !== 200), true);

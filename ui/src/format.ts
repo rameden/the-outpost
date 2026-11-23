@@ -5,25 +5,20 @@ export function slug(name: string | undefined | null) { return String(name || ""
 // crew loads or changes, so messages and cards anywhere on the page can look it up).
 const addedColors = new Map<string, string>();
 type PackName = { name: string; emoji: string; short?: string[]; was?: string[] };
-// own: what you called someone you added, when the theme pack is calling them something else.
-type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null; aliases?: string[]; own?: { name: string; emoji: string } };
-type PackLine = { id: string; crew: Record<string, PackName>; extras?: Record<string, PackName> };
+type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null; aliases?: string[] };
+type PackLine = { id: string; crew: Record<string, PackName> };
 let crewList: CrewLine[] = [];
-// The camp's own five, by id. Their names change with the theme pack; their ids never do.
-export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"];
+// The camp's own six, by id. Their names change with the theme pack; their ids never do.
+export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"];
 export const LEAD = "quartermaster";
-// Every name one of the five has gone by, in any theme pack, to their id. History keeps the name
+// Every name one of the six has gone by, in any theme pack, to their id. History keeps the name
 // someone had when it was written, so an old message still finds its colour after a switch.
 const GUILD_NAMES = new Map<string, string>(BUILT_IN.map((id) => [id, id]));
 let knownAs = new Map(GUILD_NAMES);
-const GUILD_CALLED: Record<string, string> = { quartermaster: "Quartermaster", scout: "Scout", scribe: "Scribe", artificer: "Artificer", warden: "Warden" };
+const GUILD_CALLED: Record<string, string> = { quartermaster: "Quartermaster", scout: "Scout", scribe: "Scribe", artificer: "Artificer", warden: "Warden", wizard: "Test Pilot" };
 let called = new Map<string, Set<string>>();
-// Someone you added that the packs have names for too (the Test Pilot, @wizard): each of those names, to their id.
+// Someone you added that a retired pack name pointed at: each of those names, to their id.
 let addedAs = new Map<string, string>();
-// Whether someone you added still has the name they came with: what the Guild pack calls them, or
-// called them before (src/packs.ts has the same check). Only then do the packs rename them.
-export const cameAs = (guild: PackName | undefined, name: string): boolean => !!guild && (guild.name === name || !!guild.was?.includes(name));
-const everCalled = (n: PackName | undefined): string[] => (n ? [n.name, ...(n.was ?? [])] : []);
 // The crew as the page last loaded it, for parts of the page far from where it's passed down.
 export const crewNow = () => crewList;
 // retired: names a pack of your own gave before it was changed or deleted, by who had them. Nobody
@@ -37,29 +32,16 @@ export function setCrewColors(crew: CrewLine[], packs: PackLine[] = [], retired:
   for (const p of packs) for (const id of BUILT_IN) {
     const c = p.crew[id];
     if (!c) continue;
-    for (const n of [c.name, ...(c.short ?? [])]) knownAs.set(slug(n), id);
-    called.set(id, (called.get(id) ?? new Set()).add(c.name));
+    for (const n of [c.name, ...(c.short ?? []), ...(c.was ?? [])]) knownAs.set(slug(n), id);
+    called.set(id, [c.name, ...(c.was ?? [])].reduce((set, n) => set.add(n), called.get(id) ?? new Set<string>()));
   }
   for (const c of crew) {
     if (c.custom) { if (c.color) addedColors.set(slug(c.name), c.color); }
     else if (BUILT_IN.includes(c.id)) for (const n of [c.name, ...(c.aliases ?? [])]) knownAs.set(slug(n), c.id);
   }
-  // Someone you added always keeps their own name: it never points at one of the five.
+  // Someone you added always keeps their own name: it never points at one of the six.
   for (const c of crew) if (c.custom) { knownAs.delete(slug(c.name)); for (const names of called.values()) names.delete(c.name); }
-  // The packs' names for someone you added (the Test Pilot), while they still have the name they
-  // came with: history written under another pack, or under the name the Guild gave them before,
-  // keeps their colour and finds them.
-  const guild = packs[0]?.extras ?? {};
   const names = new Set(crew.map((c) => slug(c.name)));
-  for (const c of crew) {
-    if (!c.custom || !cameAs(guild[c.id], c.own?.name ?? c.name)) continue;
-    for (const p of packs) for (const n of everCalled(p.extras?.[c.id])) {
-      if ((n !== c.name && names.has(slug(n))) || knownAs.has(slug(n))) continue;
-      addedAs.set(slug(n), c.id);
-      called.set(c.id, (called.get(c.id) ?? new Set()).add(n));
-      if (c.color) addedColors.set(slug(n), c.color);
-    }
-  }
   for (const [who, old] of Object.entries(retired)) {
     const added = crew.find((c) => c.custom && c.id === who);
     if (!BUILT_IN.includes(who) && !added) continue;
@@ -73,9 +55,9 @@ export function setCrewColors(crew: CrewLine[], packs: PackLine[] = [], retired:
   }
 }
 // Every name someone has had under any pack, as it was written (for matching history to who it was):
-// one of the five, or someone you added that the packs rename.
+// one of the six, or someone you added whose old name is kept.
 export const calledEver = (id: string): string[] => [...new Set([...(GUILD_CALLED[id] ? [GUILD_CALLED[id]] : []), ...(called.get(id) ?? [])])];
-// Which of the camp's own five a name (from any theme pack) or an id means, if any.
+// Which of the camp's own six a name (from any theme pack) or an id means, if any.
 export function crewId(name: string | undefined | null): string | undefined { return knownAs.get(slug(name)); }
 export const isLead = (name: string | undefined | null) => crewId(name) === LEAD;
 // What the lead is called now ("Quartermaster", or the theme pack's name for them).

@@ -17,7 +17,7 @@ import { seasonById, type Effect } from "../seasons.ts";
 export const MAX_PARTICLES = 60;
 const FRAME_MS = 1000 / 30;
 const REDUCE = "(prefers-reduced-motion: reduce)";
-const ROLES = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
+const ROLES = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"] as const;
 
 function useLessMotion(): boolean {
   // (Where the page can't tell, it counts as less motion, as everywhere else: see motion.tsx.)
@@ -48,7 +48,7 @@ export function Decor({ season }: { season: string | null }) {
 
 const GAP = 34; // px from one bulb to the next
 
-// A straight wire along the top bar's bottom edge, with small flat bulbs in the crew's five
+// A straight wire along the top bar's bottom edge, with small flat bulbs in the crew's six
 // colours. It hangs from the bar (absolutely placed, so the bar keeps its height and nothing
 // moves), and is clipped to the bar's width.
 function Lights() {
@@ -111,7 +111,7 @@ export function startFall(canvas: HTMLCanvasElement, effect: Effect): () => void
   let frame = 0, last = 0, stopped = false;
 
   // The colours come from the stylesheet, so they follow light and dark, the palette and the pack:
-  // the canvas's own `color` for snow and bats, the crew's five for confetti.
+  // the canvas's own `color` for snow and bats, the crew's six for confetti.
   const readColours = () => {
     ink = getComputedStyle(canvas).color || ink;
     const probe = document.createElement("i");

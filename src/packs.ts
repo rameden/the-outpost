@@ -4,13 +4,13 @@
 // skills stay filed where they were whichever pack is on.
 // Pure data, no imports: the server, the crew and the page (through /api/state) all read it.
 //
-// Five packs come with the camp, here. You can make more (Settings → General → New pack…): those
-// are kept in camp/packs.json, checked by packFrom below, and joined on after these five by
+// Six packs come with the camp, here. You can make more (Settings → Appearance → New pack…): those
+// are kept in camp/packs.json, checked by packFrom below, and joined on after these six by
 // crew.ts, which reads and writes the file.
 
 import { OUTPOST } from "./outpost.js"; // the packs' places are named for the outpost (read as they're used, so a rename shows at once)
 
-export const PACK_CREW = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
+export const PACK_CREW = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"] as const;
 export type PackCrewId = (typeof PACK_CREW)[number];
 
 export type PackWords = {
@@ -22,22 +22,14 @@ export type PackWords = {
 };
 
 // What a pack calls someone. short: other one-word names they answer to (after @). was: what the
-// Guild pack called them before it called them this (the Test Pilot came as the Wizard).
+// Guild pack called them before it called them this (the Test Pilot was the Wizard).
 export type PackName = { name: string; emoji: string; short?: string[]; was?: string[] };
-
-// Whether someone you added still has the name they came with: what the Guild pack calls them, or
-// called them before. Only then do they wear each pack's name for them.
-export const cameAs = (guild: PackName | undefined, name: string): boolean => !!guild && (guild.name === name || !!guild.was?.includes(name));
 
 export type Pack = {
   id: string;
   name: string;
   about: string;                 // one line for the settings row
-  crew: Record<PackCrewId, PackName>;   // what each of the five is called
-  // What it calls a crew member you added, by their handle: the Test Pilot (@wizard), if you have
-  // one. Worn only while they still have the name they came with (cameAs, above); give them a
-  // name of your own and yours is kept under every pack.
-  extras?: Record<string, PackName>;
+  crew: Record<PackCrewId, PackName>;   // what each of the six is called
   words: PackWords;
   place: string;                 // "You are the Scout of <place>."
   palette?: string;              // the colours this pack suggests (your own choice of colours still wins)
@@ -61,8 +53,8 @@ export const PACKS: Pack[] = [
       scribe: { name: "Scribe", emoji: "🪶" },
       artificer: { name: "Artificer", emoji: "🔨" },
       warden: { name: "Warden", emoji: "🛡️" },
+      wizard: { name: "Test Pilot", emoji: "🛸", was: ["Wizard"] },
     },
-    extras: { wizard: { name: "Test Pilot", emoji: "🛸", was: ["Wizard"] } },
     words: { crew: "crew", quest: "quest", quests: "quests", camp: "camp", expedition: "expedition" },
     place: "the Adventurer's Guild camp",
   },
@@ -76,8 +68,8 @@ export const PACKS: Pack[] = [
       scribe: { name: "Comms Officer", emoji: "📡", short: ["comms"] },
       artificer: { name: "Engineer", emoji: "🔧" },
       warden: { name: "Security Chief", emoji: "🛡️", short: ["security"] },
+      wizard: { name: "Test Pilot", emoji: "🛸", short: ["pilot"] },
     },
-    extras: { wizard: { name: "Test Pilot", emoji: "🛸", short: ["pilot"] } },
     words: { crew: "crew", quest: "mission", quests: "missions", camp: "ship", expedition: "voyage" },
     get place() { return `the starship ${OUTPOST.name}`; },
     palette: "harbor",
@@ -93,8 +85,8 @@ export const PACKS: Pack[] = [
       scribe: { name: "Columnist", emoji: "✍️" },
       artificer: { name: "Typesetter", emoji: "🖨️" },
       warden: { name: "Fact Checker", emoji: "✅", short: ["checker"] },
+      wizard: { name: "Stringer", emoji: "⚡" },
     },
-    extras: { wizard: { name: "Stringer", emoji: "⚡" } },
     words: { crew: "staff", quest: "story", quests: "stories", camp: "newsroom", expedition: "assignment" },
     get place() { return `the ${OUTPOST.name} newsroom`; },
     palette: "ochre",
@@ -110,8 +102,8 @@ export const PACKS: Pack[] = [
       scribe: { name: "Screenwriter", emoji: "📝" },
       artificer: { name: "Set Builder", emoji: "🛠️", short: ["builder"] },
       warden: { name: "Script Supervisor", emoji: "📋", short: ["continuity"] },
+      wizard: { name: "Stunt Double", emoji: "🤸", short: ["stunt"] },
     },
-    extras: { wizard: { name: "Stunt Double", emoji: "🤸", short: ["stunt"] } },
     words: { crew: "crew", quest: "scene", quests: "scenes", camp: "studio", expedition: "shoot" },
     get place() { return `the ${OUTPOST.name} film studio`; },
     palette: "heather",
@@ -127,8 +119,8 @@ export const PACKS: Pack[] = [
       scribe: { name: "Author", emoji: "📓" },
       artificer: { name: "Technician", emoji: "⚙️", short: ["tech"] },
       warden: { name: "Peer Reviewer", emoji: "🧐", short: ["peer"] },
+      wizard: { name: "Tinkerer", emoji: "⚗️" },
     },
-    extras: { wizard: { name: "Tinkerer", emoji: "⚗️" } },
     words: { crew: "team", quest: "experiment", quests: "experiments", camp: "lab", expedition: "study" },
     get place() { return `the ${OUTPOST.name} research lab`; },
     palette: "moss",
@@ -144,8 +136,8 @@ export const PACKS: Pack[] = [
       scribe: { name: "Logkeeper", emoji: "📜" },
       artificer: { name: "Rigger", emoji: "🪢" },
       warden: { name: "First Mate", emoji: "⚓", short: ["mate"] },
+      wizard: { name: "Powder Monkey", emoji: "🧨", short: ["monkey"] },
     },
-    extras: { wizard: { name: "Powder Monkey", emoji: "🧨", short: ["monkey"] } },
     words: { crew: "crew", quest: "raid", quests: "raids", camp: "ship", expedition: "voyage" },
     get place() { return `the pirate ship ${OUTPOST.name}`; },
     palette: "harbor",
@@ -174,8 +166,9 @@ export const packAliases = (id: PackCrewId, pack: Pack): string[] => nameAliases
 
 // ---------- Packs of your own ----------
 // What was typed in the dialog, or written by hand in camp/packs.json.
+// (extras: where a pack written before the Test Pilot was one of the six named them, under their handle.)
 export type PackInput = { id?: unknown; name?: unknown; about?: unknown; crew?: unknown; extras?: unknown; words?: unknown; place?: unknown; palette?: unknown };
-// A name that's spoken for outside the packs: one of the five's own handles, someone you added,
+// A name that's spoken for outside the packs: one of the six's own handles, someone you added,
 // a reserved word. id: whose it is ("" for nobody's). why: the rest of the sentence, given the
 // handle, e.g. "@dev already finds the Artificer".
 export type Taken = { id: string; forms: string[]; why: (form: string) => string };
@@ -192,8 +185,8 @@ const WORDS: [keyof PackWords, string][] = [["crew", "the crew"], ["quest", "a q
 // alone (how the page files a colour under it, so "Agent 7" and "Agent 8" would be one name there).
 const formsOf = (c: PackName) => [...new Set([...nameAliases(c), letters(c.name)])].filter(Boolean);
 // What the camp calls someone when it has to say who it means: their Guild name.
-const guildSays = (who: string) => { const c = (PACKS[0].crew as Record<string, PackName>)[who] ?? PACKS[0].extras?.[who]; return c ? `the ${c.name}` : `@${who}`; };
-const everyoneIn = (p: Pack): [string, PackName][] => [...Object.entries(p.crew), ...Object.entries(p.extras ?? {})];
+const guildSays = (who: string) => { const c = (PACKS[0].crew as Record<string, PackName>)[who]; return c ? `the ${c.name}` : `@${who}`; };
+const everyoneIn = (p: Pack): [string, PackName][] => Object.entries(p.crew);
 
 // Who each name belongs to already: form → whose, and how to say so.
 function spokenFor(packs: Pack[], taken: Taken[]) {
@@ -239,20 +232,17 @@ export function packFrom(input: PackInput, opts: { packs: Pack[]; taken?: Taken[
   if (beside.some((p) => p.id === id)) throw new Error(`There's already a pack with the id "${id}". Give this one another ${typed ? "id" : "name"}.`);
 
   const guild = PACKS[0];
-  const given = obj(raw.crew);
+  // A pack written when the Test Pilot was someone you added named them under "extras", or not at
+  // all: that name, or else the Guild's, so a pack from before still reads.
+  const given = { ...obj(raw.crew) };
+  const before = obj(obj(raw.extras).wizard);
+  if (!line(obj(given.wizard).name, 24)) given.wizard = line(before.name, 24) ? before : guild.crew.wizard;
   const crew = Object.fromEntries(PACK_CREW.map((who) => [who, nameFrom(given[who], guildSays(who), guild.crew[who].emoji)])) as Record<PackCrewId, PackName>;
-  const extras: Record<string, PackName> = {};
-  for (const [who, r] of Object.entries(obj(raw.extras)).slice(0, 12)) {
-    if (!line(obj(r).name, 24)) continue; // no name for them in this pack: they keep their own
-    if ((PACK_CREW as readonly string[]).includes(who)) throw new Error(`${guildSays(who)[0].toUpperCase()}${guildSays(who).slice(1)} is one of the camp's own five: their name goes under "crew", not "extras".`);
-    if (!HANDLE.test(who)) throw new Error(`"${who}" isn't a crew member's handle (what you type after @: 2 to 20 letters or digits, starting with a letter).`);
-    extras[who] = nameFrom(r, guildSays(who), guild.extras?.[who]?.emoji ?? "✦");
-  }
 
   // No name, run-together name or short handle may find two crew members: not in this pack, not
   // across packs, and never one that someone you added already has.
   const claims = spokenFor(beside, opts.taken ?? []);
-  const mine = { id, name, about: "", crew, extras, words: guild.words, place: "" };
+  const mine = { id, name, about: "", crew, words: guild.words, place: "" };
   for (const [who, c] of everyoneIn(mine)) {
     for (const f of formsOf(c)) {
       const has = claims.get(f);
@@ -276,7 +266,6 @@ export function packFrom(input: PackInput, opts: { packs: Pack[]; taken?: Taken[
     id, name,
     about: line(raw.about, 80) || "A pack of your own.",
     crew,
-    ...(Object.keys(extras).length ? { extras } : {}),
     words,
     place: line(raw.place, 60) || `the ${OUTPOST.name} ${words.camp}`,
     ...(palette && palette !== "camp" ? { palette } : {}),

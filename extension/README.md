@@ -1,6 +1,6 @@
 # Barnstorm, the browser extension
 
-The plane game from Mae's top bar, for any web page: click the extension's button and a little pixel plane appears over whatever you're looking at. It has both games: **Wreck** (fly over the page and shoot it to bits while dwarf builders put it back) and **Sortie** (a top-down shooter against waves of enemy aircraft, over the same page). Nothing on the page is really changed: Land, and it's all as it was.
+The plane game from Outpost's top bar, for any web page: click the extension's button and a little pixel plane appears over whatever you're looking at. It has both games: **Wreck** (fly over the page and shoot it to bits while dwarf builders put it back) and **Sortie** (a top-down shooter against waves of enemy aircraft, over the same page). Nothing on the page is really changed: Land, and it's all as it was.
 
 ## Build it and load it
 
@@ -48,7 +48,7 @@ It asks for nothing until you click it. Its permissions are:
 - **scripting**: to put the game on that page.
 - **storage**: to remember your best scores.
 
-It doesn't run in the background on the pages you visit, read them, or send anything anywhere. (Which is also why there's no Konami code here, as there is in Mae: listening for it would mean running on every page.)
+It doesn't run in the background on the pages you visit, read them, or send anything anywhere. (Which is also why there's no Konami code here, as there is in Outpost: listening for it would mean running on every page.)
 
 ## Where it won't work
 
@@ -58,10 +58,10 @@ It doesn't run in the background on the pages you visit, read them, or send anyt
 
 ## How it's put together
 
-It isn't a copy of the game. It's built from the same files Mae's page is (`ui/src/egg/`), so there's one game to change:
+It isn't a copy of the game. It's built from the same files Outpost's page is (`ui/src/egg/`), so there's one game to change:
 
 - `src/content.tsx` puts the game on the page, in a shadow root so the site's styles and the game's can't touch each other.
-- `src/store.ts` stands in for the one thing the game takes from Mae: where it keeps best scores.
-- `src/tokens.css` is the colours and type Mae's stylesheet would have given it. The game's own styles are lifted out of `ui/src/styles.css` when it's built.
+- `src/store.ts` stands in for the one thing the game takes from Outpost: where it keeps best scores.
+- `src/tokens.css` is the colours and type Outpost's stylesheet would have given it. The game's own styles are lifted out of `ui/src/styles.css` when it's built.
 - `src/background.js` is what the button does.
 - `scripts/extension-build.ts` (at the top of the repository) builds it, and draws the icons from the plane's pixels.

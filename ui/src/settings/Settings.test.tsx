@@ -246,7 +246,7 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
   const { PACKS } = await import("../../../src/packs.ts");
   const pirates = {
     id: "pirates", name: "Pirates", about: "A ship and her hands.", custom: true, palette: "moss",
-    crew: { quartermaster: { name: "Captain", emoji: "🦜" }, scout: { name: "Lookout", emoji: "🔭" }, scribe: { name: "Chronicler", emoji: "📜" }, artificer: { name: "Shipwright", emoji: "🪚" }, warden: { name: "Bosun", emoji: "⚓" } },
+    crew: { quartermaster: { name: "Captain", emoji: "🦜" }, scout: { name: "Lookout", emoji: "🔭" }, scribe: { name: "Chronicler", emoji: "📜" }, artificer: { name: "Shipwright", emoji: "🪚" }, warden: { name: "Bosun", emoji: "⚓" }, wizard: { name: "Sea Witch", emoji: "🌊" } },
     words: { crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "voyage" }, place: "the good ship Mae",
   };
   const S = { ...camp(), pack: "guild", packs: [...PACKS, pirates], packsLeftOut: [{ id: "mutiny", why: "The Scout needs a name in this pack." }] } as unknown as CampState;
@@ -257,7 +257,7 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
   // Yours sits after the camp's six, with the same kind of button and a pencil beside it; theirs have none.
   expect([...group.querySelectorAll("button.look")].map((b) => b.textContent)).toEqual(["🧭Guild", "🚀Starship", "📰Newsroom", "🎬Studio", "🧪Lab", "🏴‍☠️Pirate", "🦜Pirates", "New pack…"]);
   expect(within(group).getAllByRole("button", { name: /^Edit the / }).map((b) => b.getAttribute("aria-label"))).toEqual(["Edit the Pirates pack"]);
-  expect(screen.getByRole("button", { name: "Pirates" }).title).toBe("A ship and her hands. Captain, Lookout, Shipwright, Chronicler, Bosun.");
+  expect(screen.getByRole("button", { name: "Pirates" }).title).toBe("A ship and her hands. Captain, Lookout, Shipwright, Chronicler, Bosun, Sea Witch.");
   expect(row.querySelector(".pack-left-out")?.textContent).toBe(`The pack "mutiny" in camp/packs.json was left out. The Scout needs a name in this pack.`);
 
   // It's put on like any other, and the page takes the colours it suggests.

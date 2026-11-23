@@ -18,12 +18,12 @@
    0:05  The crew      Four topographic planets come up on their orbits: Scout, Scribe, Artificer, Warden.
    0:13  A request     A falling star carries a request into the sun. A ping runs out across the ground,
                        lighting each contour line as it passes, and the plan appears, one quest per crew member,
-                       with the Wizard on call for the hard part.
+                       with the Test Pilot on call for the hard part.
    0:20  The work      Quests leave as comets and the camera follows each one down to its planet:
                          Scout reads the ground (a radar sweep over a small hill, a route, three pins)
                          Scribe writes the spec along contour lines (text set on curved arcs, a quill at the tip)
                          Artificer builds terraces (contour layers dropped and struck into a hill)
-   0:35  The Wizard    Pull back. Auto sizes up the hard part and picks the strongest model. The Wizard flies in
+   0:35  The Test Pilot    Pull back. Auto sizes up the hard part and picks the strongest model. The Test Pilot flies in
                        from beyond the outer orbit, takes a sixth orbit, and its wand takes a knot of crossed
                        contour lines apart into clean rings.
    0:44  Warden        A shield drawn round the planet, three ticks, "ready for review".
@@ -41,7 +41,7 @@
   --page: #f0e8da; --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
   --text: #2a231c; --muted: #5d5247; --faint: #8a7e70;
   --accent: #9e5c0c; --accent-ink: #fffaf2; --good: #397034;
-  --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-night: #6f6a78; --c-wiz: #2c8486;
+  --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-night: #6f6a78; --c-wiz: #9b4ea3;
   --logo-ink: #14233F; --logo-dot: #B97A12;
   --dusk: #1b2135; --dusk-a: .64; --star-night: #f4ecdc;
   --shade: rgba(60, 40, 20, .13);
@@ -54,7 +54,7 @@
     --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
     --text: #efe7da; --muted: #ab9f93; --faint: #7d7368;
     --accent: #f0a640; --accent-ink: #1b1308; --good: #93c47d;
-    --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-night: #a59fb3; --c-wiz: #7ccfcf;
+    --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-night: #a59fb3; --c-wiz: #d79be0;
     --logo-ink: #F3EDE0; --logo-dot: #D9982B;
     --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc;
     --shade: rgba(0, 0, 0, .5);
@@ -65,7 +65,7 @@
   --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
   --text: #efe7da; --muted: #ab9f93; --faint: #7d7368;
   --accent: #f0a640; --accent-ink: #1b1308; --good: #93c47d;
-  --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-night: #a59fb3; --c-wiz: #7ccfcf;
+  --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-night: #a59fb3; --c-wiz: #d79be0;
   --logo-ink: #F3EDE0; --logo-dot: #D9982B;
   --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc;
   --shade: rgba(0, 0, 0, .5);
@@ -133,7 +133,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
     <p class="lede">Pick an outpost on the star chart, then follow one request all the way round it: from the mark to the crew, through the work, into memory and out the other side of the night.</p>
   </header>
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
@@ -185,11 +185,11 @@ const CREW = [
   { id: 'scribe', name: 'Scribe', cls: 'c-scribe', R: 172, start: -30, period: 200, ph: 2.1, r0: 57 },
   { id: 'art', name: 'Artificer', cls: 'c-art', R: 236, start: 70, period: 260, ph: 3.7, r0: 81 },
   { id: 'warden', name: 'Warden', cls: 'c-warden', R: 300, start: 160, period: 330, ph: 5.0, r0: 95 },
-  // The Wizard: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
-  { id: 'wiz', name: 'Wizard', cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
+  // The Test Pilot: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
+  { id: 'wiz', name: 'Test Pilot', cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
 ];
 const WZ = 4;
-const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Wizard, Warden
+const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Test Pilot, Warden
 const OW = .045;
 const KNOTS = [[0, 0], [112, .6], [172, 2.1], [236, 3.7], [300, 5.0], [480, 7.4]];
 const phaseAt = R => { for (let k = 1; k < KNOTS.length; k++) if (R <= KNOTS[k][0]) { const [r0, p0] = KNOTS[k - 1], [r1, p1] = KNOTS[k]; return lerp(p0, p1, (R - r0) / (r1 - r0)); } return KNOTS[KNOTS.length - 1][1]; };
@@ -277,7 +277,7 @@ const oldEls = OLD.map(([x, y]) => el('circle', { class: 'star', cx: x, cy: y, r
 // Orbits: drawn full size, scaled down to the mark's radii while the mark opens.
 const gOrbits = el('g', {}, gWorld);
 const orbitEls = CREW.map(c => el('path', { class: 'sorbit', d: dOf(ringPts(SUN.x, SUN.y, c.R, c.ph, 220), true) }, gOrbits));
-// The Wizard's orbit draws itself from where it arrives.
+// The Test Pilot's orbit draws itself from where it arrives.
 orbitEls[WZ].setAttribute('d', (() => { const c = CREW[WZ], a0 = 20 * DEG, p = []; for (let k = 0; k <= 240; k++) { const a = a0 + k / 240 * TAU, r = shapeR(c.R, c.ph, a); p.push([SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]); } return dOf(p, false); })());
 drawable(orbitEls[WZ]);
 const ptrails = CREW.map(c => el('path', { class: 'ptrail ' + c.cls, d: 'M0 0' }, gOrbits));
@@ -526,7 +526,7 @@ const T = (g, cls, size, x, y, s, extra = {}) => { const n = el('text', Object.a
 const plan = card(868, 96, 352, 244);
 T(plan, 'm f-accent', 11, 24, 32, 'THE QUARTERMASTER · PLAN', { 'letter-spacing': '1.5' });
 T(plan, 'd f-text', 22, 24, 62, 'Four quests');
-const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it'], ['Wizard', 'on call for the hard part']].map(([n, s], k) => {
+const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it'], ['Test Pilot', 'on call for the hard part']].map(([n, s], k) => {
   const c = CREW[k], g = el('g', { class: c.cls, transform: `translate(24 ${98 + k * 28})` }, plan);
   el('circle', { class: 'tone-f', cx: 7, cy: -5, r: 7 }, g);
   const gl = el('g', { class: 'glyph', transform: 'translate(2.2 -9.8) scale(.4)' }, g); gl.innerHTML = GLYPH[c.id];
@@ -650,7 +650,7 @@ const CAPS = [
   [20.7, 25.3, 'Scout reads the ground.', 'It maps the code before anyone touches it.'],
   [25.7, 30.3, 'Scribe writes it down.', 'The spec, line by line, along the contours.'],
   [30.7, 35.3, 'Artificer builds it.', 'Each layer set down and struck into the one below.'],
-  [35.5, 39.4, 'For the hardest part, the Wizard.', 'Auto sizes up the task and picks the strongest model there is.'],
+  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'Auto sizes up the task and picks the strongest model there is.'],
   [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
   [44.7, 49.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
   [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
@@ -658,8 +658,8 @@ const CAPS = [
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
   [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
-const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
-const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Test Pilot'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Test Pilot'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
 CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
 const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
 const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
@@ -776,7 +776,7 @@ function renderMain(t) {
   } else O(reqTag, 0);
   CREW.forEach((c, i) => {
     const a = i === 3 ? 43.5 : 19.5 + i * 5, o = ORDER.indexOf(i);
-    if (i === WZ) comet(outC[i], 36.6, 38.3, { x: 1380, y: 860 }, pos[i], -.18, t, .03, 15);   // the Wizard arrives from outside
+    if (i === WZ) comet(outC[i], 36.6, 38.3, { x: 1380, y: 860 }, pos[i], -.18, t, .03, 15);   // the Test Pilot arrives from outside
     else comet(outC[i], a, a + 1.5, sp, pos[i], .22, t);
     comet(homeC[i], 49.7 + o * .3, 51.4 + o * .3, pos[i], sp, -.2, t);
   });

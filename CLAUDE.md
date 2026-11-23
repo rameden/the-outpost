@@ -1,6 +1,6 @@
 # Mae (guild-camp)
 
-A multi-agent harness on Claude: a Quartermaster plans and dispatches a crew (Scout, Scribe, Artificer, Warden), with memory, skills, scheduled jobs and a local mission-control web UI.
+A multi-agent harness on Claude: a Quartermaster plans and dispatches a crew (Scout, Scribe, Artificer, Warden, Test Pilot), with memory, skills, scheduled jobs and a local mission-control web UI.
 
 ## Where things live
 

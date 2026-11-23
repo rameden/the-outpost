@@ -1,14 +1,14 @@
-// The crew's fixed identities. The five the camp starts with live here in code; crew members
+// The crew's fixed identities. The six the camp starts with live here in code; crew members
 // you add from mission control live in camp/crew.json. Either way an identity never drifts
 // between sessions: agents can grow their memory, but they can't rewrite who they are (the file
 // tools can't write to camp/).
 // No tool imports here, so anything can read the crew without import cycles.
 
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
-import { DEFAULT_PACK, PACKS, RETIRED, cameAs, customPacks, isPack, nameAliases, packAliases, packById, packFrom, retiredAliases, setCustomPacks, setRetired, type Pack, type PackInput, type Taken } from "./packs.js";
+import { DEFAULT_PACK, PACKS, RETIRED, customPacks, isPack, packAliases, packById, packFrom, retiredAliases, setCustomPacks, setRetired, type Pack, type PackInput, type Taken } from "./packs.js";
 import { packId, setPackId } from "./settings.js";
 
-export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden"] as const;
+export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"] as const;
 export type CrewId = string; // a built-in id, or the handle of a crew member you added
 
 // What a crew member you added is able to do, beyond reading and searching files (everyone can).
@@ -87,6 +87,18 @@ export const CREW: Record<string, Identity> = {
     notFor: "fixing what you find (the Artificer), writing the pull request's description (the Scribe), open-ended research (the Scout), planning (the Quartermaster)",
     aliases: ["reviewer", "review", "gatekeeper"],
   },
+  // The handle is the one they had as the Wizard, someone you added, so their memory and history
+  // stay filed where they were.
+  wizard: {
+    id: "wizard",
+    name: "Test Pilot",
+    emoji: "🛸",
+    role: "Takes the hardest missions: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet.",
+    personality: "Steady under pressure and quick to try things. Gets something working end to end first, then makes it sound, and is honest about every corner cut.",
+    handles: "the hardest problems in code: bugs nobody can reproduce, migrations and changes with no clean path, unmapped problems, spikes and prototypes that prove an approach works end to end",
+    notFor: "routine code changes and tests (the Artificer), reviewing a change (the Warden), prose and PR descriptions (the Scribe), open-ended research (the Scout), planning (the Quartermaster)",
+    aliases: ["pilot", "hack", "hackathon", "prototype"],
+  },
 };
 
 // Kept in step with CREW (the same array object throughout, so importers always see the current crew).
@@ -94,7 +106,7 @@ export const CREW_IDS: CrewId[] = Object.keys(CREW);
 export const isBuiltIn = (id: string) => (BUILT_IN as readonly string[]).includes(id);
 
 // ---------- Theme packs ----------
-// The five above are written out as the Guild has them. The active pack (packs.ts, chosen in
+// The six above are written out as the Guild has them. The active pack (packs.ts, chosen in
 // Settings) is put over them: its names and emoji, everywhere, prompts included, so the crew call
 // each other what the page calls them. Ids never change. Every pack's names stay on as aliases,
 // so "@scout" still finds the Navigator, and history written under one pack reads under another.
@@ -108,8 +120,7 @@ function watchNames() {
 }
 export const activePack = (): Pack => pack;
 
-// Crew members you added, as you wrote them. CREW holds each one as they're called now: the same,
-// unless the pack has a name for them (packs.ts, extras) and they still have the one they came with.
+// Crew members you added, as you wrote them. A pack never renames them.
 const OWN = new Map<string, Identity>();
 export const ownOf = (id: string): Identity | undefined => OWN.get(id);
 
@@ -121,8 +132,8 @@ export function inPack(text: string): string {
 
 const oneWord = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-// Put the active pack on the five. A crew member you added always keeps their name and handles:
-// if one is already called what the pack would call someone, that one of the five keeps their
+// Put the active pack on the six. A crew member you added always keeps their name and handles:
+// if one is already called what the pack would call someone, that one of the six keeps their
 // Guild name, and a pack's short handle you've used elsewhere is simply left off.
 function dress() {
   const yours = new Set(customMembers().flatMap((c) => [c.id, c.name.toLowerCase(), oneWord(c.name), ...c.aliases]));
@@ -143,34 +154,17 @@ function dress() {
   }
 }
 
-// And on the ones you added that packs have a name for (the Test Pilot, @wizard): the pack's name
-// and emoji, with every pack's name for them as a handle. Only while their own name is still the
-// one they came with (the Guild's, now or before), and never a name or handle someone else on the
-// crew already has.
+// The ones you added, as you wrote them.
 function dressYours() {
-  const guild = PACKS[0].extras ?? {};
   for (const own of OWN.values()) Object.assign(CREW[own.id], { name: own.name, emoji: own.emoji, aliases: own.aliases, persona: own.persona });
-  for (const own of OWN.values()) {
-    if (!cameAs(guild[own.id], own.name)) continue;
-    const c = CREW[own.id];
-    const taken = new Set(Object.values(CREW).filter((x) => x.id !== own.id).flatMap((x) => [x.id, x.name.toLowerCase(), oneWord(x.name), ...x.aliases]));
-    const free = (a: string) => !taken.has(a);
-    const w = pack.extras?.[own.id];
-    if (w && w.name !== own.name && free(w.name.toLowerCase()) && free(oneWord(w.name))) { c.name = w.name; c.emoji = w.emoji; renamed.set(own.name, w.name); }
-    const theirs = [...PACKS.flatMap((p) => (p.extras?.[own.id] ? nameAliases(p.extras[own.id]) : [])), ...retiredAliases(own.id)];
-    c.aliases = [...new Set([...own.aliases, ...theirs.filter((a) => a !== own.id && a !== c.name.toLowerCase() && free(a))])];
-  }
-  watchNames();
-  // Their own words, with the names in use now. (Someone no pack renames keeps theirs to the letter.)
-  for (const own of OWN.values()) if (CREW[own.id].name !== own.name && own.persona) CREW[own.id].persona = inPack(own.persona);
 }
 
-// Back to the five as written, while what you've added is read and checked against them.
+// Back to the six as written, while what you've added is read and checked against them.
 function undress() {
   for (const id of BUILT_IN) Object.assign(CREW[id], structuredClone(GUILD[id]));
 }
 
-// Choose the pack (Settings → General). Kept in camp/settings.json; the crew wear it from their next run.
+// Choose the pack (Settings → Appearance). Kept in camp/settings.json; the crew wear it from their next run.
 export function setPack(id: string): Pack {
   setPackId(id);
   pack = packById(id);
@@ -181,8 +175,8 @@ export function setPack(id: string): Pack {
 }
 
 // ---------- Packs of your own ----------
-// Made in Settings → General (or written by hand), kept in camp/packs.json beside the crew you
-// added, and joined on after the five packs the camp comes with. Each is checked as it's read and
+// Made in Settings → Appearance (or written by hand), kept in camp/packs.json beside the crew you
+// added, and joined on after the six packs the camp comes with. Each is checked as it's read and
 // as it's saved (packs.ts, packFrom): one that doesn't pass is left out, with the reason logged
 // and shown in Settings, and stays in the file as you wrote it.
 export const PACKS_PATH = "camp/packs.json";
@@ -191,7 +185,7 @@ let leftOut: { id: string; why: string; raw: unknown }[] = [];
 export const packsLeftOut = () => leftOut.map(({ id, why }) => ({ id, why }));
 const logged = new Set<string>();
 
-// The names no pack may give away: the five's own handles, anyone you added (theirs wins), and
+// The names no pack may give away: the six's own handles, anyone you added (theirs wins), and
 // the words that mean something else after @.
 function spokenFor(members: Identity[]): Taken[] {
   return [
@@ -339,7 +333,11 @@ export function loadCrew() {
   OWN.clear();
   for (const id of Object.keys(CREW)) if (!isBuiltIn(id)) delete CREW[id];
   const members: Identity[] = [];
-  for (const raw of Array.isArray(saved) ? saved : []) {
+  // Someone you added who is one of the camp's own now (the Test Pilot, @wizard) is left out of the
+  // file, and goes on as the built-in one: same handle, so the same memory and history.
+  const list = Array.isArray(saved) ? saved : [];
+  const kept = list.filter((raw) => !isBuiltIn(String((raw as { id?: unknown })?.id ?? "")));
+  for (const raw of kept) {
     try { const m = memberFrom(raw as NewMember); CREW[m.id] = m; members.push(m); } catch { /* skip an entry that no longer makes sense */ }
   }
   // Your own packs are checked against the crew you added (theirs wins), so they're read after it;
@@ -347,6 +345,7 @@ export function loadCrew() {
   readPacks(members);
   pack = packById(packId());
   apply(members);
+  if (kept.length < list.length) save();
 }
 
 export function addMember(input: NewMember): Identity {

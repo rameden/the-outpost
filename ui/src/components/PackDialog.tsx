@@ -1,7 +1,7 @@
 // The pack dialog: make a theme pack of your own, or change one you made.
 //
-// A pack is a set of names: what it calls each of the camp's own five (and the Test Pilot, if you have
-// one), five of the page's words, the line the crew reads about where they work, and the colours
+// A pack is a set of names: what it calls each of the camp's own six, five of the page's words,
+// the line the crew reads about where they work, and the colours
 // it suggests. The camp keeps yours in camp/packs.json, beside the ones it comes with, and checks
 // that no name in it is already someone else's; what it says when one is, is shown here as it is.
 
@@ -17,23 +17,22 @@ export type PackLine = NonNullable<CampState["packs"]>[number];
 type Named = { name: string; emoji: string };
 type WordKey = "crew" | "quest" | "quests" | "camp" | "expedition";
 
-const FIVE = ["quartermaster", "scout", "artificer", "scribe", "warden"] as const; // in the order the crew is listed
+const CREW = ["quartermaster", "scout", "artificer", "scribe", "warden", "wizard"] as const; // in the order the crew is listed
 const WORDS: WordKey[] = ["crew", "quest", "quests", "camp", "expedition"];
 const GUILD_WORDS: Record<WordKey, string> = { crew: "crew", quest: "quest", quests: "quests", camp: "camp", expedition: "expedition" };
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-export function PackDialog({ pack, packs, extras = [], on = false, onClose, onSaved }: {
+export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
   pack: PackLine | null;             // null: a new pack
   packs: PackLine[];                 // every pack the camp has; the first is the Guild's
-  extras?: string[];                 // crew members you added that packs rename (the Test Pilot, @wizard), by handle
   on?: boolean;                      // this pack is the one the camp is wearing
   onClose: () => void;
   onSaved: (id: string) => void;
 }) {
   const guild = packs[0];
-  const said = (p: PackLine | null | undefined, who: string) => (p?.crew as Record<string, Named & { short?: string[] }> | undefined)?.[who] ?? p?.extras?.[who];
+  const said = (p: PackLine | null | undefined, who: string) => (p?.crew as Record<string, Named & { short?: string[] }> | undefined)?.[who];
   const guildName = (who: string) => said(guild, who)?.name ?? cap(who);
-  const everyone = [...FIVE, ...extras.filter((h) => guild?.extras?.[h])];
+  const everyone = CREW;
   // A new pack starts with the Guild's icons and words, and every name still to give.
   const namesFrom = (p: PackLine | null | undefined, blank = false): Record<string, Named> =>
     Object.fromEntries(everyone.map((who) => [who, { name: blank ? "" : said(p, who)?.name ?? "", emoji: said(p, who)?.emoji ?? said(guild, who)?.emoji ?? "" }]));
@@ -92,13 +91,9 @@ export function PackDialog({ pack, packs, extras = [], on = false, onClose, onSa
       const n = names[who];
       return { name: n.name, emoji: n.emoji, ...(was?.short && was.name === n.name.trim() ? { short: was.short } : {}) };
     };
-    // Names this pack has for someone who isn't in the camp now (a hand-written pack's) are kept as they are.
-    const hidden = Object.entries(pack?.extras ?? {}).filter(([who]) => !everyone.includes(who));
-    const shown = everyone.filter((who) => !(FIVE as readonly string[]).includes(who)).map((who) => [who, line(who)] as const);
     const details = {
       name, about, place, palette, words,
-      crew: Object.fromEntries(FIVE.map((who) => [who, line(who)])),
-      extras: Object.fromEntries([...hidden, ...shown]),
+      crew: Object.fromEntries(CREW.map((who) => [who, line(who)])),
     };
     void send(pack ? { action: "update", id: pack.id, pack: details } : { action: "add", pack: details });
   }

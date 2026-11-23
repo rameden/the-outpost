@@ -546,9 +546,7 @@ async function fullState(full: boolean, historySeen?: string) {
         id, name: c.name, emoji: c.emoji, role: c.role, personality: c.personality,
         // A crew member you added: everything the dialog needs to show and edit them.
         custom: !!c.custom, color: c.color ?? null,
-        // (As you wrote them. If the theme pack is calling them something else, own is the name and emoji you gave.)
         ...(c.custom ? { handles: c.handles, notFor: c.notFor, persona: (ownOf(id) ?? c).persona ?? "", abilities: c.abilities ?? {}, aliases: (ownOf(id) ?? c).aliases } : {}),
-        ...(c.custom && ownOf(id) && ownOf(id)!.name !== c.name ? { own: { name: ownOf(id)!.name, emoji: ownOf(id)!.emoji } } : {}),
         model, effort: effort ?? "default",
         maxTurns: resolveTurns({ id, maxTurns: base?.maxTurns }), defaultMaxTurns: base?.maxTurns ?? DEFAULT_TURNS,
         defaultModel: base?.model ?? DEFAULT_MODEL, defaultEffort: base?.effort ?? "default",
@@ -556,7 +554,7 @@ async function fullState(full: boolean, historySeen?: string) {
       };
     }),
     // The theme pack that's on, and every pack there is: the page needs the others' names for the
-    // five too, to know whose an old name in the history is.
+    // six too, to know whose an old name in the history is.
     pack: activePack().id,
     packs: PACKS,
     // Packs of yours in camp/packs.json that didn't pass the check, and why (Settings says so), and
@@ -1495,7 +1493,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, fixAttempts: fixAttempts(), reviewChanges: reviewChangesOn() });
     }
 
-    // The theme pack ({ id }): what the five are called, on the page and in their own prompts.
+    // The theme pack ({ id }): what the six are called, on the page and in their own prompts.
     if (url.pathname === "/api/pack") {
       setPack(String(body.id ?? ""));
       return send(res, 200, { ok: true, pack: activePack().id });

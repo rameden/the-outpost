@@ -41,7 +41,7 @@ img { max-width: 100%; }
   --text: #2a231c; --muted: #5d5247; --faint: #72675b;
   --accent: #9e5c0c; --accent-soft: #f6e3c6; --accent-ink: #fffaf2;
   --good: #397034; --good-soft: #e1eedb;
-  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-wiz: #2c8486;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-wiz: #9b4ea3;
   --ink: #2a231c; --night: #201a14; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #3a322a;
   --shadow: 0 1px 2px rgba(60,40,20,.06), 0 12px 32px rgba(60,40,20,.09);
   --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
@@ -57,7 +57,7 @@ img { max-width: 100%; }
     --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
     --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
     --good: #93c47d; --good-soft: #1f2a1b;
-    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-wiz: #7ccfcf;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-wiz: #d79be0;
     --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
     color-scheme: dark;
@@ -68,7 +68,7 @@ img { max-width: 100%; }
   --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
   --accent: #f0a640; --accent-soft: #3a2a14; --accent-ink: #1b1308;
   --good: #93c47d; --good-soft: #1f2a1b;
-  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-wiz: #7ccfcf;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-wiz: #d79be0;
   --ink: #efe7da; --night: #0d0b0a; --night-text: #efe7da; --night-muted: #a3968a; --night-line: #2b2520;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.4);
   color-scheme: dark;
@@ -326,7 +326,7 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .word p { color: var(--muted); font-size: 15px; }
 
 /* Crew */
-.crew { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+.crew { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .member { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; display: grid; gap: 14px; align-content: start; min-width: 0; }
 .member .badge { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; border: 2px solid var(--tone); background: var(--surface-2); }
 .member h3 { color: var(--tone); }
@@ -334,9 +334,9 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .member dl { margin: 0; display: grid; gap: 8px; font-size: 14px; }
 .member dt { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
 .member dd { margin: 0; }
-.member.qm { --tone: var(--c-qm); } .member.scout { --tone: var(--c-scout); } .member.scribe { --tone: var(--c-scribe); } .member.art { --tone: var(--c-art); } .member.warden { --tone: var(--c-warden); }
-/* One of your own: the Test Pilot, a full-width card under the five. */
-.member.yours { --tone: var(--c-wiz); margin-top: 16px; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr); column-gap: 28px; align-items: start; border-style: dashed; border-color: var(--border-strong); }
+.member.qm { --tone: var(--c-qm); } .member.scout { --tone: var(--c-scout); } .member.scribe { --tone: var(--c-scribe); } .member.art { --tone: var(--c-art); } .member.warden { --tone: var(--c-warden); } .member.wiz { --tone: var(--c-wiz); }
+/* One of your own: a full-width card, dashed, for crew you add. */
+.member.yours { --tone: var(--muted); margin-top: 16px; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr); column-gap: 28px; align-items: start; border-style: dashed; border-color: var(--border-strong); }
 .yours-copy { display: grid; gap: 8px; }
 .yours-copy .how { color: var(--muted); font-size: 15px; }
 .yours-copy .how b { color: var(--text); font-weight: 600; }
@@ -569,9 +569,9 @@ footer .outpost-sub { font-size: 10px; }
 .film-note { margin: 14px 0 0; color: var(--muted); font-size: 15px; max-width: 72ch; }
 .film-note code { font-family: var(--mono); font-size: .92em; white-space: nowrap; }
 /* The few colours the films use that the page has no other need of. */
-:root { --bad: #a94630; --bad-soft: #f5dfd8; --night-good: #93c47d; --shade: rgba(60, 40, 20, .13); --logo-stroke: 4; --on-light: 1; --on-dark: 0; --sky: #1d2b4c; --deep: #e0d2ba; --zenith: #eadcc4; --line: #c2b196; --hot: #fff3d9; --c-pilot: #2c8486; --c-night: #6f6a78; --dusk: #1b2135; --dusk-a: .64; --star-night: #f4ecdc; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; --sky: #111c38; --deep: #070605; --zenith: #14233f; --line: #574c40; --hot: #fff1cf; --c-pilot: #7ccfcf; --c-night: #a59fb3; --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc; } }
-:root[data-theme="dark"] { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; --sky: #111c38; --deep: #070605; --zenith: #14233f; --line: #574c40; --hot: #fff1cf; --c-pilot: #7ccfcf; --c-night: #a59fb3; --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc; }
+:root { --bad: #a94630; --bad-soft: #f5dfd8; --night-good: #93c47d; --shade: rgba(60, 40, 20, .13); --logo-stroke: 4; --on-light: 1; --on-dark: 0; --sky: #1d2b4c; --deep: #e0d2ba; --zenith: #eadcc4; --line: #c2b196; --hot: #fff3d9; --c-pilot: #9b4ea3; --c-night: #6f6a78; --dusk: #1b2135; --dusk-a: .64; --star-night: #f4ecdc; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; --sky: #111c38; --deep: #070605; --zenith: #14233f; --line: #574c40; --hot: #fff1cf; --c-pilot: #d79be0; --c-night: #a59fb3; --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc; } }
+:root[data-theme="dark"] { --bad: #e88468; --bad-soft: #33201a; --night-good: #93c47d; --shade: rgba(0, 0, 0, .5); --logo-stroke: 3; --on-light: 0; --on-dark: 1; --sky: #111c38; --deep: #070605; --zenith: #14233f; --line: #574c40; --hot: #fff1cf; --c-pilot: #d79be0; --c-night: #a59fb3; --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc; }
 /* films:end */
 @media (max-width: 960px) {
   .hero, .pitch { grid-template-columns: minmax(0, 1fr); gap: 36px; }
@@ -582,7 +582,6 @@ footer .outpost-sub { font-size: 10px; }
   .stop:nth-child(2) .pin::after { border-top-color: transparent; }
   .alter { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .alter .mae-orb { --orb: 112px; margin: 34px; }
-  .crew > :last-child { grid-column: 1 / -1; }
   .member.yours { grid-template-columns: auto minmax(0, 1fr); }
   .yours-side { grid-column: 2; }
   .rules > :last-child { grid-column: 1 / -1; }
@@ -618,7 +617,7 @@ footer .outpost-sub { font-size: 10px; }
   .stop .pin::after { border-top-color: transparent; }
   .top nav { display: none; }
   .rule { padding-right: 0; }
-  .crew > :last-child, .rules > :last-child { grid-column: auto; }
+  .rules > :last-child { grid-column: auto; }
   .member.yours { grid-template-columns: minmax(0, 1fr); }
   .yours-side { grid-column: auto; }
   .hero-system { scale: .55; top: 80%; }
@@ -759,7 +758,7 @@ footer .outpost-sub { font-size: 10px; }
       <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="The crew">
-      <button type="button" role="tab" id="crew-tab-five" aria-controls="crew-five" aria-selected="true">The five</button>
+      <button type="button" role="tab" id="crew-tab-five" aria-controls="crew-five" aria-selected="true">The six</button>
       <button type="button" role="tab" id="crew-tab-yours" aria-controls="crew-yours" aria-selected="false">Your own</button>
       <button type="button" role="tab" id="crew-tab-packs" aria-controls="crew-packs" aria-selected="false">Theme packs</button>
     </div>
@@ -767,8 +766,8 @@ footer .outpost-sub { font-size: 10px; }
       <article class="member qm">
         <div class="badge" aria-hidden="true">🧭</div>
         <h3>Quartermaster</h3>
-        <p class="role">Plans, briefs the crew, reviews reports, schedules recurring jobs.</p>
-        <dl><dt>Doesn't</dt><dd>Specialist work. It dispatches that instead.</dd></dl>
+        <p class="role">Plans, briefs the crew, reviews reports, schedules recurring jobs, and answers general questions after a quick web lookup.</p>
+        <dl><dt>Doesn't</dt><dd>Specialist work, in-depth research included. It dispatches that instead.</dd></dl>
         <button class="wrong" type="button" data-say="I don't write the code myself. That's the Artificer's job, and I'll brief them.">Ask it to write the code</button>
         <p class="decline" aria-live="polite"></p>
       </article>
@@ -804,14 +803,22 @@ footer .outpost-sub { font-size: 10px; }
         <button class="wrong" type="button" data-say="Fixing it is the Artificer's job. I'll tell you what needs fixing.">Ask it to fix what it found</button>
         <p class="decline" aria-live="polite"></p>
       </article>
+      <article class="member wiz">
+        <div class="badge" aria-hidden="true">🛸</div>
+        <h3>Test Pilot</h3>
+        <p class="role">The hardest missions: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet. Runs on the strongest model.</p>
+        <dl><dt>Doesn't</dt><dd>Routine changes, or hide a shortcut: every one it took is in its report.</dd></dl>
+        <button class="wrong" type="button" data-say="Reviewing it is the Warden's job. I'll list every corner I cut so they know where to look.">Ask it to review its own fix</button>
+        <p class="decline" aria-live="polite"></p>
+      </article>
     </div>
     <article class="member yours" id="crew-yours" role="tabpanel" aria-labelledby="crew-tab-yours" hidden>
-      <div class="badge" aria-hidden="true">🛸</div>
+      <div class="badge" aria-hidden="true">✦</div>
       <div class="yours-copy">
         <span class="tag">One of your own</span>
-        <h3>Test Pilot</h3>
-        <p class="role">Takes the most challenging missions: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet.</p>
-        <p class="how">The Quartermaster and four others come built in, and the Test Pilot makes six. Add one, or anyone else, with the <b>+</b> at the end of the crew bar: a name, an icon and a colour, a line on what they're for and how they should work, and what they're allowed to do. The Quartermaster plans with them like anyone, they keep a memory of their own, and they turn down what isn't theirs. Give yours the handle <code>@wizard</code> and every theme pack has a name for them too: Newsroom's is the Stringer.</p>
+        <h3>Anyone you need</h3>
+        <p class="role">A tester, a librarian, a release manager: whatever your work keeps asking for.</p>
+        <p class="how">Six come built in. Add more with the <b>+</b> at the end of the crew bar: a name, an icon and a colour, a line on what they're for and how they should work, and what they're allowed to do. The Quartermaster plans with them like anyone, they keep a memory of their own, and they turn down what isn't theirs. A theme pack leaves the names you give them alone.</p>
       </div>
       <div class="yours-side">
         <dl><dt>Can be given</dt><dd><ul class="abilities"><li>Web search</li><li>Writing files</li><li>Shell, asking first</li><li>Wiki notes</li></ul></dd></dl>
@@ -982,7 +989,7 @@ footer .outpost-sub { font-size: 10px; }
       <div class="item full">
         <span class="tag">Mission control</span>
         <h3>A local dashboard for the whole outpost</h3>
-        <p><code>npm start</code> opens it on <code>127.0.0.1</code>. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
+        <p>Each outpost serves it on <code>127.0.0.1</code>: launch one from the star chart (<code>npm start</code>), or run <code>npm run ui</code> for Mae. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
         <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Tool calls fold into one line per stretch ("Read 5 files, ran 2 commands"), and a Condensed/Detailed switch brings back every line</li><li>Attach a file, a folder, or a .zip that arrives as the folder it holds, up to 5,000 files</li><li>Mention <code>@scribe</code> anywhere in a plain chat and the Scribe takes that turn</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
       </div>
       <div class="item solo">
@@ -1118,7 +1125,7 @@ footer .outpost-sub { font-size: 10px; }
     <div class="sec-head" style="margin:0">
       <div class="eyebrow">Get started</div>
       <h2>Set up your first outpost in three commands.</h2>
-      <p class="lede">Needs Node 22.9 or later and either a Claude subscription or an API key. On a subscription, the crew runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
+      <p class="lede">Needs Node 22.12 or later and either a Claude subscription or an API key. On a subscription, the crew runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
       <div class="try">Try asking:<q>Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.</q></div>
     </div>
     <div class="term" aria-label="Setup commands">
@@ -1137,7 +1144,7 @@ footer .outpost-sub { font-size: 10px; }
 <div class="wrap">
   <footer>
     <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
-    <span>Small, hackable, and built on the Claude API.</span>
+    <span>Small, hackable, and built on Claude.</span>
   </footer>
 </div>
 
@@ -1574,7 +1581,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </style></template>
 <template id="film-whole-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Wizard takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail you approve from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
@@ -2731,11 +2738,11 @@ const CREW = [
   { id: 'scribe', name: 'Scribe', cls: 'c-scribe', R: 172, start: -30, period: 200, ph: 2.1, r0: 57 },
   { id: 'art', name: 'Artificer', cls: 'c-art', R: 236, start: 70, period: 260, ph: 3.7, r0: 81 },
   { id: 'warden', name: 'Warden', cls: 'c-warden', R: 300, start: 160, period: 330, ph: 5.0, r0: 95 },
-  // The Wizard: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
-  { id: 'wiz', name: 'Wizard', cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
+  // The Test Pilot: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
+  { id: 'wiz', name: 'Test Pilot', cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
 ];
 const WZ = 4;
-const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Wizard, Warden
+const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Test Pilot, Warden
 const OW = .045;
 const KNOTS = [[0, 0], [112, .6], [172, 2.1], [236, 3.7], [300, 5.0], [480, 7.4]];
 const phaseAt = R => { for (let k = 1; k < KNOTS.length; k++) if (R <= KNOTS[k][0]) { const [r0, p0] = KNOTS[k - 1], [r1, p1] = KNOTS[k]; return lerp(p0, p1, (R - r0) / (r1 - r0)); } return KNOTS[KNOTS.length - 1][1]; };
@@ -2823,7 +2830,7 @@ const oldEls = OLD.map(([x, y]) => el('circle', { class: 'star', cx: x, cy: y, r
 // Orbits: drawn full size, scaled down to the mark's radii while the mark opens.
 const gOrbits = el('g', {}, gWorld);
 const orbitEls = CREW.map(c => el('path', { class: 'sorbit', d: dOf(ringPts(SUN.x, SUN.y, c.R, c.ph, 220), true) }, gOrbits));
-// The Wizard's orbit draws itself from where it arrives.
+// The Test Pilot's orbit draws itself from where it arrives.
 orbitEls[WZ].setAttribute('d', (() => { const c = CREW[WZ], a0 = 20 * DEG, p = []; for (let k = 0; k <= 240; k++) { const a = a0 + k / 240 * TAU, r = shapeR(c.R, c.ph, a); p.push([SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]); } return dOf(p, false); })());
 drawable(orbitEls[WZ]);
 const ptrails = CREW.map(c => el('path', { class: 'ptrail ' + c.cls, d: 'M0 0' }, gOrbits));
@@ -3072,7 +3079,7 @@ const T = (g, cls, size, x, y, s, extra = {}) => { const n = el('text', Object.a
 const plan = card(868, 96, 352, 244);
 T(plan, 'm f-accent', 11, 24, 32, 'THE QUARTERMASTER · PLAN', { 'letter-spacing': '1.5' });
 T(plan, 'd f-text', 22, 24, 62, 'Four quests');
-const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it'], ['Wizard', 'on call for the hard part']].map(([n, s], k) => {
+const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it'], ['Test Pilot', 'on call for the hard part']].map(([n, s], k) => {
   const c = CREW[k], g = el('g', { class: c.cls, transform: `translate(24 ${98 + k * 28})` }, plan);
   el('circle', { class: 'tone-f', cx: 7, cy: -5, r: 7 }, g);
   const gl = el('g', { class: 'glyph', transform: 'translate(2.2 -9.8) scale(.4)' }, g); gl.innerHTML = GLYPH[c.id];
@@ -3196,7 +3203,7 @@ const CAPS = [
   [20.7, 25.3, 'Scout reads the ground.', 'It maps the code before anyone touches it.'],
   [25.7, 30.3, 'Scribe writes it down.', 'The spec, line by line, along the contours.'],
   [30.7, 35.3, 'Artificer builds it.', 'Each layer set down and struck into the one below.'],
-  [35.5, 39.4, 'For the hardest part, the Wizard.', 'Auto sizes up the task and picks the strongest model there is.'],
+  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'Auto sizes up the task and picks the strongest model there is.'],
   [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
   [44.7, 49.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
   [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
@@ -3204,8 +3211,8 @@ const CAPS = [
   [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
   [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
-const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Wizard'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
-const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Wizard'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Test Pilot'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Test Pilot'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
 CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
 const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
 const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
@@ -3322,7 +3329,7 @@ function renderMain(t) {
   } else O(reqTag, 0);
   CREW.forEach((c, i) => {
     const a = i === 3 ? 43.5 : 19.5 + i * 5, o = ORDER.indexOf(i);
-    if (i === WZ) comet(outC[i], 36.6, 38.3, { x: 1380, y: 860 }, pos[i], -.18, t, .03, 15);   // the Wizard arrives from outside
+    if (i === WZ) comet(outC[i], 36.6, 38.3, { x: 1380, y: 860 }, pos[i], -.18, t, .03, 15);   // the Test Pilot arrives from outside
     else comet(outC[i], a, a + 1.5, sp, pos[i], .22, t);
     comet(homeC[i], 49.7 + o * .3, 51.4 + o * .3, pos[i], sp, -.2, t);
   });
