@@ -16,8 +16,10 @@ class FakeAudio {
   createGain() {
     return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
   }
-  createDelay() { return { delayTime: { value: 0 }, connect: (d: unknown) => d }; }
+  sampleRate = 8000;
   createBiquadFilter() { return { type: "", frequency: { value: 0 }, connect: (d: unknown) => d }; }
+  createConvolver() { return { buffer: null, connect: (d: unknown) => d }; }
+  createBuffer(channels: number, length: number) { const data = Array.from({ length: channels }, () => new Float32Array(length)); return { getChannelData: (c: number) => data[c] }; }
 }
 class FakeNotification {
   static permission = "granted";
