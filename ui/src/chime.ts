@@ -1,8 +1,15 @@
-// The camp's sounds, made with Web Audio so there's no sound file: the chime that goes with a browser
-// notification, and the strum of the orbit lines in the camp at rest (below). They're one voice: a
-// notification sounds like the innermost line being plucked, so you know it's the camp. The shape
-// tells you what happened without looking: that line's ping alone for a decision, a lower ping rising
-// to it for finished, and it falling away to the lower one for failed.
+// The camp's sound, made with Web Audio so there's no sound file: Sonar Prime, the ping that goes
+// with a browser notification and the strum of the orbit lines in the camp at rest (below). A clean
+// sine glides down onto its note (1.5 semitones over 60 ms), with a light FM shimmer at twice the
+// note that fades in about 80 ms and a tiny high click on the attack, through a compressor, a 3.4 s
+// room and a stereo ping-pong echo.
+//
+// A notification is a phrase that starts on the root, E4, so the shape tells you what happened
+// without looking: the root alone for a decision, a major chord up to the innermost line's note for
+// finished, minor steps that don't resolve for failed. The root is the full ping and rings on for
+// about 2 s under the rest; later notes are lighter, quicker-gliding pings, quieter as the phrase
+// climbs, by turns a little left and right, the last ringing about 1.1 s; their echoes land exactly
+// on every second note. A single ping takes a longer, more open echo.
 
 import { storeGet, storeSet } from "./api.ts";
 
@@ -10,13 +17,14 @@ export type ChimeKind = "ask" | "done" | "fail";
 
 // Each line's note, nearest the sun first (see the strum, below).
 export const STRUM_NOTES = [659.25, 587.33, 493.88, 440, 392, 329.63, 293.66, 246.94]; // E5 D5 B4 A4 G4 E4 D4 B3
-const INNER = STRUM_NOTES[0], BELOW = STRUM_NOTES[2];
-export const CHIME_NOTES: Record<ChimeKind, number[]> = {
-  ask: [INNER], // E5
-  done: [BELOW, INNER], // B4 → E5
-  fail: [INNER, BELOW], // E5 → B4
+const mtof = (m: number) => 440 * 2 ** ((m - 69) / 12);
+const PHRASES: Record<ChimeKind, number[]> = {
+  ask: [64], // E4
+  done: [64, 68, 71, 76], // E4 G#4 B4 E5
+  fail: [64, 66, 67], // E4 F#4 G4
 };
-const STEP = 0.2; // seconds between pings
+export const CHIME_NOTES = Object.fromEntries(Object.entries(PHRASES).map(([k, ms]) => [k, ms.map(mtof)])) as Record<ChimeKind, number[]>;
+const STEP = 0.09; // seconds between a phrase's notes
 
 export const chimeOn = () => storeGet("camp-notify-sound") !== "off";
 export const setChime = (on: boolean) => storeSet("camp-notify-sound", on ? "on" : "off");
@@ -49,74 +57,25 @@ export function readyChimeOnFirstGesture() {
   window.addEventListener("keydown", wake);
 }
 
-// Louder than a strum, as it's for when you're looking elsewhere.
 export function playChime(kind: ChimeKind) {
   const a = audio();
   if (!a) return;
   if (a.state === "suspended") void a.resume().catch(() => {});
-  const t0 = a.currentTime + 0.02;
-  CHIME_NOTES[kind].forEach((f, i) => ping(a, f, 1, 0, t0 + i * STEP, "alert"));
+  const r = rig(a), notes = CHIME_NOTES[kind], n = notes.length, out = n === 1 ? r.open : r.tight, t0 = a.currentTime + 0.02;
+  click(a, t0, 0.05, out);
+  notes.forEach((f, i) => {
+    const t = t0 + i * STEP, last = i === n - 1;
+    if (i === 0) return tone(a, { f, t, peak: 0.22, decay: 2, glide: 1.5, glideTime: 0.06, pan: 0, out });
+    const fade = 1 - (0.35 * i) / Math.max(1, n - 1);
+    tone(a, { f, t, peak: (last ? 0.13 : 0.11) * fade, decay: last ? 1.1 : 0.3, glide: 0.5, glideTime: 0.02, pan: i % 2 ? 0.2 : -0.2, out });
+  });
 }
 
 // The orbit lines in the camp at rest (MaeSystem) can be strummed, and each sounds its own note as
 // the pointer crosses it: the nearest line highest, as a shorter string is, falling outwards through
-// E minor's five-note scale, so any sweep across them is in tune, and a little dark. It's meant to
-// sound like a working ship's sonar heard over the comms, not a chime: each ping starts with a
-// relay's click and a clang of metal (a second tone, 1.4 times as high, bends the note hard and then
-// lets go, as struck plate does), starts a touch sharp and slides onto its note, and goes through
-// a little overdrive and a radio's narrow band, so it's gritty. Then it rings on a long while into
-// a dark reverb, like a hull. Each line sits at its own place from left to right, so a sweep moves
-// across. A notification is the same ping (playChime, above). Nothing in it beats or repeats (no out-of-tune twin, no echo taps), so the tail fades
-// away evenly instead of pulsing. Silent when the notification sound is off.
-const STRUM_RING = 4.5; // seconds the note itself rings; the reverb carries it on past that
-const HALL = 5; // seconds the reverb takes to die away
-type Out = "strum" | "alert";
-const buses: Partial<Record<Out, AudioNode>> = {};
-let clickNoise: AudioBuffer | null = null;
-
-// The reverb's echo of a single click: noise fading away smoothly over HALL seconds, darker as it
-// goes, and different in each ear so it sounds wide. Made once, here, so there's no sound file.
-function hall(a: AudioContext): AudioBuffer {
-  const n = Math.floor(a.sampleRate * HALL), buf = a.createBuffer(2, n, a.sampleRate);
-  for (let ch = 0; ch < 2; ch++) {
-    const data = buf.getChannelData(ch);
-    let dark = 0;
-    for (let k = 0; k < n; k++) {
-      const left = Math.exp((-6.9 * k) / n); // down 60 dB by the end
-      dark += (Math.random() * 2 - 1 - dark) * (0.12 + 0.5 * left); // smoother (darker) as it fades
-      data[k] = dark * left;
-    }
-  }
-  return buf;
-}
-
-// Where a ping goes: driven into a gentle overdrive (the grit), through a radio's band (no deep
-// lows, no bright highs), then out as it is and into the reverb. A notification's comes out louder.
-function strumOut(a: AudioContext, out: Out): AudioNode {
-  const made = buses[out];
-  if (made) return made;
-  const drive = a.createGain(), grit = a.createWaveShaper(), level = a.createGain(), lows = a.createBiquadFilter(), highs = a.createBiquadFilter();
-  const dry = a.createGain(), room = a.createConvolver(), wet = a.createGain();
-  drive.gain.value = 10;
-  const k = 2, curve = new Float32Array(1024);
-  for (let n = 0; n < curve.length; n++) { const x = (n / (curve.length - 1)) * 2 - 1; curve[n] = Math.tanh(k * x) / Math.tanh(k); }
-  grit.curve = curve;
-  grit.oversample = "2x";
-  level.gain.value = out === "alert" ? 0.16 : 0.06;
-  lows.type = "highpass";
-  lows.frequency.value = 180;
-  highs.type = "lowpass";
-  highs.frequency.value = 4200;
-  dry.gain.value = 0.6;
-  wet.gain.value = 1.3;
-  room.buffer = hall(a);
-  drive.connect(grit).connect(level).connect(lows).connect(highs);
-  highs.connect(dry).connect(a.destination);
-  highs.connect(room).connect(wet).connect(a.destination);
-  buses[out] = drive;
-  return drive;
-}
-
+// E minor's five-note scale, so any sweep across them is in tune. Each is one of the lighter pings;
+// a quicker sweep plays it louder, with a sharper click and a longer glide. Each line sits at its own
+// place from left to right, so a sweep moves across.
 // Line `i` (0 is nearest the sun) at `strength` from 0 (a slow pass) to 1 (a quick sweep).
 export function strum(i: number, strength = 0.5) {
   if (!strumOn()) return;
@@ -124,47 +83,91 @@ export function strum(i: number, strength = 0.5) {
   if (!a) return;
   if (a.state === "suspended") void a.resume().catch(() => {});
   const f = STRUM_NOTES[Math.min(Math.max(i, 0), STRUM_NOTES.length - 1)];
-  // Where it sits: the nearest line in the middle, each further one out a little wider, by turns left and right.
-  ping(a, f, Math.min(Math.max(strength, 0), 1), (i % 2 ? -1 : 1) * Math.min(0.7, 0.12 * i), a.currentTime + 0.01, "strum");
+  const hard = Math.min(Math.max(strength, 0), 1), side = (i % 2 ? -1 : 1) * Math.min(0.7, 0.12 * i);
+  const t = a.currentTime + 0.01, out = rig(a).tight;
+  click(a, t, 0.012 + 0.025 * hard, out);
+  tone(a, { f, t, peak: 0.05 + 0.06 * hard, decay: 1.1, glide: 0.5 + hard, glideTime: 0.02 + 0.03 * hard, pan: side * 0.4, out });
 }
 
-// One ping of note `f` at time `t`: `hard` from 0 to 1, `side` from -1 (left) to 1 (right).
-function ping(a: AudioContext, f: number, hard: number, side: number, t: number, out: Out) {
-  const peak = 0.035 + 0.03 * hard, end = t + STRUM_RING;
-  const pan = a.createStereoPanner();
-  pan.pan.value = side;
-  pan.connect(strumOut(a, out));
-  const osc = a.createOscillator(), gain = a.createGain();
+type Fx = { reverb: number; delay: number; time: number; fb: number };
+const OPEN: Fx = { reverb: 0.3, delay: 0.38, time: 0.32, fb: 0.42 };
+const TIGHT: Fx = { reverb: 0.32, delay: 0.22, time: 2 * STEP, fb: 0.28 };
+type Rig = { click: AudioBuffer; open: AudioNode; tight: AudioNode };
+const rigs = new WeakMap<BaseAudioContext, Rig>();
+function rig(a: BaseAudioContext): Rig {
+  const had = rigs.get(a);
+  if (had) return had;
+  const comp = a.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.25;
+  comp.connect(a.destination);
+  // The room: 3.4 s of soft noise, fading, with a 12 ms swell so it doesn't click.
+  const rate = a.sampleRate, seconds = 3.4, len = Math.floor(rate * seconds), ir = a.createBuffer(2, len, rate);
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c);
+    let lp = 0;
+    for (let k = 0; k < len; k++) {
+      lp += (Math.random() * 2 - 1 - lp) * 0.4;
+      d[k] = lp * Math.exp((-5 * (k / rate)) / seconds) * Math.min(1, k / (rate * 0.012));
+    }
+  }
+  const verb = a.createConvolver();
+  verb.buffer = ir;
+  verb.connect(comp);
+  // A way in at 85%, with a send to the room and a filtered echo bouncing left, right, left.
+  const bus = (fx: Fx): AudioNode => {
+    const into = a.createGain(), vol = a.createGain(), toRoom = a.createGain(), send = a.createGain();
+    vol.gain.value = 0.85;
+    toRoom.gain.value = fx.reverb;
+    send.gain.value = fx.delay;
+    into.connect(vol).connect(comp);
+    vol.connect(toRoom).connect(verb);
+    const [dL, dR] = [a.createDelay(1), a.createDelay(1)], [fL, fR] = [a.createBiquadFilter(), a.createBiquadFilter()], [gL, gR] = [a.createGain(), a.createGain()];
+    const merge = a.createChannelMerger(2);
+    for (const d of [dL, dR]) d.delayTime.value = fx.time;
+    for (const f of [fL, fR]) { f.type = "lowpass"; f.frequency.value = 3200; }
+    for (const g of [gL, gR]) g.gain.value = fx.fb;
+    vol.connect(send).connect(dL);
+    dL.connect(fL).connect(gL).connect(dR);
+    dR.connect(fR).connect(gR).connect(dL);
+    fL.connect(merge, 0, 0);
+    fR.connect(merge, 0, 1);
+    merge.connect(comp);
+    return into;
+  };
+  const click = a.createBuffer(1, rate * 2, rate), cd = click.getChannelData(0);
+  for (let k = 0; k < cd.length; k++) cd[k] = Math.random() * 2 - 1;
+  const made: Rig = { click, open: bus(OPEN), tight: bus(TIGHT) };
+  rigs.set(a, made);
+  return made;
+}
+// One ping: down onto `f` from `glide` semitones above over `glideTime`, with the shimmer.
+function tone(a: BaseAudioContext, o: { f: number; t: number; peak: number; decay: number; glide: number; glideTime: number; pan: number; out: AudioNode }) {
+  const { f, t } = o, attack = 0.003, stop = t + attack + o.decay + 0.05;
+  const osc = a.createOscillator(), gain = a.createGain(), shim = a.createOscillator(), depth = a.createGain();
   osc.type = "sine";
   osc.frequency.value = f;
-  osc.frequency.setValueAtTime(f * 1.03, t); // a touch sharp, sliding onto the note
-  osc.frequency.exponentialRampToValueAtTime(f, t + 0.15);
+  osc.frequency.setValueAtTime(f * 2 ** (o.glide / 12), t);
+  osc.frequency.exponentialRampToValueAtTime(f, t + o.glideTime);
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(peak, t + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, end);
-  osc.connect(gain).connect(pan);
-  // The clang: a tone 1.4 times as high (not a harmonic, so it sounds like metal, not a bell) bends
-  // the note's pitch, hard at first and then not at all.
-  const metal = a.createOscillator(), depth = a.createGain();
-  metal.type = "sine";
-  metal.frequency.value = f * 1.4;
-  depth.gain.setValueAtTime(f * (0.8 + 0.9 * hard), t);
-  depth.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
-  metal.connect(depth).connect(osc.frequency);
-  for (const o of [osc, metal]) { o.start(t); o.stop(end + 0.05); }
-  // The relay's click: a few milliseconds of noise, narrowed to around the note.
-  if (!clickNoise) {
-    clickNoise = a.createBuffer(1, Math.floor(a.sampleRate * 0.03), a.sampleRate);
-    const d = clickNoise.getChannelData(0);
-    for (let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1;
-  }
-  const click = a.createBufferSource(), band = a.createBiquadFilter(), tap = a.createGain();
-  click.buffer = clickNoise;
-  band.type = "bandpass";
-  band.frequency.value = f * 4;
-  band.Q.value = 2;
-  tap.gain.setValueAtTime(peak * 0.5, t);
-  tap.gain.exponentialRampToValueAtTime(0.0001, t + 0.025);
-  click.connect(band).connect(tap).connect(pan);
-  click.start(t);
+  gain.gain.exponentialRampToValueAtTime(o.peak, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + o.decay);
+  shim.frequency.value = f * 2;
+  depth.gain.setValueAtTime(f * 0.6, t);
+  depth.gain.exponentialRampToValueAtTime(Math.max(0.5, f * 0.02), t + 0.08);
+  shim.connect(depth).connect(osc.frequency);
+  osc.connect(gain);
+  if (o.pan) { const pan = a.createStereoPanner(); pan.pan.value = o.pan; gain.connect(pan).connect(o.out); } else gain.connect(o.out);
+  shim.start(t); shim.stop(stop);
+  osc.start(t); osc.stop(stop);
+}
+function click(a: BaseAudioContext, t: number, level: number, out: AudioNode) {
+  const src = a.createBufferSource(), high = a.createBiquadFilter(), gain = a.createGain();
+  src.buffer = rig(a).click;
+  high.type = "highpass";
+  high.frequency.value = 3000;
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(level, t + 0.001);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
+  src.connect(high).connect(gain).connect(out);
+  src.start(t, Math.random(), 0.07);
 }

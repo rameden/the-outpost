@@ -323,7 +323,7 @@ function Notifications() {
         )}
       </Row>
       {notificationsOn() && (
-        <Row label="Notification sound" help={`A soft chime with each notification: rising when a decision is needed, settling when ${an("expedition")} finishes, falling when one fails. Remembered in this browser.`}>
+        <Row label="Notification sound" help={`A soft sonar ping with each notification: one ping when a decision is needed, a rising chord when ${an("expedition")} finishes, a few steps that don't resolve when one fails. Remembered in this browser.`}>
           <label className="switch"><input type="checkbox" checked={chimeOn()}
             onChange={(ev) => { setChime(ev.target.checked); if (ev.target.checked) playChime("ask"); redraw((n) => n + 1); }} /> {chimeOn() ? "On" : "Off"}</label>
           <button type="button" className="btn small" onClick={() => playChime("ask")}>Decision</button>

@@ -305,6 +305,9 @@ test("the notification sound row shows once notifications are on: a switch kept 
     createConvolver() { return node(); }
     createBufferSource() { return { ...node(), start: () => {} }; }
     createBuffer(channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
+    createDynamicsCompressor() { return { ...node(), threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }; }
+    createDelay() { return { ...node(), delayTime: param() }; }
+    createChannelMerger() { return node(); }
   });
   show("notifications");
   const row = screen.getByText("Notification sound").closest(".set-row") as HTMLElement;

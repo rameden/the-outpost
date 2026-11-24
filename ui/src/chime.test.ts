@@ -23,6 +23,9 @@ class FakeAudio {
   createStereoPanner() { return { pan: { value: 0 }, connect: (d: unknown) => d }; }
   createConvolver() { return { buffer: null, connect: (d: unknown) => d }; }
   createBuffer(channels: number, length: number) { const data = Array.from({ length: channels }, () => new Float32Array(length)); return { getChannelData: (c: number) => data[c] }; }
+  createDynamicsCompressor() { return { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 0 }, attack: { value: 0 }, release: { value: 0 }, connect: (d: unknown) => d }; }
+  createDelay() { return { delayTime: { value: 0 }, connect: (d: unknown) => d }; }
+  createChannelMerger() { return { connect: (d: unknown) => d }; }
 }
 class FakeNotification {
   static permission = "granted";
@@ -41,21 +44,22 @@ const background = (hidden: boolean) => {
   Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
   vi.spyOn(document, "hasFocus").mockReturnValue(!hidden);
 };
-const fundamentals = () => played.filter((_, i) => i % 2 === 0); // each ping also starts the tone that gives it its metal
+const fundamentals = () => played.filter((_, i) => i % 2 === 1); // each ping first starts its shimmer, at twice the note
 
 beforeEach(() => { localStorage.clear(); played = []; shown = []; background(true); });
 
-test("a notification is the innermost line's ping: alone for a decision, rising to it for finished, falling from it for failed", () => {
-  expect(CHIME_NOTES.ask).toEqual([STRUM_NOTES[0]]);
-  const [d1, d2] = CHIME_NOTES.done;
-  const [f1, f2] = CHIME_NOTES.fail;
-  expect(d2).toBe(STRUM_NOTES[0]);
-  expect(d1).toBeLessThan(d2);
-  expect(f1).toBe(STRUM_NOTES[0]);
-  expect(f2).toBeLessThan(f1);
-  playChime("done");
-  expect(fundamentals()).toEqual(CHIME_NOTES.done);
-  expect(played.filter((_, i) => i % 2 === 1)).toEqual(CHIME_NOTES.done.map((f) => f * 1.4)); // each ping's metal
+test("a notification is a sonar phrase from E4: the ping alone for a decision, a major chord up to the innermost line's note for finished, minor steps for failed", () => {
+  const near = (hz: number[]) => hz.map((f) => +f.toFixed(2));
+  expect(near(CHIME_NOTES.ask)).toEqual([329.63]); // E4
+  expect(near(CHIME_NOTES.done)).toEqual([329.63, 415.3, 493.88, 659.26]); // E4 G#4 B4 E5
+  expect(CHIME_NOTES.done.at(-1)).toBeCloseTo(STRUM_NOTES[0], 1); // ending on the innermost line's note
+  expect(near(CHIME_NOTES.fail)).toEqual([329.63, 369.99, 392]); // E4 F#4 G4
+  for (const kind of ["ask", "done", "fail"] as const) {
+    played = [];
+    playChime(kind);
+    expect(fundamentals(), kind).toEqual(CHIME_NOTES[kind]);
+    expect(played.filter((_, i) => i % 2 === 0), kind).toEqual(CHIME_NOTES[kind].map((f) => f * 2)); // each ping's shimmer
+  }
 });
 
 test("a notification plays its chime and asks the browser to keep its own sound quiet", () => {
@@ -96,14 +100,14 @@ test("each orbit line strums its own note, the nearest highest, only once the st
   setStrum(true);
   strum(0);
   strum(3, 1);
-  expect(played.filter((f) => STRUM_NOTES.includes(f))).toEqual([STRUM_NOTES[0], STRUM_NOTES[3]]);
+  expect(fundamentals()).toEqual([STRUM_NOTES[0], STRUM_NOTES[3]]);
   played = [];
   strum(99); // a line further out than there are notes takes the lowest
-  expect(played[0]).toBe(STRUM_NOTES.at(-1));
+  expect(fundamentals()).toEqual([STRUM_NOTES.at(-1)]);
   played = [];
   setChime(false); // the notification sound has its own switch
   strum(1);
-  expect(played[0]).toBe(STRUM_NOTES[1]);
+  expect(fundamentals()).toEqual([STRUM_NOTES[1]]);
   played = [];
   setStrum(false);
   strum(1);
