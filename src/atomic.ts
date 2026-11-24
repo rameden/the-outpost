@@ -112,3 +112,32 @@ export function appendLine(path: string, line: string) {
   mkdirSync(dirname(path), { recursive: true });
   appendFileSync(path, lead + line + "\n");
 }
+
+// ---------- Per-path write locks ----------
+// Serialize mutations of one file across async callers in this process (parallel quests can
+// interleave at await points). Sync work inside the critical section still runs to completion
+// before another waiter proceeds.
+const pathLocks = new Map<string, Promise<void>>();
+export async function withPathLock<T>(path: string, fn: () => T | Promise<T>): Promise<T> {
+  const key = `${process.cwd()}|${path}`;
+  const prev = pathLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  pathLocks.set(key, prev.then(() => gate));
+  await prev;
+  try { return await fn(); }
+  finally {
+    release();
+    if (pathLocks.get(key) === gate) pathLocks.delete(key);
+  }
+}
+// Sync critical sections that must not await: Node is single-threaded, so a re-entrant call from
+// the same stack would deadlock an async lock; this flag rejects nested sync entry on the same path.
+const syncHeld = new Set<string>();
+export function withPathLockSync<T>(path: string, fn: () => T): T {
+  const key = `${process.cwd()}|${path}`;
+  if (syncHeld.has(key)) throw new Error(`Reentrant sync lock on ${path}`);
+  syncHeld.add(key);
+  try { return fn(); }
+  finally { syncHeld.delete(key); }
+}

@@ -2,7 +2,7 @@
 // The Quartermaster proposes a skill after a good expedition; it waits in skills/_pending/
 // until you approve it with /review. Nothing in _pending is ever shown to a character.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
 import { posix } from "node:path";
 import type { Interface } from "node:readline/promises";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
@@ -29,7 +29,17 @@ function frontmatter(text: string, key: string): string {
 }
 
 // Every live skill in camp, so the Quartermaster can avoid proposing duplicates.
+let catalogCache: { stamp: string; text: string } | null = null;
 export function skillCatalog(): string {
+  let stamp = process.cwd();
+  for (const owner of owners()) {
+    const dir = join(SKILLS_DIR, owner);
+    try {
+      const st = existsSync(dir) ? statSync(dir) : null;
+      stamp += `|${owner}:${st ? `${st.mtimeMs}:${st.ino}` : "none"}`;
+    } catch { stamp += `|${owner}:none`; }
+  }
+  if (catalogCache?.stamp === stamp) return catalogCache.text;
   const lines: string[] = [];
   for (const owner of owners()) {
     const dir = join(SKILLS_DIR, owner);
@@ -40,7 +50,9 @@ export function skillCatalog(): string {
       lines.push(`- ${owner}/${name}: ${frontmatter(readFileSync(path, "utf8"), "description")}`);
     }
   }
-  return lines.join("\n") || "(none yet)";
+  const text = lines.join("\n") || "(none yet)";
+  catalogCache = { stamp, text };
+  return text;
 }
 
 export const proposeSkill: Tool = {

@@ -195,7 +195,12 @@ function makeDispatch(exp: Expedition): Tool {
           (task) => runAgent(spec, task ?? brief, { depth: 1, source: "brief" }),
           (r, task, from) => logQuest("quest", spec.name, task ?? brief, from, r, exp.job)));
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId });
-        return `${spec.name}'s report:\n${text}` + (checks ? `\n\n${checks}` : "");
+        // Cap what stays in the Quartermaster's context: full transcripts are in sessions/ and the quest log.
+        const REPORT_KEEP = 12_000;
+        const body = text.length > REPORT_KEEP
+          ? text.slice(0, Math.floor(REPORT_KEEP * 0.7)).trimEnd() + `\n[… ${text.length - REPORT_KEEP} characters of this report left out; the full text is in ${spec.name}'s session …]\n` + text.slice(-(REPORT_KEEP - Math.floor(REPORT_KEEP * 0.7))).trimStart()
+          : text;
+        return `${spec.name}'s report:\n${body}` + (checks ? `\n\n${checks}` : "");
       } catch (err: any) {
         logFailure("quest", spec.name, brief, started, err, exp.job);
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });

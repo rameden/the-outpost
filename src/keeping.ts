@@ -291,7 +291,12 @@ export async function suggestKeeps(o: { run: string; who: CrewId; project?: stri
   if (!CREW[o.who] || o.reply.trim().length < 40) return [];
   const inProject = !!o.project && o.project !== GENERAL && !!getProject(o.project);
   const places = { me: `agent:${o.who}`, user: "about", project: inProject ? `project:${o.project}` : `agent:${o.who}` };
-  const known = [...new Set(Object.values(places))].map((w) => `${nameOf(w)}:\n${textOf(w).slice(-3000) || "(nothing yet)"}`).join("\n\n");
+  // Fitted / relevant lines for the task, not a blind tail slice — so older notes still block re-proposals.
+  const known = [...new Set(Object.values(places))].map((w) => {
+    const raw = textOf(w);
+    const fitted = raw ? fitMemory(raw, 3000, o.task).text : "";
+    return `${nameOf(w)}:\n${fitted || "(nothing yet)"}`;
+  }).join("\n\n");
   const raw = await ask(KEEP_SYSTEM, `The user asked:\n${o.task.slice(0, 3000)}\n\nThe assistant (${CREW[o.who].name}) answered:\n${o.reply.slice(0, 5000)}\n\nAlready in the notes:\n${known}`);
   return proposeKeeps(parseKeeps(raw).map((k) => ({ where: places[k.where], text: k.text })), o.run);
 }
@@ -348,7 +353,11 @@ export function proposeKeeps(list: { where: Where; text: string }[], run?: strin
   for (const k of list) {
     try { place(k.where); } catch { continue; }
     const have = norm(k.text);
-    if (textOf(k.where).toLowerCase().includes(have) || [...waiting, ...added].some((p) => p.kind === "keep" && p.where === k.where && norm(p.text) === have)) continue;
+    const existing = textOf(k.where);
+    if (existing.toLowerCase().includes(have)) continue;
+    // Near-duplicates (alike ≥ 0.5), not only exact substring — stops re-proposing the same lesson.
+    if (existing.split("\n").some((row) => { const e = parseEntry(row); return e && alike(e.text, k.text) >= 0.5; })) continue;
+    if ([...waiting, ...added].some((p) => p.kind === "keep" && p.where === k.where && (norm(p.text) === have || alike(p.text, k.text) >= 0.5))) continue;
     added.push({ id: newId(), kind: "keep", where: k.where, name: nameOf(k.where), created: new Date().toISOString(), text: k.text, ...(run ? { run } : {}), ...(thread ? { thread } : {}), ...(title ? { title } : {}) });
   }
   if (added.length) {
@@ -386,13 +395,18 @@ export function settleProposal(id: string, action: "approve" | "dismiss", text?:
       putText(p.where, rows.join("\n"));
       logKept(p.where, line, "tidy");
     } else {
-      // Lines added since it was drafted are kept: the tidy replaces only what it was drafted from.
+      // Apply when every note line the tidy was drafted from is still present (an unrelated
+      // prepended edit no longer wastes the draft). Lines added since are kept after the tidy.
       const now = textOf(p.where).trim(), was = p.before.trim();
-      if (!now.startsWith(was)) {
+      const wasNotes = was.split("\n").filter((l) => parseEntry(l));
+      const nowNotes = new Set(now.split("\n").flatMap((l) => { const e = parseEntry(l); return e ? [norm(e.text)] : []; }));
+      const missing = wasNotes.filter((l) => !nowNotes.has(norm(parseEntry(l)!.text)));
+      if (missing.length) {
         save(list.filter((x) => x.id !== id));
-        throw Object.assign(new Error(`${p.name} has changed since this was drafted, so it wasn't applied. Ask for a new draft.`), { fixable: true });
+        throw Object.assign(new Error(`${p.name} has changed since this was drafted (${missing.length} drafted line${missing.length === 1 ? "" : "s"} gone), so it wasn't applied. Ask for a new draft.`), { fixable: true });
       }
-      const since = now.slice(was.length).trim();
+      const wasNorms = new Set(wasNotes.map((l) => norm(parseEntry(l)!.text)));
+      const since = now.split("\n").filter((l) => { const e = parseEntry(l); return e ? !wasNorms.has(norm(e.text)) : l.trim() && !/^#{1,6}\s/.test(l.trim()); }).join("\n").trim();
       const after = (text ?? p.after).trim();
       putText(p.where, since ? `${after}\n${since}` : after);
       logKept(p.where, `Tidied: ${p.before.length} characters to ${after.length}.`, "tidy");

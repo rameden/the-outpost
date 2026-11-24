@@ -73,6 +73,13 @@ export function logQuest(
     ...(result.route ? { route: { choice: result.route.choice, steps: result.route.steps.map(({ model, effort, trigger, reason }) => ({ model, ...(effort ? { effort } : {}), trigger, reason })) } } : {}),
   };
   appendLine(QUEST_LOG_PATH, JSON.stringify(entry));
+  // Push into the cache so the next read doesn't re-parse the whole file.
+  if (cache && cache.path === process.cwd() + "/" + QUEST_LOG_PATH) {
+    try {
+      const st = statSync(QUEST_LOG_PATH);
+      cache = { path: cache.path, key: `${st.mtimeMs}:${st.size}`, entries: [...cache.entries, entry] };
+    } catch { cache = null; }
+  } else cache = null;
   emit({ type: "changed", what: "log" });
 }
 

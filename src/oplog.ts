@@ -15,7 +15,7 @@
 
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { appendLine, readJsonl } from "./atomic.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { autoApproval } from "./shell.js";
 import type { Tool, ToolOutput } from "./tools.js";
 
@@ -103,7 +103,11 @@ export class OpJournal {
   }
   begin() { live.add(this.run); this.write({ kind: "run_start", run: this.run, at: Date.now() }); sweep(); }
   // A run that ended on its own terms (done, stopped, out of turns…): nothing of it is continued.
-  end() { live.delete(this.run); this.write({ kind: "run_end", run: this.run, at: Date.now() }); }
+  end() {
+    live.delete(this.run);
+    this.write({ kind: "run_end", run: this.run, at: Date.now() });
+    compactJournal(this.path);
+  }
   // A run that failed part-way: left open, so a run that continues it can reuse what it did.
   abandon() { live.delete(this.run); }
   opId(tool: string, input: unknown): string {
@@ -118,6 +122,28 @@ export class OpJournal {
     this.write({ kind: "done", run: this.run, op, tool, at: Date.now(), result: textOf(out).slice(0, 20_000), ...(failed ? { failed: true } : {}) });
   }
   surfaced(op: string) { this.write({ kind: "surfaced", run: this.run, op, at: Date.now() }); }
+}
+
+// After a run ends, drop its started/done/surfaced payloads (nothing resumes an ended run) and
+// hard-cap any leftover done results. Keeps run_start/run_end markers so latestRun still works.
+const DONE_KEEP = 200;
+export function compactJournal(path: string) {
+  try {
+    const recs = readJournal(path);
+    if (!recs.length) return;
+    const ended = new Set(recs.filter((r) => r.kind === "run_end").map((r) => r.run));
+    const out: Rec[] = [];
+    for (const r of recs) {
+      if (r.kind === "run_start" || r.kind === "run_end") { out.push(r); continue; }
+      if (ended.has(r.run)) continue; // ended run: only the bookends matter
+      if (r.kind === "done" && r.result.length > DONE_KEEP) {
+        out.push({ ...r, result: r.result.slice(0, DONE_KEEP) + "…" });
+      } else out.push(r);
+    }
+    if (out.length < recs.length || out.some((r, i) => r !== recs[i])) {
+      writeAtomic(path, out.map((r) => JSON.stringify(r)).join("\n") + "\n");
+    }
+  } catch { /* a fat journal is no loss next time */ }
 }
 
 // ---------- Old journals ----------

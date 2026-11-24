@@ -169,12 +169,16 @@ test("every prompt: identity, crew, memory, recent sessions; streamed with conte
   assert.match(system, /You are the Scribe/);
   assert.match(system, /## Your crew/);
   // It's told which model it's running on and which ones the camp can run, so a model you name is never news to it.
-  assert.match(second.body.system[1].text, new RegExp(`^## The models here\\nYou are running on Claude [\\w. ]+ \\(${second.body.model}\\)\\. The Claude models this camp can run: Claude Fable 5\\.2 \\(claude-fable-5-2\\), `));
+  // Models block is last in the moving part so an Auto route switch only invalidates that trailing piece.
+  assert.match(second.body.system[1].text, new RegExp(`## The models here\\nYou are running on Claude [\\w. ]+ \\(${second.body.model}\\)\\. The Claude models this camp can run: Claude Fable 5\\.2 \\(claude-fable-5-2\\), `));
+  assert.match(second.body.system[1].text, /## The models here[\s\S]*$/, "models trail the rest of the moving block");
   assert.match(system, /whether or not you've heard of them/);
   assert.match(system, /## Your memory/);
   assert.match(system, /Who are you\?/, "the previous session is in the prompt");
   assert.equal(second.body.stream, true);
   assert.ok(second.body.context_management, "context editing is on");
+  assert.equal(second.body.context_management.edits[0].clear_at_least?.value, 20_000, "clears enough to avoid cache thrash");
+  assert.ok(!second.body.context_management.edits[0].exclude_tools?.includes("dispatch"), "old dispatch reports may be cleared");
   assert.match(String(second.headers["anthropic-beta"]), /context-management/);
   assert.ok(recentSessions("scribe").length >= 2);
 });

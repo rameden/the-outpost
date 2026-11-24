@@ -63,7 +63,7 @@ test("sessions: a prompt's digest is of the run's own project, never another's",
   const beta = await withExpedition({ project: "beta" }, async () => continuityBlock("warden"));
   assert.match(beta, /Review beta change 9/);
   assert.doesNotMatch(beta, /alpha importer/);
-  assert.equal(beta.match(/Review beta change \d"/g)?.length, 8, "the newest eight");
+  assert.equal(beta.match(/Review beta change \d"/g)?.length, 3, "without a task, only the newest three sessions are digested");
   // Somewhere the agent has never worked: nothing to build on here, and it's told that's what it is.
   await withExpedition({ project: "alpha" }, async () => { recordSession("scribe", { source: "brief", task: "Write the alpha notes", result: "Written.", status: "done", messages: [] }); });
   const fresh = await withExpedition({ project: "gamma" }, async () => continuityBlock("scribe"));

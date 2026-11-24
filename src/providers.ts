@@ -21,6 +21,7 @@ import { dirname } from "node:path";
 import { emit } from "./events.js";
 import { providerApproved, setProviderApproved } from "./settings.js";
 import { writeJsonAtomic } from "./atomic.js";
+import { fileStamp } from "./helpers.js";
 
 export const PROVIDERS_PATH = "camp/providers.json";
 export type ProviderId = "deepseek" | "gemini" | "groq" | "openrouter";
@@ -63,12 +64,19 @@ export class ProviderError extends Error {
 // A key for something that isn't a model (ElevenLabs, which reads aloud: voice.ts), kept in the same file under the same care.
 export type SideKey = "elevenlabs";
 type Saved = Partial<Record<ProviderId | "anthropic" | SideKey, { key: string; connected: string }>>;
+let savedCache: { stamp: string; s: Saved } | null = null;
 function load(): Saved {
-  try { return existsSync(PROVIDERS_PATH) ? (JSON.parse(readFileSync(PROVIDERS_PATH, "utf8")) as Saved) : {}; } catch { return {}; }
+  const stamp = fileStamp(PROVIDERS_PATH);
+  if (savedCache?.stamp === stamp) return savedCache.s;
+  let s: Saved = {};
+  try { s = existsSync(PROVIDERS_PATH) ? (JSON.parse(readFileSync(PROVIDERS_PATH, "utf8")) as Saved) : {}; } catch { s = {}; }
+  savedCache = { stamp, s };
+  return s;
 }
 function save(s: Saved) {
-  if (!Object.keys(s).length) { rmSync(PROVIDERS_PATH, { force: true }); return; }
+  if (!Object.keys(s).length) { rmSync(PROVIDERS_PATH, { force: true }); savedCache = { stamp: fileStamp(PROVIDERS_PATH), s: {} }; return; }
   writeJsonAtomic(PROVIDERS_PATH, s, { mode: 0o600 });
+  savedCache = { stamp: fileStamp(PROVIDERS_PATH), s };
 }
 function keyOf(p: Preset): { key: string; from: "env" | "camp" } | null {
   const env = process.env[p.env]?.trim();

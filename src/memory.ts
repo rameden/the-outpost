@@ -5,7 +5,7 @@
 //   outputs/      their files and deliverables (only they write here)
 // Agents can read each other's outputs, but never each other's memory or sessions.
 
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
 import { posix, resolve, sep } from "node:path";
 import { CREW, type CrewId } from "./crew.js";
 import { say, w } from "./words.js";
@@ -13,11 +13,16 @@ import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
 import { addAbout, logKept, type KeptHow } from "./memlog.js";
 import type { Tool } from "./tools.js";
-import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
-import { PIN, alike, fitMemory, parseEntry } from "./memfit.js";
+import { appendLine, readJsonl, withPathLock, withPathLockSync, writeAtomic } from "./atomic.js";
+import { ENTRY_MAX, PIN, alike, bearing, fitMemory, parseEntry } from "./memfit.js";
 import { norm } from "./memlog.js";
 import { logRelevant } from "./recalllog.js";
 import { flat as clip, today } from "./helpers.js";
+
+// One dated note line, capped so a single entry can't crowd the prompt or starve fitMemory.
+export function clipEntry(entry: string): string {
+  return String(entry).replace(/\s+/g, " ").trim().slice(0, ENTRY_MAX);
+}
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -121,39 +126,54 @@ export function rememberTool(id: CrewId): Tool {
         emit({ type: "changed", what: "memory" });
         return `Noted about the user: the whole ${w("crew")} will start with it.`;
       }
-      let said = "Memory rewritten.";
-      if (mode === "rewrite") {
-        writeAtomic(ws.memory, `# ${me.name}'s memory\n\n${String(entry).trim()}\n`); // a rewrite replaces everything: never leave it half done
-      } else {
-        const line = String(entry).replace(/\s+/g, " ").trim().replace(new RegExp(`^${PIN}\\s*`, "u"), "");
-        if (!line) return "Nothing to remember.";
-        const rows = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8").replace(/\n+$/, "").split("\n") : [`# ${me.name}'s memory`, ""];
-        const isNote = (r: string, text: string) => !!parseEntry(r) && norm(r) === norm(text);
-        // The line this one corrects, taken out first (its pin carries over: a corrected rule is still a rule).
-        let replaced = false, wasPinned = false;
-        if (typeof replaces === "string" && replaces.trim()) {
-          const at = rows.findIndex((r) => isNote(r, replaces));
-          if (at >= 0) { wasPinned = !!parseEntry(rows[at])?.pinned; rows.splice(at, 1); replaced = true; }
+      return withPathLock(ws.memory, () => {
+        let said = "Memory rewritten.";
+        if (mode === "rewrite") {
+          const next = String(entry).trim();
+          const prior = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8") : "";
+          const priorBody = prior.replace(/^# .*\n+/, "").trim();
+          const priorPins = priorBody.split("\n").map((r) => parseEntry(r)).filter((e) => e?.pinned).map((e) => e!.text);
+          const nextPins = new Set(next.split("\n").map((r) => parseEntry(r)).filter((e) => e?.pinned).map((e) => e!.text));
+          const dropped = priorPins.filter((t) => ![...nextPins].some((n) => norm(n) === norm(t) || alike(n, t) >= 0.5));
+          if (dropped.length) {
+            return `Rewrite refused: it would drop ${dropped.length} pinned line${dropped.length === 1 ? "" : "s"} (${dropped.slice(0, 2).map((t) => `"${clip(t, 60)}"`).join(", ")}${dropped.length > 2 ? ", …" : ""}). Keep those marks, or unpin them first.`;
+          }
+          if (priorBody && next.length < priorBody.length * 0.4) {
+            return `Rewrite refused: the new memory is under 40% of the old size (${next.length} vs ${priorBody.length} characters). Use a tidy proposal, or rewrite in smaller steps that keep what's still true.`;
+          }
+          if (prior) writeAtomic(ws.memory + ".bak", prior);
+          writeAtomic(ws.memory, `# ${me.name}'s memory\n\n${next}\n`); // a rewrite replaces everything: never leave it half done
+        } else {
+          const line = clipEntry(String(entry).replace(new RegExp(`^${PIN}\\s*`, "u"), ""));
+          if (!line) return "Nothing to remember.";
+          const rows = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8").replace(/\n+$/, "").split("\n") : [`# ${me.name}'s memory`, ""];
+          const isNote = (r: string, text: string) => !!parseEntry(r) && norm(r) === norm(text);
+          // The line this one corrects, taken out first (its pin carries over: a corrected rule is still a rule).
+          let replaced = false, wasPinned = false;
+          if (typeof replaces === "string" && replaces.trim()) {
+            const at = rows.findIndex((r) => isNote(r, replaces));
+            if (at >= 0) { wasPinned = !!parseEntry(rows[at])?.pinned; rows.splice(at, 1); replaced = true; }
+          }
+          const already = rows.some((r) => isNote(r, line));
+          // Before it's added: lines already there that seem to say something on the same subject.
+          const near = already ? [] : rows.flatMap((r) => { const e = parseEntry(r); const score = e ? alike(e.text, line) : 0; return e && score >= 0.5 ? [{ text: e.text, score }] : []; })
+            .sort((a, b) => b.score - a.score).slice(0, 2);
+          if (!already) rows.push(`- ${today()} ${pin === true || wasPinned ? `${PIN} ` : ""}${line}`);
+          if (!already || replaced) writeAtomic(ws.memory, rows.join("\n") + "\n");
+          if (!already) logKept(`agent:${id}`, line, "remember", currentExpeditionId());
+          said = already ? (replaced ? "The old line is gone; the new one was already in your memory." : "That's already in your memory, word for word: nothing was added.")
+            : replaced ? "Remembered, in place of the old line."
+            : "Remembered." + (typeof replaces === "string" && replaces.trim() ? " (The line to replace wasn't found: copy its text exactly as it appears in your memory. Nothing was taken out.)" : "");
+          if (near.length && !replaced) said += ` Already in your memory on what looks like the same subject:\n${near.map((n) => `- ${n.text}`).join("\n")}\nIf the new line corrects one of these, call remember again with the same entry and replaces set to that line's text, so the old one doesn't linger.`;
+          const pinned = fullMemory(id).split("\n").filter((r) => parseEntry(r)?.pinned).join("\n").length;
+          if ((pin === true || wasPinned) && pinned > MEMORY_MAX_CHARS * 0.4) said += ` Your pinned lines now come to ${pinned} characters, more than is kept for them in a prompt: the newest pinned ones load like any other line. Unpin what isn't a standing rule (mode 'rewrite', dropping the ${PIN}).`;
         }
-        const already = rows.some((r) => isNote(r, line));
-        // Before it's added: lines already there that seem to say something on the same subject.
-        const near = already ? [] : rows.flatMap((r) => { const e = parseEntry(r); const score = e ? alike(e.text, line) : 0; return e && score >= 0.5 ? [{ text: e.text, score }] : []; })
-          .sort((a, b) => b.score - a.score).slice(0, 2);
-        if (!already) rows.push(`- ${today()} ${pin === true || wasPinned ? `${PIN} ` : ""}${line}`);
-        if (!already || replaced) writeAtomic(ws.memory, rows.join("\n") + "\n");
-        if (!already) logKept(`agent:${id}`, line, "remember", currentExpeditionId());
-        said = already ? (replaced ? "The old line is gone; the new one was already in your memory." : "That's already in your memory, word for word: nothing was added.")
-          : replaced ? "Remembered, in place of the old line."
-          : "Remembered." + (typeof replaces === "string" && replaces.trim() ? " (The line to replace wasn't found: copy its text exactly as it appears in your memory. Nothing was taken out.)" : "");
-        if (near.length && !replaced) said += ` Already in your memory on what looks like the same subject:\n${near.map((n) => `- ${n.text}`).join("\n")}\nIf the new line corrects one of these, call remember again with the same entry and replaces set to that line's text, so the old one doesn't linger.`;
-        const pinned = fullMemory(id).split("\n").filter((r) => parseEntry(r)?.pinned).join("\n").length;
-        if ((pin === true || wasPinned) && pinned > MEMORY_MAX_CHARS * 0.4) said += ` Your pinned lines now come to ${pinned} characters, more than is kept for them in a prompt: the newest pinned ones load like any other line. Unpin what isn't a standing rule (mode 'rewrite', dropping the ${PIN}).`;
-      }
-      emit({ type: "changed", what: "memory" });
-      const size = fullMemory(id).length;
-      // Past what a prompt loads, older lines only come along when the task is about them. Say so before it happens.
-      const nudge = size > MEMORY_NUDGE ? ` Your memory is getting long (${size} characters; a prompt loads about ${MEMORY_MAX_CHARS}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge it into fewer, still-true lines. recall can still find what isn't loaded.` : "";
-      return said + nudge;
+        emit({ type: "changed", what: "memory" });
+        const size = fullMemory(id).length;
+        // Past what a prompt loads, older lines only come along when the task is about them. Say so before it happens.
+        const nudge = size > MEMORY_NUDGE ? ` Your memory is getting long (${size} characters; a prompt loads about ${MEMORY_MAX_CHARS}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge it into fewer, still-true lines. recall can still find what isn't loaded.` : "";
+        return said + nudge;
+      });
     },
   };
 }
@@ -161,8 +181,15 @@ export function rememberTool(id: CrewId): Tool {
 // Add one dated line to an agent's memory (what remember does; also used when you keep a feedback note).
 export function appendMemory(id: CrewId, entry: string, how: KeptHow = "feedback", run?: string) {
   ensureWorkspace(id);
-  appendFileSync(workspace(id).memory, `- ${today()} ${String(entry).replace(/\s+/g, " ").trim()}\n`);
-  logKept(`agent:${id}`, String(entry), how, run ?? currentExpeditionId());
+  const path = workspace(id).memory;
+  const line = clipEntry(entry);
+  if (!line) return;
+  withPathLockSync(path, () => {
+    const rows = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "").split("\n") : [`# ${CREW[id].name}'s memory`, ""];
+    rows.push(`- ${today()} ${line}`);
+    writeAtomic(path, rows.join("\n") + "\n");
+  });
+  logKept(`agent:${id}`, line, how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "memory" });
 }
 
@@ -188,14 +215,25 @@ export function recordSession(
   // Random suffix: parallel quests for the same agent can finish in the same millisecond.
   const file = join(ws.sessions, `${time.replace(/[:.]/g, "-")}-${Math.random().toString(36).slice(2, 6)}.json`);
   // Image and PDF data is left out (it's most of a transcript's size and is never read back).
-  writeFileSync(file, JSON.stringify({ time, agent: id, source: s.source, status: s.status, task: s.task, result: s.result, messages: stripMedia(s.messages) }));
-  pruneTranscripts(ws.sessions);
+  // Skip the deep clone when nothing has base64 media.
+  const messages = hasMedia(s.messages) ? stripMedia(s.messages) : s.messages;
+  writeFileSync(file, JSON.stringify({ time, agent: id, source: s.source, status: s.status, task: s.task, result: s.result, messages }));
+  maybePruneTranscripts(ws.sessions);
   const project = currentProjectId();
   const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clipLines(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
   appendLine(ws.index, JSON.stringify(line));
+  trimSessionIndex(ws.index);
   return file;
 }
 
+const hasMedia = (v: any): boolean => {
+  if (Array.isArray(v)) return v.some(hasMedia);
+  if (v && typeof v === "object") {
+    if (v.source?.type === "base64") return true;
+    return Object.values(v).some(hasMedia);
+  }
+  return false;
+};
 const stripMedia = (v: any): any => {
   if (Array.isArray(v)) return v.map(stripMedia);
   if (v && typeof v === "object") {
@@ -208,9 +246,36 @@ const stripMedia = (v: any): any => {
 // Keep each agent's newest transcripts; older ones are deleted. The one-line summary of every
 // session stays in index.jsonl, so run history and "recent sessions" are unaffected.
 export const TRANSCRIPTS_KEPT = 300;
+const INDEX_KEPT = 2000;
+const pruneEvery = new Map<string, number>(); // dir → writes since last prune
+function maybePruneTranscripts(dir: string) {
+  const at = `${process.cwd()}|${dir}`;
+  const n = (pruneEvery.get(at) ?? 0) + 1;
+  pruneEvery.set(at, n);
+  // Prune every 20 writes, or when a cheap count suggests we're over the cap.
+  if (n % 20 !== 0) {
+    try {
+      const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+      if (files.length <= TRANSCRIPTS_KEPT + 20) return;
+    } catch { return; }
+  }
+  pruneTranscripts(dir);
+  pruneEvery.set(at, 0);
+}
 function pruneTranscripts(dir: string) {
   const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort(); // names start with the time
   for (const f of files.slice(0, Math.max(0, files.length - TRANSCRIPTS_KEPT))) rmSync(join(dir, f), { force: true });
+}
+function trimSessionIndex(index: string) {
+  if (!existsSync(index)) return;
+  try {
+    const st = statSync(index);
+    // Cheap skip: under ~2k lines of ~2k chars each is well below this size.
+    if (st.size < INDEX_KEPT * 400) return;
+    const lines = readFileSync(index, "utf8").split("\n").filter(Boolean);
+    if (lines.length <= INDEX_KEPT) return;
+    writeAtomic(index, lines.slice(-INDEX_KEPT).join("\n") + "\n");
+  } catch { /* leave the index alone */ }
 }
 
 // Read one session's full transcript (only from that agent's own sessions folder).
@@ -315,16 +380,27 @@ const SOURCE_LABEL: Record<SessionSource, string> = {
 
 // What goes in the prompt: memory plus a digest of recent sessions, newest last.
 // The last three get more room, so follow-ups ("make it shorter") have the context they need.
-// task: the request this run is for, so an older memory line that bears on it is loaded too.
+// Older of the last eight are included only when they bear on `task` (same floor as memfit).
 // The sessions are this project's (sessionsHere): work in one project isn't carried into another's prompts.
 export function continuityBlock(id: CrewId, task = ""): string {
   const sessions = sessionsHere(id);
+  const keep = new Set<number>();
+  const start = Math.max(0, sessions.length - 3);
+  for (let i = start; i < sessions.length; i++) keep.add(i);
+  if (task.trim() && sessions.length > 3) {
+    const rows = sessions.map((s) => `${s.task}\n${s.result}`);
+    const older = Array.from({ length: start }, (_, i) => i);
+    const bears = bearing(rows, older, task);
+    for (const i of bears.keys()) keep.add(i);
+  }
   const digest = sessions
     .map((s, i) => {
+      if (!keep.has(i)) return "";
       const recent = i >= sessions.length - 3;
       const when = new Date(s.time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
       return `- ${when}, ${say(SOURCE_LABEL[s.source] ?? s.source)}: "${clip(s.task, recent ? 400 : 140)}"\n  You replied (${s.status}): ${clip(s.result, recent ? 1200 : 200)}`;
     })
+    .filter(Boolean)
     .join("\n");
   return (
     `## Your memory (camp/agents/${id}/memory.md; save to it with remember)\n${readMemory(id, task)}\n\n` +

@@ -190,9 +190,17 @@ test("a tidy is drafted, waits for you, and replaces only what it was drafted fr
   // If what it was drafted from has been edited, it isn't applied over the top.
   const p2 = await k.proposeTidy("agent:scribe", async () => "- 2026-02-01 Everything in one line");
   writeMemory("scribe", "- 2026-03-01 Rewritten by hand\n- 2026-03-02 Entirely\n- 2026-03-03 Different\n- 2026-03-04 Now");
-  assert.throws(() => k.settleProposal(p2.id, "approve"), /has changed since this was drafted, so it wasn't applied/);
+  assert.throws(() => k.settleProposal(p2.id, "approve"), /has changed since this was drafted/);
   assert.ok(fullMemory("scribe").includes("Rewritten by hand"));
+  // An unrelated line added at the top no longer wastes a tidy: drafted note lines are still present.
+  writeMemory("scribe", ["- 2026-03-01 Rewritten by hand", "- 2026-03-02 Entirely", "- 2026-03-03 Different", "- 2026-03-04 Now"].join("\n"));
+  const p2b = await k.proposeTidy("agent:scribe", async () => "- 2026-03-04 Four lines, merged once");
+  appendMemory("scribe", "Unrelated new lesson about changelogs", "feedback");
+  assert.deepEqual(k.settleProposal(p2b.id, "approve"), { ok: true, kept: "Scribe's memory" });
+  assert.match(fullMemory("scribe"), /Four lines, merged once/);
+  assert.match(fullMemory("scribe"), /Unrelated new lesson about changelogs/);
   // Dismissed: gone, nothing changed. Your own edit of a draft is what's applied.
+  writeMemory("scribe", ["- 2026-03-01 Rewritten by hand", "- 2026-03-02 Entirely", "- 2026-03-03 Different", "- 2026-03-04 Now"].join("\n"));
   const p3 = await k.proposeTidy("agent:scribe", async () => "- 2026-03-04 All four, merged");
   k.settleProposal(p3.id, "dismiss");
   assert.ok(fullMemory("scribe").includes("Entirely"));
@@ -402,4 +410,53 @@ test("recall: a term is found where a word begins, and a record scores by where 
   recordSession("scout", { source: "brief", task: "Far ends", result: `${filler.repeat(2)} quokka ${"x".repeat(NEAR - 30)} numbat arrived. ${filler.repeat(2)}`, status: "done", messages: [] });
   assert.match(recallFor("scout", "quokka numbat", ["sessions"])[0].text, /quokka.*numbat/);
   assert.equal(bestStretch(`${"alpha word word word. ".repeat(3000)} alpha beta`, ["alpha", "beta"]).found, 2);
+});
+
+test("recall miss is logged; near-duplicate suggestions are skipped; session digests skip irrelevant older ones", async () => {
+  const missPath = join("camp", "recall-misses.jsonl");
+  await withExpedition({ id: "miss-run", project: "general", scope: [] }, async () => {
+    const said = await recall("scout", { query: "zzzznonexistentquokka987" });
+    assert.match(said, /Nothing in your past work/);
+  });
+  assert.ok(existsSync(missPath));
+  assert.match(readFileSync(missPath, "utf8"), /zzzznonexistentquokka987/);
+
+  writeMemory("warden", "- 2026-01-01 Always run the security checklist before merging\n- 2026-01-02 Prefer small pull requests");
+  const added = k.proposeKeeps([
+    { where: "agent:warden", text: "Always run the security checklist before you merge" }, // alike the first
+    { where: "agent:warden", text: "Document every exception to the checklist" },
+  ]);
+  assert.equal(added.length, 1);
+  assert.ok(added[0].kind === "keep");
+  assert.equal(added[0].kind === "keep" && added[0].text, "Document every exception to the checklist");
+
+  // Continuity: last three always; older of eight only when they bear on the task.
+  // Deploy is early (index 1) so it isn't in the last three unless the task pulls it in.
+  for (let i = 0; i < 8; i++) {
+    recordSession("scout", {
+      source: "brief",
+      task: i === 1 ? "Deploy to the heron staging server" : `Unrelated formatting chore ${i}`,
+      result: i === 1 ? "Used make ship-heron on heron-7." : `Done formatting ${i}.`,
+      status: "done",
+      messages: [],
+    });
+  }
+  const aboutDeploy = continuityBlock("scout", "How do I deploy to staging on heron?");
+  assert.match(aboutDeploy, /make ship-heron|heron-7/);
+  assert.match(aboutDeploy, /Unrelated formatting chore 7/);
+  const aboutTables = continuityBlock("scout", "Please make the tables look better with fewer headings");
+  assert.doesNotMatch(aboutTables, /Deploy to the heron staging server/, "unrelated older session left out of the digest");
+});
+
+test("wiki pages and index are cached until a page changes", async () => {
+  const wiki = await import("../src/wiki.ts");
+  mkdirSync(join("camp", "wiki", "facts"), { recursive: true });
+  writeFileSync(join("camp", "wiki", "facts", "caching.md"), "---\nsummary: Cache test\nupdated: 2026-01-01\n---\n\n# caching\n\nBody one.\n");
+  const first = wiki.wikiIndex();
+  assert.equal(wiki.wikiIndex(), first);
+  const bodies = wiki.wikiBodies();
+  assert.equal(bodies.length, wiki.wikiPages().length);
+  assert.ok(bodies.some((b) => b.page.path.includes("caching") && b.body.includes("Body one")));
+  writeFileSync(join("camp", "wiki", "facts", "caching.md"), "---\nsummary: Cache test\nupdated: 2026-01-02\n---\n\n# caching\n\nBody two.\n");
+  assert.ok(wiki.wikiBodies().some((b) => b.body.includes("Body two")));
 });

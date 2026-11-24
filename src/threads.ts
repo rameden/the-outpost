@@ -46,18 +46,34 @@ export type Turn = { thread: string; expedition: string; agent: string; direct: 
   parked?: { text: string; ask: string; aside?: string };
   started?: string };
 
-let cache: { key: string; turns: Turn[] } | null = null;
-function all(): Turn[] {
-  if (!existsSync(THREADS_PATH)) return [];
+let cache: { key: string; turns: Turn[]; byExpedition: Map<string, Turn> } | null = null;
+function stampKey(): string | null {
+  if (!existsSync(THREADS_PATH)) return null;
   const st = statSync(THREADS_PATH);
-  const key = `${st.mtimeMs}:${st.size}`;
-  if (cache?.key === key) return cache.turns;
-  const turns = readJsonl<Turn>(THREADS_PATH);
+  return `${st.mtimeMs}:${st.size}`;
+}
+function rebuild(raw: Turn[]): { turns: Turn[]; byExpedition: Map<string, Turn> } {
   // The last line for each run wins (its ending, if it got that far).
   const last = new Map<string, Turn>();
-  for (const t of turns) last.set(t.expedition, last.has(t.expedition) ? { ...t, time: last.get(t.expedition)!.time } : t);
-  cache = { key, turns: [...last.values()] };
+  for (const t of raw) last.set(t.expedition, last.has(t.expedition) ? { ...t, time: last.get(t.expedition)!.time } : t);
+  return { turns: [...last.values()], byExpedition: last };
+}
+function all(): Turn[] {
+  const key = stampKey();
+  if (!key) return [];
+  if (cache?.key === key) return cache.turns;
+  const built = rebuild(readJsonl<Turn>(THREADS_PATH));
+  cache = { key, ...built };
   return cache.turns;
+}
+// Push a newly appended turn into the cache without re-parsing the whole file.
+function absorb(t: Turn) {
+  const key = stampKey();
+  if (!key) { cache = null; return; }
+  const by = new Map(cache?.byExpedition ?? []);
+  const prior = by.get(t.expedition);
+  by.set(t.expedition, prior ? { ...t, time: prior.time } : t);
+  cache = { key, turns: [...by.values()], byExpedition: by };
 }
 
 // Every run on record, oldest first (one entry per run: its ending, if it got that far).
@@ -81,11 +97,24 @@ export function compactThreads(): number {
 // Turns copied as they are, times included (a fork of a conversation starts with its history).
 export function copyTurns(turns: Turn[]) {
   if (!turns.length) return;
-  appendLine(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n"));
+  const stamped = turns.map((t) => ({ ...t })); // times already set by the caller
+  appendLine(THREADS_PATH, stamped.map((t) => JSON.stringify(t)).join("\n"));
+  for (const t of stamped) absorb(t);
 }
 
+let turnsSinceCompact = 0;
 export function recordTurn(t: Omit<Turn, "time">) {
-  appendLine(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }));
+  const row: Turn = { ...t, time: new Date().toISOString() };
+  appendLine(THREADS_PATH, JSON.stringify(row));
+  absorb(row);
+  // Auto-compact every so often when the file has piled up dead "started" lines (housekeeping also does this).
+  if (++turnsSinceCompact >= 40) {
+    turnsSinceCompact = 0;
+    try {
+      const { lines, runs } = threadLines();
+      if (lines - runs >= 200) compactThreads();
+    } catch { /* leave the file alone */ }
+  }
 }
 
 // A plan held for later, set aside without being started: its run is written down again with the

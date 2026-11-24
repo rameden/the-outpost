@@ -206,6 +206,21 @@ test("journals: they're looked for as a run begins, without being asked", () => 
   });
 });
 
+test("journals: ending a run drops its done payloads", () => {
+  const j = new OpJournal("compact:scout", "exp-c:1");
+  j.begin();
+  const op = j.opId("bash", { command: "git push origin main" });
+  j.started(op, "bash");
+  j.done(op, "bash", "pushed " + "x".repeat(5000));
+  const fat = readFileSync(journalOf("compact:scout"), "utf8");
+  assert.ok(fat.includes("x".repeat(100)));
+  j.end();
+  const slim = readFileSync(journalOf("compact:scout"), "utf8");
+  assert.ok(!slim.includes("x".repeat(100)), "done payload stripped after run_end");
+  assert.match(slim, /run_end/);
+  assert.ok(!slim.includes('"kind":"done"'), "ended-run ops are gone");
+});
+
 // ---------- The routing log ----------
 
 const outcome = (n: number | string, more: object = {}) => ({ task: `task-${n}`, run: `run-${n}`, agent: "scout", mode: "auto:balanced", status: "done", ok: true, seconds: 1, usd: 0.01, switches: 0, routes: [], ...more });

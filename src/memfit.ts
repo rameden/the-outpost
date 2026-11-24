@@ -108,7 +108,10 @@ export type Fit = {
 //     only when it stands clear of that. It's the rule for a word, applied to the whole line:
 //     what most lines share with the request doesn't tell them apart.
 const FLOOR_FROM = 4; // lines there must be before the middle score is a floor (with fewer, the middle one is one of the few)
-function bearing(rows: string[], lines: number[], task: string): Map<number, number> {
+// One memory/note line on disk: matches logKept's slice so a single entry can't crowd a prompt.
+export const ENTRY_MAX = 600;
+
+export function bearing(rows: string[], lines: number[], task: string): Map<number, number> {
   const out = new Map<number, number>();
   const want = wordsOf(task.slice(0, 6000));
   if (!want.size || !lines.length) return out;
@@ -161,21 +164,34 @@ export function fitMemory(text: string, room: number, task = ""): Fit {
   // 1. Pinned lines, oldest first (they were pinned first), up to their share.
   for (const i of lines) if (parseEntry(rows[i])?.pinned && take(i, budget * PIN_SHARE)) always.add(i);
   // 2. The newest lines, up to their share of what's left.
-  const recentLimit = used + (budget - used) * RECENT_SHARE;
+  // A single line longer than the whole recent share is skipped (not a hard stop), so it can't
+  // starve every newer-but-shorter line behind it. Once the share is partly filled and the next
+  // line simply doesn't fit the remainder, stop: older lines aren't "recent" anymore.
+  const recentRoom = (budget - used) * RECENT_SHARE;
+  const recentLimit = used + recentRoom;
   for (let n = lines.length - 1; n >= 0; n--) {
     const i = lines[n];
     if (shown.has(i)) continue;
-    if (!take(i, recentLimit)) break;
+    if (!take(i, recentLimit)) {
+      if (cost(i) > recentRoom) continue;
+      break;
+    }
     always.add(i);
   }
   // 3. Older lines that bear on the task, best first.
   const bears = bearing(rows, lines, task);
   const scored = [...bears].filter(([i]) => !shown.has(i)).map(([i, score]) => ({ i, score })).sort((a, b) => b.score - a.score || b.i - a.i);
   for (const { i } of scored) take(i, budget);
-  // 4. Whatever room is left: the next-newest.
+  // 4. Whatever room is left: the next-newest. Skip a line that's bigger than the leftover room
+  // at the start of this pass; otherwise stop when the remainder is too small.
+  const fillRoom = budget - used;
   for (let n = lines.length - 1; n >= 0; n--) {
     const i = lines[n];
-    if (!shown.has(i) && !take(i, budget)) break;
+    if (shown.has(i)) continue;
+    if (!take(i, budget)) {
+      if (cost(i) > fillRoom) continue;
+      break;
+    }
   }
 
   const left = lines.filter((i) => !shown.has(i)).length;

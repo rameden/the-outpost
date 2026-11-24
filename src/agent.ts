@@ -76,14 +76,16 @@ const pause = (ms: number, signal?: AbortSignal) => new Promise<boolean>((ok) =>
 });
 
 // Long quests: once a prompt passes 120k tokens, the API clears the oldest tool results (keeping
-// the 8 most recent) so the run doesn't run out of context. Reports, plans, and memory writes are
-// never cleared. Clearing happens on the server, so what we send stays append-only.
+// the 8 most recent) so the run doesn't run out of context. clear_at_least stops one-tool-per-turn
+// clears that thrash the prompt cache. Plans and memory writes are never cleared; old dispatch
+// reports may be cleared once past the keep window (they're still in the quest log / session).
 const CONTEXT_MANAGEMENT: Anthropic.Beta.BetaContextManagementConfig = {
   edits: [{
     type: "clear_tool_uses_20250919",
     trigger: { type: "input_tokens", value: 120_000 },
     keep: { type: "tool_uses", value: 8 },
-    exclude_tools: ["dispatch", "submit_plan", "remember"],
+    clear_at_least: { type: "input_tokens", value: 20_000 },
+    exclude_tools: ["submit_plan", "remember"],
   }],
 };
 
@@ -147,17 +149,17 @@ let modelCache: { at: number; models: ModelInfo[]; live: boolean; runtime: Runti
 export async function listModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
   const claude = await claudeModels();
   // After Claude's: the models of each provider you've connected (none of them takes an effort level).
-  const others: ModelInfo[] = [];
-  for (const p of PROVIDERS) {
+  // Ask every provider at once — a slow one shouldn't hold up the others.
+  const lists = await Promise.all(PROVIDERS.map(async (p) => {
     try {
       // OpenRouter lists hundreds: only its free ones are offered here.
-      for (const m of (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free)) {
+      return (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free).map((m) => {
         const id = `${p.id}:${m.id}`, price = priceLabel(id); // a price is known for DeepSeek's own models only
-        others.push({ id, name: m.name, efforts: [], provider: p.name, ...(m.free ? { free: true, price: "free" } : price ? { price } : {}) });
-      }
-    } catch { /* it can't be reached just now: its models are left off the list */ }
-  }
-  return { models: [...claude.models, ...others], live: claude.live };
+        return { id, name: m.name, efforts: [] as Effort[], provider: p.name, ...(m.free ? { free: true as const, price: "free" } : price ? { price } : {}) };
+      });
+    } catch { return []; /* it can't be reached just now: its models are left off the list */ }
+  }));
+  return { models: [...claude.models, ...lists.flat()], live: claude.live };
 }
 async function claudeModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
   const runtime = campRuntime();
@@ -346,26 +348,39 @@ function unquoted(value: string): string {
 
 // Progressive disclosure: only name + description go in the prompt.
 // always: skills whose instructions are in the prompt already (see alwaysBlock), marked so.
+// Cached per skill folder by mtime so every QM roster rebuild doesn't re-read every SKILL.md.
+type SkillMeta = { name: string; desc: string; path: string; dir: string };
+const skillMetaCache = new Map<string, { stamp: string; skills: SkillMeta[] }>();
+function skillsIn(dir: string): SkillMeta[] {
+  const at = `${process.cwd()}|${dir}`;
+  let stamp = "none";
+  try { if (existsSync(dir)) { const st = statSync(dir); stamp = `${st.mtimeMs}:${st.ino}`; } } catch { /* gone */ }
+  const hit = skillMetaCache.get(at);
+  if (hit?.stamp === stamp) return hit.skills;
+  const skills: SkillMeta[] = [];
+  if (existsSync(dir)) {
+    for (const sub of readdirSync(dir)) {
+      const path = join(dir, sub, "SKILL.md");
+      if (!existsSync(path)) continue;
+      try {
+        const text = readFileSync(path, "utf8");
+        skills.push({ name: unquoted(text.match(/^name:\s*(.+)$/m)?.[1] ?? sub), desc: unquoted(text.match(/^description:\s*(.+)$/m)?.[1] ?? ""), path, dir: join(dir, sub) });
+      } catch { /* gone */ }
+    }
+  }
+  skillMetaCache.set(at, { stamp, skills });
+  return skills;
+}
 // The names of the skills in these folders (what skillIndex lists, without the descriptions).
 export function skillNames(dirs: string[]): string[] {
-  return dirs.filter(existsSync).flatMap((dir) => readdirSync(dir).flatMap((sub) => {
-    const path = join(dir, sub, "SKILL.md");
-    if (!existsSync(path)) return [];
-    return [unquoted(readFileSync(path, "utf8").match(/^name:\s*(.+)$/m)?.[1] ?? sub)];
-  }));
+  return dirs.flatMap((dir) => skillsIn(dir).map((s) => s.name));
 }
 
 export function skillIndex(dirs: string[], always: string[] = []): string {
   const lines: string[] = [];
   for (const dir of dirs) {
-    if (!existsSync(dir)) continue;
-    for (const sub of readdirSync(dir)) {
-      const path = join(dir, sub, "SKILL.md");
-      if (!existsSync(path)) continue;
-      const text = readFileSync(path, "utf8");
-      const name = unquoted(text.match(/^name:\s*(.+)$/m)?.[1] ?? sub);
-      const desc = unquoted(text.match(/^description:\s*(.+)$/m)?.[1] ?? "");
-      lines.push(always.includes(join(dir, sub)) ? `- ${name}: ${desc} (always on: its instructions are below)` : `- ${name}: ${desc} (read ${path} before using)`);
+    for (const s of skillsIn(dir)) {
+      lines.push(always.includes(s.dir) ? `- ${s.name}: ${s.desc} (always on: its instructions are below)` : `- ${s.name}: ${s.desc} (read ${s.path} before using)`);
     }
   }
   return lines.join("\n") || "(none)";
@@ -441,20 +456,22 @@ export async function runAgent(
         `## How you work\n${spec.persona}`,
         `## Your skills\nWhen a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, always.map((s) => s.dir))}` + alwaysBlock(spec.id, spec.skillDirs),
       ]);
-  logAboutRelevant(requestText(task), currentExpeditionId()); // which lines of the note about you bore on this request
+  const taskText = requestText(task);
+  logAboutRelevant(taskText, currentExpeditionId()); // which lines of the note about you bore on this request
+  // Models block last: an Auto route switch only invalidates that trailing piece, not the whole moving block.
   const movingRest = parts([
-    !opts.plain && continuityBlock(spec.id, requestText(task)),
-    aboutBlock(),
+    !opts.plain && continuityBlock(spec.id, taskText),
+    aboutBlock(taskText),
     !opts.plain && wikiIndex(),
     linksBlock(),
     projectInstructions(),
-    !opts.plain && projectBlock(spec.id, undefined, requestText(task)),
+    !opts.plain && projectBlock(spec.id, undefined, taskText),
     leftOutBlock(),
     !opts.plain && feedbackBlock(spec.id, currentProjectId()),
     opts.extraSystem,
   ]);
   // What's said about models names the one answering, so it's worked out for each route.
-  const movingFor = (m: string) => parts([modelsBlock(m), movingRest]);
+  const movingFor = (m: string) => parts([movingRest, modelsBlock(m)]);
   const systemFor = (m: string) => parts([fixed, movingFor(m)]); // as one text, for the runtimes that take it that way
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).

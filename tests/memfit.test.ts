@@ -226,3 +226,32 @@ test("pinning: from remember, from the Memory page, carried over a correction, a
   const after = k.cleanTidy(before, `- 2026-01-03 ${PIN} Never approve a pull request yourself\n- 2026-01-05 ${PIN} Use British spelling in docs`);
   assert.equal(after, `- 2026-01-03 ${PIN} Never approve a pull request yourself\n- 2026-01-05 Use British spelling in docs`);
 });
+
+test("an oversized recent line is skipped, not a hard stop: lines behind it still load", () => {
+  // One line longer than the whole recent share: skip it and keep taking newer-but-shorter lines.
+  const huge = `- 2026-04-01 ${"y".repeat(4000)}`;
+  const behind = `- 2026-03-28 Short lesson sitting behind the oversized one about tables`;
+  const newest = `- 2026-04-02 Newest short line about headings`;
+  const text = [...filler(5), behind, huge, newest].join("\n");
+  const fit = fitMemory(text, 1200);
+  assert.ok(fit.text.includes("Newest short line"), "newest short line is in");
+  assert.ok(fit.text.includes("sitting behind the oversized"), "a shorter line behind the oversized one still loads");
+  assert.ok(!fit.text.includes("y".repeat(200)), "the oversized line itself is left out");
+  assert.ok(fit.text.length <= 1200);
+});
+
+test("remember rewrite: refuses dropped pins and a drastic shrink; keeps a .bak", async () => {
+  const { writeFileSync, existsSync, readFileSync } = await import("node:fs");
+  const { workspace } = await import("../src/memory.ts");
+  const path = workspace("scout").memory;
+  writeFileSync(path, `# Scout's memory\n\n- 2026-01-01 ${PIN} Standing rule: always cite sources\n- 2026-01-02 Some other note about research\n- 2026-01-03 Another research lesson\n`);
+  const dropPins = await remember("scout", { mode: "rewrite", entry: "- 2026-01-02 Some other note about research" });
+  assert.match(String(dropPins), /Rewrite refused.*pinned/);
+  assert.ok(fullMemory("scout").includes("Standing rule"), "pins still on disk");
+  const shrink = await remember("scout", { mode: "rewrite", entry: `- 2026-01-01 ${PIN} Standing rule: always cite sources` });
+  assert.match(String(shrink), /Rewrite refused.*40%/);
+  const ok = await remember("scout", { mode: "rewrite", entry: `- 2026-01-01 ${PIN} Standing rule: always cite sources\n- 2026-01-02 Merged research lessons into one line about citing and notes` });
+  assert.match(String(ok), /Memory rewritten/);
+  assert.ok(existsSync(path + ".bak"), "prior text kept as .bak");
+  assert.ok(readFileSync(path + ".bak", "utf8").includes("Another research lesson"));
+});
