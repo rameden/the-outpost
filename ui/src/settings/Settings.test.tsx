@@ -302,6 +302,8 @@ function fakeAudio() {
     createStereoPanner() { return { ...node(), pan: param() }; }
     createConvolver() { return node(); }
     createDelay() { return { ...node(), delayTime: param() }; }
+    createDynamicsCompressor() { return { ...node(), threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }; }
+    createChannelMerger() { return node(); }
     createBufferSource() { return { ...node(), start: () => {} }; }
     createBuffer(channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
   });
@@ -342,7 +344,7 @@ test("the strum sound is a switch in Appearance, off until you turn it on, kept 
   localStorage.clear();
 });
 
-test("the strum voice is a choice in Appearance, sonar until you pick another, and each plays a sweep when picked", () => {
+test("the strum voice is a choice in Appearance, Sonar Prime until you pick another, and each plays a sweep when picked", () => {
   localStorage.clear();
   fakeAudio();
   show("appearance");
@@ -350,12 +352,14 @@ test("the strum voice is a choice in Appearance, sonar until you pick another, a
   const group = within(row).getByRole("group", { name: "Strum voice" });
   const names = within(group).getAllByRole("button").map((b) => b.textContent);
   expect(names).toEqual(STRUM_VOICES.map((v) => v.name));
-  expect(within(group).getByRole("button", { name: "Sonar" }).getAttribute("aria-pressed")).toBe("true");
+  expect(within(group).getByRole("button", { name: "Sonar Prime" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByText("Strum tone")).toBeNull(); // Sonar Prime is made whole: no tone to shape
 
   fireEvent.click(within(group).getByRole("button", { name: "Glass bell" }));
   expect(localStorage.getItem("camp-strum-voice")).toBe("bell");
   expect(within(group).getByRole("button", { name: "Glass bell" }).getAttribute("aria-pressed")).toBe("true");
-  expect(within(group).getByRole("button", { name: "Sonar" }).getAttribute("aria-pressed")).toBe("false");
+  expect(within(group).getByRole("button", { name: "Sonar Prime" }).getAttribute("aria-pressed")).toBe("false");
+  expect(screen.getByText("Strum tone")).toBeTruthy(); // the other voices can be shaped
   // The demo plays even though the strum sound is off: a note for each of a few lines.
   expect(localStorage.getItem("camp-strum-sound")).toBeNull();
   for (const line of DEMO_LINES) expect(started).toContain(STRUM_NOTES[line]);
@@ -365,6 +369,7 @@ test("the strum voice is a choice in Appearance, sonar until you pick another, a
 test("the strum tone has sliders and choices in Appearance that are kept, play a sweep, and reset", () => {
   vi.useFakeTimers();
   localStorage.clear();
+  localStorage.setItem("camp-strum-voice", "bell");
   fakeAudio();
   show("appearance");
   const row = screen.getByText("Strum tone").closest(".set-row") as HTMLElement;

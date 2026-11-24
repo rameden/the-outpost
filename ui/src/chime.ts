@@ -1,9 +1,10 @@
 // The camp's sounds, made with Web Audio so there's no sound file: the chime that goes with a browser
-// notification, and the strum of the orbit lines in the camp at rest (below). They're one voice: a
-// notification sounds like the innermost line being plucked, in whichever voice the strum has (picked
-// in Settings → Appearance), so you know it's the camp. The shape
-// tells you what happened without looking: that line's ping alone for a decision, a lower ping rising
-// to it for finished, and it falling away to the lower one for failed.
+// notification, and the strum of the orbit lines in the camp at rest (below). They're one voice,
+// whichever the strum has (picked in Settings → Appearance), so you know it's the camp. Sonar Prime,
+// the camp's own, plays a short phrase that always starts on its root: the ping alone for a decision,
+// rising through a major chord to the innermost line's note for finished, and a few minor steps that
+// don't resolve for failed. The other voices pluck the innermost line: alone for a decision, a lower
+// ping rising to it for finished, and it falling away to the lower one for failed.
 
 import { storeGet, storeRemove, storeSet } from "./api.ts";
 
@@ -56,6 +57,7 @@ export function playChime(kind: ChimeKind) {
   if (!a) return;
   if (a.state === "suspended") void a.resume().catch(() => {});
   const t0 = a.currentTime + 0.02;
+  if (strumVoice() === "prime") return primePhrase(a, PRIME_PHRASES[kind], t0);
   CHIME_NOTES[kind].forEach((f, i) => ping(a, f, 1, 0, t0 + i * STEP, "alert"));
 }
 
@@ -63,12 +65,14 @@ export function playChime(kind: ChimeKind) {
 // the pointer crosses it: the nearest line highest, as a shorter string is, falling outwards through
 // E minor's five-note scale, so any sweep across them is in tune. Each line sits at its own place
 // from left to right, so a sweep moves across. The note comes in one of a few voices, picked in
-// Settings → Appearance (below); every one is soft, rings on into the same long reverb, and has
-// nothing in it that beats or repeats (no out-of-tune twin, no echo taps), so its tail fades away
-// evenly instead of pulsing. A notification is the same voice (playChime, above), louder.
+// Settings → Appearance (below), Sonar Prime unless you pick another. The others are soft, ring on
+// into the same long reverb, and have nothing in them that beats or repeats (no out-of-tune twin, no
+// echo taps), so their tails fade evenly; Sonar Prime brings its own room and echo. A notification
+// is the same voice (playChime, above), louder.
 
-export type StrumVoice = "sonar" | "bell" | "wire" | "breath" | "console" | "analog" | "choir";
+export type StrumVoice = "prime" | "sonar" | "bell" | "wire" | "breath" | "console" | "analog" | "choir";
 export const STRUM_VOICES: { id: StrumVoice; name: string; about: string }[] = [
+  { id: "prime", name: "Sonar Prime", about: "The house sound: a clean sine ping that glides down onto its note with a brief shimmer and a tiny click, into a room and a ping-pong echo. Made whole, as designed, so it has no tone to shape." },
   { id: "sonar", name: "Sonar", about: "A working ship's sonar heard over the comms: a relay's click, a clang of metal, a little overdrive, then a long ring into the hull." },
   { id: "bell", name: "Glass bell", about: "A struck glass bar, like a vibraphone in a cold room: clear, a little shimmer at the start, then a long pure ring." },
   { id: "wire", name: "Wire", about: "A plucked steel wire, the way a guitar string is made in code: a soft pick, warm body, fading out like a held string." },
@@ -78,7 +82,7 @@ export const STRUM_VOICES: { id: StrumVoice; name: string; about: string }[] = [
   { id: "choir", name: "Choir", about: "The wildcard: a ghost choir on a far channel. Each line is sung, not struck, an \"ooh\" on the outer lines opening to an \"aah\" near the sun." },
 ];
 const VOICE_IDS = new Set<string>(STRUM_VOICES.map((v) => v.id));
-export const strumVoice = (): StrumVoice => { const v = storeGet("camp-strum-voice"); return v && VOICE_IDS.has(v) ? (v as StrumVoice) : "sonar"; };
+export const strumVoice = (): StrumVoice => { const v = storeGet("camp-strum-voice"); return v && VOICE_IDS.has(v) ? (v as StrumVoice) : "prime"; };
 export const setStrumVoice = (v: StrumVoice) => storeSet("camp-strum-voice", v);
 
 const STRUM_RING = 4.5; // seconds the sonar's note itself rings; the reverb carries it on past that
@@ -488,12 +492,126 @@ const choir: Voice = (a, f, hard, side, t, out) => {
   air.start(t, Math.random(), 0.55);
 };
 
-const VOICES: Record<StrumVoice, Voice> = { sonar, bell, wire, breath, console: consoleBlip, analog, choir };
+// ---- Sonar Prime: the camp's own ping, made whole (the tone doesn't touch it). A clean sine that
+// glides down onto its note (1.5 semitones over 60 ms), a light FM shimmer at twice the note that
+// fades in about 80 ms, and a tiny high click on the attack, through a compressor, a 3.4 s room and
+// a stereo ping-pong echo. A notification is a phrase that starts on the root (E4): the root is the
+// full ping and rings on for about 2 s under the rest; later notes are lighter, quicker-gliding
+// pings, quieter as the phrase climbs, by turns a little left and right, the last ringing about
+// 1.1 s; their echoes land exactly on every second note. A single ping takes a longer, more open
+// echo. A strum's line is one of the lighter pings, at its line's note.
+const mtof = (m: number) => 440 * 2 ** ((m - 69) / 12);
+export const PRIME_PHRASES: Record<ChimeKind, number[]> = {
+  ask: [64], // E4
+  done: [64, 68, 71, 76], // E4 G#4 B4 E5: a major chord up to the innermost line's note
+  fail: [64, 66, 67], // E4 F#4 G: minor, and it doesn't resolve
+};
+const PRIME_STEP = 0.09; // seconds between a phrase's notes
+type PrimeFx = { reverb: number; delay: number; time: number; fb: number };
+const PRIME_OPEN: PrimeFx = { reverb: 0.3, delay: 0.38, time: 0.32, fb: 0.42 };
+const PRIME_TIGHT: PrimeFx = { reverb: 0.32, delay: 0.22, time: 2 * PRIME_STEP, fb: 0.28 };
+type Prime = { click: AudioBuffer; open: AudioNode; tight: AudioNode };
+const primes = new WeakMap<BaseAudioContext, Prime>();
+function primeRig(a: BaseAudioContext): Prime {
+  const had = primes.get(a);
+  if (had) return had;
+  const comp = a.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.25;
+  comp.connect(a.destination);
+  // The room: 3.4 s of soft noise, fading, with a 12 ms swell so it doesn't click.
+  const rate = a.sampleRate, seconds = 3.4, len = Math.floor(rate * seconds), ir = a.createBuffer(2, len, rate);
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c);
+    let lp = 0;
+    for (let k = 0; k < len; k++) {
+      lp += (Math.random() * 2 - 1 - lp) * 0.4;
+      d[k] = lp * Math.exp((-5 * (k / rate)) / seconds) * Math.min(1, k / (rate * 0.012));
+    }
+  }
+  const verb = a.createConvolver();
+  verb.buffer = ir;
+  verb.connect(comp);
+  // A way in at 85%, with a send to the room and a filtered echo bouncing left, right, left.
+  const bus = (fx: PrimeFx): AudioNode => {
+    const into = a.createGain(), vol = a.createGain(), toRoom = a.createGain(), send = a.createGain();
+    vol.gain.value = 0.85;
+    toRoom.gain.value = fx.reverb;
+    send.gain.value = fx.delay;
+    into.connect(vol).connect(comp);
+    vol.connect(toRoom).connect(verb);
+    const [dL, dR] = [a.createDelay(1), a.createDelay(1)], [fL, fR] = [a.createBiquadFilter(), a.createBiquadFilter()], [gL, gR] = [a.createGain(), a.createGain()];
+    const merge = a.createChannelMerger(2);
+    for (const d of [dL, dR]) d.delayTime.value = fx.time;
+    for (const f of [fL, fR]) { f.type = "lowpass"; f.frequency.value = 3200; }
+    for (const g of [gL, gR]) g.gain.value = fx.fb;
+    vol.connect(send).connect(dL);
+    dL.connect(fL).connect(gL).connect(dR);
+    dR.connect(fR).connect(gR).connect(dL);
+    fL.connect(merge, 0, 0);
+    fR.connect(merge, 0, 1);
+    merge.connect(comp);
+    return into;
+  };
+  const click = a.createBuffer(1, rate * 2, rate), cd = click.getChannelData(0);
+  for (let k = 0; k < cd.length; k++) cd[k] = Math.random() * 2 - 1;
+  const made: Prime = { click, open: bus(PRIME_OPEN), tight: bus(PRIME_TIGHT) };
+  primes.set(a, made);
+  return made;
+}
+// One ping: down onto `f` from `glide` semitones above over `glideTime`, with the shimmer.
+function primeTone(a: BaseAudioContext, o: { f: number; t: number; peak: number; decay: number; glide: number; glideTime: number; pan: number; out: AudioNode }) {
+  const { f, t } = o, attack = 0.003, stop = t + attack + o.decay + 0.05;
+  const osc = a.createOscillator(), gain = a.createGain(), shim = a.createOscillator(), depth = a.createGain();
+  osc.type = "sine";
+  osc.frequency.value = f;
+  osc.frequency.setValueAtTime(f * 2 ** (o.glide / 12), t);
+  osc.frequency.exponentialRampToValueAtTime(f, t + o.glideTime);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(o.peak, t + attack);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + o.decay);
+  shim.frequency.value = f * 2;
+  depth.gain.setValueAtTime(f * 0.6, t);
+  depth.gain.exponentialRampToValueAtTime(Math.max(0.5, f * 0.02), t + 0.08);
+  shim.connect(depth).connect(osc.frequency);
+  osc.connect(gain);
+  if (o.pan) { const pan = a.createStereoPanner(); pan.pan.value = o.pan; gain.connect(pan).connect(o.out); } else gain.connect(o.out);
+  shim.start(t); shim.stop(stop);
+  osc.start(t); osc.stop(stop);
+}
+function primeClick(a: BaseAudioContext, t: number, level: number, out: AudioNode) {
+  const src = a.createBufferSource(), high = a.createBiquadFilter(), gain = a.createGain();
+  src.buffer = primeRig(a).click;
+  high.type = "highpass";
+  high.frequency.value = 3000;
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(level, t + 0.001);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
+  src.connect(high).connect(gain).connect(out);
+  src.start(t, Math.random(), 0.07);
+}
+// A notification's phrase of MIDI notes, from `t0`.
+function primePhrase(a: BaseAudioContext, phrase: number[], t0: number) {
+  const rig = primeRig(a), n = phrase.length, out = n === 1 ? rig.open : rig.tight;
+  primeClick(a, t0, 0.05, out);
+  phrase.forEach((m, i) => {
+    const f = mtof(m), t = t0 + i * PRIME_STEP, last = i === n - 1;
+    if (i === 0) return primeTone(a, { f, t, peak: 0.22, decay: 2, glide: 1.5, glideTime: 0.06, pan: 0, out });
+    const fade = 1 - (0.35 * i) / Math.max(1, n - 1);
+    primeTone(a, { f, t, peak: (last ? 0.13 : 0.11) * fade, decay: last ? 1.1 : 0.3, glide: 0.5, glideTime: 0.02, pan: i % 2 ? 0.2 : -0.2, out });
+  });
+}
+const prime: Voice = (a, f, hard, side, t) => {
+  const out = primeRig(a).tight;
+  primeClick(a, t, 0.012 + 0.025 * hard, out);
+  primeTone(a, { f, t, peak: 0.05 + 0.06 * hard, decay: 1.1, glide: 0.5 + hard, glideTime: 0.02 + 0.03 * hard, pan: side * 0.4, out });
+};
+
+const VOICES: Record<StrumVoice, Voice> = { prime, sonar, bell, wire, breath, console: consoleBlip, analog, choir };
 
 // A notification's ping: the innermost line's note in the strum's voice, louder.
 function ping(a: BaseAudioContext, f: number, hard: number, side: number, t: number, out: Out) {
   wear(a);
-  (VOICES[strumVoice()] ?? sonar)(a, f * OCT, hard, side, t, out);
+  (VOICES[strumVoice()] ?? prime)(a, f * OCT, hard, side, t, out);
 }
 
 const noteOf = (i: number) => STRUM_NOTES[Math.min(Math.max(i, 0), STRUM_NOTES.length - 1)];
@@ -502,8 +620,8 @@ const sideOf = (i: number) => (i % 2 ? -1 : 1) * Math.min(0.7, 0.12 * Math.max(i
 
 // One line's note in `voice` and `tone` on audio context `a` at time `t`. Exported so a voice can be rendered offline.
 export function sound(a: BaseAudioContext, voice: StrumVoice, i: number, strength: number, t: number, tone = toneNow()) {
-  wear(a, tone);
-  (VOICES[voice] ?? sonar)(a, noteOf(i) * OCT, Math.min(Math.max(strength, 0), 1), sideOf(i), t, "strum");
+  wear(a, voice === "prime" ? TONE_DEFAULT : tone); // Sonar Prime is made whole: the tone doesn't touch it
+  (VOICES[voice] ?? prime)(a, noteOf(i) * OCT, Math.min(Math.max(strength, 0), 1), sideOf(i), t, "strum");
 }
 
 // Line `i` (0 is nearest the sun) at `strength` from 0 (a slow pass) to 1 (a quick sweep).

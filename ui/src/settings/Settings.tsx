@@ -316,7 +316,7 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
           ))}
         </div>
       </Row>
-      <StrumTone voice={voice} />
+      {voice !== "prime" && <StrumTone voice={voice} />}
     </>
   );
 }
