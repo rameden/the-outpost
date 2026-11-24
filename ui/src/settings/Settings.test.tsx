@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { Settings, type SettingsSection } from "./Settings.tsx";
 import { SETTINGS_SECTIONS } from "./sections.ts";
+import { DEMO_LINES, STRUM_NOTES, STRUM_VOICES } from "../chime.ts";
 import { Header } from "../components/Header.tsx";
 import { createFeedStore } from "../feed/store.ts";
 
@@ -285,14 +286,11 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
   delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
 });
 
-test("the notification sound row shows once notifications are on: a switch kept in this browser, and buttons to hear each chime", () => {
-  localStorage.clear();
-  show("notifications");
-  expect(screen.queryByText("Notification sound")).toBeNull(); // jsdom has no notifications: nothing to add a sound to
-
-  cleanup();
-  const started: number[] = [];
-  vi.stubGlobal("Notification", class { static permission = "granted"; });
+// jsdom has no Web Audio: a fake that records the pitch of each tone started. The page keeps the first
+// audio context it makes, so every test shares this one list.
+const started: number[] = [];
+function fakeAudio() {
+  started.length = 0;
   const node = () => ({ connect: (d: unknown) => d });
   const param = () => ({ value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} });
   vi.stubGlobal("AudioContext", class {
@@ -306,6 +304,16 @@ test("the notification sound row shows once notifications are on: a switch kept 
     createBufferSource() { return { ...node(), start: () => {} }; }
     createBuffer(channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
   });
+}
+
+test("the notification sound row shows once notifications are on: a switch kept in this browser, and buttons to hear each chime", () => {
+  localStorage.clear();
+  show("notifications");
+  expect(screen.queryByText("Notification sound")).toBeNull(); // jsdom has no notifications: nothing to add a sound to
+
+  cleanup();
+  fakeAudio();
+  vi.stubGlobal("Notification", class { static permission = "granted"; });
   show("notifications");
   const row = screen.getByText("Notification sound").closest(".set-row") as HTMLElement;
   const box = within(row).getByRole("checkbox");
@@ -330,6 +338,26 @@ test("the strum sound is a switch in Appearance, off until you turn it on, kept 
   fireEvent.click(box);
   expect(localStorage.getItem("camp-strum-sound")).toBe("on");
   expect(within(row).getByRole("checkbox")).toHaveProperty("checked", true);
+  localStorage.clear();
+});
+
+test("the strum voice is a choice in Appearance, sonar until you pick another, and each plays a sweep when picked", () => {
+  localStorage.clear();
+  fakeAudio();
+  show("appearance");
+  const row = screen.getByText("Strum voice").closest(".set-row") as HTMLElement;
+  const group = within(row).getByRole("group", { name: "Strum voice" });
+  const names = within(group).getAllByRole("button").map((b) => b.textContent);
+  expect(names).toEqual(STRUM_VOICES.map((v) => v.name));
+  expect(within(group).getByRole("button", { name: "Sonar" }).getAttribute("aria-pressed")).toBe("true");
+
+  fireEvent.click(within(group).getByRole("button", { name: "Glass bell" }));
+  expect(localStorage.getItem("camp-strum-voice")).toBe("bell");
+  expect(within(group).getByRole("button", { name: "Glass bell" }).getAttribute("aria-pressed")).toBe("true");
+  expect(within(group).getByRole("button", { name: "Sonar" }).getAttribute("aria-pressed")).toBe("false");
+  // The demo plays even though the strum sound is off: a note for each of a few lines.
+  expect(localStorage.getItem("camp-strum-sound")).toBeNull();
+  for (const line of DEMO_LINES) expect(started).toContain(STRUM_NOTES[line]);
   localStorage.clear();
 });
 
