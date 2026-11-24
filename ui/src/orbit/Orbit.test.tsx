@@ -275,6 +275,9 @@ test("for less motion nothing is sent across the sky, and the stylesheet stops t
 });
 
 test("the demo is a pretend camp at work: it says so, your own crew plays it, and none of it reaches the real feed", () => {
+  // A minute and more passes here, and the demo is played on timers, not frames: stand in for those only, as the
+  // quiet-quest test does, or the frames drawn on the way take a slow machine past the time limit.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "performance"] });
   const { container, planet, cell, store, onOpenQuest } = show();
   expect(screen.queryByRole("status")).toBe(null);
   fireEvent.click(screen.getByRole("button", { name: "Demo", pressed: false }));
@@ -310,6 +313,7 @@ test("the demo is a pretend camp at work: it says so, your own crew plays it, an
 });
 
 test("opened on the demo with no crew to play it, the camp's own do", () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "performance"] }); // (36 seconds pass: timers only, as above)
   const on = { onClose: vi.fn() };
   const { container } = render(<Orbit S={null} store={createFeedStore()} demo {...on} />);
   expect(screen.getByRole("status").textContent).toMatch(/^Demo:/);

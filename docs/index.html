@@ -8,7 +8,8 @@
 <!-- The outpost's name: the camp server fills in its own as it serves the Tour (src/outpost.ts). -->
 <meta name="outpost" content="Mae">
 <meta name="description" content="Outpost: a small, hackable multi-agent harness on Claude. A Quartermaster plans, you approve, and a crew of specialists does the work.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314233F'/%3E%3Cg transform='translate(9 9) scale(0.23)'%3E%3Cpath fill='%23F3EDE0' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg fill='none' stroke='%23F3EDE0' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle cx='100' cy='100' r='20' fill='%23D9982B'/%3E%3Ccircle cx='160.81' cy='39.19' r='13' fill='%23D9982B'/%3E%3C/g%3E%3C/svg%3E">
+<!-- The logo kit's favicon (docs/brand/favicon.svg), as in mission control and the star chart. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='8 8 184 184' role='img' aria-label='Outpost Mae'%3E%3Cstyle%3E.m%7Bfill:%2314233F%7D.r%7Bstroke:%2314233F%7D.d%7Bfill:%23B97A12%7D%40media (prefers-color-scheme:dark)%7B.m%7Bfill:%23F3EDE0%7D.r%7Bstroke:%23F3EDE0%7D.d%7Bfill:%23D9982B%7D%7D%3C/style%3E%3Cpath class='m' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg class='r' fill='none' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle class='d' cx='100' cy='100' r='20'/%3E%3Ccircle class='d' cx='160.81' cy='39.19' r='13'/%3E%3C/svg%3E">
 <script>
 // The tour wears the look you picked in mission control. The camp serves this page at its own
 // address, so the two choices kept there are readable here: "camp-theme" (light, dark, or
@@ -192,7 +193,8 @@ section { padding-block: 88px 0; }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; }
 /* The logo: the logo kit's mark and the name, as mission control's header draws it. */
 .brand { display: inline-flex; align-items: center; gap: 11px; color: var(--logo-ink); }
-/* In the header and footer it's a link back to mission control (the Tour is served at /splash, the app at /). */
+/* In the header and footer it's a link back to mission control (the Tour is served at /splash, the app at /);
+   on the public site, or opened as a file, back to the top of this page. */
 a.brand { text-decoration: none; }
 /* The logo kit's ink and its amber (docs/brand): navy on a light page, cream on a dark one. */
 :root { --logo-ink: #14233F; --logo-dot: #B97A12; }
@@ -257,6 +259,8 @@ a.brand { text-decoration: none; }
 .theme { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
 .theme:hover { border-color: var(--accent); }
 .looks { display: flex; align-items: center; gap: 8px; }
+/* The repo link sits with the switches, so it stays when the section links fold away on a phone. */
+a.theme { text-decoration: none; }
 select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
 
 /* Hero */
@@ -271,6 +275,8 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .copy:hover { border-color: var(--night-muted); }
 .ghost { font-weight: 600; font-size: 15px; color: var(--text); text-decoration: none; padding: 12px 4px; border-bottom: 2px solid var(--accent); }
 .runtimes { margin-top: 22px; font-size: 14px; color: var(--faint); }
+.runtimes a { color: var(--muted); text-underline-offset: 3px; }
+.runtimes a:hover { color: var(--text); }
 
 /* Expedition feed */
 .feed { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; min-width: 0; }
@@ -335,14 +341,6 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .member dt { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
 .member dd { margin: 0; }
 .member.qm { --tone: var(--c-qm); } .member.scout { --tone: var(--c-scout); } .member.scribe { --tone: var(--c-scribe); } .member.art { --tone: var(--c-art); } .member.warden { --tone: var(--c-warden); } .member.wiz { --tone: var(--c-wiz); }
-/* One of your own: a full-width card, dashed, for crew you add. */
-.member.yours { --tone: var(--muted); margin-top: 16px; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr); column-gap: 28px; align-items: start; border-style: dashed; border-color: var(--border-strong); }
-.yours-copy { display: grid; gap: 8px; }
-.yours-copy .how { color: var(--muted); font-size: 15px; }
-.yours-copy .how b { color: var(--text); font-weight: 600; }
-.yours-side { display: grid; gap: 12px; align-content: start; }
-.abilities { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.abilities li { font-size: 13px; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--bg); }
 .wrong { font: 600 13px var(--body); color: var(--text); background: transparent; border: 1px dashed var(--border-strong); border-radius: 8px; padding: 8px 10px; cursor: pointer; text-align: left; }
 .wrong:hover { border-style: solid; }
 .decline { font-size: 14px; font-style: italic; color: var(--tone); min-height: 1.6em; }
@@ -390,14 +388,18 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .term-top i { width: 10px; height: 10px; border-radius: 50%; background: var(--night-line); }
 .term-body { padding: 18px; display: grid; gap: 14px; overflow-x: auto; }
 .line { display: flex; gap: 12px; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 14px; color: var(--night-text); }
-.line code { background: none; padding: 0; white-space: nowrap; }
+.line code { background: none; padding: 0; min-width: 0; overflow-wrap: anywhere; } /* a long one (the clone) wraps, and its Copy stays in view */
+.line .copy { flex-shrink: 0; }
 .line code::before { content: "$ "; color: var(--night-muted); }
 .note { font-family: var(--mono); font-size: 12.5px; color: var(--night-muted); }
+.note a { color: var(--night-text); text-underline-offset: 3px; }
 .try { margin-top: 22px; padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: 15px; }
 .try q { font-family: var(--display); font-size: 18px; display: block; margin-top: 6px; quotes: "“" "”"; }
 
 footer { padding-block: 72px 48px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--faint); font-size: 14px; align-items: center; }
 footer .brand { gap: 8px; }
+footer a:not(.brand) { color: var(--muted); text-underline-offset: 3px; }
+footer a:not(.brand):hover { color: var(--text); }
 footer .mae-mark { height: 26px; width: 26px; }
 footer .outpost-title { font-size: 16px; }
 footer .outpost-sub { font-size: 10px; }
@@ -537,7 +539,7 @@ footer .outpost-sub { font-size: 10px; }
 .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [role="tabpanel"][hidden] { display: none; }
-[role="tabpanel"]:is(.packs, .words, .feature, .yours) { margin-top: 0; }
+[role="tabpanel"]:is(.packs, .words, .feature) { margin-top: 0; }
 [role="tabpanel"].feature { border-top: 0; padding-top: 0; }
 :is(#orbit, .rules-band) .tabs { border-bottom-color: var(--night-line); }
 :is(#orbit, .rules-band) .tabs button { color: var(--night-muted); }
@@ -582,8 +584,6 @@ footer .outpost-sub { font-size: 10px; }
   .stop:nth-child(2) .pin::after { border-top-color: transparent; }
   .alter { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .alter .mae-orb { --orb: 112px; margin: 34px; }
-  .member.yours { grid-template-columns: auto minmax(0, 1fr); }
-  .yours-side { grid-column: 2; }
   .rules > :last-child { grid-column: 1 / -1; }
   .sky { min-height: 0; }
   .scroll-cue { display: none; }
@@ -616,10 +616,9 @@ footer .outpost-sub { font-size: 10px; }
   .quests { grid-template-columns: minmax(0, 1fr); }
   .stop .pin::after { border-top-color: transparent; }
   .top nav { display: none; }
+  .looks a.theme { display: none; } /* no room on a phone: the hero, Get started and the footer carry the GitHub link */
   .rule { padding-right: 0; }
   .rules > :last-child { grid-column: auto; }
-  .member.yours { grid-template-columns: minmax(0, 1fr); }
-  .yours-side { grid-column: auto; }
   .hero-system { scale: .55; top: 80%; }
   .stat { padding: 14px 10px 14px 0; column-gap: 10px; }
   .stat b { font-size: 40px; }
@@ -675,6 +674,7 @@ footer .outpost-sub { font-size: 10px; }
         <a href="#pitch">Get started</a>
       </nav>
       <div class="looks">
+        <a class="theme" href="https://github.com/rameden/the-outpost">GitHub</a>
         <select class="theme" id="palette" aria-label="Colours">
           <option value="camp">Camp</option>
           <option value="harbor">Harbor</option>
@@ -696,7 +696,7 @@ footer .outpost-sub { font-size: 10px; }
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the <span data-word="crew">crew</span></a>
       </div>
-      <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack.</p>
+      <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack: <a href="https://github.com/rameden/the-outpost">the source is on GitHub</a>.</p>
     </div>
 
     <div class="feed" id="feed" aria-label="An example expedition" data-t-aria-label="An example {expedition}">
@@ -759,7 +759,6 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="tabs" role="tablist" aria-label="The crew" data-t-aria-label="The {crew}">
       <button type="button" role="tab" id="crew-tab-five" aria-controls="crew-five" aria-selected="true">The six</button>
-      <button type="button" role="tab" id="crew-tab-yours" aria-controls="crew-yours" aria-selected="false">Your own</button>
       <button type="button" role="tab" id="crew-tab-packs" aria-controls="crew-packs" aria-selected="false">Theme packs</button>
     </div>
     <div class="crew" id="crew-five" role="tabpanel" aria-labelledby="crew-tab-five">
@@ -812,20 +811,6 @@ footer .outpost-sub { font-size: 10px; }
         <p class="decline" aria-live="polite"></p>
       </article>
     </div>
-    <article class="member yours" id="crew-yours" role="tabpanel" aria-labelledby="crew-tab-yours" hidden>
-      <div class="badge" aria-hidden="true">✦</div>
-      <div class="yours-copy">
-        <span class="tag">One of your own</span>
-        <h3>Anyone you need</h3>
-        <p class="role">A tester, a librarian, a release manager: whatever your work keeps asking for.</p>
-        <p class="how">Six come built in. Add more with the <b>+</b> at the end of the <span data-word="crew">crew</span> bar: a name, an icon and a colour, a line on what they're for and how they should work, and what they're allowed to do. The <span data-crew="0">Quartermaster</span> plans with them like anyone, they keep a memory of their own, and they turn down what isn't theirs. A theme pack leaves the names you give them alone.</p>
-      </div>
-      <div class="yours-side">
-        <dl><dt>Can be given</dt><dd><ul class="abilities"><li>Web search</li><li>Writing files</li><li>Shell, asking first</li><li>Wiki notes</li></ul></dd></dl>
-        <button class="wrong" type="button" data-say="That's a big job. The Quartermaster plans it, and I'll take the small pieces.">Ask it to plan a rewrite</button>
-        <p class="decline" aria-live="polite"></p>
-      </div>
-    </article>
     <div class="packs" id="crew-packs" role="tabpanel" aria-labelledby="crew-tab-packs" hidden>
       <div class="packs-head">
         <span class="tag">Make it yours</span>
@@ -1124,13 +1109,15 @@ footer .outpost-sub { font-size: 10px; }
   <div class="wrap pitch">
     <div class="sec-head" style="margin:0">
       <div class="eyebrow">Get started</div>
-      <h2>Set up your first outpost in three commands.</h2>
+      <h2>Set up your first outpost in four steps.</h2>
       <p class="lede">Needs Node 22.12 or later and either a Claude subscription or an API key. On a subscription, the <span data-word="crew">crew</span> runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
       <div class="try">Try asking:<q>Research how other agent harnesses handle memory, then write it up as a short doc.</q></div>
     </div>
     <div class="term" aria-label="Setup commands">
       <div class="term-top" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="term-body">
+        <div class="line"><code id="c0">git clone https://github.com/rameden/the-outpost.git &amp;&amp; cd the-outpost</code><button class="copy" type="button" data-copy="c0">Copy</button></div>
+        <div class="note">The code is on GitHub: <a href="https://github.com/rameden/the-outpost">rameden/the-outpost</a>. Already have it? Start at npm install.</div>
         <div class="line"><code id="c1">npm install</code><button class="copy" type="button" data-copy="c1">Copy</button></div>
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
         <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
@@ -1144,7 +1131,7 @@ footer .outpost-sub { font-size: 10px; }
 <div class="wrap">
   <footer>
     <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
-    <span>Small, hackable, and built on Claude.</span>
+    <span>Small, hackable, and built on Claude. <a href="https://github.com/rameden/the-outpost">Open source on GitHub</a>, ISC licence.</span>
   </footer>
 </div>
 
@@ -1155,6 +1142,15 @@ footer .outpost-sub { font-size: 10px; }
   var outpost = (document.querySelector('meta[name="outpost"]') || {}).content || 'Mae';
   document.querySelectorAll('.outpost-sub').forEach(function (el) { el.textContent = outpost; });
   document.querySelectorAll('[aria-label="Outpost Mae"]').forEach(function (el) { el.setAttribute('aria-label', 'Outpost ' + outpost); });
+  // Not served by a camp (the public site, scripts/site.sh, or opened as a file): no pack was put in
+  // and there's no {hq} at "/", so the logo goes to the top of this page and says so.
+  if (!document.getElementById('mae-pack')) {
+    document.querySelectorAll('a.brand').forEach(function (el) {
+      el.setAttribute('href', '#');
+      el.setAttribute('title', 'Back to the top');
+      el.removeAttribute('data-t-title');
+    });
+  }
 })();
 (function () {
   // Light or dark, and which colours. The button names the one you'd switch to. Both choices are
@@ -1313,7 +1309,7 @@ footer .outpost-sub { font-size: 10px; }
     if (m[1] !== undefined) { v = article(v); return spec.charAt(0) === 'A' ? cap(v) : v; }
     return key.charAt(0) === key.charAt(0).toUpperCase() ? cap(v) : v;
   };
-  var cards = ['.member.qm', '.member.scout', '.member.scribe', '.member.art', '.member.warden', '.member.yours'].map(function (sel) { return document.querySelector(sel); });
+  var cards = ['.member.qm', '.member.scout', '.member.scribe', '.member.art', '.member.warden', '.member.wiz'].map(function (sel) { return document.querySelector(sel); });
   var says = Array.prototype.slice.call(document.querySelectorAll('#crew .wrong')).map(function (b) { return { btn: b, text: b.dataset.say, label: b.textContent }; });
   var dress = function (pack) {
     P.id = pack.id; P.crew = pack.crew; P.words = pack.words;
@@ -1488,7 +1484,7 @@ footer .outpost-sub { font-size: 10px; }
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
-    var groups = ['.sec-head', '.stats > *', '.crew > *', '.yours', '.packs', '.route > *', '.kit > *', '.words > *',
+    var groups = ['.sec-head', '.stats > *', '.crew > *', '.packs', '.route > *', '.kit > *', '.words > *',
                   '.feature', '.rules > *', '.term', '.try'];
     groups.forEach(function (sel) {
       var seen = new Map();

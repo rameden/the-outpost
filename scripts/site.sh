@@ -80,9 +80,9 @@ cmd_deploy() {
   local bucket dist
   bucket="$(output BucketName)"; dist="$(output DistributionId)"
   out="$(mktemp -d)"; trap 'rm -rf "$out"' EXIT   # global: the trap runs after this function returns
-  # The page is also the Tour inside the app, where the logo goes back to mission control. On the
-  # public site it goes to the top of the page, so it says that instead.
-  sed 's/title="Back to mission control"/title="Outpost Mae"/g' "$PAGE" > "$out/index.html"
+  # The page as it is: served by no camp, it wears the Guild pack (or the one a visitor picks) and
+  # its logo goes to the top of the page, not to mission control.
+  cp "$PAGE" "$out/index.html"
   printf 'User-agent: *\nAllow: /\n' > "$out/robots.txt"
   say "Uploading to s3://$bucket …"
   aws s3 cp "$out/index.html" "s3://$bucket/index.html" --region "$REGION" \
