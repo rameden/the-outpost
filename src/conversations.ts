@@ -25,6 +25,7 @@ import { loadLinks, LINKS_PATH } from "./links.js";
 import { allTurns, copyTurns, foldersOf, THREADS_PATH, type Turn } from "./threads.js";
 import { undoCheckpoint } from "./checkpoints.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
+import { fileStamp } from "./helpers.js";
 
 export const CONVERSATIONS_PATH = "camp/conversations.json";
 export const GENERAL = "general";
@@ -73,7 +74,10 @@ export type Conversation = {
 };
 export type History = { projects: Project[]; conversations: Conversation[] };
 
+let conversationsCache: { stamp: string; s: Saved } | null = null;
 function load(): Saved {
+  const stamp = fileStamp(CONVERSATIONS_PATH);
+  if (conversationsCache?.stamp === stamp) return conversationsCache.s;
   // An unreadable file is kept aside before this starts over (atomic.ts): it holds your projects.
   const read = readJsonFile(CONVERSATIONS_PATH, {});
   const s: Partial<Saved> = read && typeof read === "object" ? (read as Partial<Saved>) : {};
@@ -83,11 +87,14 @@ function load(): Saved {
     return link && !rest.links?.length ? { ...rest, links: [link] } : rest;
   });
   if (!projects.some((p) => p.id === GENERAL)) projects.unshift({ id: GENERAL, name: "General" });
-  return { projects, seenLinks: Array.isArray(s.seenLinks) ? s.seenLinks : [], meta: s.meta && typeof s.meta === "object" ? s.meta : {} };
+  const saved: Saved = { projects, seenLinks: Array.isArray(s.seenLinks) ? s.seenLinks : [], meta: s.meta && typeof s.meta === "object" ? s.meta : {} };
+  conversationsCache = { stamp, s: saved };
+  return saved;
 }
 
 function save(s: Saved) {
   writeJsonAtomic(CONVERSATIONS_PATH, s);
+  conversationsCache = { stamp: fileStamp(CONVERSATIONS_PATH), s };
   emit({ type: "changed", what: "history" });
 }
 

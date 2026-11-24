@@ -9,9 +9,10 @@
 //
 // This file depends on nothing else in the camp, so memory.ts and projects.ts can both use it.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
+import { clipEntry, fitMemory } from "./memfit.js";
 import { today } from "./helpers.js";
 import { w } from "./words.js";
 
@@ -60,14 +61,17 @@ export function writeAbout(text: string) {
 }
 export function addAbout(text: string, how: KeptHow = "remember", run?: string) {
   mkdirSync("camp", { recursive: true });
-  const line = text.replace(/\s+/g, " ").trim();
-  appendFileSync(ABOUT_PATH, `- ${today()} ${line}\n`);
+  const line = clipEntry(text);
+  if (!line) return;
+  const prior = existsSync(ABOUT_PATH) ? readFileSync(ABOUT_PATH, "utf8").replace(/\n+$/, "") : "";
+  writeAtomic(ABOUT_PATH, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
   logKept("about", line, how, run);
 }
 // For every crew member's prompt. Empty until something's been noted.
-export function aboutBlock(): string {
+// task: the request this run is for, so older lines that bear on it are kept when the note is long.
+export function aboutBlock(task = ""): string {
   const text = readAbout();
   if (!text) return "";
-  return `## About the user (camp/about-you.md: shared by the whole ${w("crew")}; add to it with remember, about "user")\n` +
-    (text.length > ABOUT_MAX ? "…\n" + text.slice(-ABOUT_MAX) : text);
+  const body = fitMemory(text, ABOUT_MAX, task).text;
+  return `## About the user (camp/about-you.md: shared by the whole ${w("crew")}; add to it with remember, about "user")\n` + body;
 }

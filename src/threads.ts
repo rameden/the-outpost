@@ -46,18 +46,41 @@ export type Turn = { thread: string; expedition: string; agent: string; direct: 
   parked?: { text: string; ask: string; aside?: string };
   started?: string };
 
-let cache: { key: string; turns: Turn[] } | null = null;
-function all(): Turn[] {
-  if (!existsSync(THREADS_PATH)) return [];
+let cache: { key: string; turns: Turn[]; byExpedition: Map<string, Turn> } | null = null;
+function stampKey(): string | null {
+  if (!existsSync(THREADS_PATH)) return null;
   const st = statSync(THREADS_PATH);
-  const key = `${st.mtimeMs}:${st.size}`;
-  if (cache?.key === key) return cache.turns;
-  const turns = readJsonl<Turn>(THREADS_PATH);
+  return `${st.mtimeMs}:${st.size}`;
+}
+function rebuild(raw: Turn[]): { turns: Turn[]; byExpedition: Map<string, Turn> } {
   // The last line for each run wins (its ending, if it got that far).
   const last = new Map<string, Turn>();
-  for (const t of turns) last.set(t.expedition, last.has(t.expedition) ? { ...t, time: last.get(t.expedition)!.time } : t);
-  cache = { key, turns: [...last.values()] };
+  for (const t of raw) last.set(t.expedition, last.has(t.expedition) ? { ...t, time: last.get(t.expedition)!.time } : t);
+  return { turns: [...last.values()], byExpedition: last };
+}
+function all(): Turn[] {
+  const key = stampKey();
+  if (!key) return [];
+  if (cache?.key === key) return cache.turns;
+  const built = rebuild(readJsonl<Turn>(THREADS_PATH));
+  cache = { key, ...built };
   return cache.turns;
+}
+// Write turns to the end of the file and keep the cache in step without re-parsing it all. The
+// cache is only added to when it matched the file just before the write. If it didn't (nothing
+// read yet since the camp started, just compacted, or the file changed under us), it's dropped
+// and the next read builds it from the file, so the cache never stands in for history it hasn't read.
+function append(turns: Turn[]) {
+  const before = cache && cache.key === stampKey() ? cache : null;
+  appendLine(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n"));
+  const key = stampKey();
+  if (!before || !key) { cache = null; return; }
+  const by = new Map(before.byExpedition);
+  for (const t of turns) {
+    const prior = by.get(t.expedition);
+    by.set(t.expedition, prior ? { ...t, time: prior.time } : t);
+  }
+  cache = { key, turns: [...by.values()], byExpedition: by };
 }
 
 // Every run on record, oldest first (one entry per run: its ending, if it got that far).
@@ -71,21 +94,35 @@ export function threadLines(): { lines: number; runs: number } {
   return { lines: readFileSync(THREADS_PATH, "utf8").split("\n").filter(Boolean).length, runs: all().length };
 }
 export function compactThreads(): number {
-  const { lines, runs } = threadLines();
-  if (lines <= runs) return 0;
-  writeAtomic(THREADS_PATH, all().map((t) => JSON.stringify(t)).join("\n") + "\n");
+  if (!existsSync(THREADS_PATH)) return 0;
+  // Always from the file itself, never from the cache: what's written back is every run the file has.
+  const raw = readJsonl<Turn>(THREADS_PATH);
+  const { turns } = rebuild(raw);
+  if (raw.length <= turns.length) return 0;
+  writeAtomic(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n") + "\n");
   cache = null;
-  return lines - runs;
+  return raw.length - turns.length;
 }
 
 // Turns copied as they are, times included (a fork of a conversation starts with its history).
 export function copyTurns(turns: Turn[]) {
   if (!turns.length) return;
-  appendLine(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n"));
+  const stamped = turns.map((t) => ({ ...t })); // times already set by the caller
+  append(stamped);
 }
 
+let turnsSinceCompact = 0;
 export function recordTurn(t: Omit<Turn, "time">) {
-  appendLine(THREADS_PATH, JSON.stringify({ ...t, time: new Date().toISOString() }));
+  const row: Turn = { ...t, time: new Date().toISOString() };
+  append([row]);
+  // Auto-compact every so often when the file has piled up dead "started" lines (housekeeping also does this).
+  if (++turnsSinceCompact >= 40) {
+    turnsSinceCompact = 0;
+    try {
+      const { lines, runs } = threadLines();
+      if (lines - runs >= 200) compactThreads();
+    } catch { /* leave the file alone */ }
+  }
 }
 
 // A plan held for later, set aside without being started: its run is written down again with the

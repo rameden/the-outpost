@@ -57,12 +57,14 @@ export function stem(word: string): string {
   return w;
 }
 
-// The words of a text worth matching on: three letters or more, not the common ones, as roots.
-// A path or a dotted name counts whole and as its parts (src/agent.ts → that, and "agent").
+// The words of a text worth matching on: three letters or more (two if non-ASCII), not the common
+// ones, as roots. Letters of any script (\p{L}) and digits. A path or a dotted name counts whole
+// and as its parts (src/agent.ts → that, and "agent"). English stemming still applies to Latin.
 export function wordsOf(text: string): Set<string> {
   const out = new Set<string>();
-  const add = (w: string) => { if (w.length >= 3 && !STOP.has(w) && !/^\d+$/.test(w)) out.add(stem(w)); };
-  for (const token of String(text).toLowerCase().match(/[a-z0-9]+(?:[._\-/][a-z0-9]+)*/g) ?? []) {
+  const enough = (w: string) => w.length >= 3 || (w.length >= 2 && /[^\x00-\x7f]/.test(w));
+  const add = (w: string) => { if (enough(w) && !STOP.has(w) && !/^\d+$/.test(w)) out.add(stem(w)); };
+  for (const token of String(text).toLowerCase().match(/[\p{L}\p{N}]+(?:[._\-/][\p{L}\p{N}]+)*/gu) ?? []) {
     if (/^[\d._\-/]+$/.test(token)) continue; // a date or a number says nothing about the subject
     if (/[._\-/]/.test(token)) { out.add(token); for (const part of token.split(/[._\-/]/)) add(part); }
     else add(token);
@@ -108,7 +110,26 @@ export type Fit = {
 //     only when it stands clear of that. It's the rule for a word, applied to the whole line:
 //     what most lines share with the request doesn't tell them apart.
 const FLOOR_FROM = 4; // lines there must be before the middle score is a floor (with fewer, the middle one is one of the few)
-function bearing(rows: string[], lines: number[], task: string): Map<number, number> {
+// One memory/note line on disk: matches logKept's slice so a single entry can't crowd a prompt.
+export const ENTRY_MAX = 600;
+const oneLine = (entry: string) => String(entry).replace(/\s+/g, " ").trim();
+// A note as it's kept: on one line and no longer than ENTRY_MAX. A longer one is cut between
+// characters (never through the middle of an emoji) and ends with … so it reads as cut.
+export function clipEntry(entry: string): string {
+  const text = oneLine(entry);
+  if (text.length <= ENTRY_MAX) return text;
+  let out = "";
+  for (const ch of text) { if (out.length + ch.length > ENTRY_MAX - 1) break; out += ch; }
+  return out.trimEnd() + "…";
+}
+// What an agent is told when the note it wants kept is too long. It's asked to shorten it itself
+// and nothing is saved, so a note is never cut behind its back and reported as remembered.
+export function tooLong(entry: string): string | null {
+  const n = oneLine(entry).length;
+  return n > ENTRY_MAX ? `Nothing was saved: that's ${n} characters, and one note holds ${ENTRY_MAX}. Say it in fewer words, or save it as two or three separate notes.` : null;
+}
+
+export function bearing(rows: string[], lines: number[], task: string): Map<number, number> {
   const out = new Map<number, number>();
   const want = wordsOf(task.slice(0, 6000));
   if (!want.size || !lines.length) return out;
@@ -161,21 +182,34 @@ export function fitMemory(text: string, room: number, task = ""): Fit {
   // 1. Pinned lines, oldest first (they were pinned first), up to their share.
   for (const i of lines) if (parseEntry(rows[i])?.pinned && take(i, budget * PIN_SHARE)) always.add(i);
   // 2. The newest lines, up to their share of what's left.
-  const recentLimit = used + (budget - used) * RECENT_SHARE;
+  // A single line longer than the whole recent share is skipped (not a hard stop), so it can't
+  // starve every newer-but-shorter line behind it. Once the share is partly filled and the next
+  // line simply doesn't fit the remainder, stop: older lines aren't "recent" anymore.
+  const recentRoom = (budget - used) * RECENT_SHARE;
+  const recentLimit = used + recentRoom;
   for (let n = lines.length - 1; n >= 0; n--) {
     const i = lines[n];
     if (shown.has(i)) continue;
-    if (!take(i, recentLimit)) break;
+    if (!take(i, recentLimit)) {
+      if (cost(i) > recentRoom) continue;
+      break;
+    }
     always.add(i);
   }
   // 3. Older lines that bear on the task, best first.
   const bears = bearing(rows, lines, task);
   const scored = [...bears].filter(([i]) => !shown.has(i)).map(([i, score]) => ({ i, score })).sort((a, b) => b.score - a.score || b.i - a.i);
   for (const { i } of scored) take(i, budget);
-  // 4. Whatever room is left: the next-newest.
+  // 4. Whatever room is left: the next-newest. Skip a line that's bigger than the leftover room
+  // at the start of this pass; otherwise stop when the remainder is too small.
+  const fillRoom = budget - used;
   for (let n = lines.length - 1; n >= 0; n--) {
     const i = lines[n];
-    if (!shown.has(i) && !take(i, budget)) break;
+    if (shown.has(i)) continue;
+    if (!take(i, budget)) {
+      if (cost(i) > fillRoom) continue;
+      break;
+    }
   }
 
   const left = lines.filter((i) => !shown.has(i)).length;

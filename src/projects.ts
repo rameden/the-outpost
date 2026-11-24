@@ -9,7 +9,7 @@
 // about one project doesn't use up their own memory or leak into another project's work.
 // This file also builds the project's block of the prompt, and the numbers on a project's page.
 
-import { existsSync, mkdirSync, readFileSync, appendFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { posix } from "node:path";
 import { GENERAL, getProject, history, type Project } from "./conversations.js";
 import { changedFiles } from "./checkpoints.js";
@@ -23,7 +23,7 @@ import { questCost, recentQuests } from "./questlog.js";
 import { allTurns } from "./threads.js";
 import { campPath, type Tool } from "./tools.js";
 import { writeAtomic } from "./atomic.js";
-import { fitMemory } from "./memfit.js";
+import { clipEntry, fitMemory, tooLong } from "./memfit.js";
 import { logRelevant } from "./recalllog.js";
 import { SAFE_ID, today } from "./helpers.js";
 import { w } from "./words.js";
@@ -58,8 +58,12 @@ export const setProjectBrief = (id: string, text: string) => write(id, "brief.md
 export function addProjectNote(id: string, text: string, how: KeptHow = "remember", run?: string) {
   if (!SAFE_ID.test(id)) throw new Error("No such project.");
   mkdirSync(dir(id), { recursive: true });
-  appendFileSync(join(dir(id), "notes.md"), `- ${today()} ${text.replace(/\s+/g, " ").trim()}\n`);
-  logKept(`project:${id}`, text, how, run ?? currentExpeditionId());
+  const path = join(dir(id), "notes.md");
+  const line = clipEntry(text);
+  if (!line) return;
+  const prior = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "") : "";
+  writeAtomic(path, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
+  logKept(`project:${id}`, line, how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "history" });
 }
 
@@ -91,6 +95,8 @@ export const projectRemember: Tool = {
     if (!text) return "Nothing to save.";
     if (mode === "brief") { setProjectBrief(id, text); return `Saved the survey of ${project.name}.`; }
     if (mode === "rewrite") { setProjectNotes(id, text); return `Rewrote the notes for ${project.name}.`; }
+    const long = tooLong(text);
+    if (long) return long;
     addProjectNote(id, text);
     const size = projectNotes(id).length;
     return `Noted for ${project.name}.` + (size > NOTES_NUDGE ? ` The notes are getting long (${size} characters; a prompt loads about ${NOTES_MAX}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge them into fewer, still-true lines.` : "");
@@ -140,7 +146,8 @@ export function projectBlock(self: string, id = currentProjectId(), task = ""): 
   if (general && !p.description && !p.pins?.length) return "";
   const links = loadLinks().filter((l) => p.links?.includes(l.name) && inScope(l.name));
   const left = loadLinks().filter((l) => p.links?.includes(l.name) && !inScope(l.name)).map((l) => l.name); // the ones this conversation was started without
-  const cap = (text: string, max: number) => (text.length > max ? "…\n" + text.slice(-max) : text);
+  // Keep the head of a long brief (what the survey puts first: what the project is), not only the tail.
+  const capBrief = (text: string, max: number) => (text.length > max ? text.slice(0, max).trimEnd() + "\n…" : text);
   return `## Project: ${p.name}\n` +
     (general ? "This conversation isn't filed under a particular project." : `The user filed this conversation under their project "${p.name}".`) +
     (links.length ? ` It is about ${links.map((l) => `links/${l.name}/ (${l.access === "write" ? "you may edit files there" : "read-only"})`).join(" and ")}: unless they say otherwise, that's where the work is.` : "") +
@@ -149,7 +156,7 @@ export function projectBlock(self: string, id = currentProjectId(), task = ""): 
     (p.settings?.web === "careful" ? "\nThis project is confidential. Never put its name, its code, its internal names, or anything else from its files into a web search or a fetched address: phrase research generically (the library, the error message, the pattern)." : "") +
     (p.settings?.web === "off" ? "\nWeb search and fetch are turned off for this project. Work from the files, and say so if something needs looking up." : "") +
     (p.description ? `\n\n### What the user wrote about this project (their own words; keep it in mind for everything here)\n${p.description}` : "") +
-    (brief ? `\n\n### Survey of the project (from the ${w("crew")}'s own look through its folders; check the files if it matters)\n${cap(brief, BRIEF_MAX)}` : "") +
+    (brief ? `\n\n### Survey of the project (from the ${w("crew")}'s own look through its folders; check the files if it matters)\n${capBrief(brief, BRIEF_MAX)}` : "") +
     (notes ? `\n\n### What the ${w("crew")} has learned about this project (add to it with project_remember)\n${fitNotes(p.id, notes, task)}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
     pinsBlock(p, self);
 }

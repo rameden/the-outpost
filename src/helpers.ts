@@ -3,6 +3,9 @@
 //
 // No imports from the rest of the camp, so anything can use it without import cycles.
 
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
 // ---------- Text ----------
 // On one line (runs of whitespace closed up), cut to n characters with an ellipsis.
 export const flat = (s: unknown, n: number) => { const t = String(s ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
@@ -35,3 +38,28 @@ export function weekSpan(week: string): { from: number; to: number } {
 
 // ---------- Numbers ----------
 export const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
+
+// ---------- File stamps ----------
+// A cache key for a path: cwd + mtime/size/ino (or "none"). Same idea as settings.ts.
+export function fileStamp(path: string): string {
+  try {
+    const st = existsSync(path) ? statSync(path) : null;
+    return `${process.cwd()}|${st ? `${st.mtimeMs}:${st.size}:${st.ino}` : "none"}`;
+  } catch { return `${process.cwd()}|none`; }
+}
+// Stamp for a folder of skills (<dir>/<name>/SKILL.md): it changes when a skill is added, removed
+// or renamed, and when any SKILL.md is edited. The folder's own time isn't enough: it doesn't move
+// when a file inside one of its subfolders is edited where it is.
+export function skillsStamp(dir: string): string {
+  let stamp = `${process.cwd()}|${dir}`;
+  try {
+    if (!existsSync(dir)) return `${stamp}|none`;
+    for (const name of readdirSync(dir).sort()) {
+      try {
+        const st = statSync(join(dir, name, "SKILL.md"));
+        stamp += `|${name}:${st.mtimeMs}:${st.size}:${st.ino}`;
+      } catch { /* not a skill */ }
+    }
+  } catch { return `${stamp}|none`; }
+  return stamp;
+}

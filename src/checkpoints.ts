@@ -39,16 +39,26 @@ export type ChangedFile = { path: string; change: "created" | "modified" | "dele
 const SAFE_ID = /^[a-zA-Z0-9-]{1,80}$/;
 const dirFor = (id: string) => join(CHECKPOINTS_DIR, id);
 
+// Kept in memory for the expedition's lifetime so every write_file doesn't re-parse manifest.json.
+const manifestCache = new Map<string, Manifest>();
+
 function load(id: string): Manifest | null {
   if (!SAFE_ID.test(id)) return null;
+  const hit = manifestCache.get(id);
+  if (hit) return hit;
   const file = join(dirFor(id), "manifest.json");
   if (!existsSync(file)) return null;
-  try { return JSON.parse(readFileSync(file, "utf8")) as Manifest; } catch { return null; }
+  try {
+    const m = JSON.parse(readFileSync(file, "utf8")) as Manifest;
+    manifestCache.set(id, m);
+    return m;
+  } catch { return null; }
 }
 
 function save(m: Manifest) {
   mkdirSync(dirFor(m.id), { recursive: true });
   writeJsonAtomic(join(dirFor(m.id), "manifest.json"), m);
+  manifestCache.set(m.id, m);
 }
 
 function prune() {
@@ -59,6 +69,7 @@ function prune() {
   for (const d of dirs.slice(KEEP)) {
     for (const snap of load(d.name)?.snapshots ?? []) dropRefs(snap, d.name);
     rmSync(join(CHECKPOINTS_DIR, d.name), { recursive: true, force: true });
+    manifestCache.delete(d.name);
   }
 }
 

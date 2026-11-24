@@ -7,7 +7,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, 
 import { execFile } from "node:child_process";
 import { runExpedition } from "./quartermaster.js";
 import { writeJsonAtomic } from "./atomic.js";
-import { isDue, loadJobs, saveJobs, QUIET_TOKEN, type Job } from "./jobs.js";
+import { isDue, loadJobs, saveJobs, nothingChanged, QUIET_TOKEN, type Job } from "./jobs.js";
 import { emit } from "./events.js";
 import { pausedUntil } from "./limits.js";
 import { OUTPOST } from "./outpost.js";
@@ -97,15 +97,34 @@ export function toInbox(heading: string, body: string) {
   emit({ type: "changed", what: "inbox" });
 }
 
-export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
+// asked: you started this run yourself ("Run now", or by name from the terminal). A run you asked
+// for always happens; only a run that came due on its own can be skipped as having nothing to see.
+export async function runJob(job: Job, signal?: AbortSignal, id?: string, opts: { asked?: boolean } = {}) {
   const started = new Date();
   const previousRun = job.lastRun;
   emit({ type: "job", name: job.name, outcome: "running" });
+  // Cheap gate, only for a job that asked for it (job.watch): when nothing it watches has changed
+  // since the last run, stay quiet without a Quartermaster pass. Every other job always runs, and
+  // so does any run you asked for. Mark lastRun so the schedule doesn't loop.
+  if (!opts.asked && nothingChanged(job, previousRun)) {
+    updateJob(job.name, { lastRun: started.toISOString() });
+    emit({ type: "job", name: job.name, outcome: "quiet" });
+    return;
+  }
   updateJob(job.name, { lastRun: started.toISOString() }); // mark first, so a crash doesn't loop
   try {
     // Unattended: no shell, no prompts, nobody at the keyboard (for this run only).
     // A job scheduled in a project runs with that project's folders, notes, and defaults.
-    const result = await runExpedition(jobBrief(job), { job: job.name, displayTask: job.task, signal, id, unattended: true, ...(job.project ? { project: job.project } : {}) });
+    // model/effort/maxTurns: the job's own come first, then how the Quartermaster is set in mission
+    // control, then JOB_DEFAULTS (worked out in runExpedition).
+    const result = await runExpedition(jobBrief(job), {
+      job: job.name, displayTask: job.task, signal, id, unattended: true,
+      ...(job.project ? { project: job.project } : {}),
+      ...(job.model ? { model: job.model } : {}),
+      ...(job.effort ? { effort: job.effort } : {}),
+      ...(job.maxTurns != null ? { maxTurns: job.maxTurns } : {}),
+      jobDefaults: true,
+    });
     if (result.status === "stopped") {
       emit({ type: "job", name: job.name, outcome: "failed", text: "stopped by you" });
       return; // a half-finished run isn't a report

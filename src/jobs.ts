@@ -2,14 +2,16 @@
 // Jobs live in camp/jobs.json. The Quartermaster can add them (you confirm each one),
 // and you can edit the file by hand too.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { homedir } from "node:os";
 import { campMode, type Tool } from "./tools.js";
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { currentProjectId } from "./context.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { say } from "./words.js";
+import { EFFORTS, TURNS_MAX, TURNS_MIN, type Effort } from "./settings.js";
 
 export const JOBS_PATH = "camp/jobs.json";
 export const QUIET_TOKEN = "NOTHING_NEW";
@@ -23,6 +25,15 @@ export type Job = {
   lastRun?: string;     // ISO time the last run started
   lastReport?: string;  // what it last told you, so the next run can tell what's new
   project?: string;     // the project it was scheduled in: its runs see that project's folders and notes
+  // What this job's runs use, set when it's scheduled or by hand in camp/jobs.json. Each one comes
+  // ahead of how the Quartermaster is set in mission control; left out, that setting is used, and
+  // JOB_DEFAULTS (quartermaster.ts) when there's none.
+  model?: string;
+  effort?: Effort;
+  maxTurns?: number;
+  // Files or folders this job is about and nothing else. When set, a run is skipped while nothing
+  // in them has changed since the last run. Unset (the usual case): every run happens.
+  watch?: string[];
 };
 
 type Schedule =
@@ -89,9 +100,67 @@ export function describeJobs(jobs = loadJobs()): string {
       const last = j.lastRun
         ? `last ran ${new Date(j.lastRun).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}`
         : "never run";
-      return `- ${j.name} (${j.schedule}, ${state}, ${last}): ${j.task}`;
+      const cost = [j.model, j.effort && `${j.effort} effort`, j.maxTurns != null && `${j.maxTurns} turns`].filter(Boolean).join(", ");
+      const watch = j.watch?.length ? `, skipped while ${j.watch.join(", ")} unchanged` : "";
+      return `- ${j.name} (${j.schedule}, ${state}, ${last}${cost ? `, ${cost}` : ""}${watch}): ${j.task}`;
     })
     .join("\n");
+}
+
+// The newest change under a path: a file's own time, or for a folder the newest of everything in
+// it, however deep (a folder's own time only moves when something is added to or removed from it
+// directly, so it can't be trusted by itself). null when the path is missing or too big to check.
+const WATCH_MAX_ENTRIES = 5000;
+const WATCH_SKIP = new Set([".git", "node_modules"]);
+function newestChange(path: string, budget: { left: number }): number | null {
+  let st;
+  try { st = statSync(path); } catch { return null; }
+  if (--budget.left < 0) return null;
+  if (!st.isDirectory()) return st.mtimeMs;
+  let newest = st.mtimeMs;
+  let names: string[];
+  try { names = readdirSync(path); } catch { return null; }
+  for (const name of names) {
+    if (WATCH_SKIP.has(name)) continue;
+    const inner = newestChange(join(path, name), budget);
+    if (inner === null) return null;
+    if (inner > newest) newest = inner;
+  }
+  return newest;
+}
+const watchPath = (p: string) => (p === "~" ? homedir() : p.startsWith("~/") ? join(homedir(), p.slice(2)) : p);
+
+// A job is only ever skipped when it asks to be: it lists what it watches (`watch`), and a run is
+// passed over while nothing there has changed since the last one. A job with no `watch` always
+// runs, whatever paths its task happens to mention, because most jobs are about something outside
+// the camp's files (the web, mail, the date). Anything uncertain (no earlier report, a path that's
+// gone, a folder too big to check) means run.
+export function nothingChanged(job: Pick<Job, "watch" | "lastReport"> & { task?: string }, since?: string): boolean {
+  if (!since || !job.lastReport || !job.watch?.length) return false;
+  const at = new Date(since).getTime();
+  if (!Number.isFinite(at)) return false;
+  const budget = { left: WATCH_MAX_ENTRIES };
+  for (const p of job.watch) {
+    const newest = newestChange(watchPath(p), budget);
+    if (newest === null || newest > at) return false;
+  }
+  return true;
+}
+
+function jobWatch(input: unknown): Pick<Job, "watch"> {
+  if (!Array.isArray(input)) return {};
+  const watch = [...new Set(input.filter((p): p is string => typeof p === "string").map((p) => p.trim()).filter(Boolean))];
+  return watch.length ? { watch } : {};
+}
+
+function jobCost(input: { model?: unknown; effort?: unknown; maxTurns?: unknown }): Pick<Job, "model" | "effort" | "maxTurns"> {
+  const out: Pick<Job, "model" | "effort" | "maxTurns"> = {};
+  if (typeof input.model === "string" && input.model.trim()) out.model = input.model.trim();
+  if (typeof input.effort === "string" && (EFFORTS as string[]).includes(input.effort)) out.effort = input.effort as Effort;
+  if (typeof input.maxTurns === "number" && Number.isFinite(input.maxTurns)) {
+    out.maxTurns = Math.max(TURNS_MIN, Math.min(TURNS_MAX, Math.round(input.maxTurns)));
+  }
+  return out;
 }
 
 export const scheduleJob: Tool = {
@@ -109,25 +178,30 @@ export const scheduleJob: Tool = {
         name: { type: "string", description: "kebab-case, e.g. 'morning-brief'" },
         schedule: { type: "string" },
         task: { type: "string" },
+        model: { type: "string", description: "Optional: a cheaper model for this job (otherwise the camp's job defaults)." },
+        effort: { type: "string", enum: [...EFFORTS], description: "Optional: how hard this job thinks (default: low)." },
+        maxTurns: { type: "number", description: `Optional: turn cap for this job (${TURNS_MIN}–${TURNS_MAX}; default: 12).` },
+        watch: { type: "array", items: { type: "string" }, description: "Optional: files or folders this job watches. When set, a run is skipped while nothing in them has changed since the last run. Only for jobs whose whole subject is those files; leave it out for anything that depends on the web, mail, the date or the time." },
       },
       required: ["name", "schedule", "task"],
     },
   }; },
-  run: async ({ name, schedule, task }) => {
+  run: async ({ name, schedule, task, model, effort, maxTurns, watch }) => {
     if (campMode.unattended) return "Scheduled jobs can't create other jobs.";
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return `Job names must be kebab-case (got '${name}').`;
     if (!parseSchedule(schedule)) {
       return `Can't read schedule '${schedule}'. Use 'every 30m', 'every 2h', 'daily 08:00', or 'weekdays 08:00'.`;
     }
+    const cost = { ...jobCost({ model, effort, maxTurns }), ...jobWatch(watch) };
     const existing = loadJobs().some((j) => j.name === name);
     const ok = await ask({
       kind: "job",
       title: `⏰ ${existing ? "Replace" : "New"} scheduled job "${name}" (${schedule}):`,
-      body: task,
+      body: cost.watch ? `${task}\n\nSkipped while nothing changes in: ${cost.watch.join(", ")}` : task,
     });
     if (ok.toLowerCase() !== "y") return "The user declined this job.";
     const project = currentProjectId();
-    const job: Job = { name, schedule, task, created: new Date().toISOString(), enabled: true, ...(project && project !== "general" ? { project } : {}) };
+    const job: Job = { name, schedule, task, created: new Date().toISOString(), enabled: true, ...cost, ...(project && project !== "general" ? { project } : {}) };
     // Read again: the answer can be minutes in coming, and meanwhile the watcher has marked runs
     // and other jobs may have been added or cancelled. What was approved is this job under this
     // name, so it takes that name's place if one is there now, and is added if not.

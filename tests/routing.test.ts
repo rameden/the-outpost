@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  AttemptTracker, POLICY, expectedTaskCost, isAutoChoice, materialChange, parseChoice, priorSuccess, profileTask, routeId, selectRoute,
+  AttemptTracker, POLICY, expectedTaskCost, isAutoChoice, materialChange, parseChoice, priorSuccess, profileTask, RequestSizer, requestTokens, routeId, selectRoute,
   type CandidateSnapshot, type Route, type SessionState, type TaskProfile,
 } from "../src/routing.ts";
 import { enterSandbox } from "./helpers/sandbox.ts";
@@ -279,6 +279,28 @@ test("what's learned is how far a route ran ahead of what was expected of it, wi
   assert.ok(Math.abs(dismal - Math.max(0.01, prior - POLICY.evidenceMaxShift)) < 1e-3, `${prior} → ${dismal}`);
   const stellar = est(hard, { [r.id]: { [hard.family]: { n: 500, ok: 500, expected: 50 } } }).attemptSuccess;
   assert.ok(Math.abs(stellar - Math.min(0.995, prior + POLICY.evidenceMaxShift)) < 1e-3, `${prior} → ${stellar}`);
+});
+
+test("RequestSizer matches a full requestTokens walk as messages grow", () => {
+  const system = "You are the Quartermaster.";
+  const tools = [{ name: "read_file", input_schema: { type: "object" } }];
+  const messages: unknown[] = [{ role: "user", content: "Check the build." }];
+  const sizer = new RequestSizer();
+  sizer.setFixed(system, tools);
+  sizer.setMessages(messages);
+  assert.equal(sizer.tokens(), requestTokens({ system, tools, messages }));
+  const reply = { role: "assistant", content: [{ type: "text", text: "Looking." }, { type: "tool_use", id: "1", name: "read_file", input: { path: "a.ts" } }] };
+  messages.push(reply);
+  sizer.addMessage(reply);
+  assert.equal(sizer.tokens(), requestTokens({ system, tools, messages }));
+  const result = { role: "user", content: [{ type: "tool_result", tool_use_id: "1", content: "ok".repeat(200) }] };
+  messages.push(result);
+  sizer.addMessage(result);
+  assert.equal(sizer.tokens(), requestTokens({ system, tools, messages }));
+  // A longer system (route switch) refreshes the fixed part without re-walking messages.
+  const longer = system + "\n## Models\nSonnet.";
+  sizer.setFixed(longer, tools);
+  assert.equal(sizer.tokens(), requestTokens({ system: longer, tools, messages }));
 });
 
 test("a route whose provider trims the conversation itself is sized by what it last counted, not by the whole transcript", () => {

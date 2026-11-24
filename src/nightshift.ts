@@ -8,8 +8,9 @@
 //   - memory tidies: for up to three memories that are past 60% of what a prompt loads and have no
 //     tidy already waiting, the smallest model drafts a merged version (keeping.ts). A draft waits
 //     in the same queue as every other proposal: nothing in memory changes until you approve it;
-//   - old lines worth a look: lines that aren't pinned and are more than 90 days old are listed in
-//     the night's record. No model is called and nothing is touched: it's a list for you to read;
+//   - old lines worth a look: lines that aren't pinned and are more than 90 days old, or that name
+//     a file path that no longer exists, are listed in the night's record (missing paths first).
+//     No model is called and nothing is touched: it's a list for you to read;
 //   - housekeeping: the report only (housekeeping.ts), never the clean. What could be cleared, and
 //     how much room it would give back, is written down.
 //
@@ -25,7 +26,9 @@
 // yet (nightPage). A night that found nothing new shows no card.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { posix } from "node:path";
+import { homedir } from "node:os";
+import { isAbsolute, join, posix } from "node:path";
+import { linkRoot, loadLinks } from "./links.js";
 import { writeJsonAtomic } from "./atomic.js";
 import { dayOf } from "./helpers.js";
 import { emit } from "./events.js";
@@ -47,7 +50,7 @@ const OLD_AFTER = 90 * 86_400_000;     // a line this old that isn't pinned is w
 const MAX_STALE = 50;                  // old lines one night lists (the rest come up on later nights)
 const LOOK_BACK = 30;                  // nights read back for what's already been listed or tried
 
-export type StaleLine = { where: string; text: string; date: string };
+export type StaleLine = { where: string; text: string; date: string; reason?: "old" | "missing-path" };
 export type HouseLine = { step: Step; title: string; count: number; bytes: number };
 // tidied: the memories a tidy was drafted for (their place, like "agent:scout"). stale: old lines
 // listed for the first time. housekeeping: what the report found (null if it couldn't be made).
@@ -118,14 +121,52 @@ export function nights(limit = LOOK_BACK): NightRecord[] {
   return days.flatMap((d) => readNight(d) ?? []);
 }
 
-// Which lines are worth a look: dated, not pinned, and old. This is the one place that decides it,
-// so "and never recalled since" can be added here once there's a record of what gets recalled.
-export function worthALook(line: Pick<MemoryLine, "date" | "pinned">, now: number): boolean {
-  if (!line.date || line.pinned) return false;
+// What a memory line names that's shaped like a path (relative, absolute, or ~/…). A slash alone
+// doesn't make one ("and/or", "CI/CD", "24/7", an API route): missingPaths decides which are real.
+export function pathsInLine(text: string): string[] {
+  const out: string[] = [];
+  for (const m of String(text).matchAll(/(?:^|[\s`"'(])(~?\/?(?:[\w.+@-]+\/)+[\w.+@-]+)/g)) {
+    const raw = m[1];
+    if (!raw || /:\/\//.test(raw)) continue;
+    out.push(raw.startsWith("~/") ? join(homedir(), raw.slice(2)) : raw);
+  }
+  return [...new Set(out)];
+}
+// Where a relative path in a note may start from: the camp itself, and every linked folder (a
+// note about a linked repo names files as that repo has them).
+function pathRoots(): string[] {
+  try { return [process.cwd(), ...loadLinks().map(linkRoot)]; } catch { return [process.cwd()]; }
+}
+// Paths the line names that aren't on disk right now. One only counts when the folder it starts
+// in is really there: then it's plainly a path, and what's missing is the rest of it. So "and/or"
+// and "/api/chat" aren't paths (no folder "and", no "/api"), and a relative path is missing only
+// when it's in neither the camp nor any linked folder that has its first folder.
+export function missingPaths(text: string): string[] {
+  const roots = pathRoots();
+  return pathsInLine(text).filter((p) => {
+    try {
+      if (isAbsolute(p)) {
+        const top = /^[\\/][^\\/]+/.exec(p)?.[0];
+        return (top ? existsSync(top) : true) && !existsSync(p);
+      }
+      const head = p.split("/")[0];
+      return roots.some((r) => existsSync(join(r, head))) && !roots.some((r) => existsSync(join(r, p)));
+    } catch { return false; }
+  });
+}
+
+// Which lines are worth a look: not pinned, and either old or naming a path that's gone.
+// This is the one place that decides it, so "and never recalled since" can be added here once
+// there's a record of what gets recalled.
+export function worthALook(line: Pick<MemoryLine, "date" | "pinned" | "text">, now: number): boolean {
+  if (line.pinned) return false;
+  if (line.text && missingPaths(line.text).length) return true;
+  if (!line.date) return false;
   const written = new Date(`${line.date}T00:00:00`).getTime();
   return Number.isFinite(written) && now - written > OLD_AFTER;
 }
 const lineKey = (s: { where: string; text: string }) => `${s.where}|${norm(s.text)}`;
+const staleRank = (s: StaleLine) => (s.reason === "missing-path" ? 0 : 1);
 
 // ---------- The shift ----------
 type Ask = (system: string, prompt: string, maxTokens?: number) => Promise<string>;
@@ -176,14 +217,18 @@ async function shift(o: NightOptions): Promise<NightRecord> {
     }
   } catch (e) { notes.push(`The memories couldn't be read for tidying: ${said(e)}`); }
 
-  // b. Old lines worth a look: listed here and nowhere else. One already listed on an earlier night isn't listed again.
+  // b. Stale lines worth a look: listed here and nowhere else. Missing paths first, then old by date.
+  // One already listed on an earlier night isn't listed again.
   let stale: StaleLine[] = [];
   try {
     const listed = new Set(before.flatMap((r) => r.stale.map(lineKey)));
     stale = memoryOverview()
-      .flatMap((p) => p.lines.filter((l) => worthALook(l, now.getTime())).map((l) => ({ where: p.where, text: l.text, date: l.date! })))
+      .flatMap((p) => p.lines.filter((l) => worthALook(l, now.getTime())).map((l) => {
+        const missing = missingPaths(l.text).length > 0;
+        return { where: p.where, text: l.text, date: l.date ?? "", reason: (missing ? "missing-path" : "old") as StaleLine["reason"] };
+      }))
       .filter((s) => !listed.has(lineKey(s)))
-      .sort((a, b) => a.date.localeCompare(b.date)).slice(0, MAX_STALE);
+      .sort((a, b) => staleRank(a) - staleRank(b) || a.date.localeCompare(b.date)).slice(0, MAX_STALE);
   } catch (e) { notes.push(`The old lines couldn't be listed: ${said(e)}`); }
 
   // c. Housekeeping: what could be cleared. The report only; cleaning is yours to ask for.
@@ -229,7 +274,8 @@ export function nightCard(all: NightRecord[] = nights()): NightCard | null {
   const waiting = new Set(proposals().flatMap((p) => (p.kind === "tidy" ? [p.where] : [])));
   const tidied = named([...new Set(unseen.flatMap((r) => r.tidied))].filter((w) => waiting.has(w)).map((where) => ({ where })));
   const keys = new Set<string>();
-  const stale = named(unseen.flatMap((r) => r.stale).filter((s) => !keys.has(lineKey(s)) && !!keys.add(lineKey(s)))).sort((a, b) => a.date.localeCompare(b.date));
+  const stale = named(unseen.flatMap((r) => r.stale).filter((s) => !keys.has(lineKey(s)) && !!keys.add(lineKey(s))))
+    .sort((a, b) => staleRank(a) - staleRank(b) || a.date.localeCompare(b.date));
   const housekeeping = sameReport(latest.housekeeping, all.find((r) => r.seen)?.housekeeping) ? [] : latest.housekeeping ?? [];
   const bytes = housekeeping.reduce((n, f) => n + f.bytes, 0);
   if (!tidied.length && !stale.length && !housekeeping.length && !latest.notes.length) return null;

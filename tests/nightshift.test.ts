@@ -184,16 +184,16 @@ test("old lines are listed, never touched, and not listed twice", async () => {
   const before = everything();
   const record = await N.runNight({ now: at(14, 2), ask: async () => { throw new Error("no model is needed for this"); }, report: async () => [], paused: null });
   assert.deepEqual(record.stale, [
-    { where: "agent:warden", text: "Review checklist lives in the wiki", date: "2026-01-09" },
-    { where: "agent:scout", text: "The staging host moved to eu-west", date: "2026-05-02" },
+    { where: "agent:warden", text: "Review checklist lives in the wiki", date: "2026-01-09", reason: "old" },
+    { where: "agent:scout", text: "The staging host moved to eu-west", date: "2026-05-02", reason: "old" },
   ], "the oldest first; pinned, recent and undated lines aren't listed");
   assert.equal(record.calls, 0);
   assert.equal(everything(), before);
   assert.deepEqual(k.proposals(), []);
-  assert.equal(N.worthALook({ date: "2026-08-15" }, at(14, 2).getTime()), true);
-  assert.equal(N.worthALook({ date: "2026-08-15", pinned: true }, at(14, 2).getTime()), false);
-  assert.equal(N.worthALook({ date: "2026-08-17" }, at(14, 2).getTime()), false);
-  assert.equal(N.worthALook({}, at(14, 2).getTime()), false);
+  assert.equal(N.worthALook({ date: "2026-08-15", text: "plain" }, at(14, 2).getTime()), true);
+  assert.equal(N.worthALook({ date: "2026-08-15", pinned: true, text: "plain" }, at(14, 2).getTime()), false);
+  assert.equal(N.worthALook({ date: "2026-08-17", text: "plain" }, at(14, 2).getTime()), false);
+  assert.equal(N.worthALook({ text: "plain" }, at(14, 2).getTime()), false);
 
   const card = N.nightPage().night!;
   assert.deepEqual(card.stale.map((s) => [s.name, s.text]), [["Warden's memory", "Review checklist lives in the wiki"], ["Scout's memory", "The staging host moved to eu-west"]]);
@@ -214,6 +214,47 @@ test("old lines are listed, never touched, and not listed twice", async () => {
   assert.equal(N.nightPage().night, undefined, "a night that did nothing shows no card");
   assert.equal(N.markNightSeen(), 1);
   assert.equal(everything(), before);
+});
+
+test("a line that names a missing path is listed before age-stale lines", async () => {
+  empty();
+  writeMemory("scout", [
+    "- 2026-05-02 The staging host moved to eu-west",
+    `- 2026-11-01 Config lives in camp/does-not-exist-${Date.now()}/settings.json`,
+  ].join("\n"));
+  const record = await N.runNight({ now: at(14, 2), ask: async () => { throw new Error("no model"); }, report: async () => [], paused: null });
+  assert.equal(record.stale[0]?.reason, "missing-path");
+  assert.equal(record.stale[1]?.reason, "old");
+  assert.equal(N.worthALook({ date: "2026-11-01", text: "See camp/no-such-dir/x.ts" }, at(14, 2).getTime()), true);
+  assert.equal(N.missingPaths("See camp/no-such-dir/x.ts")[0], "camp/no-such-dir/x.ts");
+});
+
+test("a slash doesn't make a path: only a file that's really gone from a real folder is called missing", async () => {
+  const { mkdirSync, mkdtempSync, writeFileSync, realpathSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { addLink, removeLink } = await import("../src/links.ts");
+  mkdirSync("src", { recursive: true });
+  writeFileSync(join("src", "server.ts"), "// here\n");
+  for (const text of [
+    "Use tabs and/or spaces; CI/CD runs on push",
+    "User works 24/7 on A/B tests, ok w/o review",
+    "The chat route is /api/chat and it streams",
+    "Docs are at github.com/acme/widgets and example.com/guide/start",
+    "The server is src/server.ts",
+  ]) assert.deepEqual(N.missingPaths(text), [], text);
+  assert.deepEqual(N.missingPaths("The old entry point was src/main.ts"), ["src/main.ts"]);
+  assert.equal(N.missingPaths(`Config is in ~/no-such-folder-${Date.now()}/settings.json`).length, 1);
+
+  // A note about a linked repo names files as that repo has them: there, not here.
+  const repo = join(realpathSync.native(mkdtempSync(join(tmpdir(), "mae-night-"))), "billing");
+  mkdirSync(join(repo, "src"), { recursive: true });
+  writeFileSync(join(repo, "src", "invoice.ts"), "// rounds half up\n");
+  const link = addLink(repo);
+  assert.deepEqual(N.missingPaths("In the billing repo, src/invoice.ts rounds half up"), []);
+  assert.deepEqual(N.missingPaths("In the billing repo, src/refunds.ts was removed"), ["src/refunds.ts"]);
+  removeLink(link.name);
+  assert.equal(N.worthALook({ date: "2026-11-01", text: "Use tabs and/or spaces; the route is /api/chat" }, at(14, 2).getTime()), false);
 });
 
 test("one chore failing doesn't stop the others, and the record says what couldn't be done", async () => {

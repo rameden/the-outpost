@@ -3,6 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
+import { skillsStamp } from "./helpers.js";
 import { posix } from "node:path";
 import { campPath, clipOutput, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import { wikiIndex } from "./wiki.js";
@@ -17,7 +18,7 @@ import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refus
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
 import { PROVIDERS, ProviderError, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
 import { currentExpeditionId, currentLedger, currentQuestId, currentReplyTo, currentRunKey, currentSignal, currentSteering, currentThread, conversationModel } from "./context.js";
-import { autoLabel, isAutoChoice, parseChoice, profileTask, requestTokens as sizeOf, routeId, type Decision, type Route } from "./routing.js";
+import { autoLabel, isAutoChoice, parseChoice, profileTask, RequestSizer, routeId, type Decision, type Route } from "./routing.js";
 import { TaskRouter, Verification, autoMode, coolDown, gradeOf, lastRouteOf, logOutcome, noteOutcome, tierOf, type RouteStep, type RouteUse } from "./autoroute.js";
 import { OpJournal, journaled } from "./oplog.js";
 import { filesWrittenBy } from "./checkpoints.js";
@@ -76,14 +77,16 @@ const pause = (ms: number, signal?: AbortSignal) => new Promise<boolean>((ok) =>
 });
 
 // Long quests: once a prompt passes 120k tokens, the API clears the oldest tool results (keeping
-// the 8 most recent) so the run doesn't run out of context. Reports, plans, and memory writes are
-// never cleared. Clearing happens on the server, so what we send stays append-only.
+// the 8 most recent) so the run doesn't run out of context. clear_at_least stops one-tool-per-turn
+// clears that thrash the prompt cache. Plans and memory writes are never cleared; old dispatch
+// reports may be cleared once past the keep window (they're still in the quest log / session).
 const CONTEXT_MANAGEMENT: Anthropic.Beta.BetaContextManagementConfig = {
   edits: [{
     type: "clear_tool_uses_20250919",
     trigger: { type: "input_tokens", value: 120_000 },
     keep: { type: "tool_uses", value: 8 },
-    exclude_tools: ["dispatch", "submit_plan", "remember"],
+    clear_at_least: { type: "input_tokens", value: 20_000 },
+    exclude_tools: ["submit_plan", "remember"],
   }],
 };
 
@@ -147,17 +150,17 @@ let modelCache: { at: number; models: ModelInfo[]; live: boolean; runtime: Runti
 export async function listModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
   const claude = await claudeModels();
   // After Claude's: the models of each provider you've connected (none of them takes an effort level).
-  const others: ModelInfo[] = [];
-  for (const p of PROVIDERS) {
+  // Ask every provider at once — a slow one shouldn't hold up the others.
+  const lists = await Promise.all(PROVIDERS.map(async (p) => {
     try {
       // OpenRouter lists hundreds: only its free ones are offered here.
-      for (const m of (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free)) {
+      return (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free).map((m) => {
         const id = `${p.id}:${m.id}`, price = priceLabel(id); // a price is known for DeepSeek's own models only
-        others.push({ id, name: m.name, efforts: [], provider: p.name, ...(m.free ? { free: true, price: "free" } : price ? { price } : {}) });
-      }
-    } catch { /* it can't be reached just now: its models are left off the list */ }
-  }
-  return { models: [...claude.models, ...others], live: claude.live };
+        return { id, name: m.name, efforts: [] as Effort[], provider: p.name, ...(m.free ? { free: true as const, price: "free" } : price ? { price } : {}) };
+      });
+    } catch { return []; /* it can't be reached just now: its models are left off the list */ }
+  }));
+  return { models: [...claude.models, ...lists.flat()], live: claude.live };
 }
 async function claudeModels(): Promise<{ models: ModelInfo[]; live: boolean }> {
   const runtime = campRuntime();
@@ -204,23 +207,25 @@ export function modelsBlock(model: string, models: ModelInfo[] = modelCache?.mod
     ` These are real models the user can pick for a conversation or a ${w("crew")} member, whether or not you've heard of them. When the user names one, take it as that model. Don't describe what a model you don't know can do: say you don't know it beyond its name.`;
 }
 
-// What this agent actually runs on: your override from mission control, else the code default.
+// What this agent actually runs on: what this one run was given (a scheduled job's own settings),
+// else your override from mission control, else the code default.
 // An effort level the model doesn't support is dropped rather than sent (it would be a 400).
-export function resolveModel(spec: Pick<AgentSpec, "id" | "model" | "effort">): { model: string; effort?: Effort } {
+export function resolveModel(spec: Pick<AgentSpec, "id" | "model" | "effort" | "forRun">): { model: string; effort?: Effort } {
   const s = agentSettings(spec.id);
   // A project can put a crew member on a different model for its own conversations.
   const here = getProject(currentProjectId())?.settings?.agents?.[spec.id];
-  const model = here?.model ?? s.model ?? spec.model ?? DEFAULT_MODEL;
-  let effort = (here?.model ? (here.effort as Effort | undefined) : undefined) ?? s.effort ?? spec.effort;
+  const model = spec.forRun?.model ?? here?.model ?? s.model ?? spec.model ?? DEFAULT_MODEL;
+  let effort = spec.forRun?.effort ?? (here?.model ? (here.effort as Effort | undefined) : undefined) ?? s.effort ?? spec.effort;
   if (isAutoChoice(model)) return { model }; // Auto chooses the effort along with the model, task by task
   const info = knownModel(model);
   if (effort && info && !info.efforts.includes(effort)) effort = undefined;
   return { model, effort };
 }
 
-// How many turns this agent gets per run: your override, else the code default, else 20.
-export function resolveTurns(spec: Pick<AgentSpec, "id" | "maxTurns">): number {
-  return agentSettings(spec.id).maxTurns ?? spec.maxTurns ?? DEFAULT_TURNS;
+// How many turns this agent gets per run: what this one run was given, else your override, else
+// the code default, else 20.
+export function resolveTurns(spec: Pick<AgentSpec, "id" | "maxTurns" | "forRun">): number {
+  return spec.forRun?.maxTurns ?? agentSettings(spec.id).maxTurns ?? spec.maxTurns ?? DEFAULT_TURNS;
 }
 
 // What the Quartermaster is told about a crew member, so its plans and briefs fit how they really
@@ -281,6 +286,10 @@ export type AgentSpec = {
   maxTurns?: number;
   model?: string;      // e.g. give the Quartermaster a bigger model, scouts a cheaper one
   effort?: Effort;     // how hard this character thinks; lower is cheaper and faster
+  // Set for this one run (a scheduled job's own model, effort or turn limit). It was asked for
+  // this piece of work in particular, so it comes ahead of how the crew member is set in mission
+  // control; model, effort and maxTurns above are only what's used when nothing else is set.
+  forRun?: { model?: string; effort?: Effort; maxTurns?: number };
 };
 
 export type Usage = {
@@ -346,26 +355,39 @@ function unquoted(value: string): string {
 
 // Progressive disclosure: only name + description go in the prompt.
 // always: skills whose instructions are in the prompt already (see alwaysBlock), marked so.
+// Cached per skills folder, stamped by each SKILL.md in it, so every QM roster rebuild doesn't
+// re-read every SKILL.md but an edit to one is picked up at once.
+type SkillMeta = { name: string; desc: string; path: string; dir: string };
+const skillMetaCache = new Map<string, { stamp: string; skills: SkillMeta[] }>();
+function skillsIn(dir: string): SkillMeta[] {
+  const at = `${process.cwd()}|${dir}`;
+  const stamp = skillsStamp(dir); // every SKILL.md's time and size, so an edit to one is seen
+  const hit = skillMetaCache.get(at);
+  if (hit?.stamp === stamp) return hit.skills;
+  const skills: SkillMeta[] = [];
+  if (existsSync(dir)) {
+    for (const sub of readdirSync(dir)) {
+      const path = join(dir, sub, "SKILL.md");
+      if (!existsSync(path)) continue;
+      try {
+        const text = readFileSync(path, "utf8");
+        skills.push({ name: unquoted(text.match(/^name:\s*(.+)$/m)?.[1] ?? sub), desc: unquoted(text.match(/^description:\s*(.+)$/m)?.[1] ?? ""), path, dir: join(dir, sub) });
+      } catch { /* gone */ }
+    }
+  }
+  skillMetaCache.set(at, { stamp, skills });
+  return skills;
+}
 // The names of the skills in these folders (what skillIndex lists, without the descriptions).
 export function skillNames(dirs: string[]): string[] {
-  return dirs.filter(existsSync).flatMap((dir) => readdirSync(dir).flatMap((sub) => {
-    const path = join(dir, sub, "SKILL.md");
-    if (!existsSync(path)) return [];
-    return [unquoted(readFileSync(path, "utf8").match(/^name:\s*(.+)$/m)?.[1] ?? sub)];
-  }));
+  return dirs.flatMap((dir) => skillsIn(dir).map((s) => s.name));
 }
 
 export function skillIndex(dirs: string[], always: string[] = []): string {
   const lines: string[] = [];
   for (const dir of dirs) {
-    if (!existsSync(dir)) continue;
-    for (const sub of readdirSync(dir)) {
-      const path = join(dir, sub, "SKILL.md");
-      if (!existsSync(path)) continue;
-      const text = readFileSync(path, "utf8");
-      const name = unquoted(text.match(/^name:\s*(.+)$/m)?.[1] ?? sub);
-      const desc = unquoted(text.match(/^description:\s*(.+)$/m)?.[1] ?? "");
-      lines.push(always.includes(join(dir, sub)) ? `- ${name}: ${desc} (always on: its instructions are below)` : `- ${name}: ${desc} (read ${path} before using)`);
+    for (const s of skillsIn(dir)) {
+      lines.push(always.includes(s.dir) ? `- ${s.name}: ${s.desc} (always on: its instructions are below)` : `- ${s.name}: ${s.desc} (read ${s.path} before using)`);
     }
   }
   return lines.join("\n") || "(none)";
@@ -441,20 +463,22 @@ export async function runAgent(
         `## How you work\n${spec.persona}`,
         `## Your skills\nWhen a task matches one, read its SKILL.md first and follow it.\n${skillIndex(spec.skillDirs, always.map((s) => s.dir))}` + alwaysBlock(spec.id, spec.skillDirs),
       ]);
-  logAboutRelevant(requestText(task), currentExpeditionId()); // which lines of the note about you bore on this request
+  const taskText = requestText(task);
+  logAboutRelevant(taskText, currentExpeditionId()); // which lines of the note about you bore on this request
+  // Models block last: an Auto route switch only invalidates that trailing piece, not the whole moving block.
   const movingRest = parts([
-    !opts.plain && continuityBlock(spec.id, requestText(task)),
-    aboutBlock(),
+    !opts.plain && continuityBlock(spec.id, taskText),
+    aboutBlock(taskText),
     !opts.plain && wikiIndex(),
     linksBlock(),
     projectInstructions(),
-    !opts.plain && projectBlock(spec.id, undefined, requestText(task)),
+    !opts.plain && projectBlock(spec.id, undefined, taskText),
     leftOutBlock(),
     !opts.plain && feedbackBlock(spec.id, currentProjectId()),
     opts.extraSystem,
   ]);
   // What's said about models names the one answering, so it's worked out for each route.
-  const movingFor = (m: string) => parts([modelsBlock(m), movingRest]);
+  const movingFor = (m: string) => parts([movingRest, modelsBlock(m)]);
   const systemFor = (m: string) => parts([fixed, movingFor(m)]); // as one text, for the runtimes that take it that way
 
   // The character's own tools plus any MCP connectors assigned to it (camp/mcp.json).
@@ -535,11 +559,17 @@ export async function runAgent(
   // ---------- Auto ----------
   // The route is chosen here, right before the first dispatch, from what the request has to carry,
   // and looked at again before each one after that (routing.ts decides; autoroute.ts knows the camp).
-  const reqTokens = () => sizeOf({ system: systemFor(model), tools: defs, messages });
+  // Size is kept incrementally: system+tools refresh when the route changes; each new message is
+  // counted once so decide/check/observe share one estimate instead of re-walking the transcript.
+  const sizer = new RequestSizer();
+  sizer.setFixed(systemFor(model), defs);
+  sizer.setMessages(messages);
+  const syncSize = () => sizer.setFixed(systemFor(model), defs);
+  const reqTokens = () => { syncSize(); return sizer.tokens(); };
   const confidential = ["careful", "off"].includes(String(getProject(currentProjectId())?.settings?.web ?? ""));
   let router: TaskRouter | null = null;
   const pinnedChecks = new Verification(); // a pinned model's run: whether it checked its own work (Auto's router keeps its own)
-  const applyRoute = (r: Route) => { model = r.model; effort = r.effort; other = otherModel(model); defs = defsFor(model); };
+  const applyRoute = (r: Route) => { model = r.model; effort = r.effort; other = otherModel(model); defs = defsFor(model); syncSize(); };
   const announce = (d: Extract<Decision, { kind: "selected" }>, switched: boolean) =>
     emit({ type: "route", ...me, model: d.primary.model, ...(d.primary.effort ? { effort: d.primary.effort } : {}), choice: autoMode(router!.mode), trigger: d.trigger, reason: d.reason, switched });
   // Look again (a trigger fired, or the route can't take the next request). Waits, cancellably,
@@ -740,6 +770,7 @@ export async function runAgent(
       const reply: Anthropic.MessageParam = { role: "assistant", content: kept as unknown as Anthropic.ContentBlockParam[] };
       authorOf.set(reply, model);
       messages.push(reply);
+      sizer.addMessage(reply);
       const turnUsage = {
         input: resp.usage.input_tokens,
         output: resp.usage.output_tokens,
@@ -781,7 +812,7 @@ export async function runAgent(
         }
         emit({ type: "notice", ...me, text: `✂️  ${spec.name} hit the token limit; asking them to retry.` });
         const cut = live.flatMap((b) => (b.type === "tool_use" ? [b] : []));
-        messages.push({
+        const cutMsg: Anthropic.MessageParam = {
           role: "user",
           content: cut.length
             ? cut.map((b) => ({
@@ -793,14 +824,18 @@ export async function runAgent(
                   "cut off. Retry it, splitting large content into smaller pieces if needed.",
               }))
             : "Your response was cut off by the output token limit. Continue from where you stopped.",
-        });
+        };
+        messages.push(cutMsg);
+        sizer.addMessage(cutMsg);
         continue;
       }
       // No tool requested: this character is done, unless the user said something in the meantime.
       if (resp.stop_reason !== "tool_use") {
         const said = takeSteer();
         if (!said) return finish("done");
-        messages.push({ role: "user", content: said });
+        const steerMsg: Anthropic.MessageParam = { role: "user", content: said };
+        messages.push(steerMsg);
+        sizer.addMessage(steerMsg);
         continue;
       }
 
@@ -833,7 +868,9 @@ export async function runAgent(
       for (const [i, block] of uses.entries()) results[i] = await (together[i] ?? runOne(block));
       // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn limit.
       const notes = [takeSteer(), maxTurns >= 6 ? wrapUpNote(maxTurns - turn) : null].filter((n): n is string => !!n);
-      messages.push({ role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] });
+      const toolMsg: Anthropic.MessageParam = { role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] };
+      messages.push(toolMsg);
+      sizer.addMessage(toolMsg);
       // What the tools turned up: a failure reproduced after distinct fixes, or a bigger task than it looked.
       const calls = uses.map((b, i) => ({ name: b.name, input: b.input, output: resultText(results[i]?.content), failed: !!results[i]?.is_error }));
       if (router) router.observe(calls, reqTokens());

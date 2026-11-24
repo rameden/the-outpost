@@ -565,19 +565,62 @@ export const repeatedFailureEvidence = (n: number, excerpt: string) => `after ${
 
 // ---------- Rough size of a request ----------
 // About four characters a token; an image is counted at what the API charges for a large one.
-export function requestTokens(parts: { system: string; tools: unknown[]; messages: unknown[] }): number {
-  let chars = parts.system.length + JSON.stringify(parts.tools).length;
-  let images = 0;
-  const walk = (v: unknown) => {
-    if (Array.isArray(v)) return v.forEach(walk);
-    if (v && typeof v === "object") {
-      const o = v as any;
+const IMAGE_TOKENS = 1_600;
+// String values only (not JSON key names): matches how messages were counted before.
+export function measurePart(v: unknown): { chars: number; images: number } {
+  let chars = 0, images = 0;
+  const walk = (x: unknown) => {
+    if (Array.isArray(x)) return x.forEach(walk);
+    if (x && typeof x === "object") {
+      const o = x as Record<string, unknown>;
       if (o.type === "image" || o.type === "document") { images++; return; }
       for (const k of Object.keys(o)) walk(o[k]);
       return;
     }
-    if (typeof v === "string") chars += v.length;
+    if (typeof x === "string") chars += x.length;
   };
-  walk(parts.messages);
-  return Math.ceil(chars / 4) + images * 1_600;
+  walk(v);
+  return { chars, images };
+}
+export function requestTokens(parts: { system: string; tools: unknown[]; messages: unknown[] }): number {
+  let chars = parts.system.length + JSON.stringify(parts.tools).length;
+  let images = 0;
+  for (const m of parts.messages) {
+    const p = measurePart(m);
+    chars += p.chars;
+    images += p.images;
+  }
+  return Math.ceil(chars / 4) + images * IMAGE_TOKENS;
+}
+
+// Running size: system+tools refreshed when they change; each new message counted once.
+// decide/check/observe share one estimate instead of re-walking the whole transcript.
+export class RequestSizer {
+  private systemChars = 0;
+  private toolsChars = 0;
+  private toolsKey = "";
+  private msgChars = 0;
+  private images = 0;
+
+  setFixed(system: string, tools: unknown[]) {
+    this.systemChars = system.length;
+    const key = JSON.stringify(tools);
+    if (key !== this.toolsKey) {
+      this.toolsKey = key;
+      this.toolsChars = key.length;
+    }
+  }
+  setMessages(messages: unknown[]) {
+    this.msgChars = 0;
+    this.images = 0;
+    for (const m of messages) this.addMessage(m);
+  }
+  addMessage(msg: unknown) {
+    const { chars, images } = measurePart(msg);
+    this.msgChars += chars;
+    this.images += images;
+  }
+  tokens() {
+    return Math.ceil((this.systemChars + this.toolsChars + this.msgChars) / 4) + this.images * IMAGE_TOKENS;
+  }
 }

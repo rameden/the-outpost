@@ -195,7 +195,12 @@ function makeDispatch(exp: Expedition): Tool {
           (task) => runAgent(spec, task ?? brief, { depth: 1, source: "brief" }),
           (r, task, from) => logQuest("quest", spec.name, task ?? brief, from, r, exp.job)));
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId });
-        return `${spec.name}'s report:\n${text}` + (checks ? `\n\n${checks}` : "");
+        // Cap what stays in the Quartermaster's context: full transcripts are in sessions/ and the quest log.
+        const REPORT_KEEP = 12_000;
+        const body = text.length > REPORT_KEEP
+          ? text.slice(0, Math.floor(REPORT_KEEP * 0.7)).trimEnd() + `\n[… ${text.length - REPORT_KEEP} characters of this report left out; the full text is in ${spec.name}'s session …]\n` + text.slice(-(REPORT_KEEP - Math.floor(REPORT_KEEP * 0.7))).trimStart()
+          : text;
+        return `${spec.name}'s report:\n${body}` + (checks ? `\n\n${checks}` : "");
       } catch (err: any) {
         logFailure("quest", spec.name, brief, started, err, exp.job);
         emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });
@@ -413,11 +418,14 @@ while the outpost is running (\`npm start\`); \`npm run watch:install\` keeps th
 
 // The Quartermaster's defaults in code; mission control can override both per agent.
 export const QM_DEFAULTS: Pick<AgentSpec, "model" | "effort" | "maxTurns"> = { model: undefined, effort: "high", maxTurns: 30 };
+// Scheduled jobs: cheaper by default (a watch that often ends NOTHING_NEW shouldn't pay a full
+// planning pass). A job can set its own model/effort/maxTurns in camp/jobs.json.
+export const JOB_DEFAULTS: Pick<AgentSpec, "model" | "effort" | "maxTurns"> = { model: "claude-haiku-5-5", effort: "low", maxTurns: 12 };
 
 // For mission control's About tab: the Quartermaster as it runs (its tools, skills, defaults).
 export const quartermasterSpec = () => buildQuartermaster({ planApproved: false });
 
-function buildQuartermaster(exp: Expedition): AgentSpec {
+function buildQuartermaster(exp: Expedition, cost: Pick<AgentSpec, "model" | "effort" | "maxTurns"> = QM_DEFAULTS, forRun?: AgentSpec["forRun"]): AgentSpec {
   const c = CREW.quartermaster;
   return {
     id: "quartermaster",
@@ -450,7 +458,8 @@ function buildQuartermaster(exp: Expedition): AgentSpec {
       housekeeping,
     ],
     skillDirs: ["skills/shared", "skills/quartermaster"],
-    ...QM_DEFAULTS,
+    ...cost,
+    ...(forRun ? { forRun } : {}),
   };
 }
 
@@ -467,11 +476,21 @@ export async function runExpedition(
     jira?: string;       // the Jira ticket a new conversation is working on (its key)
     ticket?: string;     // the Mae ticket a new conversation is working on (its key)
     model?: string;      // the model picked for this conversation: the Quartermaster answers on it (quests keep their own)
+    effort?: AgentSpec["effort"]; // scheduled job override (with jobDefaults)
+    maxTurns?: number;   // scheduled job override (with jobDefaults)
+    jobDefaults?: boolean; // use JOB_DEFAULTS instead of QM_DEFAULTS (scheduled runs)
     by?: string;         // what started it, when it wasn't you typing ("trigger:<name>")
     review?: boolean;    // have the changes reviewed before the report (or not) for this run, whatever the project and camp are set to
     approvedPlan?: { text: string; ask: string } } = {} // a plan you approved earlier to start later, being started now
 ): Promise<AgentResult> {
   const exp: Expedition = { planApproved: !APPROVE_PLANS || !!opts.unattended || !!opts.approvedPlan, job: opts.job };
+  // Scheduled runs start from JOB_DEFAULTS (cheap), interactive ones from QM_DEFAULTS; how you've
+  // set the Quartermaster in mission control comes ahead of either. What a job sets for itself
+  // comes ahead of that too: it was chosen for that job.
+  const cost: Pick<AgentSpec, "model" | "effort" | "maxTurns"> = opts.jobDefaults ? JOB_DEFAULTS : QM_DEFAULTS;
+  const forRun: AgentSpec["forRun"] = opts.jobDefaults
+    ? { ...(opts.model ? { model: opts.model } : {}), ...(opts.effort ? { effort: opts.effort } : {}), ...(opts.maxTurns != null ? { maxTurns: opts.maxTurns } : {}) }
+    : undefined;
   const id = opts.id ?? randomUUID();
   const started = new Date();
   const shown = opts.displayTask ?? requestDisplay(task);
@@ -494,7 +513,7 @@ export async function runExpedition(
       // A held plan being started: its steps go out as the list to fill in, as on approval.
       const held = opts.approvedPlan ? planSteps(opts.approvedPlan.text) : [];
       if (held.length >= 2) emit({ type: "plan", steps: held });
-      return runAgent(buildQuartermaster(exp), task, {
+      return runAgent(buildQuartermaster(exp, cost, forRun), task, {
         source: opts.source ?? (opts.job ? "job" : "user"),
         extraSystem:
           `## Skill catalog (every live skill in the ${w("camp")}, by owner)\n${skillCatalog()}` +

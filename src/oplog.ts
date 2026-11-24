@@ -15,7 +15,7 @@
 
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
-import { appendLine, readJsonl } from "./atomic.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { autoApproval } from "./shell.js";
 import type { Tool, ToolOutput } from "./tools.js";
 
@@ -103,7 +103,11 @@ export class OpJournal {
   }
   begin() { live.add(this.run); this.write({ kind: "run_start", run: this.run, at: Date.now() }); sweep(); }
   // A run that ended on its own terms (done, stopped, out of turns…): nothing of it is continued.
-  end() { live.delete(this.run); this.write({ kind: "run_end", run: this.run, at: Date.now() }); }
+  end() {
+    live.delete(this.run);
+    this.write({ kind: "run_end", run: this.run, at: Date.now() });
+    compactJournal(this.path);
+  }
   // A run that failed part-way: left open, so a run that continues it can reuse what it did.
   abandon() { live.delete(this.run); }
   opId(tool: string, input: unknown): string {
@@ -118,6 +122,19 @@ export class OpJournal {
     this.write({ kind: "done", run: this.run, op, tool, at: Date.now(), result: textOf(out).slice(0, 20_000), ...(failed ? { failed: true } : {}) });
   }
   surfaced(op: string) { this.write({ kind: "surfaced", run: this.run, op, at: Date.now() }); }
+}
+
+// After a run ends, drop what it wrote down (nothing is ever picked up from a run that ended),
+// keeping its run_start/run_end so latestRun still sees it. A run that hasn't ended is left exactly
+// as written: it may be going right now beside this one, or have broken off, and what it did is
+// handed back word for word to the run that continues it.
+export function compactJournal(path: string) {
+  try {
+    const recs = readJournal(path);
+    const ended = new Set(recs.filter((r) => r.kind === "run_end").map((r) => r.run));
+    const out = recs.filter((r) => r.kind === "run_start" || r.kind === "run_end" || !ended.has(r.run));
+    if (out.length < recs.length) writeAtomic(path, out.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  } catch { /* a fat journal is no loss next time */ }
 }
 
 // ---------- Old journals ----------

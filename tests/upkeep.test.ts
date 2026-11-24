@@ -10,7 +10,8 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 const home = enterSandbox("upkeep");
 
-const { scheduleJob, loadJobs, saveJobs, JOBS_PATH } = await import("../src/jobs.ts");
+const { scheduleJob, loadJobs, saveJobs, JOBS_PATH, nothingChanged } = await import("../src/jobs.ts");
+const { isQuiet, runJob } = await import("../src/scheduler.ts");
 const { setAsker } = await import("../src/ask.ts");
 const settings = await import("../src/settings.ts");
 const { OpJournal, pruneJournals, OPS_DIR, JOURNAL_KEEP_DAYS } = await import("../src/oplog.ts");
@@ -69,6 +70,71 @@ test("schedule_job: declined, the jobs are left exactly as they were", async () 
   setAsker(async () => "n");
   assert.equal(await schedule("standup"), "The user declined this job.");
   assert.equal(readFileSync(JOBS_PATH, "utf8"), before);
+});
+
+test("schedule_job: optional model, effort and maxTurns are kept", async () => {
+  saveJobs([]);
+  setAsker(async () => "y");
+  assert.match(String(await scheduleJob.run!({ name: "watch-build", schedule: "every 30m", task: "Check camp/build.log", model: "claude-haiku-5-5", effort: "low", maxTurns: 8 })), /^Scheduled/);
+  const j = loadJobs().find((x) => x.name === "watch-build")!;
+  assert.deepEqual([j.model, j.effort, j.maxTurns], ["claude-haiku-5-5", "low", 8]);
+});
+
+test("a job always runs unless it says what it watches, whatever files its task mentions", () => {
+  mkdirSync("camp", { recursive: true });
+  const template = join("camp", "brief-template.md");
+  writeFileSync(template, "# Brief\n");
+  const then = Date.now() - 60_000;
+  utimesSync(template, new Date(then), new Date(then));
+  const later = new Date(then + 1_000).toISOString();
+  // The news changes every day; the template it's written with never does.
+  assert.equal(nothingChanged({ task: `Summarise today's news using ${template}`, lastReport: "yesterday's brief" }, later), false);
+  assert.equal(nothingChanged({ task: "Check the web feed", lastReport: "ok" }, later), false);
+  assert.equal(nothingChanged({ task: "x", lastReport: "ok", watch: [] }, later), false);
+});
+
+test("a job that watches files is skipped only while nothing in them has changed", async () => {
+  mkdirSync(join("camp", "watched", "deep", "deeper"), { recursive: true });
+  const folder = join("camp", "watched");
+  const file = join(folder, "deep", "deeper", "notes.txt");
+  const then = Date.now() - 60_000;
+  const old = new Date(then);
+  writeFileSync(file, "same\n");
+  for (const p of [file, join(folder, "deep", "deeper"), join(folder, "deep"), folder]) utimesSync(p, old, old);
+  const later = new Date(then + 1_000).toISOString();
+  const j = { task: "Report what changed", lastReport: "all fine", watch: [folder] };
+  assert.equal(nothingChanged(j, later), true);
+  assert.equal(nothingChanged(j, new Date(then - 1_000).toISOString()), false, "changed after the last run");
+  assert.equal(nothingChanged({ ...j, lastReport: undefined }, later), false, "never reported: run");
+  assert.equal(nothingChanged({ ...j, watch: [folder, join("camp", "not-there")] }, later), false, "something it watches is gone: run");
+
+  // A file edited where it is, three folders down: no folder's own time moves, and it still counts.
+  writeFileSync(file, "different\n");
+  for (const p of [join(folder, "deep", "deeper"), join(folder, "deep"), folder]) utimesSync(p, old, old);
+  assert.equal(nothingChanged(j, later), false);
+  utimesSync(file, old, old);
+  assert.equal(nothingChanged(j, later), true);
+
+  const outcomes: string[] = [];
+  const { onEvent } = await import("../src/events.ts");
+  const off = onEvent((e) => { if (e.type === "job") outcomes.push(e.outcome); });
+  saveJobs([job("watch", { schedule: "every 5m", task: "Read the notes for regressions", watch: [folder], lastRun: later, lastReport: "all fine" })]);
+  await runJob(loadJobs()[0]!);
+  off();
+  assert.deepEqual(outcomes, ["running", "quiet"]);
+  assert.ok(loadJobs()[0]!.lastRun! > later, "lastRun advances so the schedule doesn't loop");
+  assert.equal(isQuiet("NOTHING_NEW"), true);
+});
+
+test("schedule_job: what a job watches is kept, and shown when you're asked", async () => {
+  saveJobs([]);
+  let shown = "";
+  setAsker(async (q: { body?: string }) => { shown = q.body ?? ""; return "y"; });
+  assert.match(String(await scheduleJob.run!({ name: "watch-notes", schedule: "every 30m", task: "Report changes to the notes", watch: ["camp/watched", " camp/watched ", ""] })), /^Scheduled/);
+  assert.deepEqual(loadJobs().find((x) => x.name === "watch-notes")!.watch, ["camp/watched"]);
+  assert.match(shown, /Skipped while nothing changes in: camp\/watched/);
+  assert.match(String(await scheduleJob.run!({ name: "plain", schedule: "every 30m", task: "Read camp/watched/deep and report" })), /^Scheduled/);
+  assert.equal(loadJobs().find((x) => x.name === "plain")!.watch, undefined);
 });
 
 // ---------- Settings, read once ----------
@@ -204,6 +270,42 @@ test("journals: they're looked for as a run begins, without being asked", () => 
     ran("new:scout", "e3:1", "ended");
     assert.deepEqual(readdirSync(OPS_DIR).sort(), ["new_scout.jsonl", "open_scout.jsonl"]);
   });
+});
+
+test("journals: ending a run drops its done payloads", () => {
+  const j = new OpJournal("compact:scout", "exp-c:1");
+  j.begin();
+  const op = j.opId("bash", { command: "git push origin main" });
+  j.started(op, "bash");
+  j.done(op, "bash", "pushed " + "x".repeat(5000));
+  const fat = readFileSync(journalOf("compact:scout"), "utf8");
+  assert.ok(fat.includes("x".repeat(100)));
+  j.end();
+  const slim = readFileSync(journalOf("compact:scout"), "utf8");
+  assert.ok(!slim.includes("x".repeat(100)), "done payload stripped after run_end");
+  assert.match(slim, /run_end/);
+  assert.ok(!slim.includes('"kind":"done"'), "ended-run ops are gone");
+});
+
+test("journals: a run that ends leaves a run still going beside it whole, for whoever continues it", async () => {
+  const first = new OpJournal("shared:scout", "exp-s:1");
+  first.begin();
+  const second = new OpJournal("shared:scout", "exp-t:1");
+  second.begin();
+  const push = { command: "git push origin main" };
+  const said = "pushed, and here is all of what the remote said: " + "y".repeat(5000) + " END";
+  const op = second.opId("bash", push);
+  second.started(op, "bash");
+  second.done(op, "bash", said);
+  const mine = first.opId("bash", push);
+  first.started(mine, "bash");
+  first.done(mine, "bash", "z".repeat(3000));
+  first.end(); // tidies the journal while the second run is part-way through
+  const kept = readFileSync(journalOf("shared:scout"), "utf8");
+  assert.ok(!kept.includes("z".repeat(100)), "the run that ended is tidied away");
+  second.abandon(); // then the second run breaks off
+  const next = new OpJournal("shared:scout", "exp-t:2", "exp-t");
+  assert.equal(next.priorOf(next.opId("bash", push))?.done?.result, said, "handed back whole, not cut short");
 });
 
 // ---------- The routing log ----------
