@@ -274,6 +274,8 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .copy:hover { border-color: var(--night-muted); }
 .ghost { font-weight: 600; font-size: 15px; color: var(--text); text-decoration: none; padding: 12px 4px; border-bottom: 2px solid var(--accent); }
 .runtimes { margin-top: 22px; font-size: 14px; color: var(--faint); }
+.runtimes a { color: var(--muted); text-underline-offset: 3px; }
+.runtimes a:hover { color: var(--text); }
 
 /* Expedition feed */
 .feed { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; min-width: 0; }
@@ -704,9 +706,8 @@ footer .outpost-sub { font-size: 10px; }
       <div class="cta">
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the <span data-word="crew">crew</span></a>
-        <a class="ghost" href="https://github.com/rameden/the-outpost">Source on GitHub</a>
       </div>
-      <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack.</p>
+      <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack: <a href="https://github.com/rameden/the-outpost">the source is on GitHub</a>.</p>
     </div>
 
     <div class="feed" id="feed" aria-label="An example expedition" data-t-aria-label="An example {expedition}">
