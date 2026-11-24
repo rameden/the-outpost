@@ -258,6 +258,8 @@ a.brand { text-decoration: none; }
 .theme { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
 .theme:hover { border-color: var(--accent); }
 .looks { display: flex; align-items: center; gap: 8px; }
+/* The repo link sits with the switches, so it stays when the section links fold away on a phone. */
+a.theme { text-decoration: none; }
 select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
 
 /* Hero */
@@ -391,14 +393,18 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .term-top i { width: 10px; height: 10px; border-radius: 50%; background: var(--night-line); }
 .term-body { padding: 18px; display: grid; gap: 14px; overflow-x: auto; }
 .line { display: flex; gap: 12px; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 14px; color: var(--night-text); }
-.line code { background: none; padding: 0; white-space: nowrap; }
+.line code { background: none; padding: 0; min-width: 0; overflow-wrap: anywhere; } /* a long one (the clone) wraps, and its Copy stays in view */
+.line .copy { flex-shrink: 0; }
 .line code::before { content: "$ "; color: var(--night-muted); }
 .note { font-family: var(--mono); font-size: 12.5px; color: var(--night-muted); }
+.note a { color: var(--night-text); text-underline-offset: 3px; }
 .try { margin-top: 22px; padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: 15px; }
 .try q { font-family: var(--display); font-size: 18px; display: block; margin-top: 6px; quotes: "“" "”"; }
 
 footer { padding-block: 72px 48px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--faint); font-size: 14px; align-items: center; }
 footer .brand { gap: 8px; }
+footer a:not(.brand) { color: var(--muted); text-underline-offset: 3px; }
+footer a:not(.brand):hover { color: var(--text); }
 footer .mae-mark { height: 26px; width: 26px; }
 footer .outpost-title { font-size: 16px; }
 footer .outpost-sub { font-size: 10px; }
@@ -617,6 +623,7 @@ footer .outpost-sub { font-size: 10px; }
   .quests { grid-template-columns: minmax(0, 1fr); }
   .stop .pin::after { border-top-color: transparent; }
   .top nav { display: none; }
+  .looks a.theme { display: none; } /* no room on a phone: the hero, Get started and the footer carry the GitHub link */
   .rule { padding-right: 0; }
   .rules > :last-child { grid-column: auto; }
   .member.yours { grid-template-columns: minmax(0, 1fr); }
@@ -676,6 +683,7 @@ footer .outpost-sub { font-size: 10px; }
         <a href="#pitch">Get started</a>
       </nav>
       <div class="looks">
+        <a class="theme" href="https://github.com/rameden/the-outpost">GitHub</a>
         <select class="theme" id="palette" aria-label="Colours">
           <option value="camp">Camp</option>
           <option value="harbor">Harbor</option>
@@ -696,6 +704,7 @@ footer .outpost-sub { font-size: 10px; }
       <div class="cta">
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
         <a class="ghost" href="#crew">Meet the <span data-word="crew">crew</span></a>
+        <a class="ghost" href="https://github.com/rameden/the-outpost">Source on GitHub</a>
       </div>
       <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack.</p>
     </div>
@@ -1125,13 +1134,15 @@ footer .outpost-sub { font-size: 10px; }
   <div class="wrap pitch">
     <div class="sec-head" style="margin:0">
       <div class="eyebrow">Get started</div>
-      <h2>Set up your first outpost in three commands.</h2>
+      <h2>Set up your first outpost in four steps.</h2>
       <p class="lede">Needs Node 22.12 or later and either a Claude subscription or an API key. On a subscription, the <span data-word="crew">crew</span> runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
       <div class="try">Try asking:<q>Research how other agent harnesses handle memory, then write it up as a short doc.</q></div>
     </div>
     <div class="term" aria-label="Setup commands">
       <div class="term-top" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="term-body">
+        <div class="line"><code id="c0">git clone https://github.com/rameden/the-outpost.git &amp;&amp; cd the-outpost</code><button class="copy" type="button" data-copy="c0">Copy</button></div>
+        <div class="note">The code is on GitHub: <a href="https://github.com/rameden/the-outpost">rameden/the-outpost</a>. Already have it? Start at npm install.</div>
         <div class="line"><code id="c1">npm install</code><button class="copy" type="button" data-copy="c1">Copy</button></div>
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
         <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
@@ -1145,7 +1156,7 @@ footer .outpost-sub { font-size: 10px; }
 <div class="wrap">
   <footer>
     <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
-    <span>Small, hackable, and built on Claude.</span>
+    <span>Small, hackable, and built on Claude. <a href="https://github.com/rameden/the-outpost">Open source on GitHub</a>, ISC licence.</span>
   </footer>
 </div>
 
