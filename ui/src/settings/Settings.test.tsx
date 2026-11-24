@@ -324,18 +324,6 @@ test("the notification sound row shows once notifications are on: a switch kept 
   localStorage.clear();
 });
 
-test("the strum sound is a switch in Appearance, off until you turn it on, kept in this browser", () => {
-  localStorage.clear();
-  show("appearance");
-  const row = screen.getByText("Strum sound").closest(".set-row") as HTMLElement;
-  const box = within(row).getByRole("checkbox");
-  expect(box).toHaveProperty("checked", false);
-  fireEvent.click(box);
-  expect(localStorage.getItem("camp-strum-sound")).toBe("on");
-  expect(within(row).getByRole("checkbox")).toHaveProperty("checked", true);
-  localStorage.clear();
-});
-
 test("the nav is grouped as Camp, Look & sound, Safety, Access, Activity, Knowledge, in that order", () => {
   show("general");
   const nav = screen.getByRole("navigation", { name: "Settings sections" });

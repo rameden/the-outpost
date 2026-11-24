@@ -23,13 +23,11 @@
 // And it can be strummed: a line the pointer crosses is plucked, flashing amber and shivering out from
 // the sun and back as it settles, harder the faster the pointer was going, and it plays out after the
 // pointer has moved on, so a sweep across the lines rings each in turn. (Less motion: just the flash.)
-// Each line sounds its own note as it's plucked, the nearest highest (chime.ts's strum), when the strum sound is on in Settings → Appearance.
 //
 // Decoration: the words beside it say what the page is.
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { cClass } from "../format.ts";
-import { strum } from "../chime.ts";
 import { motionOK } from "../motion.tsx";
 
 export type Orbiter = { id: string; name: string; emoji?: string };
@@ -114,7 +112,6 @@ export function MaeSystem({ crew = BUILT_IN, className }: { crew?: Orbiter[]; cl
   const pluck = (e: PointerEvent<SVGPathElement>, i: number) => {
     if (e.timeStamp - (plucked.current[i] ?? -Infinity) < 120) return;
     plucked.current[i] = e.timeStamp;
-    strum(i, pluckReach(pointer.current.speed) / 0.05);
     const line = e.currentTarget.parentElement?.querySelector<SVGPathElement>(":scope > .sys-ring");
     if (!line?.animate) return;
     const amber = getComputedStyle(line).getPropertyValue("--logo-dot").trim() || "#d9982b";

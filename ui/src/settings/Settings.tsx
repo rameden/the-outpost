@@ -13,7 +13,7 @@ import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
-import { chimeOn, playChime, setChime, setStrum, strum, strumOn } from "../chime.ts";
+import { chimeOn, playChime, setChime } from "../chime.ts";
 import { showCost } from "../prefs.ts";
 import { outpostName } from "../outpost.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
@@ -241,7 +241,6 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
   const [theme, setTheme] = useState<Mode>(modeNow);
   const [palette, setPaletteShown] = useState<PaletteId>(paletteNow);
   const [season, setSeasonShown] = useState<SeasonChoice>(seasonChoice);
-  const [strumming, setStrumming] = useState(strumOn);
   const inSeason = seasonById(seasonNow())?.name;
   const decorNow = season === "auto" ? (inSeason ? `Today that's ${inSeason}.` : "Nothing is in season today.") : season ? seasonById(season)?.about ?? "" : "";
   // The camp keeps the pack (the crew is renamed in what they read and write too); the page wears
@@ -303,10 +302,6 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
           ))}
         </div>
       </Row>
-      <Row label="Strum sound" help="A note for each line of the orbit on the home page as the pointer crosses it, the nearest line highest. The lines flash and shiver either way. Kept in this browser.">
-        <label className="switch"><input type="checkbox" checked={strumming}
-          onChange={(ev) => { setStrum(ev.target.checked); setStrumming(ev.target.checked); if (ev.target.checked) strum(0, 0.6); }} /> {strumming ? "On" : "Off"}</label>
-      </Row>
     </>
   );
 }
@@ -323,7 +318,7 @@ function Notifications() {
         )}
       </Row>
       {notificationsOn() && (
-        <Row label="Notification sound" help={`A soft sonar ping with each notification: one ping when a decision is needed, a rising chord when ${an("expedition")} finishes, a few steps that don't resolve when one fails. Remembered in this browser.`}>
+        <Row label="Notification sound" help={`A soft chime with each notification: rising when a decision is needed, settling when ${an("expedition")} finishes, falling when one fails. Remembered in this browser.`}>
           <label className="switch"><input type="checkbox" checked={chimeOn()}
             onChange={(ev) => { setChime(ev.target.checked); if (ev.target.checked) playChime("ask"); redraw((n) => n + 1); }} /> {chimeOn() ? "On" : "Off"}</label>
           <button type="button" className="btn small" onClick={() => playChime("ask")}>Decision</button>
