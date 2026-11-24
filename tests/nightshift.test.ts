@@ -184,16 +184,16 @@ test("old lines are listed, never touched, and not listed twice", async () => {
   const before = everything();
   const record = await N.runNight({ now: at(14, 2), ask: async () => { throw new Error("no model is needed for this"); }, report: async () => [], paused: null });
   assert.deepEqual(record.stale, [
-    { where: "agent:warden", text: "Review checklist lives in the wiki", date: "2026-01-09" },
-    { where: "agent:scout", text: "The staging host moved to eu-west", date: "2026-05-02" },
+    { where: "agent:warden", text: "Review checklist lives in the wiki", date: "2026-01-09", reason: "old" },
+    { where: "agent:scout", text: "The staging host moved to eu-west", date: "2026-05-02", reason: "old" },
   ], "the oldest first; pinned, recent and undated lines aren't listed");
   assert.equal(record.calls, 0);
   assert.equal(everything(), before);
   assert.deepEqual(k.proposals(), []);
-  assert.equal(N.worthALook({ date: "2026-08-15" }, at(14, 2).getTime()), true);
-  assert.equal(N.worthALook({ date: "2026-08-15", pinned: true }, at(14, 2).getTime()), false);
-  assert.equal(N.worthALook({ date: "2026-08-17" }, at(14, 2).getTime()), false);
-  assert.equal(N.worthALook({}, at(14, 2).getTime()), false);
+  assert.equal(N.worthALook({ date: "2026-08-15", text: "plain" }, at(14, 2).getTime()), true);
+  assert.equal(N.worthALook({ date: "2026-08-15", pinned: true, text: "plain" }, at(14, 2).getTime()), false);
+  assert.equal(N.worthALook({ date: "2026-08-17", text: "plain" }, at(14, 2).getTime()), false);
+  assert.equal(N.worthALook({ text: "plain" }, at(14, 2).getTime()), false);
 
   const card = N.nightPage().night!;
   assert.deepEqual(card.stale.map((s) => [s.name, s.text]), [["Warden's memory", "Review checklist lives in the wiki"], ["Scout's memory", "The staging host moved to eu-west"]]);
@@ -214,6 +214,19 @@ test("old lines are listed, never touched, and not listed twice", async () => {
   assert.equal(N.nightPage().night, undefined, "a night that did nothing shows no card");
   assert.equal(N.markNightSeen(), 1);
   assert.equal(everything(), before);
+});
+
+test("a line that names a missing path is listed before age-stale lines", async () => {
+  empty();
+  writeMemory("scout", [
+    "- 2026-05-02 The staging host moved to eu-west",
+    `- 2026-11-01 Config lives in camp/does-not-exist-${Date.now()}/settings.json`,
+  ].join("\n"));
+  const record = await N.runNight({ now: at(14, 2), ask: async () => { throw new Error("no model"); }, report: async () => [], paused: null });
+  assert.equal(record.stale[0]?.reason, "missing-path");
+  assert.equal(record.stale[1]?.reason, "old");
+  assert.equal(N.worthALook({ date: "2026-11-01", text: "See camp/no-such-dir/x.ts" }, at(14, 2).getTime()), true);
+  assert.equal(N.missingPaths("See camp/no-such-dir/x.ts")[0], "camp/no-such-dir/x.ts");
 });
 
 test("one chore failing doesn't stop the others, and the record says what couldn't be done", async () => {

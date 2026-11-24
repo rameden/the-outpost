@@ -33,11 +33,13 @@ const SOURCES: Source[] = ["sessions", "conversations", "wiki", "memory"];
 const SHOWN = 6, EXCERPT = 420, MAX_OUT = 4500;
 const STOP = new Set("the and for with that this from have has was were are not but you your our they them their what when where which who how why can could should would will did does into about over than then there here also just any all one two get got use used using".split(" "));
 
-// The words worth searching for: three letters or more, not the common ones. At most eight.
-// A full stop or a slash that only ends the word ("in src/agent.ts.") isn't part of it.
+// The words worth searching for: three letters or more (two if non-ASCII), not the common ones.
+// Letters of any script. At most eight. A full stop or a slash that only ends the word
+// ("in src/agent.ts.") isn't part of it.
 export function searchTerms(query: string): string[] {
-  const words = (String(query).toLowerCase().match(/[a-z0-9][a-z0-9_.\-/]{2,}/g) ?? []).map((w) => w.replace(/[_.\-/]+$/, ""));
-  return [...new Set(words.filter((w) => w.length >= 3 && !STOP.has(w)))].slice(0, 8);
+  const enough = (w: string) => w.length >= 3 || (w.length >= 2 && /[^\x00-\x7f]/.test(w));
+  const words = (String(query).toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}_.\-/]*/gu) ?? []).map((w) => w.replace(/[_.\-/]+$/, ""));
+  return [...new Set(words.filter((w) => enough(w) && !STOP.has(w)))].slice(0, 8);
 }
 
 // Where a term is in a text (lower case), or -1. As written, or by its root (memfit.ts), so
@@ -50,7 +52,7 @@ function placeOf(text: string, lower: string, term: string): number {
   const root = stem(term);
   return root.length >= 4 && root !== term ? wordStart(text, lower, root) : -1;
 }
-const wordChar = (c: string | undefined) => !!c && /[a-z0-9]/.test(c);
+const wordChar = (c: string | undefined) => !!c && /[\p{L}\p{N}]/u.test(c);
 const capital = (c: string | undefined) => !!c && c >= "A" && c <= "Z";
 // A word begins where no letter or digit comes before, or where a camelCase name turns: the T of
 // maxTurns, the S of HTTPServer (but not the second T of HTTP).

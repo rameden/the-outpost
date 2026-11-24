@@ -2,14 +2,16 @@
 // Jobs live in camp/jobs.json. The Quartermaster can add them (you confirm each one),
 // and you can edit the file by hand too.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { homedir } from "node:os";
 import { campMode, type Tool } from "./tools.js";
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { currentProjectId } from "./context.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { say } from "./words.js";
+import { EFFORTS, TURNS_MAX, TURNS_MIN, type Effort } from "./settings.js";
 
 export const JOBS_PATH = "camp/jobs.json";
 export const QUIET_TOKEN = "NOTHING_NEW";
@@ -23,6 +25,11 @@ export type Job = {
   lastRun?: string;     // ISO time the last run started
   lastReport?: string;  // what it last told you, so the next run can tell what's new
   project?: string;     // the project it was scheduled in: its runs see that project's folders and notes
+  // Optional cheap-path knobs (hand-edit camp/jobs.json, or pass when scheduling). When unset, a
+  // scheduled run uses JOB_DEFAULTS in quartermaster.ts instead of the full planning defaults.
+  model?: string;
+  effort?: Effort;
+  maxTurns?: number;
 };
 
 type Schedule =
@@ -89,9 +96,51 @@ export function describeJobs(jobs = loadJobs()): string {
       const last = j.lastRun
         ? `last ran ${new Date(j.lastRun).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}`
         : "never run";
-      return `- ${j.name} (${j.schedule}, ${state}, ${last}): ${j.task}`;
+      const cost = [j.model, j.effort && `${j.effort} effort`, j.maxTurns != null && `${j.maxTurns} turns`].filter(Boolean).join(", ");
+      return `- ${j.name} (${j.schedule}, ${state}, ${last}${cost ? `, ${cost}` : ""}): ${j.task}`;
     })
     .join("\n");
+}
+
+// Paths named in a job's task (relative, absolute, or ~/…), so a precheck can see whether any
+// changed since the last run. Skips bare words and URLs.
+export function pathsNamed(task: string): string[] {
+  const out: string[] = [];
+  for (const m of String(task).matchAll(/(?:^|[\s`"'(])(~?\/?(?:[\w.+@-]+\/)+[\w.+@-]+)/g)) {
+    const raw = m[1];
+    if (!raw || /:\/\//.test(raw)) continue;
+    out.push(raw.startsWith("~/") ? join(homedir(), raw.slice(2)) : raw);
+  }
+  return [...new Set(out)];
+}
+
+// True when the job named at least one existing path and none of them is newer than `since`
+// (usually lastRun). No paths, a missing path, or a first run → false (run the full pass).
+export function nothingChanged(job: Pick<Job, "task" | "lastReport">, since?: string): boolean {
+  if (!since || !job.lastReport) return false;
+  const at = new Date(since).getTime();
+  if (!Number.isFinite(at)) return false;
+  const paths = pathsNamed(job.task);
+  if (!paths.length) return false;
+  let watched = 0;
+  for (const p of paths) {
+    try {
+      if (!existsSync(p)) return false;
+      watched++;
+      if (statSync(p).mtimeMs > at) return false;
+    } catch { return false; }
+  }
+  return watched > 0;
+}
+
+function jobCost(input: { model?: unknown; effort?: unknown; maxTurns?: unknown }): Pick<Job, "model" | "effort" | "maxTurns"> {
+  const out: Pick<Job, "model" | "effort" | "maxTurns"> = {};
+  if (typeof input.model === "string" && input.model.trim()) out.model = input.model.trim();
+  if (typeof input.effort === "string" && (EFFORTS as string[]).includes(input.effort)) out.effort = input.effort as Effort;
+  if (typeof input.maxTurns === "number" && Number.isFinite(input.maxTurns)) {
+    out.maxTurns = Math.max(TURNS_MIN, Math.min(TURNS_MAX, Math.round(input.maxTurns)));
+  }
+  return out;
 }
 
 export const scheduleJob: Tool = {
@@ -109,16 +158,20 @@ export const scheduleJob: Tool = {
         name: { type: "string", description: "kebab-case, e.g. 'morning-brief'" },
         schedule: { type: "string" },
         task: { type: "string" },
+        model: { type: "string", description: "Optional: a cheaper model for this job (otherwise the camp's job defaults)." },
+        effort: { type: "string", enum: [...EFFORTS], description: "Optional: how hard this job thinks (default: low)." },
+        maxTurns: { type: "number", description: `Optional: turn cap for this job (${TURNS_MIN}–${TURNS_MAX}; default: 12).` },
       },
       required: ["name", "schedule", "task"],
     },
   }; },
-  run: async ({ name, schedule, task }) => {
+  run: async ({ name, schedule, task, model, effort, maxTurns }) => {
     if (campMode.unattended) return "Scheduled jobs can't create other jobs.";
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return `Job names must be kebab-case (got '${name}').`;
     if (!parseSchedule(schedule)) {
       return `Can't read schedule '${schedule}'. Use 'every 30m', 'every 2h', 'daily 08:00', or 'weekdays 08:00'.`;
     }
+    const cost = jobCost({ model, effort, maxTurns });
     const existing = loadJobs().some((j) => j.name === name);
     const ok = await ask({
       kind: "job",
@@ -127,7 +180,7 @@ export const scheduleJob: Tool = {
     });
     if (ok.toLowerCase() !== "y") return "The user declined this job.";
     const project = currentProjectId();
-    const job: Job = { name, schedule, task, created: new Date().toISOString(), enabled: true, ...(project && project !== "general" ? { project } : {}) };
+    const job: Job = { name, schedule, task, created: new Date().toISOString(), enabled: true, ...cost, ...(project && project !== "general" ? { project } : {}) };
     // Read again: the answer can be minutes in coming, and meanwhile the watcher has marked runs
     // and other jobs may have been added or cancelled. What was approved is this job under this
     // name, so it takes that name's place if one is there now, and is added if not.

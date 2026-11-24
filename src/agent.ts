@@ -17,7 +17,7 @@ import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refus
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
 import { PROVIDERS, ProviderError, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
 import { currentExpeditionId, currentLedger, currentQuestId, currentReplyTo, currentRunKey, currentSignal, currentSteering, currentThread, conversationModel } from "./context.js";
-import { autoLabel, isAutoChoice, parseChoice, profileTask, requestTokens as sizeOf, routeId, type Decision, type Route } from "./routing.js";
+import { autoLabel, isAutoChoice, parseChoice, profileTask, RequestSizer, routeId, type Decision, type Route } from "./routing.js";
 import { TaskRouter, Verification, autoMode, coolDown, gradeOf, lastRouteOf, logOutcome, noteOutcome, tierOf, type RouteStep, type RouteUse } from "./autoroute.js";
 import { OpJournal, journaled } from "./oplog.js";
 import { filesWrittenBy } from "./checkpoints.js";
@@ -552,11 +552,17 @@ export async function runAgent(
   // ---------- Auto ----------
   // The route is chosen here, right before the first dispatch, from what the request has to carry,
   // and looked at again before each one after that (routing.ts decides; autoroute.ts knows the camp).
-  const reqTokens = () => sizeOf({ system: systemFor(model), tools: defs, messages });
+  // Size is kept incrementally: system+tools refresh when the route changes; each new message is
+  // counted once so decide/check/observe share one estimate instead of re-walking the transcript.
+  const sizer = new RequestSizer();
+  sizer.setFixed(systemFor(model), defs);
+  sizer.setMessages(messages);
+  const syncSize = () => sizer.setFixed(systemFor(model), defs);
+  const reqTokens = () => { syncSize(); return sizer.tokens(); };
   const confidential = ["careful", "off"].includes(String(getProject(currentProjectId())?.settings?.web ?? ""));
   let router: TaskRouter | null = null;
   const pinnedChecks = new Verification(); // a pinned model's run: whether it checked its own work (Auto's router keeps its own)
-  const applyRoute = (r: Route) => { model = r.model; effort = r.effort; other = otherModel(model); defs = defsFor(model); };
+  const applyRoute = (r: Route) => { model = r.model; effort = r.effort; other = otherModel(model); defs = defsFor(model); syncSize(); };
   const announce = (d: Extract<Decision, { kind: "selected" }>, switched: boolean) =>
     emit({ type: "route", ...me, model: d.primary.model, ...(d.primary.effort ? { effort: d.primary.effort } : {}), choice: autoMode(router!.mode), trigger: d.trigger, reason: d.reason, switched });
   // Look again (a trigger fired, or the route can't take the next request). Waits, cancellably,
@@ -757,6 +763,7 @@ export async function runAgent(
       const reply: Anthropic.MessageParam = { role: "assistant", content: kept as unknown as Anthropic.ContentBlockParam[] };
       authorOf.set(reply, model);
       messages.push(reply);
+      sizer.addMessage(reply);
       const turnUsage = {
         input: resp.usage.input_tokens,
         output: resp.usage.output_tokens,
@@ -798,7 +805,7 @@ export async function runAgent(
         }
         emit({ type: "notice", ...me, text: `✂️  ${spec.name} hit the token limit; asking them to retry.` });
         const cut = live.flatMap((b) => (b.type === "tool_use" ? [b] : []));
-        messages.push({
+        const cutMsg: Anthropic.MessageParam = {
           role: "user",
           content: cut.length
             ? cut.map((b) => ({
@@ -810,14 +817,18 @@ export async function runAgent(
                   "cut off. Retry it, splitting large content into smaller pieces if needed.",
               }))
             : "Your response was cut off by the output token limit. Continue from where you stopped.",
-        });
+        };
+        messages.push(cutMsg);
+        sizer.addMessage(cutMsg);
         continue;
       }
       // No tool requested: this character is done, unless the user said something in the meantime.
       if (resp.stop_reason !== "tool_use") {
         const said = takeSteer();
         if (!said) return finish("done");
-        messages.push({ role: "user", content: said });
+        const steerMsg: Anthropic.MessageParam = { role: "user", content: said };
+        messages.push(steerMsg);
+        sizer.addMessage(steerMsg);
         continue;
       }
 
@@ -850,7 +861,9 @@ export async function runAgent(
       for (const [i, block] of uses.entries()) results[i] = await (together[i] ?? runOne(block));
       // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn limit.
       const notes = [takeSteer(), maxTurns >= 6 ? wrapUpNote(maxTurns - turn) : null].filter((n): n is string => !!n);
-      messages.push({ role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] });
+      const toolMsg: Anthropic.MessageParam = { role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] };
+      messages.push(toolMsg);
+      sizer.addMessage(toolMsg);
       // What the tools turned up: a failure reproduced after distinct fixes, or a bigger task than it looked.
       const calls = uses.map((b, i) => ({ name: b.name, input: b.input, output: resultText(results[i]?.content), failed: !!results[i]?.is_error }));
       if (router) router.observe(calls, reqTokens());

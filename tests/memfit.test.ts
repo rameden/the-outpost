@@ -148,6 +148,10 @@ test("taking a line apart, pinning it, and matching words by their roots", () =>
   // recall finds a word by its root too.
   assert.ok(scoreText("We deployed it on Friday", searchTerms("deploys")) > 0);
   assert.equal(scoreText("We shipped it on Friday", searchTerms("deploys")), 0);
+  // Non-Latin queries and notes still yield terms and score.
+  assert.ok(wordsOf("Деплой на heron-7 по пятницам").has("деплой"));
+  assert.ok(searchTerms("Как деплой на heron?").includes("деплой"));
+  assert.ok(scoreText("Деплой на staging через heron-7", searchTerms("деплой heron")) > 0);
 });
 
 test("the prompt of a run carries the old line its request is about", async () => {

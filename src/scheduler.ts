@@ -7,7 +7,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, 
 import { execFile } from "node:child_process";
 import { runExpedition } from "./quartermaster.js";
 import { writeJsonAtomic } from "./atomic.js";
-import { isDue, loadJobs, saveJobs, QUIET_TOKEN, type Job } from "./jobs.js";
+import { isDue, loadJobs, saveJobs, nothingChanged, QUIET_TOKEN, type Job } from "./jobs.js";
 import { emit } from "./events.js";
 import { pausedUntil } from "./limits.js";
 import { OUTPOST } from "./outpost.js";
@@ -101,11 +101,26 @@ export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
   const started = new Date();
   const previousRun = job.lastRun;
   emit({ type: "job", name: job.name, outcome: "running" });
+  // Cheap gate: if the task names paths and none changed since the last report, stay quiet
+  // without a Quartermaster pass. Mark lastRun so the schedule doesn't loop.
+  if (nothingChanged(job, previousRun)) {
+    updateJob(job.name, { lastRun: started.toISOString() });
+    emit({ type: "job", name: job.name, outcome: "quiet" });
+    return;
+  }
   updateJob(job.name, { lastRun: started.toISOString() }); // mark first, so a crash doesn't loop
   try {
     // Unattended: no shell, no prompts, nobody at the keyboard (for this run only).
     // A job scheduled in a project runs with that project's folders, notes, and defaults.
-    const result = await runExpedition(jobBrief(job), { job: job.name, displayTask: job.task, signal, id, unattended: true, ...(job.project ? { project: job.project } : {}) });
+    // model/effort/maxTurns: the job's own knobs, else JOB_DEFAULTS inside runExpedition.
+    const result = await runExpedition(jobBrief(job), {
+      job: job.name, displayTask: job.task, signal, id, unattended: true,
+      ...(job.project ? { project: job.project } : {}),
+      ...(job.model ? { model: job.model } : {}),
+      ...(job.effort ? { effort: job.effort } : {}),
+      ...(job.maxTurns != null ? { maxTurns: job.maxTurns } : {}),
+      jobDefaults: true,
+    });
     if (result.status === "stopped") {
       emit({ type: "job", name: job.name, outcome: "failed", text: "stopped by you" });
       return; // a half-finished run isn't a report

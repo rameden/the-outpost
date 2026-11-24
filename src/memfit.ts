@@ -57,12 +57,14 @@ export function stem(word: string): string {
   return w;
 }
 
-// The words of a text worth matching on: three letters or more, not the common ones, as roots.
-// A path or a dotted name counts whole and as its parts (src/agent.ts → that, and "agent").
+// The words of a text worth matching on: three letters or more (two if non-ASCII), not the common
+// ones, as roots. Letters of any script (\p{L}) and digits. A path or a dotted name counts whole
+// and as its parts (src/agent.ts → that, and "agent"). English stemming still applies to Latin.
 export function wordsOf(text: string): Set<string> {
   const out = new Set<string>();
-  const add = (w: string) => { if (w.length >= 3 && !STOP.has(w) && !/^\d+$/.test(w)) out.add(stem(w)); };
-  for (const token of String(text).toLowerCase().match(/[a-z0-9]+(?:[._\-/][a-z0-9]+)*/g) ?? []) {
+  const enough = (w: string) => w.length >= 3 || (w.length >= 2 && /[^\x00-\x7f]/.test(w));
+  const add = (w: string) => { if (enough(w) && !STOP.has(w) && !/^\d+$/.test(w)) out.add(stem(w)); };
+  for (const token of String(text).toLowerCase().match(/[\p{L}\p{N}]+(?:[._\-/][\p{L}\p{N}]+)*/gu) ?? []) {
     if (/^[\d._\-/]+$/.test(token)) continue; // a date or a number says nothing about the subject
     if (/[._\-/]/.test(token)) { out.add(token); for (const part of token.split(/[._\-/]/)) add(part); }
     else add(token);

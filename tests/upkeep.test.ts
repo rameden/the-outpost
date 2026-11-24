@@ -10,7 +10,8 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 
 const home = enterSandbox("upkeep");
 
-const { scheduleJob, loadJobs, saveJobs, JOBS_PATH } = await import("../src/jobs.ts");
+const { scheduleJob, loadJobs, saveJobs, JOBS_PATH, pathsNamed, nothingChanged } = await import("../src/jobs.ts");
+const { isQuiet, runJob } = await import("../src/scheduler.ts");
 const { setAsker } = await import("../src/ask.ts");
 const settings = await import("../src/settings.ts");
 const { OpJournal, pruneJournals, OPS_DIR, JOURNAL_KEEP_DAYS } = await import("../src/oplog.ts");
@@ -69,6 +70,36 @@ test("schedule_job: declined, the jobs are left exactly as they were", async () 
   setAsker(async () => "n");
   assert.equal(await schedule("standup"), "The user declined this job.");
   assert.equal(readFileSync(JOBS_PATH, "utf8"), before);
+});
+
+test("schedule_job: optional model, effort and maxTurns are kept", async () => {
+  saveJobs([]);
+  setAsker(async () => "y");
+  assert.match(String(await scheduleJob.run!({ name: "watch-build", schedule: "every 30m", task: "Check camp/build.log", model: "claude-haiku-5-5", effort: "low", maxTurns: 8 })), /^Scheduled/);
+  const j = loadJobs().find((x) => x.name === "watch-build")!;
+  assert.deepEqual([j.model, j.effort, j.maxTurns], ["claude-haiku-5-5", "low", 8]);
+});
+
+test("a job that names paths stays quiet when none of them changed since last time", async () => {
+  mkdirSync("camp", { recursive: true });
+  const watched = join("camp", "watch-target.txt");
+  writeFileSync(watched, "same\n");
+  const then = Date.now() - 60_000;
+  utimesSync(watched, new Date(then), new Date(then));
+  assert.deepEqual(pathsNamed(`Read ${watched} and report`), [watched]);
+  assert.equal(nothingChanged({ task: `Read ${watched} and report`, lastReport: "all fine" }, new Date(then + 1_000).toISOString()), true);
+  assert.equal(nothingChanged({ task: `Read ${watched} and report`, lastReport: "all fine" }, new Date(then - 1_000).toISOString()), false, "mtime after lastRun means something changed");
+  assert.equal(nothingChanged({ task: "Check the web feed", lastReport: "ok" }, new Date().toISOString()), false, "no paths named: can't cheap-check");
+  assert.equal(isQuiet("NOTHING_NEW"), true);
+
+  const outcomes: string[] = [];
+  const { onEvent } = await import("../src/events.ts");
+  const off = onEvent((e) => { if (e.type === "job") outcomes.push(e.outcome); });
+  saveJobs([job("watch", { schedule: "every 5m", task: `Read ${watched} for regressions`, lastRun: new Date(then + 1_000).toISOString(), lastReport: "all fine" })]);
+  await runJob(loadJobs()[0]!);
+  off();
+  assert.deepEqual(outcomes, ["running", "quiet"]);
+  assert.ok(loadJobs()[0]!.lastRun! > new Date(then + 1_000).toISOString(), "lastRun advances so the schedule doesn't loop");
 });
 
 // ---------- Settings, read once ----------
