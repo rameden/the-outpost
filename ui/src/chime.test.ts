@@ -34,7 +34,7 @@ class FakeNotification {
 vi.stubGlobal("AudioContext", FakeAudio);
 vi.stubGlobal("Notification", FakeNotification);
 
-const { CHIME_NOTES, STRUM_NOTES, STRUM_VOICES, DEMO_LINES, playChime, setChime, chimeOn, strum, setStrum, strumOn, strumVoice, setStrumVoice, demoStrum } = await import("./chime.ts");
+const { CHIME_NOTES, STRUM_NOTES, STRUM_VOICES, DEMO_LINES, playChime, setChime, chimeOn, strum, setStrum, strumOn, strumVoice, setStrumVoice, demoStrum, toneNow, setTone, resetTone, TONE_DEFAULT } = await import("./chime.ts");
 const { notify } = await import("./notifications.ts");
 
 // The tab is in the background, which is the only time a notification shows.
@@ -145,4 +145,35 @@ test("a voice's demo sweeps in across a few lines, even with the strum sound off
   demoStrum("bell");
   expect(played.filter((f) => STRUM_NOTES.includes(f))).toEqual(DEMO_LINES.map((i) => STRUM_NOTES[i]));
   expect([...DEMO_LINES].sort((x, y) => y - x)).toEqual(DEMO_LINES); // outer line first, rising inwards
+});
+
+test("the tone is the voices as made until it's changed, kept in this browser, and a broken or wild one is kept in bounds", () => {
+  expect(toneNow()).toEqual(TONE_DEFAULT);
+  setTone({ reverb: 0, size: "small" });
+  expect(JSON.parse(localStorage.getItem("camp-strum-tone")!)).toMatchObject({ reverb: 0, size: "small" });
+  expect(toneNow()).toEqual({ ...TONE_DEFAULT, reverb: 0, size: "small" });
+  localStorage.setItem("camp-strum-tone", JSON.stringify({ reverb: 9, length: -1, bright: "x", grit: 0.5, size: "cathedral", octave: 3 }));
+  expect(toneNow()).toEqual({ ...TONE_DEFAULT, reverb: 1, length: 0.2, grit: 0.5 });
+  localStorage.setItem("camp-strum-tone", "{not json");
+  expect(toneNow()).toEqual(TONE_DEFAULT);
+  setTone({ grit: 1 });
+  expect(resetTone()).toEqual(TONE_DEFAULT);
+  expect(localStorage.getItem("camp-strum-tone")).toBeNull();
+});
+
+test("the tone's octave moves every voice's note, the strum's and a notification's, and the wire still plays at any length", () => {
+  setStrum(true);
+  setTone({ octave: 1, length: 0.5 });
+  for (const v of STRUM_VOICES) {
+    setStrumVoice(v.id);
+    played = []; recordings = 0;
+    strum(2, 0.7);
+    if (v.id === "wire") expect(recordings).toBe(1);
+    else expect(played, v.id).toContain(STRUM_NOTES[2] * 2);
+  }
+  setStrumVoice("bell");
+  setTone({ octave: -1 });
+  played = [];
+  playChime("ask");
+  expect(played).toContain(CHIME_NOTES.ask[0] / 2);
 });

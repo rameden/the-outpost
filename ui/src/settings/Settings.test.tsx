@@ -361,6 +361,37 @@ test("the strum voice is a choice in Appearance, sonar until you pick another, a
   localStorage.clear();
 });
 
+test("the strum tone has sliders and choices in Appearance that are kept, play a sweep, and reset", () => {
+  vi.useFakeTimers();
+  localStorage.clear();
+  fakeAudio();
+  show("appearance");
+  const row = screen.getByText("Strum tone").closest(".set-row") as HTMLElement;
+  expect(within(row).getByRole("button", { name: "Reset tone" })).toHaveProperty("disabled", true);
+
+  started.length = 0;
+  fireEvent.change(within(row).getByRole("slider", { name: "Reverb" }), { target: { value: "0" } });
+  expect(JSON.parse(localStorage.getItem("camp-strum-tone")!).reverb).toBe(0);
+  expect(within(row).getByRole("slider", { name: "Reverb" }).nextElementSibling?.textContent).toBe("None");
+  // No reverb, so there's no space to pick; the sweep waits for the hand to rest.
+  expect(within(row).getByRole("button", { name: "Hull" })).toHaveProperty("disabled", true);
+  expect(started).toHaveLength(0);
+  vi.advanceTimersByTime(400);
+  for (const line of DEMO_LINES) expect(started).toContain(STRUM_NOTES[line]);
+
+  started.length = 0;
+  fireEvent.click(within(row).getByRole("button", { name: "Higher" }));
+  expect(JSON.parse(localStorage.getItem("camp-strum-tone")!).octave).toBe(1);
+  expect(within(row).getByRole("button", { name: "Higher" }).getAttribute("aria-pressed")).toBe("true");
+  expect(started).toContain(STRUM_NOTES[DEMO_LINES[0]] * 2);
+
+  fireEvent.click(within(row).getByRole("button", { name: "Reset tone" }));
+  expect(localStorage.getItem("camp-strum-tone")).toBeNull();
+  expect(within(row).getByRole("button", { name: "As made" }).getAttribute("aria-pressed")).toBe("true");
+  vi.useRealTimers();
+  localStorage.clear();
+});
+
 test("the nav is grouped as Camp, Look & sound, Safety, Access, Activity, Knowledge, in that order", () => {
   show("general");
   const nav = screen.getByRole("navigation", { name: "Settings sections" });

@@ -13,7 +13,7 @@ import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
-import { chimeOn, demoStrum, playChime, setChime, setStrum, setStrumVoice, strum, strumOn, strumVoice, STRUM_VOICES, type StrumVoice } from "../chime.ts";
+import { chimeOn, demoStrum, playChime, resetTone, ROOM_SIZES, setChime, setStrum, setStrumVoice, setTone, strum, strumOn, strumVoice, STRUM_VOICES, TONE_DEFAULT, toneNow, type StrumVoice, type Tone } from "../chime.ts";
 import { showCost } from "../prefs.ts";
 import { outpostName } from "../outpost.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
@@ -316,7 +316,56 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
           ))}
         </div>
       </Row>
+      <StrumTone voice={voice} />
     </>
+  );
+}
+
+// The strum's tone, the same for every voice and for notifications: try settings until one fits.
+// Each change plays a sweep, once the hand comes off the slider for a moment.
+const TONE_SLIDERS: { key: "reverb" | "length" | "bright" | "grit"; name: string; min: number; max: number; step: number; show: (x: number) => string }[] = [
+  { key: "reverb", name: "Reverb", min: 0, max: 1, step: 0.05, show: (x) => (x === 0 ? "None" : `${Math.round(x * 100)}%`) },
+  { key: "length", name: "Ring", min: 0.2, max: 2, step: 0.05, show: (x) => `${x.toFixed(2)}×` },
+  { key: "bright", name: "Brightness", min: 0, max: 1, step: 0.05, show: (x) => `${Math.round(x * 100)}%` },
+  { key: "grit", name: "Grit", min: 0, max: 1, step: 0.05, show: (x) => (x === 0 ? "None" : `${Math.round(x * 100)}%`) },
+];
+const OCTAVES: { id: Tone["octave"]; name: string }[] = [{ id: -1, name: "Lower" }, { id: 0, name: "As made" }, { id: 1, name: "Higher" }];
+function StrumTone({ voice }: { voice: StrumVoice }) {
+  const [tone, setShown] = useState<Tone>(toneNow);
+  const wait = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(wait.current), []);
+  const change = (c: Partial<Tone>, soon = false) => {
+    setShown(setTone(c));
+    clearTimeout(wait.current);
+    if (soon) demoStrum(voice); else wait.current = setTimeout(() => demoStrum(voice), 350);
+  };
+  const plain = JSON.stringify(tone) === JSON.stringify(TONE_DEFAULT);
+  return (
+    <Row label="Strum tone" wide help="Shapes every voice, and notifications too: how much reverb (none at all is dry), how big the space it rings in, how long notes ring, how bright, how much grit, and which octave. Each change plays a sweep. Kept in this browser; once one feels right, ask for those numbers to be made the default.">
+      <div className="tone">
+        {TONE_SLIDERS.map((s) => (
+          <label key={s.key} className="tone-slider">
+            <span>{s.name}</span>
+            <input type="range" min={s.min} max={s.max} step={s.step} value={tone[s.key]} aria-label={s.name}
+              onChange={(ev) => change({ [s.key]: Number(ev.target.value) })} />
+            <output>{s.show(tone[s.key])}</output>
+          </label>
+        ))}
+        <div className="looks" role="group" aria-label="Space">
+          {ROOM_SIZES.map((r) => (
+            <button key={r.id} type="button" className="look decor" aria-pressed={tone.size === r.id} disabled={tone.reverb === 0}
+              onClick={() => change({ size: r.id }, true)}>{r.name}</button>
+          ))}
+        </div>
+        <div className="looks" role="group" aria-label="Octave">
+          {OCTAVES.map((o) => (
+            <button key={o.id} type="button" className="look decor" aria-pressed={tone.octave === o.id}
+              onClick={() => change({ octave: o.id }, true)}>{o.name}</button>
+          ))}
+          <button type="button" className="btn small" disabled={plain} onClick={() => { setShown(resetTone()); clearTimeout(wait.current); demoStrum(voice); }}>Reset tone</button>
+        </div>
+      </div>
+    </Row>
   );
 }
 

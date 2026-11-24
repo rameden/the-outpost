@@ -5,7 +5,7 @@
 // tells you what happened without looking: that line's ping alone for a decision, a lower ping rising
 // to it for finished, and it falling away to the lower one for failed.
 
-import { storeGet, storeSet } from "./api.ts";
+import { storeGet, storeRemove, storeSet } from "./api.ts";
 
 export type ChimeKind = "ask" | "done" | "fail";
 
@@ -95,10 +95,10 @@ function once<T extends AudioNode | AudioBuffer>(a: BaseAudioContext, key: strin
   return v;
 }
 
-// The reverb's echo of a single click: noise fading away smoothly over HALL seconds, darker as it
+// The reverb's echo of a single click: noise fading away smoothly over `seconds`, darker as it
 // goes, and different in each ear so it sounds wide. Made once, here, so there's no sound file.
-function hall(a: BaseAudioContext): AudioBuffer {
-  const n = Math.floor(a.sampleRate * HALL), buf = a.createBuffer(2, n, a.sampleRate);
+function hall(a: BaseAudioContext, seconds: number): AudioBuffer {
+  const n = Math.floor(a.sampleRate * seconds), buf = a.createBuffer(2, n, a.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const data = buf.getChannelData(ch);
     let dark = 0;
@@ -111,17 +111,78 @@ function hall(a: BaseAudioContext): AudioBuffer {
   return buf;
 }
 
-// The room every voice rings into: heard as it is, and through the reverb.
-function room(a: BaseAudioContext): AudioNode {
-  return once(a, "room", () => {
-    const into = a.createGain(), dry = a.createGain(), verb = a.createConvolver(), wet = a.createGain();
-    dry.gain.value = 0.6;
-    wet.gain.value = 1.3;
-    verb.buffer = once(a, "hall", () => hall(a));
-    into.connect(dry).connect(a.destination);
-    into.connect(verb).connect(wet).connect(a.destination);
-    return into;
-  });
+// The tone: the same for every voice, set in Settings → Appearance (Strum tone) to find the sound
+// that fits. How much reverb (none at all to a lot), how big the space is, how long a note rings,
+// how bright it is, how much grit, and which octave. The defaults are the voices as they were made.
+export type RoomSize = "small" | "cabin" | "hull";
+export type Tone = { reverb: number; size: RoomSize; length: number; bright: number; grit: number; octave: -1 | 0 | 1 };
+export const TONE_DEFAULT: Tone = { reverb: 1, size: "hull", length: 1, bright: 1, grit: 0, octave: 0 };
+export const ROOM_SIZES: { id: RoomSize; name: string; seconds: number }[] = [
+  { id: "small", name: "Small room", seconds: 0.35 }, { id: "cabin", name: "Cabin", seconds: 1.4 }, { id: "hull", name: "Hull", seconds: HALL },
+];
+const clamp = (x: unknown, lo: number, hi: number, d: number) => (typeof x === "number" && Number.isFinite(x) ? Math.min(Math.max(x, lo), hi) : d);
+export function toneNow(): Tone {
+  let kept: Partial<Tone> = {};
+  try { kept = JSON.parse(storeGet("camp-strum-tone") ?? "{}") ?? {}; } catch { /* a broken one is the default */ }
+  return {
+    reverb: clamp(kept.reverb, 0, 1, TONE_DEFAULT.reverb),
+    size: ROOM_SIZES.some((r) => r.id === kept.size) ? (kept.size as RoomSize) : TONE_DEFAULT.size,
+    length: clamp(kept.length, 0.2, 2, TONE_DEFAULT.length),
+    bright: clamp(kept.bright, 0, 1, TONE_DEFAULT.bright),
+    grit: clamp(kept.grit, 0, 1, TONE_DEFAULT.grit),
+    octave: kept.octave === -1 || kept.octave === 1 ? kept.octave : 0,
+  };
+}
+export function setTone(change: Partial<Tone>): Tone {
+  storeSet("camp-strum-tone", JSON.stringify({ ...toneNow(), ...change }));
+  return toneNow();
+}
+export const resetTone = (): Tone => { storeRemove("camp-strum-tone"); return toneNow(); };
+
+// What the voices read as they play: how long (1 as made) and the octave (1 as made, 2 an octave up).
+let LONG = 1, OCT = 1;
+
+// The room every voice rings into, after the tone's grit and brightness: heard as it is, and through
+// the reverb of the chosen size. Made once; the tone is set on it each time a note plays.
+type Room = { into: GainNode; pre: GainNode; post: GainNode; shade: BiquadFilterNode; dry: GainNode; wet: Record<RoomSize, GainNode> };
+const rooms = new WeakMap<BaseAudioContext, Room>();
+function theRoom(a: BaseAudioContext): Room {
+  const had = rooms.get(a);
+  if (had) return had;
+  const into = a.createGain(), pre = a.createGain(), clip = a.createWaveShaper(), post = a.createGain(), shade = a.createBiquadFilter(), dry = a.createGain();
+  // The grit: a tanh drive that's straight for quiet sound at 1, so with no grit nothing changes.
+  const curve = new Float32Array(2048);
+  for (let n = 0; n < curve.length; n++) curve[n] = Math.tanh(4 * ((n / (curve.length - 1)) * 2 - 1));
+  clip.curve = curve;
+  clip.oversample = "2x";
+  shade.type = "lowpass";
+  shade.Q.value = 0.7;
+  into.connect(pre).connect(clip).connect(post).connect(shade);
+  shade.connect(dry).connect(a.destination);
+  const wet = {} as Record<RoomSize, GainNode>;
+  for (const r of ROOM_SIZES) {
+    const verb = a.createConvolver(), level = a.createGain();
+    verb.buffer = hall(a, r.seconds);
+    level.gain.value = 0;
+    shade.connect(verb).connect(level).connect(a.destination);
+    wet[r.id] = level;
+  }
+  const built: Room = { into, pre, post, shade, dry, wet };
+  rooms.set(a, built);
+  return built;
+}
+const room = (a: BaseAudioContext): AudioNode => theRoom(a).into;
+
+// The tone onto the room, and into LONG and OCT for the voices.
+function wear(a: BaseAudioContext, tone = toneNow()) {
+  const r = theRoom(a), drive = 1 + 40 * tone.grit;
+  r.pre.gain.value = drive / 4;
+  r.post.gain.value = (1 + 0.6 * tone.grit) / drive; // a little louder with grit, as it reads quieter once squashed
+  r.shade.frequency.value = 600 * 2 ** (5 * tone.bright); // 600 Hz, dull, to 19 kHz, open
+  r.dry.gain.value = 1 - 0.4 * tone.reverb;
+  for (const s of ROOM_SIZES) r.wet[s.id].gain.value = s.id === tone.size ? 1.3 * tone.reverb : 0;
+  LONG = tone.length;
+  OCT = 2 ** tone.octave;
 }
 
 // A note's place from left to right, into the room.
@@ -172,7 +233,7 @@ function sonarOut(a: BaseAudioContext, out: Out): AudioNode {
   });
 }
 const sonar: Voice = (a, f, hard, side, t, out) => {
-  const peak = 0.035 + 0.03 * hard, end = t + STRUM_RING;
+  const peak = 0.035 + 0.03 * hard, end = t + STRUM_RING * LONG;
   const pan = placed(a, side, sonarOut(a, out));
   const osc = a.createOscillator(), gain = a.createGain();
   osc.type = "sine";
@@ -211,10 +272,10 @@ const bell: Voice = (a, f, hard, side, t, out) => {
     osc.type = "sine";
     osc.frequency.value = f * ratio;
     // A harder strike brings out the upper overtones more than the note.
-    swell(gain.gain, t, loud * 0.04 * amp * (ratio === 1 ? 0.7 + 0.5 * hard : 0.4 + 1.2 * hard), 0.004, t + ring);
+    swell(gain.gain, t, loud * 0.04 * amp * (ratio === 1 ? 0.7 + 0.5 * hard : 0.4 + 1.2 * hard), 0.004, t + ring * LONG);
     osc.connect(gain).connect(pan);
     osc.start(t);
-    osc.stop(t + ring + 0.05);
+    osc.stop(t + ring * LONG + 0.05);
   }
 };
 
@@ -223,13 +284,16 @@ const bell: Voice = (a, f, hard, side, t, out) => {
 // at the note and mellows as it fades. Worked out once per note, then played like a recording.
 const WIRE_RING = 5; // seconds to die away
 function wireNote(a: BaseAudioContext, f: number): AudioBuffer {
-  return once(a, `wire-${f}`, () => {
-    const sr = a.sampleRate, len = Math.floor(sr * (WIRE_RING + 0.2)), buf = a.createBuffer(1, len, sr), y = buf.getChannelData(0);
+  const ring = WIRE_RING * LONG;
+  return once(a, `wire-${f}-${ring}`, () => {
+    // Notes made at another length go, so changing the tone doesn't pile them up.
+    for (const k of made.get(a)?.keys() ?? []) if (k.startsWith("wire-") && !k.endsWith(`-${ring}`)) made.get(a)!.delete(k);
+    const sr = a.sampleRate, len = Math.floor(sr * (ring + 0.2)), buf = a.createBuffer(1, len, sr), y = buf.getChannelData(0);
     // The loop is P samples long; the averaging adds half a sample, and an all-pass makes up the fraction left over, so it's in tune.
     const P = sr / f;
     let N = Math.floor(P - 0.5), d = P - 0.5 - N;
     if (d < 0.1) { N -= 1; d += 1; }
-    const C = (1 - d) / (1 + d), loss = Math.pow(10, -3 / (f * WIRE_RING));
+    const C = (1 - d) / (1 + d), loss = Math.pow(10, -3 / (f * ring));
     // The pluck: noise, smoothed (a soft pick, not a sharp one), and picked a fifth of the way along.
     const pick = new Float32Array(N);
     let s = 0;
@@ -262,7 +326,7 @@ const wire: Voice = (a, f, hard, side, t, out) => {
 // ---- Breath: noise narrowed to the note (and, quieter, the octave above), with a faint pure tone
 // under it, so it's air with a pitch. It swells in over a fifth of a second and drifts away.
 const breath: Voice = (a, f, hard, side, t, out) => {
-  const pan = placed(a, side), loud = out === "alert" ? 2.5 : 1, end = t + 3.2, rise = 0.28 - 0.12 * hard;
+  const pan = placed(a, side), loud = out === "alert" ? 2.5 : 1, end = t + 3.2 * LONG, rise = 0.28 - 0.12 * hard;
   const air = a.createBufferSource();
   air.buffer = noise(a);
   for (const [mult, amp] of [[1, 1], [2, 0.35]] as const) {
@@ -278,7 +342,7 @@ const breath: Voice = (a, f, hard, side, t, out) => {
   hum.frequency.value = f;
   swell(gain.gain, t, loud * 0.016, rise * 1.4, end);
   hum.connect(gain).connect(pan);
-  air.start(t, Math.random() * 0.2, 3.3);
+  air.start(t, Math.random() * 0.2, Math.min(3.3, 3.2 * LONG + 0.1));
   hum.start(t);
   hum.stop(end + 0.05);
 };
@@ -332,12 +396,12 @@ function warm(a: BaseAudioContext, out: Out): AudioNode {
   });
 }
 const analog: Voice = (a, f, hard, side, t, out) => {
-  const pan = placed(a, side, warm(a, out)), end = t + 2.6;
+  const pan = placed(a, side, warm(a, out)), end = t + 2.6 * LONG;
   const filter = a.createBiquadFilter(), gain = a.createGain();
   filter.type = "lowpass";
   filter.Q.value = 3;
   filter.frequency.setValueAtTime(Math.min(8000, f * (3 + 6 * hard)), t);
-  filter.frequency.exponentialRampToValueAtTime(f * 1.1, t + 0.9);
+  filter.frequency.exponentialRampToValueAtTime(f * 1.1, t + 0.9 * LONG);
   swell(gain.gain, t, 0.025 + 0.015 * hard, 0.006, end);
   filter.connect(gain).connect(pan);
   for (const [type, mult, amp] of [["sawtooth", 1, 1], ["square", 0.5, 0.45]] as const) {
@@ -357,8 +421,8 @@ const analog: Voice = (a, f, hard, side, t, out) => {
 // vibrato, so the tail stays still.
 const VOWELS = { oo: [[300, 1], [870, 0.35], [2240, 0.12]], aah: [[730, 1], [1090, 0.5], [2440, 0.2]] } as const;
 const choir: Voice = (a, f, hard, side, t, out) => {
-  const pan = placed(a, side), loud = out === "alert" ? 2.5 : 1, end = t + 3, low = STRUM_NOTES.at(-1)!, high = STRUM_NOTES[0];
-  const open = Math.min(Math.max((f - low) / (high - low), 0), 1); // 0 is "ooh", 1 is "aah"
+  const pan = placed(a, side), loud = out === "alert" ? 2.5 : 1, end = t + 3 * LONG, low = STRUM_NOTES.at(-1)!, high = STRUM_NOTES[0];
+  const open = Math.min(Math.max((f / OCT - low) / (high - low), 0), 1); // 0 is "ooh", 1 is "aah"
   const voice = a.createGain(), gain = a.createGain();
   swell(gain.gain, t, loud * (0.16 + 0.09 * hard) * (2.4 - 1.4 * open), 0.14, end); // "ooh" is quieter than "aah": made up
   voice.connect(gain).connect(pan);
@@ -390,16 +454,18 @@ const VOICES: Record<StrumVoice, Voice> = { sonar, bell, wire, breath, console: 
 
 // A notification's ping: the innermost line's note in the strum's voice, louder.
 function ping(a: BaseAudioContext, f: number, hard: number, side: number, t: number, out: Out) {
-  (VOICES[strumVoice()] ?? sonar)(a, f, hard, side, t, out);
+  wear(a);
+  (VOICES[strumVoice()] ?? sonar)(a, f * OCT, hard, side, t, out);
 }
 
 const noteOf = (i: number) => STRUM_NOTES[Math.min(Math.max(i, 0), STRUM_NOTES.length - 1)];
 // Where it sits: the nearest line in the middle, each further one out a little wider, by turns left and right.
 const sideOf = (i: number) => (i % 2 ? -1 : 1) * Math.min(0.7, 0.12 * Math.max(i, 0));
 
-// One line's note in `voice` on audio context `a` at time `t`. Exported so a voice can be rendered offline.
-export function sound(a: BaseAudioContext, voice: StrumVoice, i: number, strength: number, t: number) {
-  (VOICES[voice] ?? sonar)(a, noteOf(i), Math.min(Math.max(strength, 0), 1), sideOf(i), t, "strum");
+// One line's note in `voice` and `tone` on audio context `a` at time `t`. Exported so a voice can be rendered offline.
+export function sound(a: BaseAudioContext, voice: StrumVoice, i: number, strength: number, t: number, tone = toneNow()) {
+  wear(a, tone);
+  (VOICES[voice] ?? sonar)(a, noteOf(i) * OCT, Math.min(Math.max(strength, 0), 1), sideOf(i), t, "strum");
 }
 
 // Line `i` (0 is nearest the sun) at `strength` from 0 (a slow pass) to 1 (a quick sweep).
