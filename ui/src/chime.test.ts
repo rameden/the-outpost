@@ -112,7 +112,7 @@ test("each orbit line strums its own note, the nearest highest, only once the st
 });
 
 test("the strum has a few voices to pick from, the sonar until you pick, kept in this browser", () => {
-  expect(STRUM_VOICES.map((v) => v.id)).toEqual(["sonar", "bell", "wire", "breath", "console", "analog"]);
+  expect(STRUM_VOICES.map((v) => v.id)).toEqual(["sonar", "bell", "wire", "breath", "console", "analog", "choir"]);
   expect(strumVoice()).toBe("sonar");
   setStrumVoice("wire");
   expect(localStorage.getItem("camp-strum-voice")).toBe("wire");

@@ -67,7 +67,7 @@ export function playChime(kind: ChimeKind) {
 // nothing in it that beats or repeats (no out-of-tune twin, no echo taps), so its tail fades away
 // evenly instead of pulsing. A notification is the same voice (playChime, above), louder.
 
-export type StrumVoice = "sonar" | "bell" | "wire" | "breath" | "console" | "analog";
+export type StrumVoice = "sonar" | "bell" | "wire" | "breath" | "console" | "analog" | "choir";
 export const STRUM_VOICES: { id: StrumVoice; name: string; about: string }[] = [
   { id: "sonar", name: "Sonar", about: "A working ship's sonar heard over the comms: a relay's click, a clang of metal, a little overdrive, then a long ring into the hull." },
   { id: "bell", name: "Glass bell", about: "A struck glass bar, like a vibraphone in a cold room: clear, a little shimmer at the start, then a long pure ring." },
@@ -75,6 +75,7 @@ export const STRUM_VOICES: { id: StrumVoice; name: string; about: string }[] = [
   { id: "breath", name: "Breath", about: "Air through a vent, tuned to the note: it swells in rather than starting, and drifts off. The softest of them." },
   { id: "console", name: "Console", about: "A bridge console's blip: a short bright chirp with a sweep of static under it, then only the room ringing." },
   { id: "analog", name: "Analog", about: "A warm old synth pluck: a buzzy wave with a sub an octave down, its filter closing as it fades. Rounder and lower." },
+  { id: "choir", name: "Choir", about: "The wildcard: a ghost choir on a far channel. Each line is sung, not struck, an \"ooh\" on the outer lines opening to an \"aah\" near the sun." },
 ];
 const VOICE_IDS = new Set<string>(STRUM_VOICES.map((v) => v.id));
 export const strumVoice = (): StrumVoice => { const v = storeGet("camp-strum-voice"); return v && VOICE_IDS.has(v) ? (v as StrumVoice) : "sonar"; };
@@ -350,7 +351,42 @@ const analog: Voice = (a, f, hard, side, t, out) => {
   }
 };
 
-const VOICES: Record<StrumVoice, Voice> = { sonar, bell, wire, breath, console: consoleBlip, analog };
+// ---- Choir (the wildcard): one buzzy tone, like a voice's, through three narrow filters set where
+// a sung vowel's resonances are, so it sings. The outer (lower) lines sing "ooh", opening to "aah"
+// near the sun. It scoops up onto its note as a singer does, with a breath of air at the start; no
+// vibrato, so the tail stays still.
+const VOWELS = { oo: [[300, 1], [870, 0.35], [2240, 0.12]], aah: [[730, 1], [1090, 0.5], [2440, 0.2]] } as const;
+const choir: Voice = (a, f, hard, side, t, out) => {
+  const pan = placed(a, side), loud = out === "alert" ? 2.5 : 1, end = t + 3, low = STRUM_NOTES.at(-1)!, high = STRUM_NOTES[0];
+  const open = Math.min(Math.max((f - low) / (high - low), 0), 1); // 0 is "ooh", 1 is "aah"
+  const voice = a.createGain(), gain = a.createGain();
+  swell(gain.gain, t, loud * (0.16 + 0.09 * hard) * (2.4 - 1.4 * open), 0.14, end); // "ooh" is quieter than "aah": made up
+  voice.connect(gain).connect(pan);
+  const throat = a.createOscillator();
+  throat.type = "sawtooth";
+  throat.frequency.value = f;
+  throat.frequency.setValueAtTime(f * 0.97, t); // a scoop up onto the note
+  throat.frequency.exponentialRampToValueAtTime(f, t + 0.14);
+  const air = a.createBufferSource(), airLevel = a.createGain();
+  air.buffer = noise(a);
+  swell(airLevel.gain, t, 0.25 + 0.2 * hard, 0.05, t + 0.5);
+  air.connect(airLevel);
+  VOWELS.oo.forEach(([fOo, ampOo], k) => {
+    const [fAah, ampAah] = VOWELS.aah[k], band = a.createBiquadFilter(), level = a.createGain();
+    band.type = "bandpass";
+    band.frequency.value = fOo + (fAah - fOo) * open;
+    band.Q.value = 9;
+    level.gain.value = ampOo + (ampAah - ampOo) * open;
+    throat.connect(band);
+    airLevel.connect(band);
+    band.connect(level).connect(voice);
+  });
+  throat.start(t);
+  throat.stop(end + 0.05);
+  air.start(t, Math.random(), 0.55);
+};
+
+const VOICES: Record<StrumVoice, Voice> = { sonar, bell, wire, breath, console: consoleBlip, analog, choir };
 
 // A notification's ping: the innermost line's note in the strum's voice, louder.
 function ping(a: BaseAudioContext, f: number, hard: number, side: number, t: number, out: Out) {
