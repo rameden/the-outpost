@@ -74,6 +74,8 @@ scripts/tailscale.sh install Work     # and on the tailnet
 
 On the relay each outpost gets a subdomain of its own (`work.outpostmae.app`), its own tunnel key and port on the server (its port + 1000), its own Caddy site in `/etc/caddy/sites/` and its own launchd jobs (`app.outpostmae.work.camp`, `…tunnel`), which run `npm run outpost -- start Work` from this checkout. A subdomain needs no change to the page or Caddy's routing, where a path per outpost would. Google sign-in is set up once, for Mae: the other outposts' doors send you through Mae's address to sign in, with the same allowed addresses, and one sign-in then covers them all. Each outpost still has its own key behind the door. On Tailscale a machine has one name, so each outpost but Mae is served on its own port there: `https://<this-mac>.<tailnet>.ts.net:4748/` for an outpost on 4748.
 
+**The landing page.** `docs/index.html` (the Tour) is also the public page at `https://outpostmae.app`: a private S3 bucket behind CloudFront, with a free ACM certificate, and Route 53 pointing the domain and `www` (which redirects) at it. It's all one CloudFormation stack, `infra/site.yaml`, in us-east-1. `npm run site -- setup` makes it the first time (5–15 minutes), `npm run site -- deploy` puts up the current page after you change it, and `npm run site -- status` checks it from outside. It only touches the apex and `www` records, so the relay's `mae.outpostmae.app` and the outposts' subdomains stay as they are. For another domain, set `SITE_DOMAIN` (its hosted zone must be in the same account).
+
 ## Terminal commands
 
 In `npm run cli`, type a request for the Quartermaster, or:
