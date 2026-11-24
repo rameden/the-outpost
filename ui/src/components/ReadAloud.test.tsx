@@ -51,7 +51,7 @@ test("text is split at sentences, with a short first part so the voice starts so
 
 test("a debrief is read in the page's order, each item as a sentence", () => {
   const d = { runs: 3, asks: 1, quests: 1, cost: 1.5, well: ["Tests passed first time"], better: ["The plan was vague."], proposed: [{ name: "Plan first", text: "Write the plan before code" }] } as unknown as Debrief;
-  expect(debriefSpeech(d)).toBe("How the crew did. 3 runs and 1 quest, costing $1.50. Went well: Tests passed first time. Could have gone better: The plan was vague. Lessons proposed: Plan first: Write the plan before code.");
+  expect(debriefSpeech(d)).toBe("How the crew did. 3 expeditions and 1 quest, costing $1.50. Went well: Tests passed first time. Could have gone better: The plan was vague. Lessons proposed: Plan first: Write the plan before code.");
   expect(debriefSpeech({ ...d, well: [], better: [], proposed: [] })).toMatch(/Nothing stood out either way\.$/);
 });
 

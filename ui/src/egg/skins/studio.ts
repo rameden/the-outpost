@@ -200,5 +200,6 @@ export const studio: Skin = {
     boat: { paint: { D: "#16181f", H: "#9a86c8", K: "#6a5a98", I: "#2a2440", Y: "#ffd84a", T: "#e2463c" } },
   },
   // The crew: black cap, black tee, jeans.
+  builders: "stagehands",
   builder: { H: "#1b1b1f", D: "#3a3f4b", S: "#f0b98a", K: "#14181f", N: "#d9866a", B: "#2a2a30", T: "#3b4a6b", F: "#1b1b1f" },
 };

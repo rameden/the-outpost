@@ -22,6 +22,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { clipOutput, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import type { Steering } from "./context.js";
+import { w } from "./words.js";
 import type { RequestContent } from "./attachments.js";
 import { costOf } from "./costs.js";
 import { noteCredit, noteRateLimit, noteUsage, pausedUntil, pauseMessage, type UsageWindow } from "./limits.js";
@@ -233,7 +234,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     canUseTool: async (name, input) =>
       name.startsWith(MCP_PREFIX) || builtins.includes(name)
         ? { behavior: "allow", updatedInput: input }
-        : { behavior: "deny", message: "That tool isn't available in the camp. Use the camp's own tools (mcp__camp__…)." },
+        : { behavior: "deny", message: `That tool isn't available in the ${w("camp")}. Use the ${w("camp")}'s own tools (mcp__camp__…).` },
     settingSources: [],
     strictMcpConfig: true,
     persistSession: false,
@@ -265,7 +266,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     if (r.overBudget?.() && !abort.signal.aborted) { budgetStop = true; abort.abort(); }
   };
   const stopped = (): ClaudeCodeResult => budgetStop
-    ? { ...soFar(), status: "over_budget", text: text + "\n\n[Stopped: this expedition reached its budget.]" }
+    ? { ...soFar(), status: "over_budget", text: text + `\n\n[Stopped: this ${w("expedition")} reached its budget.]` }
     : { ...soFar(), status: "stopped", text: text + "\n\n[Stopped by the user.]" };
   try {
     for await (const m of query({ prompt: prompt(), options })) {
@@ -319,7 +320,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
   const base = { turns: resultMsg.num_turns, usage, costUsd: resultMsg.total_cost_usd ?? spentLive, spentLive };
   if (resultMsg.subtype === "success" && !resultMsg.is_error) return { ...base, status: "done", text: (resultMsg.result || text).trim() };
   if (resultMsg.subtype === "error_max_turns") return { ...base, status: "out_of_turns", text }; // agent.ts adds the note
-  if (resultMsg.subtype === "error_max_budget_usd") return { ...base, status: "over_budget", text: text + "\n\n[Stopped: this expedition reached its budget.]" };
+  if (resultMsg.subtype === "error_max_budget_usd") return { ...base, status: "over_budget", text: text + `\n\n[Stopped: this ${w("expedition")} reached its budget.]` };
   const why = ("errors" in resultMsg ? resultMsg.errors : []).join("; ") || ("result" in resultMsg && resultMsg.result) || resultMsg.subtype;
   throw failure(new Error(`Claude Code stopped with an error: ${why}`), { ...base, text });
 }

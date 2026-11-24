@@ -339,5 +339,5 @@ test("the nav is grouped as Camp, Look & sound, Safety, Access, Activity, Knowle
   const titles = [...nav.querySelectorAll(".set-group-title")].map((e) => e.textContent);
   expect(titles).toEqual(["Camp", "Look & sound", "Safety", "Access", "Activity", "Knowledge"]);
   expect(within(nav).getByRole("button", { name: /What Home does unasked|What Mae does unasked/ })).toBeTruthy();
-  expect(within(nav).getByRole("button", { name: /Usage & expeditions/ })).toBeTruthy();
+  expect(within(nav).getByRole("button", { name: /Usage & quest log/ })).toBeTruthy();
 });

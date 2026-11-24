@@ -241,8 +241,8 @@ test("roster: the Quartermaster is told each crew member's real model, effort, t
     await runExpedition("Just say hi");
     const roster = tools.find((t) => t.name === "dispatch")?.description ?? "";
     const artificer = roster.split("\n- ").find((l: string) => l.startsWith("artificer")) ?? "";
-    assert.match(artificer, /Setup: runs on Claude Opus 5\.5, low effort; 77 turns per quest; tools: [^;]*\bedit_file\b[^;]*\bbash\b/);
-    assert.match(roster, /scout[^\n]*\n  Setup: [^\n]*turns per quest; tools: [^;]*web_search/, "everyone gets a setup line");
+    assert.match(artificer, /Setup: runs on Claude Opus 5\.5, low effort; 77 turns per run; tools: [^;]*\bedit_file\b[^;]*\bbash\b/);
+    assert.match(roster, /scout[^\n]*\n  Setup: [^\n]*turns per run; tools: [^;]*web_search/, "everyone gets a setup line");
   } finally {
     setAgentSettings("artificer", { model: null, effort: null, maxTurns: null });
   }

@@ -107,7 +107,7 @@ test("Start from another pack fills in its names, words, place and colours, the 
   await vi.waitFor(() => expect(posts).toHaveLength(1));
   expect(posts[0].body.pack.crew).toEqual({ ...starship.crew, scribe: { name: "Herald", emoji: "📡" } });
   expect(posts[0].body.pack.extras).toBeUndefined();
-  expect(posts[0].body.pack).toMatchObject({ name: "My Ship", words: starship.words, place: starship.place, palette: "harbor" });
+  expect(posts[0].body.pack).toMatchObject({ name: "My Ship", words: Object.fromEntries(WORDS.map((k) => [k, (starship.words as Record<string, string>)[k]])), place: starship.place, palette: "harbor" });
 
   // Back to nothing: names of your own again, with the Guild's icons and words.
   fireEvent.change(from, { target: { value: "" } });
@@ -171,4 +171,36 @@ test("deleting a pack asks first, and says the camp goes back to the Guild when 
   cleanup();
   render(<PackDialog pack={null} packs={packs} onClose={() => {}} onSaved={() => {}} />);
   expect(screen.queryByRole("button", { name: "Delete this pack" })).toBeNull();
+});
+
+test("the phrases that go with the words are optional: blank ones show what would be made, and only those you type are sent", async () => {
+  render(<PackDialog pack={null} packs={packs} onClose={() => {}} onSaved={() => {}} />);
+  const d = screen.getByRole("dialog", { name: "New theme pack" });
+  expect(d.textContent).toContain("More phrases");
+  expect(field(d, "Phrase for close").value).toBe("");
+  expect(field(d, "Phrase for close").placeholder).toBe("close the camp");
+  type(d, "Word for camp", "ship"); type(d, "Word for crew", "hands"); type(d, "Word for quest", "errand");
+  expect([field(d, "Phrase for ready").placeholder, field(d, "Phrase for member").placeholder, field(d, "Phrase for log").placeholder]).toEqual(["The ship is set", "hands member", "errand log"]);
+  type(d, "Phrase for close", "drop anchor");
+  type(d, "Pack name", "Pirates");
+  for (const who of ["Quartermaster", "Scout", "Artificer", "Scribe", "Warden", "Test Pilot"]) type(d, `Name for the ${who}`, `${who} of the sea`);
+  fireEvent.click(within(d).getByRole("button", { name: "Add pack" }));
+  await vi.waitFor(() => expect(posts.length).toBe(1));
+  expect(posts[0].body.pack.words).toEqual({ crew: "hands", quest: "errand", quests: "errands", camp: "ship", expedition: "expedition", close: "drop anchor" });
+});
+
+test("starting from a pack copies the phrases it gave itself, and leaves those it just made from its words", () => {
+  render(<PackDialog pack={null} packs={packs} onClose={() => {}} onSaved={() => {}} />);
+  const d = screen.getByRole("dialog", { name: "New theme pack" });
+  fireEvent.change(field(d, "Start from") as unknown as HTMLSelectElement, { target: { value: "starship" } });
+  expect([field(d, "Phrase for member").value, field(d, "Phrase for hq").value, field(d, "Phrase for depart").value]).toEqual(["officer", "the bridge", "launches"]);
+});
+
+test("renaming the place drops the phrases copied for the old one, and the new words make them", () => {
+  render(<PackDialog pack={null} packs={packs} onClose={() => {}} onSaved={() => {}} />);
+  const d = screen.getByRole("dialog", { name: "New theme pack" });
+  fireEvent.change(field(d, "Start from") as unknown as HTMLSelectElement, { target: { value: "starship" } });
+  fireEvent.change(field(d, "Phrase for hq"), { target: { value: "the deck" } });
+  fireEvent.change(field(d, "Word for camp"), { target: { value: "base" } });
+  expect([field(d, "Phrase for back").value, field(d, "Phrase for back").placeholder, field(d, "Phrase for hq").value]).toEqual(["", "returns to the base", "the deck"]);
 });

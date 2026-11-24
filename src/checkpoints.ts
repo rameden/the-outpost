@@ -22,6 +22,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { currentExpeditionId, currentRunKey } from "./context.js";
 import { writeJsonAtomic } from "./atomic.js";
 import { gitSafeEnv } from "./sandbox.js";
+import { OUTPOST } from "./outpost.js";
 
 export const CHECKPOINTS_DIR = join("camp", "checkpoints");
 const MAX_SNAPSHOT_BYTES = 5_000_000;
@@ -64,7 +65,8 @@ function prune() {
 // ---------- Snapshots of a git working tree (for what shell commands change) ----------
 const SECRET_GLOBS = [".env*", "*.pem", "*.key", "id_rsa*", "id_ed25519*", "id_ecdsa*", ".netrc", ".npmrc", ".pypirc", ".git-credentials", "credentials", "credentials.json", "*.p12", "*.pfx"];
 const LEAVE_OUT = SECRET_GLOBS.map((g) => `:(exclude,glob)**/${g}`);
-const ID_ENV = { GIT_AUTHOR_NAME: "Mae", GIT_AUTHOR_EMAIL: "mae@localhost", GIT_COMMITTER_NAME: "Mae", GIT_COMMITTER_EMAIL: "mae@localhost" };
+// Who a checkpoint commit is by: the outpost, by the name it has now.
+const idEnv = () => ({ GIT_AUTHOR_NAME: OUTPOST.name, GIT_AUTHOR_EMAIL: "mae@localhost", GIT_COMMITTER_NAME: OUTPOST.name, GIT_COMMITTER_EMAIL: "mae@localhost" });
 // These run in the crew's working folders, whose git config a command of theirs may have
 // written: gitSafeEnv switches off what a config can make git run by itself (a file-system
 // monitor, hooks). The repository's own filters stay on, so files are recorded as git stores them.
@@ -96,7 +98,7 @@ async function treeNowAsync(root: string): Promise<string> {
   }
 }
 async function commitOfAsync(root: string, tree: string, ref: string): Promise<string> {
-  const commit = await gitAsync(root, ["commit-tree", tree, "-m", "Mae checkpoint (not a branch; safe to delete)"], ID_ENV);
+  const commit = await gitAsync(root, ["commit-tree", tree, "-m", `${OUTPOST.name} checkpoint (not a branch; safe to delete)`], idEnv());
   await gitAsync(root, ["update-ref", ref, commit]);
   return commit;
 }
@@ -199,7 +201,7 @@ function shellChanges(m: Manifest, sealedOnly = false): ShellChange[] {
       const kept = key ? sealedDiffs.get(key) : undefined;
       if (kept) lines = kept;
       else {
-        const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], ID_ENV);
+        const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], idEnv());
         lines = gitIn(snap.root, ["diff", "--name-status", "--no-renames", "-z", snap.before, after]).split("\0").filter(Boolean);
         if (key) {
           if (sealedDiffs.size >= 300) sealedDiffs.delete(sealedDiffs.keys().next().value!);
@@ -232,7 +234,7 @@ export function beforeWrite(abs: string, shown: string) {
   const me = currentRunKey();
   const w = lastWrite.get(abs);
   if (w && w.by !== me && Date.now() - w.at < 3_600_000 && (lastSeen.get(`${me}|${abs}`) ?? 0) < w.order) {
-    throw new Error(`${shown} was just changed by another quest. Read it again, then make your change on top of theirs.`);
+    throw new Error(`${shown} was just changed by other work going on at the same time. Read it again, then make your change on top of theirs.`);
   }
   const id = currentExpeditionId();
   if (!id || !SAFE_ID.test(id)) return;
@@ -313,7 +315,7 @@ export function checkpointDiff(id: string): { files: ChangedFile[]; diff: string
     const mine = shellChanges({ ...m, snapshots: [snap] });
     if (!mine.length) continue;
     try {
-      const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], ID_ENV);
+      const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], idEnv());
       const out = gitIn(snap.root, ["diff", "--no-color", "--no-renames", `--src-prefix=${snap.shown}/`, `--dst-prefix=${snap.shown}/`, snap.before, after, "--", ...mine.map((c) => c.rel)]);
       parts.push(`# Changed by shell commands in ${snap.shown}\n` + out.split("\n").filter((l) => !/^(diff --git|index |new file mode|deleted file mode)/.test(l)).join("\n"));
     } catch { parts.push(`# Changed by shell commands in ${snap.shown}: ${mine.map(shownOf).join(", ")} (couldn't show the diff)`); }
@@ -346,7 +348,7 @@ export function undoCheckpoint(id: string): { restored: string[]; skipped: strin
     let since = new Set<string>();
     try {
       if (snap.after) {
-        const now = gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], ID_ENV);
+        const now = gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], idEnv());
         since = new Set(gitIn(snap.root, ["diff", "--name-only", "--no-renames", "-z", snap.after, now]).split("\0").filter(Boolean));
       }
     } catch { since = new Set(mine.map((c) => c.rel)); }

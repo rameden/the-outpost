@@ -6,13 +6,13 @@ import { JiraConnection } from "../components/Jira.tsx";
 import { api, errorText } from "../api.ts";
 import { Empty, Icon } from "../components/bits.tsx";
 import { ReadAloud, VoiceOn } from "../components/ReadAloud.tsx";
-import { cClass, cx, stripFrontmatter, when } from "../format.ts";
+import { cClass, cx, leadName, nameNow, stripFrontmatter, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { CampState, Link } from "../types.ts";
 import { ask } from "../components/Confirm.tsx";
 import { complain } from "../components/StatusLine.tsx";
 
-import { w, a as an } from "../words.ts";
+import { w, a as an, cap } from "../words.ts";
 type Panel = { S: CampState; refresh: () => void };
 
 // ---------- Jobs ----------
@@ -22,11 +22,11 @@ export function Jobs({ S, refresh }: Panel) {
     <>
       <p className="panel-note">
         {S.jobsRunBy === "watch"
-          ? "The background watcher is running the jobs right now, so mission control is standing by."
-          : "Jobs run on schedule while mission control is open. To run them with nothing open, use npm run watch:install."}
+          ? `The background watcher is running the jobs right now, so ${w("hq")} is standing by.`
+          : `Jobs run on schedule while ${w("hq")} is open. To run them with nothing open, use npm run watch:install.`}
         {" "}Quiet runs (nothing new) don't ping you.{S.pausedUntil && <> <b>Paused until your plan's limit resets.</b></>}
       </p>
-      {!S.jobs.length ? <Empty title="No scheduled jobs">Ask the Quartermaster for something recurring, like “Every weekday at 08:00, summarize what's new in the wiki.”</Empty> : (
+      {!S.jobs.length ? <Empty title="No scheduled jobs">Ask the {leadName()} for something recurring, like “Every weekday at 08:00, summarize what's new in the wiki.”</Empty> : (
         <ul className="list">
           {S.jobs.map((j) => (
             <li className="card" key={j.name}>
@@ -56,7 +56,7 @@ function Triggers({ S, refresh }: Panel) {
   return (
     <div className="wiki-group">
       <h4>Triggers</h4>
-      <p className="panel-note">Start a conversation when a GitHub issue gets a label, a Jira ticket matches a filter, or one of your own pull requests gets new feedback. Each one is ordinary work: its plan waits for your OK. Mission control checks every five minutes while it's open; what's already there when you add a trigger isn't started.</p>
+      <p className="panel-note">Start a conversation when a GitHub issue gets a label, a Jira ticket matches a filter, or one of your own pull requests gets new feedback. Each one is ordinary work: its plan waits for your OK. {cap(w("hq"))} checks every five minutes while it's open; what's already there when you add a trigger isn't started.</p>
       {list.length > 0 && (
         <ul className="list">
           {list.map((t) => (
@@ -129,7 +129,7 @@ function TriggerForm({ S, done }: { S: CampState; done: () => void }) {
         </select></label>
         {kind === "github-issue"
           ? <label>Label <input id="trigger-label" value={label} onChange={(ev) => setLabel(ev.target.value)} /></label>
-          : <label className="switch"><input id="trigger-describe" type="checkbox" checked={describe} onChange={(ev) => setDescribe(ev.target.checked)} /> After new commits are pushed, have the Scribe draft an updated description for you to approve</label>}
+          : <label className="switch"><input id="trigger-describe" type="checkbox" checked={describe} onChange={(ev) => setDescribe(ev.target.checked)} /> After new commits are pushed, have the {nameNow("Scribe")} draft an updated description for you to approve</label>}
       </> : <label>JQL filter <input id="trigger-jql" value={jql} placeholder={`Empty: the ${w("camp")}'s own filter`} onChange={(ev) => setJql(ev.target.value)} /></label>}
       <label>{kind === "github-pr" ? "What to do with new feedback" : "What to do with each one"} <textarea id="trigger-task" value={task} onChange={(ev) => setTask(ev.target.value)} /></label>
       <label>Project <select id="trigger-project" value={project} onChange={(ev) => setProject(ev.target.value)}>
@@ -147,8 +147,8 @@ export function Skills({ S, refresh }: Panel) {
   const act = (owner: string, name: string, action: "approve" | "reject") => api("/api/skills", { owner, name, action }).then(refresh, (e) => complain(errorText(e)));
   return (
     <>
-      <p className="panel-note">Skills the Quartermaster proposed after {w("expeditions")}. Nothing goes live until you approve it.</p>
-      {!S.skills.length ? <Empty title="No proposals">After a good {w("expedition")}, the Quartermaster may propose a skill that captures what worked.</Empty> : (
+      <p className="panel-note">Skills the {leadName()} proposed after {w("expeditions")}. Nothing goes live until you approve it.</p>
+      {!S.skills.length ? <Empty title="No proposals">After a good {w("expedition")}, the {leadName()} may propose a skill that captures what worked.</Empty> : (
         <ul className="list">
           {S.skills.map((s) => (
             <li className="card" key={`${s.owner}/${s.name}`}>

@@ -30,7 +30,7 @@ import { treeQuery } from "./api.ts";
 import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
-import { cx, setCrewColors } from "./format.ts";
+import { cx, handleOf, leadName, setCrewColors } from "./format.ts";
 import { useSeason, wearPack } from "./themes.ts";
 import { setWords, w, a as an } from "./words.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
@@ -176,8 +176,8 @@ export function App({ store }: { store: FeedStore }) {
   }, [view, liveRun, conversation, project]);
   const heading = view.kind === "all" ? "All activity" : view.kind === "new" ? "New conversation" : conversation?.title ?? "Conversation";
   const waiting = view.kind === "conversation" && S && !conversation ? "This one is waiting its turn. It shows up here when it starts."
-    : view.kind === "new" && project && view.project && project.id !== "general" ? `It will be filed under ${project.name}. Ask the Quartermaster for something, or @ ${an("crew")} member directly.`
-    : view.kind === "new" ? `Outside a project this is a plain chat: what you ask goes straight to the model named beside the message box, with nobody from the ${w("crew")} involved. To put the ${w("crew")} on it, start your message with @ (for example @quartermaster), or work in a project.`
+    : view.kind === "new" && project && view.project && project.id !== "general" ? `It will be filed under ${project.name}. Ask the ${leadName()} for something, or @ ${an("crew")} member directly.`
+    : view.kind === "new" ? `Outside a project this is a plain chat: what you ask goes straight to the model named beside the message box, with nobody from the ${w("crew")} involved. To put the ${w("crew")} on it, start your message with @ (for example @${handleOf({ id: "quartermaster", name: leadName() })}), or work in a project.`
     : undefined;
   // What a blank page offers to start from: a plain question outside a project, crew work inside one.
   const plainPage = view.kind === "new" && !(project && view.project && project.id !== "general");
@@ -590,7 +590,7 @@ export function App({ store }: { store: FeedStore }) {
                           title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)}
                           refresh={stepLooks} onChanged={stepChanged} onShowRepos={showFiles} />
                       )}
-                      <Feed store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} detail={detail} />
+                      <Feed key={S?.pack /* its cards are memoised: a new pack draws them again in its words */} store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} detail={detail} />
                     </>
                   )}
                   </ZoneBoundary>
@@ -656,7 +656,7 @@ export function App({ store }: { store: FeedStore }) {
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}
       <Presence>{agentId && (
-        <OverlayBoundary key={agentId} name="This agent's page" onClose={closeAgent}>
+        <OverlayBoundary key={agentId} name={`This ${w("member")}'s page`} onClose={closeAgent}>
           <AgentDrawer agentId={agentId} tab={agentTab} setTab={setAgentTab} S={S} store={store} project={project?.id}
             pickerOpen={!!picker} onOpenPicker={openPicker} onClose={closeAgent} />
         </OverlayBoundary>

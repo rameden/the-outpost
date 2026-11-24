@@ -7,7 +7,8 @@
 
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, renameSync, readdirSync, statSync, rmSync } from "node:fs";
 import { posix, resolve, sep } from "node:path";
-import { CREW, inPack, type CrewId } from "./crew.js";
+import { CREW, type CrewId } from "./crew.js";
+import { say, w } from "./words.js";
 import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
 import { addAbout, logKept, type KeptHow } from "./memlog.js";
@@ -90,22 +91,22 @@ export function rememberTool(id: CrewId): Tool {
   return {
     def: {
       name: "remember",
-      description:
-        `Save something to YOUR memory (${me.name}) so future sessions start with it. Only keep what ` +
+      // Read as it's sent: their name and the pack's words are the ones in use then.
+      get description() { return `Save something to YOUR memory (${me.name}) so future sessions start with it. Only keep what ` +
         `helps you in your role (${me.handles}): user preferences for your kind of work, lessons, ` +
         `recurring facts. Things that are only true of one project go in that project's notes (project_remember). ` +
-        `Something true of the user whoever they work with (how they like answers, what they call things) goes to about "user": the whole crew starts with it. ` +
+        `Something true of the user whoever they work with (how they like answers, what they call things) goes to about "user": the whole ${w("crew")} starts with it. ` +
         `Things for another role belong to that teammate; shared findings belong ` +
         `in the wiki. Your name, role, and personality are fixed: never record changes to them. ` +
         `'append' adds one dated line (default). 'rewrite' replaces the whole memory: use it to ` +
         `tidy up, and keep everything still true (a line that starts with ${PIN} after its date is pinned: keep the mark). ` +
-        `When a new line corrects or updates an old one, give the old line's text in replaces, so the two don't sit side by side contradicting each other.`,
+        `When a new line corrects or updates an old one, give the old line's text in replaces, so the two don't sit side by side contradicting each other.`; },
       input_schema: {
         type: "object",
         properties: {
           entry: { type: "string", description: "One line for 'append', or the full memory for 'rewrite'." },
           mode: { type: "string", enum: ["append", "rewrite"] },
-          about: { type: "string", enum: ["me", "user"], description: "'me' (default): your own memory. 'user': the note about the user that every crew member is given (one line; append only)." },
+          about: { type: "string", enum: ["me", "user"], description: "'me' (default): your own memory. 'user': the note about the user that everyone is given (one line; append only)." },
           replaces: { type: "string", description: "With 'append': the text of a line already in your memory that this one corrects or updates. That line is taken out." },
           pin: { type: "boolean", description: "With 'append': keep this line in every prompt, however long your memory gets. Only for a standing rule that applies to all your work, whatever the task; most lines aren't." },
         },
@@ -118,7 +119,7 @@ export function rememberTool(id: CrewId): Tool {
       if (about === "user") {
         addAbout(String(entry).split("\n")[0], "remember", currentExpeditionId());
         emit({ type: "changed", what: "memory" });
-        return "Noted about the user: the whole crew will start with it.";
+        return `Noted about the user: the whole ${w("crew")} will start with it.`;
       }
       let said = "Memory rewritten.";
       if (mode === "rewrite") {
@@ -322,7 +323,7 @@ export function continuityBlock(id: CrewId, task = ""): string {
     .map((s, i) => {
       const recent = i >= sessions.length - 3;
       const when = new Date(s.time).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-      return `- ${when}, ${inPack(SOURCE_LABEL[s.source] ?? s.source)}: "${clip(s.task, recent ? 400 : 140)}"\n  You replied (${s.status}): ${clip(s.result, recent ? 1200 : 200)}`;
+      return `- ${when}, ${say(SOURCE_LABEL[s.source] ?? s.source)}: "${clip(s.task, recent ? 400 : 140)}"\n  You replied (${s.status}): ${clip(s.result, recent ? 1200 : 200)}`;
     })
     .join("\n");
   return (

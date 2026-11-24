@@ -48,12 +48,12 @@ function loadPty() {
   const require = createRequire(import.meta.url);
   let root: string;
   try { root = dirname(require.resolve("node-pty/package.json")); }
-  catch { throw new Error("The terminal needs the node-pty package. Run `npm install` in the camp folder, then try again."); }
+  catch { throw new Error("The terminal needs the node-pty package. Run `npm install` in the app's folder, then try again."); }
   for (const helper of [join(root, "prebuilds", `${process.platform}-${process.arch}`, "spawn-helper"), join(root, "build", "Release", "spawn-helper")]) {
     try { if (existsSync(helper)) chmodSync(helper, 0o755); } catch { /* not ours to change: spawn will say so */ }
   }
   try { ptyModule = require("node-pty"); }
-  catch (e: any) { throw new Error(`The terminal couldn't start (node-pty didn't load: ${e.message}). Run \`npm rebuild node-pty\` in the camp folder.`); }
+  catch (e: any) { throw new Error(`The terminal couldn't start (node-pty didn't load: ${e.message}). Run \`npm rebuild node-pty\` in the app's folder.`); }
   return ptyModule!;
 }
 

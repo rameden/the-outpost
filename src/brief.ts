@@ -38,6 +38,8 @@ import { notify, toInbox } from "./scheduler.js";
 import { drive, type Drive } from "./settings.js";
 import { allTurns } from "./threads.js";
 import { dayOf } from "./helpers.js";
+import { w } from "./words.js";
+import { OUTPOST } from "./outpost.js";
 
 export const BRIEFS_DIR = posix.join("camp", "briefs");
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -162,11 +164,11 @@ export function briefText(b: Brief): string {
   const since = [
     d.finished.length ? `${n(d.finished.length, "conversation")} had work finish` : "",
     d.merged.length ? `${n(d.merged.length, "pull request")} merged` : "",
-    d.requests ? `${n(d.requests, "request")}${d.byMae ? ` (${d.byMae} started by Mae)` : ""}` : "",
+    d.requests ? `${n(d.requests, "request")}${d.byMae ? ` (${d.byMae} started by ${OUTPOST.name})` : ""}` : "",
   ].filter(Boolean);
   if (since.length) parts.push(`**Since last time**\n${since.join(", ")}.`);
   const say = b.waiting.memory + b.waiting.skills;
-  if (say) parts.push(`${n(say, "suggestion")} from the crew ${say === 1 ? "is" : "are"} waiting for your say.`);
+  if (say) parts.push(`${n(say, "suggestion")} from the ${w("crew")} ${say === 1 ? "is" : "are"} waiting for your say.`);
   if (b.notes.length) parts.push(b.notes.map((x) => `_${x}_`).join("\n"));
   return parts.join("\n\n") || "Nothing is waiting on you, and nothing is in motion."; // (your notes aren't in it: this text leaves the page)
 }
@@ -194,7 +196,7 @@ export function writeBrief(o: { now?: Date; running?: (expedition: string) => bo
     emit({ type: "changed", what: "inbox" });
     if (o.announce) {
       toInbox(`${(o.now ?? new Date()).toLocaleString()} · morning-brief`, briefText(b));
-      notify("Mae: morning brief", briefLine(b));
+      notify(`${OUTPOST.name}: morning brief`, briefLine(b));
       emit({ type: "job", name: "morning-brief", outcome: "reported", text: `${briefLine(b)}\n\n${briefText(b)}` });
     }
     return b;

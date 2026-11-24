@@ -66,7 +66,9 @@ export function onEvent(fn: (e: CampEvent) => void): () => void {
 }
 
 // The terminal view: the same output the camp has always printed.
-export function attachConsole() {
+// words: the active pack's name for whoever leads, and how it says someone is back. They're handed
+// in by whoever attaches (events.ts can't read the pack itself: crew.ts → settings.ts → here).
+export function attachConsole(words: () => { lead: string; back: string } = () => ({ lead: "Quartermaster", back: "returns to camp" })) {
   onEvent((e) => {
     const pad = "depth" in e ? "    ".repeat(e.depth) : "";
     switch (e.type) {
@@ -81,9 +83,9 @@ export function attachConsole() {
       case "route":
         return console.log(`${pad}  🧭 ${e.switched ? "Now on" : "On"} ${e.model}${e.effort ? ` (${e.effort})` : ""}: ${e.reason}`);
       case "dispatch":
-        return console.log(`\n📜 Quartermaster dispatches ${e.emoji} ${e.who}`);
+        return console.log(`\n📜 ${words().lead} dispatches ${e.emoji} ${e.who}`);
       case "return":
-        return console.log(`\n📬 ${e.who} returns to camp.`);
+        return console.log(`\n📬 ${e.who} ${words().back}.`);
       case "job":
         if (e.outcome === "running") return console.log(`\n⏰ ${new Date(e.time).toLocaleString()}: running "${e.name}"`);
         if (e.outcome === "quiet") return console.log(`🤫 "${e.name}": nothing new.`);

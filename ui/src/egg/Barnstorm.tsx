@@ -30,6 +30,7 @@ import {
 } from "./powerups.ts";
 import { Wreckage, type Hit, type Wreck } from "./targets.ts";
 import { cx } from "../format.ts";
+import { cap, w } from "../words.ts";
 import { EggBar, PausedPill, usePause, type GameProps, type Mode } from "./Bar.tsx";
 import { Sortie } from "./Sortie.tsx";
 import { lookOf, skinFor, type Look } from "./skins.ts";
@@ -637,9 +638,9 @@ function WreckThePage({ paused, onPause, onResume, onClose, onMode }: GameProps)
           { label: "Score", value: scoreText(score) },
           { label: "Best", value: scoreText(best) },
           { label: "Wrecked", value: wrecked, title: "How much of the page is down right now" },
-          { label: "Rebuilt", value: rebuilt, title: "How much the dwarf builders have put back. They mend what you wreck: shoot them too, and fly through crates for power-ups." },
+          { label: "Rebuilt", value: rebuilt, title: `How much the ${skinFor(packNow())?.builders ?? "dwarf builders"} have put back. They mend what you wreck: shoot them too, and fly through crates for power-ups.` },
         ]}
-        status={cleared ? { text: "Camp flattened. Nothing left to shoot.", loud: true } : powers ? { text: powers } : null}
+        status={cleared ? { text: `${cap(w("camp"))} flattened. Nothing left to shoot.`, loud: true } : powers ? { text: powers } : null}
         keys={[["↑", "throttle"], ["←→", "turn"], ["↓", "brake"], ["Space", "fire"], ["P", "pause"], ["Esc", "land"]]}
         resetTitle="Put the page back together and start again" onReset={reset} onPause={onPause} onClose={onClose} />}
     </div>

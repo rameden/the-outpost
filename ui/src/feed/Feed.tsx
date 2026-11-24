@@ -7,7 +7,7 @@ import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
-import { autoName, cClass, clock, crewNow, cx, leadName, plural, shortModel, spaced } from "../format.ts";
+import { autoName, cClass, clock, crewNow, cx, handleFor, leadName, nameNow, plural, shortModel, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
 import { ReadAloud } from "../components/ReadAloud.tsx";
 import { MaeSystem } from "../components/MaeSystem.tsx";
@@ -26,16 +26,16 @@ import { complain } from "../components/StatusLine.tsx";
 
 import { w, a as an } from "../words.ts";
 const examples = () => [
-  "Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.",
+  `Have the ${nameNow("Scout")} look into how other agent harnesses handle memory, then the ${nameNow("Scribe")} write it up as a short doc.`,
   `Every weekday at 08:00, summarize anything new in the ${w("camp")} wiki's notes.`,
-  "@scout What's new in agent memory research this month?",
+  `@${handleFor("scout")} What's new in agent memory research this month?`,
 ];
 
 // Outside a project a blank page is a plain chat with a model; the crew comes in with an @.
-const PLAIN_EXAMPLES = [
+const plainExamples = () => [
   "Explain the difference between a rebase and a merge, and when I'd want each.",
-  "@scout What's new in agent memory research this month?",
-  "@quartermaster Scout how other agent harnesses handle memory, then have the Scribe write it up as a short doc.",
+  `@${handleFor("scout")} What's new in agent memory research this month?`,
+  `@${handleFor("quartermaster")} Have the ${nameNow("Scout")} look into how other agent harnesses handle memory, then the ${nameNow("Scribe")} write it up as a short doc.`,
 ];
 
 export type OnReply = (expId: string, task: string) => void;
@@ -142,7 +142,7 @@ function PlanList({ plan }: { plan: PlanNode }) {
             <li key={s.n} className={cx("plan-step", state)}>
               {target
                 ? <button type="button" title={`Go to this step's ${w("quest")}`} onClick={() => goTo(target.node)}>{row}</button>
-                : <div title={state === "todo" ? "Nobody has been sent on this yet: it may be the Quartermaster's own to do" : undefined}>{row}</div>}
+                : <div title={state === "todo" ? `Nobody has been sent on this yet: it may be the ${leadName()}'s own to do` : undefined}>{row}</div>}
             </li>
           );
         })}
@@ -156,7 +156,7 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   return (
     <section className={cx("quest", cClass(quest.who))} id={`quest-${quest.id}`}>
       <div className="quest-head">
-        <span>{quest.emoji} {quest.who} sets out</span>
+        <span>{quest.emoji} {quest.who} {w("depart")}</span>
         {quest.step && <span className="quest-step" title={`Step ${quest.step} of the plan`}>Step {quest.step}</span>}
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
         {quest.status === null ? <span className="pill live">On {w("quest")}</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
@@ -291,7 +291,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
             <span className="foot-actions">
               {end.changed > 0 && <button type="button" className="btn small" onClick={() => setShowChanges((v) => !v)}>{showChanges ? "Hide changes" : "View changes"}</button>}
               {!ok && exp.source !== "job" && (
-                <button type="button" className="btn small primary" title="Start again from what this run had done, without redoing finished work" disabled={resuming} onClick={resume}>Resume</button>
+                <button type="button" className="btn small primary" title={`Start again from what this ${w("expedition")} had done, without redoing finished work`} disabled={resuming} onClick={resume}>Resume</button>
               )}
               {ok && exp.source !== "job" && (end.changed > 0 || end.workspaces.length > 0) && <AsideButton expId={exp.expId} kind="review" answeredBy={answeredBy} />}
               {ok && exp.source !== "job" && <AsideButton expId={exp.expId} kind="opinion" answeredBy={answeredBy} />}
@@ -386,7 +386,7 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
           <h2>{plain ? "Ask anything" : view.kind === "new" ? "A new conversation" : `The ${w("camp")} is quiet`}</h2>
           <div>{waiting ?? `Send the ${leadName()} on ${an("expedition")}. You'll approve the plan before anyone leaves ${w("camp")}, then watch the ${w("crew")} work here.`}</div>
           <div className="examples">
-            {(plain ? PLAIN_EXAMPLES : examples()).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
+            {(plain ? plainExamples() : examples()).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>
         </div>
       ) : <Detail.Provider value={detail}><StopInBox.Provider value={stopInBox}><Nodes nodes={items} onReply={onReply} /></StopInBox.Provider></Detail.Provider>}

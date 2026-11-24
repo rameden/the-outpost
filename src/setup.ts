@@ -14,6 +14,7 @@ import type { Workspace } from "./context.js";
 import { emit } from "./events.js";
 import { findLink } from "./links.js";
 import { runShell } from "./tools.js";
+import { w as word } from "./words.js";
 
 const SETUP_TIMEOUT_MS = 15 * 60_000;
 const TAIL = 2000;
@@ -39,7 +40,7 @@ export async function setUpWorkspaces(workspaces: Record<string, Workspace> | un
       lines.push(failed ? `✗ ${command}\n${out.length > TAIL ? "…" + out.slice(-TAIL) : out}` : `✓ ${command}`);
       if (failed) break;
     }
-    if (lines.length) notes.push(`Setup of the new worktree for links/${w.link} (run by the camp before you started):\n${lines.join("\n")}`);
+    if (lines.length) notes.push(`Setup of the new worktree for links/${w.link} (run by the ${word("camp")} before you started):\n${lines.join("\n")}`);
   }
   return notes.join("\n\n");
 }

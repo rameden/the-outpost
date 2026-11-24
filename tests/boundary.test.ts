@@ -114,9 +114,9 @@ test("a symlink in the camp can't stand in for a file that's off limits", async 
   assert.match(why("peek.md", "read", "scribe"), /private memory/, "another agent's memory");
   assert.match(why("c2/agents/scout/sessions/x.jsonl", "read", "scribe"), /private session history/);
   assert.equal(why("peek.md", "read", "scout"), "", "your own memory is yours to read, by any name");
-  assert.match(why("plain-link.txt", "read"), /leads outside the camp/);
-  assert.match(why("outdir/plain.txt", "read"), /leads outside the camp/, "a symlinked folder");
-  assert.match(why("outdir/id_ed25519", "read"), /off limits|outside the camp/);
+  assert.match(why("plain-link.txt", "read"), /leads outside the outpost's folder/);
+  assert.match(why("outdir/plain.txt", "read"), /leads outside the outpost's folder/, "a symlinked folder");
+  assert.match(why("outdir/id_ed25519", "read"), /off limits|outside the outpost's folder/);
 });
 
 test("symlinks that stay inside still read; nothing is written through one", { skip: NEEDS_POSIX }, async () => {
@@ -125,9 +125,9 @@ test("symlinks that stay inside still read; nothing is written through one", { s
   assert.equal(why("into-site.txt", "read"), "", "into a linked folder of this conversation");
   assert.match(why("into-site-env", "read"), /secret/, "but that folder's rules still hold");
   assert.match(why("alias.txt", "write"), /symlink/);
-  assert.match(why("outdir/new.txt", "write"), /outside the camp/);
+  assert.match(why("outdir/new.txt", "write"), /outside the outpost's folder/);
   // A symlink that points at nothing: writing "through" it would create the file it names.
-  await assert.rejects(() => writeFileFor("artificer").run!({ path: "dangling.txt", content: "x" }) as Promise<unknown>, /outside the camp/);
+  await assert.rejects(() => writeFileFor("artificer").run!({ path: "dangling.txt", content: "x" }) as Promise<unknown>, /outside the outpost's folder/);
   assert.ok(!existsSync(join(outside, "not-yet.txt")), "nothing was created outside");
   assert.equal(why("fresh/new.txt", "write", "artificer"), "", "an ordinary new file is still fine");
 });

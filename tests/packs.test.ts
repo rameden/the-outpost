@@ -15,7 +15,7 @@ const crew = await import("../src/crew.ts");
 const { ROSTER } = await import("../src/roster.ts");
 const { quartermasterSpec } = await import("../src/quartermaster.ts");
 const settings = await import("../src/settings.ts");
-const { PACKS, packById } = await import("../src/packs.ts");
+const { PACKS, packById, PHRASE_KEYS } = await import("../src/packs.ts");
 const { rl } = await import("../src/tools.ts");
 
 const started: ChildProcess[] = [];
@@ -43,7 +43,7 @@ If someone asks who you are, answer in one line: your name, your role, and a tou
 - 🪶 Scribe: Writing: drafts and edits docs, posts, emails, and READMEs, saved to files.
 - 🔨 Artificer: Development: reads, writes, runs, and tests code; uses the shell with your approval.
 - 🛡️ Warden: Review: reads a pull request or a change as a whole and says what would matter if it shipped.
-- 🛸 Test Pilot: Takes the hardest missions: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet.
+- 🛸 Test Pilot: Takes the hardest quests: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet.
 
 ## Your boundaries
 You handle: finding information, web research, reading and summarizing sources, fact-checking, comparing options.
@@ -77,7 +77,7 @@ test("Starship renames the six everywhere, prompts included, and leaves ids and 
 
   const me = crew.identityBlock("scout");
   assert.match(me, /^You are the Navigator 🔭 of the starship Mae\.$/m);
-  assert.match(me, /^- 🚀 Commander: Runs the camp/m);
+  assert.match(me, /^- 🚀 Commander: Runs the ship: plans voyages, briefs the crew/m);
   assert.match(me, /^- 🔭 Navigator \(you\): Research:/m);
   assert.match(me, /^- 📡 Comms Officer: Writing:/m);
   assert.match(me, /like "That's the Engineer's job\." and stop/);
@@ -172,7 +172,9 @@ test("packs say what the page needs: names for all six, the nouns, and a palette
     for (const w of ["crew", "quest", "quests", "camp", "expedition"] as const) assert.ok(p.words[w], `${p.id} has a word for ${w}`);
     for (const c of Object.values(p.crew)) assert.ok(c.name && c.emoji && c.name.length <= 24, `${p.id}: ${c.name}`);
   }
-  assert.deepEqual(packById("starship").words, { crew: "crew", quest: "mission", quests: "missions", camp: "ship", expedition: "voyage" });
+  for (const p of PACKS) for (const k of PHRASE_KEYS) assert.ok(p.words[k] && p.words[k].length <= 40, `${p.id} has a phrase for ${k}`);
+  const { crew: c, quest, quests, camp, expedition } = packById("starship").words;
+  assert.deepEqual({ crew: c, quest, quests, camp, expedition }, { crew: "crew", quest: "mission", quests: "missions", camp: "ship", expedition: "voyage" });
   assert.equal(packById("nope").id, "guild");
 });
 
@@ -205,7 +207,7 @@ test("no two crew members share a name or a handle in any pack, and every pack's
 test("the Test Pilot is one of the crew: every pack names them, and an old added Test Pilot gives way", () => {
   crew.setPack("guild");
   assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.emoji, crew.CREW.wizard.custom], ["Test Pilot", "🛸", undefined]);
-  assert.match(ROSTER.wizard.persona, /hardest missions/);
+  assert.match(ROSTER.wizard.persona, /hardest (quests|\{quests\})/);
   assert.equal(ROSTER.wizard.model, "claude-opus-5-5");
   crew.setPack("starship");
   assert.match(crew.identityBlock("wizard"), /^You are the Test Pilot 🛸 of the starship Mae\.$/m);
@@ -220,7 +222,7 @@ test("the Test Pilot is one of the crew: every pack names them, and an old added
   writeFileSync(crew.CREW_PATH, JSON.stringify({ crew: [{ id: "wizard", name: "Wizard", emoji: "🧙", role: "Hackathon work.", persona: "You are the Wizard." }, { name: "Cook", role: "Feeds everyone." }] }));
   crew.loadCrew();
   assert.deepEqual([crew.CREW.wizard.name, crew.CREW.wizard.custom, crew.CREW.cook.name], ["Test Pilot", undefined, "Cook"]);
-  assert.match(ROSTER.wizard.persona, /hardest missions/);
+  assert.match(ROSTER.wizard.persona, /hardest (quests|\{quests\})/);
   assert.deepEqual(JSON.parse(readFileSync(crew.CREW_PATH, "utf8")).crew.map((c: { id: string }) => c.id), ["cook"], "and the file is tidied");
   crew.removeMember("cook");
   assert.equal(prompts(), asWritten);

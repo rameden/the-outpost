@@ -662,10 +662,10 @@ footer .outpost-sub { font-size: 10px; }
 </div>
 <div class="wrap hero-wrap">
   <header class="top">
-    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
+    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
     <div class="top-end">
       <nav aria-label="Sections">
-        <a href="#crew">The crew</a>
+        <a href="#crew">The <span data-word="crew">crew</span></a>
         <a href="#route">How it runs</a>
         <a href="#films">On film</a>
         <a href="#orbit">Orbit</a>
@@ -690,25 +690,25 @@ footer .outpost-sub { font-size: 10px; }
   <div class="hero">
     <div class="hero-copy" data-speed="0.12" data-fade>
       <div class="eyebrow">Outpost</div>
-      <h1>Your outpost. Your crew. <em>Your call.</em></h1>
-      <p class="lede">Outpost is where a small crew of agents takes on your work the way you'd want it done, in outposts of your own: one for work, one for home, each with the name you give it. The <span data-crew="0">Quartermaster</span> turns your request into a plan, waits for your OK, then sends <span data-crew-a="1">a Scout</span>, <span data-crew-a="2">a Scribe</span> and <span data-crew-a="3">an Artificer</span> out on quests, several at once, with <span data-crew-a="4">a Warden</span> to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
+      <h1>Your outpost. Your <span data-word="crew">crew</span>. <em>Your call.</em></h1>
+      <p class="lede">Outpost is where a small <span data-word="crew">crew</span> of agents takes on your work the way you'd want it done, in outposts of your own: one for work, one for home, each with the name you give it. The <span data-crew="0">Quartermaster</span> turns your request into a plan, waits for your OK, then sends <span data-crew-a="1">a Scout</span>, <span data-crew-a="2">a Scribe</span> and <span data-crew-a="3">an Artificer</span> out on <span data-word="quests">quests</span>, several at once, with <span data-crew-a="4">a Warden</span> to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
       <div class="cta">
         <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
-        <a class="ghost" href="#crew">Meet the crew</a>
+        <a class="ghost" href="#crew">Meet the <span data-word="crew">crew</span></a>
       </div>
       <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack.</p>
     </div>
 
-    <div class="feed" id="feed" aria-label="An example expedition">
-      <div class="feed-top"><span class="feed-name"><span class="brand-in" role="img" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></span><small>mission control · example expedition</small></span><button class="replay" id="replay" type="button">Replay</button></div>
+    <div class="feed" id="feed" aria-label="An example expedition" data-t-aria-label="An example {expedition}">
+      <div class="feed-top"><span class="feed-name"><span class="brand-in" role="img" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></span><small><span data-word="hq">mission control</span> · example <span data-word="expedition">expedition</span></small></span><button class="replay" id="replay" type="button">Replay</button></div>
       <div class="feed-body">
         <div class="msg"><div class="av">🙂</div><div><div class="who you">You</div><div class="bubble you">Research how other agent harnesses handle memory, then write it up as a short doc.</div></div></div>
-        <div class="msg"><div class="av" data-crew-i="0">🧭</div><div><div class="who qm" data-crew="0">Quartermaster</div><div class="bubble">Here's the plan. Two quests, the second waits on the first.</div>
+        <div class="msg"><div class="av" data-crew-i="0">🧭</div><div><div class="who qm" data-crew="0">Quartermaster</div><div class="bubble">Here's the plan. Two <span data-word="quests">quests</span>, the second waits on the first.</div>
           <div class="plan"><ol>
             <li><span class="n">1</span><span><span data-crew="1">Scout</span>: survey five harnesses, cite sources</span></li>
             <li><span class="n">2</span><span><span data-crew="2">Scribe</span>: turn findings into a one-page doc</span></li>
           </ol><div class="approve"><span class="yes">Approve</span><span>Change</span></div></div></div></div>
-        <div class="msg"><div class="av">⛺</div><div><div class="who">Quests out</div>
+        <div class="msg"><div class="av">⛺</div><div><div class="who"><span data-word="Quests">Quests</span> out</div>
           <div class="quests">
             <div class="quest scout"><div class="q-name"><span data-crew-e="1">🏹 Scout</span><i>done</i></div><div class="q-task">web search · 9 sources</div><div class="bar"><b></b></div></div>
             <div class="quest scribe"><div class="q-name"><span data-crew-e="2">🪶 Scribe</span><i>done</i></div><div class="q-task">drafting memory-survey.md</div><div class="bar"><b></b></div></div>
@@ -718,9 +718,9 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="stats">
       <div class="stat"><b>6</b><span>specialists, each in its own trade</span></div>
-      <div class="stat"><b>4</b><span>quests out at once, each from a clean brief</span></div>
+      <div class="stat"><b>4</b><span><span data-word="quests">quests</span> out at once, each from a clean brief</span></div>
       <div class="stat"><b>1</b><span>plan to approve before anyone sets out</span></div>
-      <div class="stat"><b>0</b><span>pushes the crew makes on its own</span></div>
+      <div class="stat"><b>0</b><span>pushes the <span data-word="crew">crew</span> makes on its own</span></div>
     </div>
   </div>
 </div>
@@ -734,7 +734,7 @@ footer .outpost-sub { font-size: 10px; }
       <div class="sec-head">
         <div class="eyebrow">The name</div>
         <h2>Outpost is the app. Each outpost takes the name you give it.</h2>
-        <p class="lede">The app is Outpost, and each camp it runs is an outpost: a place you go, where the crew stationed there does the work. It's the crew you'd be if there were more of you. They plan before they act, show you the plan, and nothing leaves the outpost without your click. The orb is the outpost's own light. It meets you at the door when you sign in to mission control, and it has two moods: at rest and at work.</p>
+        <p class="lede">The app is Outpost, and each <span data-word="camp">camp</span> it runs is an outpost: a place you go, where the <span data-word="crew">crew</span> stationed there does the work. It's the <span data-word="crew">crew</span> you'd be if there were more of you. They plan before they act, show you the plan, and nothing leaves the outpost without your click. The orb is the outpost's own light. It meets you at the door when you sign in to <span data-word="hq">mission control</span>, and it has two moods: at rest and at work.</p>
         <div class="orb-switch" role="group" aria-label="The orb">
           <span>See the orb</span>
           <button type="button" data-orb="idle" aria-pressed="true">At rest</button>
@@ -743,9 +743,9 @@ footer .outpost-sub { font-size: 10px; }
       </div>
     </div>
     <div class="words">
-      <div class="word"><h3>Your outpost</h3><p>It runs on your machine, on your Claude subscription or your own API key. An outpost is a folder of files you can open and read, and one note about you is shared by the whole crew.</p></div>
-      <div class="word"><h3>Your crew</h3><p>Not one assistant but six other pairs of hands: a planner, a researcher, a writer, a coder, a reviewer and <span data-crew-a="5">a Test Pilot</span> for the most challenging missions, with up to four out at once.</p></div>
-      <div class="word"><h3>Your call</h3><p>You approve the plan before anyone sets out, and again before anything is sent, merged or deleted. Each crew member grows its memory, but it can't rewrite who it is or talk its way past the outpost rules.</p></div>
+      <div class="word"><h3>Your outpost</h3><p>It runs on your machine, on your Claude subscription or your own API key. An outpost is a folder of files you can open and read, and one note about you is shared by the whole <span data-word="crew">crew</span>.</p></div>
+      <div class="word"><h3>Your <span data-word="crew">crew</span></h3><p>Not one assistant but six other pairs of hands: a planner, a researcher, a writer, a coder, a reviewer and <span data-crew-a="5">a Test Pilot</span> for the most challenging <span data-word="quests">missions</span>, with up to four out at once.</p></div>
+      <div class="word"><h3>Your call</h3><p>You approve the plan before anyone sets out, and again before anything is sent, merged or deleted. Each <span data-word="crew">crew</span> member grows its memory, but it can't rewrite who it is or talk its way past the outpost rules.</p></div>
     </div>
   </div>
 </section>
@@ -753,11 +753,11 @@ footer .outpost-sub { font-size: 10px; }
 <section id="crew">
   <div class="wrap">
     <div class="sec-head">
-      <div class="eyebrow">The crew</div>
+      <div class="eyebrow">The <span data-word="crew">crew</span></div>
       <h2>Six specialists who know their trade, and stay in it.</h2>
-      <p class="lede">Each crew member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
+      <p class="lede">Each <span data-word="crew">crew</span> member has a fixed identity. They grow their memory, but they can't rewrite who they are. Ask one for work outside its role and it declines in one line, naming the right teammate.</p>
     </div>
-    <div class="tabs" role="tablist" aria-label="The crew">
+    <div class="tabs" role="tablist" aria-label="The crew" data-t-aria-label="The {crew}">
       <button type="button" role="tab" id="crew-tab-five" aria-controls="crew-five" aria-selected="true">The six</button>
       <button type="button" role="tab" id="crew-tab-yours" aria-controls="crew-yours" aria-selected="false">Your own</button>
       <button type="button" role="tab" id="crew-tab-packs" aria-controls="crew-packs" aria-selected="false">Theme packs</button>
@@ -766,7 +766,7 @@ footer .outpost-sub { font-size: 10px; }
       <article class="member qm">
         <div class="badge" aria-hidden="true">🧭</div>
         <h3>Quartermaster</h3>
-        <p class="role">Plans, briefs the crew, reviews reports, schedules recurring jobs, and answers general questions after a quick web lookup.</p>
+        <p class="role">Plans, briefs the <span data-word="crew">crew</span>, reviews reports, schedules recurring jobs, and answers general questions after a quick web lookup.</p>
         <dl><dt>Doesn't</dt><dd>Specialist work, in-depth research included. It dispatches that instead.</dd></dl>
         <button class="wrong" type="button" data-say="I don't write the code myself. That's the Artificer's job, and I'll brief them.">Ask it to write the code</button>
         <p class="decline" aria-live="polite"></p>
@@ -806,7 +806,7 @@ footer .outpost-sub { font-size: 10px; }
       <article class="member wiz">
         <div class="badge" aria-hidden="true">🛸</div>
         <h3>Test Pilot</h3>
-        <p class="role">The hardest missions: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet. Runs on the strongest model.</p>
+        <p class="role">The hardest <span data-word="quests">missions</span>: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet. Runs on the strongest model.</p>
         <dl><dt>Doesn't</dt><dd>Routine changes, or hide a shortcut: every one it took is in its report.</dd></dl>
         <button class="wrong" type="button" data-say="Reviewing it is the Warden's job. I'll list every corner I cut so they know where to look.">Ask it to review its own fix</button>
         <p class="decline" aria-live="polite"></p>
@@ -818,7 +818,7 @@ footer .outpost-sub { font-size: 10px; }
         <span class="tag">One of your own</span>
         <h3>Anyone you need</h3>
         <p class="role">A tester, a librarian, a release manager: whatever your work keeps asking for.</p>
-        <p class="how">Six come built in. Add more with the <b>+</b> at the end of the crew bar: a name, an icon and a colour, a line on what they're for and how they should work, and what they're allowed to do. The <span data-crew="0">Quartermaster</span> plans with them like anyone, they keep a memory of their own, and they turn down what isn't theirs. A theme pack leaves the names you give them alone.</p>
+        <p class="how">Six come built in. Add more with the <b>+</b> at the end of the <span data-word="crew">crew</span> bar: a name, an icon and a colour, a line on what they're for and how they should work, and what they're allowed to do. The <span data-crew="0">Quartermaster</span> plans with them like anyone, they keep a memory of their own, and they turn down what isn't theirs. A theme pack leaves the names you give them alone.</p>
       </div>
       <div class="yours-side">
         <dl><dt>Can be given</dt><dd><ul class="abilities"><li>Web search</li><li>Writing files</li><li>Shell, asking first</li><li>Wiki notes</li></ul></dd></dl>
@@ -844,7 +844,7 @@ footer .outpost-sub { font-size: 10px; }
           <li><button class="pick" type="button" data-pick-palette="ochre" aria-pressed="false"><i class="swatch" style="--sw-bg:#f3efe6;--sw-ac:#27408a" aria-hidden="true"></i><b>Ochre</b><span>Cream, navy and ochre</span></button></li>
         </ul>
         <div class="packs-body">
-          <p>Five sets of colours, each with a light side and a dark one, so switching light and dark never changes the set. Pick one here and this page wears it now; mission control opens in it too, from the same browser, and a change made in either shows in the other at once. Light or dark sits beside it in the top bar, or follows the system.</p>
+          <p>Five sets of colours, each with a light side and a dark one, so switching light and dark never changes the set. Pick one here and this page wears it now; <span data-word="hq">mission control</span> opens in it too, from the same browser, and a change made in either shows in the other at once. Light or dark sits beside it in the top bar, or follows the system.</p>
         </div>
       </div>
       <div class="look-panel" id="look-packs" role="tabpanel" aria-labelledby="look-tab-packs" hidden>
@@ -858,11 +858,11 @@ footer .outpost-sub { font-size: 10px; }
           <li class="new"><i aria-hidden="true">✚</i><b>New pack…</b><span>your own names</span></li>
         </ul>
         <div class="packs-body">
-          <p class="try-pack">Pick one and this page dresses for it: the crew above take its names, the orb its colours, and the page the colours it suggests. It's only this page, for now; the camp's own pack is set in mission control.</p>
+          <p class="try-pack">Pick one and this page dresses for it: the <span data-word="crew">crew</span> above take its names, the orb its colours, and the page the colours it suggests. It's only this page, for now; the <span data-word="camp">camp</span>'s own pack is set in <span data-word="hq">mission control</span>.</p>
           <p>A theme pack (Settings → Appearance) is kept by the camp, because it renames all six, for you and for them: Starship makes them a Commander, Navigator, Comms Officer, Engineer, Security Chief and Test Pilot, on a ship flying missions. Newsroom is an Editor and staff filing stories, Studio a Director and a film crew shooting scenes, Lab a Lab Lead and a team running experiments, Pirate a Commodore and a crew out on raids. The plane game in the top bar dresses to match: a starfighter against an empire's grey fleet, a kid on a bike throwing papers with the whole street after them, a star throwing stars, a mech dog with lasers for eyes, a pirate ship firing cannonballs. None of them fit? New pack… on the same page makes one of your own, with your names, icons and words for all six; it's kept in camp/packs.json, and it's there after a restart. Who they are and what they remember stays the same.</p>
         </div>
       </div>
-      <p class="deco"><b>Decorations</b>, on the same page, are only for looks: snow in winter, bats at Halloween, confetti at New Year, with a string of lights under the top bar. They're off until you turn one on, and they change nothing the crew reads.</p>
+      <p class="deco"><b>Decorations</b>, on the same page, are only for looks: snow in winter, bats at Halloween, confetti at New Year, with a string of lights under the top bar. They're off until you turn one on, and they change nothing the <span data-word="crew">crew</span> reads.</p>
     </div>
   </div>
 </section>
@@ -870,13 +870,13 @@ footer .outpost-sub { font-size: 10px; }
 <section id="route">
   <div class="wrap">
     <div class="sec-head">
-      <div class="eyebrow">How an expedition runs</div>
-      <h2>You approve the plan. The crew does the legwork.</h2>
+      <div class="eyebrow">How <span data-word="a expedition">an expedition</span> runs</div>
+      <h2>You approve the plan. The <span data-word="crew">crew</span> does the legwork.</h2>
     </div>
     <div class="route">
-      <div class="stop"><div class="pin"><b>1</b></div><h3>Ask</h3><p>Type a request in mission control or the terminal. If it could mean two things, the <span data-crew="0">Quartermaster</span> asks you one short question first.</p></div>
-      <div class="stop"><div class="pin"><b>2</b></div><h3>Approve the plan</h3><p>The plan fills in step by step. Approve it and start, or approve it now and start it later from Home. Change it, or set a budget for the whole expedition.</p></div>
-      <div class="stop"><div class="pin"><b>3</b></div><h3>Quests set out</h3><p>Up to four run at once. Each crew member starts clean from a written brief, so nobody drags the whole conversation along.</p></div>
+      <div class="stop"><div class="pin"><b>1</b></div><h3>Ask</h3><p>Type a request in <span data-word="hq">mission control</span> or the terminal. If it could mean two things, the <span data-crew="0">Quartermaster</span> asks you one short question first.</p></div>
+      <div class="stop"><div class="pin"><b>2</b></div><h3>Approve the plan</h3><p>The plan fills in step by step. Approve it and start, or approve it now and start it later from Home. Change it, or set a budget for the whole <span data-word="expedition">expedition</span>.</p></div>
+      <div class="stop"><div class="pin"><b>3</b></div><h3><span data-word="Quests">Quests</span> set out</h3><p>Up to four run at once. Each <span data-word="crew">crew</span> member starts clean from a written brief, so nobody drags the whole conversation along.</p></div>
       <div class="stop"><div class="pin"><b>4</b></div><h3>Reports come home</h3><p>The <span data-crew="0">Quartermaster</span> reviews each report, sends a failed check back to be fixed, can have the <span data-crew="4">Warden</span> look over the change, and hands you one next step.</p></div>
     </div>
   </div>
@@ -888,7 +888,7 @@ footer .outpost-sub { font-size: 10px; }
     <div class="sec-head">
       <div class="eyebrow">On film</div>
       <h2>Watch the work go round the crew.</h2>
-      <p class="lede">Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the Commander is the sun, the crew are its planets, and the view goes close on each one as the work reaches it.</p>
+      <p class="lede">Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Films">
       <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">Ground to sky <span>1:15</span></button>
@@ -897,7 +897,7 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">Outpost in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
+      <p class="film-note">Outpost in one shot, from the ground to the sky. Your ask walks the trail to the outpost, the outpost lifts into orbit, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -924,21 +924,21 @@ footer .outpost-sub { font-size: 10px; }
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow">Orbit</div>
-      <h2>The same sky, live, with your crew in it.</h2>
-      <p class="lede">Orbit is mission control at full screen. The <span data-crew="0">Quartermaster</span> is the sun and each crew member a planet that lights up while it works. A dispatch is a comet going out, a report is a comet coming home, and each quest out is a moon. Open it from the Views menu in the top bar, the command palette or <code>/orbit</code>.</p>
+      <h2>The same sky, live, with your <span data-word="crew">crew</span> in it.</h2>
+      <p class="lede">Orbit is <span data-word="hq">mission control</span> at full screen. The <span data-crew="0">Quartermaster</span> is the sun and each <span data-word="crew">crew</span> member a planet that lights up while it works. A dispatch is a comet going out, a report is a comet coming home, and each <span data-word="quest">quest</span> out is a moon. Open it from the Views menu in the top bar, the command palette or <code>/orbit</code>.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="Orbit and the trail map">
       <button type="button" role="tab" id="orbit-tab-sky" aria-controls="orbit-sky" aria-selected="true">Orbit</button>
       <button type="button" role="tab" id="orbit-tab-trail" aria-controls="orbit-trail" aria-selected="false">Trail map</button>
     </div>
     <div class="words" id="orbit-sky" role="tabpanel" aria-labelledby="orbit-tab-sky">
-      <div class="word"><h3>Watch</h3><p>Click a planet and the camera flies to it and stays there. Its panel shows each quest, how long it has been out, its last few steps, and a reply as it's written. The sun's panel shows the running expeditions and where each plan stands.</p></div>
-      <div class="word"><h3>Act</h3><p>Answer a question, steer a quest, stop one or send new work from the panel, without leaving the view. Stopping a whole expedition asks you once first.</p></div>
-      <div class="word"><h3>Replay</h3><p>Scrub back through the day on a timeline. Demo plays a pretend camp, so you can see it busy without sending anyone anywhere. HD draws the system in three dimensions, as worlds you can make your own.</p></div>
+      <div class="word"><h3>Watch</h3><p>Click a planet and the camera flies to it and stays there. Its panel shows each <span data-word="quest">quest</span>, how long it has been out, its last few steps, and a reply as it's written. The sun's panel shows the running <span data-word="expeditions">expeditions</span> and where each plan stands.</p></div>
+      <div class="word"><h3>Act</h3><p>Answer a question, steer <span data-word="a quest">a quest</span>, stop one or send new work from the panel, without leaving the view. Stopping a whole <span data-word="expedition">expedition</span> asks you once first.</p></div>
+      <div class="word"><h3>Replay</h3><p>Scrub back through the day on a timeline. Demo plays a pretend <span data-word="camp">camp</span>, so you can see it busy without sending anyone anywhere. HD draws the system in three dimensions, as worlds you can make your own.</p></div>
     </div>
     <div class="feature" id="orbit-trail" role="tabpanel" aria-labelledby="orbit-tab-trail" hidden>
       <div class="feature-head"><span class="tag">Beside Orbit</span><h3>Trail map</h3></div>
-      <p>The plan has a full-screen view of its own, beside Orbit in the top bar's Views menu, or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the crew works, and replays the day the same way. <b>Whole map</b> (or M) puts every plan on one map, drawn one of two ways, and <b>Tree</b> and <b>Rings</b> (or R) swap between them. As rings, the way Orbit draws the crew: each plan is a ring round one centre, the first asked innermost, so the map grows outward as the day goes on. Its steps are waypoints on the ring, with whoever was sent on one beside it, and the plans of one conversation start on the same bearing and are joined, ring to ring. As a tree: one trunk for the day, standing on the foot of the window and growing upward, the first plan at the bottom and the newest at the tip, each plan a bough growing off it. Either way it holds the whole last day (the same day a replay plays, so a replay ends on the map you started from), it's drawn as small as it takes to fit, and fitted again as plans join, and the way you chose is remembered. A plan that joins while you watch, live or in a replay, is drawn in (a ring opens out, a bough grows) while the rest move over for it, and one that goes when you wind a replay back fades where it stood.</p>
+      <p>The plan has a full-screen view of its own, beside Orbit in the top bar's Views menu, or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the <span data-word="crew">crew</span> works, and replays the day the same way. <b>Whole map</b> (or M) puts every plan on one map, drawn one of two ways, and <b>Tree</b> and <b>Rings</b> (or R) swap between them. As rings, the way Orbit draws the <span data-word="crew">crew</span>: each plan is a ring round one centre, the first asked innermost, so the map grows outward as the day goes on. Its steps are waypoints on the ring, with whoever was sent on one beside it, and the plans of one conversation start on the same bearing and are joined, ring to ring. As a tree: one trunk for the day, standing on the foot of the window and growing upward, the first plan at the bottom and the newest at the tip, each plan a bough growing off it. Either way it holds the whole last day (the same day a replay plays, so a replay ends on the map you started from), it's drawn as small as it takes to fit, and fitted again as plans join, and the way you chose is remembered. A plan that joins while you watch, live or in a replay, is drawn in (a ring opens out, a bough grows) while the rest move over for it, and one that goes when you wind a replay back fades where it stood.</p>
     </div>
   </div>
 </section>
@@ -958,11 +958,11 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="film" id="film-trail" role="tabpanel" aria-labelledby="film-tab-trail">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">The trail map: one plan as waypoints, lit as the crew reaches each one, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>. It loops. Click the stage to pause.</p>
+      <p class="film-note">The trail map: one plan as waypoints, lit as the <span data-word='crew'>crew</span> reaches each one, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-stars" role="tabpanel" aria-labelledby="film-tab-stars" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">The constellation: every line the crew remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Views menu in the top bar or with <code>/constellation</code>. It loops. Click the stage to pause.</p>
+      <p class="film-note">The constellation: every line the <span data-word='crew'>crew</span> remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Views menu in the top bar or with <code>/constellation</code>. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-night" role="tabpanel" aria-labelledby="film-tab-night" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -979,7 +979,7 @@ footer .outpost-sub { font-size: 10px; }
       <h2>Everything in the kit.</h2>
     </div>
     <div class="tabs" role="tablist" aria-label="The kit">
-      <button type="button" role="tab" id="kit-tab-control" aria-controls="kit-control" aria-selected="true">Mission control</button>
+      <button type="button" role="tab" id="kit-tab-control" aria-controls="kit-control" aria-selected="true"><span data-word="Hq">Mission control</span></button>
       <button type="button" role="tab" id="kit-tab-memory" aria-controls="kit-memory" aria-selected="false">Memory and models</button>
       <button type="button" role="tab" id="kit-tab-tickets" aria-controls="kit-tickets" aria-selected="false">Tickets</button>
       <button type="button" role="tab" id="kit-tab-away" aria-controls="kit-away" aria-selected="false">While you're away</button>
@@ -987,10 +987,10 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="kit" id="kit-control" role="tabpanel" aria-labelledby="kit-tab-control">
       <div class="item full">
-        <span class="tag">Mission control</span>
+        <span class="tag"><span data-word="Hq">Mission control</span></span>
         <h3>A local dashboard for the whole outpost</h3>
         <p>Each outpost serves it on <code>127.0.0.1</code>: launch one from the star chart (<code>npm start</code>), or run <code>npm run ui</code> for Mae. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
-        <ul><li>Steer or stop a run mid-quest, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Tool calls fold into one line per stretch ("Read 5 files, ran 2 commands"), and a Condensed/Detailed switch brings back every line</li><li>Attach a file, a folder, or a .zip that arrives as the folder it holds, up to 5,000 files</li><li>Mention <code>@scribe</code> anywhere in a plain chat and the <span data-crew="2">Scribe</span> takes that turn</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the camp restarts</li></ul>
+        <ul><li>Steer or stop a run mid-<span data-word="quest">quest</span>, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Tool calls fold into one line per stretch ("Read 5 files, ran 2 commands"), and a Condensed/Detailed switch brings back every line</li><li>Attach a file, a folder, or a .zip that arrives as the folder it holds, up to 5,000 files</li><li>Mention <code>@scribe</code> anywhere in a plain chat and the <span data-crew="2">Scribe</span> takes that turn</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the <span data-word="camp">camp</span> restarts</li></ul>
       </div>
       <div class="item solo">
         <span class="tag">Voice</span>
@@ -1002,11 +1002,11 @@ footer .outpost-sub { font-size: 10px; }
           <div style="display:grid;gap:10px">
             <span class="tag">Approvals from your phone</span>
             <h3>Say yes from anywhere</h3>
-            <p>Hook up <a href="https://ntfy.sh">ntfy</a> and each plan, job report and long expedition pings your phone, with Approve and Decline buttons for the kinds you choose. Shell commands only notify unless you opt in.</p>
+            <p>Hook up <a href="https://ntfy.sh">ntfy</a> and each plan, job report and long <span data-word="expedition">expedition</span> pings your phone, with Approve and Decline buttons for the kinds you choose. Shell commands only notify unless you opt in.</p>
           </div>
           <div class="notif" aria-hidden="true">
             <small>OUTPOST · now</small>
-            <div><b>Plan ready:</b> 2 quests for "memory survey"</div>
+            <div><b>Plan ready:</b> 2 <span data-word="quests">quests</span> for "memory survey"</div>
             <div class="btns"><span>Approve</span><span>Decline</span></div>
           </div>
         </div>
@@ -1026,13 +1026,13 @@ footer .outpost-sub { font-size: 10px; }
       </div>
       <div class="item solo">
         <span class="tag">Skills</span>
-        <h3>How-tos the crew picks up</h3>
-        <p>After a good expedition the <span data-crew="0">Quartermaster</span> can propose a skill: the steps, the format, the pitfall that cost a retry. It goes live only when you approve it. Import a skill pack, or set one to apply to everything a crew member does.</p>
+        <h3>How-tos the <span data-word="crew">crew</span> picks up</h3>
+        <p>After a good <span data-word="expedition">expedition</span> the <span data-crew="0">Quartermaster</span> can propose a skill: the steps, the format, the pitfall that cost a retry. It goes live only when you approve it. Import a skill pack, or set one to apply to everything <span data-word="a crew">a crew</span> member does.</p>
       </div>
       <div class="item full">
         <span class="tag">Auto, the router</span>
         <h3>A router picks the model for each task</h3>
-        <p>Set a crew member, a project or one conversation to Auto: Economy, Balanced or Quality. Right before each dispatch the router sizes up the task (how hard it is, how much is at stake, how big the request is), rules out every model that can't carry it, and picks the cheapest that should finish, or the likeliest to.</p>
+        <p>Set <span data-word="a crew">a crew</span> member, a project or one conversation to Auto: Economy, Balanced or Quality. Right before each dispatch the router sizes up the task (how hard it is, how much is at stake, how big the request is), rules out every model that can't carry it, and picks the cheapest that should finish, or the likeliest to.</p>
         <ul><li>It keeps a model through routine work, and moves on when one is failing, rate limited or too small for the conversation</li><li>An outage is waited out, not given up on, and a model you pick yourself stays pinned</li><li>It learns from how each run actually went, within a limit, so one good or bad day doesn't decide a model's fate</li><li>Every run says which model it used and why. Settings → Models shows how Auto's runs have gone, with a switch for each model Auto may pick (you can still pick one it may not)</li></ul>
       </div>
     </div>
@@ -1046,7 +1046,7 @@ footer .outpost-sub { font-size: 10px; }
         <span class="tag">Tickets &amp; debriefs</span>
         <h3>Tickets of its own, and a look back when one's done</h3>
         <p>No Jira? Outpost keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the <span data-crew="0">Quartermaster</span> make them.</p>
-        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the crew did on it: the plan, each quest, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
+        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the <span data-word="crew">crew</span> did on it: the plan, each <span data-word="quest">quest</span>, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
       </div>
     </div>
     <div class="kit" id="kit-away" role="tabpanel" aria-labelledby="kit-tab-away" hidden>
@@ -1054,17 +1054,17 @@ footer .outpost-sub { font-size: 10px; }
         <span class="tag">While you're away</span>
         <h3>It keeps an eye on the work</h3>
         <p>Each part has its own switch under Settings, and nothing it starts goes ahead without your OK.</p>
-        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections, and drafts a how-to for work you keep asking for. Nothing is kept until you approve it</li><li>A night shift, off until you switch it on, uses the quiet hours to draft shorter versions of memories that are getting full, list old lines worth a look and note what housekeeping could clear. It only drafts and reports: the morning's Today page shows what it left, and nothing changes until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the camp is paying off</li></ul>
+        <ul><li>Scheduled jobs report to an inbox and a macOS notification, and stay quiet when there's nothing new</li><li>A morning brief each weekday on the Today page: what's waiting on you, what's in motion, what's next</li><li>Your pull requests are followed, and new review comments or a failed check come back as a plan to approve</li><li>A weekly retro proposes what's worth remembering from the week's corrections, and drafts a how-to for work you keep asking for. Nothing is kept until you approve it</li><li>A night shift, off until you switch it on, uses the quiet hours to draft shorter versions of memories that are getting full, list old lines worth a look and note what housekeeping could clear. It only drafts and reports: the morning's Today page shows what it left, and nothing changes until you approve it</li><li>A scoreboard counts how much of what you typed was deciding, and how much was operating the pipeline, and a weekly chronicle shows whether the <span data-word="camp">camp</span> is paying off</li></ul>
       </div>
       <div class="item solo">
         <span class="tag">Housekeeping</span>
         <h3>It tidies up when you say</h3>
-        <p>Ask the <span data-crew="0">Quartermaster</span> to clean up the camp. It lists what could go (unused uploads, finished worktrees, leftovers from a crash), then asks before each step and shows exactly what will be removed.</p>
+        <p>Ask the <span data-crew="0">Quartermaster</span> to clean up the <span data-word="camp">camp</span>. It lists what could go (unused uploads, finished worktrees, leftovers from a crash), then asks before each step and shows exactly what will be removed.</p>
       </div>
       <div class="item wide">
         <span class="tag">Built for every day</span>
         <h3>Leave it running</h3>
-        <p>The camp's own files are written whole or not at all, so a crash can't leave one half-written. A reply cut off by a dropped connection is asked for again. Stop the camp and its running work stops with it, with a Resume button waiting on each run.</p>
+        <p>The <span data-word="camp">camp</span>'s own files are written whole or not at all, so a crash can't leave one half-written. A reply cut off by a dropped connection is asked for again. Stop the <span data-word="camp">camp</span> and its running work stops with it, with a Resume button waiting on each run.</p>
         <ul><li>A run picked up again, even on another model, never repeats a command, pull request or review</li><li>A settings file with a typo is set aside, not silently replaced</li><li>Checks you list run after every change, and a failure goes back to be fixed</li><li>Budgets hold even on a model too new to have a listed price</li></ul>
       </div>
     </div>
@@ -1072,13 +1072,13 @@ footer .outpost-sub { font-size: 10px; }
       <div class="item full">
         <span class="tag">Outposts</span>
         <h3>One app, as many outposts as you need</h3>
-        <p>Each outpost is a camp of its own: one for work and one for home, say, that know nothing of each other. Mae is this checkout, with the <code>camp/</code> it has always had. The others live in <code>~/Outposts/&lt;name&gt;/</code>, and each runs as its own server on its own port.</p>
-        <ul><li>Each has its own crew, memory, settings, keys, jobs, skills and <code>.env</code></li><li>A new outpost starts empty: connect its models and accounts from its own Settings</li><li>The crew's built-in skills are brought up to date each time an outpost starts, while the skills an outpost learns stay in that outpost</li><li>The header reads Outpost with the outpost's name under it, and so do the tab title, notifications and Jira notes, so you always know which one you're in</li><li>Rename one under Settings → General → Outpost name: it shows at once, while its folder stays where it is</li></ul>
+        <p>Each outpost is <span data-word="a camp">a camp</span> of its own: one for work and one for home, say, that know nothing of each other. Mae is this checkout, with the <code>camp/</code> it has always had. The others live in <code>~/Outposts/&lt;name&gt;/</code>, and each runs as its own server on its own port.</p>
+        <ul><li>Each has its own <span data-word="crew">crew</span>, memory, settings, keys, jobs, skills and <code>.env</code></li><li>A new outpost starts empty: connect its models and accounts from its own Settings</li><li>The <span data-word="crew">crew</span>'s built-in skills are brought up to date each time an outpost starts, while the skills an outpost learns stay in that outpost</li><li>The header reads Outpost with the outpost's name under it, and so do the tab title, notifications and Jira notes, so you always know which one you're in</li><li>Rename one under Settings → General → Outpost name: it shows at once, while its folder stays where it is</li></ul>
       </div>
       <div class="item solo">
         <span class="tag">The star chart</span>
         <h3>Every outpost, round one sun</h3>
-        <p><code>npm start</code> opens the star chart: each outpost on this machine is a planet in Orbit's night sky. Pick one to read about it, then Launch, and you land in its mission control, signed in. New outpost makes another on the next free port. From the terminal, <code>npm run outpost</code> lists, makes and starts them too.</p>
+        <p><code>npm start</code> opens the star chart: each outpost on this machine is a planet in Orbit's night sky. Pick one to read about it, then Launch, and you land in <span data-word="hq">mission control</span>, signed in. New outpost makes another on the next free port. From the terminal, <code>npm run outpost</code> lists, makes and starts them too.</p>
       </div>
       <div class="item wide">
         <span class="tag">From anywhere</span>
@@ -1095,7 +1095,7 @@ footer .outpost-sub { font-size: 10px; }
     <div class="sec-head">
       <div class="eyebrow">Outpost rules</div>
       <h2>Clear limits, kept by the outpost's own code.</h2>
-      <p class="lede">An agent can't talk its way past these. The camp's own source is read-only to the crew, so nothing it reads can loosen them.</p>
+      <p class="lede">An agent can't talk its way past these. The <span data-word="camp">camp</span>'s own source is read-only to the <span data-word="crew">crew</span>, so nothing it reads can loosen them.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="Outpost rules">
       <button type="button" role="tab" id="rules-tab-secrets" aria-controls="rules-secrets" aria-selected="true">Your secrets</button>
@@ -1104,18 +1104,18 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="rules" id="rules-secrets" role="tabpanel" aria-labelledby="rules-tab-secrets">
       <div class="rule"><b>Secrets stay put</b><p>File tools never read <code>.env</code>, private keys or credentials, at any depth, in a linked folder or through a symlink.</p></div>
-      <div class="rule"><b>Commands travel light</b><p>Your API keys and tokens are left out of every command and connector the crew starts, unless you name one to pass on.</p></div>
-      <div class="rule"><b>The key isn't in the link</b><p>The link the camp prints signs one browser in, once. The camp's key never sits in an address, your history or a bookmark.</p></div>
+      <div class="rule"><b>Commands travel light</b><p>Your API keys and tokens are left out of every command and connector the <span data-word="crew">crew</span> starts, unless you name one to pass on.</p></div>
+      <div class="rule"><b>The key isn't in the link</b><p>The link the <span data-word="camp">camp</span> prints signs one browser in, once. The <span data-word="camp">camp</span>'s key never sits in an address, your history or a bookmark.</p></div>
     </div>
     <div class="rules" id="rules-asks" role="tabpanel" aria-labelledby="rules-tab-asks" hidden>
-      <div class="rule"><b>Shell asks first</b><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A sandbox is there if you want it, on macOS or Linux. God mode, for the camp or one project, runs every command without asking, but "Never run" rules still stop one, and a scheduled job gets the sandbox instead.</p></div>
+      <div class="rule"><b>Shell asks first</b><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A sandbox is there if you want it, on macOS or Linux. God mode, for the <span data-word="camp">camp</span> or one project, runs every command without asking, but "Never run" rules still stop one, and a scheduled job gets the sandbox instead.</p></div>
       <div class="rule"><b>Deleting asks first</b><p>Uploads, worktrees and old records are cleared only when you ask, a step at a time, each showing what will go.</p></div>
       <div class="rule"><b>Read-only git</b><p>Everyone can run <code>status</code>, <code>diff</code>, <code>log</code> and <code>blame</code>. Nobody pushes on their own.</p></div>
     </div>
     <div class="rules" id="rules-run" role="tabpanel" aria-labelledby="rules-tab-run" hidden>
-      <div class="rule"><b>No trampling</b><p>Parallel quests can't overwrite each other. A file changed by another quest has to be read again first.</p></div>
+      <div class="rule"><b>No trampling</b><p>Parallel <span data-word="quests">quests</span> can't overwrite each other. A file changed by another <span data-word="quest">quest</span> has to be read again first.</p></div>
       <div class="rule"><b>Pages are information</b><p>Web pages, files and connector results are never treated as instructions, and suspected prompt injection is flagged.</p></div>
-      <div class="rule"><b>Budgets hold</b><p>Spending is tallied after every reply, across all quests, and the run stops when the budget is reached.</p></div>
+      <div class="rule"><b>Budgets hold</b><p>Spending is tallied after every reply, across all <span data-word="quests">quests</span>, and the run stops when the budget is reached.</p></div>
     </div>
   </div>
 </div>
@@ -1125,7 +1125,7 @@ footer .outpost-sub { font-size: 10px; }
     <div class="sec-head" style="margin:0">
       <div class="eyebrow">Get started</div>
       <h2>Set up your first outpost in three commands.</h2>
-      <p class="lede">Needs Node 22.12 or later and either a Claude subscription or an API key. On a subscription, the crew runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
+      <p class="lede">Needs Node 22.12 or later and either a Claude subscription or an API key. On a subscription, the <span data-word="crew">crew</span> runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
       <div class="try">Try asking:<q>Research how other agent harnesses handle memory, then write it up as a short doc.</q></div>
     </div>
     <div class="term" aria-label="Setup commands">
@@ -1135,7 +1135,7 @@ footer .outpost-sub { font-size: 10px; }
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
         <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
         <div class="line"><code id="c3">npm start</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
-        <div class="note">It opens the star chart in your browser: pick an outpost (Mae, to begin with) and launch it, and you land in mission control, signed in. New outpost on the chart makes another. Or npm run cli for the camp in your terminal, npm run watch for scheduled jobs, and npm run prod for a built camp that starts in about half the time.</div>
+        <div class="note">It opens the star chart in your browser: pick an outpost (Mae, to begin with) and launch it, and you land in <span data-word="hq">mission control</span>, signed in. New outpost on the chart makes another. Or npm run cli for the <span data-word="camp">camp</span> in your terminal, npm run watch for scheduled jobs, and npm run prod for a built <span data-word="camp">camp</span> that starts in about half the time.</div>
       </div>
     </div>
   </div>
@@ -1143,7 +1143,7 @@ footer .outpost-sub { font-size: 10px; }
 
 <div class="wrap">
   <footer>
-    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
+    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
     <span>Small, hackable, and built on Claude.</span>
   </footer>
 </div>
@@ -1231,21 +1231,93 @@ footer .outpost-sub { font-size: 10px; }
     });
   });
 
-  // A theme pack: this page dresses for it (the crew's names and icons, the orb, the colours it
-  // suggests), as src/packs.ts has them. The camp keeps the real one, so nothing is stored here.
+  // A theme pack: this page dresses for it (the crew's names and icons, its words, the orb, the
+  // colours it suggests), as src/packs.ts has them. The camp keeps the real one. Served by the camp
+  // (/splash), the page carries the active pack as <script type="application/json" id="mae-pack">,
+  // custom packs too; opened as a file it falls back to the built-in packs below, by the id this
+  // browser last wore ("camp-pack"), and then to the Guild. The picker below only changes this page.
+  var GUILD_WORDS = { crew: 'crew', quest: 'quest', quests: 'quests', camp: 'camp', expedition: 'expedition', member: 'adventurer', log: 'quest log', ready: 'The camp is set', close: 'break camp', closing: 'Breaking camp', back: 'returns to camp', depart: 'sets out', hq: 'mission control' };
   var PACKS = {
-    guild: { crew: ['Quartermaster 🧭', 'Scout 🏹', 'Scribe 🪶', 'Artificer 🔨', 'Warden 🛡️', 'Test Pilot 🛸'] },
-    starship: { palette: 'harbor', crew: ['Commander 🚀', 'Navigator 🔭', 'Comms Officer 📡', 'Engineer 🔧', 'Security Chief 🛡️', 'Test Pilot 🛸'] },
-    newsroom: { palette: 'ochre', crew: ['Editor 📰', 'Reporter 🔎', 'Columnist ✍️', 'Typesetter 🖨️', 'Fact Checker ✅', 'Stringer ⚡'] },
-    studio: { palette: 'heather', crew: ['Director 🎬', 'Location Scout 📍', 'Screenwriter 📝', 'Set Builder 🛠️', 'Script Supervisor 📋', 'Stunt Double 🤸'] },
-    lab: { palette: 'moss', crew: ['Lab Lead 🧪', 'Field Researcher 🔬', 'Author 📓', 'Technician ⚙️', 'Peer Reviewer 🧐', 'Tinkerer ⚗️'] },
-    pirate: { palette: 'harbor', crew: ['Commodore 🏴‍☠️', 'Spyglass 🔭', 'Logkeeper 📜', 'Rigger 🪢', 'First Mate ⚓', 'Powder Monkey 🧨'] }
+    guild: { crew: ['Quartermaster 🧭', 'Scout 🏹', 'Scribe 🪶', 'Artificer 🔨', 'Warden 🛡️', 'Test Pilot 🛸'], words: GUILD_WORDS },
+    starship: { palette: 'harbor', crew: ['Commander 🚀', 'Navigator 🔭', 'Comms Officer 📡', 'Engineer 🔧', 'Security Chief 🛡️', 'Test Pilot 🛸'],
+      words: { crew: 'crew', quest: 'mission', quests: 'missions', camp: 'ship', expedition: 'voyage', member: 'officer', log: "ship's log", ready: 'All stations ready', close: 'power down', closing: 'Powering down', back: 'returns to the ship', depart: 'launches', hq: 'the bridge' } },
+    newsroom: { palette: 'ochre', crew: ['Editor 📰', 'Reporter 🔎', 'Columnist ✍️', 'Typesetter 🖨️', 'Fact Checker ✅', 'Stringer ⚡'],
+      words: { crew: 'staff', quest: 'story', quests: 'stories', camp: 'newsroom', expedition: 'assignment', member: 'staffer', log: 'morgue', ready: 'The newsroom is open', close: 'put the paper to bed', closing: 'Putting the paper to bed', back: 'files back', depart: 'heads out', hq: 'the city desk' } },
+    studio: { palette: 'heather', crew: ['Director 🎬', 'Location Scout 📍', 'Screenwriter 📝', 'Set Builder 🛠️', 'Script Supervisor 📋', 'Stunt Double 🤸'],
+      words: { crew: 'crew', quest: 'scene', quests: 'scenes', camp: 'studio', expedition: 'shoot', member: 'crew member', log: 'shot log', ready: 'Places, everyone', close: 'call it a wrap', closing: 'Calling it a wrap', back: 'is back on set', depart: 'heads to set', hq: 'video village' } },
+    lab: { palette: 'moss', crew: ['Lab Lead 🧪', 'Field Researcher 🔬', 'Author 📓', 'Technician ⚙️', 'Peer Reviewer 🧐', 'Tinkerer ⚗️'],
+      words: { crew: 'team', quest: 'experiment', quests: 'experiments', camp: 'lab', expedition: 'study', member: 'researcher', log: 'lab notebook', ready: 'The lab is open', close: 'lock up the lab', closing: 'Locking up the lab', back: 'is back at the bench', depart: 'gets to work', hq: 'the lab office' } },
+    pirate: { palette: 'harbor', crew: ['Commodore 🏴‍☠️', 'Spyglass 🔭', 'Logkeeper 📜', 'Rigger 🪢', 'First Mate ⚓', 'Powder Monkey 🧨'],
+      words: { crew: 'crew', quest: 'raid', quests: 'raids', camp: 'ship', expedition: 'voyage', member: 'hand', log: "ship's log", ready: 'All hands aboard', close: 'drop anchor', closing: 'Dropping anchor', back: 'comes back aboard', depart: 'sets sail', hq: 'the quarterdeck' } }
   };
   var split = function (c) { var at = c.lastIndexOf(' '); return { name: c.slice(0, at), emoji: c.slice(at + 1) }; };
+  // The pack the camp injected, if it did: its six crew in order and its thirteen words, anything missing from the Guild's.
+  var injected = function () {
+    try {
+      var el = document.getElementById('mae-pack');
+      var j = el && JSON.parse(el.textContent);
+      if (!j || !j.crew || typeof j.crew !== 'object') return null;
+      var ids = [['quartermaster', 'qm'], ['scout'], ['scribe'], ['artificer', 'art'], ['warden'], ['wizard', 'pilot']];
+      var crew = ids.map(function (k, i) {
+        var c = j.crew[k[0]] || (k[1] && j.crew[k[1]]);
+        var g = split(PACKS.guild.crew[i]);
+        return { name: c && typeof c.name === 'string' && c.name ? c.name : g.name, emoji: c && typeof c.emoji === 'string' && c.emoji ? c.emoji : g.emoji };
+      });
+      var words = {};
+      Object.keys(GUILD_WORDS).forEach(function (k) { words[k] = j.words && typeof j.words[k] === 'string' && j.words[k] ? j.words[k] : GUILD_WORDS[k]; });
+      return { id: typeof j.id === 'string' ? j.id : 'custom', crew: crew, words: words };
+    } catch (e) { return null; }
+  };
+  // The one pack every part of this page reads, the films too (they build from it when first shown,
+  // and again after a pick): window.TOUR_PACK. It is changed in place, so a reference stays good.
+  //   crew[0..5]: { name, emoji }, words: the camp's thirteen words,
+  //   name('qm'|'scout'|'scribe'|'art'|'warden'|'pilot' or 0..5), an('scout'): "a Scout" / "an Engineer",
+  //   w('crew'|'quest'|'quests'|'camp'|'expedition'|'expeditions'|'hq'…), W(…): capitalised, a('expedition'): "an expedition",
+  //   tr(text): a Guild or Starship sentence in this pack's names and words.
+  var ROLE = { qm: 0, scout: 1, scribe: 2, art: 3, warden: 4, pilot: 5, wiz: 5 };
+  var plural = function (w) { return /[^aeiou]y$/i.test(w) ? w.slice(0, -1) + 'ies' : /(s|sh|ch|x|z)$/i.test(w) ? w + 'es' : w + 's'; };
+  var cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
+  var article = function (s) { return (/^[aeiou]/i.test(s) ? 'an ' : 'a ') + s; };
+  var P = window.TOUR_PACK = {
+    id: 'guild', crew: PACKS.guild.crew.map(split), words: {},
+    name: function (r) { return P.crew[typeof r === 'number' ? r : ROLE[r]].name; },
+    an: function (r) { return article(P.name(r)); },
+    w: function (k) {
+      var low = String(k).toLowerCase();
+      if (P.words[low]) return P.words[low];
+      return /s$/.test(low) && P.words[low.slice(0, -1)] ? plural(P.words[low.slice(0, -1)]) : k;
+    },
+    W: function (k) { return cap(P.w(k)); },
+    a: function (k) { return article(P.w(k)); },
+    A: function (k) { return cap(article(P.w(k))); },
+    tr: function (text) {
+      var GUILD = PACKS.guild.crew.map(split), SHIP = PACKS.starship.crew.map(split);
+      var names = [];
+      [GUILD, SHIP].forEach(function (set) { set.forEach(function (c, i) { names.push([c.name, i]); }); });
+      names.sort(function (a, b) { return b[0].length - a[0].length; });
+      var out = String(text);
+      names.forEach(function (n) { out = out.split(n[0]).join('\u0001' + n[1] + '\u0002'); });
+      out = out.replace(/\u0001(\d)\u0002/g, function (m, i) { return P.crew[+i].name; });
+      return out.replace(/\b(mission control|missions?|crews?|camps?|quests?|expeditions?)\b/gi, function (m) {
+        var low = m.toLowerCase(), k = low === 'mission control' ? 'hq' : low === 'mission' ? 'quest' : low === 'missions' ? 'quests' : low;
+        var v = P.w(k);
+        return m === m.toUpperCase() && m.length > 1 ? v.toUpperCase() : m.charAt(0) === m.charAt(0).toUpperCase() ? cap(v) : v;
+      });
+    }
+  };
+  // Fill a data-word spec: "quests", "Camp" (capitalised), "a expedition" (with its article), "Hq".
+  var wordFor = function (spec) {
+    var m = /^(a )?([A-Za-z]+)$/i.exec(spec);
+    if (!m) return spec;
+    var key = m[2], v = P.w(key.charAt(0).toLowerCase() + key.slice(1));
+    if (m[1] !== undefined) { v = article(v); return spec.charAt(0) === 'A' ? cap(v) : v; }
+    return key.charAt(0) === key.charAt(0).toUpperCase() ? cap(v) : v;
+  };
   var cards = ['.member.qm', '.member.scout', '.member.scribe', '.member.art', '.member.warden', '.member.yours'].map(function (sel) { return document.querySelector(sel); });
   var says = Array.prototype.slice.call(document.querySelectorAll('#crew .wrong')).map(function (b) { return { btn: b, text: b.dataset.say, label: b.textContent }; });
-  var dress = function (id) {
-    var crew = PACKS[id].crew.map(split), guild = PACKS.guild.crew.map(split);
+  var dress = function (pack) {
+    P.id = pack.id; P.crew = pack.crew; P.words = pack.words;
+    var crew = P.crew, guild = PACKS.guild.crew.map(split);
     cards.forEach(function (card, i) {
       if (!card) return;
       card.querySelector('h3').textContent = crew[i].name;
@@ -1253,9 +1325,17 @@ footer .outpost-sub { font-size: 10px; }
     });
     // The crew's names in the page's own words: plain, with "a" or "an", with the icon, or the icon alone.
     document.querySelectorAll('[data-crew]').forEach(function (el) { el.textContent = crew[+el.dataset.crew].name; });
-    document.querySelectorAll('[data-crew-a]').forEach(function (el) { var n = crew[+el.dataset.crewA].name; el.textContent = (/^[aeiou]/i.test(n) ? 'an ' : 'a ') + n; });
+    document.querySelectorAll('[data-crew-a]').forEach(function (el) { el.textContent = article(crew[+el.dataset.crewA].name); });
     document.querySelectorAll('[data-crew-e]').forEach(function (el) { var c = crew[+el.dataset.crewE]; el.textContent = c.emoji + ' ' + c.name; });
     document.querySelectorAll('[data-crew-i]').forEach(function (el) { el.textContent = crew[+el.dataset.crewI].emoji; });
+    // The pack's nouns: <span data-word="quests">, and attributes kept as a template in data-t-<name>.
+    document.querySelectorAll('[data-word]').forEach(function (el) { el.textContent = wordFor(el.dataset.word); });
+    document.querySelectorAll('*').forEach(function (el) {
+      Array.prototype.forEach.call(el.attributes, function (at) {
+        if (at.name.indexOf('data-t-') !== 0) return;
+        el.setAttribute(at.name.slice(7), at.value.replace(/\{([A-Za-z]+)\}/g, function (m, k) { return wordFor(k); }));
+      });
+    });
     says.forEach(function (s) {
       var text = s.text;
       guild.forEach(function (g, i) { text = text.split('the ' + g.name).join('the ' + crew[i].name); });
@@ -1263,12 +1343,18 @@ footer .outpost-sub { font-size: 10px; }
       var out = s.btn.nextElementSibling;
       if (out.textContent) out.textContent = '“' + text + '”';
     });
+    // The films were drawn from the old names: the ones already built are built again.
+    window.dispatchEvent(new CustomEvent('tour-pack'));
+  };
+  var packOf = function (id) {
+    var p = PACKS[id];
+    return { id: id, crew: p.crew.map(split), words: p.words };
   };
   var wearPack = function (id, colours) {
     if (!PACKS[id]) return;
     if (id === 'guild') delete root.dataset.pack; else root.dataset.pack = id;
     mark('[data-pick-pack]', 'pickPack', id);
-    dress(id);
+    dress(packOf(id));
     if (colours) {
       var own = null;
       try { own = localStorage.getItem('camp-palette'); } catch (e) { /* none kept */ }
@@ -1278,7 +1364,15 @@ footer .outpost-sub { font-size: 10px; }
   document.querySelectorAll('[data-pick-pack]').forEach(function (b) {
     b.addEventListener('click', function () { wearPack(b.dataset.pickPack, true); });
   });
-  wearPack(root.dataset.pack || 'guild', false);
+  var mine = injected();
+  if (mine) {
+    // the camp's own pack: its orb is only for the packs this page knows
+    if (PACKS[mine.id] && mine.id !== 'guild') root.dataset.pack = mine.id; else delete root.dataset.pack;
+    mark('[data-pick-pack]', 'pickPack', mine.id);
+    dress(mine);
+  } else {
+    wearPack(PACKS[root.dataset.pack] ? root.dataset.pack : 'guild', false);
+  }
 
   // Copy buttons
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
@@ -1800,10 +1894,13 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 <script>
 (function () {
   if (!Element.prototype.attachShadow || !('content' in document.createElement('template'))) return;
+  // The pack's names and words (window.TOUR_PACK, made by the tour's pack picker): each film reads them as TP.
+  var TP = window.TOUR_PACK;
   // The code that draws each film, given the shadow root its stage is in. It answers with show(yes or no).
   var DRAW = {
 sky: function (root) {
 'use strict';
+let dead = false, raf = 0; const cleanups = [];
 const cv = root.getElementById('stage'), ctx = cv.getContext('2d');
 const W = 1280, H = 720, PI = Math.PI, TAU = PI * 2, DUR = 75.2;
 
@@ -1925,10 +2022,10 @@ const walk = t => { const u = prog(t, T.ground + .6, T.arrive); return lerp(u, s
 
 // ---- the crew ----
 const CREW = [
-  { key: 'scout', name: 'Navigator', role: 'research, with sources', r: 9.5, th0: 40, w: .11 },
-  { key: 'art', name: 'Engineer', role: 'code, run and tested', r: 12.5, th0: 170, w: .08 },
-  { key: 'scribe', name: 'Comms Officer', role: 'docs and write-ups', r: 11, th0: 290, w: .06 },
-  { key: 'warden', name: 'Security Chief', role: 'reviews what changed', r: 10.5, th0: 115, w: .045 },
+  { key: 'scout', name: `${TP.name('scout')}`, role: 'research, with sources', r: 9.5, th0: 40, w: .11 },
+  { key: 'art', name: `${TP.name('art')}`, role: 'code, run and tested', r: 12.5, th0: 170, w: .08 },
+  { key: 'scribe', name: `${TP.name('scribe')}`, role: 'docs and write-ups', r: 11, th0: 290, w: .06 },
+  { key: 'warden', name: `${TP.name('warden')}`, role: 'reviews what changed', r: 10.5, th0: 115, w: .045 },
 ];
 // the route: out to three of the crew at once, in to the Security Chief, back to the fire
 const LEGS = [
@@ -1962,12 +2059,12 @@ function planet(j, t) {
 const R = rng(20261120);
 const gauss = () => Math.sqrt(-2 * Math.log(1 - R() * .999)) * Math.cos(TAU * R());
 const CL = [
-  { key: 'qm', name: 'Commander', x: 0, y: 0, n: 13, sp: 62, lines: 22 },
-  { key: 'scout', name: 'Navigator', x: -424, y: -92, n: 24, sp: 80, lines: 41 },
-  { key: 'scribe', name: 'Comms Officer', x: -74, y: -190, n: 19, sp: 66, lines: 28 },
-  { key: 'art', name: 'Engineer', x: 250, y: -150, n: 25, sp: 80, lines: 36 },
-  { key: 'warden', name: 'Security Chief', x: 300, y: 172, n: 16, sp: 62, lines: 17 },
-  { key: 'pilot', name: 'Test Pilot', x: -300, y: 96, n: 14, sp: 44, lines: 9 },
+  { key: 'qm', name: `${TP.name('qm')}`, x: 0, y: 0, n: 13, sp: 62, lines: 22 },
+  { key: 'scout', name: `${TP.name('scout')}`, x: -424, y: -92, n: 24, sp: 80, lines: 41 },
+  { key: 'scribe', name: `${TP.name('scribe')}`, x: -74, y: -190, n: 19, sp: 66, lines: 28 },
+  { key: 'art', name: `${TP.name('art')}`, x: 250, y: -150, n: 25, sp: 80, lines: 36 },
+  { key: 'warden', name: `${TP.name('warden')}`, x: 300, y: 172, n: 16, sp: 62, lines: 17 },
+  { key: 'pilot', name: `${TP.name('pilot')}`, x: -300, y: 96, n: 14, sp: 44, lines: 9 },
 ];
 const STARS = [];
 CL.forEach((c, ci) => {
@@ -2025,14 +2122,14 @@ const ASK = 'Fix the flaky sign-in test';
 const CAPS = [
   { a: .5, b: 4.4, eb: 'THE ASK', l: ['It starts with one ask.'] },
   { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Your outpost sets up', 'on your own machine.'] },
-  { a: 16.2, b: 21.8, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, the crew in orbit.'] },
+  { a: 16.2, b: 21.8, eb: `THE ${TP.w('crew').toUpperCase()}`, l: [`At its centre, ${TP.an('qm')}.`, `Around it, the ${TP.w('crew')} in orbit.`] },
   { a: 22.2, b: 25.5, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
   // the missions section runs over two captions, so its eyebrow stays up between them (ebOut, ebIn)
-  { a: 25.9, b: T.pilot + .2, eb: 'THE MISSIONS', l: ['The crew sets out,', 'several missions at once.'], ebOut: false },
-  { a: T.pilot + .2, b: T.review - .1, eb: 'THE MISSIONS', l: ['For the most challenging missions,', 'send the Test Pilot.'], ebIn: false },
-  { a: T.review + .3, b: T.back, eb: 'THE REVIEW', l: ['The Security Chief reviews', 'everything that changed.'] },
+  { a: 25.9, b: T.pilot + .2, eb: `THE ${TP.w('quests').toUpperCase()}`, l: [`The ${TP.w('crew')} sets out,`, `several ${TP.w('quests')} at once.`], ebOut: false },
+  { a: T.pilot + .2, b: T.review - .1, eb: `THE ${TP.w('quests').toUpperCase()}`, l: [`For the most challenging ${TP.w('quests')},`, `send the ${TP.name('pilot')}.`], ebIn: false },
+  { a: T.review + .3, b: T.back, eb: 'THE REVIEW', l: [`The ${TP.name('warden')} reviews`, 'everything that changed.'] },
   { a: T.back + .4, b: T.pull + .1, eb: 'YOUR CLICK', l: ['Nothing leaves the outpost', 'without your click.'] },
-  { a: T.pull + 2.2, b: T.router - .2, eb: 'THE MEMORY', l: ['What the crew learns, it keeps.', 'Every line is a star.'] },
+  { a: T.pull + 2.2, b: T.router - .2, eb: 'THE MEMORY', l: [`What the ${TP.w('crew')} learns, it keeps.`, 'Every line is a star.'] },
   { a: T.router, b: T.mark + .1, eb: 'THE ROUTER', l: ['A router sizes up each task', 'and picks the model to fit.'] },
 ];
 const BTN = [
@@ -2239,7 +2336,7 @@ function crewLabels(t) {
   // the Commander, over the fire
   const qa = smooth(prog(t, 19.2, 20.2)) * gone;
   if (qa > 0) {
-    setFont('d', 19); ctx.globalAlpha = qa; label('Commander', V.fx, V.fy - 46, { align: 'center', fill: col('qm'), halo: 5 });
+    setFont('d', 19); ctx.globalAlpha = qa; label(`${TP.name('qm')}`, V.fx, V.fy - 46, { align: 'center', fill: col('qm'), halo: 5 });
     const ra = win(t, T.plan + .2, T.out + .4);   // only while it plans: later the Engineer passes behind here
     if (ra > 0) { setFont('m', 11); ctx.globalAlpha = qa * ra; label('plans, briefs, reviews', V.fx, V.fy - 68, { align: 'center', fill: col('muted'), halo: 4 }); }
   }
@@ -2327,7 +2424,7 @@ function pilot(t) {
     ctx.globalAlpha = ha; glow(hx, hy, 26, 'pilot', .75); ctx.fillStyle = col('pilot'); disc(hx, hy, 5.4); ctx.fillStyle = col('hot'); disc(hx, hy, 2.3);
     // its name rides out under it, then waits under the place
     const na = win(t, PL.t0 + .4, PL.leave + .5, .5, .6) * A, st = smoother(prog(t, PL.t1 - .5, PL.t1));
-    if (na > 0) { setFont('d', 17); ctx.globalAlpha = na; label('Test Pilot', lerp(hx, kx, st), lerp(hy + 30, ky + (PL.orbit + 30) * S, st), { align: 'center', fill: col('pilot'), halo: 5 }); }
+    if (na > 0) { setFont('d', 17); ctx.globalAlpha = na; label(`${TP.name('pilot')}`, lerp(hx, kx, st), lerp(hy + 30, ky + (PL.orbit + 30) * S, st), { align: 'center', fill: col('pilot'), halo: 5 }); }
   }
   ctx.globalAlpha = 1;
 }
@@ -2558,11 +2655,11 @@ function mark(t) {
   // the line, and the roll call
   const ta = smooth(prog(t, T.mark + 6.3, T.mark + 7.2)) * card;
   if (ta > 0) {
-    const y = 488 + (1 - outCubic(prog(t, T.mark + 6.3, T.mark + 7.3))) * 12, s1 = 'Your outpost. Your crew. ', s2 = 'Your call.';
+    const y = 488 + (1 - outCubic(prog(t, T.mark + 6.3, T.mark + 7.3))) * 12, s1 = `Your outpost. Your ${TP.w('crew')}. `, s2 = 'Your call.';
     setFont('d', 40); const w1 = ctx.measureText(s1).width, w2 = ctx.measureText(s2).width, x = 640 - (w1 + w2) / 2;
     ctx.globalAlpha = ta; label(s1, x, y, { fill: col('text') }); label(s2, x + w1, y, { fill: col('accent') });
   }
-  const names = [['COMMANDER', 'qm'], ['NAVIGATOR', 'scout'], ['COMMS OFFICER', 'scribe'], ['ENGINEER', 'art'], ['SECURITY CHIEF', 'warden'], ['TEST PILOT', 'pilot']];
+  const names = [[`${TP.name('qm').toUpperCase()}`, 'qm'], [`${TP.name('scout').toUpperCase()}`, 'scout'], [`${TP.name('scribe').toUpperCase()}`, 'scribe'], [`${TP.name('art').toUpperCase()}`, 'art'], [`${TP.name('warden').toUpperCase()}`, 'warden'], [`${TP.name('pilot').toUpperCase()}`, 'pilot']];
   setFont('m', 11.5, 500);
   const gap = 30, total = names.reduce((a, n) => a + textW(n[0], 1.7), 0) + gap * (names.length - 1);
   let x = 640 - total / 2;
@@ -2588,7 +2685,7 @@ function ask(t, px) {
     ctx.globalAlpha = pa; rr(x, y, w, h, 12); ctx.strokeStyle = col('border'); ctx.lineWidth = 1; ctx.stroke();
     const n = Math.floor(clamp((t - 1.15) * 12.5, 0, ASK.length)), typed = ASK.slice(0, n);
     setFont('b', 16, 500);
-    label(n ? typed : 'Ask the Commander…', x + 20, y + 30, { fill: col(n ? 'text' : 'faint') });
+    label(n ? typed : `Ask the ${TP.name('qm')}…`, x + 20, y + 30, { fill: col(n ? 'text' : 'faint') });
     if (t < T.send && (n < ASK.length ? n > 0 || Math.sin(t * 9) > 0 : Math.sin(t * 9) > 0)) { ctx.fillStyle = col('accent'); ctx.fillRect(x + 21 + (n ? ctx.measureText(typed).width : 0), y + 14, 1.6, 21); }
     const pr = pulse(t, T.send - .14, .42), bs = pr >= 0 ? 1 - .15 * Math.sin(PI * pr) : 1, bx = x + w - 24, by = y + h / 2;
     ctx.fillStyle = mix('line', 'accent', smooth(prog(t, 1.15, 1.7))); disc(bx, by, 15 * bs);
@@ -2695,18 +2792,19 @@ function frame(now) {
   if (++tick % 45 === 0) readTheme();
   if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
   last = now;
-  requestAnimationFrame(frame);
+  (dead || (raf = requestAnimationFrame(frame)));
 }
-if (window.ResizeObserver) new ResizeObserver(redraw).observe(cv); else addEventListener('resize', redraw);
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+if (window.ResizeObserver) { const ro = new ResizeObserver(redraw); ro.observe(cv); cleanups.push(() => ro.disconnect()); } else { addEventListener('resize', redraw); cleanups.push(() => removeEventListener('resize', redraw)); }
+{ const mq = matchMedia('(prefers-color-scheme: dark)'), onScheme = redraw; mq.addEventListener('change', onScheme); cleanups.push(() => mq.removeEventListener('change', onScheme)); }
 new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
 setPlaying(playing); redraw(); sync();
 if (document.fonts && document.fonts.load) Promise.all(['400 36px "Young Serif"', '500 16px Figtree', '600 13px Figtree', '400 11px "JetBrains Mono"', '500 11px "JetBrains Mono"'].map(f => document.fonts.load(f))).then(() => { WIDTHS.clear(); render(t); }, () => {});
-requestAnimationFrame(frame);
-// the page says when this film can be seen: it only runs then
-return { show: v => { shown = !!v; } };
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
 whole: function (root) {
+let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
@@ -2742,12 +2840,12 @@ const GLYPH = {
 
 // ---- the crew and their contour orbits ----
 const CREW = [
-  { id: 'scout', name: 'Scout', cls: 'c-scout', R: 112, start: 200, period: 150, ph: .6, r0: 42 },
-  { id: 'scribe', name: 'Scribe', cls: 'c-scribe', R: 172, start: -30, period: 200, ph: 2.1, r0: 57 },
-  { id: 'art', name: 'Artificer', cls: 'c-art', R: 236, start: 70, period: 260, ph: 3.7, r0: 81 },
-  { id: 'warden', name: 'Warden', cls: 'c-warden', R: 300, start: 160, period: 330, ph: 5.0, r0: 95 },
+  { id: 'scout', name: `${TP.name('scout')}`, cls: 'c-scout', R: 112, start: 200, period: 150, ph: .6, r0: 42 },
+  { id: 'scribe', name: `${TP.name('scribe')}`, cls: 'c-scribe', R: 172, start: -30, period: 200, ph: 2.1, r0: 57 },
+  { id: 'art', name: `${TP.name('art')}`, cls: 'c-art', R: 236, start: 70, period: 260, ph: 3.7, r0: 81 },
+  { id: 'warden', name: `${TP.name('warden')}`, cls: 'c-warden', R: 300, start: 160, period: 330, ph: 5.0, r0: 95 },
   // The Test Pilot: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
-  { id: 'wiz', name: 'Test Pilot', cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
+  { id: 'wiz', name: `${TP.name('pilot')}`, cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
 ];
 const WZ = 4;
 const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Test Pilot, Warden
@@ -3068,7 +3166,7 @@ const word = cls => { const n = el('text', { class: 'b ' + cls, x: 247, y: 142, 
 const letters = word('logo-s'); letters.setAttribute('stroke-width', 1.3);
 const lettersFill = word('logo-f');
 const tagline = el('text', { class: 'b f-muted', 'font-size': 19, x: 640, y: 528, 'text-anchor': 'middle' }, gWorld);
-tagline.textContent = 'One sun. A crew. A sky that remembers.';
+tagline.textContent = `One sun. ${TP.A('crew')}. A sky that remembers.`;
 
 // ---- HUD (screen space) ----
 const chapG = el('g', { transform: 'translate(44 50)' }, gHud);
@@ -3086,9 +3184,9 @@ function card(x, y, w, h) { const g = el('g', { transform: `translate(${x} ${y})
 const T = (g, cls, size, x, y, s, extra = {}) => { const n = el('text', Object.assign({ class: cls, 'font-size': size, x, y }, extra), g); n.textContent = s; return n; };
 // Plan card
 const plan = card(868, 96, 352, 244);
-T(plan, 'm f-accent', 11, 24, 32, 'THE QUARTERMASTER · PLAN', { 'letter-spacing': '1.5' });
-T(plan, 'd f-text', 22, 24, 62, 'Four quests');
-const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it'], ['Test Pilot', 'on call for the hard part']].map(([n, s], k) => {
+T(plan, 'm f-accent', 11, 24, 32, `THE ${TP.name('qm').toUpperCase()} · PLAN`, { 'letter-spacing': '1.5' });
+T(plan, 'd f-text', 22, 24, 62, `Four ${TP.w('quests')}`);
+const planRows = [[`${TP.name('scout')}`, 'map the code'], [`${TP.name('scribe')}`, 'write the spec'], [`${TP.name('art')}`, 'build it'], [`${TP.name('warden')}`, 'check it'], [`${TP.name('pilot')}`, 'on call for the hard part']].map(([n, s], k) => {
   const c = CREW[k], g = el('g', { class: c.cls, transform: `translate(24 ${98 + k * 28})` }, plan);
   el('circle', { class: 'tone-f', cx: 7, cy: -5, r: 7 }, g);
   const gl = el('g', { class: 'glyph', transform: 'translate(2.2 -9.8) scale(.4)' }, g); gl.innerHTML = GLYPH[c.id];
@@ -3109,7 +3207,7 @@ const bars = [['How hard', .94], ['What’s at stake', .8], ['How big', .52]].ma
 const pick = el('g', { class: 'c-wiz', transform: 'translate(24 164)' }, router);
 el('rect', { class: 'tone-f', width: 304, height: 36, rx: 18 }, pick);
 const pgl = el('g', { class: 'glyph', transform: 'translate(12 6) scale(1)' }, pick); pgl.innerHTML = GLYPH.wiz;
-T(pick, 'b f-ink', 14, 44, 23, 'Test Pilot · the strongest model', { 'font-weight': 600 });
+T(pick, 'b f-ink', 14, 44, 23, `${TP.name('pilot')} · the strongest model`, { 'font-weight': 600 });
 // Approvals from your phone
 const phone = el('g', { transform: 'translate(944 126)' }, gHud);
 el('rect', { class: 'card', width: 216, height: 392, rx: 32, style: 'stroke:var(--border-strong);stroke-width:1.5' }, phone);
@@ -3181,8 +3279,8 @@ const outs = [['Work', 'c-scout', 112, 200], ['Home', 'c-scribe', 178, -42], ['S
 // what every outpost has of its own
 const ownCard = card(908, 214, 312, 190);
 T(ownCard, 'm f-muted', 11, 24, 32, 'EVERY OUTPOST', { 'letter-spacing': '1.5' });
-T(ownCard, 'd f-text', 22, 24, 62, 'A camp of its own');
-const ownRows = ['Its own crew', 'Its own memory', 'Its own keys and settings'].map((s, r) => { const rg = el('g', { transform: `translate(24 ${100 + r * 28})` }, ownCard); el('circle', { class: 'dot-f', cx: 5, cy: -5, r: 4 }, rg); T(rg, 'b f-text', 14.5, 20, 0, s); return rg; });
+T(ownCard, 'd f-text', 22, 24, 62, `${TP.A('camp')} of its own`);
+const ownRows = [`Its own ${TP.w('crew')}`, 'Its own memory', 'Its own keys and settings'].map((s, r) => { const rg = el('g', { transform: `translate(24 ${100 + r * 28})` }, ownCard); el('circle', { class: 'dot-f', cx: 5, cy: -5, r: 4 }, rg); T(rg, 'b f-text', 14.5, 20, 0, s); return rg; });
 gIntro.appendChild(ownCard);
 // the picked outpost's mark, drawn over its planet, so it can leave the chart and become the lockup
 const pickMark = smallMark(gIntro);
@@ -3191,7 +3289,7 @@ const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width'
 const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
 const ICAPS = [
   [1.7, 4.9, 'It starts on the star chart.', 'An outpost for each part of your life: work, home, a side project.'],
-  [5.1, 7.9, 'Each outpost keeps to itself.', 'Its own crew, memory, settings and keys. Work never reads home.'],
+  [5.1, 7.9, 'Each outpost keeps to itself.', `Its own ${TP.w('crew')}, memory, settings and keys. Work never reads home.`],
 ];
 function intro(tt) {
   if (tt >= PRE) { O(gIntro, 0); O(gLock, 1); O(sunCore, 1); return; }
@@ -3227,21 +3325,21 @@ function intro(tt) {
 
 // ---- timeline ----
 const CAPS = [
-  [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, with the Test Pilot on call.'],
-  [13.9, 19.9, 'You ask. The Quartermaster makes a plan.', 'From the sun at the centre, one request becomes four quests.'],
-  [20.7, 25.3, 'Scout reads the ground.', 'It maps the code before anyone touches it.'],
-  [25.7, 30.3, 'Scribe writes it down.', 'The spec, line by line, along the contours.'],
-  [30.7, 35.3, 'Artificer builds it.', 'Each layer set down and struck into the one below.'],
-  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'It runs on the strongest model by default, and lists every shortcut it took.'],
+  [6.0, 13.3, `Meet the ${TP.w('crew')}.`, `${TP.name('scout')}, ${TP.name('scribe')}, ${TP.name('art')} and ${TP.name('warden')}, with the ${TP.name('pilot')} on call.`],
+  [13.9, 19.9, `You ask. The ${TP.name('qm')} makes a plan.`, `From the sun at the centre, one request becomes four ${TP.w('quests')}.`],
+  [20.7, 25.3, `${TP.name('scout')} reads the ground.`, 'It maps the code before anyone touches it.'],
+  [25.7, 30.3, `${TP.name('scribe')} writes it down.`, 'The spec, line by line, along the contours.'],
+  [30.7, 35.3, `${TP.name('art')} builds it.`, 'Each layer set down and struck into the one below.'],
+  [35.5, 39.4, `For the hardest part, the ${TP.name('pilot')}.`, 'It runs on the strongest model by default, and lists every shortcut it took.'],
   [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
-  [44.7, 49.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
+  [44.7, 49.3, `${TP.name('warden')} checks the work.`, 'Tests, secrets, and the plan it was asked to follow.'],
   [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
   [54.1, 58.9, 'Say yes from anywhere.', 'The push pings your phone. Nothing ships until you approve.'],
-  [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
+  [59.6, 66.7, `What the ${TP.w('crew')} learns becomes a star.`, 'Next time, it already knows the way.'],
   [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
 ];
-const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Test Pilot'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
-const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Test Pilot'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, `The ${TP.w('crew')}`], [13.6, 'A request'], [19.9, `${TP.name('scout')}`], [24.9, `${TP.name('scribe')}`], [29.9, `${TP.name('art')}`], [34.9, `The ${TP.name('pilot')}`], [43.9, `${TP.name('warden')}`], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, `The ${TP.w('crew')}`], [13.6, 'A request'], [19.9, 'The work'], [34.9, `The ${TP.name('pilot')}`], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
 CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
 const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
 const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
@@ -3284,7 +3382,7 @@ const comet = (c, a, b, from, to, bend, t, step = .032, n = 13) => {
 
 let lastCap = -1, lastChap = -1, duskA = .64, filmT = 0, pingT = 0;
 const readDusk = () => { duskA = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dusk-a')) || .64; };
-readDusk(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readDusk(); render(t); });
+readDusk(); { const mq = matchMedia('(prefers-color-scheme: dark)'), onScheme = () => { readDusk(); render(t); }; mq.addEventListener('change', onScheme); cleanups.push(() => mq.removeEventListener('change', onScheme)); }
 function renderMain(t) {
   const m = logoM(t), s = clamp(m / .4), e = clamp((m - .32) / .68), lp = 1 - clamp(m / .3);
   const cam = camera(t), z = cam.z;
@@ -3467,15 +3565,16 @@ scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DU
 function frame(now) {
   if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
   last = now;
-  requestAnimationFrame(frame);
+  (dead || (raf = requestAnimationFrame(frame)));
 }
 setPlaying(playing); render(0); sync();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render(t));
-requestAnimationFrame(frame);
-// the page says when this film can be seen: it only runs then
-return { show: v => { shown = !!v; } };
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
 ticket: function (root) {
+let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 54.7, PI = Math.PI;
@@ -3543,16 +3642,16 @@ const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring 
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
 // a: its panel opens, b: its panel closes and the camera pulls back, done: its own work is finished
 const CREW = [
-  { key: 'scout', name: 'Navigator', sub: 'READS THE CODE', slot: 1, w: 40, ang: -25, a: 17.0, b: 20.4, done: 19.6, want: [60, null, null, 150, 230, 300] },
-  { key: 'art', name: 'Engineer', sub: 'CHANGES THE CODE', slot: 3, w: 26, ang: -25, a: 23.3, b: 31.8, done: 28.1, want: [140, 200, null, null, 120, 200] },
-  { key: 'scribe', name: 'Comms Officer', sub: 'WRITES IT UP', slot: 2, w: 17, ang: -28, a: 34.7, b: 39.3, done: 37.3, want: [215, 240, 265, null, null, 80] },
-  { key: 'warden', name: 'Security Chief', sub: 'REVIEWS IT', slot: 4, w: 11, ang: -40, a: 42.2, b: 46.5, done: 44.4, want: [330, 100, 150, 250, null, null] },
+  { key: 'scout', name: `${TP.name('scout')}`, sub: 'READS THE CODE', slot: 1, w: 40, ang: -25, a: 17.0, b: 20.4, done: 19.6, want: [60, null, null, 150, 230, 300] },
+  { key: 'art', name: `${TP.name('art')}`, sub: 'CHANGES THE CODE', slot: 3, w: 26, ang: -25, a: 23.3, b: 31.8, done: 28.1, want: [140, 200, null, null, 120, 200] },
+  { key: 'scribe', name: `${TP.name('scribe')}`, sub: 'WRITES IT UP', slot: 2, w: 17, ang: -28, a: 34.7, b: 39.3, done: 37.3, want: [215, 240, 265, null, null, 80] },
+  { key: 'warden', name: `${TP.name('warden')}`, sub: 'REVIEWS IT', slot: 4, w: 11, ang: -40, a: 42.2, b: 46.5, done: 44.4, want: [330, 100, 150, 250, null, null] },
 ];
-const QM = { key: 'qm', name: 'Commander', sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
+const QM = { key: 'qm', name: `${TP.name('qm')}`, sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
 // The Test Pilot has no quest on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
-const PILOT = { key: 'pilot', name: 'Test Pilot', slot: 5, i: 4, R: 292 };
+const PILOT = { key: 'pilot', name: `${TP.name('pilot')}`, slot: 5, i: 4, R: 292 };
 // how close the camera is on a body: 0 is the whole system, 1 is the close-up
 const focusOf = (b, t) => seg(t, b.zi, b.zi + 1) * (1 - seg(t, b.zo, b.zo + 1));
 const anyFocus = t => BODIES.reduce((m, b) => Math.max(m, focusOf(b, t)), 0);
@@ -3736,11 +3835,11 @@ const CAPX = 470;
 const CAPS = [
   ['Start from a ticket.', 4.9, 9.3],
   ['You approve the plan.', 10.1, 14.4],
-  ['The Navigator finds the bug.', 17.0, 20.3],
-  ['The Engineer fixes it.', 23.3, 28.9],
+  [`The ${TP.name('scout')} finds the bug.`, 17.0, 20.3],
+  [`The ${TP.name('art')} fixes it.`, 23.3, 28.9],
   ['You make the commit.', 29.3, 31.7],
   ['Nothing leaves without your click.', 34.7, 39.2],
-  ['Then the Security Chief reviews it.', 42.2, 46.4],
+  [`Then the ${TP.name('warden')} reviews it.`, 42.2, 46.4],
 ].map(([s, a, b]) => ({ a, b, words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
 const capProbe = [tx(svg, 0, -200, 'd cap', 'xx'), tx(svg, 0, -200, 'd cap', 'x x')];
 function layoutCaps() {
@@ -3764,9 +3863,9 @@ CREW.forEach(c => {
   c.label = tx(svg, 0, 0, 'm camp-l', c.name.toUpperCase(), { 'text-anchor': 'middle' });
 });
 PILOT.tok = badge('pilot', null, true); PILOT.halo = PILOT.tok.firstChild;
-PILOT.label = tx(svg, 0, 0, 'm camp-l', 'TEST PILOT', { 'text-anchor': 'middle' });
+PILOT.label = tx(svg, 0, 0, 'm camp-l', `${TP.name('pilot').toUpperCase()}`, { 'text-anchor': 'middle' });
 const qm = badge('qm');
-const sunL = tx(svg, 0, 0, 'm camp-l', 'COMMANDER', { 'text-anchor': 'middle' });
+const sunL = tx(svg, 0, 0, 'm camp-l', `${TP.name('qm').toUpperCase()}`, { 'text-anchor': 'middle' });
 const gBody = el('g');                                         // who you are looking at, under the close-up
 const bodyName = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 66, 'd body-name', '', { 'text-anchor': 'middle' });
 const bodySub = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 88, 'm camp-l', '', { 'text-anchor': 'middle' });
@@ -3801,7 +3900,7 @@ tx(tkWhere, 352, 432, 'b t15 f-text', 'links/web, on a new branch');
 tx(tkWhere, 560, 432, 'm code f-muted', BRANCH);
 const tkWho = el('g', null, gTk);
 tx(tkWho, 282, 460, 'm lbl', 'WHO');
-tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander · the Security Chief reviews the changes before it reports');
+tx(tkWho, 352, 460, 'b t15 f-text', `The ${TP.name('qm')} · the ${TP.name('warden')} reviews the changes before it reports`);
 tx(gTk, 282, 537, 'm lbl', 'TICKET  ·  DETAILS  ·  WHERE  ·  WHO  ·  START');
 const tkBtnG = el('g', null, gTk);
 const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
@@ -3809,14 +3908,14 @@ const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
 // ---- close on the sun: the plan ----
 const gPlan = el('g', { class: 'shadow' });
 el('rect', { x: 336, y: 226, width: 660, height: 334, rx: 16, class: 'card' }, gPlan);
-tx(gPlan, 360, 264, 'b who c-qm f-tone', 'Commander');
-tx(gPlan, 360, 292, 'b bubble', "Here's the plan for WEB-212. Four quests, one after another.");
+tx(gPlan, 360, 264, 'b who c-qm f-tone', `${TP.name('qm')}`);
+tx(gPlan, 360, 292, 'b bubble', `Here's the plan for WEB-212. Four ${TP.w('quests')}, one after another.`);
 el('rect', { x: 360, y: 312, width: 612, height: 170, rx: 10, class: 'inset' }, gPlan);
 const ROWS = [
-  ['scout', 'Navigator', 'find where dates are formatted'],
-  ['art', 'Engineer', 'fix it, add a test, run the suite'],
-  ['scribe', 'Comms Officer', 'draft the pull request description'],
-  ['warden', 'Security Chief', 'review the pull request'],
+  ['scout', `${TP.name('scout')}`, 'find where dates are formatted'],
+  ['art', `${TP.name('art')}`, 'fix it, add a test, run the suite'],
+  ['scribe', `${TP.name('scribe')}`, 'draft the pull request description'],
+  ['warden', `${TP.name('warden')}`, 'review the pull request'],
 ].map(([key, name, task], j) => {
   const y = 346 + j * 38, g = el('g', { class: 'c-' + key }, gPlan);
   tx(g, 380, y, 'm row-n', String(j + 1));
@@ -3843,7 +3942,7 @@ const phase = (g, t, a, b) => O(g, seg(t, a, a + .4, ease.out) * (1 - seg(t, b, 
 
 // Navigator: finds where the bug lives
 const gSc = phaseG('scout');
-const scSt = head(gSc, 'Navigator', 'reading links/web', 'working');
+const scSt = head(gSc, `${TP.name('scout')}`, 'reading links/web', 'working');
 el('rect', { x: 494, y: 290, width: 682, height: 38, rx: 8, class: 'inset' }, gSc);
 tx(gSc, 510, 314, 'm code f-faint', '$');
 const scCmd = typer(gSc, 528, 314, 'm code f-text', 'grep -rn "toLocaleDateString" src/');
@@ -3861,7 +3960,7 @@ tx(scRep, 494, 502, 'b t16 f-text', 'day before to anyone west of UTC. Two scree
 
 // Engineer: changes the code, adds a test, runs the suite
 const gAr = phaseG('art');
-const arSt = head(gAr, 'Engineer', 'links/web on ' + BRANCH, 'working');
+const arSt = head(gAr, `${TP.name('art')}`, 'links/web on ' + BRANCH, 'working');
 tx(gAr, 494, 302, 'm code f-text', 'src/format/date.ts');
 const arStat = tx(gAr, 1176, 302, 'm code', null, { 'text-anchor': 'end' });
 el('tspan', { class: 'f-good' }, arStat, '+2 '); el('tspan', { class: 'f-bad' }, arStat, '−2');
@@ -3912,7 +4011,7 @@ const cmChip = chip(gCm, 494, 556, 'Committed to ' + BRANCH);
 
 // Comms Officer: drafts the pull request, you open it
 const gSb = phaseG('scribe');
-const sbSt = head(gSb, 'Comms Officer', 'drafting the pull request', 'working');
+const sbSt = head(gSb, `${TP.name('scribe')}`, 'drafting the pull request', 'working');
 tx(gSb, 494, 302, 'm lbl', 'TITLE');
 el('rect', { x: 494, y: 312, width: 682, height: 40, rx: 8, class: 'inset' }, gSb);
 tx(gSb, 510, 337, 'b t15 f-text', 'WEB-212: Dates show a day early west of UTC');
@@ -3933,7 +4032,7 @@ const sbChip = chip(gSb, 494, 556, 'Pull request #418 is open');
 
 // Security Chief: reviews the pull request, you post the review
 const gWd = phaseG('warden');
-const wdSt = head(gWd, 'Security Chief', 'reviewing pull request #418', 'working');
+const wdSt = head(gWd, `${TP.name('warden')}`, 'reviewing pull request #418', 'working');
 tx(gWd, 494, 302, 'b t16 f-text', 'The fix is right: date-only values no longer shift. Two things are');
 tx(gWd, 494, 326, 'b t16 f-text', 'worth a look before it merges.');
 const wdFind = [
@@ -3956,9 +4055,9 @@ const wdChip = chip(gWd, 494, 556, 'Posted on pull request #418');
 
 // ---- title card and the name, drawn ----
 const gTitle = el('g');
-tx(gTitle, 640, 190, 'm eyebrow', 'A CREW ON YOUR OWN MACHINE', { 'text-anchor': 'middle' });
+tx(gTitle, 640, 190, 'm eyebrow', `${TP.A('crew').toUpperCase()} ON YOUR OWN MACHINE`, { 'text-anchor': 'middle' });
 const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
-el('tspan', { class: 'f-ink' }, tag, 'Your outpost. Your crew. ');
+el('tspan', { class: 'f-ink' }, tag, `Your outpost. Your ${TP.w('crew')}. `);
 el('tspan', { class: 'f-accent' }, tag, 'Your call.');
 el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
@@ -3988,9 +4087,9 @@ function ringAt(idx, t) {
 
 // ---- the ending: the tagline, a phrase at a time ----
 const gName = el('g');
-const NAME = [['Your outpost.', 0], ['Your crew.', 0], ['Your call.', 1]]
+const NAME = [['Your outpost.', 0], [`Your ${TP.w('crew')}.`, 0], ['Your call.', 1]]
   .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
-const nameSub = tx(svg, 640, 506, 'b name-sub', "The crew you'd be if there were more of you.", { 'text-anchor': 'middle' });
+const nameSub = tx(svg, 640, 506, 'b name-sub', `The ${TP.w('crew')} you'd be if there were more of you.`, { 'text-anchor': 'middle' });
 function layoutName() {
   NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
   const sp = 18;
@@ -4257,15 +4356,16 @@ scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DU
 function frame(now) {
   if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
   last = now;
-  requestAnimationFrame(frame);
+  (dead || (raf = requestAnimationFrame(frame)));
 }
 layoutRoute(); layoutName(); layoutCaps(); setPlaying(playing); render(0); sync();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layoutName(); layoutCaps(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
-requestAnimationFrame(frame);
-// the page says when this film can be seen: it only runs then
-return { show: v => { shown = !!v; } };
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
 audit: function (root) {
+let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 63.9, PI = Math.PI;
@@ -4333,16 +4433,16 @@ const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring 
 const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
 // a: its panel opens, b: its panel closes and the camera pulls back, done: its own work is finished
 const CREW = [
-  { key: 'scout', name: 'Navigator', sub: 'READS THE CODE', slot: 1, w: 40, ang: -25, a: 17.0, b: 20.4, done: 19.6, want: [60, null, null, 150, 230, 300] },
-  { key: 'art', name: 'Engineer', sub: 'CHANGES THE CODE', slot: 3, w: 26, ang: -25, a: 23.3, b: 31.8, done: 28.1, want: [140, 200, null, null, 120, 200] },
-  { key: 'scribe', name: 'Comms Officer', sub: 'WRITES IT UP', slot: 2, w: 17, ang: -28, a: 34.7, b: 39.3, done: 37.3, want: [215, 240, 265, null, null, 80] },
-  { key: 'warden', name: 'Security Chief', sub: 'REVIEWS IT', slot: 4, w: 11, ang: -40, a: 42.2, b: 46.5, done: 44.4, want: [330, 100, 150, 250, null, null] },
+  { key: 'scout', name: `${TP.name('scout')}`, sub: 'READS THE CODE', slot: 1, w: 40, ang: -25, a: 17.0, b: 20.4, done: 19.6, want: [60, null, null, 150, 230, 300] },
+  { key: 'art', name: `${TP.name('art')}`, sub: 'CHANGES THE CODE', slot: 3, w: 26, ang: -25, a: 23.3, b: 31.8, done: 28.1, want: [140, 200, null, null, 120, 200] },
+  { key: 'scribe', name: `${TP.name('scribe')}`, sub: 'WRITES IT UP', slot: 2, w: 17, ang: -28, a: 34.7, b: 39.3, done: 37.3, want: [215, 240, 265, null, null, 80] },
+  { key: 'warden', name: `${TP.name('warden')}`, sub: 'REVIEWS IT', slot: 4, w: 11, ang: -40, a: 42.2, b: 46.5, done: 44.4, want: [330, 100, 150, 250, null, null] },
 ];
-const QM = { key: 'qm', name: 'Commander', sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
+const QM = { key: 'qm', name: `${TP.name('qm')}`, sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
 // The Test Pilot has no quest on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
-const PILOT = { key: 'pilot', name: 'Test Pilot', slot: 5, i: 4, R: 292 };
+const PILOT = { key: 'pilot', name: `${TP.name('pilot')}`, slot: 5, i: 4, R: 292 };
 // after the first finding, the next two go round the crew quickly: T is when a finding's tag leaves the list
 const LAPS = [48.2, 51.7].map(T => ({ T }));
 const lapOut = (L, j) => L.T + .7 + .3 * j, lapBack = (L, j) => L.T + 1.8 + .3 * j;   // a quest leaves the sun; its report sets off home
@@ -4529,11 +4629,11 @@ const CAPX = 470;
 const CAPS = [
   ['Start from an audit finding.', 4.9, 9.3],
   ['You approve the plan.', 10.1, 14.4],
-  ['The Navigator finds the gap.', 17.0, 20.3],
-  ['The Engineer closes it.', 23.3, 28.9],
+  [`The ${TP.name('scout')} finds the gap.`, 17.0, 20.3],
+  [`The ${TP.name('art')} closes it.`, 23.3, 28.9],
   ['You make the commit.', 29.3, 31.7],
   ['Nothing leaves without your click.', 34.7, 39.2],
-  ['Then the Security Chief reviews it.', 42.2, 46.4],
+  [`Then the ${TP.name('warden')} reviews it.`, 42.2, 46.4],
 ].map(([s, a, b]) => ({ a, b, words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
 const capProbe = [tx(svg, 0, -200, 'd cap', 'xx'), tx(svg, 0, -200, 'd cap', 'x x')];
 function layoutCaps() {
@@ -4557,9 +4657,9 @@ CREW.forEach(c => {
   c.label = tx(svg, 0, 0, 'm camp-l', c.name.toUpperCase(), { 'text-anchor': 'middle' });
 });
 PILOT.tok = badge('pilot', null, true); PILOT.halo = PILOT.tok.firstChild;
-PILOT.label = tx(svg, 0, 0, 'm camp-l', 'TEST PILOT', { 'text-anchor': 'middle' });
+PILOT.label = tx(svg, 0, 0, 'm camp-l', `${TP.name('pilot').toUpperCase()}`, { 'text-anchor': 'middle' });
 const qm = badge('qm');
-const sunL = tx(svg, 0, 0, 'm camp-l', 'COMMANDER', { 'text-anchor': 'middle' });
+const sunL = tx(svg, 0, 0, 'm camp-l', `${TP.name('qm').toUpperCase()}`, { 'text-anchor': 'middle' });
 const gBody = el('g');                                         // who you are looking at, under the close-up
 const bodyName = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 66, 'd body-name', '', { 'text-anchor': 'middle' });
 const bodySub = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 88, 'm camp-l', '', { 'text-anchor': 'middle' });
@@ -4596,8 +4696,8 @@ FIND.forEach(f => {
 });
 // beside the system while the last two go round, and the tally at the end
 const WCAPS = [
-  { lines: ['Then the next', 'finding.'], sub: 'Same crew. Same clicks from you.', a: LAPS[0].T + .1, b: LAPS[1].T - .1 },
-  { lines: ['And the', 'next.'], sub: 'Same crew. Same clicks from you.', a: LAPS[1].T + .1, b: LAPS[1].T + 3.5 },
+  { lines: ['Then the next', 'finding.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[0].T + .1, b: LAPS[1].T - .1 },
+  { lines: ['And the', 'next.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[1].T + .1, b: LAPS[1].T + 3.5 },
   { lines: ['Three findings,', 'three reviewed', 'pull requests.'], sub: null, a: LAPS[1].T + 3.7, b: FIN + .15 },
 ].map(c => ({ ...c, n: c.lines.map((line, k) => tx(svg, 56, 322 + k * 44, 'd wcap', line)), s: c.sub ? tx(svg, 57, 322 + c.lines.length * 44 - 8, 'b t16 f-muted', c.sub) : null }));
 
@@ -4631,7 +4731,7 @@ tx(tkWhere, 352, 432, 'b t15 f-text', 'Ledgerline, in a new worktree');
 tx(tkWhere, 572, 432, 'm code f-muted', BRANCH);
 const tkWho = el('g', null, gTk);
 tx(tkWho, 282, 460, 'm lbl', 'WHO');
-tx(tkWho, 352, 460, 'b t15 f-text', 'The Commander · the Security Chief reviews the changes before it reports');
+tx(tkWho, 352, 460, 'b t15 f-text', `The ${TP.name('qm')} · the ${TP.name('warden')} reviews the changes before it reports`);
 tx(gTk, 282, 537, 'm lbl', 'TICKET  ·  DETAILS  ·  WHERE  ·  WHO  ·  START');
 const tkBtnG = el('g', null, gTk);
 const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
@@ -4639,14 +4739,14 @@ const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
 // ---- close on the sun: the plan ----
 const gPlan = el('g', { class: 'shadow' });
 el('rect', { x: 336, y: 226, width: 660, height: 334, rx: 16, class: 'card' }, gPlan);
-tx(gPlan, 360, 264, 'b who c-qm f-tone', 'Commander');
-tx(gPlan, 360, 292, 'b bubble', "Here's the plan for LED-105. Four quests, one after another.");
+tx(gPlan, 360, 264, 'b who c-qm f-tone', `${TP.name('qm')}`);
+tx(gPlan, 360, 292, 'b bubble', `Here's the plan for LED-105. Four ${TP.w('quests')}, one after another.`);
 el('rect', { x: 360, y: 312, width: 612, height: 170, rx: 10, class: 'inset' }, gPlan);
 const ROWS = [
-  ['scout', 'Navigator', 'find where access is decided'],
-  ['art', 'Engineer', 'deny by default, open its tests, run the suite'],
-  ['scribe', 'Comms Officer', 'draft the pull request description'],
-  ['warden', 'Security Chief', 'review the pull request'],
+  ['scout', `${TP.name('scout')}`, 'find where access is decided'],
+  ['art', `${TP.name('art')}`, 'deny by default, open its tests, run the suite'],
+  ['scribe', `${TP.name('scribe')}`, 'draft the pull request description'],
+  ['warden', `${TP.name('warden')}`, 'review the pull request'],
 ].map(([key, name, task], j) => {
   const y = 346 + j * 38, g = el('g', { class: 'c-' + key }, gPlan);
   tx(g, 380, y, 'm row-n', String(j + 1));
@@ -4673,7 +4773,7 @@ const phase = (g, t, a, b) => O(g, seg(t, a, a + .4, ease.out) * (1 - seg(t, b, 
 
 // Navigator: finds where the gap is
 const gSc = phaseG('scout');
-const scSt = head(gSc, 'Navigator', 'reading ledgerline', 'working');
+const scSt = head(gSc, `${TP.name('scout')}`, 'reading ledgerline', 'working');
 el('rect', { x: 494, y: 290, width: 682, height: 38, rx: 8, class: 'inset' }, gSc);
 tx(gSc, 510, 314, 'm code f-faint', '$');
 const scCmd = typer(gSc, 528, 314, 'm code f-text', 'grep -n "ROLES" src/access.js');
@@ -4691,7 +4791,7 @@ tx(scRep, 494, 502, 'b t16 f-text', 'no role may do everything. Every step in li
 
 // Engineer: changes the code, opens the ticket's tests, runs the suite
 const gAr = phaseG('art');
-const arSt = head(gAr, 'Engineer', 'ledgerline on ' + BRANCH, 'working');
+const arSt = head(gAr, `${TP.name('art')}`, 'ledgerline on ' + BRANCH, 'working');
 tx(gAr, 494, 302, 'm code f-text', 'src/access.js');
 const arStat = tx(gAr, 1176, 302, 'm code', null, { 'text-anchor': 'end' });
 el('tspan', { class: 'f-good' }, arStat, '+4 '); el('tspan', { class: 'f-bad' }, arStat, '−3');
@@ -4739,7 +4839,7 @@ const cmChip = chip(gCm, 494, 556, 'Committed to the LED-105 branch');
 
 // Comms Officer: drafts the pull request, you open it
 const gSb = phaseG('scribe');
-const sbSt = head(gSb, 'Comms Officer', 'drafting the pull request', 'working');
+const sbSt = head(gSb, `${TP.name('scribe')}`, 'drafting the pull request', 'working');
 tx(gSb, 494, 302, 'm lbl', 'TITLE');
 el('rect', { x: 494, y: 312, width: 682, height: 40, rx: 8, class: 'inset' }, gSb);
 tx(gSb, 510, 337, 'b t15 f-text', 'LED-105: Deny access to accounts with no defined role');
@@ -4760,7 +4860,7 @@ const sbChip = chip(gSb, 494, 556, 'Pull request #1 is open');
 
 // Security Chief: reviews the pull request, you post the review
 const gWd = phaseG('warden');
-const wdSt = head(gWd, 'Security Chief', 'reviewing pull request #1', 'working');
+const wdSt = head(gWd, `${TP.name('warden')}`, 'reviewing pull request #1', 'working');
 tx(gWd, 494, 302, 'b t16 f-text', 'I read the diff and the code around it, and I think this is good to');
 tx(gWd, 494, 326, 'b t16 f-text', 'merge. Nothing has to be fixed first. Two small things to know:');
 const wdFind = [
@@ -4783,10 +4883,10 @@ const wdChip = chip(gWd, 494, 556, 'Posted on pull request #1');
 
 // ---- title card and the name, drawn ----
 const gTitle = el('g');
-tx(gTitle, 640, 190, 'm eyebrow', 'A CREW ON YOUR OWN MACHINE', { 'text-anchor': 'middle' });
+tx(gTitle, 640, 190, 'm eyebrow', `${TP.A('crew').toUpperCase()} ON YOUR OWN MACHINE`, { 'text-anchor': 'middle' });
 const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'f-ink' }, tag, 'Your audit findings ');
-el('tspan', { class: 'f-accent' }, tag, 'have a crew.');
+el('tspan', { class: 'f-accent' }, tag, `have ${TP.a('crew')}.`);
 el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
 const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'p' }, cmd, '$ ');
@@ -4815,9 +4915,9 @@ function ringAt(idx, t) {
 
 // ---- the ending: the tagline, a phrase at a time ----
 const gName = el('g');
-const NAME = [['Your outpost.', 0], ['Your crew.', 0], ['Your call.', 1]]
+const NAME = [['Your outpost.', 0], [`Your ${TP.w('crew')}.`, 0], ['Your call.', 1]]
   .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
-const nameSub = tx(svg, 640, 506, 'b name-sub', "The crew you'd be if there were more of you.", { 'text-anchor': 'middle' });
+const nameSub = tx(svg, 640, 506, 'b name-sub', `The ${TP.w('crew')} you'd be if there were more of you.`, { 'text-anchor': 'middle' });
 function layoutName() {
   NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
   const sp = 18;
@@ -5101,15 +5201,16 @@ scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DU
 function frame(now) {
   if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
   last = now;
-  requestAnimationFrame(frame);
+  (dead || (raf = requestAnimationFrame(frame)));
 }
 layoutRoute(); layoutName(); layoutCaps(); setPlaying(playing); render(0); sync();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layoutName(); layoutCaps(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
-requestAnimationFrame(frame);
-// the page says when this film can be seen: it only runs then
-return { show: v => { shown = !!v; } };
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
 trail: function (root) {
+let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 36, PI = Math.PI, NEVER = 1e9;
@@ -5163,7 +5264,7 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief' };
+const CREW = { qm: `${TP.name('qm')}`, scout: `${TP.name('scout')}`, scribe: `${TP.name('scribe')}`, art: `${TP.name('art')}`, warden: `${TP.name('warden')}` };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
@@ -5385,7 +5486,7 @@ CLICKS.push({ t: T.map, x: 1070, y: 122 }, { t: T.tree, x: 890, y: 122 });
 
 const gTitle = titleCard('NEW AT THE OUTPOST · TRAIL MAP', 'The plan, ', 'drawn as a trail.', 'Every step a waypoint, and every plan of the day on one map.');
 const gEnd = endCard('Open it beside Orbit, or type', '/trail', 'M for the whole map · R for tree or rings · P to replay the day');
-caption('Each step is a waypoint.', 'A line runs from a step to each step that has to wait for it. It fills in as the crew works.', 3.0, T.map - .4);
+caption('Each step is a waypoint.', `A line runs from a step to each step that has to wait for it. It fills in as the ${TP.w('crew')} works.`, 3.0, T.map - .4);
 caption('Every plan of the day, on one map.', 'Each plan is a ring, the first asked innermost, so the map grows outward as the day goes on.', T.map + .3, T.tree - .3);
 caption('Or draw it as a tree.', 'One trunk for the day, the first plan at the foot, and each plan a bough growing off it.', T.tree + .3, T.join - .3);
 caption('A plan that joins is drawn in.', 'A bough grows, or a ring opens out, while the rest move over for it.', T.join + .2, END - .3);
@@ -5526,15 +5627,16 @@ scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DU
 function frame(now) {
   if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
   last = now;
-  requestAnimationFrame(frame);
+  (dead || (raf = requestAnimationFrame(frame)));
 }
 layoutRoute(); layout(); setPlaying(playing); render(0); sync();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
-requestAnimationFrame(frame);
-// the page says when this film can be seen: it only runs then
-return { show: v => { shown = !!v; } };
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
 stars: function (root) {
+let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 39.6, PI = Math.PI, NEVER = 1e9;
@@ -5588,7 +5690,7 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief', pilot: 'Test Pilot' };
+const CREW = { qm: `${TP.name('qm')}`, scout: `${TP.name('scout')}`, scribe: `${TP.name('scribe')}`, art: `${TP.name('art')}`, warden: `${TP.name('warden')}`, pilot: `${TP.name('pilot')}` };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
@@ -5692,13 +5794,13 @@ const MC = [388, 412], rad = d => d * PI / 180;
 const SPOTS = [[0, -36], [31, -17], [33, 20], [2, 38], [-31, 21], [-35, -15], [1, 1]];
 // Each place and how often each of its lines has been used.
 const PLACES = [
-  { key: 'qm', name: 'Commander', n: [5, 1, 0, 3, 2, 0] },
-  { key: 'art', name: 'Engineer', n: [2, 1, 0, 4, 1, 6, 0] },
-  { key: 'scribe', name: 'Comms Officer', n: [0, 3, 1, 0, 2] },
-  { key: 'scout', name: 'Navigator', n: [3, 0, 1, 7, 2, 1] },
-  { key: 'warden', name: 'Security Chief', n: [1, 4, 0, 2, 0] },
+  { key: 'qm', name: `${TP.name('qm')}`, n: [5, 1, 0, 3, 2, 0] },
+  { key: 'art', name: `${TP.name('art')}`, n: [2, 1, 0, 4, 1, 6, 0] },
+  { key: 'scribe', name: `${TP.name('scribe')}`, n: [0, 3, 1, 0, 2] },
+  { key: 'scout', name: `${TP.name('scout')}`, n: [3, 0, 1, 7, 2, 1] },
+  { key: 'warden', name: `${TP.name('warden')}`, n: [1, 4, 0, 2, 0] },
   { key: 'about', name: 'About you', n: [6, 2, 3, 1] },
-  { key: 'pilot', name: 'Test Pilot', n: [2, 0, 1, 3] },
+  { key: 'pilot', name: `${TP.name('pilot')}`, n: [2, 0, 1, 3] },
 ];
 const gScene = el('g'), gPlaces = el('g', null, gScene), gLines = el('g', null, gScene), gStars = el('g', null, gScene);
 const STARS = [], star = (key, i) => STARS.find(s => s.p.key === key && s.i === i);
@@ -5786,14 +5888,14 @@ function linePanel(key, name, lines, kept, from, used) {
   o.forget.box.setAttribute('class', 'btn-bad'); o.forget.tn.setAttribute('class', 'b btn-t f-bad');
   return o;
 }
-const pA = linePanel('art', 'Engineer', ['Dates from the API are UTC: never', 'format them in local time.'], '2026-10-06', 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
+const pA = linePanel('art', `${TP.name('art')}`, ['Dates from the API are UTC: never', 'format them in local time.'], '2026-10-06', 'your feedback', 'Recalled 7 times, last on Nov 18, 2026');
 const pinned = el('g', null, pA.g);
 el('rect', { x: PX + PW - 24 - 78, y: PY + 26, width: 78, height: 22, rx: 11, class: 'pill-a' }, pinned);
 tx(pinned, PX + PW - 24 - 39, PY + 41, 'm pill-t', 'PINNED', { 'text-anchor': 'middle' });
 // the merge: which line, then the draft of the one line
 const aMerge = el('g', null, pA.g);
 tx(aMerge, IX, PY + 166, 'b t16 w6 f-text', 'Merge with which line?');
-tx(aMerge, IX, PY + 190, 'b t13 f-muted', "Pick another star in Engineer's memory, or one from this list.");
+tx(aMerge, IX, PY + 190, 'b t13 f-muted', `Pick another star in ${TP.name('art')}'s memory, or one from this list.`);
 ['API dates are in UTC, so show them as UTC.', 'Run the date tests in three time zones.'].forEach((l, i) => {
   el('rect', { x: IX, y: PY + 208 + i * 50, width: PW - 48, height: 40, rx: 8, class: 'inset' }, aMerge);
   el('circle', { cx: IX + 17, cy: PY + 228 + i * 50, r: 4, class: 'moon' }, aMerge);
@@ -5809,14 +5911,14 @@ const draft1 = typer(aDraft, IX + 16, PY + 259, 'b t15 f-text', 'Dates from the 
 const draft2 = typer(aDraft, IX + 16, PY + 282, 'b t15 f-text', 'as UTC, never in local time.');
 const draftCaret = el('rect', { width: 2, height: 17, class: 'caret' }, aDraft);
 const bReview = button(aDraft, IX + 52, PY + PH - 42, 104, 'Review it');
-const pF = linePanel('scribe', 'Comms Officer', ['Use the old changelog template', 'until March.'], '2026-09-14', 'the crew noted it', 'Not recalled yet');
+const pF = linePanel('scribe', `${TP.name('scribe')}`, ['Use the old changelog template', 'until March.'], '2026-09-14', `the ${TP.w('crew')} noted it`, 'Not recalled yet');
 // the forget asks first
 const gAsk = el('g', null, gScene);
 el('rect', { width: 1280, height: 720, class: 'scrim', opacity: .62 }, gAsk);
 const dlg = el('g', null, gAsk);
 el('rect', { x: -220, y: -100, width: 440, height: 200, rx: 14, class: 'card shadow' }, dlg);
 tx(dlg, -192, -52, 'd tk-title', 'Forget this line?');
-tx(dlg, -192, -20, 'b t15 f-muted', "It's taken out of Comms Officer's memory for good:");
+tx(dlg, -192, -20, 'b t15 f-muted', `It's taken out of ${TP.name('scribe')}'s memory for good:`);
 tx(dlg, -192, 4, 'b t15 f-text', '"Use the old changelog template until March."');
 const bCancel = button(dlg, -144, 58, 96, 'Cancel', 'ghost'), bSure = button(dlg, -36, 58, 96, 'Forget');
 bSure.box.setAttribute('class', 'btn-badfill');
@@ -5824,9 +5926,9 @@ bSure.box.setAttribute('class', 'btn-badfill');
 CLICKS.push({ t: T.pick, x: A.x, y: A.y }, { t: T.pin, x: pA.pin.cx, y: pA.pin.cy + 2 }, { t: T.merge, x: pA.merge.cx, y: pA.merge.cy + 2 }, { t: T.pickB, x: B.x, y: B.y },
   { t: T.pickF, x: F.x, y: F.y }, { t: T.forget, x: pF.forget.cx, y: pF.forget.cy + 2 }, { t: T.sure, x: 640 - 36, y: 400 + 60 });
 
-const gTitle = titleCard('NEW AT THE OUTPOST · CONSTELLATION', "The crew's memory, ", 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
+const gTitle = titleCard('NEW AT THE OUTPOST · CONSTELLATION', `The ${TP.w('crew')}'s memory, `, 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
 const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the map from Settings → Memory.');
-caption('Every line it remembers is a star.', "Grouped by where it lives: a crew member's memory, or the note about you.", 3.0, T.used - .3);
+caption('Every line it remembers is a star.', `Grouped by where it lives: ${TP.a('crew')} member's memory, or the note about you.`, 3.0, T.used - .3);
 caption("A star grows each time it's used.", "Whenever a line bears on a request, or comes back from recall, it's written down.", T.used + .2, T.pick - .5);
 caption('Click a star to read it, and pin it.', 'A pinned line always goes in the prompt, however full that memory gets.', T.pick - .2, T.merge - .5);
 caption('Merge two that say the same thing.', 'The one line is drafted for you. Nothing changes until you approve it.', T.merge - .2, T.pickF - .6);
@@ -5935,15 +6037,16 @@ scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DU
 function frame(now) {
   if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
   last = now;
-  requestAnimationFrame(frame);
+  (dead || (raf = requestAnimationFrame(frame)));
 }
 layoutRoute(); layout(); setPlaying(playing); render(0); sync();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
-requestAnimationFrame(frame);
-// the page says when this film can be seen: it only runs then
-return { show: v => { shown = !!v; } };
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
 night: function (root) {
+let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
 const svg = root.getElementById('stage');
 const DUR = 35.4, PI = Math.PI, NEVER = 1e9;
@@ -5997,7 +6100,7 @@ function press(b, t, tc, after) {
 }
 
 // ---- crew badges ----
-const CREW = { qm: 'Commander', scout: 'Navigator', scribe: 'Comms Officer', art: 'Engineer', warden: 'Security Chief', pilot: 'Test Pilot' };
+const CREW = { qm: `${TP.name('qm')}`, scout: `${TP.name('scout')}`, scribe: `${TP.name('scribe')}`, art: `${TP.name('art')}`, warden: `${TP.name('warden')}`, pilot: `${TP.name('pilot')}` };
 const GLYPH = {
   qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
   scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
@@ -6103,7 +6206,7 @@ const gSet = el('g');
 el('rect', { x: SX, y: SY, width: SW, height: SH, rx: 14, class: 'card shadow' }, gSet);
 tx(gSet, IX, SY + 38, 'm lbl', 'WHAT MAE DOES UNASKED');
 tx(gSet, IX, SY + 76, 'd tk-title', 'Night shift');
-['Off unless you turn it on. Between these hours, once the camp has sat idle for half an hour, it drafts shorter',
+[`Off unless you turn it on. Between these hours, once the ${TP.w('camp')} has sat idle for half an hour, it drafts shorter`,
   'versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping',
   'could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it.',
 ].forEach((l, i) => tx(gSet, IX, SY + 110 + i * 23, 'b t15 f-muted', l));
@@ -6220,7 +6323,7 @@ const statusT = tx(gClock, WX + 40, WY + 75, 'm lbl', '');
 // ---- what the shift writes down, one row at a time ----
 const RX = 630, RW = 578;
 const ROWS = [
-  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: "Navigator's and Engineer's, both more than 60% full", pill: 'DRAFT · WAITS FOR YOUR OK' },
+  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: `${TP.name('scout')}'s and ${TP.name('art')}'s, both more than 60% full`, pill: 'DRAFT · WAITS FOR YOUR OK' },
   { at: 16.5, label: 'OLD LINES', title: 'Listed 5 old lines worth a look', sub: 'Not pinned, and more than 90 days old', pill: 'LISTED · NOTHING TOUCHED' },
   { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: '2 finished worktrees, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
 ];
@@ -6248,9 +6351,9 @@ tx(gToday, JX, TY + 48, 'd tk-title', 'While you were away');
 tx(gToday, TX0 + TW - 26, TY + 45, 'm lbl', 'NIGHT SHIFT, 01:04', { 'text-anchor': 'end' });
 el('line', { x1: JX, y1: TY + 70, x2: TX0 + TW - 26, y2: TY + 70, class: 'hr' }, gToday);
 const ITEMS = [
-  ['Drafted shorter versions of 2 memories', 'Navigator and Engineer. Nothing changes until you approve them.'],
+  ['Drafted shorter versions of 2 memories', `${TP.name('scout')} and ${TP.name('art')}. Nothing changes until you approve them.`],
   ['5 old lines worth a look', 'Not pinned, and more than 90 days old. Nothing was changed.'],
-  ['Housekeeping could remove 2 finished worktrees the camp made', 'About 48 MB. Nothing was cleared: ask for a camp cleanup when you want it done.'],
+  [`Housekeeping could remove 2 finished worktrees the ${TP.w('camp')} made`, `About 48 MB. Nothing was cleared: ask for ${TP.a('camp')} cleanup when you want it done.`],
 ].map(([title, sub], i) => {
   const y = TY + 106 + i * 82, g = el('g', null, gToday);
   el('circle', { cx: JX + 5, cy: y - 5, r: 4, class: 'dot-a' }, g);
@@ -6373,13 +6476,13 @@ scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DU
 function frame(now) {
   if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
   last = now;
-  requestAnimationFrame(frame);
+  (dead || (raf = requestAnimationFrame(frame)));
 }
 layoutRoute(); layout(); setPlaying(playing); render(0); sync();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
-requestAnimationFrame(frame);
-// the page says when this film can be seen: it only runs then
-return { show: v => { shown = !!v; } };
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 }
   };
   var film = {};
@@ -6390,7 +6493,16 @@ return { show: v => { shown = !!v; } };
     var own = document.getElementById('film-' + key + '-css');
     if (own) root.appendChild(own.content.cloneNode(true));
     root.appendChild(document.getElementById('film-' + key + '-stage').content.cloneNode(true));
+    // the stage's own description, in the pack's names and words
+    root.querySelectorAll('[aria-label]').forEach(function (el) { el.setAttribute('aria-label', TP.tr(el.getAttribute('aria-label'))); });
     f.ctl = DRAW[key](root);
+  }
+  // A film is drawn from the names the pack had when it was built: after a pick, one that was built is built again.
+  function rebuild(f) {
+    var stage = f.panel.querySelector('.film-stage'), fresh = stage.cloneNode(false);
+    if (f.ctl) { f.ctl.show(false); f.ctl.stop(); }
+    f.ctl = null;
+    stage.parentNode.replaceChild(fresh, stage);
   }
   // Each section has its own tabs, and its films move only while that section is on screen.
   [{ id: 'films', keys: ['sky', 'ticket', 'audit'] }, { id: 'videos', keys: ['trail', 'stars', 'night'] }].forEach(function (sec) {
@@ -6403,6 +6515,10 @@ return { show: v => { shown = !!v; } };
         if (f.ctl) f.ctl.show(on && inView);
       });
     }
+    window.addEventListener('tour-pack', function () {
+      keys.forEach(function (key) { if (film[key] && film[key].ctl) rebuild(film[key]); });
+      update();
+    });
     keys.forEach(function (key) {
       film[key] = { panel: document.getElementById('film-' + key), tab: document.getElementById('film-tab-' + key), ctl: null };
       film[key].tab.addEventListener('click', function () { active = key; update(); });

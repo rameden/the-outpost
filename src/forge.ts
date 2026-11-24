@@ -9,6 +9,7 @@ import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { ROSTER } from "./roster.js";
 import type { Tool } from "./tools.js";
 import { emit } from "./events.js";
+import { a, w } from "./words.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -50,14 +51,14 @@ export const proposeSkill: Tool = {
       "Propose a new skill (or a replacement for an existing one) for a character. It does NOT go " +
       "live until the user approves it with /review. A skill is reusable how-to instructions the " +
       "character reads before a matching task: concrete steps, formats, and pitfalls, written for " +
-      "any future task of that kind, not a story about this expedition.",
+      `any future task of that kind, not a story about this ${w("expedition")}.`,
     input_schema: {
       type: "object",
       properties: {
         owner: {
           type: "string",
           enum: owners(),
-          description: "Who gets it: an adventurer id, 'quartermaster', or 'shared' for everyone.",
+          description: `Who gets it: ${a("member")}'s id, 'quartermaster', or 'shared' for everyone.`,
         },
         name: { type: "string", description: "kebab-case, e.g. 'research-brief'" },
         description: {

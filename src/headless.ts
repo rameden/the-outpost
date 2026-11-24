@@ -26,7 +26,8 @@
 import { rl } from "./tools.js";
 import { setAsker } from "./ask.js";
 import { attachConsole } from "./events.js";
-import { findCrew } from "./crew.js";
+import { CREW, findCrew } from "./crew.js";
+import { w } from "./words.js";
 import { runDirect, runExpedition } from "./quartermaster.js";
 import { prepareWorkspaces, workspaceStatus, type WorkspaceChoice } from "./repos.js";
 import { changedFiles } from "./checkpoints.js";
@@ -86,7 +87,7 @@ export async function runHeadless(a: HeadlessArgs, signal?: AbortSignal): Promis
   try {
     if (a.agent) {
       const who = findCrew(a.agent);
-      if (!who) throw new Error(`No crew member called "${a.agent}".`);
+      if (!who) throw new Error(`No ${w("crew")} member called "${a.agent}".`);
       result = await runDirect(who.id, a.task, "direct", undefined, signal, id, undefined, { workspaces, ...where });
     } else {
       result = await runExpedition(a.task, { signal, id, workspaces, ...where });
@@ -120,7 +121,7 @@ async function main() {
   if (!a.task) { console.error('Say what to do: npm run headless -- "…" (or pipe it in with -).'); process.exit(1); }
   // Progress on stderr, so stdout is only the answer (written with process.stdout below).
   console.log = (...args: unknown[]) => console.error(...args);
-  if (!a.quiet) attachConsole();
+  if (!a.quiet) attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back") }));
   const controller = new AbortController();
   process.once("SIGINT", () => controller.abort());
   const r = await runHeadless(a, controller.signal);

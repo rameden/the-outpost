@@ -19,7 +19,33 @@ export type PackWords = {
   quests: string;
   camp: string;        // the place it all happens
   expedition: string;  // one request, planned and carried out
+} & PackPhrases;
+
+// The phrases that go with the words, where swapping one word wouldn't read ("break camp" isn't
+// "break ship"). A pack of yours may leave them out: phrasesFor() makes them from its words.
+export type PackPhrases = {
+  member: string;      // one of the crew, as a noun: "adventurer", "officer"
+  log: string;         // the record of past work: "quest log", "ship's log"
+  ready: string;       // what the camp says once it's up, a sentence: "The camp is set"
+  close: string;       // shutting it all down, a verb phrase: "break camp", "power down"
+  closing: string;     // the same, under way, starting a sentence: "Breaking camp"
+  back: string;        // a crew member coming back, after their name: "returns to camp"
+  depart: string;      // a crew member going out on a quest, after their name: "sets out"
+  hq: string;          // the page you watch it all from: "mission control", "the bridge"
 };
+export const PHRASE_KEYS = ["member", "log", "ready", "close", "closing", "back", "depart", "hq"] as const satisfies readonly (keyof PackPhrases)[];
+
+// Phrases for a pack that didn't give them, made from its words.
+export const phrasesFor = (w: { crew: string; quest: string; camp: string }): PackPhrases => ({
+  member: `${w.crew} member`,
+  log: `${w.quest} log`,
+  ready: `The ${w.camp} is set`,
+  close: `close the ${w.camp}`,
+  closing: `Closing the ${w.camp}`,
+  back: `returns to the ${w.camp}`,
+  depart: "sets out",
+  hq: "mission control",
+});
 
 // What a pack calls someone. short: other one-word names they answer to (after @). was: what the
 // Guild pack called them before it called them this (the Test Pilot was the Wizard).
@@ -55,7 +81,10 @@ export const PACKS: Pack[] = [
       warden: { name: "Warden", emoji: "🛡️" },
       wizard: { name: "Test Pilot", emoji: "🛸", was: ["Wizard"] },
     },
-    words: { crew: "crew", quest: "quest", quests: "quests", camp: "camp", expedition: "expedition" },
+    words: {
+      crew: "crew", quest: "quest", quests: "quests", camp: "camp", expedition: "expedition",
+      member: "adventurer", log: "quest log", ready: "The camp is set", close: "break camp", closing: "Breaking camp", back: "returns to camp", depart: "sets out", hq: "mission control",
+    },
     place: "the Adventurer's Guild camp",
   },
   {
@@ -70,7 +99,10 @@ export const PACKS: Pack[] = [
       warden: { name: "Security Chief", emoji: "🛡️", short: ["security"] },
       wizard: { name: "Test Pilot", emoji: "🛸", short: ["pilot"] },
     },
-    words: { crew: "crew", quest: "mission", quests: "missions", camp: "ship", expedition: "voyage" },
+    words: {
+      crew: "crew", quest: "mission", quests: "missions", camp: "ship", expedition: "voyage",
+      member: "officer", log: "ship's log", ready: "All stations ready", close: "power down", closing: "Powering down", back: "returns to the ship", depart: "launches", hq: "the bridge",
+    },
     get place() { return `the starship ${OUTPOST.name}`; },
     palette: "harbor",
     orb: true,
@@ -87,7 +119,10 @@ export const PACKS: Pack[] = [
       warden: { name: "Fact Checker", emoji: "✅", short: ["checker"] },
       wizard: { name: "Stringer", emoji: "⚡" },
     },
-    words: { crew: "staff", quest: "story", quests: "stories", camp: "newsroom", expedition: "assignment" },
+    words: {
+      crew: "staff", quest: "story", quests: "stories", camp: "newsroom", expedition: "assignment",
+      member: "staffer", log: "morgue", ready: "The newsroom is open", close: "put the paper to bed", closing: "Putting the paper to bed", back: "files back", depart: "heads out", hq: "the city desk",
+    },
     get place() { return `the ${OUTPOST.name} newsroom`; },
     palette: "ochre",
     orb: true,
@@ -104,7 +139,10 @@ export const PACKS: Pack[] = [
       warden: { name: "Script Supervisor", emoji: "📋", short: ["continuity"] },
       wizard: { name: "Stunt Double", emoji: "🤸", short: ["stunt"] },
     },
-    words: { crew: "crew", quest: "scene", quests: "scenes", camp: "studio", expedition: "shoot" },
+    words: {
+      crew: "crew", quest: "scene", quests: "scenes", camp: "studio", expedition: "shoot",
+      member: "crew member", log: "shot log", ready: "Places, everyone", close: "call it a wrap", closing: "Calling it a wrap", back: "is back on set", depart: "heads to set", hq: "video village",
+    },
     get place() { return `the ${OUTPOST.name} film studio`; },
     palette: "heather",
     orb: true,
@@ -121,7 +159,10 @@ export const PACKS: Pack[] = [
       warden: { name: "Peer Reviewer", emoji: "🧐", short: ["peer"] },
       wizard: { name: "Tinkerer", emoji: "⚗️" },
     },
-    words: { crew: "team", quest: "experiment", quests: "experiments", camp: "lab", expedition: "study" },
+    words: {
+      crew: "team", quest: "experiment", quests: "experiments", camp: "lab", expedition: "study",
+      member: "researcher", log: "lab notebook", ready: "The lab is open", close: "lock up the lab", closing: "Locking up the lab", back: "is back at the bench", depart: "gets to work", hq: "the lab office",
+    },
     get place() { return `the ${OUTPOST.name} research lab`; },
     palette: "moss",
     orb: true,
@@ -138,7 +179,10 @@ export const PACKS: Pack[] = [
       warden: { name: "First Mate", emoji: "⚓", short: ["mate"] },
       wizard: { name: "Powder Monkey", emoji: "🧨", short: ["monkey"] },
     },
-    words: { crew: "crew", quest: "raid", quests: "raids", camp: "ship", expedition: "voyage" },
+    words: {
+      crew: "crew", quest: "raid", quests: "raids", camp: "ship", expedition: "voyage",
+      member: "hand", log: "ship's log", ready: "All hands aboard", close: "drop anchor", closing: "Dropping anchor", back: "comes back aboard", depart: "sets sail", hq: "the quarterdeck",
+    },
     get place() { return `the pirate ship ${OUTPOST.name}`; },
     palette: "harbor",
     orb: true,
@@ -179,7 +223,7 @@ const letters = (name: string) => name.toLowerCase().replace(/[^a-z]/g, "");
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const PACK_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const HANDLE = /^[a-z][a-z0-9]{1,19}$/;
-const WORDS: [keyof PackWords, string][] = [["crew", "the crew"], ["quest", "a quest"], ["quests", "more than one quest"], ["camp", "the camp"], ["expedition", "an expedition"]];
+const WORDS: [Exclude<keyof PackWords, keyof PackPhrases>, string][] = [["crew", "the crew"], ["quest", "a quest"], ["quests", "more than one quest"], ["camp", "the camp"], ["expedition", "an expedition"]];
 
 // Everything a name is found by: as it's said, run together, its short handles, and its letters
 // alone (how the page files a colour under it, so "Agent 7" and "Agent 8" would be one name there).
@@ -255,11 +299,14 @@ export function packFrom(input: PackInput, opts: { packs: Pack[]; taken?: Taken[
   }
 
   const said = obj(raw.words);
-  const words = {} as PackWords;
+  const core = {} as Record<(typeof WORDS)[number][0], string>;
   for (const [key, what] of WORDS) {
-    words[key] = line(said[key], 24);
-    if (!words[key]) throw new Error(`Say what this pack calls ${what}.`);
+    core[key] = line(said[key], 24);
+    if (!core[key]) throw new Error(`Say what this pack calls ${what}.`);
   }
+  // The phrases are yours to give or leave: any left out are made from the words.
+  const made = phrasesFor(core);
+  const words = { ...core, ...Object.fromEntries(PHRASE_KEYS.map((k) => [k, line(said[k], 40) || made[k]])) } as PackWords;
   const palette = line(raw.palette, 20);
   if (palette && !(PACK_PALETTES as readonly string[]).includes(palette)) throw new Error(`"${palette}" isn't one of the colours a pack can suggest: ${PACK_PALETTES.join(", ")}.`);
   return {

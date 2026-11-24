@@ -25,6 +25,7 @@ import { findLink } from "./links.js";
 import { conversationOf, feedbackText, freshPulls, type Pull } from "./pulls.js";
 import { writeJsonAtomic } from "./atomic.js";
 import { gh } from "./github.js";
+import { w } from "./words.js";
 
 export const TRIGGERS_PATH = "camp/triggers.json";
 export const POLL_MS = 5 * 60_000;
@@ -73,15 +74,15 @@ export function cleanTrigger(raw: any): Trigger | { error: string } {
   const kind = raw?.kind === "jira" ? "jira" : raw?.kind === "github-issue" ? "github-issue" : raw?.kind === "github-pr" ? "github-pr" : null;
   if (!kind) return { error: "A trigger watches GitHub issues (github-issue), your pull requests (github-pr) or Jira tickets (jira)." };
   const task = String(raw?.task ?? "").trim().slice(0, 4000) || (kind === "github-pr" ? PR_TASK : "");
-  if (!task) return { error: "Say what the crew should do with each new item." };
+  if (!task) return { error: `Say what the ${w("crew")} should do with each new item.` };
   const base: Trigger = { name, kind, task, enabled: raw?.enabled !== false, created: new Date().toISOString(),
     ...(typeof raw?.project === "string" && raw.project ? { project: raw.project } : {}), ...(raw?.worktree ? { worktree: true } : {}) };
   if (kind === "github-issue") {
     const link = findLink(String(raw?.link ?? ""));
     if (!link) return { error: "Pick the linked repository whose issues to watch." };
     const label = String(raw?.label ?? "").trim();
-    if (!label || label.length > 50 || /[\n"]/.test(label)) return { error: "Name the label that marks an issue for the crew (only people who can triage the repository can add one)." };
-    if (raw?.worktree && link.access !== "write") return { error: `links/${link.name} is read-only, so the crew couldn't work in a worktree of it.` };
+    if (!label || label.length > 50 || /[\n"]/.test(label)) return { error: `Name the label that marks an issue for the ${w("crew")} (only people who can triage the repository can add one).` };
+    if (raw?.worktree && link.access !== "write") return { error: `links/${link.name} is read-only, so the ${w("crew")} couldn't work in a worktree of it.` };
     return { ...base, link: link.name, label };
   }
   if (kind === "github-pr") {

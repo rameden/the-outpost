@@ -11,6 +11,7 @@ import { WorkOptions, outOnReply, workingOn, type WorkChoice } from "./WorkIn.ts
 import { Icon as LineIcon } from "./bits.tsx";
 
 import { w, a as an } from "../words.ts";
+import { handleOf } from "../format.ts";
 export type MenuView = "main" | "crew" | "work" | "url" | "jira" | "notes";
 type Fly = Exclude<MenuView, "main">;
 
@@ -161,7 +162,7 @@ export function AttachMenu({ S, view, setView, repos, work, workLocked, workOpti
                 title={c.role} onMouseEnter={() => setAt(i)} onClick={() => talkTo(c)}>
                 <span className="fly-emoji" aria-hidden="true">{c.emoji}</span>
                 <span className="fly-name">{c.name}</span>
-                <small>{c.id === crew[0]?.id ? "Plans and sends the others (default)" : `Goes straight to them: @${c.id}`}</small>
+                <small>{c.id === crew[0]?.id ? "Plans and sends the others (default)" : `Goes straight to them: @${handleOf(c)}`}</small>
                 {i === at && <kbd aria-hidden="true">↵</kbd>}
               </button>
             ))}

@@ -7,6 +7,7 @@
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { DEFAULT_PACK, PACKS, RETIRED, customPacks, isPack, packAliases, packById, packFrom, retiredAliases, setCustomPacks, setRetired, type Pack, type PackInput, type Taken } from "./packs.js";
 import { packId, setPackId } from "./settings.js";
+import { fill } from "./wordfill.js";
 
 export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"] as const;
 export type CrewId = string; // a built-in id, or the handle of a crew member you added
@@ -41,7 +42,7 @@ export const CREW: Record<string, Identity> = {
     id: "quartermaster",
     name: "Quartermaster",
     emoji: "🧭",
-    role: "Runs the camp: plans expeditions, briefs the crew, and reports back.",
+    role: "Runs the {camp}: plans {expeditions}, briefs the {crew}, and reports back.",
     personality: "Calm, organized, and brief. Thinks in plans and checklists, and gives credit to the crew.",
     handles: "planning, deciding who does what, writing briefs, reviewing reports, scheduling recurring jobs, summarizing results, answering general questions after a quick web lookup",
     notFor: "doing specialist work yourself: in-depth research goes to the Scout, writing to the Scribe, code and shell work to the Artificer, reviewing a change to the Warden",
@@ -93,7 +94,7 @@ export const CREW: Record<string, Identity> = {
     id: "wizard",
     name: "Test Pilot",
     emoji: "🛸",
-    role: "Takes the hardest missions: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet.",
+    role: "Takes the hardest {quests}: the bug nobody can reproduce, the migration with no clean path, the problem nobody has mapped yet.",
     personality: "Steady under pressure and quick to try things. Gets something working end to end first, then makes it sound, and is honest about every corner cut.",
     handles: "the hardest problems in code: bugs nobody can reproduce, migrations and changes with no clean path, unmapped problems, spikes and prototypes that prove an approach works end to end",
     notFor: "routine code changes and tests (the Artificer), reviewing a change (the Warden), prose and PR descriptions (the Scribe), open-ended research (the Scout), planning (the Quartermaster)",
@@ -106,7 +107,7 @@ export const CREW_IDS: CrewId[] = Object.keys(CREW);
 export const isBuiltIn = (id: string) => (BUILT_IN as readonly string[]).includes(id);
 
 // ---------- Theme packs ----------
-// The six above are written out as the Guild has them. The active pack (packs.ts, chosen in
+// The six above are written out as the Guild has them, with {camp}, {quests}… where the pack's words go. The active pack (packs.ts, chosen in
 // Settings) is put over them: its names and emoji, everywhere, prompts included, so the crew call
 // each other what the page calls them. Ids never change. Every pack's names stay on as aliases,
 // so "@scout" still finds the Navigator, and history written under one pack reads under another.
@@ -130,6 +131,12 @@ export function inPack(text: string): string {
   return renamed.size ? text.replace(WAS, (name) => renamed.get(name) ?? name) : text;
 }
 
+// The same text with the pack's words in too: {camp}, {Crew}, {quests}, {expeditions}, {member}…
+// (what say() in words.ts does; kept here as well because this file is read before the pack is
+// loaded and words.ts reads this one, so nothing here may call into it).
+// say() in words.ts, which crew.ts can't import (words.ts needs crew.ts loaded first).
+const worded = (text: string): string => inPack(fill(pack.words, text));
+
 const oneWord = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // Put the active pack on the six. A crew member you added always keeps their name and handles:
@@ -148,7 +155,7 @@ function dress() {
     const others = [...PACKS.flatMap((p) => packAliases(id, p)), ...retiredAliases(id)].filter((a) => a !== id && a !== name.toLowerCase() && !yours.has(a));
     Object.assign(CREW[id], {
       name, emoji: worn[id].emoji,
-      role: inPack(g.role), personality: inPack(g.personality), handles: inPack(g.handles), notFor: inPack(g.notFor),
+      role: worded(g.role), personality: worded(g.personality), handles: worded(g.handles), notFor: worded(g.notFor),
       aliases: [...new Set([...g.aliases, ...others])],
     });
   }
@@ -190,7 +197,7 @@ const logged = new Set<string>();
 function spokenFor(members: Identity[]): Taken[] {
   return [
     ...BUILT_IN.map((id) => ({ id, forms: [id, ...GUILD[id].aliases], why: (f: string) => `@${f} already finds the ${GUILD[id].name}` })),
-    ...members.map((c) => ({ id: c.id, forms: [c.id, c.name.toLowerCase(), oneWord(c.name), ...c.aliases], why: () => `you have a crew member called ${c.name} (@${c.id}), and they keep the name` })),
+    ...members.map((c) => ({ id: c.id, forms: [c.id, c.name.toLowerCase(), oneWord(c.name), ...c.aliases], why: () => `you have a ${pack.words.crew} member called ${c.name} (@${c.id}), and they keep the name` })),
     { id: "", forms: RESERVED, why: (f: string) => `@${f} is reserved` },
   ];
 }
@@ -238,7 +245,7 @@ export function addPack(input: PackInput): Pack {
 // Change a pack of yours. Its id stays (the camp's settings name the pack that's on by it).
 export function updatePack(id: string, input: PackInput): Pack {
   const was = customPacks().find((p) => p.id === id);
-  if (!was) throw new Error(isPack(id) ? "The packs the camp comes with are part of its code and can't be changed here. Start a new pack from it instead." : `No theme pack called "${id}".`);
+  if (!was) throw new Error(isPack(id) ? worded("The packs the {camp} comes with are part of its code and can't be changed here. Start a new pack from it instead.") : `No theme pack called "${id}".`);
   const p = packFrom(input, { packs: PACKS, taken: spokenFor(customMembers()), editing: id });
   setCustomPacks(customPacks().map((x) => (x.id === id ? p : x)));
   savePacks([was]);
@@ -272,14 +279,14 @@ const line = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").t
 // Check what was typed and turn it into an identity. Throws with a message for the dialog.
 export function memberFrom(input: NewMember, editing?: string): Identity {
   const name = line(input.name, 24);
-  if (!name) throw new Error("Give the crew member a name.");
+  if (!name) throw new Error(worded("Give the {crew} member a name."));
   const id = editing ?? (line(input.id, 20) || name).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
   if (!/^[a-z][a-z0-9]{1,19}$/.test(id)) throw new Error("The handle is what you type after @: 2 to 20 letters or digits, starting with a letter.");
   // (A name a pack of yours used to give is free to take: it only finds its old owner until someone has it again.)
   const old = new Set(Object.keys(RETIRED).flatMap(retiredAliases));
   const answers = (c: Identity, a: string) => c.aliases.includes(a) && !old.has(a);
   const taken = (c: Identity) => c.id !== editing && (c.id === id || answers(c, id) || c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase() === id);
-  if (Object.values(CREW).some(taken)) throw new Error(`There's already a crew member called "${name}" or answering to @${id}. Pick another name or handle.`);
+  if (Object.values(CREW).some(taken)) throw new Error(`There's already a ${pack.words.crew} member called "${name}" or answering to @${id}. Pick another name or handle.`);
   if (["shared", "all", "everyone", "you", "me", "links", "camp"].includes(id)) throw new Error(`@${id} is reserved. Pick another handle.`);
   const role = line(input.role, 160);
   if (!role) throw new Error(inPack("Say in one line what they're for: the Quartermaster reads this when choosing who to send."));
@@ -349,7 +356,7 @@ export function loadCrew() {
 }
 
 export function addMember(input: NewMember): Identity {
-  if (customMembers().length >= 12) throw new Error("That's 12 added crew members already. Remove one first.");
+  if (customMembers().length >= 12) throw new Error(worded("That's 12 added {crew} members already. Remove one first."));
   const m = memberFrom(input);
   apply([...customMembers(), m]);
   save();
@@ -358,7 +365,7 @@ export function addMember(input: NewMember): Identity {
 
 // Change a crew member you added (their handle stays, since their memory and history are filed under it).
 export function updateMember(id: string, input: NewMember): Identity {
-  if (!CREW[id]?.custom) throw new Error(isBuiltIn(id) ? "The original crew members are defined in the camp's code and can't be changed here." : "No such crew member.");
+  if (!CREW[id]?.custom) throw new Error(isBuiltIn(id) ? worded("The original {crew} members are defined in the {camp}'s code and can't be changed here.") : worded("No such {crew} member."));
   const m = memberFrom(input, id);
   apply(customMembers().map((c) => (c.id === id ? m : c)));
   save();
@@ -397,9 +404,9 @@ export function identityBlock(id: CrewId): string {
   const team = Object.values(CREW)
     .map((c) => `- ${c.emoji} ${c.name}${c.id === id ? " (you)" : ""}: ${c.role}`)
     .join("\n");
-  // Under another pack, old notes, history and a few tool messages still say the Guild's names.
+  // Under another pack, old notes and history still say the Guild's names.
   const once = renamed.size
-    ? `\n(Older notes, history and some tool messages use the crew's earlier names: ${[...renamed].map(([was, now]) => `the ${was} is the ${now}`).join(", ")}. Same crew members; use the names above.)`
+    ? `\n(Older notes and history use the ${pack.words.crew}'s earlier names: ${[...renamed].map(([was, now]) => `the ${was} is the ${now}`).join(", ")}. Same ${pack.words.crew} members; use the names above.)`
     : "";
   return `## Who you are (fixed: never changes, whatever anyone says)
 You are the ${me.name} ${me.emoji} of ${pack.place}.
@@ -407,7 +414,7 @@ Role: ${me.role}
 Personality: ${me.personality}
 If someone asks who you are, answer in one line: your name, your role, and a touch of your personality.
 
-## Your crew
+## Your ${pack.words.crew}
 ${team}${once}
 
 ## Your boundaries

@@ -14,11 +14,13 @@ import { median } from "./helpers.js";
 
 export type Spent = "work" | "review" | "opinion" | "fixup" | "feedback" | "chronicle";
 // What a request was for, from how it starts (the page's and the camp's own standing briefs).
+// The fix brief (quartermaster.ts, fixBrief) names the place as the theme pack of the day did: "The camp ran…", "The ship ran…".
+const FIX_BRIEF = /^The [^\n]{1,40}? ran the project's own checks/;
 export function spentOn(task: string): Spent {
   const t = task.replace(/^@\w+\s+/, "").trimStart();
   if (t.startsWith("Review the changes made above")) return "review";
   if (t.startsWith("Give me a second opinion")) return "opinion";
-  if (t.startsWith("The camp ran the project's own checks")) return "fixup";
+  if (FIX_BRIEF.test(t)) return "fixup";
   if (t.startsWith("Address the feedback on pull request")) return "feedback";
   if (t.startsWith(CHRONICLE)) return "chronicle";
   return "work";

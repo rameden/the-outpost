@@ -11,6 +11,7 @@ import { currentSignal } from "./context.js";
 import { emit } from "./events.js";
 import { linkRoot, linkedDisplayPath, loadLinks } from "./links.js";
 import { runShell, sandboxOn, sandboxPlanFor } from "./tools.js";
+import { w } from "./words.js";
 
 const CHECK_TIMEOUT_MS = 10 * 60_000;
 const TAIL = 3000;
@@ -31,7 +32,7 @@ export async function runChecks(runKey: string, who: { who: string; emoji: strin
       lines.push(failed ? `✗ ${command}\n${out.length > TAIL ? "…" + out.slice(-TAIL) : out}` : `✓ ${command}`);
       emit({ type: "notice", ...who, depth: 1, text: `${failed ? "✗" : "✓"} check: ${command}` });
     }
-    if (lines.length) blocks.push(`Automatic checks in links/${link.name} (run by the camp after the changes):\n${lines.join("\n")}`);
+    if (lines.length) blocks.push(`Automatic checks in links/${link.name} (run by the ${w("camp")} after the changes):\n${lines.join("\n")}`);
   }
   return blocks.join("\n\n");
 }

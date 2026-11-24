@@ -123,13 +123,13 @@ test("parallel quests can't overwrite each other's edits", async (t) => {
     await withQuest("q1", async () => { await readFileFor("artificer").run!({ path: "shared.txt" }); });
     await withQuest("q2", async () => { await writeFileFor("artificer").run!({ path: "shared.txt", content: "from q2\n" }); });
     await withQuest("q1", async () => {
-      await assert.rejects(() => writeFileFor("artificer").run!({ path: "shared.txt", content: "from q1\n" }) as Promise<unknown>, /changed by another quest/);
+      await assert.rejects(() => writeFileFor("artificer").run!({ path: "shared.txt", content: "from q1\n" }) as Promise<unknown>, /changed by other work going on at the same time/);
       await readFileFor("artificer").run!({ path: "shared.txt" });
       assert.match(String(await editFileFor("artificer").run!({ path: "shared.txt", old_string: "from q2", new_string: "from both" })), /^Edited/);
     });
     // And the other way round: q2 wrote the file itself, but q1 has changed it since.
     await withQuest("q2", async () => {
-      await assert.rejects(() => writeFileFor("artificer").run!({ path: "shared.txt", content: "q2 again\n" }) as Promise<unknown>, /changed by another quest/);
+      await assert.rejects(() => writeFileFor("artificer").run!({ path: "shared.txt", content: "q2 again\n" }) as Promise<unknown>, /changed by other work going on at the same time/);
     });
   });
   assert.equal(readFileSync("shared.txt", "utf8"), "from both\n");

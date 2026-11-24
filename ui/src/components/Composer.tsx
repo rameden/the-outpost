@@ -11,8 +11,8 @@ import { AttachmentChip } from "./AttachmentChip.tsx";
 import { AttachMenu, type MenuView } from "./AttachMenu.tsx";
 import { LEFT_OUT, USED, WorkIn, chosenWorkspaces, leftOut, outsideChoice, outsidePick, replyPick, useRepos, usedIn, type WorkChoice } from "./WorkIn.tsx";
 import { Icon } from "./bits.tsx";
-import { cx, leadName } from "../format.ts";
-import { w } from "../words.ts";
+import { cx, handleOf, leadName } from "../format.ts";
+import { w, cap, a as an } from "../words.ts";
 import { ChatModel } from "./ChatModel.tsx";
 import { tell } from "./StatusLine.tsx";
 import { isZip, uploadFile as sendFile, uploadZip } from "../upload.ts";
@@ -64,10 +64,10 @@ export type SendContext = { replyTo?: string; project?: string; placeholder?: st
 // hidden: on a page that isn't a conversation (Projects, Jira, the wiki) there's no message box.
 // It stays in the page, out of sight, so what's attached or half-written is still there when you're back.
 // (memo: it's drawn again when what it's given changes, not each time the feed gets a word.)
-// The menu beside Send while a run works: queue what you've typed (as Enter does), or say it to the run now.
+// The menu beside Send while an expedition works: queue what you've typed (as Enter does), or say it to the crew now.
 const SEND_OPTIONS = [
-  { label: "Queue", now: false, title: "It goes once this run has finished (Enter does this too)" },
-  { label: "Send now", now: true, get title() { return `The ${w("crew")} reads it on their next step, without waiting for the run to finish`; } },
+  { label: "Queue", now: false, get title() { return `It goes once the ${w("expedition")} has finished (Enter does this too)`; } },
+  { label: "Send now", now: true, get title() { return `The ${w("crew")} reads it on their next step, without waiting for the ${w("expedition")} to finish`; } },
 ];
 
 export const Composer = memo(function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders, draftKey, hidden }: {
@@ -368,7 +368,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     mentionTimer.current = setTimeout(async () => {
       const q = t.query.toLowerCase();
       const crew: MentionItem[] = t.atStart && !q.includes("/")
-        ? (S?.characters ?? []).filter((c) => c.id.startsWith(q) || c.name.toLowerCase().startsWith(q)).map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}`, hint: "talk directly" }))
+        ? (S?.characters ?? []).filter((c) => c.id.startsWith(q) || c.name.toLowerCase().startsWith(q) || handleOf(c).startsWith(q)).map((c) => ({ value: handleOf(c), label: `${c.emoji} ${c.name}`, hint: "talk directly" }))
         : [];
       let files: string[] = [];
       try { files = (await api<{ files: string[] }>(`/api/files?q=${encodeURIComponent(t.query)}`)).files; } catch { /* just the crew, then */ }
@@ -448,7 +448,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     const run = given === undefined ? live : context?.live && (S?.running ?? []).some((w) => w.id === context.live) ? context.live : null;
     // Send now: say it to the run while it works.
     if (run && now) {
-      if (attachments.length) { setError("A run that's working can't take attachments. Queue the message instead, and it goes once the run has finished."); return null; }
+      if (attachments.length) { setError(`${cap(an("expedition"))} that's working can't take attachments. Queue the message instead, and it goes once the ${w("expedition")} has finished.`); return null; }
       sendingNow.current = true;
       setSending(true);
       const said = await api("/api/steer", { id: run, text: message }).then(() => true, () => false);
@@ -485,7 +485,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
         batch.current = undefined;
         setMention(null);
       }
-      if (r.after) tell(store, queue ? "Queued: it goes once this run has finished." : `Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
+      if (r.after) tell(store, queue ? `Queued: it goes once the ${w("expedition")} has finished.` : `Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
       else if (r.position > 0) {
         tell(store, S?.pausedUntil
           ? `Queued (#${r.position}): it starts when your plan's limit resets`
@@ -613,7 +613,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
             {live ? (
               <span className="send-split stop">
                 <button className="btn primary" type="button" disabled={stopping === live} onClick={stopLive}
-                  title={`Stop this run and every ${w("quest")} in it`}>{stopping === live ? "Stopping…" : "Stop"}</button>
+                  title={`Stop this ${w("expedition")} and every ${w("quest")} in it`}>{stopping === live ? "Stopping…" : "Stop"}</button>
                 <button className="btn primary send-more" type="button" aria-label="More ways to send" aria-haspopup="menu" aria-expanded={queueOpen} disabled={sending}
                   onClick={() => { setMention(null); setMenu(null); setAfterOpen(false); setQueueOpen((o) => !o); }}><Icon name="chevron" /></button>
               </span>

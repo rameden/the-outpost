@@ -9,6 +9,7 @@ import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { currentProjectId } from "./context.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
+import { say } from "./words.js";
 
 export const JOBS_PATH = "camp/jobs.json";
 export const QUIET_TOKEN = "NOTHING_NEW";
@@ -94,10 +95,10 @@ export function describeJobs(jobs = loadJobs()): string {
 }
 
 export const scheduleJob: Tool = {
-  def: {
+  get def(): Tool["def"] { return { // built as it's asked for: the words are the active pack's
     name: "schedule_job",
     description:
-      "Schedule an expedition to run on its own, on time, while the user's outpost is running. " +
+      say("Schedule {an expedition} to run on its own, on time, while the user's outpost is running. ") +
       "Each run starts fresh with only `task` to go on, so make it self-contained: what " +
       "to check or produce, where to save it, and what counts as worth reporting. Runs cannot " +
       "use the shell. The user confirms every new job. Schedules: 'every 30m', 'every 2h', " +
@@ -111,7 +112,7 @@ export const scheduleJob: Tool = {
       },
       required: ["name", "schedule", "task"],
     },
-  },
+  }; },
   run: async ({ name, schedule, task }) => {
     if (campMode.unattended) return "Scheduled jobs can't create other jobs.";
     if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return `Job names must be kebab-case (got '${name}').`;
@@ -137,11 +138,11 @@ export const scheduleJob: Tool = {
 };
 
 export const listJobs: Tool = {
-  def: {
+  get def(): Tool["def"] { return {
     name: "list_jobs",
-    description: "List the camp's scheduled jobs.",
+    description: say("List the {camp}'s scheduled jobs."),
     input_schema: { type: "object", properties: {} },
-  },
+  }; },
   run: async () => describeJobs(),
 };
 

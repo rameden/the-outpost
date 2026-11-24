@@ -4,8 +4,9 @@
 // path back. macOS uses AppleScript; Linux uses zenity or kdialog; Windows uses PowerShell.
 
 import { execFile } from "node:child_process";
+import { w } from "./words.js";
 
-const PROMPT = "Choose a folder for the crew to read";
+const prompt = () => `Choose a folder for the ${w("crew")} to read`; // a pack's word for the crew has no quotes in it (packs.ts cleans them)
 const WAIT_MS = 10 * 60_000; // the dialog stays open until you pick or cancel
 
 type Command = { cmd: string; args: string[]; canceled: (code: number | null, stderr: string) => boolean };
@@ -15,18 +16,18 @@ function commandFor(platform: NodeJS.Platform): Command[] {
     // `activate` brings the dialog to the front (it would otherwise open behind the browser).
     return [{
       cmd: "osascript",
-      args: ["-e", "activate", "-e", `POSIX path of (choose folder with prompt "${PROMPT}")`],
+      args: ["-e", "activate", "-e", `POSIX path of (choose folder with prompt "${prompt()}")`],
       canceled: (_c, err) => /-128|User canceled/i.test(err),
     }];
   }
   if (platform === "win32") {
     const ps = "Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; " +
-      `$d.Description = '${PROMPT}'; if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath } else { exit 1 }`;
+      `$d.Description = '${prompt()}'; if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath } else { exit 1 }`;
     return [{ cmd: "powershell", args: ["-NoProfile", "-STA", "-Command", ps], canceled: (c) => c === 1 }];
   }
   return [
-    { cmd: "zenity", args: ["--file-selection", "--directory", `--title=${PROMPT}`], canceled: (c) => c === 1 },
-    { cmd: "kdialog", args: ["--getexistingdirectory", ".", "--title", PROMPT], canceled: (c) => c === 1 },
+    { cmd: "zenity", args: ["--file-selection", "--directory", `--title=${prompt()}`], canceled: (c) => c === 1 },
+    { cmd: "kdialog", args: ["--getexistingdirectory", ".", "--title", prompt()], canceled: (c) => c === 1 },
   ];
 }
 

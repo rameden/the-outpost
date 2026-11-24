@@ -26,6 +26,7 @@ import { writeAtomic } from "./atomic.js";
 import { fitMemory } from "./memfit.js";
 import { logRelevant } from "./recalllog.js";
 import { SAFE_ID, today } from "./helpers.js";
+import { w } from "./words.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -148,8 +149,8 @@ export function projectBlock(self: string, id = currentProjectId(), task = ""): 
     (p.settings?.web === "careful" ? "\nThis project is confidential. Never put its name, its code, its internal names, or anything else from its files into a web search or a fetched address: phrase research generically (the library, the error message, the pattern)." : "") +
     (p.settings?.web === "off" ? "\nWeb search and fetch are turned off for this project. Work from the files, and say so if something needs looking up." : "") +
     (p.description ? `\n\n### What the user wrote about this project (their own words; keep it in mind for everything here)\n${p.description}` : "") +
-    (brief ? `\n\n### Survey of the project (from the crew's own look through its folders; check the files if it matters)\n${cap(brief, BRIEF_MAX)}` : "") +
-    (notes ? `\n\n### What the crew has learned about this project (add to it with project_remember)\n${fitNotes(p.id, notes, task)}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
+    (brief ? `\n\n### Survey of the project (from the ${w("crew")}'s own look through its folders; check the files if it matters)\n${cap(brief, BRIEF_MAX)}` : "") +
+    (notes ? `\n\n### What the ${w("crew")} has learned about this project (add to it with project_remember)\n${fitNotes(p.id, notes, task)}` : general ? "" : "\n\n(No project notes yet. When you learn something that's true of this project, save it with project_remember.)") +
     pinsBlock(p, self);
 }
 
@@ -168,7 +169,7 @@ The user took ${out.map((l) => `links/${l}/`).join(" and ")} out of this convers
 // The request "Survey this project" sends, for the Scout.
 export function surveyRequest(p: Project): string {
   const folders = (p.links ?? []).map((l) => `links/${l}/`).join(" and ");
-  return `Survey the project "${p.name}" so the crew can start work there without rediscovering it each time. Look through ${folders} ` +
+  return `Survey the project "${p.name}" so the ${w("crew")} can start work there without rediscovering it each time. Look through ${folders} ` +
     `(list_dir, glob, outline, and read the README, the package or build files, any AGENTS.md or contributing guide, and a few representative source files). ` +
     `Don't change anything and don't search the web.\n\nThen save a brief with project_remember, mode "brief", in Markdown, under 600 words, covering:\n` +
     `- What it is, in two sentences\n- The stack and main dependencies\n- How it's laid out: the folders that matter and what lives in each\n` +

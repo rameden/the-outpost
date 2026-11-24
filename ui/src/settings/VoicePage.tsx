@@ -10,9 +10,9 @@ import { ask } from "../components/Confirm.tsx";
 import { ReadAloud } from "../components/ReadAloud.tsx";
 import type { CampState } from "../types.ts";
 
-import { w } from "../words.ts";
+import { w, many } from "../words.ts";
 type Voice = { id: string; name: string; about: string };
-const sample = () => `This is the voice Mae reads in. A debrief sounds like this: three runs, two ${w("quests")}, and one lesson worth keeping.`;
+const sample = () => `This is the voice Mae reads in. A debrief sounds like this: three ${many(w("expedition"))}, two ${w("quests")}, and one lesson worth keeping.`;
 
 export function VoicePage({ S, refresh }: { S: CampState; refresh: () => void }) {
   // (A camp server started before reading aloud existed doesn't send this: say so rather than fall over.)

@@ -18,7 +18,7 @@ import { showCost } from "../prefs.ts";
 import { outpostName } from "../outpost.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
 import { SEASONS, seasonById } from "../seasons.ts";
-import { autoName, cClass, cx, isAuto, money } from "../format.ts";
+import { autoName, cClass, cx, isAuto, leadName, money, nameNow } from "../format.ts";
 import { w, a as an } from "../words.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
@@ -41,7 +41,7 @@ const groups = (): { title: string; items: NavItem[] }[] => [
   { title: "Look & sound", items: [["appearance", "Appearance", "theme"], ["notifications", "Notifications", "bell"], ["voice", "Voice", "speaker"]] },
   { title: "Safety", items: [["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"]] },
   { title: "Access", items: [["devices", "Devices & uploads", "link"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"]] },
-  { title: "Activity", items: [["unasked", `What ${outpostName()} does unasked`, "spark"], ["stats", "Stats", "gauge"], ["usage", `Usage & ${w("expeditions")}`, "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
+  { title: "Activity", items: [["unasked", `What ${outpostName()} does unasked`, "spark"], ["stats", "Stats", "gauge"], ["usage", `Usage & ${w("log")}`, "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
   { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"]] },
 ];
 
@@ -200,10 +200,10 @@ function OutpostName({ S, refresh }: { S: CampState; refresh: () => void }) {
 
 // Decorations (seasons.ts): off, whatever the calendar says, or one by name.
 const monthDay = (mmdd: string) => { const [m, d] = mmdd.split("-").map(Number); return new Date(2024, m - 1, d).toLocaleDateString([], { month: "short", day: "numeric" }); };
-const DECOR_CHOICES: { id: SeasonChoice; name: string; about: string }[] = [
+const decorChoices = (): { id: SeasonChoice; name: string; about: string }[] => [
   { id: "", name: "Off", about: "No decorations." },
   { id: "auto", name: "Follow the calendar", about: `${SEASONS.map((s) => `${s.name} from ${monthDay(s.from)} to ${monthDay(s.to)}`).join("; ")}. Nothing the rest of the year.` },
-  ...SEASONS,
+  ...SEASONS.map((s) => ({ id: s.id, name: s.name, about: s.about })), // about is read now: some of it names the pack's words
 ];
 
 // General: the outpost's name, what runs the crew, and a couple of small switches. How the page
@@ -297,7 +297,7 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
       </Row>
       <Row label="Decorations" wide help={<>Only for looks: snow, bats or confetti, a string of lights and a tint on the orb, on top of any theme pack and colours. Nothing the {w("crew")} reads or writes changes, and the choice is kept in this browser. {decorNow} If your system asks for less motion, nothing moves.</>}>
         <div className="looks" role="group" aria-label="Decorations">
-          {DECOR_CHOICES.map((d) => (
+          {decorChoices().map((d) => (
             <button key={d.id || "off"} type="button" className="look decor" aria-pressed={season === d.id} title={d.about}
               onClick={() => { setSeasonShown(d.id); setSeason(d.id); }}>{d.name}</button>
           ))}
@@ -413,7 +413,7 @@ function Crew({ S, refresh }: { S: CampState; refresh: () => void }) {
       </div>
       <h4 className="set-sub">Model</h4>
       <ModelForm key={`${c.id}-${c.model}-${c.effort}-${c.maxTurns}`} c={c} runtime={S.runtime} refresh={refresh} />
-      <h4 className="set-sub">Agent info</h4>
+      <h4 className="set-sub">{w("Member")} info</h4>
       <p className="set-note">{c.custom
         ? `You added this ${w("crew")} member. Change their name, role and how they work with the pencil on their card in the ${w("crew")} panel. Their memory and skills grow over time.`
         : `The built-in ${w("crew")}'s names, roles and personalities are set by the app, so they stay the same. Add your own ${w("crew")} member with + in the ${w("crew")} panel. Memory and skills grow over time.`}</p>
@@ -444,7 +444,7 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
         <Choices name="Approval level" value={st.approval} onChange={(level) => tryIt(() => api("/api/approvals", { level }), refresh)} options={[
           { id: "ask", label: "Ask every time", help: "Every command waits for your OK, even ls and git status. Your allow-lists below are ignored." },
           { id: "safe", label: "Allow safe commands (default)", help: "Simple read-only commands (ls, git status, git diff…) and your allow-lists run; everything else asks." },
-          { id: "sandbox", label: "Sandbox the rest", help: "Everything else runs without asking, with no network and writes only inside the project and the agent’s own outputs. Installs and pushes still ask.", disabled: noSandbox },
+          { id: "sandbox", label: "Sandbox the rest", help: `Everything else runs without asking, with no network and writes only inside the project and the ${w("crew")}’s own outputs. Installs and pushes still ask.`, disabled: noSandbox },
           { id: "god", label: "God mode", help: `Every command runs without asking, outside the sandbox: installs, pushes, the network, and changes to any file you can change. Nothing stands between the ${w("crew")} and your computer except your “Never run” and “Always ask” rules below. Scheduled jobs still run in the sandbox.` },
         ]} />
       </Row>
@@ -465,7 +465,7 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
       <Row label="Approvals in plain words" help="When a shell command or a connector call waits for you, the smallest model adds a short summary to its card: what it does, what it changes, what it contacts outside this machine, and anything worth a second look. It's a reading aid: it never approves anything, it can be wrong, and what runs is the command on the card. Each summary is one small call (free if your small jobs run on a free model, under Models); the same command isn't summarized twice.">
         <label className="switch"><input type="checkbox" checked={st.plainApprovals} onChange={(ev) => tryIt(() => api("/api/plain-approvals", { on: ev.target.checked }), refresh)} /> {st.plainApprovals ? "On" : "Off"}</label>
       </Row>
-      <Row label="Your allow-list" help={<>Command prefixes that run without asking, one per line. <code>npm run build</code> also allows <code>npm run build --watch</code>, and <code>*</code> matches anything (<code>npm run test:*</code>). Only simple commands match (no pipes, chaining or paths outside the {w("camp")}). Test runners run project code the Artificer can edit, so add them only if that's fine with you.</>} wide>
+      <Row label="Your allow-list" help={<>Command prefixes that run without asking, one per line. <code>npm run build</code> also allows <code>npm run build --watch</code>, and <code>*</code> matches anything (<code>npm run test:*</code>). Only simple commands match (no pipes, chaining or paths outside the {w("camp")}). Test runners run project code the {nameNow("Artificer")} can edit, so add them only if that's fine with you.</>} wide>
         <ListEditor label="Allowed command prefixes" value={st.allow} placeholder={"npm run build\npytest"} onSave={(allow) => tryIt(() => api("/api/shell", { allow }), refresh)} />
       </Row>
       <Row label="Always allowed" help="Exact commands you chose “Always allow” for on an approval. Remove one to be asked again." wide>
@@ -482,7 +482,7 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
       <Row label="Built-in safe commands" help="Always allowed at the default level." wide>
         <div className="tool-chips" style={{ margin: 0 }}>{st.defaultAllow.map((c) => <code key={c}>{c}</code>)}</div>
       </Row>
-      <Row label={`Let agents edit the ${w("camp")}'s own code`} help={`src/, tests/, evals/ and package.json are read-only to the ${w("crew")} unless this is on. Leave it off unless you're asking them to improve the ${w("camp")} itself.`}>
+      <Row label={`Let the ${w("crew")} edit the ${w("camp")}'s own code`} help={`src/, tests/, evals/ and package.json are read-only to the ${w("crew")} unless this is on. Leave it off unless you're asking them to improve the ${w("camp")} itself.`}>
         <label className="switch"><input type="checkbox" checked={st.selfEdit}
           onChange={async (ev) => { const on = ev.target.checked; if (!on || await ask({ title: `Let the ${w("crew")} change the ${w("camp")}'s own source code?`, action: "Let them", danger: true })) void tryIt(() => api("/api/self-edit", { on }), refresh); }} /> {st.selfEdit ? "On" : "Off"}</label>
       </Row>
@@ -501,7 +501,7 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
   }
   return (
     <>
-      <Row label={`Budget per ${w("expedition")}`} help={S.budgetUsd ? `Stops ${an("expedition")} at ${money(S.budgetUsd)}, all agents together.` : `No limit.${sub ? " On your subscription, costs are estimates at API prices." : ""}`}>
+      <Row label={`Budget per ${w("expedition")}`} help={S.budgetUsd ? `Stops ${an("expedition")} at ${money(S.budgetUsd)}, the whole ${w("crew")} together.` : `No limit.${sub ? " On your subscription, costs are estimates at API prices." : ""}`}>
         <form className="inline-form" onSubmit={saveBudget}>
           <span>$</span><input key={S.budgetUsd ?? "none"} name="budget" aria-label={`Budget per ${w("expedition")}`} type="number" min="0" step="0.25" placeholder="none" defaultValue={S.budgetUsd ?? ""} />
           <button className="btn small primary" type="submit">Save</button>
@@ -512,7 +512,7 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
           {range(S.settings.parallelMax).map((n) => <option key={n}>{n}</option>)}
         </select>
       </Row>
-      <Row label={`${w("Quests")} at once`} help={`${w("Crew")} members working at the same time across every ${w("expedition")}. One Quartermaster can send several in a turn.`}>
+      <Row label={`${w("Quests")} at once`} help={`${w("Crew")} members working at the same time across every ${w("expedition")}. One ${leadName()} can send several in a turn.`}>
         <select aria-label={`${w("Quests")} at once`} value={S.settings.questsAtOnce} onChange={(ev) => tryIt(() => api("/api/quests-at-once", { n: Number(ev.target.value) }), refresh)}>
           {range(S.settings.questsMax).map((n) => <option key={n}>{n}</option>)}
         </select>
@@ -523,11 +523,11 @@ function Limits({ S, refresh }: { S: CampState; refresh: () => void }) {
           {range(S.settings.fixAttemptsMax).map((n) => <option key={n} value={n}>{n === 1 ? "Send it back once" : `Send it back up to ${n} times`}</option>)}
         </select>
       </Row>
-      <Row label="Review changes before reporting" help={`Before the Quartermaster sums up ${an("expedition")} that changed files in a linked folder, it sends the Warden to read the actual diff and look for bugs, missing pieces and changes beyond the request; a real problem gets one fix. Another ${w("quest")}'s worth of usage each time, so it's off unless you want it.`}>
+      <Row label="Review changes before reporting" help={`Before the ${leadName()} sums up ${an("expedition")} that changed files in a linked folder, it sends the ${nameNow("Warden")} to read the actual diff and look for bugs, missing pieces and changes beyond the request; a real problem gets one fix. Another ${w("quest")}'s worth of usage each time, so it's off unless you want it.`}>
         <label className="switch"><input type="checkbox" checked={S.settings.reviewChanges}
           onChange={(ev) => tryIt(() => api("/api/quest-checks", { review: ev.target.checked }), refresh)} /> {S.settings.reviewChanges ? "On" : "Off"}</label>
       </Row>
-      <Row label="Watch open pull requests" help={`Every few minutes while mission control is open, the ${w("camp")} looks (with the GitHub CLI, as you) at the pull requests of worktrees the ${w("crew")} worked in lately: failing checks, review comments, conflicts with the base. A conversation whose pull request needs you says so at its top, where one click brings the feedback into a reply for you to read and send. Nothing is answered, pushed or merged by itself.`}>
+      <Row label="Watch open pull requests" help={`Every few minutes while ${w("hq")} is open, the ${w("camp")} looks (with the GitHub CLI, as you) at the pull requests of worktrees the ${w("crew")} worked in lately: failing checks, review comments, conflicts with the base. A conversation whose pull request needs you says so at its top, where one click brings the feedback into a reply for you to read and send. Nothing is answered, pushed or merged by itself.`}>
         <label className="switch"><input type="checkbox" checked={S.settings.prWatch}
           onChange={(ev) => tryIt(() => api("/api/pr-watch", { on: ev.target.checked }), refresh)} /> {S.settings.prWatch ? "On" : "Off"}</label>
       </Row>

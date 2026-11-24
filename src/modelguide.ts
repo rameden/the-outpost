@@ -17,6 +17,7 @@ import { rateOf } from "./costs.js";
 import { emit } from "./events.js";
 import { providersState } from "./providers.js";
 import { WIKI_DIR } from "./wiki.js";
+import { w } from "./words.js";
 
 export const GUIDE_PATH = join(WIKI_DIR, "notes", "models-guide.md");
 
@@ -74,23 +75,23 @@ export async function modelGuide(now = new Date()): Promise<string> {
   };
   const about = (name: string) => {
     const p = providers.find((x) => x.name === name);
-    if (!p) return "Runs the crew by default. Prices are the camp's own, the ones its cost estimates use.";
+    if (!p) return `Runs the ${w("crew")} by default. Prices are the ${w("camp")}'s own, the ones its cost estimates use.`;
     return `${p.approved ? "You've approved it for confidential projects." : "Not approved for confidential projects: a project marked confidential is never sent to it."} ${p.privacy} ` +
       (p.id === "deepseek"
-        ? "Its prices below are DeepSeek's listed ones, the ones the camp's cost estimates use. Speed and fit are a rule of thumb."
-        : "Its cost, speed and fit below are judged from each model's family name, as a rule of thumb: the provider tells the camp a model's name and nothing more.");
+        ? `Its prices below are DeepSeek's listed ones, the ones the ${w("camp")}'s cost estimates use. Speed and fit are a rule of thumb.`
+        : `Its cost, speed and fit below are judged from each model's family name, as a rule of thumb: the provider tells the ${w("camp")} a model's name and nothing more.`);
   };
   const notConnected = providers.filter((p) => !p.connected).map((p) => p.name);
   return `---
-summary: Every model the camp can use (Claude, and connected providers), by cost, speed, and what each is good for
+summary: Every model the ${w("camp")} can use (Claude, and connected providers), by cost, speed, and what each is good for
 updated: ${day}
 ---
 
 # Models guide
 
-Written by the camp on ${day} from the models it can reach${live ? "" : " (Claude's list couldn't be read just now, so its usual models are shown)"}. It's rewritten when you connect or disconnect a provider, or press **Update the guide** under Settings → Models.
+Written by the ${w("camp")} on ${day} from the models it can reach${live ? "" : " (Claude's list couldn't be read just now, so its usual models are shown)"}. It's rewritten when you connect or disconnect a provider, or press **Update the guide** under Settings → Models.
 
-Source: the camp's own model list and prices for Claude and DeepSeek; for other providers, the model's family name only. Treat the ratings for other providers as a starting point, not a measurement: their prices, limits and line-ups change, and the provider's own pricing page is the authority.
+Source: the ${w("camp")}'s own model list and prices for Claude and DeepSeek; for other providers, the model's family name only. Treat the ratings for other providers as a starting point, not a measurement: their prices, limits and line-ups change, and the provider's own pricing page is the authority.
 
 ## How to choose
 

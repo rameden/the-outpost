@@ -3,7 +3,8 @@
 
 import { rl } from "./tools.js";
 import { onInterrupt } from "./terminal.js";
-import { CREW, CREW_IDS, findCrew } from "./crew.js";
+import { CREW, CREW_IDS, activePack, findCrew } from "./crew.js";
+import { say, w } from "./words.js";
 import { readMemory, recentSessions } from "./memory.js";
 import { buildRequest } from "./attachments.js";
 import { addLink, loadLinks, removeLink } from "./links.js";
@@ -35,38 +36,48 @@ let inProject: string | undefined;
 // Where the next requests work in each linked repo (/worktree): a new worktree, or one you named.
 const workIn: Record<string, WorkspaceChoice> = {};
 
-attachConsole();
+attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back") }));
 
-const HELP = `Commands:
-  <request>          Send the Quartermaster on an expedition (you approve the plan first)
-  @${CREW_IDS.join(" / @")} <task>
-                     Talk to one crew member directly (aliases work too: @writer, @dev, @research)
+// What to type after @ for each crew member: their name now, as one word (@testpilot, @navigator),
+// or their id where that wouldn't find them.
+const handles = () => CREW_IDS.map((id) => {
+  const h = CREW[id].name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return h && findCrew(h)?.id === id ? h : id;
+});
+// The mark on the terminal's own lines: the Guild's tent, or whoever leads under another pack.
+const sign = () => (activePack().id === "guild" ? "🏕️" : CREW.quartermaster.emoji);
+
+// In the active pack's words (words.ts), so it's written when it's asked for, never at import.
+const help = () => say(`Commands:
+  <request>          Send the Quartermaster on {an expedition} (you approve the plan first)
+  @${handles().join(" / @")} <task>
+                     Talk to one {crew} member directly (aliases work too: @writer, @dev, @research)
   @path/to/file      Attach a project file or folder anywhere in a message (images and PDFs are shown)
   /link <path> [--edit]
-                     Let the crew read a folder on your disk as links/<name>/ (no upload); /links, /unlink <name>
-  /reply <message>   Follow up on the last expedition or chat, with that whole conversation carried over
-  /diff · /undo      What the last expedition's file tools changed; put those files back
+                     Let the {crew} read a folder on your disk as links/<name>/ (no upload); /links, /unlink <name>
+  /reply <message>   Follow up on the last {expedition} or chat, with that whole conversation carried over
+  /diff · /undo      What the last {expedition}'s file tools changed; put those files back
   /good [note] · /bad [note]
                      Rate the last answer. A note is kept as a standing note, so the next runs start with it
   /project [name | off]
                      List your projects, or work in one: its folders, notes, and defaults apply to what you send
   /worktree [<link> new [branch] | <link> <path> | <link> off]
                      Work in a git worktree of a linked repo: a new one per request, or one you already have
-  /memory <name>     What that crew member remembers, and how many sessions they've had
+  /memory <name>     What that {crew} member remembers, and how many sessions they've had
   /runtime [claude-code | api]
-                     Show or switch what runs the crew: your Claude subscription (default) or the API
+                     Show or switch what runs the {crew}: your Claude subscription (default) or the API
   /budget [dollars | off]
-                     Stop each expedition once it has spent this much (all agents together)
+                     Stop each {expedition} once it has spent this much (all agents together)
   /model [name model [effort] | name reset]
-                     Show or change which model each crew member runs on
+                     Show or change which model each {crew} member runs on
   /turns <name> <number | reset>
-                     How many turns one run of that crew member may take before it stops
+                     How many turns one run of that {crew} member may take before it stops
   /review            Approve or reject skills the Quartermaster proposed
-  /log               Recent quests: who went, how it ended, time, tokens, and cost
-  /jobs              Scheduled jobs (they run while mission control is open; npm run watch:install for always)
-  /wiki              The camp wiki's index (pages live in camp/wiki/)
+  /log               The {log}: recent runs ({expeditions}, {quests} and jobs), with who went, how it ended, time, tokens, and cost
+  /jobs              Scheduled jobs (they run while {hq} is open; npm run watch:install for always)
+  /wiki              The {camp} wiki's index (pages live in camp/wiki/)
   /help              This list
-  exit               Break camp`;
+  exit               {Close}`);
 
 // /model                         list each crew member's model and effort
 // /model <name> <model> [effort] change one (applies from their next run)
@@ -83,7 +94,7 @@ async function modelCommand(name?: string, model?: string, effort?: string) {
     return;
   }
   const who = findCrew(name);
-  if (!who) return console.log(`No crew member named "${name}".`);
+  if (!who) return console.log(`No ${w("crew")} member named "${name}".`);
   if (model === "reset") {
     setAgentSettings(who.id, { model: null, effort: null, maxTurns: null });
     return console.log(`${who.emoji} ${who.name} is back on the default model and turn limit.`);
@@ -109,19 +120,19 @@ function budgetCommand(arg?: string) {
   if (arg === "off") setBudgetUsd(null);
   else if (arg) {
     const v = Number(arg.replace(/^\$/, ""));
-    if (!Number.isFinite(v) || v <= 0) return console.log("Usage: /budget 2.50 (dollars per expedition), or /budget off");
+    if (!Number.isFinite(v) || v <= 0) return console.log(`Usage: /budget 2.50 (dollars per ${w("expedition")}), or /budget off`);
     setBudgetUsd(v);
   }
   const b = budgetUsd();
-  console.log(b ? `💰 Each expedition stops once it has spent $${b.toFixed(2)} (all agents together).` : "💰 No per-expedition budget. Set one with /budget 2.50");
+  console.log(b ? `💰 Each ${w("expedition")} stops once it has spent $${b.toFixed(2)} (all agents together).` : `💰 No budget per ${w("expedition")}. Set one with /budget 2.50`);
 }
 
 // What runs the crew right now, and whether it's ready.
 async function describeRuntime(force = false) {
-  if (campRuntime() === "api") return console.log("   Crew runs on: the API (ANTHROPIC_API_KEY). Switch with /runtime claude-code");
+  if (campRuntime() === "api") return console.log(`   ${w("Crew")} runs on: the API (ANTHROPIC_API_KEY). Switch with /runtime claude-code`);
   const login = await claudeLogin(force);
   console.log(login.ok
-    ? `   Crew runs on: your Claude ${login.plan ? login.plan[0].toUpperCase() + login.plan.slice(1) + " " : ""}subscription, through Claude Code. Switch with /runtime api`
+    ? `   ${w("Crew")} runs on: your Claude ${login.plan ? login.plan[0].toUpperCase() + login.plan.slice(1) + " " : ""}subscription, through Claude Code. Switch with /runtime api`
     : `   ⚠️  ${login.problem}`);
 }
 
@@ -132,9 +143,9 @@ function announcePending() {
 
 async function handle(input: string) {
   const cmd = input.trim();
-  if (cmd === "/help") return console.log(`\n${HELP}`);
+  if (cmd === "/help") return console.log(`\n${help()}`);
   if (cmd === "/review") return reviewPending(rl);
-  if (cmd === "/log") return console.log(`\n📒 Quest log\n${formatQuests()}`);
+  if (cmd === "/log") return console.log(`\n📒 ${w("Log")}\n${formatQuests()}`);
   if (cmd === "/jobs") return console.log(`\n⏰ ${describeJobs()}`);
   if (cmd === "/wiki") return console.log(`\n${wikiIndex()}`);
   // /runtime [claude-code | api]
@@ -168,7 +179,7 @@ async function handle(input: string) {
   const turns = cmd.match(/^\/turns\s+(\S+)\s+(\S+)$/);
   if (turns) {
     const who = findCrew(turns[1]);
-    if (!who) return console.log(`No crew member named "${turns[1]}".`);
+    if (!who) return console.log(`No ${w("crew")} member named "${turns[1]}".`);
     const defaults = who.id === "quartermaster" ? QM_DEFAULTS : ROSTER[who.id];
     if (turns[2] === "reset") setAgentSettings(who.id, { maxTurns: null });
     else {
@@ -183,7 +194,7 @@ async function handle(input: string) {
   const mem = cmd.match(/^\/memory\s+(\S+)/);
   if (mem) {
     const who = findCrew(mem[1]);
-    if (!who) return console.log(`\nNo crew member named "${mem[1]}".`);
+    if (!who) return console.log(`\nNo ${w("crew")} member named "${mem[1]}".`);
     const n = recentSessions(who.id, 100_000).length;
     return console.log(`\n${CREW[who.id].emoji} ${who.name}: ${n} session${n === 1 ? "" : "s"}\n${readMemory(who.id)}`);
   }
@@ -204,7 +215,7 @@ async function handle(input: string) {
       const here = (inProject ?? "general") === p.id ? "→" : " ";
       console.log(`${here} ${p.name.padEnd(24)} ${String(n).padStart(3)} conversation${n === 1 ? " " : "s"}${p.links?.length ? `  📁 ${p.links.map((l) => `links/${l}`).join(", ")}` : ""}`);
     }
-    return console.log(inProject ? `Requests are filed under ${getProject(inProject)?.name}: the crew sees its folders, notes, and description. /project off to stop.` : "Requests aren't filed under a project: the crew sees every linked folder. /project <name> to work in one.");
+    return console.log(inProject ? `Requests are filed under ${getProject(inProject)?.name}: the ${w("crew")} sees its folders, notes, and description. /project off to stop.` : `Requests aren't filed under a project: the ${w("crew")} sees every linked folder. /project <name> to work in one.`);
   }
   const wt = cmd.match(/^\/worktree(?:\s+(\S+)(?:\s+(\S+)(?:\s+(\S+))?)?)?$/);
   if (wt) {
@@ -243,7 +254,7 @@ async function handle(input: string) {
     if (!lastId) return console.log("Nothing has run in this session yet.");
     if (cmd === "/diff") {
       const d = checkpointDiff(lastId);
-      return console.log(d.files.length ? `\n${d.files.map((f) => `${f.change.padEnd(9)} ${f.path}`).join("\n")}\n\n${d.diff}` : "The last expedition's file tools didn't change any files.");
+      return console.log(d.files.length ? `\n${d.files.map((f) => `${f.change.padEnd(9)} ${f.path}`).join("\n")}\n\n${d.diff}` : `The last ${w("expedition")}'s file tools didn't change any files.`);
     }
     const r = undoCheckpoint(lastId);
     return console.log(r.restored.length ? `↩️  Put back: ${r.restored.join(", ")}${r.skipped.length ? `\n   Couldn't restore (too large to keep a copy): ${r.skipped.join(", ")}` : ""}` : "Nothing to undo.");
@@ -275,7 +286,7 @@ async function handle(input: string) {
     return announcePending();
   }
   if (direct && !/[./]/.test(direct[1])) {
-    console.log(`\nNo crew member named "${direct[1]}". Try @${CREW_IDS.join(", @")}.`);
+    console.log(`\nNo ${w("crew")} member named "${direct[1]}". Try @${handles().join(", @")}.`);
     return;
   }
 
@@ -319,15 +330,15 @@ async function stoppable<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T
 }
 
 async function main() {
-  console.log("🏕️  The camp is set. Type a request for the Quartermaster, or /help.");
+  console.log(`${sign()}  ${w("ready")}. Type a request for the ${CREW.quartermaster.name}, or /help.`);
   await describeRuntime();
   announcePending();
   const firstTask = process.argv.slice(2).join(" ");
-  let task = firstTask || (await rl.question("\n🧭 What's the expedition? "));
+  let task = firstTask || (await rl.question(`\n${CREW.quartermaster.emoji} What's the ${w("expedition")}? `));
 
   while (task.trim() && task.trim() !== "exit") {
     await handle(task);
-    task = await rl.question("\n🧭 Next expedition? (/help, or 'exit') ");
+    task = await rl.question(`\n${CREW.quartermaster.emoji} Next ${w("expedition")}? (/help, or 'exit') `);
   }
   rl.close();
 }

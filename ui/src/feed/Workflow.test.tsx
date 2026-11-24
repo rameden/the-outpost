@@ -266,7 +266,7 @@ test("a failed run's next step is Resume; working, or with nothing to step throu
   answer = (url) => (url.startsWith("/api/repo/status") ? { json: standing(1, 0) } : { json: { ok: true } });
   const { rerender, container } = render(<NextStep ws={WS} running={false} status="out_of_turns" title="Open button" lastRun="run3" />);
   const strip = screen.getByRole("group", { name: "Where this work stands" });
-  expect(within(strip).getByRole("status").textContent).toBe("The last run ended as out of turns.");
+  expect(within(strip).getByRole("status").textContent).toBe("The last expedition ended as out of turns.");
   fireEvent.click(within(strip).getByRole("button", { name: "Resume" }));
   await waitFor(() => expect(calls.at(-1)).toEqual({ url: "/api/send", body: { resume: "run3" } }));
   rerender(<NextStep ws={WS} running status="running" title="Open button" lastRun="run3" />);

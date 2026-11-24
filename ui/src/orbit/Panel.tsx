@@ -14,7 +14,7 @@ import { levelOf, questsDone, type KitItem } from "./kit.ts";
 import { quietFor, sayOf, spendLine, stalled, NEAR_FULL } from "./meaning.ts";
 import { lapOf } from "./scene.ts";
 
-import { w, a as an, cap } from "../words.ts";
+import { w, a as an, cap, atCamp } from "../words.ts";
 export type Body = { id: string; name: string; emoji?: string; role?: string; model?: string; effort?: string };
 
 // The time, ticking, for as long as there's something to time. clock: what time it is (a replay has its own).
@@ -141,7 +141,7 @@ export function Panel({ body, lead, nth, xp, store, st, bearing, make, live, clo
         {!out.length && !runs.length && !asks.length && (
           <p className="orb-quiet">{lead
             ? `No ${w("expedition")} is under way. When you send the ${body.name} on one, its plan and its progress show here as they happen.`
-            : `At ${w("camp")}, with nothing out. When the ${leadName()} sends ${body.name} on ${an("quest")}, it shows here as it happens.`}</p>
+            : `${atCamp()}, with nothing out. When the ${leadName()} sends ${body.name} on ${an("quest")}, it shows here as it happens.`}</p>
         )}
         <Kit name={body.name} kit={kit} picked={picked} onPick={onPick} />
       </div>

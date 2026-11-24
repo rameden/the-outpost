@@ -24,6 +24,7 @@ import { allTurns, shortened } from "./threads.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { clip } from "./helpers.js";
 import { checkFailed, checkPending, gh as runGh } from "./github.js";
+import { OUTPOST } from "./outpost.js";
 
 type Where = Pick<Workspace, "link" | "path">;
 
@@ -89,7 +90,7 @@ export async function draftPullRequest(w: Where, opts: { expedition?: string; ba
   // Left unticked on purpose: you tick what you've checked yourself.
   if (ticket?.criteria.length) parts.push("## Acceptance criteria\n" + ticket.criteria.map((c) => `- [ ] ${c}`).join("\n"));
   const checks = last ? checksIn(last.reply, w.link) : [];
-  parts.push("## Checks\n" + (checks.length ? checks.map((c) => `- ${c[0] === "✓" ? "Passed" : "FAILED"}: \`${c.slice(2)}\``).join("\n") + "\n\n(Run by the camp after the last change.)"
+  parts.push("## Checks\n" + (checks.length ? checks.map((c) => `- ${c[0] === "✓" ? "Passed" : "FAILED"}: \`${c.slice(2)}\``).join("\n") + `\n\n(Run by Outpost ${OUTPOST.name} after the last change.)`
     : "No automatic checks ran for this change."));
   // What you changed by hand since the crew finished: listed, and the notes brought up to date with it.
   const byHand = await handEdits(dir, w.link, mine.filter((t) => !t.aside && t.workspaces?.[w.link]?.path === w.path).map((t) => t.expedition)).catch(() => ({ files: [], since: null }));

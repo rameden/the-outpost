@@ -52,7 +52,7 @@ import { contour, contourPoints, LAP, MARKS, stretch, TAIL } from "../components
 import { Icon } from "../components/bits.tsx";
 import { runningCount, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
-import { calledEver, cClass, cx, money } from "../format.ts";
+import { calledEver, cClass, cx, leadName, money, nameNow } from "../format.ts";
 import { w } from "../words.ts";
 import { motionOK } from "../motion.tsx";
 import type { CampEvent, CampState } from "../types.ts";
@@ -177,7 +177,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     const mine = S?.characters ?? [];
     const all: Body[] = demo && !mine.some((c) => c.id !== LEAD) ? DEMO_CREW : mine;
     const lead = all.find((c) => c.id === LEAD);
-    return [lead ?? { id: LEAD, name: "Quartermaster" }, ...all.filter((c) => c.id !== LEAD)];
+    return [lead ?? { id: LEAD, name: leadName() }, ...all.filter((c) => c.id !== LEAD)];
   }, [S?.characters, demo]);
   // The demo's own feed, played into for as long as the demo is on (and started over if the crew playing it changes).
   const cast = bodies.map((b) => `${b.name}\u0000${b.emoji ?? ""}`).join("\u0001");
@@ -868,7 +868,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
           <button type="button" className="orb-tool worded" aria-pressed={hd} disabled={noHd} onClick={toggleHd}
             title={noHd ? "HD needs WebGL 2, which this browser isn't offering" : hd ? "Back to the flat view (H)" : "HD: the same system in three dimensions, as lit worlds round a sun (H). A proof of concept."}>HD</button>
           {hd && <button type="button" className="orb-tool worded" onClick={(ev) => roll(ev.shiftKey ? 0 : newSeed())}
-            title={`Reroll: make up other worlds for the ${w("crew")} (R). Each keeps its ${w("crew")} member's colour, the Artificer keeps a station, and a world you've made your own stays as you made it.${seed ? ` Shift-click (or Shift+R) for the ${w("camp")}'s own.` : ""}`}>Reroll</button>}
+            title={`Reroll: make up other worlds for the ${w("crew")} (R). Each keeps its ${w("crew")} member's colour, the ${nameNow("Artificer")} keeps a station, and a world you've made your own stays as you made it.${seed ? ` Shift-click (or Shift+R) for the ${w("camp")}'s own.` : ""}`}>Reroll</button>}
           <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? `End the demo and show the real ${w("camp")} (D)` : `Play a demo: a pretend ${w("camp")} at work, with nobody really sent anywhere (D)`} onClick={toggleDemo}>Demo</button>
           <button type="button" className="orb-tool worded" aria-pressed={!!replay} title={replay ? `End the replay and show the ${w("camp")} as it is now (P)` : `Replay: watch the last day's ${w("expeditions")} back, in about half a minute (P)`} onClick={toggleReplay}>Replay</button>
           <button type="button" className="orb-tool worded" aria-pressed={false} title="Ambient: hands off. The camera goes to whoever just did something, and tells you quietly when a decision needs you (A)" onClick={() => setAmbient(true)}>Ambient</button>

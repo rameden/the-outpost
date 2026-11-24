@@ -233,7 +233,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
             <li><svg viewBox="-13 -8 26 16" aria-hidden="true"><g className="orb-planet st-active" style={tone(4)}><circle className="hub-key-halo" r="8" /><circle className="orb-disc" r="4.5" /></g></svg>running</li>
             <li><svg viewBox="-8 -8 16 16" aria-hidden="true"><g className="orb-planet" style={tone(4)}><circle className="orb-disc" r="4.5" /></g></svg>stopped</li>
           </ul>
-          <p>Each planet is an outpost: a camp of its own, with its own crew and records.</p>
+          <p>Each planet is an outpost: a workspace of its own, with its own team and records.</p>
           <p className="con-hint" aria-hidden="true">Click an outpost to read about it · double-click to launch it · Esc to step back</p>
         </footer>
       )}
@@ -249,7 +249,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
               <label htmlFor="hub-new-name">Name the new outpost</label>
               <input id="hub-new-name" ref={nameField} value={newName} maxLength={24} placeholder="Work" autoComplete="off" onChange={(ev) => setNewName(ev.target.value)} />
             </form>
-            <p className="con-quiet">It starts empty, with a crew, memory, settings and keys of its own, and takes the next line out on the chart.</p>
+            <p className="con-quiet">It starts empty, with a team, memory, settings and keys of its own, and takes the next line out on the chart.</p>
             {error && <p className="con-error" role="alert">{error}</p>}
           </div>
           <footer>
@@ -266,11 +266,11 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
           </header>
           <div className="con-panel-body" aria-live="polite">
             <p className="con-text">{sel.crew === null && !sel.lastActive
-              ? "A new outpost: it starts empty, with its own crew, memory and settings."
-              : "Its crew, memory, settings and keys are its own. No other outpost can read them."}</p>
+              ? "A new outpost: it starts empty, with its own team, memory and settings."
+              : "Its team, memory, settings and keys are its own. No other outpost can read them."}</p>
             <dl className="con-facts">
               <dt>Status</dt><dd>{sel.running ? "Running" : sel.starting ? "Starting…" : "Stopped"}</dd>
-              {sel.crew !== null && <><dt>Crew</dt><dd>{sel.crew} {plural(sel.crew, "member")}</dd></>}
+              {sel.crew !== null && <><dt>Team</dt><dd>{sel.crew} {plural(sel.crew, "member")}</dd></>}
               <dt>Last active</dt><dd>{sel.lastActive ? ago(sel.lastActive) : "Not yet"}</dd>
               {sel.since && <><dt>Made</dt><dd>{day(sel.since)}</dd></>}
               <dt>Address</dt><dd className="hub-mono">127.0.0.1:{sel.port}</dd>

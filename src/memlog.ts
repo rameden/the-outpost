@@ -13,6 +13,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from "n
 import { join } from "node:path";
 import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { today } from "./helpers.js";
+import { w } from "./words.js";
 
 // A place things are kept: "agent:<id>", "project:<id>", or "about".
 export type Where = string;
@@ -67,6 +68,6 @@ export function addAbout(text: string, how: KeptHow = "remember", run?: string) 
 export function aboutBlock(): string {
   const text = readAbout();
   if (!text) return "";
-  return `## About the user (camp/about-you.md: shared by the whole crew; add to it with remember, about "user")\n` +
+  return `## About the user (camp/about-you.md: shared by the whole ${w("crew")}; add to it with remember, about "user")\n` +
     (text.length > ABOUT_MAX ? "…\n" + text.slice(-ABOUT_MAX) : text);
 }

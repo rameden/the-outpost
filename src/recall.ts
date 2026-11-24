@@ -23,6 +23,7 @@ import { allTurns } from "./threads.js";
 import type { Tool } from "./tools.js";
 import { wikiPages } from "./wiki.js";
 import { stem } from "./memfit.js";
+import { w } from "./words.js";
 
 // line: for a match that is a memory line, the place it lives in and the line as written (so its recall can be written down).
 export type Recalled = { from: string; when: string; text: string; score: number; line?: { where: Where; text: string } };
@@ -183,11 +184,11 @@ function excerptFrom(text: string, at: number, to: number, size = EXCERPT): stri
 
 export function recallTool(id: CrewId): Tool {
   return {
-    def: {
+    get def(): Tool["def"] { return { // built as it's asked for: the name and the words are the ones in use now
       name: "recall",
       description:
         `Search what you (${CREW[id]?.name ?? id}) can no longer see in your prompt: all your past sessions, earlier conversations in this project, ` +
-        "the full text of the camp wiki, and memory or project-note lines that have dropped out. Give a few specific words (a name, a file, an error, " +
+        `the full text of the ${w("camp")} wiki, and memory or project-note lines that have dropped out. Give a few specific words (a name, a file, an error, ` +
         "a decision); it returns short excerpts with where and when they're from. Use it before redoing work or asking the user something they may " +
         "already have answered. What it returns is a record of what was said then: check the files before relying on a detail.",
       input_schema: {
@@ -198,7 +199,7 @@ export function recallTool(id: CrewId): Tool {
         },
         required: ["query"],
       },
-    },
+    }; },
     run: async ({ query, where = "all" }) => {
       const terms = searchTerms(String(query ?? ""));
       const place = SOURCES.includes(where as Source) ? (where as Source) : "all";

@@ -126,8 +126,8 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
           ))}
           {costShown && (
             <button type="button" role="menuitem" className="top-item" onClick={shut(() => onOpenSettings?.("usage"))}
-              title={rt.sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : "Spend today on the API (all agents)"}>
-              <Icon name="gauge" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the {w("expedition")} log</small></span>
+              title={rt.sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : `Spend today on the API (the whole ${w("crew")})`}>
+              <Icon name="gauge" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the {w("log")}</small></span>
             </button>
           )}
           <div className="top-menu-foot">Up to {S?.parallel ?? 3} {w("expeditions")} run at once; the rest wait their turn. Change it in Settings.</div>

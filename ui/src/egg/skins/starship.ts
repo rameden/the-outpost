@@ -310,6 +310,7 @@ export const starship: Skin = {
   },
   // Troopers in white armour: a helmet with two black lenses and a grille, a black belt and
   // gloves, and white boots. (The helmet's what flies off when one's shot.)
+  builders: "mechanics",
   builder: { H: "#f4f6f9", D: "#8a93a3", K: "#14181f", N: "#6a7384", B: "#e9edf2", T: "#d2d8e0", S: "#23272f", F: "#f4f6f9" },
   crew: {
     frames: [

@@ -29,6 +29,7 @@ export type Skin = {
   player: Art & { flicker?: string; upright?: boolean }; // (flicker: a letter that comes and goes: an engine's flame)
   shot: Art & { spin?: boolean }; // what you fire (spin: it tumbles as it goes)
   enemies: Record<EnemyKind, EnemyArt>;
+  builders?: string; // what the Wreck's builders are called, if not dwarves: "deckhands"
   builder: Paint; // the Wreck's builders, in other clothes (the letters of GREMLIN_PAINT)
   // ...and, if they aren't dwarves under there, their own shape: two walking frames and a duck,
   // in the same letters (gremlins.ts has the dwarf's). The ladder arm is still T and the hand S.

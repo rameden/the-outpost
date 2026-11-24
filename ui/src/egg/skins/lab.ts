@@ -194,5 +194,6 @@ export const lab: Skin = {
     boat: { paint: { D: "#14202a", H: "#e6edf4", K: "#aab6c4", I: "#3a4450", Y: "#ffd84a", T: "#5ea832" } },
   },
   // Techs: brown hair under a blue goggle band, a white coat.
+  builders: "lab techs",
   builder: { H: "#5b3a1e", D: "#4fb3e8", S: "#f0b98a", K: "#14181f", N: "#d9866a", B: "#f3f5f8", T: "#aab6c4", F: "#3a3f4b" },
 };

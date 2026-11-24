@@ -8,6 +8,7 @@ import { campPath, clipOutput, displayPath, steerNote, wrapUpNote, type Tool, ty
 import { wikiIndex } from "./wiki.js";
 import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
+import { w } from "./words.js";
 import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } from "./memory.js";
 import { aboutBlock } from "./memlog.js";
 import { logAboutRelevant } from "./recalllog.js";
@@ -198,9 +199,9 @@ export function modelsBlock(model: string, models: ModelInfo[] = modelCache?.mod
   let others: string[] = [];
   try { others = providersState().filter((p) => p.connected).map((p) => p.name); } catch { /* the Claude models are the ones that matter here */ }
   return "## The models here\n" +
-    `You are running on ${mine ? label(mine) : model}. The Claude models this camp can run: ${models.filter((m) => !m.provider).map(label).join(", ")}.` +
+    `You are running on ${mine ? label(mine) : model}. The Claude models this ${w("camp")} can run: ${models.filter((m) => !m.provider).map(label).join(", ")}.` +
     (others.length ? ` Models from ${others.join(", ")} are connected as well.` : "") +
-    " These are real models the user can pick for a conversation or a crew member, whether or not you've heard of them. When the user names one, take it as that model. Don't describe what a model you don't know can do: say you don't know it beyond its name.";
+    ` These are real models the user can pick for a conversation or a ${w("crew")} member, whether or not you've heard of them. When the user names one, take it as that model. Don't describe what a model you don't know can do: say you don't know it beyond its name.`;
 }
 
 // What this agent actually runs on: your override from mission control, else the code default.
@@ -237,7 +238,7 @@ export function crewSetup(spec: AgentSpec): string {
   const { model, effort } = resolveModel(spec);
   const choice = parseChoice(model);
   const runsOn = choice.kind === "auto"
-    ? `${autoLabel(choice.preference)} (picks the model and effort quest by quest)`
+    ? `${autoLabel(choice.preference)} (picks the model and effort run by run)`
     : `${modelName(model)}, ${effort ? `${effort} effort` : "the model's default effort"}`;
   const webOff = getProject(currentProjectId())?.settings?.web === "off";
   const tools = spec.tools.map((t) => ("name" in t.def ? t.def.name : "")).filter((n) => n && !(webOff && (n === "web_search" || n === "web_fetch")));
@@ -245,7 +246,7 @@ export function crewSetup(spec: AgentSpec): string {
   const connectors = connectorsFor(spec.id);
   return [
     `runs on ${runsOn}`,
-    `${resolveTurns(spec)} turns per quest`,
+    `${resolveTurns(spec)} turns per run`,
     `tools: ${tools.join(", ") || "none"}`,
     `skills: ${skills.join(", ") || "none"}`,
     ...(connectors.length ? [`connectors: ${connectors.join(", ")}`] : []),
@@ -522,7 +523,7 @@ export async function runAgent(
       `Its last steps:\n${calls.slice(-12).map((c) => `- ${c}`).join("\n")}\nBrief the next run with this so it doesn't repeat finished work.]`;
   };
 
-  const budgetNote = () => `\n\n[Stopped: this expedition reached its ${usd(ledger?.budget ?? 0)} budget.]`;
+  const budgetNote = () => `\n\n[Stopped: this ${w("expedition")} reached its ${usd(ledger?.budget ?? 0)} budget.]`;
   const signal = currentSignal(); // set when the user can press Stop
   const stoppedNote = "\n\n[Stopped by the user.]";
 
@@ -600,7 +601,7 @@ export async function runAgent(
     const v = Number(typeof h?.get === "function" ? h.get("retry-after") : h?.["retry-after"]);
     return Number.isFinite(v) && v >= 0 && (typeof h?.get === "function" ? h.get("retry-after") : h?.["retry-after"]) != null ? v * 1000 : undefined;
   };
-  const pinnedHint = " Pick Auto for this conversation (beside the message box) or for the crew member to let another model carry on.";
+  const pinnedHint = ` Pick Auto for this conversation (beside the message box) or for the ${w("crew")} member to let another model carry on.`;
 
   const work = async (): Promise<AgentResult> => {
     if (router) {

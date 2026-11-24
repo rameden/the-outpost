@@ -395,7 +395,7 @@ test("a blank page outside a project offers a plain chat, and says how to bring 
   // In a project the page is the Quartermaster's, as before.
   rerender(<Feed store={createFeedStore()} onReply={() => {}} onExample={onExample} view={{ kind: "new" }} />);
   expect(screen.getByRole("heading", { name: "A new conversation" })).toBeTruthy();
-  expect(screen.getAllByRole("button")[0].textContent).toMatch(/^Scout how other agent harnesses/);
+  expect(screen.getAllByRole("button")[0].textContent).toMatch(/^Have the Scout look into how other agent harnesses/);
 });
 
 test("Note under a finished answer asks for the answer itself to be kept in a note", () => {

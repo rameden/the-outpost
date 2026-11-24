@@ -34,7 +34,7 @@ import { Icon } from "../components/bits.tsx";
 import { STEP_MARK, STEP_SAYS, stepPill } from "../feed/Feed.tsx";
 import { stepState, type FeedNode, type PlanNode, type PlanQuest, type StepState } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
-import { cClass, clock, cx } from "../format.ts";
+import { cClass, clock, cx, leadName } from "../format.ts";
 import { reelOf, type Reel } from "../orbit/replay.ts";
 import { STARS, wrap } from "../orbit/scene.ts";
 import { Timeline, type Time } from "../orbit/Timeline.tsx";
@@ -204,7 +204,7 @@ const TrailGround = memo(function TrailGround({ plan, expId, crewId, onOpen, lab
               <div className="trail-crew">
                 {step.quests.length
                   ? step.quests.map((q) => <Chip key={q.node} q={q} ended={plan.ended} expId={expId} crewId={crewId} onOpen={onOpen} />)
-                  : <span className="trail-nobody">{state === "todo" ? "Nobody sent yet" : "The Quartermaster's own"}</span>}
+                  : <span className="trail-nobody">{state === "todo" ? "Nobody sent yet" : `The ${leadName()}'s own`}</span>}
               </div>
             </li>
           );
@@ -360,7 +360,7 @@ function TrailRings({ plans, going, crewId, openIn, onOnly, zoom, sky }: {
           {hotPlan && hotStep && hotState ? (
             <><b>Ring {ringNo.get(hotPlan.expId)} · Step {hotStep.n}</b><span className={stepPill(hotState)}><i>{STEP_MARK[hotState]}</i> {STEP_SAYS[hotState]}</span>
               <span className="trail-readout-text">{hotStep.text}</span>
-              <span className="trail-readout-who">{hotStep.quests.length ? [...new Set(hotStep.quests.map((q) => `${q.emoji} ${q.who}`))].join(", ") : hotState === "todo" ? "Nobody sent yet" : "The Quartermaster's own"}</span></>
+              <span className="trail-readout-who">{hotStep.quests.length ? [...new Set(hotStep.quests.map((q) => `${q.emoji} ${q.who}`))].join(", ") : hotState === "todo" ? "Nobody sent yet" : `The ${leadName()}'s own`}</span></>
           ) : hotPlan ? (
             <><b>Ring {ringNo.get(hotPlan.expId)}</b><span className="trail-readout-text">{hotPlan.task}</span><span className="trail-readout-who">{tally(statesOf(hotPlan.plan))}</span></>
           ) : <span className="trail-readout-text hint">Each ring is a plan, the first asked innermost. Point at a waypoint, or Tab to one, to read its step.</span>}
@@ -513,7 +513,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
         <div className="trail-title"><h2>Trail map</h2>
           {replay ? <span className="trail-note" role="status">Replay: the last day, played back. None of this is happening now.</span>
             : told ? <span className="trail-note" role="status">{told}</span>
-            : <span>The Quartermaster's plan, as the {w("crew")} walks it</span>}</div>
+            : <span>The {leadName()}'s plan, as the {w("crew")} walks it</span>}</div>
         <div className="trail-tools">
           {whole && (
             <span className="trail-zoom" role="group" aria-label="How big the map is drawn">
@@ -581,7 +581,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
         <div className="trail-empty">
           <Icon name="trail" />
           <b>{replay ? "No plan yet at this point in the day" : "No plan yet"}</b>
-          <p>{replay ? "Plans appear here as the day plays on." : `When the Quartermaster's plan is approved, its steps appear here as a trail, and fill in as the ${w("crew")} works.`}</p>
+          <p>{replay ? "Plans appear here as the day plays on." : `When the ${leadName()}'s plan is approved, its steps appear here as a trail, and fill in as the ${w("crew")} works.`}</p>
         </div>
       )}
       {replay && <Timeline reel={replay.reel} store={replay.store} time={time} onLeave={leaveReplay} />}

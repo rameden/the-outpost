@@ -62,11 +62,17 @@ export function crewId(name: string | undefined | null): string | undefined { re
 export const isLead = (name: string | undefined | null) => crewId(name) === LEAD;
 // What the lead is called now ("Quartermaster", or the theme pack's name for them).
 export const leadName = () => crewList.find((c) => c.id === LEAD)?.name ?? "Quartermaster";
+export const leadEmoji = () => crewList.find((c) => c.id === LEAD)?.emoji ?? "🧭";
 // What someone is called now, from any name they've gone by (a name nobody has is left as it is).
 export function nameNow(name: string) {
   const id = crewId(name) ?? addedAs.get(slug(name));
   return (id && crewList.find((c) => c.id === id)?.name) || name;
 }
+// What to type after @ to reach someone, as their name now reads: "commsofficer" for the Comms
+// Officer (the camp takes every form of a pack's names). A crew member you added keeps their id.
+export const handleOf = (c: { id: string; name: string; custom?: boolean }) => (c.custom ? c.id : c.name.toLowerCase().replace(/[^a-z0-9]/g, "") || c.id);
+// The handle of one of the six by id, as their name reads now (what to put after @ in an example).
+export const handleFor = (id: string) => { const c = crewList.find((x) => x.id === id); return c ? handleOf(c) : id; };
 // The CSS class that gives a crew member their colour.
 export function cClass(name: string | undefined | null) {
   const mine = addedColors.get(slug(name));

@@ -15,7 +15,8 @@ import { autoApproval, approvalNow, shellRule } from "./shell.js";
 import { reviewCommand, reviewerOn } from "./reviewer.js";
 import { resolveLinked, linkedDisplayPath, SECRET_NAME, inside, isSymlink, realTarget, loadLinks, linkRoot } from "./links.js";
 import { allowShellCommand, selfEditAllowed, shellSettings } from "./settings.js";
-import { CREW, inPack } from "./crew.js";
+import { CREW } from "./crew.js";
+import { say, w } from "./words.js";
 import { childEnv, gitSafeEnv, sandboxAvailable, sandboxKind, sandboxed, type SandboxPlan } from "./sandbox.js";
 import { allowedHosts, ensureProxy, proxyEnv, refusedSince } from "./netproxy.js";
 import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell } from "./checkpoints.js";
@@ -80,14 +81,14 @@ const privateName = (name: string) => PRIVATE_CAMP_FILES.has(name.replace(/\.(da
 // Near the turn limit, a note rides along with a tool result so the agent lands the work instead
 // of being cut off mid-step. Used by both runtimes.
 export function wrapUpNote(left: number): string | null {
-  if (left === 3) return "[Camp note: you have 3 turns left in this run. Finish the step you're on, then use your last turn for the report: what is done, what is left, and exactly where to pick up (files, commands, findings). Don't start anything new.]";
-  if (left === 1) return "[Camp note: this is your last turn. Don't call another tool. Write the report now: done, left to do, and where to pick up.]";
+  if (left === 3) return `[${w("Camp")} note: you have 3 turns left in this run. Finish the step you're on, then use your last turn for the report: what is done, what is left, and exactly where to pick up (files, commands, findings). Don't start anything new.]`;
+  if (left === 1) return `[${w("Camp")} note: this is your last turn. Don't call another tool. Write the report now: done, left to do, and where to pick up.]`;
   return null;
 }
 
 // What the user says to an expedition while it's running, as the agent sees it.
 export const steerNote = (texts: string[]) =>
-  `[The user sent this while you were working. It's addressed to the whole expedition: act on it if it concerns your part, and carry on otherwise.]\n${texts.join("\n\n")}`;
+  `[The user sent this while you were working. It's addressed to the whole ${w("expedition")}: act on it if it concerns your part, and carry on otherwise.]\n${texts.join("\n\n")}`;
 
 // Long tool output is cut so one call can't flood the context. Used by both runtimes.
 export const MAX_TOOL_OUTPUT = 50_000;
@@ -114,7 +115,7 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
     // Nor does a symlink inside such a link that leads into the camp.
     const real = realTarget(linked);
     if (inside(real, realCamp())) campRules(resolve(CAMP_ROOT, relative(realCamp(), real)), path, mode, self);
-    if (mode === "write" && (isHarnessCode(linked) || isHarnessCode(real)) && !selfEditAllowed()) throw new Error(`${path} is part of the camp's own code, which is read-only.`);
+    if (mode === "write" && (isHarnessCode(linked) || isHarnessCode(real)) && !selfEditAllowed()) throw new Error(`${path} is part of the ${w("camp")}'s own code, which is read-only.`);
     return linked;
   }
   const abs = resolve(CAMP_ROOT, path);
@@ -131,8 +132,8 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
     else {
       let inLink: string | undefined;
       try { inLink = resolveLinked(real, mode); } catch (e: any) { throw new Error(`${path} is a symlink, and where it leads is off limits: ${e.message}`); }
-      if (!inLink) throw new Error(`${path} is a symlink that leads outside the camp, so file tools don't follow it.`);
-      if (mode === "write" && isHarnessCode(real) && !selfEditAllowed()) throw new Error(`${path} is part of the camp's own code, which is read-only.`);
+      if (!inLink) throw new Error(`${path} is a symlink that leads outside the outpost's folder, so file tools don't follow it.`);
+      if (mode === "write" && isHarnessCode(real) && !selfEditAllowed()) throw new Error(`${path} is part of the ${w("camp")}'s own code, which is read-only.`);
     }
     if (mode === "write" && isSymlink(abs)) throw new Error(`${path} is a symlink. File tools don't write through symlinks: write to the file it points to, by its own path.`);
   }
@@ -144,7 +145,7 @@ export function campPath(path: string, mode: "read" | "write", self?: string): s
 function campRules(abs: string, path: string, mode: "read" | "write", self?: string): void {
   const rel = relative(CAMP_ROOT, abs);
   if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) {
-    throw new Error(`${path} is outside the camp (${CAMP_ROOT}). Use a path inside it, or ask the user to link that folder.`);
+    throw new Error(`${path} is outside the outpost's folder (${CAMP_ROOT}). Use a path inside it, or ask the user to link that folder.`);
   }
   const parts = rel.split(sep);
   const top = parts[0];
@@ -152,13 +153,13 @@ function campRules(abs: string, path: string, mode: "read" | "write", self?: str
   // The same secret names that are off limits in linked folders, at any depth (sub/.env, id_rsa, *.pem…).
   if (parts.some((seg) => SECRET_NAME.test(seg))) throw new Error(`${path} looks like a secret (keys, .env, credentials) and is off limits.`);
   if (top === "camp" && parts.length === 2 && privateName(parts[1])) {
-    throw new Error(`${path} holds the user's private camp configuration and is off limits.`);
+    throw new Error(`${path} holds the user's private ${w("camp")} configuration and is off limits.`);
   }
-  if (top === "camp" && PRIVATE_CAMP_DIRS.has(parts[1])) throw new Error(`${path} is part of the camp's own record keeping and is off limits.`);
+  if (top === "camp" && PRIVATE_CAMP_DIRS.has(parts[1])) throw new Error(`${path} is part of the ${w("camp")}'s own record keeping and is off limits.`);
   // Git's own data at any depth (a nested repository's config and hooks can run programs).
   if (mode === "write" && parts.includes(".git")) throw new Error(`${path} is git's own data, which file tools don't change.`);
   if (mode === "write" && isHarnessCode(abs) && !selfEditAllowed()) {
-    throw new Error(`${path} is part of the camp's own code, which is read-only. Work in a linked folder or your outputs folder` +
+    throw new Error(`${path} is part of the ${w("camp")}'s own code, which is read-only. Work in a linked folder or your outputs folder` +
       (self ? ` (camp/agents/${self}/outputs/)` : "") + `. The user can allow it with "selfEdit": true in camp/settings.json.`);
   }
 
@@ -167,12 +168,13 @@ function campRules(abs: string, path: string, mode: "read" | "write", self?: str
     const owner = parts[2];
     const area = parts[3] ?? "";
     const mine = owner === self;
+    const theirs = CREW[owner]?.name ?? owner; // the folder keeps their id; the sentence says their name
     if (!mine && (area === "memory.md" || area === "sessions")) {
-      throw new Error(`That's the ${owner}'s private ${area === "sessions" ? "session history" : "memory"}. You can read their outputs/ instead.`);
+      throw new Error(`That's the ${theirs}'s private ${area === "sessions" ? "session history" : "memory"}. You can read their outputs/ instead.`);
     }
     if (mode === "write") {
       if (mine && area === "outputs") return;
-      throw new Error(mine ? "Write your files under your outputs/ folder; use remember for your memory." : `camp/agents/${owner}/ is the ${owner}'s workspace, not yours.`);
+      throw new Error(mine ? "Write your files under your outputs/ folder; use remember for your memory." : `camp/agents/${owner}/ is the ${theirs}'s workspace, not yours.`);
     }
     return;
   }
@@ -180,7 +182,7 @@ function campRules(abs: string, path: string, mode: "read" | "write", self?: str
   if (mode === "write" && READ_ONLY.has(top)) {
     throw new Error(
       top === "skills"
-        ? inPack("skills/ is read-only. New skills are proposed by the Quartermaster and approved by the user.")
+        ? say("skills/ is read-only. New skills are proposed by the Quartermaster and approved by the user.")
         : `${top}/ is read-only for file tools.` + (self ? ` Save your work to camp/agents/${self}/outputs/.` : "")
     );
   }
@@ -192,7 +194,7 @@ export function readFileFor(self: string): Tool {
     def: {
       name: "read_file",
       description:
-        "Read a text file inside the camp folder or a linked folder (links/<name>/…): SKILL.md files, code, notes, wiki pages, " +
+        "Read a text file inside the outpost's folder or a linked folder (links/<name>/…): SKILL.md files, code, notes, wiki pages, " +
         "teammates' outputs. Long files come back in pieces: the reply says which lines you got and the offset to continue from.",
       input_schema: {
         type: "object",
@@ -247,12 +249,12 @@ export function writeFileFor(self: string, opts: { outputsOnly?: boolean } = {})
   return {
     def: {
       name: "write_file",
-      description: opts.outputsOnly
+      get description() { return say(opts.outputsOnly
         ? `Create or overwrite a text file in your own folder, camp/agents/${self}/outputs/ (parent folders are created). ` +
           `You can't write anywhere else: hand project changes to the Artificer or the Scribe.`
         : `Create or overwrite a text file (parent folders are created). Your own files go in ` +
         `camp/agents/${self}/outputs/; project files elsewhere are fine when a brief asks for them. ` +
-        `skills/, plugins/, the camp's own code, and the rest of camp/ are read-only, and so are linked folders unless the user gave edit access.`,
+        `skills/, plugins/, the {camp}'s own code, and the rest of camp/ are read-only, and so are linked folders unless the user gave edit access.`); },
       input_schema: {
         type: "object",
         properties: { path: { type: "string" }, content: { type: "string" } },
@@ -291,7 +293,7 @@ export async function runShell(command: string, signalOrOpts?: AbortSignal | She
     try { env = { ...env, ...proxyEnv(await ensureProxy()) }; } catch { /* no proxy: no network, as before */ }
   }
   return new Promise((done) => {
-    if (signal?.aborted) return done("Not run: the expedition was stopped.");
+    if (signal?.aborted) return done(`Not run: the ${w("expedition")} was stopped.`);
     const io = { cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"], env, windowsHide: true };
     const box = o.sandbox ? sandboxed(command, o.sandbox) : null;
     // On Windows the command goes to Git Bash (or PowerShell, without it): see platform.ts.
@@ -449,7 +451,7 @@ export function bashFor(self: string, was = "Artificer"): Tool {
     def: {
       name: "bash",
       description:
-        "Run a shell command and get its output. It runs in the camp folder unless you give cwd: use cwd \"links/<name>\" " +
+        "Run a shell command and get its output. It runs in the outpost's folder unless you give cwd: use cwd \"links/<name>\" " +
         "(or a folder inside it) to run in a linked project, e.g. its tests or git commands. Simple read-only commands " +
         "(ls, git status, git diff, git log…) run right away. Other commands either run in a sandbox without asking " +
         "(no network; writes only inside that project and your own outputs folder) when the user has turned the sandbox on, " +
@@ -458,7 +460,7 @@ export function bashFor(self: string, was = "Artificer"): Tool {
         type: "object",
         properties: {
           command: { type: "string" },
-          cwd: { type: "string", description: "Folder to run in: a camp path such as links/<name> or links/<name>/packages/app. Default: the camp folder." },
+          cwd: { type: "string", description: "Folder to run in: a path such as links/<name> or links/<name>/packages/app. Default: the outpost's folder." },
           unsandboxed: { type: "boolean", description: "Ask the user to run this outside the sandbox (it needs the network or writes elsewhere). Only after a sandboxed try failed for that reason, or when it obviously will (npm install, git push)." },
         },
         required: ["command"],

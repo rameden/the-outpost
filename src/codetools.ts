@@ -93,7 +93,7 @@ export function listDirFor(self: string): Tool {
       description: "List what's in a folder (folders end with /), including linked folders like links/<name>. depth 1 by default, up to 4.",
       input_schema: {
         type: "object",
-        properties: { path: { type: "string", description: "Folder, default the camp root." }, depth: { type: "number" } },
+        properties: { path: { type: "string", description: "Folder, default the outpost's folder." }, depth: { type: "number" } },
       },
     },
     run: async ({ path = ".", depth = 1 }) => {
@@ -171,7 +171,7 @@ export function grepFor(self: string): Tool {
         type: "object",
         properties: {
           pattern: { type: "string" },
-          path: { type: "string", description: "Folder or file to search, default the camp root." },
+          path: { type: "string", description: "Folder or file to search, default the outpost's folder." },
           glob: { type: "string", description: "Only files whose name or path (relative to path) matches, e.g. '*.ts' or 'src/**/*.ts'." },
           ignore_case: { type: "boolean" },
           context: { type: "number", description: "Lines to show before and after each match (0–5)." },
