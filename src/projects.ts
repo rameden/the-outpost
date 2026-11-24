@@ -22,8 +22,8 @@ import { currentExpeditionId } from "./context.js";
 import { questCost, recentQuests } from "./questlog.js";
 import { allTurns } from "./threads.js";
 import { campPath, type Tool } from "./tools.js";
-import { withPathLockSync, writeAtomic } from "./atomic.js";
-import { ENTRY_MAX, fitMemory } from "./memfit.js";
+import { writeAtomic } from "./atomic.js";
+import { clipEntry, fitMemory, tooLong } from "./memfit.js";
 import { logRelevant } from "./recalllog.js";
 import { SAFE_ID, today } from "./helpers.js";
 import { w } from "./words.js";
@@ -59,12 +59,10 @@ export function addProjectNote(id: string, text: string, how: KeptHow = "remembe
   if (!SAFE_ID.test(id)) throw new Error("No such project.");
   mkdirSync(dir(id), { recursive: true });
   const path = join(dir(id), "notes.md");
-  const line = String(text).replace(/\s+/g, " ").trim().slice(0, ENTRY_MAX);
+  const line = clipEntry(text);
   if (!line) return;
-  withPathLockSync(path, () => {
-    const prior = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "") : "";
-    writeAtomic(path, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
-  });
+  const prior = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "") : "";
+  writeAtomic(path, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
   logKept(`project:${id}`, line, how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "history" });
 }
@@ -97,6 +95,8 @@ export const projectRemember: Tool = {
     if (!text) return "Nothing to save.";
     if (mode === "brief") { setProjectBrief(id, text); return `Saved the survey of ${project.name}.`; }
     if (mode === "rewrite") { setProjectNotes(id, text); return `Rewrote the notes for ${project.name}.`; }
+    const long = tooLong(text);
+    if (long) return long;
     addProjectNote(id, text);
     const size = projectNotes(id).length;
     return `Noted for ${project.name}.` + (size > NOTES_NUDGE ? ` The notes are getting long (${size} characters; a prompt loads about ${NOTES_MAX}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge them into fewer, still-true lines.` : "");

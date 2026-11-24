@@ -3,6 +3,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
+import { skillsStamp } from "./helpers.js";
 import { posix } from "node:path";
 import { campPath, clipOutput, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import { wikiIndex } from "./wiki.js";
@@ -206,23 +207,25 @@ export function modelsBlock(model: string, models: ModelInfo[] = modelCache?.mod
     ` These are real models the user can pick for a conversation or a ${w("crew")} member, whether or not you've heard of them. When the user names one, take it as that model. Don't describe what a model you don't know can do: say you don't know it beyond its name.`;
 }
 
-// What this agent actually runs on: your override from mission control, else the code default.
+// What this agent actually runs on: what this one run was given (a scheduled job's own settings),
+// else your override from mission control, else the code default.
 // An effort level the model doesn't support is dropped rather than sent (it would be a 400).
-export function resolveModel(spec: Pick<AgentSpec, "id" | "model" | "effort">): { model: string; effort?: Effort } {
+export function resolveModel(spec: Pick<AgentSpec, "id" | "model" | "effort" | "forRun">): { model: string; effort?: Effort } {
   const s = agentSettings(spec.id);
   // A project can put a crew member on a different model for its own conversations.
   const here = getProject(currentProjectId())?.settings?.agents?.[spec.id];
-  const model = here?.model ?? s.model ?? spec.model ?? DEFAULT_MODEL;
-  let effort = (here?.model ? (here.effort as Effort | undefined) : undefined) ?? s.effort ?? spec.effort;
+  const model = spec.forRun?.model ?? here?.model ?? s.model ?? spec.model ?? DEFAULT_MODEL;
+  let effort = spec.forRun?.effort ?? (here?.model ? (here.effort as Effort | undefined) : undefined) ?? s.effort ?? spec.effort;
   if (isAutoChoice(model)) return { model }; // Auto chooses the effort along with the model, task by task
   const info = knownModel(model);
   if (effort && info && !info.efforts.includes(effort)) effort = undefined;
   return { model, effort };
 }
 
-// How many turns this agent gets per run: your override, else the code default, else 20.
-export function resolveTurns(spec: Pick<AgentSpec, "id" | "maxTurns">): number {
-  return agentSettings(spec.id).maxTurns ?? spec.maxTurns ?? DEFAULT_TURNS;
+// How many turns this agent gets per run: what this one run was given, else your override, else
+// the code default, else 20.
+export function resolveTurns(spec: Pick<AgentSpec, "id" | "maxTurns" | "forRun">): number {
+  return spec.forRun?.maxTurns ?? agentSettings(spec.id).maxTurns ?? spec.maxTurns ?? DEFAULT_TURNS;
 }
 
 // What the Quartermaster is told about a crew member, so its plans and briefs fit how they really
@@ -283,6 +286,10 @@ export type AgentSpec = {
   maxTurns?: number;
   model?: string;      // e.g. give the Quartermaster a bigger model, scouts a cheaper one
   effort?: Effort;     // how hard this character thinks; lower is cheaper and faster
+  // Set for this one run (a scheduled job's own model, effort or turn limit). It was asked for
+  // this piece of work in particular, so it comes ahead of how the crew member is set in mission
+  // control; model, effort and maxTurns above are only what's used when nothing else is set.
+  forRun?: { model?: string; effort?: Effort; maxTurns?: number };
 };
 
 export type Usage = {
@@ -348,13 +355,13 @@ function unquoted(value: string): string {
 
 // Progressive disclosure: only name + description go in the prompt.
 // always: skills whose instructions are in the prompt already (see alwaysBlock), marked so.
-// Cached per skill folder by mtime so every QM roster rebuild doesn't re-read every SKILL.md.
+// Cached per skills folder, stamped by each SKILL.md in it, so every QM roster rebuild doesn't
+// re-read every SKILL.md but an edit to one is picked up at once.
 type SkillMeta = { name: string; desc: string; path: string; dir: string };
 const skillMetaCache = new Map<string, { stamp: string; skills: SkillMeta[] }>();
 function skillsIn(dir: string): SkillMeta[] {
   const at = `${process.cwd()}|${dir}`;
-  let stamp = "none";
-  try { if (existsSync(dir)) { const st = statSync(dir); stamp = `${st.mtimeMs}:${st.ino}`; } } catch { /* gone */ }
+  const stamp = skillsStamp(dir); // every SKILL.md's time and size, so an edit to one is seen
   const hit = skillMetaCache.get(at);
   if (hit?.stamp === stamp) return hit.skills;
   const skills: SkillMeta[] = [];

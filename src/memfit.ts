@@ -112,6 +112,22 @@ export type Fit = {
 const FLOOR_FROM = 4; // lines there must be before the middle score is a floor (with fewer, the middle one is one of the few)
 // One memory/note line on disk: matches logKept's slice so a single entry can't crowd a prompt.
 export const ENTRY_MAX = 600;
+const oneLine = (entry: string) => String(entry).replace(/\s+/g, " ").trim();
+// A note as it's kept: on one line and no longer than ENTRY_MAX. A longer one is cut between
+// characters (never through the middle of an emoji) and ends with … so it reads as cut.
+export function clipEntry(entry: string): string {
+  const text = oneLine(entry);
+  if (text.length <= ENTRY_MAX) return text;
+  let out = "";
+  for (const ch of text) { if (out.length + ch.length > ENTRY_MAX - 1) break; out += ch; }
+  return out.trimEnd() + "…";
+}
+// What an agent is told when the note it wants kept is too long. It's asked to shorten it itself
+// and nothing is saved, so a note is never cut behind its back and reported as remembered.
+export function tooLong(entry: string): string | null {
+  const n = oneLine(entry).length;
+  return n > ENTRY_MAX ? `Nothing was saved: that's ${n} characters, and one note holds ${ENTRY_MAX}. Say it in fewer words, or save it as two or three separate notes.` : null;
+}
 
 export function bearing(rows: string[], lines: number[], task: string): Map<number, number> {
   const out = new Map<number, number>();

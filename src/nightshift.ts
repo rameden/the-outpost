@@ -27,7 +27,8 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, posix } from "node:path";
+import { isAbsolute, join, posix } from "node:path";
+import { linkRoot, loadLinks } from "./links.js";
 import { writeJsonAtomic } from "./atomic.js";
 import { dayOf } from "./helpers.js";
 import { emit } from "./events.js";
@@ -120,7 +121,8 @@ export function nights(limit = LOOK_BACK): NightRecord[] {
   return days.flatMap((d) => readNight(d) ?? []);
 }
 
-// Paths named in a memory line (relative, absolute, or ~/…), for staleness checks.
+// What a memory line names that's shaped like a path (relative, absolute, or ~/…). A slash alone
+// doesn't make one ("and/or", "CI/CD", "24/7", an API route): missingPaths decides which are real.
 export function pathsInLine(text: string): string[] {
   const out: string[] = [];
   for (const m of String(text).matchAll(/(?:^|[\s`"'(])(~?\/?(?:[\w.+@-]+\/)+[\w.+@-]+)/g)) {
@@ -130,10 +132,26 @@ export function pathsInLine(text: string): string[] {
   }
   return [...new Set(out)];
 }
-// Paths the line names that aren't on disk right now.
+// Where a relative path in a note may start from: the camp itself, and every linked folder (a
+// note about a linked repo names files as that repo has them).
+function pathRoots(): string[] {
+  try { return [process.cwd(), ...loadLinks().map(linkRoot)]; } catch { return [process.cwd()]; }
+}
+// Paths the line names that aren't on disk right now. One only counts when the folder it starts
+// in is really there: then it's plainly a path, and what's missing is the rest of it. So "and/or"
+// and "/api/chat" aren't paths (no folder "and", no "/api"), and a relative path is missing only
+// when it's in neither the camp nor any linked folder that has its first folder.
 export function missingPaths(text: string): string[] {
+  const roots = pathRoots();
   return pathsInLine(text).filter((p) => {
-    try { return !existsSync(p); } catch { return true; }
+    try {
+      if (isAbsolute(p)) {
+        const top = /^[\\/][^\\/]+/.exec(p)?.[0];
+        return (top ? existsSync(top) : true) && !existsSync(p);
+      }
+      const head = p.split("/")[0];
+      return roots.some((r) => existsSync(join(r, head))) && !roots.some((r) => existsSync(join(r, p)));
+    } catch { return false; }
   });
 }
 

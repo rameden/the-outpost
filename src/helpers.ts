@@ -3,7 +3,8 @@
 //
 // No imports from the rest of the camp, so anything can use it without import cycles.
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 
 // ---------- Text ----------
 // On one line (runs of whitespace closed up), cut to n characters with an ellipsis.
@@ -46,10 +47,19 @@ export function fileStamp(path: string): string {
     return `${process.cwd()}|${st ? `${st.mtimeMs}:${st.size}:${st.ino}` : "none"}`;
   } catch { return `${process.cwd()}|none`; }
 }
-// Directory stamp: mtime of the folder itself (enough to invalidate a wiki/skills listing).
-export function dirStamp(path: string): string {
+// Stamp for a folder of skills (<dir>/<name>/SKILL.md): it changes when a skill is added, removed
+// or renamed, and when any SKILL.md is edited. The folder's own time isn't enough: it doesn't move
+// when a file inside one of its subfolders is edited where it is.
+export function skillsStamp(dir: string): string {
+  let stamp = `${process.cwd()}|${dir}`;
   try {
-    const st = existsSync(path) ? statSync(path) : null;
-    return `${process.cwd()}|${st ? `${st.mtimeMs}:${st.ino}` : "none"}`;
-  } catch { return `${process.cwd()}|none`; }
+    if (!existsSync(dir)) return `${stamp}|none`;
+    for (const name of readdirSync(dir).sort()) {
+      try {
+        const st = statSync(join(dir, name, "SKILL.md"));
+        stamp += `|${name}:${st.mtimeMs}:${st.size}:${st.ino}`;
+      } catch { /* not a skill */ }
+    }
+  } catch { return `${stamp}|none`; }
+  return stamp;
 }

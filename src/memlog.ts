@@ -11,8 +11,8 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { appendLine, readJsonl, withPathLockSync, writeAtomic } from "./atomic.js";
-import { ENTRY_MAX, fitMemory } from "./memfit.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
+import { clipEntry, fitMemory } from "./memfit.js";
 import { today } from "./helpers.js";
 import { w } from "./words.js";
 
@@ -61,12 +61,10 @@ export function writeAbout(text: string) {
 }
 export function addAbout(text: string, how: KeptHow = "remember", run?: string) {
   mkdirSync("camp", { recursive: true });
-  const line = String(text).replace(/\s+/g, " ").trim().slice(0, ENTRY_MAX);
+  const line = clipEntry(text);
   if (!line) return;
-  withPathLockSync(ABOUT_PATH, () => {
-    const prior = existsSync(ABOUT_PATH) ? readFileSync(ABOUT_PATH, "utf8").replace(/\n+$/, "") : "";
-    writeAtomic(ABOUT_PATH, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
-  });
+  const prior = existsSync(ABOUT_PATH) ? readFileSync(ABOUT_PATH, "utf8").replace(/\n+$/, "") : "";
+  writeAtomic(ABOUT_PATH, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
   logKept("about", line, how, run);
 }
 // For every crew member's prompt. Empty until something's been noted.

@@ -72,14 +72,13 @@ export function logQuest(
     ...(result.costUsd != null ? { costUsd: result.costUsd } : {}),
     ...(result.route ? { route: { choice: result.route.choice, steps: result.route.steps.map(({ model, effort, trigger, reason }) => ({ model, ...(effort ? { effort } : {}), trigger, reason })) } } : {}),
   };
+  // Add to the cache so the next read doesn't re-parse the whole file, but only when the cache
+  // matched the file just before this write; otherwise drop it and let the next read rebuild.
+  const stamp = () => { try { const st = statSync(QUEST_LOG_PATH); return `${st.mtimeMs}:${st.size}`; } catch { return null; } };
+  const before = cache && cache.path === process.cwd() + "/" + QUEST_LOG_PATH && cache.key === stamp() ? cache : null;
   appendLine(QUEST_LOG_PATH, JSON.stringify(entry));
-  // Push into the cache so the next read doesn't re-parse the whole file.
-  if (cache && cache.path === process.cwd() + "/" + QUEST_LOG_PATH) {
-    try {
-      const st = statSync(QUEST_LOG_PATH);
-      cache = { path: cache.path, key: `${st.mtimeMs}:${st.size}`, entries: [...cache.entries, entry] };
-    } catch { cache = null; }
-  } else cache = null;
+  const key = stamp();
+  cache = before && key ? { path: before.path, key, entries: [...before.entries, entry] } : null;
   emit({ type: "changed", what: "log" });
 }
 

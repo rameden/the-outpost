@@ -406,7 +406,11 @@ export function settleProposal(id: string, action: "approve" | "dismiss", text?:
         throw Object.assign(new Error(`${p.name} has changed since this was drafted (${missing.length} drafted line${missing.length === 1 ? "" : "s"} gone), so it wasn't applied. Ask for a new draft.`), { fixable: true });
       }
       const wasNorms = new Set(wasNotes.map((l) => norm(parseEntry(l)!.text)));
-      const since = now.split("\n").filter((l) => { const e = parseEntry(l); return e ? !wasNorms.has(norm(e.text)) : l.trim() && !/^#{1,6}\s/.test(l.trim()); }).join("\n").trim();
+      // What arrived since the draft: notes that weren't there, and any other line (prose, a
+      // heading, a note's second line) that wasn't there either. Everything that was there is
+      // what the tidy rewrote, so none of it is put back.
+      const wasOther = new Set(was.split("\n").filter((l) => !parseEntry(l)).map((l) => l.trim()));
+      const since = now.split("\n").filter((l) => { const e = parseEntry(l); return e ? !wasNorms.has(norm(e.text)) : l.trim() !== "" && !wasOther.has(l.trim()); }).join("\n").trim();
       const after = (text ?? p.after).trim();
       putText(p.where, since ? `${after}\n${since}` : after);
       logKept(p.where, `Tidied: ${p.before.length} characters to ${after.length}.`, "tidy");

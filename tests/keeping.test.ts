@@ -209,6 +209,25 @@ test("a tidy is drafted, waits for you, and replaces only what it was drafted fr
   assert.equal(fullMemory("scribe"), "- 2026-03-04 My own wording");
 });
 
+test("a tidy puts back only what arrived since it was drafted: nothing that was already there comes back twice", async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  // A memory with more in it than notes: a heading, a line of prose, a note that runs onto a second line.
+  writeMemory("scribe", ["# Scribe", "Write for someone who wasn't there.", "- 2026-03-01 Changelogs go newest first", "  (and each entry links its ticket)", "- 2026-03-02 Dates are written out in full", "- 2026-03-03 Headings are sentence case", "- 2026-03-04 No tables in release notes"].join("\n"));
+  const merged = "- 2026-03-04 Changelogs: newest first, ticket linked, dates in full, sentence-case headings, no tables";
+  const p = await k.proposeTidy("agent:scribe", async () => merged);
+  appendMemory("scribe", "Screenshots get alt text", "feedback");
+  assert.deepEqual(k.settleProposal(p.id, "approve"), { ok: true, kept: "Scribe's memory" });
+  assert.equal(fullMemory("scribe"), `${merged}\n- ${today} Screenshots get alt text`);
+
+  // What you know about the user, mostly prose with a few notes under it.
+  const prose = ["The user builds developer tools and reviews everything before it ships.", "Prefers short answers, with the reasoning after the answer and never before it."];
+  writeAbout([...prose, "", "- Works in TypeScript", "- Works on a Mac", "- Keeps tests beside the code", "- Tests sit next to what they cover"].join("\n"));
+  const tidied = [...prose, "", "- Works in TypeScript, on a Mac", "- Keeps tests beside the code they cover"].join("\n");
+  const p2 = await k.proposeTidy("about", async () => tidied);
+  assert.deepEqual(k.settleProposal(p2.id, "approve", tidied), { ok: true, kept: p2.name });
+  assert.equal(readAbout().trim(), tidied, "the prose it was drafted from isn't added back under it");
+});
+
 test("a tidy of what has outgrown its room brings it back inside: a size is asked for, asked again while it's over, and the oldest go as the last resort", async () => {
   const where = `project:${other.id}`;
   const note = (i: number) => `- 2026-05-${String(i + 1).padStart(2, "0")} ${i === 0 ? "📌 " : ""}Lesson ${i + 1}: ${"z".repeat(280)}`;

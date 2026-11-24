@@ -2,7 +2,8 @@
 // The Quartermaster proposes a skill after a good expedition; it waits in skills/_pending/
 // until you approve it with /review. Nothing in _pending is ever shown to a character.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { skillsStamp } from "./helpers.js";
 import { posix } from "node:path";
 import type { Interface } from "node:readline/promises";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
@@ -31,14 +32,8 @@ function frontmatter(text: string, key: string): string {
 // Every live skill in camp, so the Quartermaster can avoid proposing duplicates.
 let catalogCache: { stamp: string; text: string } | null = null;
 export function skillCatalog(): string {
-  let stamp = process.cwd();
-  for (const owner of owners()) {
-    const dir = join(SKILLS_DIR, owner);
-    try {
-      const st = existsSync(dir) ? statSync(dir) : null;
-      stamp += `|${owner}:${st ? `${st.mtimeMs}:${st.ino}` : "none"}`;
-    } catch { stamp += `|${owner}:none`; }
-  }
+  // Each SKILL.md's time and size, so an edited description is in the catalog at once.
+  const stamp = owners().map((owner) => skillsStamp(join(SKILLS_DIR, owner))).join("\n");
   if (catalogCache?.stamp === stamp) return catalogCache.text;
   const lines: string[] = [];
   for (const owner of owners()) {

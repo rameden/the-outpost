@@ -13,16 +13,13 @@ import { currentExpeditionId, currentProjectId } from "./context.js";
 import { emit } from "./events.js";
 import { addAbout, logKept, type KeptHow } from "./memlog.js";
 import type { Tool } from "./tools.js";
-import { appendLine, readJsonl, withPathLock, withPathLockSync, writeAtomic } from "./atomic.js";
-import { ENTRY_MAX, PIN, alike, bearing, fitMemory, parseEntry } from "./memfit.js";
+import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
+import { PIN, alike, bearing, clipEntry, fitMemory, parseEntry, tooLong } from "./memfit.js";
+export { clipEntry };
 import { norm } from "./memlog.js";
 import { logRelevant } from "./recalllog.js";
 import { flat as clip, today } from "./helpers.js";
 
-// One dated note line, capped so a single entry can't crowd the prompt or starve fitMemory.
-export function clipEntry(entry: string): string {
-  return String(entry).replace(/\s+/g, " ").trim().slice(0, ENTRY_MAX);
-}
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -104,7 +101,7 @@ export function rememberTool(id: CrewId): Tool {
         `Things for another role belong to that teammate; shared findings belong ` +
         `in the wiki. Your name, role, and personality are fixed: never record changes to them. ` +
         `'append' adds one dated line (default). 'rewrite' replaces the whole memory: use it to ` +
-        `tidy up, and keep everything still true (a line that starts with ${PIN} after its date is pinned: keep the mark). ` +
+        `tidy up, and keep everything still true (a line that starts with ${PIN} after its date is pinned: keep the line, and its mark unless you mean to unpin it). ` +
         `When a new line corrects or updates an old one, give the old line's text in replaces, so the two don't sit side by side contradicting each other.`; },
       input_schema: {
         type: "object",
@@ -121,59 +118,62 @@ export function rememberTool(id: CrewId): Tool {
     run: async ({ entry, mode = "append", about = "me", replaces, pin }) => {
       const ws = workspace(id);
       ensureWorkspace(id);
+      // One note that's too long is handed back to be shortened, not cut and called remembered.
+      const long = mode === "rewrite" ? null : tooLong(about === "user" ? String(entry).split("\n")[0] : String(entry));
+      if (long) return long;
       if (about === "user") {
         addAbout(String(entry).split("\n")[0], "remember", currentExpeditionId());
         emit({ type: "changed", what: "memory" });
         return `Noted about the user: the whole ${w("crew")} will start with it.`;
       }
-      return withPathLock(ws.memory, () => {
-        let said = "Memory rewritten.";
-        if (mode === "rewrite") {
-          const next = String(entry).trim();
-          const prior = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8") : "";
-          const priorBody = prior.replace(/^# .*\n+/, "").trim();
-          const priorPins = priorBody.split("\n").map((r) => parseEntry(r)).filter((e) => e?.pinned).map((e) => e!.text);
-          const nextPins = new Set(next.split("\n").map((r) => parseEntry(r)).filter((e) => e?.pinned).map((e) => e!.text));
-          const dropped = priorPins.filter((t) => ![...nextPins].some((n) => norm(n) === norm(t) || alike(n, t) >= 0.5));
-          if (dropped.length) {
-            return `Rewrite refused: it would drop ${dropped.length} pinned line${dropped.length === 1 ? "" : "s"} (${dropped.slice(0, 2).map((t) => `"${clip(t, 60)}"`).join(", ")}${dropped.length > 2 ? ", …" : ""}). Keep those marks, or unpin them first.`;
-          }
-          if (priorBody && next.length < priorBody.length * 0.4) {
-            return `Rewrite refused: the new memory is under 40% of the old size (${next.length} vs ${priorBody.length} characters). Use a tidy proposal, or rewrite in smaller steps that keep what's still true.`;
-          }
-          if (prior) writeAtomic(ws.memory + ".bak", prior);
-          writeAtomic(ws.memory, `# ${me.name}'s memory\n\n${next}\n`); // a rewrite replaces everything: never leave it half done
-        } else {
-          const line = clipEntry(String(entry).replace(new RegExp(`^${PIN}\\s*`, "u"), ""));
-          if (!line) return "Nothing to remember.";
-          const rows = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8").replace(/\n+$/, "").split("\n") : [`# ${me.name}'s memory`, ""];
-          const isNote = (r: string, text: string) => !!parseEntry(r) && norm(r) === norm(text);
-          // The line this one corrects, taken out first (its pin carries over: a corrected rule is still a rule).
-          let replaced = false, wasPinned = false;
-          if (typeof replaces === "string" && replaces.trim()) {
-            const at = rows.findIndex((r) => isNote(r, replaces));
-            if (at >= 0) { wasPinned = !!parseEntry(rows[at])?.pinned; rows.splice(at, 1); replaced = true; }
-          }
-          const already = rows.some((r) => isNote(r, line));
-          // Before it's added: lines already there that seem to say something on the same subject.
-          const near = already ? [] : rows.flatMap((r) => { const e = parseEntry(r); const score = e ? alike(e.text, line) : 0; return e && score >= 0.5 ? [{ text: e.text, score }] : []; })
-            .sort((a, b) => b.score - a.score).slice(0, 2);
-          if (!already) rows.push(`- ${today()} ${pin === true || wasPinned ? `${PIN} ` : ""}${line}`);
-          if (!already || replaced) writeAtomic(ws.memory, rows.join("\n") + "\n");
-          if (!already) logKept(`agent:${id}`, line, "remember", currentExpeditionId());
-          said = already ? (replaced ? "The old line is gone; the new one was already in your memory." : "That's already in your memory, word for word: nothing was added.")
-            : replaced ? "Remembered, in place of the old line."
-            : "Remembered." + (typeof replaces === "string" && replaces.trim() ? " (The line to replace wasn't found: copy its text exactly as it appears in your memory. Nothing was taken out.)" : "");
-          if (near.length && !replaced) said += ` Already in your memory on what looks like the same subject:\n${near.map((n) => `- ${n.text}`).join("\n")}\nIf the new line corrects one of these, call remember again with the same entry and replaces set to that line's text, so the old one doesn't linger.`;
-          const pinned = fullMemory(id).split("\n").filter((r) => parseEntry(r)?.pinned).join("\n").length;
-          if ((pin === true || wasPinned) && pinned > MEMORY_MAX_CHARS * 0.4) said += ` Your pinned lines now come to ${pinned} characters, more than is kept for them in a prompt: the newest pinned ones load like any other line. Unpin what isn't a standing rule (mode 'rewrite', dropping the ${PIN}).`;
+      let said = "Memory rewritten.";
+      if (mode === "rewrite") {
+        const next = String(entry).trim();
+        const prior = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8") : "";
+        const priorBody = prior.replace(/^# .*\n+/, "").trim();
+        // A pinned line is a standing rule: a rewrite may reword it, or unpin it by keeping the
+        // line without its mark, but it can't make the line disappear.
+        const priorPins = priorBody.split("\n").map((r) => parseEntry(r)).filter((e) => e?.pinned).map((e) => e!.text);
+        const nextLines = next.split("\n").flatMap((r) => { const e = parseEntry(r); return e ? [e.text] : []; });
+        const dropped = priorPins.filter((t) => !nextLines.some((n) => norm(n) === norm(t) || alike(n, t) >= 0.5));
+        if (dropped.length) {
+          return `Rewrite refused: it would drop ${dropped.length} pinned line${dropped.length === 1 ? "" : "s"} (${dropped.slice(0, 2).map((t) => `"${clip(t, 60)}"`).join(", ")}${dropped.length > 2 ? ", …" : ""}). Keep those lines: with the mark, or without it to unpin one.`;
         }
-        emit({ type: "changed", what: "memory" });
-        const size = fullMemory(id).length;
-        // Past what a prompt loads, older lines only come along when the task is about them. Say so before it happens.
-        const nudge = size > MEMORY_NUDGE ? ` Your memory is getting long (${size} characters; a prompt loads about ${MEMORY_MAX_CHARS}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge it into fewer, still-true lines. recall can still find what isn't loaded.` : "";
-        return said + nudge;
-      });
+        if (priorBody && next.length < priorBody.length * 0.4) {
+          return `Rewrite refused: the new memory is under 40% of the old size (${next.length} vs ${priorBody.length} characters). Use a tidy proposal, or rewrite in smaller steps that keep what's still true.`;
+        }
+        if (prior) writeAtomic(ws.memory + ".bak", prior);
+        writeAtomic(ws.memory, `# ${me.name}'s memory\n\n${next}\n`); // a rewrite replaces everything: never leave it half done
+      } else {
+        const line = clipEntry(String(entry).trim().replace(new RegExp(`^${PIN}\\s*`, "u"), ""));
+        if (!line) return "Nothing to remember.";
+        const rows = existsSync(ws.memory) ? readFileSync(ws.memory, "utf8").replace(/\n+$/, "").split("\n") : [`# ${me.name}'s memory`, ""];
+        const isNote = (r: string, text: string) => !!parseEntry(r) && norm(r) === norm(text);
+        // The line this one corrects, taken out first (its pin carries over: a corrected rule is still a rule).
+        let replaced = false, wasPinned = false;
+        if (typeof replaces === "string" && replaces.trim()) {
+          const at = rows.findIndex((r) => isNote(r, replaces));
+          if (at >= 0) { wasPinned = !!parseEntry(rows[at])?.pinned; rows.splice(at, 1); replaced = true; }
+        }
+        const already = rows.some((r) => isNote(r, line));
+        // Before it's added: lines already there that seem to say something on the same subject.
+        const near = already ? [] : rows.flatMap((r) => { const e = parseEntry(r); const score = e ? alike(e.text, line) : 0; return e && score >= 0.5 ? [{ text: e.text, score }] : []; })
+          .sort((a, b) => b.score - a.score).slice(0, 2);
+        if (!already) rows.push(`- ${today()} ${pin === true || wasPinned ? `${PIN} ` : ""}${line}`);
+        if (!already || replaced) writeAtomic(ws.memory, rows.join("\n") + "\n");
+        if (!already) logKept(`agent:${id}`, line, "remember", currentExpeditionId());
+        said = already ? (replaced ? "The old line is gone; the new one was already in your memory." : "That's already in your memory, word for word: nothing was added.")
+          : replaced ? "Remembered, in place of the old line."
+          : "Remembered." + (typeof replaces === "string" && replaces.trim() ? " (The line to replace wasn't found: copy its text exactly as it appears in your memory. Nothing was taken out.)" : "");
+        if (near.length && !replaced) said += ` Already in your memory on what looks like the same subject:\n${near.map((n) => `- ${n.text}`).join("\n")}\nIf the new line corrects one of these, call remember again with the same entry and replaces set to that line's text, so the old one doesn't linger.`;
+        const pinned = fullMemory(id).split("\n").filter((r) => parseEntry(r)?.pinned).join("\n").length;
+        if ((pin === true || wasPinned) && pinned > MEMORY_MAX_CHARS * 0.4) said += ` Your pinned lines now come to ${pinned} characters, more than is kept for them in a prompt: the newest pinned ones load like any other line. Unpin what isn't a standing rule (mode 'rewrite', dropping the ${PIN}).`;
+      }
+      emit({ type: "changed", what: "memory" });
+      const size = fullMemory(id).length;
+      // Past what a prompt loads, older lines only come along when the task is about them. Say so before it happens.
+      const nudge = size > MEMORY_NUDGE ? ` Your memory is getting long (${size} characters; a prompt loads about ${MEMORY_MAX_CHARS}: the pinned lines, the newest, and older ones only when a request is about them). When you have a moment, use mode 'rewrite' to merge it into fewer, still-true lines. recall can still find what isn't loaded.` : "";
+      return said + nudge;
     },
   };
 }
@@ -184,11 +184,9 @@ export function appendMemory(id: CrewId, entry: string, how: KeptHow = "feedback
   const path = workspace(id).memory;
   const line = clipEntry(entry);
   if (!line) return;
-  withPathLockSync(path, () => {
-    const rows = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "").split("\n") : [`# ${CREW[id].name}'s memory`, ""];
-    rows.push(`- ${today()} ${line}`);
-    writeAtomic(path, rows.join("\n") + "\n");
-  });
+  const rows = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "").split("\n") : [`# ${CREW[id].name}'s memory`, ""];
+  rows.push(`- ${today()} ${line}`);
+  writeAtomic(path, rows.join("\n") + "\n");
   logKept(`agent:${id}`, line, how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "memory" });
 }

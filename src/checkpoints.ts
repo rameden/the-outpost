@@ -69,6 +69,7 @@ function prune() {
   for (const d of dirs.slice(KEEP)) {
     for (const snap of load(d.name)?.snapshots ?? []) dropRefs(snap, d.name);
     rmSync(join(CHECKPOINTS_DIR, d.name), { recursive: true, force: true });
+    manifestCache.delete(d.name);
   }
 }
 

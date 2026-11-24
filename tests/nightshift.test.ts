@@ -229,6 +229,34 @@ test("a line that names a missing path is listed before age-stale lines", async 
   assert.equal(N.missingPaths("See camp/no-such-dir/x.ts")[0], "camp/no-such-dir/x.ts");
 });
 
+test("a slash doesn't make a path: only a file that's really gone from a real folder is called missing", async () => {
+  const { mkdirSync, mkdtempSync, writeFileSync, realpathSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { addLink, removeLink } = await import("../src/links.ts");
+  mkdirSync("src", { recursive: true });
+  writeFileSync(join("src", "server.ts"), "// here\n");
+  for (const text of [
+    "Use tabs and/or spaces; CI/CD runs on push",
+    "User works 24/7 on A/B tests, ok w/o review",
+    "The chat route is /api/chat and it streams",
+    "Docs are at github.com/acme/widgets and example.com/guide/start",
+    "The server is src/server.ts",
+  ]) assert.deepEqual(N.missingPaths(text), [], text);
+  assert.deepEqual(N.missingPaths("The old entry point was src/main.ts"), ["src/main.ts"]);
+  assert.equal(N.missingPaths(`Config is in ~/no-such-folder-${Date.now()}/settings.json`).length, 1);
+
+  // A note about a linked repo names files as that repo has them: there, not here.
+  const repo = join(realpathSync.native(mkdtempSync(join(tmpdir(), "mae-night-"))), "billing");
+  mkdirSync(join(repo, "src"), { recursive: true });
+  writeFileSync(join(repo, "src", "invoice.ts"), "// rounds half up\n");
+  const link = addLink(repo);
+  assert.deepEqual(N.missingPaths("In the billing repo, src/invoice.ts rounds half up"), []);
+  assert.deepEqual(N.missingPaths("In the billing repo, src/refunds.ts was removed"), ["src/refunds.ts"]);
+  removeLink(link.name);
+  assert.equal(N.worthALook({ date: "2026-11-01", text: "Use tabs and/or spaces; the route is /api/chat" }, at(14, 2).getTime()), false);
+});
+
 test("one chore failing doesn't stop the others, and the record says what couldn't be done", async () => {
   empty();
   writeMemory("scout", notes("scout", 3500));

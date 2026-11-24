@@ -269,3 +269,48 @@ test("bubblewrap (Linux): read-only everywhere, the project and temp writable, g
   assert.deepEqual(args.slice(-3), ["/bin/sh", "-c", "npm test"]);
   assert.equal(typeof sandboxAvailable(), "boolean");
 });
+
+// ---------- Scheduled jobs ----------
+
+test("a job's runs use what the job sets, then how you've set the Quartermaster, then the cheap defaults", async () => {
+  const { saveJobs, loadJobs } = await import("../src/jobs.ts");
+  const { runJob } = await import("../src/scheduler.ts");
+  const settings = await import("../src/settings.ts");
+  const sent = () => api.seen.filter((s) => whoAsks(s.body) === "Quartermaster").map((s) => [s.body.model, s.body.output_config?.effort]);
+  const job = (name: string, more: object = {}) => ({ name, schedule: "daily 08:00", task: "Say what's new in the wiki", created: new Date().toISOString(), enabled: true, ...more });
+  const run = async (name: string) => { api.seen.length = 0; await runJob(loadJobs().find((j) => j.name === name)!); };
+  saveJobs([job("plain"), job("careful", { effort: "medium", maxTurns: 5 }), job("pinned", { model: "claude-sonnet-5-5" })]);
+  script = () => ({ text: "NOTHING_NEW" });
+
+  // Nothing set anywhere: the small model, low effort.
+  await run("plain");
+  assert.deepEqual(sent(), [["claude-haiku-5-5", "low"]]);
+
+  // You've put the Quartermaster on a bigger model with more turns: jobs follow that…
+  settings.setAgentSettings("quartermaster", { model: "claude-opus-5-5", effort: "high", maxTurns: 30 });
+  await run("plain");
+  assert.deepEqual(sent(), [["claude-opus-5-5", "high"]]);
+  // …except where a job says otherwise for itself. Its effort and turn limit are the ones used.
+  await run("careful");
+  assert.deepEqual(sent(), [["claude-opus-5-5", "medium"]]);
+  await run("pinned");
+  assert.equal(sent()[0]![0], "claude-sonnet-5-5");
+
+  // The turn limit too: five turns and it stops, though the Quartermaster is set to thirty.
+  script = () => ({ tools: [{ name: "list_jobs", input: {} }] });
+  await run("careful");
+  assert.equal(sent().length, 5);
+
+  // A job that watches a folder is skipped while nothing in it changes, but never when it's you
+  // who starts the run.
+  script = () => ({ text: "NOTHING_NEW" });
+  const folder = mkdtempSync(join(tmpdir(), "mae-watched-"));
+  saveJobs([...loadJobs(), job("watcher", { watch: [folder], lastRun: new Date(Date.now() + 60_000).toISOString(), lastReport: "all fine" })]);
+  await run("watcher");
+  assert.equal(sent().length, 0, "came due with nothing changed: no run");
+  api.seen.length = 0;
+  await runJob(loadJobs().find((j) => j.name === "watcher")!, undefined, undefined, { asked: true });
+  assert.equal(sent().length, 1, "Run now runs");
+
+  settings.setAgentSettings("quartermaster", { model: null, effort: null, maxTurns: null });
+});

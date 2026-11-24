@@ -112,6 +112,17 @@ test("skills: proposals wait for approval", async () => {
   assert.doesNotMatch(readFileSync("skills/scout/narrow-searches/SKILL.md", "utf8"), /reason:/);
 });
 
+test("skills: a description edited in its SKILL.md is what's listed next, without a restart", async () => {
+  const { skillIndex } = await import("../src/agent.ts");
+  const path = "skills/scout/narrow-searches/SKILL.md";
+  assert.match(skillIndex(["skills/scout"]), /narrow-searches: When research is broad\./);
+  assert.match(skillCatalog(), /scout\/narrow-searches: When research is broad\./);
+  // Edited where it is: the skills folder's own time doesn't move, only the file's.
+  writeFileSync(path, readFileSync(path, "utf8").replace("When research is broad.", "When one search would come back with too much to read."));
+  assert.match(skillIndex(["skills/scout"]), /narrow-searches: When one search would come back with too much to read\./);
+  assert.match(skillCatalog(), /scout\/narrow-searches: When one search would come back with too much to read\./);
+});
+
 test("settings: per-agent model and effort override the defaults; budget saves", () => {
   assert.equal(resolveModel({ id: "scout", effort: "medium" }).model, "claude-sonnet-5-5");
   setAgentSettings("scout", { model: "claude-haiku-5-5", effort: "low" });

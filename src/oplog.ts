@@ -124,25 +124,16 @@ export class OpJournal {
   surfaced(op: string) { this.write({ kind: "surfaced", run: this.run, op, at: Date.now() }); }
 }
 
-// After a run ends, drop its started/done/surfaced payloads (nothing resumes an ended run) and
-// hard-cap any leftover done results. Keeps run_start/run_end markers so latestRun still works.
-const DONE_KEEP = 200;
+// After a run ends, drop what it wrote down (nothing is ever picked up from a run that ended),
+// keeping its run_start/run_end so latestRun still sees it. A run that hasn't ended is left exactly
+// as written: it may be going right now beside this one, or have broken off, and what it did is
+// handed back word for word to the run that continues it.
 export function compactJournal(path: string) {
   try {
     const recs = readJournal(path);
-    if (!recs.length) return;
     const ended = new Set(recs.filter((r) => r.kind === "run_end").map((r) => r.run));
-    const out: Rec[] = [];
-    for (const r of recs) {
-      if (r.kind === "run_start" || r.kind === "run_end") { out.push(r); continue; }
-      if (ended.has(r.run)) continue; // ended run: only the bookends matter
-      if (r.kind === "done" && r.result.length > DONE_KEEP) {
-        out.push({ ...r, result: r.result.slice(0, DONE_KEEP) + "…" });
-      } else out.push(r);
-    }
-    if (out.length < recs.length || out.some((r, i) => r !== recs[i])) {
-      writeAtomic(path, out.map((r) => JSON.stringify(r)).join("\n") + "\n");
-    }
+    const out = recs.filter((r) => r.kind === "run_start" || r.kind === "run_end" || !ended.has(r.run));
+    if (out.length < recs.length) writeAtomic(path, out.map((r) => JSON.stringify(r)).join("\n") + "\n");
   } catch { /* a fat journal is no loss next time */ }
 }
 

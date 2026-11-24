@@ -97,13 +97,16 @@ export function toInbox(heading: string, body: string) {
   emit({ type: "changed", what: "inbox" });
 }
 
-export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
+// asked: you started this run yourself ("Run now", or by name from the terminal). A run you asked
+// for always happens; only a run that came due on its own can be skipped as having nothing to see.
+export async function runJob(job: Job, signal?: AbortSignal, id?: string, opts: { asked?: boolean } = {}) {
   const started = new Date();
   const previousRun = job.lastRun;
   emit({ type: "job", name: job.name, outcome: "running" });
-  // Cheap gate: if the task names paths and none changed since the last report, stay quiet
-  // without a Quartermaster pass. Mark lastRun so the schedule doesn't loop.
-  if (nothingChanged(job, previousRun)) {
+  // Cheap gate, only for a job that asked for it (job.watch): when nothing it watches has changed
+  // since the last run, stay quiet without a Quartermaster pass. Every other job always runs, and
+  // so does any run you asked for. Mark lastRun so the schedule doesn't loop.
+  if (!opts.asked && nothingChanged(job, previousRun)) {
     updateJob(job.name, { lastRun: started.toISOString() });
     emit({ type: "job", name: job.name, outcome: "quiet" });
     return;
@@ -112,7 +115,8 @@ export async function runJob(job: Job, signal?: AbortSignal, id?: string) {
   try {
     // Unattended: no shell, no prompts, nobody at the keyboard (for this run only).
     // A job scheduled in a project runs with that project's folders, notes, and defaults.
-    // model/effort/maxTurns: the job's own knobs, else JOB_DEFAULTS inside runExpedition.
+    // model/effort/maxTurns: the job's own come first, then how the Quartermaster is set in mission
+    // control, then JOB_DEFAULTS (worked out in runExpedition).
     const result = await runExpedition(jobBrief(job), {
       job: job.name, displayTask: job.task, signal, id, unattended: true,
       ...(job.project ? { project: job.project } : {}),

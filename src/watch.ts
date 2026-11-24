@@ -36,7 +36,7 @@ async function main() {
   if (runIdx >= 0) {
     const job = loadJobs().find((j) => j.name === args[runIdx + 1]);
     if (!job) console.log(`No job named "${args[runIdx + 1]}".`);
-    else await runJob(job);
+    else await runJob(job, undefined, undefined, { asked: true });
     return;
   }
   if (args.includes("--once")) return runDue();

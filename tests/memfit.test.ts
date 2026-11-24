@@ -259,3 +259,38 @@ test("remember rewrite: refuses dropped pins and a drastic shrink; keeps a .bak"
   assert.ok(existsSync(path + ".bak"), "prior text kept as .bak");
   assert.ok(readFileSync(path + ".bak", "utf8").includes("Another research lesson"));
 });
+
+test("remember rewrite: a pinned line can be unpinned by keeping it without its mark, as the tool says", async () => {
+  const { writeFileSync } = await import("node:fs");
+  const { workspace } = await import("../src/memory.ts");
+  writeFileSync(workspace("scout").memory, `# Scout's memory\n\n- 2026-01-01 ${PIN} Standing rule: always cite sources\n- 2026-01-02 ${PIN} Use the staging mirror this week\n- 2026-01-03 Another research lesson\n`);
+  const unpinned = `- 2026-01-01 ${PIN} Standing rule: always cite sources\n- 2026-01-02 Use the staging mirror this week\n- 2026-01-03 Another research lesson`;
+  assert.match(String(await remember("scout", { mode: "rewrite", entry: unpinned })), /Memory rewritten/);
+  assert.equal(fullMemory("scout"), unpinned);
+  // Gone altogether is still refused, and the refusal says what can be done instead.
+  const lost = String(await remember("scout", { mode: "rewrite", entry: "- 2026-01-02 Use the staging mirror this week\n- 2026-01-03 Another research lesson" }));
+  assert.match(lost, /Rewrite refused: it would drop 1 pinned line.*without it to unpin one/);
+  assert.equal(fullMemory("scout"), unpinned);
+});
+
+test("a note too long for one line is handed back to be shortened, not cut and called remembered", async () => {
+  const { writeFileSync } = await import("node:fs");
+  const { workspace, appendMemory, clipEntry } = await import("../src/memory.ts");
+  writeFileSync(workspace("scout").memory, "# Scout's memory\n\n- 2026-01-03 A research lesson\n");
+  const long = "Deploy: " + "run the next step, then check it. ".repeat(30) + "Last of all, turn the flag back off.";
+  const said = String(await remember("scout", { entry: long }));
+  assert.match(said, /^Nothing was saved: that's \d+ characters, and one note holds 600\./);
+  assert.equal(fullMemory("scout"), "- 2026-01-03 A research lesson");
+  assert.match(String(await remember("scout", { entry: long, about: "user" })), /^Nothing was saved/);
+  assert.match(String(await remember("scout", { entry: "x".repeat(600) })), /^Remembered\./);
+  // Where nobody can be asked to shorten it (a note you keep from the page), the cut shows, and
+  // falls between characters.
+  const cut = clipEntry("🙂".repeat(400));
+  assert.ok(cut.length <= 600 && cut.endsWith("…"));
+  assert.equal(cut.slice(0, -1), "🙂".repeat((cut.length - 1) / 2), "no emoji cut in half");
+  appendMemory("scout", long);
+  assert.match(fullMemory("scout").split("\n").at(-1)!, /^- \d{4}-\d\d-\d\d Deploy: .*…$/);
+  // A pin mark typed with a space in front of it is still just the mark, not part of the note.
+  assert.match(String(await remember("scout", { entry: `  ${PIN} Always cite the source` })), /^Remembered\./);
+  assert.match(fullMemory("scout").split("\n").at(-1)!, /^- \d{4}-\d\d-\d\d Always cite the source$/);
+});

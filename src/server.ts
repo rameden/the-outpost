@@ -1905,7 +1905,7 @@ const server = http.createServer(async (req, res) => {
       } else if (action === "delete") {
         saveJobs(jobs.filter((j) => j.name !== name));
       } else if (action === "run") {
-        if (!queuedJob(name)) enqueue({ label: `job:${name}`, run: (signal, id) => runJob(job, signal, id) });
+        if (!queuedJob(name)) enqueue({ label: `job:${name}`, run: (signal, id) => runJob(job, signal, id, { asked: true }) });
       } else {
         return send(res, 400, { error: "Unknown action" });
       }
