@@ -192,7 +192,8 @@ section { padding-block: 88px 0; }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; }
 /* The logo: the logo kit's mark and the name, as mission control's header draws it. */
 .brand { display: inline-flex; align-items: center; gap: 11px; color: var(--logo-ink); }
-/* In the header and footer it's a link back to mission control (the Tour is served at /splash, the app at /). */
+/* In the header and footer it's a link back to mission control (the Tour is served at /splash, the app at /);
+   on the public site, or opened as a file, back to the top of this page. */
 a.brand { text-decoration: none; }
 /* The logo kit's ink and its amber (docs/brand): navy on a light page, cream on a dark one. */
 :root { --logo-ink: #14233F; --logo-dot: #B97A12; }
@@ -1155,6 +1156,15 @@ footer .outpost-sub { font-size: 10px; }
   var outpost = (document.querySelector('meta[name="outpost"]') || {}).content || 'Mae';
   document.querySelectorAll('.outpost-sub').forEach(function (el) { el.textContent = outpost; });
   document.querySelectorAll('[aria-label="Outpost Mae"]').forEach(function (el) { el.setAttribute('aria-label', 'Outpost ' + outpost); });
+  // Not served by a camp (the public site, scripts/site.sh, or opened as a file): no pack was put in
+  // and there's no {hq} at "/", so the logo goes to the top of this page and says so.
+  if (!document.getElementById('mae-pack')) {
+    document.querySelectorAll('a.brand').forEach(function (el) {
+      el.setAttribute('href', '#');
+      el.setAttribute('title', 'Back to the top');
+      el.removeAttribute('data-t-title');
+    });
+  }
 })();
 (function () {
   // Light or dark, and which colours. The button names the one you'd switch to. Both choices are
