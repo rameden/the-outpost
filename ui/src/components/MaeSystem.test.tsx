@@ -6,8 +6,6 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { setCrewColors } from "../format.ts";
 import { LAPS, MaeSystem, MOST, TURN_MS } from "./MaeSystem.tsx";
 
-const strummed = vi.hoisted(() => [] as number[]);
-vi.mock("../chime.ts", () => ({ strum: (i: number) => strummed.push(i) }));
 
 const css = readFileSync(join(__dirname, "..", "styles.css"), "utf8");
 const moving = (yes: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: !yes && q.includes("reduce") }));
@@ -149,8 +147,7 @@ test("for less motion it rests: nobody takes a turn, and the stylesheet stops th
   expect(css).toMatch(/\.sys-drift \{ animation: sys-turn \d+s linear infinite; \}/); // otherwise the contour lines drift
 });
 
-test("the lines can be strummed: crossing one plucks it and sounds its note, once however the pointer wavers", () => {
-  strummed.length = 0;
+test("the lines can be strummed: crossing one plucks it, once however the pointer wavers", () => {
   const animate = vi.fn();
   (SVGElement.prototype as unknown as { animate: unknown }).animate = animate;
   const { container } = render(<MaeSystem crew={[]} />);
@@ -158,12 +155,11 @@ test("the lines can be strummed: crossing one plucks it and sounds its note, onc
   expect(hits.length).toBe(5); // one over each line, the faint outer one too
   fireEvent.pointerEnter(hits[2]);
   fireEvent.pointerEnter(hits[2], { timeStamp: 1 }); // wavering on its edge
-  expect(strummed).toEqual([2]);
   // The visible line beside it is the one that flashes and shivers.
   const plucked = animate.mock.contexts as Element[];
   expect(plucked.length).toBe(2);
   for (const el of plucked) expect(el).toBe(hits[2].parentElement!.querySelector(".sys-ring"));
   fireEvent.pointerEnter(hits[0]);
-  expect(strummed).toEqual([2, 0]);
+  expect(animate.mock.contexts.length).toBe(4); // another line, plucked straight away
   delete (SVGElement.prototype as unknown as { animate?: unknown }).animate;
 });
