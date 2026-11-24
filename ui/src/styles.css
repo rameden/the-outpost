@@ -1658,7 +1658,7 @@ a.att-name { color: var(--accent); }
 .tone { display: grid; gap: 10px; max-width: 460px; }
 .tone-slider { display: grid; grid-template-columns: 88px 1fr 52px; align-items: center; gap: 10px; font-size: 14px; }
 .tone-slider output { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
-.tone-slider input[type="range"] { appearance: none; -webkit-appearance: none; width: 100%; height: 18px; margin: 0; background: linear-gradient(var(--border-strong), var(--border-strong)) center / 100% 2px no-repeat; cursor: pointer; }
+.set-control .tone .tone-slider input[type="range"] { appearance: none; -webkit-appearance: none; width: 100%; height: 18px; margin: 0; padding: 0; border: 0; border-radius: 0; background: linear-gradient(var(--border-strong), var(--border-strong)) center / 100% 2px no-repeat; cursor: pointer; }
 .tone-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 18px; border: 0; border-radius: 0; background: var(--accent); }
 .tone-slider input[type="range"]::-moz-range-thumb { width: 8px; height: 18px; border: 0; border-radius: 0; background: var(--accent); }
 .tone-slider input[type="range"]::-moz-range-track { height: 2px; background: var(--border-strong); }
