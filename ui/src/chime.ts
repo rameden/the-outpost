@@ -112,11 +112,24 @@ function hall(a: BaseAudioContext, seconds: number): AudioBuffer {
 }
 
 // The tone: the same for every voice, set in Settings → Appearance (Strum tone) to find the sound
-// that fits. How much reverb (none at all to a lot), how big the space is, how long a note rings,
-// how bright it is, how much grit, and which octave. The defaults are the voices as they were made.
+// that fits. How loud; how much reverb (none at all to a lot) and how big the space; how long a note
+// rings and how slowly it comes in; how bright, how much bass is cut, how much grit; an echo and its
+// time; how wide across the ears; and the pitch, in octaves and semitones. The defaults are the
+// voices as they were made.
 export type RoomSize = "small" | "cabin" | "hull";
-export type Tone = { reverb: number; size: RoomSize; length: number; bright: number; grit: number; octave: -1 | 0 | 1 };
-export const TONE_DEFAULT: Tone = { reverb: 1, size: "hull", length: 1, bright: 1, grit: 0, octave: 0 };
+export type Tone = {
+  volume: number; reverb: number; size: RoomSize; length: number; attack: number; bright: number; lowcut: number;
+  grit: number; echo: number; echoTime: number; width: number; tune: number; octave: -1 | 0 | 1;
+};
+export const TONE_DEFAULT: Tone = {
+  volume: 1, reverb: 1, size: "hull", length: 1, attack: 0, bright: 1, lowcut: 0,
+  grit: 0, echo: 0, echoTime: 0.28, width: 1, tune: 0, octave: 0,
+};
+// Each number's bounds: what Settings' sliders go between, and what a kept tone is held to.
+export const TONE_RANGE: Record<Exclude<keyof Tone, "size" | "octave">, [number, number]> = {
+  volume: [0, 2], reverb: [0, 1], length: [0.05, 2], attack: [0, 0.4], bright: [0, 1], lowcut: [0, 1],
+  grit: [0, 1], echo: [0, 1], echoTime: [0.06, 0.6], width: [0, 1.4], tune: [-12, 12],
+};
 export const ROOM_SIZES: { id: RoomSize; name: string; seconds: number }[] = [
   { id: "small", name: "Small room", seconds: 0.35 }, { id: "cabin", name: "Cabin", seconds: 1.4 }, { id: "hull", name: "Hull", seconds: HALL },
 ];
@@ -124,14 +137,12 @@ const clamp = (x: unknown, lo: number, hi: number, d: number) => (typeof x === "
 export function toneNow(): Tone {
   let kept: Partial<Tone> = {};
   try { kept = JSON.parse(storeGet("camp-strum-tone") ?? "{}") ?? {}; } catch { /* a broken one is the default */ }
-  return {
-    reverb: clamp(kept.reverb, 0, 1, TONE_DEFAULT.reverb),
-    size: ROOM_SIZES.some((r) => r.id === kept.size) ? (kept.size as RoomSize) : TONE_DEFAULT.size,
-    length: clamp(kept.length, 0.2, 2, TONE_DEFAULT.length),
-    bright: clamp(kept.bright, 0, 1, TONE_DEFAULT.bright),
-    grit: clamp(kept.grit, 0, 1, TONE_DEFAULT.grit),
-    octave: kept.octave === -1 || kept.octave === 1 ? kept.octave : 0,
-  };
+  const tone = { ...TONE_DEFAULT };
+  for (const [k, [lo, hi]] of Object.entries(TONE_RANGE) as [keyof typeof TONE_RANGE, [number, number]][]) tone[k] = clamp(kept[k], lo, hi, TONE_DEFAULT[k]);
+  tone.tune = Math.round(tone.tune);
+  if (ROOM_SIZES.some((r) => r.id === kept.size)) tone.size = kept.size as RoomSize;
+  if (kept.octave === -1 || kept.octave === 1) tone.octave = kept.octave;
+  return tone;
 }
 export function setTone(change: Partial<Tone>): Tone {
   storeSet("camp-strum-tone", JSON.stringify({ ...toneNow(), ...change }));
@@ -139,17 +150,23 @@ export function setTone(change: Partial<Tone>): Tone {
 }
 export const resetTone = (): Tone => { storeRemove("camp-strum-tone"); return toneNow(); };
 
-// What the voices read as they play: how long (1 as made) and the octave (1 as made, 2 an octave up).
-let LONG = 1, OCT = 1;
+// What the voices read as they play: how long (1 as made), the pitch (1 as made, 2 an octave up),
+// how many seconds longer a note takes to come in (0 as made), and how wide (1 as made, 0 is mono).
+let LONG = 1, OCT = 1, SLOW = 0, WIDE = 1;
 
-// The room every voice rings into, after the tone's grit and brightness: heard as it is, and through
-// the reverb of the chosen size. Made once; the tone is set on it each time a note plays.
-type Room = { into: GainNode; pre: GainNode; post: GainNode; shade: BiquadFilterNode; dry: GainNode; wet: Record<RoomSize, GainNode> };
+// The room every voice rings into, after the tone's grit, brightness and low cut: heard as it is,
+// through an echo, and through the reverb of the chosen size, all at the tone's volume. Made once;
+// the tone is set on it each time a note plays.
+type Room = {
+  into: GainNode; pre: GainNode; post: GainNode; shade: BiquadFilterNode; cut: BiquadFilterNode; dry: GainNode;
+  wet: Record<RoomSize, GainNode>; delay: DelayNode; again: GainNode; echo: GainNode; level: GainNode;
+};
 const rooms = new WeakMap<BaseAudioContext, Room>();
 function theRoom(a: BaseAudioContext): Room {
   const had = rooms.get(a);
   if (had) return had;
   const into = a.createGain(), pre = a.createGain(), clip = a.createWaveShaper(), post = a.createGain(), shade = a.createBiquadFilter(), dry = a.createGain();
+  const cut = a.createBiquadFilter(), delay = a.createDelay(1), again = a.createGain(), echo = a.createGain(), level = a.createGain();
   // The grit: a tanh drive that's straight for quiet sound at 1, so with no grit nothing changes.
   const curve = new Float32Array(2048);
   for (let n = 0; n < curve.length; n++) curve[n] = Math.tanh(4 * ((n / (curve.length - 1)) * 2 - 1));
@@ -157,17 +174,28 @@ function theRoom(a: BaseAudioContext): Room {
   clip.oversample = "2x";
   shade.type = "lowpass";
   shade.Q.value = 0.7;
-  into.connect(pre).connect(clip).connect(post).connect(shade);
-  shade.connect(dry).connect(a.destination);
+  cut.type = "highpass";
+  cut.Q.value = 0.7;
+  into.connect(pre).connect(clip).connect(post).connect(shade).connect(cut);
+  level.connect(a.destination);
+  cut.connect(dry).connect(level);
+  // The echo: the note again after a moment, each repeat quieter and a little darker, into the reverb too.
+  const dull = a.createBiquadFilter();
+  dull.type = "lowpass";
+  dull.frequency.value = 3500;
+  cut.connect(delay).connect(dull).connect(again).connect(delay);
+  dull.connect(echo).connect(level);
   const wet = {} as Record<RoomSize, GainNode>;
   for (const r of ROOM_SIZES) {
-    const verb = a.createConvolver(), level = a.createGain();
+    const verb = a.createConvolver(), amount = a.createGain();
     verb.buffer = hall(a, r.seconds);
-    level.gain.value = 0;
-    shade.connect(verb).connect(level).connect(a.destination);
-    wet[r.id] = level;
+    amount.gain.value = 0;
+    cut.connect(verb);
+    echo.connect(verb);
+    verb.connect(amount).connect(level);
+    wet[r.id] = amount;
   }
-  const built: Room = { into, pre, post, shade, dry, wet };
+  const built: Room = { into, pre, post, shade, cut, dry, wet, delay, again, echo, level };
   rooms.set(a, built);
   return built;
 }
@@ -179,16 +207,23 @@ function wear(a: BaseAudioContext, tone = toneNow()) {
   r.pre.gain.value = drive / 4;
   r.post.gain.value = (1 + 0.6 * tone.grit) / drive; // a little louder with grit, as it reads quieter once squashed
   r.shade.frequency.value = 600 * 2 ** (5 * tone.bright); // 600 Hz, dull, to 19 kHz, open
+  r.cut.frequency.value = 20 * 30 ** tone.lowcut; // 20 Hz, nothing cut, to 600 Hz, thin
   r.dry.gain.value = 1 - 0.4 * tone.reverb;
   for (const s of ROOM_SIZES) r.wet[s.id].gain.value = s.id === tone.size ? 1.3 * tone.reverb : 0;
+  r.delay.delayTime.value = tone.echoTime;
+  r.again.gain.value = 0.2 + 0.4 * tone.echo; // more echo, more repeats
+  r.echo.gain.value = 0.7 * tone.echo;
+  r.level.gain.value = tone.volume;
   LONG = tone.length;
-  OCT = 2 ** tone.octave;
+  OCT = 2 ** (tone.octave + tone.tune / 12);
+  SLOW = tone.attack;
+  WIDE = tone.width;
 }
 
 // A note's place from left to right, into the room.
 function placed(a: BaseAudioContext, side: number, to: AudioNode = room(a)): AudioNode {
   const pan = a.createStereoPanner();
-  pan.pan.value = side;
+  pan.pan.value = Math.min(Math.max(side * WIDE, -1), 1);
   pan.connect(to);
   return pan;
 }
@@ -208,9 +243,10 @@ const noise = (a: BaseAudioContext) => once(a, "noise", () => {
 });
 
 // An envelope on `p`: up from silence to `peak` over `rise` seconds, then down to silence by `end`.
+// The tone's attack makes every rise longer, but a rise never takes more than most of the note.
 function swell(p: AudioParam, t: number, peak: number, rise: number, end: number) {
   p.setValueAtTime(0.0001, t);
-  p.exponentialRampToValueAtTime(peak, t + rise);
+  p.exponentialRampToValueAtTime(peak, t + Math.min(rise + SLOW, 0.7 * (end - t)));
   p.exponentialRampToValueAtTime(0.0001, end);
 }
 
@@ -318,7 +354,9 @@ const wire: Voice = (a, f, hard, side, t, out) => {
   tone.type = "lowpass"; // a harder pluck is brighter
   tone.frequency.value = Math.min(9000, f * (3 + 7 * hard));
   tone.Q.value = 0.5;
-  gain.gain.value = (out === "alert" ? 2.5 : 1) * (0.1 + 0.08 * hard);
+  const level = (out === "alert" ? 2.5 : 1) * (0.1 + 0.08 * hard);
+  gain.gain.value = level;
+  if (SLOW > 0) { gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(level, t + Math.min(SLOW, 0.7 * WIRE_RING * LONG)); } // the tone's attack: a slower fade in
   src.connect(tone).connect(gain).connect(placed(a, side));
   src.start(t);
 };

@@ -15,7 +15,7 @@ class FakeAudio {
     return osc;
   }
   createGain() {
-    return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
+    return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, linearRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
   }
   sampleRate = 8000;
   createBiquadFilter() { return { type: "", frequency: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, Q: { value: 0 }, connect: (d: unknown) => d }; }
@@ -23,6 +23,7 @@ class FakeAudio {
   createBufferSource() { return { buffer: null, connect: (d: unknown) => d, start: () => { recordings++; } }; }
   createStereoPanner() { return { pan: { value: 0 }, connect: (d: unknown) => d }; }
   createConvolver() { return { buffer: null, connect: (d: unknown) => d }; }
+  createDelay() { return { delayTime: { value: 0 }, connect: (d: unknown) => d }; }
   createBuffer(channels: number, length: number) { const data = Array.from({ length: channels }, () => new Float32Array(length)); return { getChannelData: (c: number) => data[c] }; }
 }
 class FakeNotification {
@@ -152,8 +153,8 @@ test("the tone is the voices as made until it's changed, kept in this browser, a
   setTone({ reverb: 0, size: "small" });
   expect(JSON.parse(localStorage.getItem("camp-strum-tone")!)).toMatchObject({ reverb: 0, size: "small" });
   expect(toneNow()).toEqual({ ...TONE_DEFAULT, reverb: 0, size: "small" });
-  localStorage.setItem("camp-strum-tone", JSON.stringify({ reverb: 9, length: -1, bright: "x", grit: 0.5, size: "cathedral", octave: 3 }));
-  expect(toneNow()).toEqual({ ...TONE_DEFAULT, reverb: 1, length: 0.2, grit: 0.5 });
+  localStorage.setItem("camp-strum-tone", JSON.stringify({ reverb: 9, length: -1, bright: "x", grit: 0.5, size: "cathedral", octave: 3, tune: 2.6, volume: 5 }));
+  expect(toneNow()).toEqual({ ...TONE_DEFAULT, reverb: 1, length: 0.05, grit: 0.5, tune: 3, volume: 2 });
   localStorage.setItem("camp-strum-tone", "{not json");
   expect(toneNow()).toEqual(TONE_DEFAULT);
   setTone({ grit: 1 });
@@ -176,4 +177,16 @@ test("the tone's octave moves every voice's note, the strum's and a notification
   played = [];
   playChime("ask");
   expect(played).toContain(CHIME_NOTES.ask[0] / 2);
+});
+
+test("the tone's tune moves the note by semitones on top of the octave, and a short ring with a slow fade in still plays every voice", () => {
+  setStrum(true);
+  setTone({ tune: 12, octave: -1, length: 0.05, attack: 0.4, echo: 1, width: 0 });
+  for (const v of STRUM_VOICES) {
+    setStrumVoice(v.id);
+    played = []; recordings = 0;
+    strum(2, 0.7);
+    if (v.id === "wire") expect(recordings).toBe(1);
+    else expect(played.some((f) => Math.abs(f - STRUM_NOTES[2]) < 1e-9), v.id).toBe(true);
+  }
 });

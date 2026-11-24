@@ -292,7 +292,7 @@ const started: number[] = [];
 function fakeAudio() {
   started.length = 0;
   const node = () => ({ connect: (d: unknown) => d });
-  const param = () => ({ value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} });
+  const param = () => ({ value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, linearRampToValueAtTime: () => {} });
   vi.stubGlobal("AudioContext", class {
     state = "running"; currentTime = 0; destination = {}; sampleRate = 8000;
     createOscillator() { const o = { ...node(), frequency: param(), start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
@@ -301,6 +301,7 @@ function fakeAudio() {
     createWaveShaper() { return node(); }
     createStereoPanner() { return { ...node(), pan: param() }; }
     createConvolver() { return node(); }
+    createDelay() { return { ...node(), delayTime: param() }; }
     createBufferSource() { return { ...node(), start: () => {} }; }
     createBuffer(channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
   });
@@ -368,6 +369,9 @@ test("the strum tone has sliders and choices in Appearance that are kept, play a
   show("appearance");
   const row = screen.getByText("Strum tone").closest(".set-row") as HTMLElement;
   expect(within(row).getByRole("button", { name: "Reset tone" })).toHaveProperty("disabled", true);
+  expect(within(row).getAllByRole("slider").map((e) => e.getAttribute("aria-label"))).toEqual(
+    ["Volume", "Width", "Ring", "Fade in", "Brightness", "Bass cut", "Reverb", "Grit", "Echo", "Echo gap", "Tune"]);
+  expect(within(row).getByRole("slider", { name: "Echo gap" })).toHaveProperty("disabled", true); // no echo yet
 
   started.length = 0;
   fireEvent.change(within(row).getByRole("slider", { name: "Reverb" }), { target: { value: "0" } });

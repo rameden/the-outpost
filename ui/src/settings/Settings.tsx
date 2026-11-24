@@ -13,7 +13,7 @@ import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
-import { chimeOn, demoStrum, playChime, resetTone, ROOM_SIZES, setChime, setStrum, setStrumVoice, setTone, strum, strumOn, strumVoice, STRUM_VOICES, TONE_DEFAULT, toneNow, type StrumVoice, type Tone } from "../chime.ts";
+import { chimeOn, demoStrum, playChime, resetTone, ROOM_SIZES, setChime, setStrum, setStrumVoice, setTone, strum, strumOn, strumVoice, STRUM_VOICES, TONE_DEFAULT, TONE_RANGE, toneNow, type StrumVoice, type Tone } from "../chime.ts";
 import { showCost } from "../prefs.ts";
 import { outpostName } from "../outpost.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
@@ -322,12 +322,20 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
 }
 
 // The strum's tone, the same for every voice and for notifications: try settings until one fits.
-// Each change plays a sweep, once the hand comes off the slider for a moment.
-const TONE_SLIDERS: { key: "reverb" | "length" | "bright" | "grit"; name: string; min: number; max: number; step: number; show: (x: number) => string }[] = [
-  { key: "reverb", name: "Reverb", min: 0, max: 1, step: 0.05, show: (x) => (x === 0 ? "None" : `${Math.round(x * 100)}%`) },
-  { key: "length", name: "Ring", min: 0.2, max: 2, step: 0.05, show: (x) => `${x.toFixed(2)}×` },
-  { key: "bright", name: "Brightness", min: 0, max: 1, step: 0.05, show: (x) => `${Math.round(x * 100)}%` },
-  { key: "grit", name: "Grit", min: 0, max: 1, step: 0.05, show: (x) => (x === 0 ? "None" : `${Math.round(x * 100)}%`) },
+// Each change plays a sweep, once the hand comes off the slider for a moment. In pairs that go together.
+const pct = (x: number) => `${Math.round(x * 100)}%`, noneOr = (show: (x: number) => string) => (x: number) => (x === 0 ? "None" : show(x));
+const TONE_SLIDERS: { key: keyof typeof TONE_RANGE; name: string; step: number; show: (x: number) => string; off?: (t: Tone) => boolean }[] = [
+  { key: "volume", name: "Volume", step: 0.05, show: pct },
+  { key: "width", name: "Width", step: 0.05, show: (x) => (x === 0 ? "Mono" : pct(x)) },
+  { key: "length", name: "Ring", step: 0.05, show: (x) => `${x.toFixed(2)}×` },
+  { key: "attack", name: "Fade in", step: 0.01, show: (x) => (x === 0 ? "As made" : `+${Math.round(x * 1000)} ms`) },
+  { key: "bright", name: "Brightness", step: 0.05, show: pct },
+  { key: "lowcut", name: "Bass cut", step: 0.05, show: noneOr((x) => `${Math.round(20 * 30 ** x)} Hz`) },
+  { key: "reverb", name: "Reverb", step: 0.05, show: noneOr(pct) },
+  { key: "grit", name: "Grit", step: 0.05, show: noneOr(pct) },
+  { key: "echo", name: "Echo", step: 0.05, show: noneOr(pct) },
+  { key: "echoTime", name: "Echo gap", step: 0.01, show: (x) => `${Math.round(x * 1000)} ms`, off: (t) => t.echo === 0 },
+  { key: "tune", name: "Tune", step: 1, show: (x) => (x === 0 ? "As made" : `${x > 0 ? "+" : ""}${x} st`) },
 ];
 const OCTAVES: { id: Tone["octave"]; name: string }[] = [{ id: -1, name: "Lower" }, { id: 0, name: "As made" }, { id: 1, name: "Higher" }];
 function StrumTone({ voice }: { voice: StrumVoice }) {
@@ -341,16 +349,18 @@ function StrumTone({ voice }: { voice: StrumVoice }) {
   };
   const plain = JSON.stringify(tone) === JSON.stringify(TONE_DEFAULT);
   return (
-    <Row label="Strum tone" wide help="Shapes every voice, and notifications too: how much reverb (none at all is dry), how big the space it rings in, how long notes ring, how bright, how much grit, and which octave. Each change plays a sweep. Kept in this browser; once one feels right, ask for those numbers to be made the default.">
+    <Row label="Strum tone" wide help="Shapes every voice, and notifications too: how loud; how much reverb (none at all is dry) and how big the space it rings in; how long notes ring and how slowly they come in; how bright, how much bass is cut, how much grit; an echo and the gap before it; how wide across the ears; and the pitch, in semitones and octaves. Each change plays a sweep. Kept in this browser; once one feels right, ask for those numbers to be made the default.">
       <div className="tone">
+        <div className="tone-sliders">
         {TONE_SLIDERS.map((s) => (
           <label key={s.key} className="tone-slider">
             <span>{s.name}</span>
-            <input type="range" min={s.min} max={s.max} step={s.step} value={tone[s.key]} aria-label={s.name}
+            <input type="range" min={TONE_RANGE[s.key][0]} max={TONE_RANGE[s.key][1]} step={s.step} value={tone[s.key]} aria-label={s.name} disabled={s.off?.(tone)}
               onChange={(ev) => change({ [s.key]: Number(ev.target.value) })} />
             <output>{s.show(tone[s.key])}</output>
           </label>
         ))}
+        </div>
         <div className="looks" role="group" aria-label="Space">
           {ROOM_SIZES.map((r) => (
             <button key={r.id} type="button" className="look decor" aria-pressed={tone.size === r.id} disabled={tone.reverb === 0}
