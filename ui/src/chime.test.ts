@@ -3,7 +3,6 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 // jsdom has no Web Audio or Notification: small fakes that record what was played and shown.
 let played: number[] = [];
-let recordings = 0; // sounds played from a buffer worked out in code (the wire's pluck, noise)
 let shown: { title: string; silent?: boolean }[] = [];
 class FakeAudio {
   state = "running";
@@ -15,18 +14,18 @@ class FakeAudio {
     return osc;
   }
   createGain() {
-    return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, linearRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
+    return { gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: (d: unknown) => d };
   }
   sampleRate = 8000;
-  createBiquadFilter() { return { type: "", frequency: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, Q: { value: 0 }, connect: (d: unknown) => d }; }
+  createBiquadFilter() { return { type: "", frequency: { value: 0 }, Q: { value: 0 }, connect: (d: unknown) => d }; }
   createWaveShaper() { return { curve: null, oversample: "", connect: (d: unknown) => d }; }
-  createBufferSource() { return { buffer: null, connect: (d: unknown) => d, start: () => { recordings++; } }; }
+  createBufferSource() { return { buffer: null, connect: (d: unknown) => d, start: () => {} }; }
   createStereoPanner() { return { pan: { value: 0 }, connect: (d: unknown) => d }; }
   createConvolver() { return { buffer: null, connect: (d: unknown) => d }; }
-  createDelay() { return { delayTime: { value: 0 }, connect: (d: unknown) => d }; }
-  createDynamicsCompressor() { return { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 0 }, attack: { value: 0 }, release: { value: 0 }, connect: (d: unknown) => d }; }
-  createChannelMerger() { return { connect: (d: unknown) => d }; }
   createBuffer(channels: number, length: number) { const data = Array.from({ length: channels }, () => new Float32Array(length)); return { getChannelData: (c: number) => data[c] }; }
+  createDynamicsCompressor() { return { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 0 }, attack: { value: 0 }, release: { value: 0 }, connect: (d: unknown) => d }; }
+  createDelay() { return { delayTime: { value: 0 }, connect: (d: unknown) => d }; }
+  createChannelMerger() { return { connect: (d: unknown) => d }; }
 }
 class FakeNotification {
   static permission = "granted";
@@ -37,7 +36,7 @@ class FakeNotification {
 vi.stubGlobal("AudioContext", FakeAudio);
 vi.stubGlobal("Notification", FakeNotification);
 
-const { PRIME_PHRASES, CHIME_NOTES, STRUM_NOTES, STRUM_VOICES, DEMO_LINES, playChime, setChime, chimeOn, strum, setStrum, strumOn, strumVoice, setStrumVoice, demoStrum, toneNow, setTone, resetTone, TONE_DEFAULT } = await import("./chime.ts");
+const { CHIME_NOTES, STRUM_NOTES, playChime, setChime, chimeOn, strum, setStrum, strumOn } = await import("./chime.ts");
 const { notify } = await import("./notifications.ts");
 
 // The tab is in the background, which is the only time a notification shows.
@@ -45,46 +44,31 @@ const background = (hidden: boolean) => {
   Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
   vi.spyOn(document, "hasFocus").mockReturnValue(!hidden);
 };
-const fundamentals = () => played.filter((_, i) => i % 2 === 0); // each ping also starts the tone that gives it its metal
+const fundamentals = () => played.filter((_, i) => i % 2 === 1); // each ping first starts its shimmer, at twice the note
 
-beforeEach(() => { localStorage.clear(); played = []; recordings = 0; shown = []; background(true); });
+beforeEach(() => { localStorage.clear(); played = []; shown = []; background(true); });
 
-test("in Sonar Prime, the voice until you pick another, a notification is a phrase from its root: the ping alone for a decision, up a major chord to the innermost line for finished, minor steps for failed", () => {
-  const mtof = (m: number) => 440 * 2 ** ((m - 69) / 12);
-  expect(PRIME_PHRASES.ask).toEqual([64]);
-  expect(mtof(PRIME_PHRASES.done.at(-1)!)).toBeCloseTo(STRUM_NOTES[0], 1);
+test("a notification is a sonar phrase from E4: the ping alone for a decision, a major chord up to the innermost line's note for finished, minor steps for failed", () => {
+  const near = (hz: number[]) => hz.map((f) => +f.toFixed(2));
+  expect(near(CHIME_NOTES.ask)).toEqual([329.63]); // E4
+  expect(near(CHIME_NOTES.done)).toEqual([329.63, 415.3, 493.88, 659.26]); // E4 G#4 B4 E5
+  expect(CHIME_NOTES.done.at(-1)).toBeCloseTo(STRUM_NOTES[0], 1); // ending on the innermost line's note
+  expect(near(CHIME_NOTES.fail)).toEqual([329.63, 369.99, 392]); // E4 F#4 G4
   for (const kind of ["ask", "done", "fail"] as const) {
-    played = []; recordings = 0;
+    played = [];
     playChime(kind);
-    expect(played.filter((_, i) => i % 2 === 1), kind).toEqual(PRIME_PHRASES[kind].map(mtof)); // each ping, after its shimmer
-    expect(played.filter((_, i) => i % 2 === 0), kind).toEqual(PRIME_PHRASES[kind].map((m) => mtof(m) * 2)); // the shimmer, twice the note
-    expect(recordings, kind).toBe(1); // the click
+    expect(fundamentals(), kind).toEqual(CHIME_NOTES[kind]);
+    expect(played.filter((_, i) => i % 2 === 0), kind).toEqual(CHIME_NOTES[kind].map((f) => f * 2)); // each ping's shimmer
   }
 });
 
-test("in the sonar, a notification is the innermost line's ping: alone for a decision, rising to it for finished, falling from it for failed", () => {
-  setStrumVoice("sonar");
-  expect(CHIME_NOTES.ask).toEqual([STRUM_NOTES[0]]);
-  const [d1, d2] = CHIME_NOTES.done;
-  const [f1, f2] = CHIME_NOTES.fail;
-  expect(d2).toBe(STRUM_NOTES[0]);
-  expect(d1).toBeLessThan(d2);
-  expect(f1).toBe(STRUM_NOTES[0]);
-  expect(f2).toBeLessThan(f1);
-  playChime("done");
-  expect(fundamentals()).toEqual(CHIME_NOTES.done);
-  expect(played.filter((_, i) => i % 2 === 1)).toEqual(CHIME_NOTES.done.map((f) => f * 1.4)); // each ping's metal
-});
-
 test("a notification plays its chime and asks the browser to keep its own sound quiet", () => {
-  setStrumVoice("sonar"); // one pluck per note, so the notes read straight off
   notify("Mae: expedition finished", "All done", "done");
   expect(shown).toEqual([{ title: "Mae: expedition finished", silent: true }]);
   expect(fundamentals()).toEqual(CHIME_NOTES.done);
 });
 
 test("a decision is the default chime", () => {
-  setStrumVoice("sonar"); // one pluck per note, so the notes read straight off
   notify("Mae: Decision needed", "Which way?");
   expect(fundamentals()).toEqual(CHIME_NOTES.ask);
 });
@@ -108,7 +92,6 @@ test("no chime when the tab is in front, or when notifications are switched off"
 });
 
 test("each orbit line strums its own note, the nearest highest, only once the strum sound is turned on", () => {
-  setStrumVoice("sonar"); // one pluck per note, so the notes read straight off
   expect(new Set(STRUM_NOTES).size).toBe(STRUM_NOTES.length);
   expect([...STRUM_NOTES].sort((x, y) => y - x)).toEqual(STRUM_NOTES);
   expect(strumOn()).toBe(false); // off unless you turn it on
@@ -117,96 +100,16 @@ test("each orbit line strums its own note, the nearest highest, only once the st
   setStrum(true);
   strum(0);
   strum(3, 1);
-  expect(played.filter((f) => STRUM_NOTES.includes(f))).toEqual([STRUM_NOTES[0], STRUM_NOTES[3]]);
+  expect(fundamentals()).toEqual([STRUM_NOTES[0], STRUM_NOTES[3]]);
   played = [];
   strum(99); // a line further out than there are notes takes the lowest
-  expect(played[0]).toBe(STRUM_NOTES.at(-1));
+  expect(fundamentals()).toEqual([STRUM_NOTES.at(-1)]);
   played = [];
   setChime(false); // the notification sound has its own switch
   strum(1);
-  expect(played[0]).toBe(STRUM_NOTES[1]);
+  expect(fundamentals()).toEqual([STRUM_NOTES[1]]);
   played = [];
   setStrum(false);
   strum(1);
   expect(played).toEqual([]);
-});
-
-test("the strum has a few voices to pick from, Sonar Prime until you pick, kept in this browser", () => {
-  expect(STRUM_VOICES.map((v) => v.id)).toEqual(["prime", "sonar", "bell", "wire", "breath", "console", "analog", "choir"]);
-  expect(strumVoice()).toBe("prime");
-  setStrumVoice("wire");
-  expect(localStorage.getItem("camp-strum-voice")).toBe("wire");
-  expect(strumVoice()).toBe("wire");
-  localStorage.setItem("camp-strum-voice", "kazoo"); // one that's gone takes Sonar Prime
-  expect(strumVoice()).toBe("prime");
-});
-
-test("every voice plays its line's note, and the wire is worked out in code and played back", () => {
-  setStrum(true);
-  for (const v of STRUM_VOICES) {
-    setStrumVoice(v.id);
-    played = []; recordings = 0;
-    strum(2, 0.7);
-    if (v.id === "wire") expect(recordings).toBe(1);
-    else expect(played, v.id).toContain(STRUM_NOTES[2]);
-  }
-});
-
-test("a notification is in the strum's voice, whether or not the strum sound is on", () => {
-  expect(strumOn()).toBe(false);
-  setStrumVoice("bell");
-  playChime("done");
-  expect(played.filter((f) => STRUM_NOTES.includes(f))).toEqual(CHIME_NOTES.done); // each note's bar, its overtones besides
-  expect(played).not.toContain(CHIME_NOTES.done[0] * 1.4); // and no sonar metal
-});
-
-test("a voice's demo sweeps in across a few lines, even with the strum sound off", () => {
-  expect(strumOn()).toBe(false);
-  demoStrum("bell");
-  expect(played.filter((f) => STRUM_NOTES.includes(f))).toEqual(DEMO_LINES.map((i) => STRUM_NOTES[i]));
-  expect([...DEMO_LINES].sort((x, y) => y - x)).toEqual(DEMO_LINES); // outer line first, rising inwards
-});
-
-test("the tone is the voices as made until it's changed, kept in this browser, and a broken or wild one is kept in bounds", () => {
-  expect(toneNow()).toEqual(TONE_DEFAULT);
-  setTone({ reverb: 0, size: "small" });
-  expect(JSON.parse(localStorage.getItem("camp-strum-tone")!)).toMatchObject({ reverb: 0, size: "small" });
-  expect(toneNow()).toEqual({ ...TONE_DEFAULT, reverb: 0, size: "small" });
-  localStorage.setItem("camp-strum-tone", JSON.stringify({ reverb: 9, length: -1, bright: "x", grit: 0.5, size: "cathedral", octave: 3, tune: 2.6, volume: 5 }));
-  expect(toneNow()).toEqual({ ...TONE_DEFAULT, reverb: 1, length: 0.05, grit: 0.5, tune: 3, volume: 2 });
-  localStorage.setItem("camp-strum-tone", "{not json");
-  expect(toneNow()).toEqual(TONE_DEFAULT);
-  setTone({ grit: 1 });
-  expect(resetTone()).toEqual(TONE_DEFAULT);
-  expect(localStorage.getItem("camp-strum-tone")).toBeNull();
-});
-
-test("the tone's octave moves every voice's note but Sonar Prime's, the strum's and a notification's, and the wire still plays at any length", () => {
-  setStrum(true);
-  setTone({ octave: 1, length: 0.5 });
-  for (const v of STRUM_VOICES) {
-    setStrumVoice(v.id);
-    played = []; recordings = 0;
-    strum(2, 0.7);
-    if (v.id === "wire") expect(recordings).toBe(1);
-    else if (v.id === "prime") expect(played).toEqual([STRUM_NOTES[2] * 2, STRUM_NOTES[2]]); // made whole: its shimmer, then its note, as made
-    else expect(played, v.id).toContain(STRUM_NOTES[2] * 2);
-  }
-  setStrumVoice("bell");
-  setTone({ octave: -1 });
-  played = [];
-  playChime("ask");
-  expect(played).toContain(CHIME_NOTES.ask[0] / 2);
-});
-
-test("the tone's tune moves the note by semitones on top of the octave, and a short ring with a slow fade in still plays every voice", () => {
-  setStrum(true);
-  setTone({ tune: 12, octave: -1, length: 0.05, attack: 0.4, echo: 1, width: 0 });
-  for (const v of STRUM_VOICES) {
-    setStrumVoice(v.id);
-    played = []; recordings = 0;
-    strum(2, 0.7);
-    if (v.id === "wire") expect(recordings).toBe(1);
-    else expect(played.some((f) => Math.abs(f - STRUM_NOTES[2]) < 1e-9), v.id).toBe(true);
-  }
 });

@@ -13,7 +13,7 @@ import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
-import { chimeOn, demoStrum, playChime, resetTone, ROOM_SIZES, setChime, setStrum, setStrumVoice, setTone, strum, strumOn, strumVoice, STRUM_VOICES, TONE_DEFAULT, TONE_RANGE, toneNow, type StrumVoice, type Tone } from "../chime.ts";
+import { chimeOn, playChime, setChime, setStrum, strum, strumOn } from "../chime.ts";
 import { showCost } from "../prefs.ts";
 import { outpostName } from "../outpost.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
@@ -242,7 +242,6 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
   const [palette, setPaletteShown] = useState<PaletteId>(paletteNow);
   const [season, setSeasonShown] = useState<SeasonChoice>(seasonChoice);
   const [strumming, setStrumming] = useState(strumOn);
-  const [voice, setVoiceShown] = useState<StrumVoice>(strumVoice);
   const inSeason = seasonById(seasonNow())?.name;
   const decorNow = season === "auto" ? (inSeason ? `Today that's ${inSeason}.` : "Nothing is in season today.") : season ? seasonById(season)?.about ?? "" : "";
   // The camp keeps the pack (the crew is renamed in what they read and write too); the page wears
@@ -308,74 +307,7 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
         <label className="switch"><input type="checkbox" checked={strumming}
           onChange={(ev) => { setStrum(ev.target.checked); setStrumming(ev.target.checked); if (ev.target.checked) strum(0, 0.6); }} /> {strumming ? "On" : "Off"}</label>
       </Row>
-      <Row label="Strum voice" wide help={`${STRUM_VOICES.find((v) => v.id === voice)?.about ?? ""} Notifications use it too. Pick one to hear a sweep across five lines (it plays even with the strum sound off). Kept in this browser.`}>
-        <div className="looks" role="group" aria-label="Strum voice">
-          {STRUM_VOICES.map((v) => (
-            <button key={v.id} type="button" className="look decor" aria-pressed={voice === v.id} title={v.about}
-              onClick={() => { setVoiceShown(v.id); setStrumVoice(v.id); demoStrum(v.id); }}>{v.name}</button>
-          ))}
-        </div>
-      </Row>
-      {voice !== "prime" && <StrumTone voice={voice} />}
     </>
-  );
-}
-
-// The strum's tone, the same for every voice and for notifications: try settings until one fits.
-// Each change plays a sweep, once the hand comes off the slider for a moment. In pairs that go together.
-const pct = (x: number) => `${Math.round(x * 100)}%`, noneOr = (show: (x: number) => string) => (x: number) => (x === 0 ? "None" : show(x));
-const TONE_SLIDERS: { key: keyof typeof TONE_RANGE; name: string; step: number; show: (x: number) => string; off?: (t: Tone) => boolean }[] = [
-  { key: "volume", name: "Volume", step: 0.05, show: pct },
-  { key: "width", name: "Width", step: 0.05, show: (x) => (x === 0 ? "Mono" : pct(x)) },
-  { key: "length", name: "Ring", step: 0.05, show: (x) => `${x.toFixed(2)}×` },
-  { key: "attack", name: "Fade in", step: 0.01, show: (x) => (x === 0 ? "As made" : `+${Math.round(x * 1000)} ms`) },
-  { key: "bright", name: "Brightness", step: 0.05, show: pct },
-  { key: "lowcut", name: "Bass cut", step: 0.05, show: noneOr((x) => `${Math.round(20 * 30 ** x)} Hz`) },
-  { key: "reverb", name: "Reverb", step: 0.05, show: noneOr(pct) },
-  { key: "grit", name: "Grit", step: 0.05, show: noneOr(pct) },
-  { key: "echo", name: "Echo", step: 0.05, show: noneOr(pct) },
-  { key: "echoTime", name: "Echo gap", step: 0.01, show: (x) => `${Math.round(x * 1000)} ms`, off: (t) => t.echo === 0 },
-  { key: "tune", name: "Tune", step: 1, show: (x) => (x === 0 ? "As made" : `${x > 0 ? "+" : ""}${x} st`) },
-];
-const OCTAVES: { id: Tone["octave"]; name: string }[] = [{ id: -1, name: "Lower" }, { id: 0, name: "As made" }, { id: 1, name: "Higher" }];
-function StrumTone({ voice }: { voice: StrumVoice }) {
-  const [tone, setShown] = useState<Tone>(toneNow);
-  const wait = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(wait.current), []);
-  const change = (c: Partial<Tone>, soon = false) => {
-    setShown(setTone(c));
-    clearTimeout(wait.current);
-    if (soon) demoStrum(voice); else wait.current = setTimeout(() => demoStrum(voice), 350);
-  };
-  const plain = JSON.stringify(tone) === JSON.stringify(TONE_DEFAULT);
-  return (
-    <Row label="Strum tone" wide help="Shapes every voice, and notifications too: how loud; how much reverb (none at all is dry) and how big the space it rings in; how long notes ring and how slowly they come in; how bright, how much bass is cut, how much grit; an echo and the gap before it; how wide across the ears; and the pitch, in semitones and octaves. Each change plays a sweep. Kept in this browser; once one feels right, ask for those numbers to be made the default.">
-      <div className="tone">
-        <div className="tone-sliders">
-        {TONE_SLIDERS.map((s) => (
-          <label key={s.key} className="tone-slider">
-            <span>{s.name}</span>
-            <input type="range" min={TONE_RANGE[s.key][0]} max={TONE_RANGE[s.key][1]} step={s.step} value={tone[s.key]} aria-label={s.name} disabled={s.off?.(tone)}
-              onChange={(ev) => change({ [s.key]: Number(ev.target.value) })} />
-            <output>{s.show(tone[s.key])}</output>
-          </label>
-        ))}
-        </div>
-        <div className="looks" role="group" aria-label="Space">
-          {ROOM_SIZES.map((r) => (
-            <button key={r.id} type="button" className="look decor" aria-pressed={tone.size === r.id} disabled={tone.reverb === 0}
-              onClick={() => change({ size: r.id }, true)}>{r.name}</button>
-          ))}
-        </div>
-        <div className="looks" role="group" aria-label="Octave">
-          {OCTAVES.map((o) => (
-            <button key={o.id} type="button" className="look decor" aria-pressed={tone.octave === o.id}
-              onClick={() => change({ octave: o.id }, true)}>{o.name}</button>
-          ))}
-          <button type="button" className="btn small" disabled={plain} onClick={() => { setShown(resetTone()); clearTimeout(wait.current); demoStrum(voice); }}>Reset tone</button>
-        </div>
-      </div>
-    </Row>
   );
 }
 
@@ -391,7 +323,7 @@ function Notifications() {
         )}
       </Row>
       {notificationsOn() && (
-        <Row label="Notification sound" help={`A soft chime with each notification: rising when a decision is needed, settling when ${an("expedition")} finishes, falling when one fails, in the voice picked for the strum in Appearance. Remembered in this browser.`}>
+        <Row label="Notification sound" help={`A soft sonar ping with each notification: one ping when a decision is needed, a rising chord when ${an("expedition")} finishes, a few steps that don't resolve when one fails. Remembered in this browser.`}>
           <label className="switch"><input type="checkbox" checked={chimeOn()}
             onChange={(ev) => { setChime(ev.target.checked); if (ev.target.checked) playChime("ask"); redraw((n) => n + 1); }} /> {chimeOn() ? "On" : "Off"}</label>
           <button type="button" className="btn small" onClick={() => playChime("ask")}>Decision</button>

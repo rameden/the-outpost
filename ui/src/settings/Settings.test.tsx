@@ -5,7 +5,6 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { Settings, type SettingsSection } from "./Settings.tsx";
 import { SETTINGS_SECTIONS } from "./sections.ts";
-import { DEMO_LINES, STRUM_NOTES, STRUM_VOICES } from "../chime.ts";
 import { Header } from "../components/Header.tsx";
 import { createFeedStore } from "../feed/store.ts";
 
@@ -286,13 +285,16 @@ test("the theme pack row makes packs of your own: New pack… opens the dialog, 
   delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
 });
 
-// jsdom has no Web Audio: a fake that records the pitch of each tone started. The page keeps the first
-// audio context it makes, so every test shares this one list.
-const started: number[] = [];
-function fakeAudio() {
-  started.length = 0;
+test("the notification sound row shows once notifications are on: a switch kept in this browser, and buttons to hear each chime", () => {
+  localStorage.clear();
+  show("notifications");
+  expect(screen.queryByText("Notification sound")).toBeNull(); // jsdom has no notifications: nothing to add a sound to
+
+  cleanup();
+  const started: number[] = [];
+  vi.stubGlobal("Notification", class { static permission = "granted"; });
   const node = () => ({ connect: (d: unknown) => d });
-  const param = () => ({ value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, linearRampToValueAtTime: () => {} });
+  const param = () => ({ value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} });
   vi.stubGlobal("AudioContext", class {
     state = "running"; currentTime = 0; destination = {}; sampleRate = 8000;
     createOscillator() { const o = { ...node(), frequency: param(), start: () => started.push(o.frequency.value), stop: () => {} }; return o; }
@@ -301,22 +303,12 @@ function fakeAudio() {
     createWaveShaper() { return node(); }
     createStereoPanner() { return { ...node(), pan: param() }; }
     createConvolver() { return node(); }
-    createDelay() { return { ...node(), delayTime: param() }; }
-    createDynamicsCompressor() { return { ...node(), threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }; }
-    createChannelMerger() { return node(); }
     createBufferSource() { return { ...node(), start: () => {} }; }
     createBuffer(channels: number, length: number) { return { getChannelData: () => new Float32Array(length) }; }
+    createDynamicsCompressor() { return { ...node(), threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }; }
+    createDelay() { return { ...node(), delayTime: param() }; }
+    createChannelMerger() { return node(); }
   });
-}
-
-test("the notification sound row shows once notifications are on: a switch kept in this browser, and buttons to hear each chime", () => {
-  localStorage.clear();
-  show("notifications");
-  expect(screen.queryByText("Notification sound")).toBeNull(); // jsdom has no notifications: nothing to add a sound to
-
-  cleanup();
-  fakeAudio();
-  vi.stubGlobal("Notification", class { static permission = "granted"; });
   show("notifications");
   const row = screen.getByText("Notification sound").closest(".set-row") as HTMLElement;
   const box = within(row).getByRole("checkbox");
@@ -341,63 +333,6 @@ test("the strum sound is a switch in Appearance, off until you turn it on, kept 
   fireEvent.click(box);
   expect(localStorage.getItem("camp-strum-sound")).toBe("on");
   expect(within(row).getByRole("checkbox")).toHaveProperty("checked", true);
-  localStorage.clear();
-});
-
-test("the strum voice is a choice in Appearance, Sonar Prime until you pick another, and each plays a sweep when picked", () => {
-  localStorage.clear();
-  fakeAudio();
-  show("appearance");
-  const row = screen.getByText("Strum voice").closest(".set-row") as HTMLElement;
-  const group = within(row).getByRole("group", { name: "Strum voice" });
-  const names = within(group).getAllByRole("button").map((b) => b.textContent);
-  expect(names).toEqual(STRUM_VOICES.map((v) => v.name));
-  expect(within(group).getByRole("button", { name: "Sonar Prime" }).getAttribute("aria-pressed")).toBe("true");
-  expect(screen.queryByText("Strum tone")).toBeNull(); // Sonar Prime is made whole: no tone to shape
-
-  fireEvent.click(within(group).getByRole("button", { name: "Glass bell" }));
-  expect(localStorage.getItem("camp-strum-voice")).toBe("bell");
-  expect(within(group).getByRole("button", { name: "Glass bell" }).getAttribute("aria-pressed")).toBe("true");
-  expect(within(group).getByRole("button", { name: "Sonar Prime" }).getAttribute("aria-pressed")).toBe("false");
-  expect(screen.getByText("Strum tone")).toBeTruthy(); // the other voices can be shaped
-  // The demo plays even though the strum sound is off: a note for each of a few lines.
-  expect(localStorage.getItem("camp-strum-sound")).toBeNull();
-  for (const line of DEMO_LINES) expect(started).toContain(STRUM_NOTES[line]);
-  localStorage.clear();
-});
-
-test("the strum tone has sliders and choices in Appearance that are kept, play a sweep, and reset", () => {
-  vi.useFakeTimers();
-  localStorage.clear();
-  localStorage.setItem("camp-strum-voice", "bell");
-  fakeAudio();
-  show("appearance");
-  const row = screen.getByText("Strum tone").closest(".set-row") as HTMLElement;
-  expect(within(row).getByRole("button", { name: "Reset tone" })).toHaveProperty("disabled", true);
-  expect(within(row).getAllByRole("slider").map((e) => e.getAttribute("aria-label"))).toEqual(
-    ["Volume", "Width", "Ring", "Fade in", "Brightness", "Bass cut", "Reverb", "Grit", "Echo", "Echo gap", "Tune"]);
-  expect(within(row).getByRole("slider", { name: "Echo gap" })).toHaveProperty("disabled", true); // no echo yet
-
-  started.length = 0;
-  fireEvent.change(within(row).getByRole("slider", { name: "Reverb" }), { target: { value: "0" } });
-  expect(JSON.parse(localStorage.getItem("camp-strum-tone")!).reverb).toBe(0);
-  expect(within(row).getByRole("slider", { name: "Reverb" }).nextElementSibling?.textContent).toBe("None");
-  // No reverb, so there's no space to pick; the sweep waits for the hand to rest.
-  expect(within(row).getByRole("button", { name: "Hull" })).toHaveProperty("disabled", true);
-  expect(started).toHaveLength(0);
-  vi.advanceTimersByTime(400);
-  for (const line of DEMO_LINES) expect(started).toContain(STRUM_NOTES[line]);
-
-  started.length = 0;
-  fireEvent.click(within(row).getByRole("button", { name: "Higher" }));
-  expect(JSON.parse(localStorage.getItem("camp-strum-tone")!).octave).toBe(1);
-  expect(within(row).getByRole("button", { name: "Higher" }).getAttribute("aria-pressed")).toBe("true");
-  expect(started).toContain(STRUM_NOTES[DEMO_LINES[0]] * 2);
-
-  fireEvent.click(within(row).getByRole("button", { name: "Reset tone" }));
-  expect(localStorage.getItem("camp-strum-tone")).toBeNull();
-  expect(within(row).getByRole("button", { name: "As made" }).getAttribute("aria-pressed")).toBe("true");
-  vi.useRealTimers();
   localStorage.clear();
 });
 

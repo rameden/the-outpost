@@ -1655,15 +1655,6 @@ a.att-name { color: var(--accent); }
 .mem-lines li.unloaded > div > span { color: var(--muted); }
 /* Settings → General: picking a palette. The one in use is marked by its border, all the way round. */
 .looks { display: flex; flex-wrap: wrap; gap: 8px; }
-.tone { display: grid; gap: 12px; }
-.tone-sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px 28px; }
-.tone-slider { display: grid; grid-template-columns: 82px 1fr 64px; align-items: center; gap: 10px; font-size: 14px; }
-.tone-slider output { font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; }
-.set-control .tone .tone-slider input[type="range"] { appearance: none; -webkit-appearance: none; width: 100%; height: 18px; margin: 0; padding: 0; border: 0; border-radius: 0; background: linear-gradient(var(--border-strong), var(--border-strong)) center / 100% 2px no-repeat; cursor: pointer; }
-.tone-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 18px; border: 0; border-radius: 0; background: var(--accent); }
-.tone-slider input[type="range"]::-moz-range-thumb { width: 8px; height: 18px; border: 0; border-radius: 0; background: var(--accent); }
-.tone-slider input[type="range"]::-moz-range-track { height: 2px; background: var(--border-strong); }
-.tone .look:disabled, .tone-slider:has(input:disabled) { opacity: 0.45; cursor: default; }
 .look { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border: 2px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 600; }
 .look:hover { border-color: var(--border-strong); }
 .look[aria-pressed="true"] { border-color: var(--accent); }
