@@ -106,10 +106,16 @@ export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach,
                 <div className="notes-list" role="list" aria-label={`${notes.length} ${plural(notes.length, "note")}`}>
                   {shown.map((n) => (
                     <div key={n.id} role="listitem">
-                      <button type="button" className="note-row" onClick={() => openNote(n.id)}>
+                      <button type="button" className={cx("note-card", n.idea && !n.idea.kept && "suggested")} onClick={() => openNote(n.id)}>
                         <b>{titleOf(n)}</b>
-                        {excerpt(n) && <span>{excerpt(n)}</span>}
-                        <small>{n.idea && !n.idea.kept ? "Suggested · " : ""}{when(n.updated)}{n.from ? ` · from ${n.from.title || "a conversation"}` : ""}{isWriting(n) ? " · ticket being written" : n.ticket ? " · has a ticket" : ""}</small>
+                        {excerpt(n) && <span className="note-card-text">{excerpt(n)}</span>}
+                        {(n.idea && !n.idea.kept || isWriting(n) || n.ticket) && (
+                          <span className="note-card-tags">
+                            {n.idea && !n.idea.kept && <span className="note-tag idea">Suggested</span>}
+                            {isWriting(n) ? <span className="note-tag">Ticket being written</span> : n.ticket && <span className="note-tag">Has a ticket</span>}
+                          </span>
+                        )}
+                        <small>{when(n.updated)}{n.from ? ` · from ${n.from.title || "a conversation"}` : ""}</small>
                       </button>
                     </div>
                   ))}
@@ -122,10 +128,10 @@ export const NotesPanel = memo(function NotesPanel({ onHide, onInsert, onAttach,
   );
 });
 
-// A row's second line: the note's text, less the line already shown as its title.
+// What a card shows of the note: its text, less the line already shown as its title, line breaks kept.
 function excerpt(n: Note) {
   const lines = n.text.split("\n").map((l) => l.trim()).filter(Boolean);
-  return (n.title.trim() ? lines : lines.slice(1)).join(" ").slice(0, 160);
+  return (n.title.trim() ? lines : lines.slice(1)).join("\n").slice(0, 400);
 }
 
 function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversation, project }: {
