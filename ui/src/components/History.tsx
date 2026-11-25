@@ -244,7 +244,8 @@ export const History = memo(function History({ S, store, view, setView, patch, o
             title={`Open ${p.name}${p.links?.length ? ` (${p.links.map((l) => `links/${l}/`).join(", ")})` : ""}`}>
             <span>{p.pinned && <><Icon name="pin" /> </>}{p.name}</span>
           </button>
-          <button type="button" className="hist-icon hist-chevron" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${p.name}'s conversations`}
+          {!open && list.length > 0 && <span className="hist-project-count" title={`${list.length} ${list.length === 1 ? "conversation" : "conversations"} folded away`} aria-hidden="true">{list.length}</span>}
+          <button type="button" className="hist-icon hist-chevron" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} ${p.name}'s conversations${open || !list.length ? "" : ` (${list.length})`}`}
             title={open ? "Hide its conversations" : "Show its conversations"} onClick={() => toggle(p.id)}><Icon name={open ? "chevron" : "chevronRight"} /></button>
           <Menu label={`Options for ${p.name}`}>{(close) => (
             <>

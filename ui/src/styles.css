@@ -424,7 +424,9 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 
 /* ---------- Crew (a bar across the top) ---------- */
 .crew { display: flex; gap: 8px; padding: 10px 20px; background: var(--bg); overflow-x: auto; overflow-y: hidden; }
-.section-label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin: 4px 4px 2px; }
+/* The small uppercase label, one style wherever it's used: page sections, menus, Settings groups, question cards, the home date */
+.section-label, .menu-label, .set-group-title, .ask-plain-head, .hist-pop-label, .home-date, .jira-body h3 { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.section-label { margin: 4px 4px 2px; }
 .member { --c: var(--c-other); position: relative; flex: 1 1 0; min-width: 212px; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 0 11px; align-items: center; padding: 7px 11px; border: 2px solid var(--border); border-radius: 10px; background: none; transition: border-color .2s, background .2s, box-shadow .2s; }
 .member.active { border-color: var(--c); background: var(--surface); box-shadow: var(--shadow); }
 .member.waiting { border-color: var(--accent); background: var(--accent-soft); box-shadow: var(--shadow); }
@@ -505,10 +507,13 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .hist-nav-row .hist-icon:hover { background: var(--border); }
 .hist-project-head { border-radius: 8px; }
 .hist-project-head.selected { background: var(--surface-2); }
-.hist-project-head.selected .hist-project-name { color: var(--text); }
-.hist-project-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 5px 6px; border-radius: 6px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--muted); text-align: left; }
+.hist-project-head.selected .hist-project-name { color: var(--accent); }
+.hist-project-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 5px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); text-align: left; }
 .hist-project-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hist-project-name:hover { color: var(--text); }
+.hist-project-head:hover { background: var(--surface-2); }
+/* Each project after the first sits under a hairline, so the groups read as sections rather than more rows */
+.hist-project + .hist-project { border-top: 1px solid var(--border); padding-top: 10px; }
+.hist-project-count { flex: none; padding: 0 4px; font-size: 12px; font-weight: 500; color: var(--faint); }
 .hist-icon.hist-chevron { color: var(--faint); width: 22px; }
 .hist-icon.hist-chevron > .icon { width: 14px; height: 14px; }
 /* Dragging a project into a new place: it fades where it was, and a straight line marks where it will go */
@@ -537,7 +542,7 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .hist-pop button { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hist-pop button:hover { background: var(--surface-2); }
 .hist-pop button.danger { color: var(--bad); }
-.hist-pop-label { padding: 6px 10px 2px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.hist-pop-label { padding: 6px 10px 2px; }
 .hist-pop-sep { height: 1px; background: var(--border); margin: 4px 2px; }
 /* Chats with one crew member, kept together under the project, in that crew member's colour */
 .hist-agent { --c: var(--muted); min-width: 0; }
@@ -610,7 +615,7 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .jira-ticket .file-head b { font: 600 15px var(--sans); }
 .jira-ticket .file-head .pill { margin-left: auto; flex: none; }
 .jira-body { padding: 14px 18px 18px; background: var(--surface); }
-.jira-body h3 { margin: 18px 0 6px; font: 600 13px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.jira-body h3 { margin: 18px 0 6px; font-family: var(--sans); }
 .ticket-debrief h4 { margin: 12px 0 4px; font: 600 13px var(--sans); }
 .ticket-debrief .debrief-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 /* The player: what's being read aloud, in the top bar beside the status chip. */
@@ -707,6 +712,9 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .proj-about .section-label, .proj-page section > .section-label { margin: 0 0 8px; }
 .proj-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .proj-section-head .section-label { margin: 0; }
+/* On Home and project pages, a section's label is in the accent colour over a hairline, like the History sidebar's project headers */
+.proj-page section > .section-label, .proj-page .proj-section-head .section-label { color: var(--accent); }
+.proj-page section > .section-label, .proj-page .proj-section-head { padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 .proj-edit-actions { display: flex; align-items: center; gap: 10px; }
 .proj-edit { width: 100%; min-height: 160px; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); color: var(--text); font: 13px/1.5 var(--mono); resize: vertical; }
 .proj-folder .checks-edit { flex-basis: 100%; }
@@ -744,7 +752,7 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .pane-head.closable:hover:not(:has(button:not(.pane-label):hover, [role="tab"]:hover)) { background: var(--surface-2); }
 .pane-label { display: flex; align-items: center; gap: 8px; flex: none; width: max-content; white-space: nowrap; height: 26px; margin-right: 6px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; cursor: inherit; }
 .pane-label > .icon { width: 15px; height: 15px; }
-.pane-head.closable:hover .pane-label, .pane-label:focus-visible { color: var(--text); }
+.pane-head.closable:hover .pane-label, .pane-label:focus-visible { color: var(--accent); }
 .pane-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .term-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; }
 .term-tab { display: inline-flex; align-items: center; border-bottom: 2px solid transparent; flex: none; }
@@ -841,7 +849,9 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .zone-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 30px; padding: 12px 0; border: 0; background: var(--surface); color: var(--muted); }
 .zone[data-in="col"] > .zone-rail { flex-direction: row; width: auto; padding: 5px 14px; }
 .zone[data-in="col"] > .zone-rail > span { writing-mode: horizontal-tb; }
-.zone-rail:hover { color: var(--text); background: var(--surface-2); }
+/* A panel's tab turns the accent colour when it's open or pointed at, so it reads as something to click */
+.zone-rail:hover, .zone-rail.open { color: var(--accent); }
+.zone-rail:hover { background: var(--surface-2); }
 .zone-rail > span { writing-mode: vertical-rl; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .zone-rail > .icon { width: 15px; height: 15px; }
 /* An open side drawer (Drawer in bits.tsx): the rail that opened it stays, on the inner edge (the
@@ -850,7 +860,7 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .side-drawer { display: flex; }
 .side-drawer > :not(.zone-rail) { flex: 1; min-width: 0; min-height: 0; }
 .zone-rail.open { flex: none; cursor: pointer; border-right: 1px solid var(--border); }
-.zone-rail.open:hover:has(.rail-tools button:hover) { background: var(--surface); color: var(--muted); }
+.zone-rail.open:hover:has(.rail-tools button:hover) { background: var(--surface); }
 .split.row > .zone:first-child:not(:last-child) > .side-drawer { flex-direction: row-reverse; }
 .split.row > .zone:first-child:not(:last-child) > .side-drawer > .zone-rail.open { border-right: 0; border-left: 1px solid var(--border); }
 .zone[data-in="col"] > .side-drawer { flex-direction: column; }
@@ -1399,7 +1409,7 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .ask-body { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
 .ask-body.cmd { font-family: var(--mono); font-size: 13px; }
 .ask-plain { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
-.ask-plain-head { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.ask-plain-head { margin-bottom: 6px; }
 .ask-plain dl { margin: 0; display: grid; gap: 5px; }
 .ask-plain dl > div { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 10px; }
 .ask-plain dt { color: var(--muted); }
@@ -1520,7 +1530,7 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .attach-menu { width: min(300px, calc(100% - 32px)); }
 /* The menu opens upwards, so it's never taller than the room above it (AttachMenu.tsx measures that): its rows scroll, and the panel beside it (which hangs down from the menu's top) stays whole. */
 .attach-menu > .menu-view { max-height: var(--room, none); overflow-y: auto; }
-.menu-label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; padding: 8px 10px 4px; }
+.menu-label { padding: 8px 10px 4px; }
 .menu-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
 .menu-item:hover, .menu-item:focus-visible { background: var(--surface-2); outline: none; }
 .menu-item svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
@@ -1888,7 +1898,7 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .set-nav { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 10px; overflow: auto; }
 .set-nav-head { font: 600 18px/1.2 var(--serif); padding: 4px 10px 14px; }
 .set-group + .set-group { margin-top: 14px; }
-.set-group-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: 0 10px 6px; }
+.set-group-title { padding: 0 10px 6px; }
 .set-nav-item { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; text-align: left; padding: 7px 10px; border-left: 2px solid transparent; border-radius: 8px; color: var(--muted); font-size: 14px; }
 .set-nav-item:hover { color: var(--text); background: var(--surface-2); }
 .set-nav-item[aria-current="page"] { color: var(--text); background: var(--surface-2); font-weight: 600; border-left-color: var(--accent); border-radius: 0 8px 8px 0; }
@@ -3049,7 +3059,6 @@ a.orb-btn { display: inline-block; text-decoration: none; }
   background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); border-radius: 14px; }
 .brand-home { display: flex; align-items: center; border: 0; background: none; padding: 0; color: inherit; cursor: pointer; border-radius: 8px; }
 .home-hero { position: relative; display: grid; gap: 10px; padding: clamp(20px, 5vh, 56px) 0 12px; }
-.home-date { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
 .home-hero h2 { margin: 0; font: 600 clamp(32px, 3.6vw, 44px)/1.1 var(--serif); letter-spacing: -.015em; color: var(--text); text-wrap: balance; }
 .home-kickoff { margin: 0; font-size: 16.5px; line-height: 1.6; color: var(--muted); max-width: 62ch; text-wrap: pretty; }
 .home-hero-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
