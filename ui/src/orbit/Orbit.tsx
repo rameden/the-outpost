@@ -92,7 +92,7 @@ const MOON: [number, number][] = [[5.5, 0], [7.5, 100], [9.5, 240], [11.5, 140],
 const DRIFT = [150, -190, 230, -270]; // seconds for a line with nobody on it to drift once round (one way, then the other)
 // HD: where the camera stands. Over the whole system it looks down from a little above (and drifts round slowly);
 // with a planet, from low and to one side of the line to the sun, so the planet is half lit with the sun in the sky behind it.
-const HD_KEY = "camp-orbit-hd", WORLDS_KEY = "camp-orbit-worlds", CUSTOM_KEY = "camp-orbit-custom", SUN_KEY = "camp-orbit-sun";
+const HD_KEY = "camp-orbit-hd", WORLDS_KEY = "camp-orbit-worlds", CUSTOM_KEY = "camp-orbit-custom", SUN_KEY = "camp-orbit-sun", SPIRAL_KEY = "camp-orbit-spiral";
 // How bright the sun can be set, in either view: from nearly out to as it's made (1).
 export const SUN_LIGHT = [0.15, 1] as const;
 // What you've changed about each crew member's world, as it's kept in this browser (nothing, if what's kept can't be read).
@@ -250,6 +250,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     yawFree: Math.PI / 2, pitchFree: HD_OVER, yawRel: HD_SIDE, pitchRel: HD_NEAR, yaw: Math.PI / 2, pitch: Math.PI / 2, turning: false,
     bare: false, // nothing is open beside the system (ambient), so it has the whole screen
     sun: 1,      // how bright the sun is set (SUN_LIGHT)
+    spiral: false, wake: 0, // HD: whether the corkscrew wakes are on, and how much of them shows (eased)
   }).current;
   v.bare = ambient;
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -415,9 +416,10 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     // HD: the same moment, drawn in three dimensions; and where everything is on the screen is where that puts it.
     if (hd) {
       const sun = glows[LEAD] = (glows[LEAD] ?? 0) + ((scene.current.leading ? 1 : 0) - (glows[LEAD] ?? 0)) * rise;
+      v.wake += ((v.spiral ? 1 : 0) - v.wake) * (moving ? 1 - Math.exp(-dt / 0.6) : 1);
       const made = hdFrame({
         seconds: v.seconds, w: v.w, h: v.h, cx: centre.x, cy: centre.y, at: cam, k: cam.k * HD_CLOSER, yaw: v.yaw, pitch: v.pitch,
-        lead: LEAD, sun: { glow: sun, waiting: scene.current.waiting.has(LEAD), light: v.sun }, bodies: hdBodies,
+        lead: LEAD, sun: { glow: sun, waiting: scene.current.waiting.has(LEAD), light: v.sun }, spiral: v.wake, bodies: hdBodies,
         lines: Array.from({ length: lines + 1 }, (_, i) => ({ rot: ((i < ids.length ? hdBodies[i].angle : (v.seconds * 360) / DRIFT[i % DRIFT.length]) * Math.PI) / 180, lit: litAt(i), body: i < ids.length ? i : -1 })),
         ping: { r: going ? SUN_R + PING_SPEED * out : 0, a: going ? (1 - out / (PING_MS / 1000)) ** 1.6 : 0 }, reach: scene.current.reach, flightMs: FLIGHT_MS, marks,
       });
@@ -588,6 +590,10 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   // HD: on or off (remembered), and whether this browser can draw it at all.
   const [hd, setHd] = useState(() => storeGet(HD_KEY) === "1");
   const [noHd, setNoHd] = useState(false);
+  // HD: the corkscrew each world really makes, as the sun carries the system along (remembered).
+  const [spiral, setSpiral] = useState(() => storeGet(SPIRAL_KEY) === "1");
+  const toggleSpiral = useCallback(() => setSpiral((on) => { storeSet(SPIRAL_KEY, on ? "0" : "1"); return !on; }), []);
+  v.spiral = spiral;
   const toggleHd = useCallback(() => setHd((on) => { storeSet(HD_KEY, on ? "0" : "1"); return !on; }), []);
   const points = useMemo(() => Array.from({ length: lines + 1 }, (_, i) => contourPoints(i < lines ? orbitOf(i) : orbitOf(lines - 1) + 30, i)), [lines]);
   useEffect(() => {
@@ -686,6 +692,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
     else if (ev.key === "a" || ev.key === "A") setAmbient((on) => !on);
     else if ((ev.key === "h" || ev.key === "H") && !noHd) toggleHd();
     else if ((ev.key === "r" || ev.key === "R") && hd) roll(ev.shiftKey ? 0 : newSeed());
+    else if ((ev.key === "s" || ev.key === "S") && hd) toggleSpiral();
     else return;
     ev.preventDefault();
     ev.stopPropagation();
@@ -869,6 +876,8 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
             title={noHd ? "HD needs WebGL 2, which this browser isn't offering" : hd ? "Back to the flat view (H)" : "HD: the same system in three dimensions, as lit worlds round a sun (H). A proof of concept."}>HD</button>
           {hd && <button type="button" className="orb-tool worded" onClick={(ev) => roll(ev.shiftKey ? 0 : newSeed())}
             title={`Reroll: make up other worlds for the ${w("crew")} (R). Each keeps its ${w("crew")} member's colour, the ${nameNow("Artificer")} keeps a station, and a world you've made your own stays as you made it.${seed ? ` Shift-click (or Shift+R) for the ${w("camp")}'s own.` : ""}`}>Reroll</button>}
+          {hd && <button type="button" className="orb-tool worded" aria-pressed={spiral} onClick={toggleSpiral}
+            title={spiral ? "Back to flat rings (S)" : "Spiral: the sun carries the system through space, so each world really travels a corkscrew round its path. Shows the wake each one leaves (S)"}>Spiral</button>}
           <button type="button" className="orb-tool worded" aria-pressed={demo} title={demo ? `End the demo and show the real ${w("camp")} (D)` : `Play a demo: a pretend ${w("camp")} at work, with nobody really sent anywhere (D)`} onClick={toggleDemo}>Demo</button>
           <button type="button" className="orb-tool worded" aria-pressed={!!replay} title={replay ? `End the replay and show the ${w("camp")} as it is now (P)` : `Replay: watch the last day's ${w("expeditions")} back, in about half a minute (P)`} onClick={toggleReplay}>Replay</button>
           <button type="button" className="orb-tool worded" aria-pressed={false} title="Ambient: hands off. The camera goes to whoever just did something, and tells you quietly when a decision needs you (A)" onClick={() => setAmbient(true)}>Ambient</button>

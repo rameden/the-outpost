@@ -47,9 +47,10 @@ export type HdFrame = {
   time: number; cam: Camera3;
   sun: { radius: number; active: number; waiting: number; light: number }; // light: how bright it is set (1: as made)
   planets: HdPlanet[];
-  lines: { rot: number; color: Vec3; tone: number; lit: number; tail: boolean }[]; // the contour lines, in order outwards
+  lines: { rot: number; turn?: number[]; color: Vec3; tone: number; lit: number; tail: boolean }[]; // the contour lines, in order outwards (turn: how its orbit is tipped off the table, as nine numbers column by column; flat if none)
   ping: { r: number; a: number }; // the sun's ring: how far out it is, and how bright
   reach: number;
+  table?: number; // how strongly the table's own markings show (its bearings, rings and rim, and the line round its edge): 1, the usual, unless said
   points: HdPoint[]; // comets and the streams, as points of light
 };
 export type HdRenderer = {
@@ -377,7 +378,7 @@ void main(){
 const VS_PLANE = HEAD + `layout(location=0) in vec2 a_q; uniform mat4 u_vp; uniform float u_size; out vec2 v_xz;
 void main(){ v_xz = a_q*u_size; gl_Position = u_vp*vec4(v_xz.x, 0., v_xz.y, 1.); }`;
 const FS_PLANE = HEAD + `
-uniform float u_reach, u_ping, u_pingA, u_pool; uniform vec3 u_sun;
+uniform float u_reach, u_ping, u_pingA, u_pool, u_table; uniform vec3 u_sun;
 in vec2 v_xz; out vec4 o;
 float thin(float dist, float px){ return fall(px*1.3+1e-4, 0., dist); } // a line, a pixel or so wide however far off it is
 void main(){
@@ -388,7 +389,7 @@ void main(){
   float tick = abs(fract(a/.0872665+.5)-.5)*.0872665*r;
   g += thin(tick, wr)*.4*smoothstep(u_reach+3., u_reach+3.6, r)*fall(u_reach+9.6, u_reach+9., r);
   g += thin(abs(fract(r/42.+.5)-.5)*42., wr)*.06*fall(u_reach, u_reach-12., r);
-  vec3 col = vec3(.42,.52,.74)*g;
+  vec3 col = vec3(.42,.52,.74)*g*u_table;
   float front = exp(-sq((r-u_ping)/(5.+u_ping*.02)));
   col += u_sun*(front*1.8 + exp(-sq((r-u_ping+16.)/24.))*.22*step(r, u_ping))*u_pingA;
   col += u_sun*(.12*exp(-r/80.)+.035*exp(-r/260.))*u_pool;                                   // the sun's light, pooled on the table under it
@@ -396,9 +397,10 @@ void main(){
   o = vec4(col, 1.);
 }`;
 
-// A contour line, turned to where its planet is. The stretch behind the planet is its tail.
-const VS_LINE = HEAD + `layout(location=0) in vec3 a_p; uniform mat4 u_vp; uniform float u_rot; out float v_u;
-void main(){ float c = cos(u_rot), s = sin(u_rot); gl_Position = u_vp*vec4(a_p.x*c-a_p.y*s, 0., a_p.x*s+a_p.y*c, 1.); v_u = a_p.z; }`;
+const FLAT = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+// A contour line, turned to where its planet is, and tipped as its orbit is. The stretch behind the planet is its tail.
+const VS_LINE = HEAD + `layout(location=0) in vec3 a_p; uniform mat4 u_vp; uniform mat3 u_turn; uniform float u_rot; out float v_u;
+void main(){ float c = cos(u_rot), s = sin(u_rot); gl_Position = u_vp*vec4(u_turn*vec3(a_p.x*c-a_p.y*s, 0., a_p.x*s+a_p.y*c), 1.); v_u = a_p.z; }`;
 const FS_LINE = HEAD + `uniform vec3 u_color; uniform float u_alpha, u_tail; in float v_u; out vec4 o;
 void main(){ o = vec4(u_color*(u_alpha+u_tail*sq(smoothstep(.7, 1., v_u))*1.8), 1.); }`;
 
@@ -472,8 +474,8 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
       station: program(VS_BILL, FS_STATION, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "active", "waiting", "blip", "p", "tilt", "grown"]),
       rock: program(VS_BILL, FS_ROCK, ["vp", "center", "right", "up", "size", "eye", "color", "light", "radius", "time", "spin", "seed", "active", "waiting", "blip", "rig", "rough", "grown"]),
       halo: program(VS_BILL, FS_HALO, ["vp", "center", "right", "up", "size", "eye", "color", "radius", "strength", "falloff", "ring", "ringW", "time", "rays"]),
-      plane: program(VS_PLANE, FS_PLANE, ["vp", "size", "reach", "ping", "pingA", "sun", "pool"]),
-      line: program(VS_LINE, FS_LINE, ["vp", "rot", "color", "alpha", "tail"]),
+      plane: program(VS_PLANE, FS_PLANE, ["vp", "size", "reach", "ping", "pingA", "sun", "pool", "table"]),
+      line: program(VS_LINE, FS_LINE, ["vp", "turn", "rot", "color", "alpha", "tail"]),
       ring: program(VS_RING, FS_RING, ["vp", "center", "size", "color", "seed", "active", "tilt", "in", "out"]),
       bright: program(VS_SCREEN, FS_BRIGHT, ["tex"]),
       blur: program(VS_SCREEN, FS_BLUR, ["tex", "dir"]),
@@ -621,7 +623,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
       g.depthMask(false); g.enable(g.BLEND); g.blendFunc(g.ONE, g.ONE);
       u = use(P.plane);
       g.uniformMatrix4fv(u.vp, false, cam.viewProj); g.uniform1f(u.size, f.reach * 2.2); g.uniform1f(u.reach, f.reach);
-      g.uniform1f(u.ping, f.ping.r); g.uniform1f(u.pingA, f.ping.a); v3(u.sun, SUN); g.uniform1f(u.pool, f.sun.light);
+      g.uniform1f(u.ping, f.ping.r); g.uniform1f(u.pingA, f.ping.a); v3(u.sun, SUN); g.uniform1f(u.pool, f.sun.light); g.uniform1f(u.table, f.table ?? 1);
       g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
 
       u = use(P.line);
@@ -631,7 +633,7 @@ export function createHd(canvas: HTMLCanvasElement): HdRenderer | null {
         if (!line) return;
         const base: Vec3 = [0.42, 0.52, 0.72];
         g.uniform3f(u.color, base[0] + (l.color[0] - base[0]) * l.tone + SUN[0] * l.lit * 1.6, base[1] + (l.color[1] - base[1]) * l.tone + SUN[1] * l.lit * 1.6, base[2] + (l.color[2] - base[2]) * l.tone + SUN[2] * l.lit * 1.6);
-        g.uniform1f(u.rot, l.rot); g.uniform1f(u.alpha, 0.68 + l.tone * 0.55 + l.lit); g.uniform1f(u.tail, l.tail ? 0.5 + l.tone : 0);
+        g.uniformMatrix3fv(u.turn, false, l.turn ?? FLAT); g.uniform1f(u.rot, l.rot); g.uniform1f(u.alpha, (0.68 + l.tone * 0.55 + l.lit) * (l.tail ? 1 : f.table ?? 1)); g.uniform1f(u.tail, l.tail ? 0.5 + l.tone : 0);
         g.bindVertexArray(line.vao); g.drawArrays(g.LINE_STRIP, 0, line.n);
       });
 

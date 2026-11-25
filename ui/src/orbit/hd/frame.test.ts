@@ -2,6 +2,7 @@
 import { expect, test } from "vitest";
 import { orbitOf } from "../scene.ts";
 import { HD_PLANET, HD_SUN, hdFrame, type HdBody, type HdInput } from "./frame.ts";
+import { DRIFT, orbitUp } from "./spiral.ts";
 import { MINE, STATION, WORLD, asKind, worldsFor } from "./worlds.ts";
 
 const IDS = ["scout", "artificer", "scribe", "warden", "wizard"];
@@ -238,4 +239,48 @@ test("places Orbit marks itself (ships at the edge) come back as spots on the sc
   expect(spots[3].x).not.toBeCloseTo(spots[2].x, 0);
   expect(spots[2].r).toBeGreaterThan(0);
   expect(hdFrame(input([body(0)])).spots.map((s) => s.id)).toEqual(["quartermaster", "scout"]);
+});
+
+test("spiral: each world leaves a corkscrew wake, a ring round where the sun was at each moment, and none with it off", () => {
+  const scout = body(0), wake = (spiral?: number) => hdFrame(input([scout], { spiral })).frame.points.filter((p) => p.color === scout.color);
+  expect(wake()).toEqual([]);
+  expect(wake(0)).toEqual([]);
+  const points = wake(1), r = orbitOf(0), up = orbitUp(0, 1), dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  expect(points.length).toBeGreaterThan(50);
+  let last = 0, turned = 0, before: number | null = null;
+  for (const p of points) {
+    const behind = -dot(p.pos, up) / dot(DRIFT, up); // how far back along its path the sun was when the world was here
+    expect(behind).toBeGreaterThan(last);
+    last = behind;
+    const was = [p.pos[0] + DRIFT[0] * behind, p.pos[1] + DRIFT[1] * behind, p.pos[2] + DRIFT[2] * behind];
+    expect(Math.hypot(...was)).toBeCloseTo(r, 6); // on its orbit, round where the sun was then
+    const at = Math.atan2(was[2], was[0]);
+    if (before !== null) turned += Math.abs(Math.atan2(Math.sin(at - before), Math.cos(at - before)));
+    before = at;
+    expect(p.a).toBeLessThanOrEqual(1);
+  }
+  expect(turned).toBeGreaterThan(2 * Math.PI); // more than a whole turn of the corkscrew, for the nearest world
+  expect(wake(0.5)[0].a).toBeCloseTo(points[0].a / 2);
+});
+
+test("spiral: the worlds leave the table, each on an orbit tipped its own way, and the camera stays on the one it's with", () => {
+  const all = [0, 1, 2, 3, 4].map((i) => body(i));
+  const { frame } = hdFrame(input(all, { spiral: 1 }));
+  frame.planets.forEach((p, i) => expect(Math.hypot(...p.pos)).toBeCloseTo(orbitOf(i))); // as far from the sun as ever
+  const heights = frame.planets.map((p) => p.pos[1]);
+  expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(30);
+  const ups = [0, 1, 2, 3, 4].map((i) => orbitUp(i, 1));
+  for (let i = 1; i < ups.length; i++) expect(Math.hypot(ups[i][0] - ups[0][0], ups[i][1] - ups[0][1], ups[i][2] - ups[0][2])).toBeGreaterThan(0.05); // no two on one plane
+  frame.lines.slice(0, 5).forEach((l) => expect(l.turn?.[4]).toBeLessThan(0.999)); // each world's line tips with its orbit
+  // The outer one tips more than the inner one, each a step further: they nest rather than cross at random.
+  const tilt = [0, 1, 2, 3, 4].map((i) => Math.acos(orbitUp(i, 1)[1]));
+  for (let i = 1; i < 5; i++) expect(tilt[i]).toBeGreaterThan(tilt[i - 1]);
+  expect(frame.table).toBeLessThan(0.5); // and the table's own markings fade, with no one table left to mark
+  expect(hdFrame(input([body(0)])).frame.table).toBe(1);
+  // Looking at a world that's up off the table: it's still in the middle of the screen.
+  const a = (all[2].angle * Math.PI) / 180, at = { x: orbitOf(2) * Math.cos(a), y: orbitOf(2) * Math.sin(a) };
+  const looked = hdFrame(input(all.map((b, i) => (i === 2 ? { ...b, focused: true } : b)), { spiral: 1, at, k: 4 }));
+  const there = looked.spots.find((sp) => sp.id === IDS[2])!;
+  expect(there.x).toBeCloseTo(720, 0);
+  expect(there.y).toBeCloseTo(430, 0);
 });
