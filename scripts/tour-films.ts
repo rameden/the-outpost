@@ -22,7 +22,7 @@ const FILMS_DIR = join(ROOT, "docs", "films");
 const FILMS: { key: string; section: string; file: string; tab: string; length: string; note: string; hidden?: boolean }[] = [
   {
     key: "sky", section: "films", file: "ground-to-sky.html", tab: "Ground to sky", length: "1:16",
-    note: "Outpost in one shot, from the ground to the sky. You claim your orbit, your outpost lifts into it, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
+    note: "Outpost in one shot, from the ground to the sky. You claim your ground, your outpost lifts into orbit, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
   },
   {
     // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in "On film".

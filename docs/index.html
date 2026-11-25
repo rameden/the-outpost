@@ -882,7 +882,7 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">Outpost in one shot, from the ground to the sky. You claim your orbit, your outpost lifts into it, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
+      <p class="film-note">Outpost in one shot, from the ground to the sky. You claim your ground, your outpost lifts into orbit, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -1632,7 +1632,7 @@ footer .outpost-sub { font-size: 10px; }
 </style></template>
 <template id="film-sky-stage">
   <div class="stage" id="frame">
-    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost in one continuous shot. A gold dot waits. You claim your orbit: a spark walks a dashed trail up a contour map to the fire at its centre, and your outpost is up on localhost. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. Then you kick off a mission with one ask, fix the flaky sign-in test, and it flies in to the Commander. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the hardest mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the memories the crew keeps, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your outpost. Your crew. Your call."></canvas>
+    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost in one continuous shot. A gold dot waits. You claim your ground: a spark walks a dashed trail up a contour map to the fire at its centre, and your outpost is up on localhost. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. Then you kick off a mission with one ask, fix the flaky sign-in test, and it flies in to the Commander. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the hardest mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the memories the crew keeps, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your outpost. Your crew. Your call."></canvas>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
@@ -2116,7 +2116,7 @@ const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1
 // ---- words ----
 const ASK = 'Fix the flaky sign-in test';
 const CAPS = [
-  { a: .5, b: T.arrive, eb: 'THE OUTPOST', l: ['Claim your orbit.', 'Your outpost, on localhost.'] },
+  { a: .5, b: T.arrive, eb: 'THE OUTPOST', l: ['Claim your ground.', 'Your outpost, on localhost.'] },
   { a: T.lift + 1.2, b: T.ask, eb: `THE ${TP.w('crew').toUpperCase()}`, l: [`At its centre, ${TP.an('qm')}.`, `Around it, the ${TP.w('crew')} in orbit.`] },
   { a: T.ask + .2, b: T.plan, eb: 'THE ASK', l: [`Kick off ${TP.a('quest')}.`, 'One ask is all it takes.'] },
   { a: T.plan + .2, b: T.out + .1, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
