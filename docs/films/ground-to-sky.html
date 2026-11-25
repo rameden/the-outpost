@@ -59,21 +59,21 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 <body>
 <main class="wrap">
   <div class="stage" id="frame">
-    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost in one continuous shot. A gold dot waits. You type an ask, fix the flaky sign-in test, and it walks a dashed trail up a contour map to the fire at its centre: your outpost sets up on your own machine. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the most challenging mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the lines the crew remembers, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your alter ego has a crew."></canvas>
+    <canvas id="stage" width="1280" height="720" role="img" aria-label="An animated film of Outpost in one continuous shot. A gold dot waits. You travel to an outpost: a spark walks a dashed trail up a contour map to the fire at its centre, and your outpost sets up on your own machine. The camera lifts, the contour lines flatten into orbits, and the fire becomes the Commander with the Navigator, the Engineer, the Comms Officer and the Security Chief in orbit round it. Then you kick off a mission with one ask, fix the flaky sign-in test, and it flies in to the Commander. The ask becomes a plan and waits for your OK. The Navigator, the Comms Officer and the Engineer set out at once. For the most challenging mission the Commander sends the Test Pilot, who flies out past every orbit, charts a place no one had mapped and comes home. The Security Chief reviews what changed, and nothing leaves the outpost without your click. The camera climbs again and the outpost becomes one star among the lines the crew remembers, grouped by crew member, with a new one added, and synapses spark between the lines that belong together. A router sizes up three tasks and sends each to the smallest model that can carry it. Last, the stars spiral in and settle into the mark: thick bands of ground on the left, thin orbits of sky on the right, and the same gold dot. Your alter ego has a crew."></canvas>
   </div>
   <div class="controls">
     <button type="button" id="play">Pause</button>
-    <input type="range" id="scrub" min="0" max="75.2" step="0.01" value="0" aria-label="Scrub through the animation">
+    <input type="range" id="scrub" min="0" max="76.2" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 1:15</output>
   </div>
-  <p class="note">Outpost from the ground to the sky, in one shot. Your ask walks the trail to the outpost, the outpost lifts into orbit, the crew's missions go round, the Test Pilot flies the most challenging one out past every orbit, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
+  <p class="note">Outpost from the ground to the sky, in one shot. You travel to an outpost, it lifts into orbit, you kick off a mission, the crew's missions go round, the Test Pilot flies the most challenging one out past every orbit, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops, and it follows your light or dark theme. Click the stage to pause.</p>
 </main>
 
 <script>
 (() => {
 'use strict';
 const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
-const W = 1280, H = 720, PI = Math.PI, TAU = PI * 2, DUR = 75.2;
+const W = 1280, H = 720, PI = Math.PI, TAU = PI * 2, DUR = 76.2;
 
 // ---- small maths ----
 const clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;
@@ -152,14 +152,14 @@ function glow(x, y, r, n, a) {
 }
 
 // ---- the film's clock ----
-const T = { send: 3.9, ground: 4.6, arrive: 14.4, lift: 15, orbit: 21.2, plan: 22, ok1: 24.9, out: 25.4, pilot: 30.4, review: 37, back: 40.8, ok2: 43.2, pull: 44.8, sky: 50.6, router: 54.8, mark: 61.6, dive: 71.4 };   // every beat is timed from the nearest of these, so one can be added or moved
+const T = { ground: .6, arrive: 10.8, lift: 11.4, orbit: 17.6, ask: 18.4, send: 22, land: 22.8, plan: 23, ok1: 25.9, out: 26.4, pilot: 31.4, review: 38, back: 41.8, ok2: 44.2, pull: 45.8, sky: 51.6, router: 55.8, mark: 62.6, dive: 72.4 };   // every beat is timed from the nearest of these, so one can be added or moved
 const LEG = 1.5;            // how long a comet takes along one leg of the route
 const S4 = .07;             // the camp's size once the camera is up among the stars
 const MS = 1.3;             // the mark's size on the last card, in stage pixels per logo unit
 // where the gold dot sits, the tilt of the plane it lies in, its glow, and the camera's height (0 camp, 1 orbit, 2 sky, 3 the mark)
 const FOCUS = [[0, 640, 352], [T.lift, 640, 352], [T.orbit, 660, 316], [T.pull, 660, 316], [T.sky, 700, 322], [T.mark + .2, 700, 322], [T.mark + 5.2, 325, 300], [T.dive, 325, 300], [DUR, 640, 352]];
 const TILT = [[0, 1], [T.lift, 1], [T.orbit, .44], [T.pull, .47], [T.sky - 1.6, 1], [DUR, 1]];
-const GLOW = [[0, .5], [T.arrive, .5], [16.4, .85], [T.pull, .85], [T.sky, .62], [T.mark + 3.2, .62], [T.mark + 5, 0], [T.dive + .4, 0], [T.dive + 3.2, .5], [DUR, .5]];
+const GLOW = [[0, .5], [T.arrive, .5], [T.lift + 1.4, .85], [T.pull, .85], [T.sky, .62], [T.mark + 3.2, .62], [T.mark + 5, 0], [T.dive + .4, 0], [T.dive + 3.2, .5], [DUR, .5]];
 const ALT = [[0, 0], [T.lift, 0], [T.orbit, 1], [T.pull, 1], [T.sky, 2], [T.mark + .2, 2], [T.mark + 4.8, 3], [T.dive + .2, 3], [T.dive + 3.6, 0], [DUR, 0]];
 const V = { fx: 640, fy: 352, S: 1, k: 1, lift: 0, gs: 1, phi: 0, P: [] };   // this frame's camera, worked out once in render()
 
@@ -183,7 +183,7 @@ function loop(row, cx, cy, r, amp, phi, k, upto = 1) {
   if (upto >= 1) ctx.closePath();
 }
 
-// the trail your ask walks in on: from the send button, once and a bit round the hill, to the fire
+// the trail you walk in on, to set up your outpost: from the trailhead, once and a bit round the hill, to the fire
 const TR0 = { r: 192.5, th: Math.atan2(100, 191) }, TN = 180;
 const trailPt = s => {
   const r = lerp(TR0.r, 9, Math.pow(s, .9)) + 10 * Math.sin(s * PI * 7) * Math.sin(PI * s), th = TR0.th + 1.3 * TAU * s + V.phi;
@@ -212,7 +212,7 @@ const ROLES = [[ARR(0) - .2, T.pilot + 1.2], [ARR(1) - .2, T.pilot + 1.5], [ARR(
 const PL = { out: [[0, 0], [-100, 120], [270, 198], [350, 198]], back: [[350, 102], [230, 102], [110, 30], [0, 0]], x: 350, y: 150, r: 30, orbit: 48, t0: T.pilot + 1.1, t1: T.pilot + 2.6 };
 PL.w = 3 * (PL.out[3][0] - PL.out[2][0]) / (PL.t1 - PL.t0) / PL.orbit;     // it rounds the place at the speed it came in
 PL.lap = TAU / PL.w; PL.leave = PL.t1 + 1.5 * PL.lap; PL.home = PL.leave + 1.1;
-const SUNFL = [T.arrive, T.ok1, PL.home, T.back + LEG, T.ok2, T.mark + 5.1];
+const SUNFL = [T.arrive, T.land, T.ok1, PL.home, T.back + LEG, T.ok2, T.mark + 5.1];
 
 function planet(j, t) {
   const c = CREW[j], th = c.th0 * PI / 180 + c.w * (t - T.lift);
@@ -291,12 +291,12 @@ const SMALL_ARCS = new Path2D('M100 48 A52 52 0 0 1 100 152 M100 14 A86 86 0 0 1
 // ---- words ----
 const ASK = 'Fix the flaky sign-in test';
 const CAPS = [
-  { a: .5, b: 4.4, eb: 'THE ASK', l: ['It starts with one ask.'] },
-  { a: 6.4, b: 14.4, eb: 'THE OUTPOST', l: ['Your outpost sets up', 'on your own machine.'] },
-  { a: 16.2, b: 21.8, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, the crew in orbit.'] },
-  { a: 22.2, b: 25.5, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
+  { a: .5, b: T.arrive, eb: 'THE OUTPOST', l: ['Travel to an outpost.', 'It sets up on your own machine.'] },
+  { a: T.lift + 1.2, b: T.ask, eb: 'THE CREW', l: ['At its centre, a Commander.', 'Around it, the crew in orbit.'] },
+  { a: T.ask + .2, b: T.plan, eb: 'THE ASK', l: ['Then kick off a mission', 'with one ask.'] },
+  { a: T.plan + .2, b: T.out + .1, eb: 'THE PLAN', l: ['Your ask becomes a plan,', 'and waits for your OK.'] },
   // the missions section runs over two captions, so its eyebrow stays up between them (ebOut, ebIn)
-  { a: 25.9, b: T.pilot + .2, eb: 'THE MISSIONS', l: ['The crew sets out,', 'several missions at once.'], ebOut: false },
+  { a: T.out + .5, b: T.pilot + .2, eb: 'THE MISSIONS', l: ['The crew sets out,', 'several missions at once.'], ebOut: false },
   { a: T.pilot + .2, b: T.review - .1, eb: 'THE MISSIONS', l: ['For the most challenging missions,', 'send the Test Pilot.'], ebIn: false },
   { a: T.review + .3, b: T.back, eb: 'THE REVIEW', l: ['The Security Chief reviews', 'everything that changed.'] },
   { a: T.back + .4, b: T.pull + .1, eb: 'YOUR CLICK', l: ['Nothing leaves the outpost', 'without your click.'] },
@@ -304,7 +304,7 @@ const CAPS = [
   { a: T.router, b: T.mark + .1, eb: 'THE ROUTER', l: ['A router sizes up each task', 'and picks the model to fit.'] },
 ];
 const BTN = [
-  { a: 23, click: T.ok1, label: 'Approve and start', done: 'Plan approved' },
+  { a: T.plan + 1, click: T.ok1, label: 'Approve and start', done: 'Plan approved' },
   { a: T.back + 1.2, click: T.ok2, label: 'Push and open it', done: 'Pull request opened' },
 ];
 const LOGALT = [Math.log10(240), Math.log10(1.496e11), Math.log10(40 * 9.461e15), Math.log10(1e5 * 9.461e15)];
@@ -328,7 +328,7 @@ function backdrop(t) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
   // far stars. They barely move as the camera climbs, and at the end they fall into the mark with the rest.
-  const dustA = smooth(prog(t, 16, 20.5)) * (1 - smooth(prog(t, T.mark + 4.4, T.mark + 5.4)));
+  const dustA = smooth(prog(t, T.lift + 1, T.lift + 5.5)) * (1 - smooth(prog(t, T.mark + 4.4, T.mark + 5.4)));
   if (dustA > 0) {
     const par = Math.pow(V.S / S4, .12), e5 = prog(t, T.mark + .2, T.mark + 4.6);
     ctx.fillStyle = col('ink', (DARK ? .8 : .5) * dustA); ctx.beginPath();
@@ -502,17 +502,17 @@ function dot(t) {
 }
 
 function crewLabels(t) {
-  if (t < 19 || t > T.pull + 1) return;
+  if (t < T.lift + 4 || t > T.pull + 1) return;
   const gone = 1 - smooth(prog(t, T.pull, T.pull + .8));
   // the Commander, over the fire
-  const qa = smooth(prog(t, 19.2, 20.2)) * gone;
+  const qa = smooth(prog(t, T.lift + 4.2, T.lift + 5.2)) * gone;
   if (qa > 0) {
     setFont('d', 19); ctx.globalAlpha = qa; label('Commander', V.fx, V.fy - 46, { align: 'center', fill: col('qm'), halo: 5 });
     const ra = win(t, T.plan + .2, T.out + .4);   // only while it plans: later the Engineer passes behind here
     if (ra > 0) { setFont('m', 11); ctx.globalAlpha = qa * ra; label('plans, briefs, reviews', V.fx, V.fy - 68, { align: 'center', fill: col('muted'), halo: 4 }); }
   }
   V.P.forEach((p, j) => {
-    const c = CREW[j], na = smooth(prog(t, 19.4 + j * .15, 20.4 + j * .15)) * gone;
+    const c = CREW[j], na = smooth(prog(t, T.lift + 4.4 + j * .15, T.lift + 5.4 + j * .15)) * gone;
     if (na <= 0) return;
     const ra = win(t, ROLES[j][0], ROLES[j][1]);
     setFont('d', 19); const nw = ctx.measureText(c.name).width;
@@ -849,28 +849,34 @@ function vignette() {
 }
 
 function ask(t, px) {
-  const pa = win(t, .3, T.send + .75, .6, .6);
+  const pa = win(t, T.ask, T.send + .75, .6, .6);
   if (pa > 0) {
-    const out = smooth(prog(t, T.send + .15, T.send + .75)), x = 425, y = 428 + (1 - outCubic(prog(t, .3, 1))) * 10 + out * 6, w = 430, h = 48;
+    const out = smooth(prog(t, T.send + .15, T.send + .75)), x = 425, y = 428 + (1 - outCubic(prog(t, T.ask, T.ask + .7))) * 10 + out * 6, w = 430, h = 48;
     ctx.save(); ctx.globalAlpha = pa; ctx.shadowColor = SHADE; ctx.shadowBlur = 28 * px; ctx.shadowOffsetY = 10 * px; rr(x, y, w, h, 12); ctx.fillStyle = col('surface'); ctx.fill(); ctx.restore();
     ctx.globalAlpha = pa; rr(x, y, w, h, 12); ctx.strokeStyle = col('border'); ctx.lineWidth = 1; ctx.stroke();
-    const n = Math.floor(clamp((t - 1.15) * 12.5, 0, ASK.length)), typed = ASK.slice(0, n);
+    const n = Math.floor(clamp((t - T.ask - .85) * 12.5, 0, ASK.length)), typed = ASK.slice(0, n);
     setFont('b', 16, 500);
     label(n ? typed : 'Ask the Commander…', x + 20, y + 30, { fill: col(n ? 'text' : 'faint') });
     if (t < T.send && (n < ASK.length ? n > 0 || Math.sin(t * 9) > 0 : Math.sin(t * 9) > 0)) { ctx.fillStyle = col('accent'); ctx.fillRect(x + 21 + (n ? ctx.measureText(typed).width : 0), y + 14, 1.6, 21); }
     const pr = pulse(t, T.send - .14, .42), bs = pr >= 0 ? 1 - .15 * Math.sin(PI * pr) : 1, bx = x + w - 24, by = y + h / 2;
-    ctx.fillStyle = mix('line', 'accent', smooth(prog(t, 1.15, 1.7))); disc(bx, by, 15 * bs);
+    ctx.fillStyle = mix('line', 'accent', smooth(prog(t, T.ask + .85, T.ask + 1.4))); disc(bx, by, 15 * bs);
     ctx.strokeStyle = col('accent-ink'); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(bx, by + 5 * bs); ctx.lineTo(bx, by - 5 * bs); ctx.moveTo(bx - 4.5 * bs, by - .5 * bs); ctx.lineTo(bx, by - 5 * bs); ctx.lineTo(bx + 4.5 * bs, by - .5 * bs); ctx.stroke(); ctx.lineCap = 'butt';
   }
-  // the ask itself, as a spark: off the send button and up the trail to the fire
-  if (t >= T.send && t < T.arrive + .2) {
-    const p = t > T.ground ? trailPt(walk(t)) : [831, 452];
-    const a = smooth(prog(t, T.send, T.send + .25)) * (1 - smooth(prog(t, T.arrive - .05, T.arrive + .2)));
-    ctx.globalAlpha = 1; glow(p[0], p[1], 22, 'accent', .75 * a);
-    ctx.globalAlpha = a; ctx.fillStyle = col('dot'); disc(p[0], p[1], 4.6); ctx.fillStyle = col('hot'); disc(p[0], p[1], 2);
+  // you, as a spark: in from the trailhead and up the trail to the fire, where your outpost sets up
+  if (t >= T.ground + .3 && t < T.arrive + .2) spark(trailPt(walk(t)), smooth(prog(t, T.ground + .3, T.ground + .7)) * (1 - smooth(prog(t, T.arrive - .05, T.arrive + .2))));
+  // then the ask, as a spark: off the send button and in to the Commander
+  if (t >= T.send && t < T.land + .2) {
+    const u = inOut(prog(t, T.send, T.land)), bx = 831, by = 458, cx = (bx + V.fx) / 2 + 60, cy = (by + V.fy) / 2 + 40, v = 1 - u;
+    spark([v * v * bx + 2 * v * u * cx + u * u * V.fx, v * v * by + 2 * v * u * cy + u * u * V.fy], smooth(prog(t, T.send, T.send + .2)) * (1 - smooth(prog(t, T.land - .1, T.land + .2))));
   }
   ctx.globalAlpha = 1;
+}
+
+function spark(p, a) {
+  if (a <= 0) return;
+  ctx.globalAlpha = 1; glow(p[0], p[1], 22, 'accent', .75 * a);
+  ctx.globalAlpha = a; ctx.fillStyle = col('dot'); disc(p[0], p[1], 4.6); ctx.fillStyle = col('hot'); disc(p[0], p[1], 2);
 }
 
 const POINTER = [[0, 0], [0, 16.5], [4.4, 12.7], [7.3, 19], [9.9, 17.8], [7, 11.6], [12.6, 11.6]];
