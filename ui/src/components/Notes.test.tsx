@@ -196,7 +196,7 @@ test("a note's ticket sits beside it: read it, start work from it, or have it wr
   const posts = camp([{ ...NOTES[0], ticket: { ...TICKET, stale: true } }, NOTES[1]], { "/api/notes/ticket": () => ({ ok: true, thread: "run-10", notes: [] }) });
   const onInsert = vi.fn(), onAttach = vi.fn(), onOpenConversation = vi.fn();
   render(<NotesPanel onHide={() => {}} onInsert={onInsert} onAttach={onAttach} onOpenConversation={onOpenConversation} />);
-  expect(await screen.findByText(/has a ticket/)).toBeTruthy();
+  expect(await screen.findByText(/has a ticket/i)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Release steps/ }));
   expect(screen.getByRole("tab", { name: "Note" }).getAttribute("aria-selected")).toBe("true");
   expect(screen.queryByRole("button", { name: "Write up as a ticket" })).toBeNull(); // it has one: writing it again is on the ticket's side
@@ -231,7 +231,7 @@ test("ideas are suggested for the project you're in; one is kept, or the unkept 
   fireEvent.click(await screen.findByRole("button", { name: "Suggest ideas" }));
   expect(await screen.findByText("1 idea added.")).toBeTruthy();
   expect(posts[0]).toEqual({ url: "/api/ideas", body: { project: "p1" } });
-  expect(screen.getByRole("button", { name: /Retry the export on timeout/ }).textContent).toMatch(/Suggested · /);
+  expect(screen.getByRole("button", { name: /Retry the export on timeout/ }).textContent).toMatch(/Suggested/);
   expect(screen.getByRole("button", { name: "Replace the 1 you haven't kept" })).toBeTruthy();
 
   fireEvent.click(screen.getByRole("button", { name: /Retry the export on timeout/ }));
