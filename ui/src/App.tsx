@@ -537,7 +537,7 @@ export function App({ store }: { store: FeedStore }) {
                 </ZoneBoundary>
               );
               case "history": return state === "collapsed" ? <HistoryRail onShow={toggleHistory} /> : (
-                <ZoneBoundary name="History">
+                <ZoneBoundary name="Workspace">
                   <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory} needs={needs}
                     onOpenWiki={openWiki} onStartTicket={startTicket} onNewProject={newProject} onEditProject={editProject} />
                 </ZoneBoundary>

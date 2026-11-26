@@ -332,17 +332,17 @@ test("the page remembers which conversation you were in", () => {
 test("open, history keeps its rail, and clicking the rail closes it, as the rail opened it", () => {
   const onHide = vi.fn(), onShow = vi.fn();
   const { container } = render(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={() => {}} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onHide={onHide} />);
-  expect(screen.getByRole("button", { name: "Hide the history" }).textContent).toBe("History"); // its name, always shown
+  expect(screen.getByRole("button", { name: "Hide the workspace" }).textContent).toBe("Workspace"); // its name, always shown
   expect(container.querySelector(".hist-top")!.textContent).toBe("New conversation"); // no « beside it any more
   fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
   expect(onHide).not.toHaveBeenCalled();
   fireEvent.click(container.querySelector(".zone-rail.open")!); // the rail's empty space
   expect(onHide).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole("button", { name: "Hide the history" }));
+  fireEvent.click(screen.getByRole("button", { name: "Hide the workspace" }));
   expect(onHide).toHaveBeenCalledTimes(2);
   cleanup();
   render(<HistoryRail onShow={onShow} />);
-  fireEvent.click(screen.getByRole("button", { name: "Show history" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show the workspace" }));
   expect(onShow).toHaveBeenCalled();
 });
 

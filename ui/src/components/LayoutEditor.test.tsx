@@ -106,7 +106,7 @@ const showsSelect = () => screen.getByLabelText("This zone shows") as HTMLSelect
 test("the editor maps the zones, and starts on chat", () => {
   editor();
   const map = document.querySelector<HTMLElement>(".layout-map")!;
-  expect(within(map).getAllByRole("button").map((b) => b.textContent)).toEqual(["Crew roster", "History", "Chat", "Files", "Notes", "Terminal"]);
+  expect(within(map).getAllByRole("button").map((b) => b.textContent)).toEqual(["Crew roster", "Workspace", "Chat", "Files", "Notes", "Terminal"]);
   expect(mapZone("Chat").getAttribute("aria-pressed")).toBe("true");
   expect(showsSelect().value).toBe("chat");
   expect((screen.getByRole("button", { name: "Remove zone" }) as HTMLButtonElement).disabled).toBe(true);
@@ -121,12 +121,12 @@ test("pick a zone and change what it shows; a part that's elsewhere trades place
   expect(show(now())).toContain("row(files:272 chat history:300 notes:320)");
   fireEvent.change(showsSelect(), { target: { value: "" } });
   expect(show(now())).toContain("row(files:272 chat empty:300 notes:320)");
-  expect(screen.getByText("History", { selector: "b" })).toBeTruthy(); // listed as not on the page
+  expect(screen.getByText("Workspace", { selector: "b" })).toBeTruthy(); // listed as not on the page
 });
 
 test("add a zone beside one, say what goes in it, and remove it again", () => {
   const { now } = editor();
-  fireEvent.click(mapZone("History"));
+  fireEvent.click(mapZone("Workspace"));
   fireEvent.click(screen.getByRole("button", { name: "Add a zone below" }));
   expect(show(now())).toContain("row(col(history empty):272 chat files:300 notes:320)");
   expect(mapZone("Empty").getAttribute("aria-pressed")).toBe("true"); // the new one is picked
@@ -148,7 +148,7 @@ test("the roster's bar has no size to choose", () => {
 
 test("a zone's size can be switched between fixed, shared and fitted", () => {
   const { now } = editor();
-  fireEvent.click(mapZone("History"));
+  fireEvent.click(mapZone("Workspace"));
   const size = screen.getByLabelText("Its size") as HTMLSelectElement;
   expect(size.value).toBe("px");
   fireEvent.change(size, { target: { value: "grow" } });
