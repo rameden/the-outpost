@@ -17,14 +17,16 @@ import { requestDisplay, viewFileFor, type Attachment, type RequestContent } fro
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { randomUUID } from "node:crypto";
-import { currentExpeditionId, currentSignal, currentWorkspaces, withExpedition, withQuest, type Steering, type Workspace } from "./context.js";
+import { currentDepth, currentExpeditionId, currentQuestId, currentSignal, currentWorkspaces, withExpedition, withQuest, withWorkspaces, type Steering, type Workspace } from "./context.js";
 import { checkChanges, isDoc, noChecksNote, type ChecksReport } from "./verify.js";
 import { foldersToLock, lockFolders } from "./folderlock.js";
 import { setUpWorkspaces } from "./setup.js";
 import { FINDINGS_FORMAT, REVIEW_SCOPE } from "./review.js";
 import { workspaceStatus } from "./repos.js";
-import { budgetUsd, fixAttempts, questLimit, reviewChangesOn } from "./settings.js";
-import { changedFiles, sealSnapshots } from "./checkpoints.js";
+import { agentSettings, budgetUsd, fixAttempts, questLimit, reviewChangesOn } from "./settings.js";
+import { changedFiles, forgetFolder, noteLanded, sealSnapshots, snapshotBeforeShell } from "./checkpoints.js";
+import { closeQuestTree, cutQuestTree, isGitTop, settle, wantFolders, type QuestTree, type TreeEnd } from "./questtrees.js";
+import { linkedDisplayPath } from "./links.js";
 import { allTurns, recordTurn, setPlanAside, threadFor } from "./threads.js";
 import { GENERAL, getProject, history } from "./conversations.js";
 import { proposeSkill, skillCatalog } from "./forge.js";
@@ -39,7 +41,7 @@ const APPROVE_PLANS = process.env.CAMP_APPROVE_PLANS !== "0";
 // Who can be sent, as of now (crew members can be added while the camp runs), with how each one
 // is set up: plan around their real turn limit, model and tools, not a guess at them.
 export const rosterLines = () => Object.entries(ROSTER)
-  .map(([id, a]) => `- ${id} (${a.emoji} ${a.name}): ${a.role}\n  Setup: ${crewSetup(a)}.`)
+  .map(([id, a]) => `- ${id} (${a.emoji} ${a.name}): ${a.role}\n  Setup: ${crewSetup(a)}${sendsHelpers(a) ? "; may send helpers of its own (dispatch_helper)" : ""}.`)
   .join("\n");
 
 // parked: a plan you approved to start later (its text and its card). The run ends without
@@ -174,8 +176,82 @@ function releaseQuestSlot() {
   questsRunning--;
   questWaiters[0]?.(); // it takes itself out of the line
 }
+// A quest that sends helpers waits for them and does nothing else meanwhile, so its slot is theirs
+// to use while it waits: the limit counts the quests working, at every depth, and a quest waiting
+// on its helpers can never starve them of the slot it sits on. It takes a slot back (waiting its
+// turn like anyone) when the last helper is in.
+// out: helpers it has out. holding: it has a slot now.
+const slotHolders = new Map<string, { out: number; holding: boolean }>();
+async function whileHelping<T>(questId: string | undefined, fn: () => Promise<T>): Promise<T> {
+  const st = questId ? slotHolders.get(questId) : undefined;
+  if (!st) return fn(); // whoever you talk to directly holds no slot: its helpers just take theirs
+  st.out++;
+  if (st.holding) { st.holding = false; releaseQuestSlot(); }
+  try {
+    return await fn();
+  } finally {
+    st.out--;
+    if (!st.out) {
+      await questSlot(); // not stopped by Stop: the quest goes on to end, and frees what it holds then
+      // While it waited, it may have sent another helper (the slot is theirs again) or ended.
+      if (st.out || slotHolders.get(questId!) !== st) releaseQuestSlot();
+      else st.holding = true;
+    }
+  }
+}
 // For the tests: taking and freeing a slot directly, and how many quests hold one or wait for one.
-export const questSlotsForTests = { take: questSlot, release: releaseQuestSlot, now: () => ({ running: questsRunning, waiting: questWaiters.length }) };
+export const questSlotsForTests = { take: questSlot, release: releaseQuestSlot, now: () => ({ running: questsRunning, waiting: questWaiters.length }),
+  hold: (questId: string) => void slotHolders.set(questId, { out: 0, holding: true }), drop: (questId: string) => void slotHolders.delete(questId), whileHelping };
+
+// ---------- Helpers: a crew member that may send its own ----------
+// A crew member with "helpers" on (Settings → Crew) gets dispatch_helper: on a quest, or talking
+// to you directly, it can split its work and send helpers, several at once. That is as deep as it
+// goes (you → Quartermaster → quest → helper): a helper is a leaf. It can't send anyone, ask you
+// anything, write to memory or the wiki, propose a skill, or touch scheduled jobs; it does the
+// piece it was given and reports back to whoever sent it.
+export const MAX_DEPTH = 2;
+export const LEAF_BLOCKED = new Set(["dispatch", "dispatch_helper", "ask_user", "remember", "project_remember", "wiki_write", "propose_skill", "schedule_job", "list_jobs", "cancel_job", "housekeeping"]);
+const toolName = (t: Tool) => ("name" in t.def ? t.def.name : "");
+export const sendsHelpers = (spec: Pick<AgentSpec, "id">) => spec.id !== "quartermaster" && agentSettings(spec.id).helpers === true;
+export const leafOf = (spec: AgentSpec): AgentSpec => ({ ...spec, tools: spec.tools.filter((t) => !LEAF_BLOCKED.has(toolName(t))) });
+type Sender = { questId: string; name: string; emoji: string };
+function makeDispatchHelper(exp: QuestHome, sender: AgentSpec): Tool {
+  const able = Object.entries(ROSTER).filter(([id]) => id !== "quartermaster");
+  return {
+    def: {
+      name: "dispatch_helper",
+      description: say(
+        "Send a helper to do one piece of your {quest} and wait for its report. Use it to split work that divides cleanly " +
+        "(two parts of a change that don't touch the same files, a search while you write). Call it several times in one turn and the helpers work at the same time; " +
+        "helpers that change files in the same repository each get their own worktree, and their changes come back to your folder when they finish. " +
+        "A helper starts with NO memory of your work, so the brief must be self-contained: the goal, the files, the constraints, what to return. " +
+        "A helper can't send helpers, ask the user, or write to memory. You answer for what they do: read their reports, and check the result.") +
+        "\n\nWho can help:\n" + able.map(([id, a]) => `- ${id} (${a.emoji} ${a.name}): ${a.role}`).join("\n"),
+      input_schema: {
+        type: "object",
+        properties: {
+          helper: { type: "string", enum: able.map(([id]) => id), description: `Who to send. Left out: another ${sender.name}.` },
+          brief: { type: "string" },
+        },
+        required: ["brief"],
+      },
+    },
+    run: async ({ helper, brief }) => {
+      const spec = ROSTER[String(helper ?? sender.id)];
+      if (!spec || spec.id === "quartermaster") return `No helper named ${helper}.`;
+      const questId = currentQuestId();
+      if (currentDepth() >= MAX_DEPTH || !questId) return "Not sent: a helper can't send helpers of its own. Do this piece yourself.";
+      const back = await whileHelping(questId, () => sendQuest(exp, spec, String(brief), undefined, { questId, name: sender.name, emoji: sender.emoji }));
+      if (!back) return `Not sent: the ${w("expedition")} was stopped.`;
+      const KEEP = 8_000;
+      const body = back.text.length > KEEP ? back.text.slice(0, KEEP * 0.7).trimEnd() + `\n[… ${back.text.length - KEEP} characters left out …]\n` + back.text.slice(-KEEP * 0.3).trimStart() : back.text;
+      return `${spec.name}'s report (your helper):\n${body}` + (back.checks ? `\n\n${back.checks}` : "");
+    },
+  };
+}
+// The crew member as it runs here: with dispatch_helper when it may send helpers.
+const withHelpers = (exp: QuestHome, spec: AgentSpec): AgentSpec =>
+  sendsHelpers(spec) && !spec.tools.some((t) => toolName(t) === "dispatch_helper") ? { ...spec, tools: [...spec.tools, makeDispatchHelper(exp, spec)] } : spec;
 
 // The Quartermaster's key tool: send an adventurer on a quest.
 // The adventurer runs its own full agent loop and returns only its report,
@@ -244,44 +320,123 @@ function makeDispatch(exp: Expedition): Tool {
   };
 }
 
-// One quest, from waiting its turn to its report. A quest that can change files in a linked folder
-// first waits for that folder (one writer at a time there: see folderlock.ts), then every quest
-// waits for a free slot. It holds the folder until it is back, its checks and any fix included.
+// One quest, from waiting its turn to its report. Every quest waits for a free slot. A quest that
+// can change files in a linked folder first settles how it works there:
+// - alone in the folder, it works in the folder itself and holds it until it is back, its checks
+//   and any fix included (one writer at a time there: see folderlock.ts);
+// - with other writing quests wanting the same git folder at once, each works in its own worktree
+//   of it (questtrees.ts), and its changes are merged back into the folder when it is back.
+// sender: the quest that sends this one as its helper (a leaf: see leafOf); the folders are then
+// the sender's own (its worktree, if it has one), and its helpers share them among themselves.
 // null: the run was stopped while it waited, and nobody went.
-async function sendQuest(exp: Expedition, spec: AgentSpec, brief: string, step?: number): Promise<{ result: AgentResult; checks: string; text: string } | null> {
-  const lead = { who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0 };
-  const folders = foldersToLock(spec);
-  const free = await lockFolders(folders.map((f) => f.root), spec.name, currentSignal(), (holder, root) =>
-    emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s {quest} is waiting for ${holder}'s to finish in links/${folders.find((f) => f.root === root)?.name}: one {quest} at a time changes files in a folder.` }));
-  if (!free) return null;
+type QuestHome = Pick<Expedition, "job" | "unchecked" | "reviewed">;
+async function sendQuest(exp: QuestHome, asked: AgentSpec, brief: string, step?: number, sender?: Sender): Promise<{ result: AgentResult; checks: string; text: string } | null> {
+  const depth = sender ? currentDepth() + 1 : 1;
+  const spec = sender ? leafOf(asked) : withHelpers(exp, asked);
+  const lead = sender ? { who: sender.name, emoji: sender.emoji, depth: depth - 1, questId: sender.questId } : { who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0 };
+  const signal = currentSignal();
+  // A sender holds its folder while its helpers work in it, so they share it under a hold of their own.
+  const keyOf = (root: string) => (sender ? `${root}#${sender.questId}` : root);
+  const folders = foldersToLock(spec).map((f) => ({ ...f, key: keyOf(f.root) }));
+  const want = wantFolders(folders.map((f) => f.key));
+  let free: (() => void) | null = null;
+  let slot: { out: number; holding: boolean } | undefined;
+  let questId = "";
   try {
+    const mine = new Map<string, "tree" | "place">();
+    if (folders.length) {
+      // Everyone sent in this turn has said which folders they want by the time anyone decides.
+      const [tops] = await Promise.all([Promise.all(folders.map((f) => isGitTop(f.root))), settle()]);
+      const git = new Set(folders.filter((_, i) => tops[i]).map((f) => f.key));
+      for (const [k, mode] of want.decide((k) => git.has(k))) mine.set(k, mode);
+    }
+    const apart = folders.filter((f) => mine.get(f.key) === "tree");
+    const inPlace = folders.filter((f) => mine.get(f.key) !== "tree");
+    free = await lockFolders(inPlace.map((f) => f.key), spec.name, signal, (holder, key) =>
+      emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s {quest} is waiting for ${holder}'s to finish in links/${folders.find((f) => f.key === key)?.name}: one {quest} at a time changes files in a folder.` }));
+    if (!free) return null;
     if (questsRunning >= questLimit()) {
       emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s {quest} is waiting for a free slot (${questLimit()} {quests} run at once).` });
     }
-    if (!(await questSlot(currentSignal()))) return null;
+    if (!(await questSlot(signal))) return null;
     // Each quest gets its own id, so parallel quests keep their events and approvals apart.
-    const questId = randomUUID();
-    emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, brief: briefLine(brief), ...(step !== undefined ? { step } : {}) });
+    questId = randomUUID();
+    slotHolders.set(questId, (slot = { out: 0, holding: true }));
+    emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, brief: briefLine(brief), ...(step !== undefined ? { step } : {}), ...(sender ? { helperOf: sender.questId } : {}) });
+    const me = { who: spec.name, emoji: spec.emoji, questId };
     const started = new Date();
+    const trees: QuestTree[] = [];
+    // Its worktrees come down however it ends: merged back, or kept on their branches.
+    const bringBack = async (keep?: string): Promise<string> => {
+      const notes: string[] = [];
+      for (const tree of trees.splice(0)) {
+        const end = await closeQuestTree(tree, spec.name, { keep, signal, beforeLanding: async () => { await snapshotBeforeShell(tree.root, linkedDisplayPath); } })
+          .catch((e: Error): TreeEnd => ({ link: tree.link, branch: tree.branch, state: "kept", reason: `it couldn't be brought back (${e.message})`, files: [], base: tree.base, left: tree.path }));
+        if (!end.left) forgetFolder(currentExpeditionId(), tree.path); // its files are in the folder now, or on the branch
+        if (end.state === "merged") noteLanded(end.files, sender?.questId ?? questId);
+        emit({ type: "quest_tree", ...me, link: tree.link, branch: tree.branch, state: end.state, ...(end.reason ? { reason: end.reason } : {}), ...(end.state === "merged" ? { files: end.files.length } : {}) });
+        if (end.state === "kept") emit({ type: "notice", ...me, depth, text: `🌿 ${spec.name}'s changes to links/${tree.link} weren't merged back: ${end.reason}. They're on the branch ${tree.branch}${end.left ? `, and its worktree is left at ${end.left}` : ""}.` });
+        notes.push(treeReport(spec.name, end));
+      }
+      return notes.join("\n");
+    };
     try {
-      const back = await withQuest(questId, () => questWithChecks(spec, questId,
-        (task) => runAgent(spec, task ?? brief, { depth: 1, source: "brief" }),
-        (r, task, from) => logQuest("quest", spec.name, task ?? brief, from, r, exp.job)));
-      emit({ type: "return", who: spec.name, emoji: spec.emoji, status: back.result.status, questId });
+      const own: Record<string, Workspace> = {};
+      for (const f of apart) {
+        let tree: QuestTree | null;
+        try {
+          tree = await cutQuestTree({ id: questId, link: f.name, root: f.root, lockKey: f.key, who: spec.name }, signal);
+        } catch (e: any) {
+          // No worktree could be made (git said no): it works in the folder after all, in its turn.
+          emit({ type: "notice", ...me, depth, text: `⏳ ${spec.name} couldn't get a worktree of links/${f.name} (${e.message}), so it waits its turn in the folder.` });
+          const held = await lockFolders([f.key], spec.name, signal), before = free;
+          if (!held) { tree = null; } else { free = () => { before?.(); held(); }; continue; }
+        }
+        if (!tree) { emit({ type: "return", ...me, status: "stopped" }); return null; }
+        trees.push(tree);
+        own[f.name] = { link: f.name, path: tree.path, branch: tree.branch, base: tree.base, created: true };
+        emit({ type: "quest_tree", ...me, link: f.name, branch: tree.branch, state: "working" });
+      }
+      const back = await withQuest(questId, () => withWorkspaces(own, async () => {
+        const setup = trees.length ? await setUpWorkspaces(own, me) : "";
+        const extraSystem = [trees.length ? treeBrief(trees) : "", setup].filter(Boolean).join("\n\n") || undefined;
+        return questWithChecks(spec, questId,
+          (task) => runAgent(spec, task ?? brief, { depth, source: "brief", extraSystem, leaf: !!sender }),
+          (r, task, from) => logQuest("quest", spec.name, task ?? brief, from, r, exp.job));
+      }), false, depth);
+      const status = back.result.status;
+      const landed = await bringBack(status === "stopped" ? "it was stopped before it finished" : status === "error" ? "it ended with an error" : checksFailed(back.checks) ? "its checks failed" : undefined);
+      if (landed) back.text += `\n\n${landed}`;
+      emit({ type: "return", ...me, status });
       for (const u of back.unchecked) (exp.unchecked ??= new Map()).set(u.link, u.found);
       // A review counts when there was a change to review: the Warden, back with its report, after files changed.
-      if (spec.id === "warden" && back.result.status === "done" && codeChanged().length) exp.reviewed = true;
+      if (spec.id === "warden" && status === "done" && codeChanged().length) exp.reviewed = true;
       return back;
     } catch (err: any) {
+      await bringBack("it failed before it finished").catch(() => "");
       logFailure("quest", spec.name, brief, started, err, exp.job);
-      emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });
+      emit({ type: "return", ...me, status: "error" });
       throw err;
-    } finally {
-      releaseQuestSlot();
     }
   } finally {
-    free();
+    if (slot) { slotHolders.delete(questId); if (slot.holding) releaseQuestSlot(); }
+    free?.();
+    want.leave();
   }
+}
+// What a quest in its own worktree is told before it starts.
+const treeBrief = (trees: QuestTree[]) =>
+  `## You're working in your own worktree\nOthers of the ${w("crew")} are changing the same ${trees.length > 1 ? "repositories" : "repository"} right now, so you each have your own copy: ` +
+  trees.map((t) => `links/${t.link} is a worktree of its own for you, on the branch ${t.branch}`).join("; ") + ".\n" +
+  "- Work there as you would in the folder itself: same paths, same tools.\n" +
+  "- You won't see the others' changes, and they won't see yours. Stay within what your brief gives you: files someone else is also changing can't be merged.\n" +
+  `- Don't commit, switch branches or push. When you finish, the ${w("camp")} runs the checks in your worktree and merges your changes back into the folder as uncommitted changes.`;
+// What whoever sent the quest reads about where its changes are now.
+function treeReport(name: string, end: TreeEnd): string {
+  if (end.state === "merged") return `(${name} worked in its own worktree of links/${end.link}. Its changes are merged back into the folder: ${end.files.length} file${end.files.length === 1 ? "" : "s"}, uncommitted, as usual.)`;
+  if (end.state === "unchanged") return `(${name} worked in its own worktree of links/${end.link} and changed nothing there.)`;
+  return `(${name} worked in its own worktree of links/${end.link}, and its changes were NOT merged back into the folder: ${end.reason}. They are kept on the branch ${end.branch} of that repository` +
+    `${end.left ? `, and its worktree is left at ${end.left}` : ""}. Nothing of them is in links/${end.link}. To bring them in: \`git diff ${end.base.slice(0, 12)} ${end.branch} | git apply --3way\` there, or send someone to redo that part on top of what's there now. Tell the user about the branch if it stays.)`;
 }
 
 // Whether changes are reviewed before the report in this project: its own default if it set one, else the camp's.
@@ -738,7 +893,8 @@ export async function runDirect(
 ): Promise<AgentResult | null> {
   const who = findCrew(adventurer);
   if (who?.id === "quartermaster") return runExpedition(task, { source, attached, signal, id, replyTo, ...more });
-  const spec = who ? ROSTER[who.id] : undefined;
+  const home: QuestHome = {};
+  const spec = who && ROSTER[who.id] ? withHelpers(home, ROSTER[who.id]) : undefined;
   if (!spec) return null;
   const started = new Date();
   const shown = requestDisplay(task);

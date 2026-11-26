@@ -37,6 +37,7 @@ The `loop-*` cases (`evals/loop.ts`) are about the orchestration loop, not one a
 | `loop-resume-no-repeat` | A task picked up after being cut off doesn't send its notification twice (`src/oplog.ts`) |
 | `loop-fix-after-check` | A failing check in the folder sends the work back, and the run ends with the checks passing |
 | `loop-budget-stop` | A budget stops the run, the answer says so, and the remaining steps never start |
+| `loop-parallel-writers` | Two crew members change one repository at once: each in its own worktree, both merged back, nothing left on a branch |
 
 Their rules are all deterministic: none goes to the judge. Each case carries a **rehearsal**: a made-up good run its rules must pass, and made-up bad runs, each of which must fail the rule it names. `--dry` runs the rehearsals, so a rule that can't fail (or can't pass) is caught without calling a model. `tests/evals-loop.test.ts` goes further and runs the cases end to end against a scripted stand-in for the API.
 

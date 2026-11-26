@@ -105,8 +105,9 @@ onEvent((e: any) => {
   if (e.type === "tool") { tools.push({ who: e.who, tool: e.tool, input: e.input }); trail.push({ type: "tool", who: e.who, tool: e.tool, input: String(e.input ?? "") }); }
   if (e.type === "dispatch" && e.who !== undefined) {
     if (c.agent === undefined) dispatches.push({ who: e.who, at: Date.now() });
-    trail.push({ type: "dispatch", who: e.who, ...(e.questId ? { quest: e.questId } : {}), ...(e.step ? { step: e.step } : {}) });
+    trail.push({ type: "dispatch", who: e.who, ...(e.questId ? { quest: e.questId } : {}), ...(e.step ? { step: e.step } : {}), ...(e.helperOf ? { helperOf: e.helperOf } : {}) });
   }
+  if (e.type === "quest_tree") trail.push({ type: "tree", who: e.who, quest: e.questId, link: e.link, branch: e.branch, state: e.state });
   if (e.type === "return" && e.who !== undefined) trail.push({ type: "return", who: e.who, ...(e.questId ? { quest: e.questId } : {}), status: String(e.status ?? "") });
   if (e.type === "plan" && Array.isArray(e.steps)) trail.push({ type: "plan", steps: e.steps.map((s: any) => ({ n: s.n, text: s.text, ...(s.after?.length ? { after: s.after } : {}) })) });
   if (e.type === "notice" && typeof e.text === "string") trail.push({ type: "notice", who: e.who ?? "", text: e.text });

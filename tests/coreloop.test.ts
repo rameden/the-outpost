@@ -1,6 +1,6 @@
 // The plan → dispatch → check loop, held to in code rather than by what a prompt asks for:
 // a step marked "(after …)" doesn't start before those steps are back, two quests that change
-// files in the same folder take turns, a change is reviewed before the summary goes out when
+// files in the same repository each get a worktree, a change is reviewed before the summary goes out when
 // review is on, and a folder with no checks says so. Against a fake API, in a real linked folder.
 // (Ordered by what happens, never by the clock: nothing here waits a number of milliseconds.)
 import { test, after, beforeEach } from "node:test";
@@ -188,7 +188,10 @@ function watchTwoWriters() {
   };
 }
 
-test("two quests that change files in the same linked folder take turns; neither starts while the other is in it", async () => {
+// Two writers in one git repository no longer take turns: each gets its own worktree and both
+// land in the folder (tests/questtrees.test.ts has the rest, and the folder that isn't a
+// repository, where they still take turns).
+test("two quests that change files in the same linked repository work side by side in worktrees, and both land in the folder", async () => {
   const watch = watchTwoWriters();
   script = async (b) => {
     const who = whoAsks(b), res = lastToolResults(b);
@@ -206,10 +209,9 @@ test("two quests that change files in the same linked folder take turns; neither
   };
   const r = await runExpedition("Two changes in one folder").finally(watch.done);
   assert.equal(r.status, "done");
-  assert.ok(!watch.overlapped(), "both quests were working in the folder at the same time");
-  const order = events.filter((e) => e.type === "dispatch" || e.type === "return").map((e) => `${e.type} ${e.who}`);
-  assert.deepEqual(order, ["dispatch Scribe", "return Scribe", "dispatch Artificer", "return Artificer"], "the second set out when the first was back");
-  assert.ok(noticed(new RegExp(`Artificer's \\{quest\\} is waiting for Scribe's to finish in ${L}`)), "the user is told what it's waiting for");
+  assert.ok(watch.overlapped(), "both quests were working at the same time");
+  assert.ok(!noticed(/is waiting for .* to finish in links\//), "neither waited for the folder");
+  assert.deepEqual(events.filter((e) => e.type === "quest_tree").map((e) => `${e.who} ${e.state}`).sort(), ["Artificer merged", "Artificer working", "Scribe merged", "Scribe working"]);
   assert.equal(readFileSync(join(repo, "Scribe.txt"), "utf8"), "Scribe was here\n");
   assert.equal(readFileSync(join(repo, "Artificer.txt"), "utf8"), "Artificer was here\n");
   assert.deepEqual(folderLocksForTests.now(), { held: {}, waiting: 0 }, "the folder is free again");

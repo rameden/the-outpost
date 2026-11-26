@@ -21,7 +21,8 @@ type RunContext = { ledger: Ledger; expeditionId?: string; questId?: string; sig
   without?: string[];   // folders the user left out of this conversation, or took out of it part-way
   model?: string;       // the model you picked for this conversation: whoever you're talking to answers on it (the quests they send keep their own)
   thread?: string;      // the conversation this run is part of (its first run's id): a task that's picked up again keeps it
-  replyTo?: string };   // the run this one replies to, if any: the only run whose unfinished work it may pick up (oplog.ts)
+  replyTo?: string;     // the run this one replies to, if any: the only run whose unfinished work it may pick up (oplog.ts)
+  depth?: number };     // how far from you this work is: 1 for a quest, 2 for a helper that quest sent (the Quartermaster's own work has none)
 
 const store = new AsyncLocalStorage<RunContext>();
 
@@ -32,6 +33,9 @@ export const currentSignal = () => store.getStore()?.signal;
 export const isUnattended = () => store.getStore()?.unattended ?? false;
 // One key per running agent: its quest, else its expedition. Used to tell quests apart when they touch the same file.
 export const currentRunKey = () => store.getStore()?.questId ?? store.getStore()?.expeditionId ?? "solo";
+
+// 0: the run's own agent. 1: a quest. 2: a helper a quest sent (helpers send nobody).
+export const currentDepth = () => store.getStore()?.depth ?? 0;
 
 export const currentWorkspaces = () => store.getStore()?.workspaces ?? {};
 export const currentSteering = () => store.getStore()?.steering;
@@ -62,7 +66,16 @@ export function withExpedition<T>(opts: ExpeditionOpts, fn: () => Promise<T>): P
 // A quest inside the current expedition (same tally, stop signal, and mode; its own id).
 // lead: this quest is whoever you're talking to yourself (a direct chat), so the model you picked
 // for the conversation is theirs. A quest the Quartermaster sends out isn't: it keeps its own model.
-export function withQuest<T>(questId: string, fn: () => Promise<T>, lead = false): Promise<T> {
+// depth: 1 for a quest; a helper sent by a quest is one further out than whoever sent it.
+export function withQuest<T>(questId: string, fn: () => Promise<T>, lead = false, depth = 1): Promise<T> {
   const parent = store.getStore();
-  return store.run({ ...parent, ledger: parent?.ledger ?? { spent: 0 }, questId, model: lead ? parent?.model : undefined }, fn);
+  return store.run({ ...parent, ledger: parent?.ledger ?? { spent: 0 }, questId, model: lead ? parent?.model : undefined, depth }, fn);
+}
+
+// The same run, working somewhere else in these linked folders: a quest in its own worktree
+// (questtrees.ts). The file tools, the shell, the checks and the checkpoints all follow it.
+export function withWorkspaces<T>(extra: Record<string, Workspace>, fn: () => Promise<T>): Promise<T> {
+  const parent = store.getStore();
+  if (!Object.keys(extra).length) return fn();
+  return store.run({ ...parent, ledger: parent?.ledger ?? { spent: 0 }, workspaces: { ...parent?.workspaces, ...extra } }, fn);
 }

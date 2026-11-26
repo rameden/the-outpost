@@ -106,7 +106,7 @@ function toMcpContent(out: ToolOutput) {
 // together set out in a queue, and five file reads are five round trips. dispatch is on the list
 // because quests are built to run side by side (the camp's own limit on quests at once still
 // holds); the rest only read. Anything that writes, runs a command, or asks you stays one at a time.
-export const SIDE_BY_SIDE = new Set(["dispatch", "read_file", "view_file", "list_dir", "glob", "grep", "outline", "git", "pull_request", "recall", "jira"]);
+export const SIDE_BY_SIDE = new Set(["dispatch", "dispatch_helper", "read_file", "view_file", "list_dir", "glob", "grep", "outline", "git", "pull_request", "recall", "jira"]);
 
 // An MCP server (inside this process) exposing the agent's camp tools. Handlers run in the
 // run's own context, so budgets, quests, and Stop work across tool calls.
