@@ -2992,8 +2992,9 @@ a.orb-btn { display: inline-block; text-decoration: none; }
   /* A narrow screen: the panel is a sheet over the lower half, and the camp's numbers give their room to the buttons. */
   .orb-read, .orb-hint, .orb-holding, .orb-reel-speed, .orb-title span:not(.orb-pretend) { display: none; }
   .orb-reel { inset: auto 12px 84px 12px; } .orbit:has(.orb-reel) .orb-panel { bottom: 140px; } .orb-caption { left: 18px; bottom: 20px; }
-  .orb-title .orb-pretend { position: absolute; top: 56px; left: 18px; right: 14px; }
-  .orb-top { padding: 14px 14px 0 18px; } .orb-tools { margin-left: auto; } .orb-alert { position: absolute; top: 56px; left: 18px; }
+  .orb-title .orb-pretend { position: absolute; top: 112px; left: 18px; right: 14px; }
+  /* The buttons are wider than a phone: the title takes a line to itself and they wrap beneath it, so Leave is never cut off. */
+  .orb-top { flex-wrap: wrap; gap: 8px; padding: 14px 14px 0 18px; } .orb-title { flex: 1 0 100%; } .orb-tools { flex-wrap: wrap; margin-left: auto; } .orb-alert { position: absolute; top: 112px; left: 18px; }
   .orb-strip { inset: auto 12px 14px 12px; } .orb-cell { min-width: 118px; }
   .orb-panel { top: 50%; left: 12px; right: 12px; bottom: 84px; width: auto; }
 }
