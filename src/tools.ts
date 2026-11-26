@@ -71,6 +71,8 @@ const PRIVATE_CAMP_FILES = new Set([
   "feed.jsonl", "threads.jsonl", "quest-log.jsonl", "conversations.json", "memory-log.jsonl", "feedback.jsonl", "limits.json",
   "notes.json", // your own notes (notes.ts): the crew sees one only when you put it in a message
   "tickets.json", // Outpost tickets (tickets.ts): the crew reads and files them through its `tickets` tool, which checks what it writes
+  "job-scripts.json", // which job scripts you approved (jobs.ts): only your say-so writes it, so nothing else can make a script run
+  "PAUSE", // the switch that stops new work (pause.ts): yours to lift, not a running agent's
 ]);
 // And whole folders: checkpoints/ keeps copies of files as they were before each change, from every
 // conversation and project, whatever this one may see.
@@ -292,7 +294,10 @@ export function writeFileFor(self: string, opts: { outputsOnly?: boolean } = {})
 const SHELL_TIMEOUT_MS = 120_000;
 const SHELL_MAX_BYTES = 2_000_000;
 // env: extra variables for this one command, on top of the camp's environment without its secrets.
-export type ShellOpts = { signal?: AbortSignal; timeoutMs?: number; cwd?: string; sandbox?: SandboxPlan; env?: Record<string, string> };
+// onExit: told how the command ended, with what it printed to stdout alone, for a caller that has
+// to tell output from complaint and one exit code from another (a job's script: see scheduler.ts).
+export type ShellExit = { code: number | null; stdout: string; ended: string | null };
+export type ShellOpts = { signal?: AbortSignal; timeoutMs?: number; cwd?: string; sandbox?: SandboxPlan; env?: Record<string, string>; onExit?: (exit: ShellExit) => void };
 export async function runShell(command: string, signalOrOpts?: AbortSignal | ShellOpts, timeout?: number): Promise<string> {
   const o: ShellOpts = signalOrOpts instanceof AbortSignal || signalOrOpts === undefined ? { signal: signalOrOpts, timeoutMs: timeout } : signalOrOpts;
   const { signal, cwd = CAMP_ROOT } = o;
@@ -313,8 +318,10 @@ export async function runShell(command: string, signalOrOpts?: AbortSignal | She
     const child = box ? spawn(box.file, box.args, io) : shell ? spawn(shell.file, shell.args(command), io) : spawn(command, { ...io, shell: true });
     let out = "";
     let ended: string | null = null;
+    let stdout = "";
     const take = (chunk: Buffer) => { if (out.length < SHELL_MAX_BYTES) out += chunk.toString("utf8"); };
     child.stdout.on("data", take);
+    if (o.onExit) child.stdout.on("data", (chunk: Buffer) => { if (stdout.length < SHELL_MAX_BYTES) stdout += chunk.toString("utf8"); });
     child.stderr.on("data", take);
     const kill = (why: string) => {
       ended ??= why;
@@ -328,8 +335,9 @@ export async function runShell(command: string, signalOrOpts?: AbortSignal | She
       signal?.removeEventListener("abort", onAbort);
       done(text);
     };
-    child.on("error", (err) => finish(`Couldn't run it: ${err.message}`));
+    child.on("error", (err) => { o.onExit?.({ code: null, stdout, ended: `Couldn't run it: ${err.message}` }); finish(`Couldn't run it: ${err.message}`); });
     child.on("close", (code) => {
+      o.onExit?.({ code, stdout, ended });
       const body = out.trim();
       if (ended) return finish(`${ended}\n${body}`.trim());
       // A failing test run is useful output, not a crash.

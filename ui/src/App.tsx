@@ -19,6 +19,7 @@ import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Pa
 import { Presence } from "./motion.tsx";
 import { hear, COMMANDS, pageCommand } from "./bus.ts";
 import { busyProblem, type Handlers } from "../../src/commands.ts";
+import { GoalBar } from "./components/GoalBar.tsx";
 import { Palette, type PaletteItem } from "./components/Palette.tsx";
 import type { IconName } from "./components/bits.tsx";
 import { VoiceOn } from "./components/ReadAloud.tsx";
@@ -403,6 +404,11 @@ export function App({ store }: { store: FeedStore }) {
     catch (e) { tell(store, errorText(e), true); }
   };
 
+  // /pause and /resume: everything in this outpost waits (what's running finishes), or starts again.
+  const pauseAll = (on: boolean, reason?: string) => api("/api/pause", { on, ...(reason ? { reason } : {}) }).then(
+    () => { tell(store, on ? "Paused: nothing new starts until you resume. What's running finishes." : "Resumed: jobs, triggers and queued work start again."); refresh(); },
+    (e) => tell(store, errorText(e), true));
+
   // Today (the logo, and /today).
   const goHome = useCallback(() => { setSettings(null); setView({ kind: "home" }); }, [setView]);
   // One of your notes, picked on Today: the Notes panel opens on it.
@@ -437,6 +443,10 @@ export function App({ store }: { store: FeedStore }) {
     wiki: () => { setSettings(null); setView({ kind: "memory" }); },
     constellation: () => openMap(),
     ticket: () => setWizard({}),
+    // The message box reads what's typed after /goal itself (goal.ts): from the palette, it starts there.
+    goal: (arg) => composer.current?.setText(`/goal ${arg}`),
+    pause: (arg) => void pauseAll(true, arg.trim()),
+    resume: () => void pauseAll(false),
   };
   const command = (name: string, arg?: string) => {
     const c = pageCommand(name);
@@ -662,6 +672,7 @@ export function App({ store }: { store: FeedStore }) {
                     {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} onOpenInbox={openInbox} here={context?.live ?? context?.replyTo} /></ZoneBoundary>}
                     {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All runs shows the ones it records in the feed itself. */}
                     <StatusLine skipFed={inAll} />
+                    {view.kind === "conversation" && thread && !page && <GoalBar goal={S?.goals?.find((g) => g.thread === thread)} paused={!!S?.paused} refresh={refresh} />}
                     <ZoneBoundary name="The message box">
                       <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
                         onSent={onSent} onFolders={setAttached} draftKey={draftKey} hidden={!!page} />

@@ -36,6 +36,7 @@ import { costOf } from "./costs.js";
 import { questsCostOf } from "./questlog.js";
 import { randomUUID } from "node:crypto";
 import type { AgentResult } from "./agent.js";
+import { isPaused, pausedNote } from "./pause.js";
 
 export type HeadlessArgs = { task: string; json: boolean; approvePlan: boolean; project?: string; worktrees: string[]; agent?: string; quiet: boolean };
 
@@ -79,6 +80,8 @@ export async function runHeadless(a: HeadlessArgs, signal?: AbortSignal): Promis
     return q.kind === "plan" ? "n" : q.kind === "question" ? "Nobody is at the keyboard (a headless run). Make the most reasonable choice and say which you made." : "n";
   });
   const id = randomUUID();
+  // Everything is paused (pause.ts): a run from the command line is a new run like any other.
+  if (isPaused()) return { id, status: "error", text: pausedNote(), costUsd: 0, changed: [], worktrees: [], declined };
   if (a.project && !getProject(a.project)) throw new Error(`No project named "${a.project}".`);
   const choices: Record<string, WorkspaceChoice> = Object.fromEntries(a.worktrees.map((l) => [l, { mode: "new" as const }]));
   const workspaces = a.worktrees.length ? await prepareWorkspaces(choices, a.task, id) : undefined;
