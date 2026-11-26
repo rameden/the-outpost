@@ -1,4 +1,5 @@
-import { w } from "./words.ts";
+import { fillWords } from "./words.ts";
+import { commandsOn, findCommand, parseSlash, type BusyPolicy, type Category, type SurfaceCommand } from "../../src/commands.ts";
 
 // A few things one part of the page asks of another that sits far from it in the tree: an
 // answer's file path asking for the file viewer, a worktree's row putting text in the message
@@ -26,34 +27,20 @@ export function hear(fn: (ask: Ask) => void): () => void {
   return () => window.removeEventListener(NAME, on);
 }
 
-// The commands you can type at the start of a message (and find in the command palette).
-export const COMMANDS: { name: string; arg?: string; does: string }[] = [
-  { name: "today", does: "Open Today: your brief, and where things stand (the logo goes there too)" },
-  { name: "new", does: "Start a new conversation" },
-  { name: "orbit", arg: "demo", get does() { return `Watch the ${w("crew")} at work as a solar system, full screen (/orbit demo plays a pretend ${w("camp")})`; } },
-  { name: "trail", does: "See the plan as a trail: each step, who's on it, and what it waits for, full screen" },
-  { name: "focus", does: "Close the workspace, files, notes and terminal (again brings them back)" },
-  { name: "files", does: "Show or hide the files" },
-  { name: "terminal", does: "Show or hide the terminal" },
-  { name: "history", does: "Show or hide the workspace" },
-  { name: "notes", does: "Show or hide your notes" },
-  { name: "note", arg: "text", does: "Jot down a new note" },
-  { name: "find", arg: "name", does: "Find a file, a conversation or a command" },
-  { name: "next", does: "Go to the next decision waiting on you" },
-  { name: "good", arg: "note", does: "Rate the last answer 👍, with an optional note" },
-  { name: "bad", arg: "note", does: "Rate the last answer 👎, with an optional note" },
-  { name: "ticket", does: "Start a ticket: pick it, check it, say where and who" },
-  { name: "tickets", does: "Open Tickets: the Outpost's own and Jira's, and which Jira ones show" },
-  { name: "memory", get does() { return `Open Memory: what the ${w("crew")} remembers, and the wiki`; } },
-  { name: "constellation", get does() { return `See everything the ${w("crew")} remembers as a map of stars, full screen`; } },
-  { name: "layout", does: "Arrange the page's zones" },
-  { name: "settings", does: "Open Settings" },
-];
-// "/good nice work" → { name: "good", arg: "nice work" }; anything that isn't one of ours → null.
+// The commands you can type at the start of a message (and find in the command palette): the
+// page's share of the one registry (src/commands.ts), which the terminal's /help reads too. What
+// each does is App.tsx's command(). arg is what it takes, as the / menu shows it ("[demo]").
+export type PageCommand = { name: string; aliases: readonly string[]; arg?: string; does: string; category: Category; busy: BusyPolicy };
+const page = (c: SurfaceCommand): PageCommand => ({ name: c.name, aliases: c.aliases, arg: c.args, get does() { return fillWords(c.description); }, category: c.category, busy: c.busy });
+export const COMMANDS: PageCommand[] = commandsOn("ui").map(page);
+// "/good nice work" → { name: "good", arg: "nice work" }; an alias gives the command's own name;
+// anything that isn't one of ours (a path, a word we don't know) → null, and goes to the crew.
 export function parseCommand(text: string): { name: string; arg: string } | null {
-  const m = text.trim().match(/^\/([a-z]+)(?:\s+([\s\S]*))?$/);
-  return m && COMMANDS.some((c) => c.name === m[1]) ? { name: m[1], arg: (m[2] ?? "").trim() } : null;
+  const p = parseSlash(text, "ui");
+  return p && "command" in p ? { name: p.command.name, arg: p.arg } : null;
 }
+// A command by name or alias, hidden ones too (connectors), for the busy policy.
+export const pageCommand = (name: string): PageCommand | undefined => { const c = findCommand(name, "ui"); return c && page(c); };
 
 // An expedition just finished well (said by camp.ts as the event arrives, not for old ones played
 // back). Decorations listen for it: New Year's confetti.

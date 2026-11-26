@@ -21,7 +21,7 @@
 // A note that's been filed says so, and opens its tickets.
 
 import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { cx, nameNow, plural, when } from "../format.ts";
+import { cx, nameNow, plural, when, youActed } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import { editNote, isWriting, keepIdea, loadNotes, newNote, openNote, removeNote, suggestIdeas, ticketBrief, ticketText, titleOf, useNotes, writeTicket } from "../notes.ts";
 import type { Note } from "../types.ts";
@@ -152,8 +152,8 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
   const start = () => { if (!ticket) return; onAttach?.({ ...note, title: ticket.title, text: ticketText(ticket) }); onInsert?.(ticketBrief(ticket)); };
   const [copied, setCopied] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
-  // A note just started opens ready to type in.
-  useEffect(() => { if (!note.title && !note.text) box.current?.focus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // A note just started opens ready to type in (not one that's only come back open with the page).
+  useEffect(() => { if (!note.title && !note.text && youActed()) box.current?.focus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const empty = !note.text.trim();
   const blank = empty && !note.title.trim();
   const noBox = "Open a conversation first: this page has no message box.";

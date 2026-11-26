@@ -141,3 +141,8 @@ export function resetIn(ms: number) {
   const mins = Math.max(1, Math.round((ms - Date.now()) / 60000));
   return mins < 90 ? `${mins} min` : mins < 48 * 60 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} days`;
 }
+
+// Whether you've clicked or typed on the page since it loaded. A pane that comes back open on its
+// own (remembered from last time) doesn't take the keyboard until you have; one you open does.
+// (Where the browser can't say, as in tests, it's taken as yes.)
+export const youActed = (): boolean => (typeof navigator !== "undefined" && navigator.userActivation ? navigator.userActivation.hasBeenActive : true);
