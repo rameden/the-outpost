@@ -3219,3 +3219,5 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .release-major { font-size: 11px; padding: 1px 7px; color: var(--accent); border: 1px solid var(--accent); background: transparent; }
 .release-pr { font-size: 12px; color: var(--faint); text-decoration: none; }
 .release-pr:hover { color: var(--accent); text-decoration: underline; }
+/* A page's tab row wraps on a phone rather than hiding tabs off the right edge. */
+@media (max-width: 640px) { .page-tabs { flex-wrap: wrap; overflow-x: visible; } .page-tabs .tab { padding-inline: 8px; } }
