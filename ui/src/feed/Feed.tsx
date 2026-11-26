@@ -7,7 +7,7 @@ import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
-import { autoName, cClass, clock, crewNow, cx, emojiNow, handleFor, handlesNow, leadName, nameNow, plural, shortModel, shown, spaced } from "../format.ts";
+import { autoName, cClass, clock, crewId, crewNow, cx, emojiNow, handleFor, handlesNow, leadName, nameNow, plural, shortModel, shown, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
 import { ReadAloud } from "../components/ReadAloud.tsx";
 import { MaeSystem } from "../components/MaeSystem.tsx";
@@ -127,7 +127,8 @@ const RunOf = createContext<ExpNode | null>(null);
 type PlanView = "list" | "trail";
 const PLAN_VIEW = "camp-plan-view";
 const goToQuest = (id: string) => document.getElementById(`quest-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-const crewId = (who: string) => crewNow().find((c) => c.name === who)?.id;
+// Any name one of the six has had, in any pack (so a trail drawn after a switch keeps its colours), or someone you added.
+const crewIdOf = (who: string) => crewId(who) ?? crewNow().find((c) => c.name === who)?.id;
 const openQuest = (_expId: string, node: string) => goToQuest(node);
 function PlanList({ plan }: { plan: PlanNode }) {
   const run = useContext(RunOf);
@@ -150,9 +151,9 @@ function PlanList({ plan }: { plan: PlanNode }) {
       {view === "trail" ? (
         <>
           <div className="plan-trail" role="group" aria-label="The plan as a trail" tabIndex={0}>
-            <TrailGround plan={plan} expId={run?.expId ?? ""} crewId={crewId} onOpen={openQuest} label="The plan's steps, as a trail" inBox />
+            <TrailGround plan={plan} expId={run?.expId ?? ""} crewId={crewIdOf} onOpen={openQuest} label="The plan's steps, as a trail" inBox />
           </div>
-          <Loose at={{ expId: run?.expId ?? "", plan, loose }} crewId={crewId} onOpen={openQuest} />
+          <Loose at={{ expId: run?.expId ?? "", plan, loose }} crewId={crewIdOf} onOpen={openQuest} />
         </>
       ) : (
         <ol>
