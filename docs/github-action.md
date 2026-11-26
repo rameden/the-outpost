@@ -1,36 +1,34 @@
-# Running Mae from GitHub Actions
+# Running Outpost from GitHub Actions
 
 `npm run headless` runs one request start to finish with nobody at the keyboard, so a workflow can
 run the crew on a pull request, an issue, or a schedule. This is an example to copy into the
-repository you want the crew to work on. It isn't used by Mae's own CI.
+repository you want the crew to work on. It isn't used by Outpost's own CI.
 
 On GitHub's runners there's no Claude subscription to sign in to, so it uses the API runtime with
 a key from the repository's secrets (`ANTHROPIC_API_KEY`).
 
 ```yaml
-# .github/workflows/mae.yml
-name: Mae
+# .github/workflows/outpost.yml
+name: Outpost
 on:
   issues:
     types: [labeled]
 jobs:
   plan:
-    if: github.event.label.name == 'mae'
+    if: github.event.label.name == 'outpost'
     runs-on: ubuntu-latest
     permissions: { contents: read, issues: write }
     steps:
       - uses: actions/checkout@v4
         with: { path: app }
       - uses: actions/checkout@v4
-        # While this repository is private, the checkout also needs `token:` with a
-        # personal access token (a repository secret) that can read it.
-        with: { repository: rameden/Guild-Harness, path: mae }
+        with: { repository: rameden/the-outpost, path: outpost }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci
-        working-directory: mae
+        working-directory: outpost
       - name: Ask the crew for a plan
-        working-directory: mae
+        working-directory: outpost
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CAMP_RUNTIME: api

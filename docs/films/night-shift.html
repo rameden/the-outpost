@@ -538,8 +538,8 @@ tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reporte
 CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
 
 const gTitle = titleCard('NEW AT THE OUTPOST · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the outpost is idle. Nothing changes until you approve it.');
-const gEnd = endCard('Switch it on under', 'Settings → What Mae does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
-caption('Off until you switch it on.', 'Under Settings → What Mae does unasked. You choose the hours.', 3.0, T.dusk - .3);
+const gEnd = endCard('Switch it on under', 'Settings → What your outpost does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
+caption('Off until you switch it on.', 'Under Settings → What your outpost does unasked. You choose the hours.', 3.0, T.dusk - .3);
 caption('The outpost goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
 caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
 caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);

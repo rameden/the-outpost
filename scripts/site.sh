@@ -84,11 +84,17 @@ cmd_deploy() {
   # its logo goes to the top of the page, not to mission control.
   cp "$PAGE" "$out/index.html"
   printf 'User-agent: *\nAllow: /\n' > "$out/robots.txt"
+  # The picture a link preview shows (og:image): the mark and the name, 1200x630.
+  [[ -f "$ROOT/docs/og.png" ]] && cp "$ROOT/docs/og.png" "$out/og.png"
   say "Uploading to s3://$bucket …"
   aws s3 cp "$out/index.html" "s3://$bucket/index.html" --region "$REGION" \
     --content-type "text/html; charset=utf-8" --cache-control "public, max-age=300" --only-show-errors
   aws s3 cp "$out/robots.txt" "s3://$bucket/robots.txt" --region "$REGION" \
     --content-type "text/plain; charset=utf-8" --cache-control "public, max-age=86400" --only-show-errors
+  if [[ -f "$out/og.png" ]]; then
+    aws s3 cp "$out/og.png" "s3://$bucket/og.png" --region "$REGION" \
+      --content-type "image/png" --cache-control "public, max-age=86400" --only-show-errors
+  fi
   say "Clearing CloudFront's cache…"
   aws cloudfront create-invalidation --distribution-id "$dist" --paths "/*" \
     --query Invalidation.Id --output text >/dev/null

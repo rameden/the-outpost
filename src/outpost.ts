@@ -80,5 +80,5 @@ export function withOutpost(html: string, name = OUTPOST.name): string {
   const n = escapeHtml(cleanName(name) || DEFAULT_NAME);
   return html
     .replace(/<meta name="outpost" content="[^"]*">/, `<meta name="outpost" content="${n}">`)
-    .replace(/<title>Outpost [^<]*<\/title>/, `<title>Outpost ${n}</title>`);
+    .replace(/<title>Outpost(?: [^<]*)?<\/title>/, `<title>Outpost ${n}</title>`); // the public page is just "Outpost"
 }

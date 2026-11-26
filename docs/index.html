@@ -4,12 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- Outpost's promotional page. Standalone: open it in a browser, or serve docs/ with GitHub Pages. -->
-<title>Outpost Mae</title>
+<title>Outpost</title>
 <!-- The outpost's name: the camp server fills in its own as it serves the Tour (src/outpost.ts). -->
-<meta name="outpost" content="Mae">
+<meta name="outpost" content="">
 <meta name="description" content="Outpost: a small, hackable multi-agent harness on Claude. A Quartermaster plans, you approve, and a crew of specialists does the work.">
+<link rel="canonical" href="https://outpostmae.app/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://outpostmae.app/">
+<meta property="og:title" content="Outpost: your crew of agents on Claude">
+<meta property="og:description" content="A small, hackable multi-agent harness on Claude. A Quartermaster plans, you approve, and a crew of specialists does the work.">
+<meta property="og:image" content="https://outpostmae.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Outpost logo">
+<meta name="twitter:card" content="summary_large_image">
 <!-- The logo kit's favicon (docs/brand/favicon.svg), as in mission control and the star chart. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='8 8 184 184' role='img' aria-label='Outpost Mae'%3E%3Cstyle%3E.m%7Bfill:%2314233F%7D.r%7Bstroke:%2314233F%7D.d%7Bfill:%23B97A12%7D%40media (prefers-color-scheme:dark)%7B.m%7Bfill:%23F3EDE0%7D.r%7Bstroke:%23F3EDE0%7D.d%7Bfill:%23D9982B%7D%7D%3C/style%3E%3Cpath class='m' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg class='r' fill='none' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle class='d' cx='100' cy='100' r='20'/%3E%3Ccircle class='d' cx='160.81' cy='39.19' r='13'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='8 8 184 184' role='img' aria-label='Outpost'%3E%3Cstyle%3E.m%7Bfill:%2314233F%7D.r%7Bstroke:%2314233F%7D.d%7Bfill:%23B97A12%7D%40media (prefers-color-scheme:dark)%7B.m%7Bfill:%23F3EDE0%7D.r%7Bstroke:%23F3EDE0%7D.d%7Bfill:%23D9982B%7D%7D%3C/style%3E%3Cpath class='m' d='M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z'/%3E%3Cg class='r' fill='none' stroke-width='8'%3E%3Cpath d='M100 48 A52 52 0 0 1 100 152'/%3E%3Cpath d='M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186'/%3E%3C/g%3E%3Ccircle class='d' cx='100' cy='100' r='20'/%3E%3Ccircle class='d' cx='160.81' cy='39.19' r='13'/%3E%3C/svg%3E">
 <script>
 // The tour wears the look you picked in mission control. The camp serves this page at its own
 // address, so the two choices kept there are readable here: "camp-theme" (light, dark, or
@@ -203,6 +213,7 @@ a.brand { text-decoration: none; }
 /* The words beside the mark, as mission control's header has them: "Outpost" over this outpost's name. */
 .outpost-words { display: flex; flex-direction: column; min-width: 0; text-align: left; }
 .outpost-title { font-family: var(--body); font-weight: 700; font-size: 20px; line-height: 1.05; letter-spacing: -.01em; color: var(--logo-ink); }
+.outpost-sub:empty { display: none; }
 .outpost-sub { font-family: var(--body); font-weight: 600; font-size: 12px; line-height: 1.2; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand-in { display: contents; }
 .mae-mark { display: block; height: 34px; width: 34px; flex: none; } /* the kit's small mark */
@@ -259,7 +270,7 @@ a.brand { text-decoration: none; }
 .theme { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
 .theme:hover { border-color: var(--accent); }
 .looks { display: flex; align-items: center; gap: 8px; }
-/* The repo link sits with the switches, so it stays when the section links fold away on a phone. */
+/* The repo link sits with the switches, so it stays in the top bar on a phone too. */
 a.theme { text-decoration: none; }
 select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
 
@@ -273,6 +284,8 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .cmd span::before { content: "$ "; color: var(--night-muted); }
 .copy { font: 600 12px var(--body); color: var(--night-text); background: transparent; border: 1px solid var(--night-line); border-radius: 6px; padding: 5px 10px; cursor: pointer; flex: none; }
 .copy:hover { border-color: var(--night-muted); }
+.go { font-weight: 600; font-size: 15px; color: var(--accent-ink); background: var(--accent); text-decoration: none; padding: 12px 20px; border-radius: 10px; border: 2px solid var(--accent); }
+.go:hover { background: transparent; color: var(--text); }
 .ghost { font-weight: 600; font-size: 15px; color: var(--text); text-decoration: none; padding: 12px 4px; border-bottom: 2px solid var(--accent); }
 .runtimes { margin-top: 22px; font-size: 14px; color: var(--faint); }
 .runtimes a { color: var(--muted); text-underline-offset: 3px; }
@@ -395,6 +408,22 @@ select.theme { appearance: none; -webkit-appearance: none; padding-right: 28px; 
 .note a { color: var(--night-text); text-underline-offset: 3px; }
 .try { margin-top: 22px; padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: 15px; }
 .try q { font-family: var(--display); font-size: 18px; display: block; margin-top: 6px; quotes: "“" "”"; }
+.try a { display: inline-block; margin-top: 10px; font-size: 14px; color: var(--muted); text-underline-offset: 3px; }
+.try a:hover { color: var(--text); }
+.needs { margin-top: 22px; padding: 16px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: 14.5px; }
+.needs h3 { font-family: var(--body); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; }
+.needs dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }
+.needs dt { font-weight: 600; }
+.needs dd { margin: 0; color: var(--muted); }
+.costs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.cost { padding: 22px 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.cost h3 { font-size: 20px; margin-bottom: 8px; }
+.cost p { font-size: 15px; color: var(--muted); }
+.faq { display: grid; gap: 10px; max-width: 820px; }
+.faq details { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.faq summary { cursor: pointer; padding: 16px 20px; font-weight: 600; font-size: 16px; }
+.faq details[open] summary { border-bottom: 1px solid var(--border); }
+.faq details p { padding: 14px 20px 18px; font-size: 15px; color: var(--muted); }
 
 footer { padding-block: 72px 48px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--faint); font-size: 14px; align-items: center; }
 footer .brand { gap: 8px; }
@@ -531,6 +560,7 @@ footer .outpost-sub { font-size: 10px; }
 .feature { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--night-line); display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 40px; }
 .feature-head { display: grid; gap: 8px; align-content: start; }
 .feature-head h3 { font-size: 30px; }
+.feature > .film-inline { grid-column: 1 / -1; }
 .feature p { columns: 2 280px; column-gap: 44px; font-size: 15px; }
 /* Tabs: a section that would run long shows one part at a time. An underline marks the part that is open. */
 .tabs { display: flex; flex-wrap: wrap; gap: 0 28px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
@@ -560,7 +590,7 @@ footer .outpost-sub { font-size: 10px; }
 .reveal.in { opacity: 1; transform: none; }
 
 /* films:start */
-/* The films: in each section, a tab each over one stage. The tab that's showing has a solid 2px line under it. */
+/* The films: in the Films section, a tab each over one stage. The tab that's showing has a solid 2px line under it. */
 .film-tabs { display: flex; flex-wrap: wrap; gap: 0 28px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
 .film-tabs button { font: 600 15px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; cursor: pointer; }
 .film-tabs button span { font: 400 12px var(--mono); color: var(--faint); margin-left: 8px; }
@@ -568,6 +598,7 @@ footer .outpost-sub { font-size: 10px; }
 .film-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .film-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .film-stage { display: block; color: var(--muted); font-size: 15px; }
+.film-inline { margin-top: 18px; }
 .film-note { margin: 14px 0 0; color: var(--muted); font-size: 15px; max-width: 72ch; }
 .film-note code { font-family: var(--mono); font-size: .92em; white-space: nowrap; }
 /* The few colours the films use that the page has no other need of. */
@@ -608,6 +639,34 @@ footer .outpost-sub { font-size: 10px; }
   .feature { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .item.solo { grid-column: 1 / -1; } /* a lone small card on two columns takes the row, so no gap is left beside it */
 }
+/* Short of room for the section links beside the buttons, they drop to a row of their own under the logo, and scroll sideways. */
+@media (max-width: 1080px) {
+  .top { flex-wrap: wrap; row-gap: 12px; }
+  .top-end { display: contents; }
+  .top nav { order: 3; flex: 1 0 100%; flex-wrap: nowrap; gap: 18px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; padding-bottom: 4px; }
+  .top nav::-webkit-scrollbar { display: none; }
+}
+.menu-btn, .drawer-only, .drawer-shade { display: none; }
+.menu-btn { padding: 6px 9px; line-height: 0; }
+/* On a phone the section links live in a drawer from the right, opened by the menu button. */
+@media (max-width: 600px) {
+  .top { flex-wrap: nowrap; }
+  .top-end { display: flex; gap: 8px; }
+  .looks .theme:not(#theme):not(.menu-btn), #palette { display: none; }
+  .menu-btn { display: inline-flex; }
+  .top nav { position: fixed; inset: 0 0 0 auto; width: min(78vw, 300px); z-index: 60; order: 0; flex-direction: column; flex-wrap: nowrap; gap: 0; overflow-y: auto; white-space: normal;
+    padding: 72px 24px 24px; background: var(--surface); border-left: 1px solid var(--border-strong); box-shadow: -12px 0 32px rgba(0,0,0,.18);
+    transform: translateX(100%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s; font-size: 17px; }
+  .top nav a { padding: 14px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+  .top nav a:hover { border-bottom-color: var(--border); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .top nav .drawer-only { display: block; }
+  body.drawer-open .top nav { transform: none; visibility: visible; transition: transform .22s ease; }
+  .drawer-shade { position: fixed; inset: 0; z-index: 59; background: rgba(0,0,0,.35); }
+  body.drawer-open .drawer-shade { display: block; }
+  body.drawer-open { overflow: hidden; }
+  .menu-btn[aria-expanded="true"] { position: relative; z-index: 61; }
+}
+@media (max-width: 600px) and (prefers-reduced-motion: reduce) { .top nav, body.drawer-open .top nav { transition: none; } }
 @media (max-width: 600px) {
   section { padding-block: 64px 0; }
   .crew, .kit, .rules, .route, .words { grid-template-columns: minmax(0, 1fr); }
@@ -615,8 +674,9 @@ footer .outpost-sub { font-size: 10px; }
   .phone { grid-template-columns: minmax(0, 1fr); }
   .quests { grid-template-columns: minmax(0, 1fr); }
   .stop .pin::after { border-top-color: transparent; }
-  .top nav { display: none; }
-  .looks a.theme { display: none; } /* no room on a phone: the hero, Get started and the footer carry the GitHub link */
+  .costs { grid-template-columns: minmax(0, 1fr); }
+  .needs dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .needs dd + dt { margin-top: 8px; }
   .rule { padding-right: 0; }
   .rules > :last-child { grid-column: auto; }
   .hero-system { scale: .55; top: 80%; }
@@ -661,17 +721,16 @@ footer .outpost-sub { font-size: 10px; }
 </div>
 <div class="wrap hero-wrap">
   <header class="top">
-    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
+    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub"></span></span></a>
     <div class="top-end">
-      <nav aria-label="Sections">
+      <nav aria-label="Sections" id="sections">
         <a href="#crew">The <span data-word="crew">crew</span></a>
         <a href="#route">How it runs</a>
-        <a href="#films">On film</a>
-        <a href="#orbit">Orbit</a>
-        <a href="#videos">Videos</a>
+        <a href="#films">Films</a>
         <a href="#kit">The kit</a>
-        <a href="#rules">Outpost rules</a>
         <a href="#pitch">Get started</a>
+        <a href="#faq">FAQ</a>
+        <a class="drawer-only" href="https://github.com/rameden/the-outpost">GitHub</a>
       </nav>
       <div class="looks">
         <a class="theme" href="https://github.com/rameden/the-outpost">GitHub</a>
@@ -683,6 +742,7 @@ footer .outpost-sub { font-size: 10px; }
           <option value="ochre">Ochre</option>
         </select>
         <button class="theme" id="theme" type="button">Dark mode</button>
+        <button class="theme menu-btn" id="menu-btn" type="button" aria-controls="sections" aria-expanded="false" aria-label="Sections"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       </div>
     </div>
   </header>
@@ -691,16 +751,16 @@ footer .outpost-sub { font-size: 10px; }
     <div class="hero-copy" data-speed="0.12" data-fade>
       <div class="eyebrow">Outpost</div>
       <h1>Your outpost. Your <span data-word="crew">crew</span>. <em>Your call.</em></h1>
-      <p class="lede">Outpost is where a small <span data-word="crew">crew</span> of agents takes on your work the way you'd want it done, in outposts of your own: one for work, one for home, each with the name you give it. The <span data-crew="0">Quartermaster</span> turns your request into a plan, waits for your OK, then sends <span data-crew-a="1">a Scout</span>, <span data-crew-a="2">a Scribe</span> and <span data-crew-a="3">an Artificer</span> out on <span data-word="quests">quests</span>, several at once, with <span data-crew-a="4">a Warden</span> to review what changed. Each one keeps its own memory, its own workspace and its own limits.</p>
+      <p class="lede">Outpost is where a small <span data-word="crew">crew</span> of agents takes on your work the way you'd want it done, in outposts of your own: one for work, one for home, each with the name you give it. The <span data-crew="0">Quartermaster</span> turns your request into a plan, waits for your OK, then sends <span data-crew-a="1">a Scout</span>, <span data-crew-a="2">a Scribe</span> and <span data-crew-a="3">an Artificer</span> out on <span data-word="quests">quests</span>, several at once, with <span data-crew-a="4">a Warden</span> to review what changed and <span data-crew-a="5">a Test Pilot</span> for the hardest problems. Each one keeps its own memory, its own workspace and its own limits. It's for people who already use Claude and want more of the work done while they get on with theirs.</p>
       <div class="cta">
-        <div class="cmd"><span id="cmd-hero">npm install &amp;&amp; npm start</span><button class="copy" type="button" data-copy="cmd-hero">Copy</button></div>
+        <a class="go" href="#pitch">Get started ↓</a>
         <a class="ghost" href="#crew">Meet the <span data-word="crew">crew</span></a>
       </div>
       <p class="runtimes">Runs on your Claude Pro or Max subscription, or on an API key. Small, readable and yours to hack: <a href="https://github.com/rameden/the-outpost">the source is on GitHub</a>.</p>
     </div>
 
     <div class="feed" id="feed" aria-label="An example expedition" data-t-aria-label="An example {expedition}">
-      <div class="feed-top"><span class="feed-name"><span class="brand-in" role="img" aria-label="Outpost Mae"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></span><small><span data-word="hq">mission control</span> · example <span data-word="expedition">expedition</span></small></span><button class="replay" id="replay" type="button">Replay</button></div>
+      <div class="feed-top"><span class="feed-name"><span class="brand-in" role="img" aria-label="Outpost"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub"></span></span></span><small><span data-word="hq">mission control</span> · example <span data-word="expedition">expedition</span></small></span><button class="replay" id="replay" type="button">Replay</button></div>
       <div class="feed-body">
         <div class="msg"><div class="av">🙂</div><div><div class="who you">You</div><div class="bubble you">Research how other agent harnesses handle memory, then write it up as a short doc.</div></div></div>
         <div class="msg"><div class="av" data-crew-i="0">🧭</div><div><div class="who qm" data-crew="0">Quartermaster</div><div class="bubble">Here's the plan. Two <span data-word="quests">quests</span>, the second waits on the first.</div>
@@ -871,18 +931,24 @@ footer .outpost-sub { font-size: 10px; }
 <section id="films">
   <div class="wrap">
     <div class="sec-head">
-      <div class="eyebrow">On film</div>
+      <div class="eyebrow">Films</div>
       <h2>Watch the work go round the crew.</h2>
-      <p class="lede">Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it.</p>
+      <p class="lede">Five short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky, and the second all of it in one loop, from the star chart to the night shift. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Films">
       <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">Ground to sky <span>1:16</span></button>
-      <button type="button" role="tab" id="film-tab-ticket" aria-controls="film-ticket" aria-selected="false" data-film="ticket">One ticket, start to finish <span>0:54</span></button>
+      <button type="button" role="tab" id="film-tab-whole" aria-controls="film-whole" aria-selected="false" data-film="whole">The whole sky <span>1:26</span></button>
+      <button type="button" role="tab" id="film-tab-ticket" aria-controls="film-ticket" aria-selected="false" data-film="ticket">One ticket <span>0:54</span></button>
       <button type="button" role="tab" id="film-tab-audit" aria-controls="film-audit" aria-selected="false" data-film="audit">Three audit findings <span>1:03</span></button>
+      <button type="button" role="tab" id="film-tab-night" aria-controls="film-night" aria-selected="false" data-film="night">Night shift <span>0:35</span></button>
     </div>
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
       <p class="film-note">Outpost in one shot, from the ground to the sky. You claim your ground, your outpost lifts into orbit, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
+    </div>
+    <div class="film" id="film-whole" role="tabpanel" aria-labelledby="film-tab-whole" hidden>
+      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+      <p class="film-note">All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own <span data-word='crew'>crew</span>, memory and keys. Then a request comes in and goes round the <span data-word='crew'>crew</span> as comets, the <span data-crew='5'>Test Pilot</span> flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -891,6 +957,10 @@ footer .outpost-sub { font-size: 10px; }
     <div class="film" id="film-audit" role="tabpanel" aria-labelledby="film-tab-audit" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
       <p class="film-note">Three findings from a SOC 2 Type I and ISO 27001 readiness review. You kick off <span data-word='a quest'>a mission</span> from the first, and it goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops. Click the stage to pause.</p>
+    </div>
+    <div class="film" id="film-night" role="tabpanel" aria-labelledby="film-tab-night" hidden>
+      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+      <p class="film-note">The night shift: off until you switch it on, then it drafts and reports while the outpost is idle. Nothing is applied, deleted or changed until you approve it. It loops. Click the stage to pause.</p>
     </div>
   </div>
 </section>
@@ -924,38 +994,15 @@ footer .outpost-sub { font-size: 10px; }
     <div class="feature" id="orbit-trail" role="tabpanel" aria-labelledby="orbit-tab-trail" hidden>
       <div class="feature-head"><span class="tag">Beside Orbit</span><h3>Trail map</h3></div>
       <p>The plan has a full-screen view of its own, beside Orbit in the top bar's Views menu, or with <code>/trail</code>. Each step is a waypoint with who was sent on it and how it stands, and a line runs from a step to each step that has to wait for it. It fills in as the <span data-word="crew">crew</span> works, and replays the day the same way. <b>Whole map</b> (or M) puts every plan on one map, drawn one of two ways, and <b>Tree</b> and <b>Rings</b> (or R) swap between them. As rings, the way Orbit draws the <span data-word="crew">crew</span>: each plan is a ring round one centre, the first asked innermost, so the map grows outward as the day goes on. Its steps are waypoints on the ring, with whoever was sent on one beside it, and the plans of one conversation start on the same bearing and are joined, ring to ring. As a tree: one trunk for the day, standing on the foot of the window and growing upward, the first plan at the bottom and the newest at the tip, each plan a bough growing off it. Either way it holds the whole last day (the same day a replay plays, so a replay ends on the map you started from), it's drawn as small as it takes to fit, and fitted again as plans join, and the way you chose is remembered. A plan that joins while you watch, live or in a replay, is drawn in (a ring opens out, a bough grows) while the rest move over for it, and one that goes when you wind a replay back fades where it stood.</p>
+      <!-- film-trail:start -->
+      <div class="film film-inline" id="film-trail">
+        <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+        <p class="film-note">One plan as waypoints, lit as the <span data-word='crew'>crew</span> reaches each one, then every plan of the day on one map, as rings or as a tree. It loops. Click the stage to pause.</p>
+      </div>
+      <!-- film-trail:end -->
     </div>
   </div>
 </section>
-
-<!-- videos:start -->
-<section id="videos">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="eyebrow">Videos</div>
-      <h2>Three parts of the outpost, in motion.</h2>
-      <p class="lede">Three more short films, drawn live in this page. Each shows one part of the outpost: the trail map, the constellation and the night shift.</p>
-    </div>
-    <div class="film-tabs" role="tablist" aria-label="Videos">
-      <button type="button" role="tab" id="film-tab-trail" aria-controls="film-trail" aria-selected="true" data-film="trail">The trail map <span>0:36</span></button>
-      <button type="button" role="tab" id="film-tab-stars" aria-controls="film-stars" aria-selected="false" data-film="stars">The constellation <span>0:39</span></button>
-      <button type="button" role="tab" id="film-tab-night" aria-controls="film-night" aria-selected="false" data-film="night">The night shift <span>0:35</span></button>
-    </div>
-    <div class="film" id="film-trail" role="tabpanel" aria-labelledby="film-tab-trail">
-      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">The trail map: one plan as waypoints, lit as the <span data-word='crew'>crew</span> reaches each one, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>. It loops. Click the stage to pause.</p>
-    </div>
-    <div class="film" id="film-stars" role="tabpanel" aria-labelledby="film-tab-stars" hidden>
-      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">The constellation: every line the <span data-word='crew'>crew</span> remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Views menu in the top bar or with <code>/constellation</code>. It loops. Click the stage to pause.</p>
-    </div>
-    <div class="film" id="film-night" role="tabpanel" aria-labelledby="film-tab-night" hidden>
-      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">The night shift: off until you switch it on, then it drafts and reports while the outpost is idle. Nothing is applied, deleted or changed until you approve it. It loops. Click the stage to pause.</p>
-    </div>
-  </div>
-</section>
-<!-- videos:end -->
 
 <section id="kit">
   <div class="wrap">
@@ -974,7 +1021,7 @@ footer .outpost-sub { font-size: 10px; }
       <div class="item full">
         <span class="tag"><span data-word="Hq">Mission control</span></span>
         <h3>A local dashboard for the whole outpost</h3>
-        <p>Each outpost serves it on <code>127.0.0.1</code>: launch one from the star chart (<code>npm start</code>), or run <code>npm run ui</code> for Mae. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
+        <p>Launch an outpost from the star chart (<code>npm start</code>) and it opens at localhost, reachable only from this machine. Conversations filed under projects, a live feed, approvals as buttons, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
         <ul><li>Steer or stop a run mid-<span data-word="quest">quest</span>, and resume it later</li><li>While a run works, Send becomes Stop, and Enter queues your next message behind it</li><li>Tool calls fold into one line per stretch ("Read 5 files, ran 2 commands"), and a Condensed/Detailed switch brings back every line</li><li>Attach a file, a folder, or a .zip that arrives as the folder it holds, up to 5,000 files</li><li>Mention <code>@scribe</code> anywhere in a plain chat and the <span data-crew="2">Scribe</span> takes that turn</li><li>Worktrees and linked folders for work you want kept apart</li><li>Changes you can review and undo</li><li>Sign in once per browser. A tab left open carries on when the <span data-word="camp">camp</span> restarts</li></ul>
       </div>
       <div class="item solo">
@@ -1002,6 +1049,17 @@ footer .outpost-sub { font-size: 10px; }
         <span class="tag">Memory</span>
         <h3>Three layers that last</h3>
         <p>Each agent's own memory, a shared wiki with sources, and skills you approve. When a memory outgrows its room, a prompt gets the lines you pinned, the newest, and the ones that bear on the request. <code>recall</code> finds the rest, and nothing is tidied without your say. Type <code>/constellation</code> to see it all as a map: every line a star that grows each time it's used, where you can pin, forget or merge it.</p>
+      </div>
+      <div class="item full">
+        <span class="tag">The constellation</span>
+        <h3>Your memory as a map of stars</h3>
+        <p>Open it from the Views menu in the top bar, or type <code>/constellation</code>.</p>
+      <!-- film-stars:start -->
+      <div class="film film-inline" id="film-stars">
+        <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+        <p class="film-note">Every line the <span data-word='crew'>crew</span> remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. It loops. Click the stage to pause.</p>
+      </div>
+      <!-- film-stars:end -->
       </div>
       <div class="item">
         <span class="tag">Other models</span>
@@ -1031,7 +1089,7 @@ footer .outpost-sub { font-size: 10px; }
         <span class="tag">Tickets &amp; debriefs</span>
         <h3>Tickets of its own, and a look back when one's done</h3>
         <p>No Jira? Outpost keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the <span data-crew="0">Quartermaster</span> make them.</p>
-        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the <span data-word="crew">crew</span> did on it: the plan, each <span data-word="quest">quest</span>, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What Mae does unasked</li></ul>
+        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the <span data-word="crew">crew</span> did on it: the plan, each <span data-word="quest">quest</span>, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What your outpost does unasked</li></ul>
       </div>
     </div>
     <div class="kit" id="kit-away" role="tabpanel" aria-labelledby="kit-tab-away" hidden>
@@ -1057,7 +1115,7 @@ footer .outpost-sub { font-size: 10px; }
       <div class="item full">
         <span class="tag">Outposts</span>
         <h3>One app, as many outposts as you need</h3>
-        <p>Each outpost is <span data-word="a camp">a camp</span> of its own: one for work and one for home, say, that know nothing of each other. Mae is this checkout, with the <code>camp/</code> it has always had. The others live in <code>~/Outposts/&lt;name&gt;/</code>, and each runs as its own server on its own port.</p>
+        <p>Each outpost is <span data-word="a camp">a camp</span> of its own: one for work and one for home, say, that know nothing of each other. The first one lives in the folder you cloned, in its <code>camp/</code>. The others live in <code>~/Outposts/&lt;name&gt;/</code>, and each runs as its own server on its own port.</p>
         <ul><li>Each has its own <span data-word="crew">crew</span>, memory, settings, keys, jobs, skills and <code>.env</code></li><li>A new outpost starts empty: connect its models and accounts from its own Settings</li><li>The <span data-word="crew">crew</span>'s built-in skills are brought up to date each time an outpost starts, while the skills an outpost learns stay in that outpost</li><li>The header reads Outpost with the outpost's name under it, and so do the tab title, notifications and Jira notes, so you always know which one you're in</li><li>Rename one under Settings → General → Outpost name: it shows at once, while its folder stays where it is</li></ul>
       </div>
       <div class="item solo">
@@ -1109,28 +1167,70 @@ footer .outpost-sub { font-size: 10px; }
   <div class="wrap pitch">
     <div class="sec-head" style="margin:0">
       <div class="eyebrow">Get started</div>
-      <h2>Set up your first outpost in four steps.</h2>
-      <p class="lede">Needs Node 22.12 or later and either a Claude subscription or an API key. On a subscription, the <span data-word="crew">crew</span> runs through Claude Code with your account, costs show as estimates, and a chip in the header says when a run is drawing on extra-usage credit.</p>
-      <div class="try">Try asking:<q>Research how other agent harnesses handle memory, then write it up as a short doc.</q></div>
+      <h2>Set up your first outpost in five steps.</h2>
+      <p class="lede">On a Claude subscription, the <span data-word="crew">crew</span> runs through Claude Code with your account. On an API key, it calls the API directly.</p>
+      <div class="needs">
+        <h3>What you need</h3>
+        <dl>
+          <dt>Node</dt><dd>22.12 or later (CI runs on 24), with npm</dd>
+          <dt>Claude</dt><dd>The Claude Code CLI signed in to a Pro or Max plan, or an Anthropic API key</dd>
+          <dt>System</dt><dd>macOS first. Windows works. Linux isn't tested yet.</dd>
+        </dl>
+      </div>
+      <div class="try">Try asking:<q>Research how other agent harnesses handle memory, then write it up as a short doc.</q><a href="https://github.com/rameden/the-outpost/blob/main/examples/agent-harness-memory.md">Read what the <span data-word="crew">crew</span> wrote →</a></div>
     </div>
     <div class="term" aria-label="Setup commands">
       <div class="term-top" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="term-body">
         <div class="line"><code id="c0">git clone https://github.com/rameden/the-outpost.git &amp;&amp; cd the-outpost</code><button class="copy" type="button" data-copy="c0">Copy</button></div>
-        <div class="note">The code is on GitHub: <a href="https://github.com/rameden/the-outpost">rameden/the-outpost</a>. Already have it? Start at npm install.</div>
+        <div class="note">The code is on GitHub: <a href="https://github.com/rameden/the-outpost">rameden/the-outpost</a>.</div>
+        <div class="line"><code id="c4">npm install -g @anthropic-ai/claude-code</code><button class="copy" type="button" data-copy="c4">Copy</button></div>
+        <div class="note">Once, if claude isn't on your PATH yet. Skip it on an API key.</div>
         <div class="line"><code id="c1">npm install</code><button class="copy" type="button" data-copy="c1">Copy</button></div>
         <div class="line"><code id="c2">claude auth login</code><button class="copy" type="button" data-copy="c2">Copy</button></div>
-        <div class="note">On the API instead: connect your key under Settings → Models (or put ANTHROPIC_API_KEY in .env), then switch the runtime from the status menu.</div>
+        <div class="note">On an API key instead: skip this. Once the outpost is open, connect Anthropic under Settings → Models (or put ANTHROPIC_API_KEY in .env), then pick the API runtime under Settings → General. API use is billed to your key, apart from any subscription.</div>
         <div class="line"><code id="c3">npm start</code><button class="copy" type="button" data-copy="c3">Copy</button></div>
-        <div class="note">It opens the star chart in your browser: pick an outpost (Mae, to begin with) and launch it, and you land in <span data-word="hq">mission control</span>, signed in. New outpost on the chart makes another. Or npm run cli for the <span data-word="camp">camp</span> in your terminal, npm run watch for scheduled jobs, and npm run prod for a built <span data-word="camp">camp</span> that starts in about half the time.</div>
+        <div class="note">It opens the star chart in your browser: pick your outpost and launch it (the first one is called Mae until you rename it), and you land in <span data-word="hq">mission control</span>, signed in. New outpost on the chart makes another. Or npm run cli for the <span data-word="camp">camp</span> in your terminal, npm run watch for scheduled jobs, and npm run prod for a built <span data-word="camp">camp</span> that starts in about half the time.</div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="costs">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Costs</div>
+      <h2>What it costs, and how it keeps spending in check.</h2>
+      <p class="lede">Outpost itself is free and open source. You pay for the model calls, the same way you would using Claude yourself.</p>
+    </div>
+    <div class="costs">
+      <div class="cost"><h3>On a subscription</h3><p>Runs count against your Pro or Max plan's usage limits. The costs you see in the outpost are estimates at API prices, from what Claude Code reports a run would have cost. A chip in the header says when a run is drawing on extra-usage credit.</p></div>
+      <div class="cost"><h3>On an API key</h3><p>Every call is billed to your key, apart from any subscription. A key saved in Settings → Models is used before ANTHROPIC_API_KEY in .env.</p></div>
+      <div class="cost"><h3>Budgets</h3><p>Set a spending cap per <span data-word="expedition">expedition</span> with <code>/budget</code>. It covers the <span data-crew="0">Quartermaster</span> and every <span data-word="quest">quest</span> it sends, and the run stops when it's reached.</p></div>
+      <div class="cost"><h3>Which model</h3><p>Most of the <span data-word="crew">crew</span> starts on Sonnet, and <span data-crew-a="5">a Test Pilot</span> on Opus. Pick Auto and it chooses per task: Economy for the cheapest model that can do it, Quality for the one most likely to finish, Balanced (the default) in between. The outpost's own small jobs, like naming a conversation, use the cheapest small model that's up to it.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">FAQ</div>
+      <h2>Questions people ask first.</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Is my data sent anywhere?</summary><p>Only to the model you run it on: Anthropic, through Claude Code or your API key, or another provider if you connect one. There's no telemetry or analytics. Your outpost is a folder on your machine, and <span data-word="hq">mission control</span> opens at localhost, reachable only from this machine. If you turn on phone approvals, the approval's text goes to your ntfy server.</p></details>
+      <details><summary>Does it use my Claude Code settings?</summary><p>No. It signs in with your Claude Code account, but your settings, hooks, CLAUDE.md, skills and MCP servers aren't loaded for the <span data-word="crew">crew</span>, and runs aren't saved as Claude Code sessions. Claude Code's own file and shell tools are off: the <span data-word="crew">crew</span> uses the outpost's tools, so its approvals apply.</p></details>
+      <details><summary>Does it run on Windows or Linux?</summary><p>It's built on macOS first. Windows works, in Git Bash or PowerShell, but without a sandbox (use WSL 2 for one). Linux isn't tested yet: the sandbox needs bubblewrap, and the terminal pane needs node-pty built (<code>npm rebuild node-pty</code>). Everything but the terminal pane works without it.</p></details>
+      <details><summary>How is this different from using Claude Code on its own?</summary><p>Claude Code is one agent you talk to. Outpost puts a planner in front: you approve a plan, then specialists work on it several at once, each with its own memory, workspace and limits, and a reviewer checks what changed. It can also run jobs on a schedule while you're away. On a subscription, Claude Code is what runs each of them.</p></details>
+      <details><summary>What's an outpost, and who is Mae?</summary><p>Outpost is the app. An outpost is one running copy of it: its own folder, <span data-word="crew">crew</span>, memory and server, so work and home can stay apart. Your first outpost is called Mae (short for My Alter Ego) until you rename it under Settings → General → Outpost name.</p></details>
     </div>
   </div>
 </section>
 
 <div class="wrap">
   <footer>
-    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost Mae" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub">Mae</span></span></a>
+    <a class="brand" href="/" title="Back to mission control" aria-label="Outpost" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub"></span></span></a>
     <span>Small, hackable, and built on Claude. <a href="https://github.com/rameden/the-outpost">Open source on GitHub</a>, ISC licence.</span>
   </footer>
 </div>
@@ -1138,10 +1238,13 @@ footer .outpost-sub { font-size: 10px; }
 <script>
 (function () {
   // The outpost's name under "Outpost" in the logo, from the <meta name="outpost"> the camp server
-  // fills in as it serves this page (src/outpost.ts). Opened as a file, it stays Mae.
-  var outpost = (document.querySelector('meta[name="outpost"]') || {}).content || 'Mae';
-  document.querySelectorAll('.outpost-sub').forEach(function (el) { el.textContent = outpost; });
-  document.querySelectorAll('[aria-label="Outpost Mae"]').forEach(function (el) { el.setAttribute('aria-label', 'Outpost ' + outpost); });
+  // fills in as it serves this page (src/outpost.ts). On the public site, or opened as a file, it's
+  // empty and the logo just says Outpost.
+  var outpost = (document.querySelector('meta[name="outpost"]') || {}).content || '';
+  if (outpost) {
+    document.querySelectorAll('.outpost-sub').forEach(function (el) { el.textContent = outpost; });
+    document.querySelectorAll('[aria-label="Outpost"]').forEach(function (el) { el.setAttribute('aria-label', 'Outpost ' + outpost); });
+  }
   // Not served by a camp (the public site, scripts/site.sh, or opened as a file): no pack was put in
   // and there's no {hq} at "/", so the logo goes to the top of this page and says so.
   if (!document.getElementById('mae-pack')) {
@@ -1158,6 +1261,21 @@ footer .outpost-sub { font-size: 10px; }
   // change made there shows here at once.
   var root = document.documentElement;
   var themeBtn = document.getElementById('theme');
+  // The menu button opens the section links as a drawer on a phone; a link, the shade or Esc closes it.
+  var menuBtn = document.getElementById('menu-btn');
+  var sections = document.getElementById('sections');
+  var shade = document.createElement('div');
+  shade.className = 'drawer-shade';
+  sections.parentNode.insertBefore(shade, sections); // in the header, so it sits under the drawer and not over it
+  var setDrawer = function (open) {
+    document.body.classList.toggle('drawer-open', open);
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { var first = sections.querySelector('a'); if (first) first.focus(); }
+  };
+  menuBtn.addEventListener('click', function () { setDrawer(!document.body.classList.contains('drawer-open')); });
+  shade.addEventListener('click', function () { setDrawer(false); });
+  sections.addEventListener('click', function (e) { if (e.target.closest('a')) setDrawer(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.body.classList.contains('drawer-open')) { setDrawer(false); menuBtn.focus(); } });
   var paletteSel = document.getElementById('palette');
   var palettes = ['harbor', 'moss', 'heather', 'ochre'];
   // Mark the one picked in a list under "Make it yours" (solid border, aria-pressed).
@@ -1512,7 +1630,7 @@ footer .outpost-sub { font-size: 10px; }
 })();
 </script>
 <!-- films-code:start -->
-<!-- The films in the "On film" and "Videos" sections, written here by `npm run tour:films` (scripts/tour-films.ts)
+<!-- The films (the Films section, and the two shown beside what they show), written here by `npm run tour:films` (scripts/tour-films.ts)
      from the pages in docs/films/. Edit those and run it again, rather than changing anything between
      these markers. What follows is the styles the films share, each one's own rules and stage, then the code that draws it.
      Each is mounted in a shadow root, so nothing here meets the page's own styles, and takes its
@@ -1547,14 +1665,6 @@ footer .outpost-sub { font-size: 10px; }
 .sun-glyph * { fill: none; stroke: var(--accent-ink); stroke-width: .62; stroke-linecap: round; stroke-linejoin: round; }
 .moon { fill: var(--tone); }
 .body-name { font-size: 28px; fill: var(--tone); }
-/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
-.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
-.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
-.ctl { font-size: 11.5px; fill: var(--muted); }
-.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
-.wcap { font-size: 36px; fill: var(--ink); }
-.code-s { font-size: 11.5px; }
-.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
 .orbit { fill: none; stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 3 7; stroke-linecap: round; }
 .comet { fill: var(--tone); }
 .shadow { filter: drop-shadow(0 12px 22px var(--shade)); }
@@ -1713,6 +1823,16 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
     <output id="clock" for="scrub">0:00 / 0:54</output>
   </div>
 </template>
+<template id="film-audit-css"><style>
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
+</style></template>
 <template id="film-audit-stage">
   <div class="stage" id="frame">
     <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system, working through three findings from a SOC 2 Type I and ISO 27001 readiness review. The Commander is the sun and the crew are planets. The title card reads Your outpost, on localhost. The view goes close on each in turn as the first finding, an account with no role that can void invoices, becomes a reviewed pull request: you kick off a mission from the finding, the plan waits for your OK, the Navigator finds the gap, the Engineer changes one line and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. The other two findings then go round the same crew. Last, the orbits close back into the mark, over the line Your outpost. Your crew. Your call. and the crew's names, each in its own colour.">
@@ -1739,8 +1859,78 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
     <output id="clock" for="scrub">0:00 / 1:03</output>
   </div>
 </template>
+<template id="film-night-css"><style>
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
+.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
+/* The night shift: a switch in Settings, a window on the camp that goes from day to night and back, the rows the shift writes, and the card on the Today page. */
+.t12 { font-size: 12px; }
+.t19 { font-size: 19px; }
+.daysky { fill: var(--surface-2); }
+.sky { fill: var(--sky); }
+.gnd { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.gnd-n { fill: var(--night); }
+.nstar { fill: var(--night-text); }
+.sunb { fill: var(--accent); }
+.moonb { fill: var(--night-text); }
+.sun-q * { fill: none; stroke: var(--accent-ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.topo-n { stroke: var(--night-text); }
+.hill { fill: var(--surface-2); }
+.hill-n { fill: var(--sky); }
+.winframe { fill: none; stroke: var(--border-strong); stroke-width: 1; }
+.stand { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.door { fill: var(--border-strong); }
+.stand-n { fill: var(--night); }
+.lamp { fill: var(--accent); }
+.flame { fill: var(--accent); }
+.log { stroke: var(--border-strong); stroke-width: 4; stroke-linecap: round; }
+.sw { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; }
+.sw.on { fill: var(--accent); stroke: var(--accent); }
+.sw-knob { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+.sw-knob.on { fill: var(--accent-ink); stroke: var(--accent-ink); }
+.clock-t { font-size: 26px; fill: var(--ink); }
+.st-on { fill: var(--accent); }
+.zz { font-size: 12px; fill: var(--night-text); }
+.spark { fill: var(--accent); }
+.dot-a { fill: var(--accent); }
+</style></template>
+<template id="film-night-stage">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost's night shift. You switch it on in Settings and choose its hours. The outpost goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="35.4" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 0:35</output>
+  </div>
+</template>
 <template id="film-trail-css"><style>
 .c-qm { --tone: var(--c-qm); } .c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); } .c-you { --tone: var(--muted); }
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
 .name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 /* The trail map: waypoints and the lines between them, then the rings and the tree. A step that's out, and a view that's on, has a solid accent border. */
 .t12 { font-size: 12px; }
@@ -1796,6 +1986,14 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
   </div>
 </template>
 <template id="film-stars-css"><style>
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
 .name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
 /* The constellation: a place is a disc, a remembered line is a star in its place's colour, and a line joins two that are alike (solid) or used together (dashed). The star you picked has a solid ring. */
 .t12 { font-size: 12px; }
@@ -1833,60 +2031,6 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
     <button type="button" id="play">Pause</button>
     <input type="range" id="scrub" min="0" max="39.6" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 0:39</output>
-  </div>
-</template>
-<template id="film-night-css"><style>
-.name-w { font-size: 72px; fill: var(--ink); } .name-w.name-i { fill: var(--accent); }
-/* The night shift: a switch in Settings, a window on the camp that goes from day to night and back, the rows the shift writes, and the card on the Today page. */
-.t12 { font-size: 12px; }
-.t19 { font-size: 19px; }
-.daysky { fill: var(--surface-2); }
-.sky { fill: var(--sky); }
-.gnd { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
-.gnd-n { fill: var(--night); }
-.nstar { fill: var(--night-text); }
-.sunb { fill: var(--accent); }
-.moonb { fill: var(--night-text); }
-.sun-q * { fill: none; stroke: var(--accent-ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.topo-n { stroke: var(--night-text); }
-.hill { fill: var(--surface-2); }
-.hill-n { fill: var(--sky); }
-.winframe { fill: none; stroke: var(--border-strong); stroke-width: 1; }
-.stand { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.door { fill: var(--border-strong); }
-.stand-n { fill: var(--night); }
-.lamp { fill: var(--accent); }
-.flame { fill: var(--accent); }
-.log { stroke: var(--border-strong); stroke-width: 4; stroke-linecap: round; }
-.sw { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; }
-.sw.on { fill: var(--accent); stroke: var(--accent); }
-.sw-knob { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
-.sw-knob.on { fill: var(--accent-ink); stroke: var(--accent-ink); }
-.clock-t { font-size: 26px; fill: var(--ink); }
-.st-on { fill: var(--accent); }
-.zz { font-size: 12px; fill: var(--night-text); }
-.spark { fill: var(--accent); }
-.dot-a { fill: var(--accent); }
-</style></template>
-<template id="film-night-stage">
-  <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost's night shift. You switch it on in Settings and choose its hours. The outpost goes quiet for the night. Once it has sat idle for half an hour, the night shift drafts shorter versions of two memories that are getting full, lists five old lines worth a look and notes what housekeeping could clear, in at most three small model calls. Nothing is changed. In the morning the results wait on your Today page.">
-      <defs>
-        <radialGradient id="glow">
-          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
-          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
-        </radialGradient>
-        <radialGradient id="dotGlow">
-          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
-          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
-        </radialGradient>
-      </defs>
-    </svg>
-  </div>
-  <div class="controls">
-    <button type="button" id="play">Pause</button>
-    <input type="range" id="scrub" min="0" max="35.4" step="0.01" value="0" aria-label="Scrub through the animation">
-    <output id="clock" for="scrub">0:00 / 0:35</output>
   </div>
 </template>
 <script>
@@ -5235,6 +5379,445 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { la
 // the page says when this film can be seen: it only runs then; stop() ends it for good
 return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
+night: function (root) {
+let dead = false, raf = 0; const cleanups = [];
+const NS = 'http://www.w3.org/2000/svg';
+const svg = root.getElementById('stage');
+const DUR = 35.4, PI = Math.PI, NEVER = 1e9;
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+// there from a to b, fading in and out over d
+const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// a class, a text or a set of attributes, written only when it changes
+const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
+const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
+const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, box, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+
+// ---- crew badges ----
+const CREW = { qm: `${TP.name('qm')}`, scout: `${TP.name('scout')}`, scribe: `${TP.name('scribe')}`, art: `${TP.name('art')}`, warden: `${TP.name('warden')}`, pilot: `${TP.name('pilot')}` };
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
+};
+// a badge at any size: its lines stay as heavy as they are at full size
+function badge(key, parent, s = 1) {
+  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
+  el('circle', { r: 24, class: 'disc' }, k);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
+  return g;
+}
+
+// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
+const defs = svg.querySelector('defs');
+// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
+const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
+el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
+el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
+el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
+el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
+el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
+// the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
+tx(svg, 1216, 61, 'm scene-l', 'NIGHT SHIFT', { 'text-anchor': 'end' });
+
+function titleCard(eyebrow, ink, accent, sub) {
+  const g = el('g');
+  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
+  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
+  el('tspan', { class: 'f-ink' }, tag, ink);
+  el('tspan', { class: 'f-accent' }, tag, accent);
+  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// the last card: how to open what the film showed
+function endCard(lead, box, sub) {
+  const g = el('g'), w = box.length * 8.45 + 56;
+  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
+  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
+  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
+  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
+  return g;
+}
+// a caption and the line under it, from a to b
+const CAPS = [];
+const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
+// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
+const STOPS = [], gRoute = el('g');
+function makeRoute(list) {
+  list.forEach(([label, at], i) => {
+    const s = { label, at };
+    if (i < list.length - 1) {
+      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+    }
+    s.g = el('g', { class: 'stop' }, gRoute);
+    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
+    STOPS.push(s);
+  });
+}
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
+function drawChrome(t) {
+  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
+  O(gEnd, span(t, END + .2, DUR - .5, .45));
+  CAPS.forEach(c => {
+    const p = seg(t, c.a, c.a + .45, ease.out);
+    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
+  });
+  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at);
+    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
+  });
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+const CLICKS = [];
+
+// ---- the story: you switch it on, the camp goes quiet, the shift drafts and reports, and the morning shows what it found ----
+const T = { on: 5.6, dusk: 8.6, shift: 13.6, done: 20.6, dawn: 22.4, look: 29.2 }, END = 31.8;
+
+// ---- Settings: off until you switch it on ----
+const SX = 200, SY = 230, SW = 880, SH = 250, IX = SX + 28, swY = SY + 212;
+const gSet = el('g');
+el('rect', { x: SX, y: SY, width: SW, height: SH, rx: 14, class: 'card shadow' }, gSet);
+tx(gSet, IX, SY + 38, 'm lbl', 'WHAT MAE DOES UNASKED');
+tx(gSet, IX, SY + 76, 'd tk-title', 'Night shift');
+[`Off unless you turn it on. Between these hours, once the ${TP.w('camp')} has sat idle for half an hour, it drafts shorter`,
+  'versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping',
+  'could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it.',
+].forEach((l, i) => tx(gSet, IX, SY + 110 + i * 23, 'b t15 f-muted', l));
+el('line', { x1: IX, y1: SY + 176, x2: SX + SW - 28, y2: SY + 176, class: 'hr' }, gSet);
+const swTrack = el('rect', { x: IX, y: swY - 12, width: 44, height: 24, rx: 12 }, gSet), swKnob = el('circle', { cy: swY, r: 8 }, gSet);
+const swOff = tx(gSet, IX + 58, swY + 5, 'b t15 f-muted', 'Off');
+const gOn = el('g', null, gSet), onT = tx(gOn, IX + 58, swY + 5, 'b t15 w6 f-text', 'On, from'), gHours = el('g', null, gOn);
+[['01:00', IX + 134], ['05:00', IX + 240]].forEach(([s, x]) => {
+  el('rect', { x, y: swY - 16, width: 72, height: 32, rx: 8, class: 'inset' }, gHours);
+  tx(gHours, x + 36, swY + 4.5, 'm code f-text', s, { 'text-anchor': 'middle' });
+});
+tx(gHours, IX + 223, swY + 5, 'b t15 f-muted', 'to', { 'text-anchor': 'middle' });
+const bRun = button(gOn, SX + SW - 28 - 56, swY, 112, 'Run it now', 'ghost');
+
+// ---- a window on the camp: day, night and day again ----
+const WX = 72, WY = 196, WH = 434, WIDE = 1136, NARROW = 528, SHIFT = 300;
+const gCamp = el('g');
+const clip = el('rect', { x: WX, y: WY, height: WH, rx: 14 }, el('clipPath', { id: 'win' }, defs));
+const gWin = el('g', { 'clip-path': 'url(#win)' }, gCamp);
+el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'daysky' }, gWin);
+const sky = el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'sky' }, gWin);
+const rnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+const NSTARS = [];
+for (let i = 0; i < 54; i++) NSTARS.push({ ph: rnd(i + 300) * 6.28, sp: 1.2 + rnd(i + 400) * 1.8,
+  n: el('circle', { cx: (WX + 14 + rnd(i) * (WIDE - 28)).toFixed(1), cy: (WY + 12 + rnd(i + 100) * 300).toFixed(1), r: (.9 + rnd(i + 200) * 1.3).toFixed(2), class: 'nstar' }, gWin) });
+// the land moves across as the window narrows, so the camp is always in the middle of it
+const gLand = el('g', null, gWin);
+// a map line is drawn twice, for the day and for the night, and the two are cross-faded
+const TOPO = [];
+const topo = (d, parent) => { el('path', { d, class: 'contour' }, parent); TOPO.push(el('path', { d, class: 'contour topo-n' }, parent)); };
+// the sky: the Commander is the sun and the crew are its planets, on orbits drawn as map contours and seen from the camp at a tilt
+const SYS = [370, 398], TILT = .45, NORB = 6, orbR = i => 64 + i * 36;
+const gSys = el('g', { transform: `translate(${SYS[0]} ${SYS[1]})` }, gLand);
+const ORBS = Array.from({ length: NORB }, () => ({ day: el('path', { class: 'contour' }, gSys), night: el('path', { class: 'contour topo-n' }, gSys), lit: el('path', { class: 'contour lit' }, gSys) }));
+// a point on orbit i: the ring wanders in and out a little as it goes round, and drifts once round per loop
+const orbAt = (i, a, ph) => {
+  const w = Math.min(1, .2 + i * .2), r = orbR(i) * (1 + w * (.045 * Math.sin(3 * a + i * 1.3 + ph) + .03 * Math.sin(5 * a - i * .7 - 2 * ph)));
+  return [r * Math.cos(a), TILT * r * Math.sin(a)];
+};
+function orbPath(i, ph) {
+  let d = '';
+  for (let k = 0; k < 120; k++) { const [x, y] = orbAt(i, k / 120 * 2 * PI, ph); d += (k ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1); }
+  return d + 'Z';
+}
+const gSunQ = el('g', null, gSys), sunHalo = el('circle', { r: 72, fill: 'url(#glow)' }, gSunQ);
+el('circle', { r: 19, class: 'sunb' }, gSunQ);
+GLYPH.qm(el('g', { class: 'sun-q', transform: 'translate(-14.4 -14.4) scale(1.2)' }, gSunQ));
+const sunZ = tx(gSys, 0, 0, 'm zz', 'z');
+// each planet: its orbit, where it comes to rest for the night, and how fast it goes round by day
+const PLANETS = [['scout', 1, 205, .94], ['scribe', 2, 318, .74], ['art', 3, 128, .46], ['warden', 4, 28, .32], ['pilot', 5, 262, .24]].map(([key, orb, rest, sp], i) =>
+  ({ orb, rest: rest * PI / 180, sp, i: i + 1, g: badge(key, gSys, .46), z: tx(gSys, 0, 0, 'm zz', 'z') }));
+// how far the system has turned: it slows to a stop as night falls, and starts again in the morning
+const ramp = (t, a, b) => t < a ? 0 : t > b ? (b - a) / 2 + t - b : (t - a) ** 2 / (2 * (b - a));
+const turned = t => t - ramp(t, T.dusk + 1.1, T.dusk + 3.1) + ramp(t, T.dawn + .4, T.dawn + 2) - (T.dusk + 2.1);
+const gMoon = el('g', null, gLand);
+el('path', { d: 'M6 -21 A22 22 0 1 0 6 21 A24 24 0 0 1 6 -21 Z', class: 'moonb', transform: 'rotate(-24)' }, gMoon);
+// the hills on the skyline, each drawn by its contour lines
+const HILLS = [];
+[[-330, 210, 52, 14], [60, 250, 62, -18], [720, 300, 84, 22], [1150, 280, 60, -16]].forEach(([cx, w, h, lean], n) => {
+  const arch = j => {
+    const s = 1 - j * .24, x0 = cx + j * lean - w * s; let d = '';
+    for (let k = 0; k <= 48; k++) { const u = k / 48; d += (k ? 'L' : 'M') + (x0 + 2 * w * s * u).toFixed(1) + ' ' + (554 - h * s * Math.sin(PI * u) ** 2 * (1 + .1 * Math.sin(7 * u + n + j))).toFixed(1); }
+    return d;
+  };
+  el('path', { d: arch(0) + 'Z', class: 'hill' }, gLand); HILLS.push(el('path', { d: arch(0) + 'Z', class: 'hill-n' }, gLand));
+  for (let j = 0; j < 4; j++) topo(arch(j), gLand);
+});
+const GROUND = 'M-260 560 C-60 548 60 556 190 542 S460 540 640 548 S1000 526 1240 546 S1440 552 1540 544 V640 H-260 Z';
+el('path', { d: GROUND, class: 'gnd' }, gLand);
+const gndN = el('path', { d: GROUND, class: 'gnd-n' }, gLand);
+// the ground is a map too: its lines run under the camp
+for (let j = 0; j < 3; j++) {
+  let d = '';
+  for (let x = -260; x <= 1540; x += 20) d += (x > -260 ? 'L' : 'M') + x + ' ' + (571 + j * 23 + (7 - j) * Math.sin(x * .011 + j * 1.9) + 3 * Math.sin(x * .029 - j)).toFixed(1);
+  topo(d, gLand);
+}
+// what stands in the camp is drawn for the day, with a dark copy over it that comes up with the night
+const DARK = [];
+const stand = (d, parent) => { el('path', { d, class: 'stand' }, parent); DARK.push(el('path', { d, class: 'stand-n' }, parent)); };
+[[-150, 572, 1], [-96, 566, .78], [96, 572, .82], [548, 568, 1], [590, 562, .74], [770, 566, .9], [836, 572, 1.1]].forEach(([x, y, s]) => {
+  const g = el('g', { transform: `translate(${x} ${y})` }, gLand), q = v => (v * s).toFixed(1);
+  el('path', { d: `M0 0 V${q(-12)}`, class: 'log' }, g);
+  stand(`M${q(-17)} ${q(-10)} L0 ${q(-38)} L${q(17)} ${q(-10)} Z M${q(-13)} ${q(-29)} L0 ${q(-54)} L${q(13)} ${q(-29)} Z M${q(-9)} ${q(-46)} L0 ${q(-68)} L${q(9)} ${q(-46)} Z`, g);
+});
+// a little house, one storey high, and the lamp in its windows while the shift is on
+const HOUSE = [190, 566], gHouse = el('g', { transform: `translate(${HOUSE[0]} ${HOUSE[1]})` }, gLand);
+stand('M24 -64 V-90 H38 V-64 Z', gHouse);
+stand('M-58 0 V-46 H58 V0 Z', gHouse);
+stand('M-68 -44 L-42 -76 H42 L68 -44 Z', gHouse);
+el('path', { d: 'M-10 0 V-32 H10 V0 Z', class: 'door' }, gHouse);
+const PANES = 'M-46 -34 H-24 V-14 H-46 Z M24 -34 H46 V-14 H24 Z';
+const lampHalo = el('circle', { cy: -24, r: 62, fill: 'url(#glow)' }, gHouse), lamp = el('path', { d: PANES, class: 'lamp' }, gHouse);
+el('path', { d: PANES + ' M-35 -34 V-14 M35 -34 V-14', class: 'stand', fill: 'none' }, gHouse);
+// a second, smaller house
+const gHouse2 = el('g', { transform: 'translate(452 573)' }, gLand);
+stand('M-28 -40 V-57 H-19 V-40 Z', gHouse2);
+stand('M-36 0 V-29 H36 V0 Z', gHouse2);
+stand('M-43 -28 L-26 -49 H26 L43 -28 Z', gHouse2);
+el('path', { d: 'M-22 0 V-20 H-9 V0 Z', class: 'door' }, gHouse2);
+el('path', { d: 'M6 -21 H24 V-8 H6 Z M15 -21 V-8', class: 'stand', fill: 'none' }, gHouse2);
+// the fire, and the logs to sit on
+const gFire = el('g', { transform: 'translate(318 578)' }, gLand);
+const fireHalo = el('circle', { cy: -12, r: 44, fill: 'url(#glow)' }, gFire);
+el('path', { d: 'M-15 0 L15 -7 M-15 -7 L15 0 M-56 7 H-32 M34 9 H58', class: 'log' }, gFire);
+const flame = el('path', { d: 'M0 0 C-13 -8 -9 -22 0 -34 C9 -22 13 -8 0 0 Z', class: 'flame' }, gFire);
+const winFrame = el('rect', { x: WX, y: WY, height: WH, rx: 14, class: 'winframe' }, gCamp);
+// the clock in the corner of the window, and what the camp is doing
+const gClock = el('g', null, gCamp);
+el('rect', { x: WX + 20, y: WY + 18, width: 304, height: 72, rx: 12, class: 'card' }, gClock);
+const clockT = tx(gClock, WX + 40, WY + 52, 'd clock-t', '');
+tx(gClock, WX + 304, WY + 48, 'm lbl', 'HOURS 01:00 TO 05:00', { 'text-anchor': 'end' });
+const statusT = tx(gClock, WX + 40, WY + 75, 'm lbl', '');
+
+// ---- what the shift writes down, one row at a time ----
+const RX = 630, RW = 578;
+const ROWS = [
+  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: `${TP.name('scout')}'s and ${TP.name('art')}'s, both more than 60% full`, pill: 'DRAFT · WAITS FOR YOUR OK' },
+  { at: 16.5, label: 'OLD LINES', title: 'Listed 5 old lines worth a look', sub: 'Not pinned, and more than 90 days old', pill: 'LISTED · NOTHING TOUCHED' },
+  { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: '2 finished worktrees, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
+];
+const gRows = el('g'), gSparks = el('g');
+ROWS.forEach((r, i) => {
+  r.y = 196 + 152 * i; r.g = el('g', null, gRows);
+  el('rect', { x: RX, y: r.y, width: RW, height: 130, rx: 14, class: 'card' }, r.g);
+  tx(r.g, RX + 24, r.y + 37, 'm lbl', r.label);
+  r.typed = typer(r.g, RX + 24, r.y + 74, 'b t19 w6 f-text', r.title);
+  r.caret = el('rect', { y: r.y + 58, width: 2, height: 20, class: 'caret' }, r.g);
+  r.subT = tx(r.g, RX + 24, r.y + 102, 'b t15 f-muted', r.sub);
+  const pw = r.pill.length * 7.4 + 26;
+  r.pillG = el('g', null, r.g);
+  el('rect', { x: RX + RW - 20 - pw, y: r.y + 20, width: pw, height: 24, rx: 12, class: 'pill' }, r.pillG);
+  tx(r.pillG, RX + RW - 20 - pw / 2, r.y + 36, 'm pill-t', r.pill, { 'text-anchor': 'middle' });
+  r.spark = el('g', null, gSparks);
+  el('circle', { r: 20, fill: 'url(#glow)' }, r.spark); el('circle', { r: 4.5, class: 'spark' }, r.spark);
+});
+
+// ---- the morning: the card on your Today page ----
+const TX0 = 630, TY = 196, TW = 578, TH = 434, JX = TX0 + 26;
+const gToday = el('g');
+el('rect', { x: TX0, y: TY, width: TW, height: TH, rx: 14, class: 'card shadow' }, gToday);
+tx(gToday, JX, TY + 48, 'd tk-title', 'While you were away');
+tx(gToday, TX0 + TW - 26, TY + 45, 'm lbl', 'NIGHT SHIFT, 01:04', { 'text-anchor': 'end' });
+el('line', { x1: JX, y1: TY + 70, x2: TX0 + TW - 26, y2: TY + 70, class: 'hr' }, gToday);
+const ITEMS = [
+  ['Drafted shorter versions of 2 memories', `${TP.name('scout')} and ${TP.name('art')}. Nothing changes until you approve them.`],
+  ['5 old lines worth a look', 'Not pinned, and more than 90 days old. Nothing was changed.'],
+  [`Housekeeping could remove 2 finished worktrees the ${TP.w('camp')} made`, `About 48 MB. Nothing was cleared: ask for ${TP.a('camp')} cleanup when you want it done.`],
+].map(([title, sub], i) => {
+  const y = TY + 106 + i * 82, g = el('g', null, gToday);
+  el('circle', { cx: JX + 5, cy: y - 5, r: 4, class: 'dot-a' }, g);
+  tx(g, JX + 20, y, 'b t16 w6 f-text', title); tx(g, JX + 20, y + 23, 'b t13 f-muted', sub);
+  el('line', { x1: JX, y1: y + 47, x2: TX0 + TW - 26, y2: y + 47, class: 'hr' }, g);
+  return { g, y };
+});
+const bLook = button(ITEMS[0].g, TX0 + TW - 26 - 66, ITEMS[0].y + 6, 132, 'Look them over');
+const bDismiss = button(gToday, JX + 46, TY + TH - 46, 92, 'Dismiss', 'ghost');
+tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reported. Nothing was applied or deleted.');
+
+CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
+
+const gTitle = titleCard('NEW AT THE OUTPOST · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the outpost is idle. Nothing changes until you approve it.');
+const gEnd = endCard('Switch it on under', 'Settings → What your outpost does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
+caption('Off until you switch it on.', 'Under Settings → What your outpost does unasked. You choose the hours.', 3.0, T.dusk - .3);
+caption('The outpost goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
+caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
+caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);
+makeRoute([['Switch it on', 2.8], ['Quiet hours', T.dusk], ['The shift', T.shift], ['Morning', T.dawn]]);
+
+// the hours sit right after "On, from", however wide the type runs
+function layout() { gHours.setAttribute('transform', `translate(${(onT.getComputedTextLength() - 64).toFixed(1)} 0)`); }
+
+const pad2 = n => String(n).padStart(2, '0');
+function render(t) {
+  drawChrome(t);
+  // the switch
+  O(gSet, span(t, 2.5, T.dusk, .45));
+  const on = t >= T.on + .08;
+  cls(swTrack, on ? 'sw on' : 'sw'); cls(swKnob, on ? 'sw-knob on' : 'sw-knob');
+  put(swKnob, { cx: IX + 12 + 20 * seg(t, T.on, T.on + .25) });
+  O(swOff, 1 - seg(t, T.on, T.on + .2)); O(gOn, seg(t, T.on + .1, T.on + .5, ease.out));
+  press(bRun, t, NEVER);
+
+  // the window: it narrows when the shift starts, and the land slides so the camp stays in view
+  const out = 1 - seg(t, END - .3, END + .1);
+  O(gCamp, seg(t, T.dusk - .1, T.dusk + .4) * out);
+  const narrow = seg(t, T.shift, T.shift + .7), ww = lerp(WIDE, NARROW, narrow), dx = SHIFT * (1 - narrow);
+  put(clip, { width: ww }); put(winFrame, { width: ww });
+  gLand.setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
+  const night = seg(t, T.dusk + 1.1, T.dusk + 3.1) * (1 - seg(t, T.dawn, T.dawn + 2));
+  O(sky, night); O(gndN, night);
+  HILLS.forEach(n => O(n, night)); TOPO.forEach(n => O(n, night * .22)); DARK.forEach(n => O(n, night * .62));
+  NSTARS.forEach(s => O(s.n, night * (.4 + .6 * Math.sin(t * s.sp + s.ph) ** 2)));
+  const first = t < (T.shift + T.dawn) / 2;
+  TR(gMoon, 548, lerp(274, 250, night)); O(gMoon, night);
+  // the sky: the crew go round the Commander by day, and come to rest and sleep at night
+  const ph = t / DUR * 2 * PI, wake = lerp(0, 330, seg(t, T.dawn + .7, T.dawn + 2.3, ease.lin));
+  ORBS.forEach((o, i) => {
+    const d = orbPath(i, ph); o.day.setAttribute('d', d); o.night.setAttribute('d', d); o.lit.setAttribute('d', d);
+    O(o.night, night * .22); O(o.lit, wake > 0 && wake < 330 ? clamp(1 - Math.abs(orbR(i) - wake) / 46) * .9 : 0);
+  });
+  O(sunHalo, .8 * (1 - night)); O(gSunQ, lerp(1, .7, night));
+  const zs = (z, x, y, i) => { const k = (t * .42 + i * .27) % 1; put(z, { x: x + 8 + k * 9, y: y - 13 - k * 24 }); O(z, night > .95 ? Math.sin(k * PI) * .9 : 0); };
+  zs(sunZ, 12, -8, 0);
+  const turn = turned(t);
+  PLANETS.forEach(p => {
+    const [x, y] = orbAt(p.orb, p.rest + p.sp * turn, ph);
+    TR(p.g, x, y); O(p.g, lerp(1, .78, night)); zs(p.z, x, y, p.i);
+  });
+  // the fire burns down for the night; the lamp in the house is the shift at work
+  const fire = first ? lerp(1, .38, seg(t, T.dusk + 2, T.dusk + 4)) : lerp(.38, 1, seg(t, T.dawn + .8, T.dawn + 2.2));
+  flame.setAttribute('transform', `scale(${(fire * (1 + .07 * Math.sin(t * 13))).toFixed(3)} ${(fire * (1 + .14 * Math.sin(t * 9.1 + 1))).toFixed(3)})`);
+  O(fireHalo, fire * .75);
+  const work = span(t, T.shift + .3, T.done + .5, .4) * (.8 + .2 * Math.sin(t * 10) ** 2);
+  O(lamp, work); O(lampHalo, work * .9);
+  // the clock, and what the camp is doing
+  const mins = t < T.shift ? lerp(10, 240, seg(t, T.dusk + .4, T.shift - 1.6)) : t < T.dawn ? lerp(240, 244, seg(t, T.shift + .6, T.done, ease.lin)) : lerp(245, 630, seg(t, T.dawn, T.dawn + 2.2));
+  const q = t >= T.shift && t < T.dawn ? 1 : 5, m = Math.round(mins / q) * q + 21 * 60;
+  say(clockT, pad2(Math.floor(m / 60) % 24) + ':' + pad2(m % 60));
+  say(statusT, t < T.shift - 1.6 ? 'THE OUTPOST IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
+  cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
+
+  // each row: a spark leaves the house by the chimney, the row is written, and its tag says nothing was changed
+  ROWS.forEach(r => {
+    const k = seg(t, r.at, r.at + .6), x0 = HOUSE[0] + 31 + dx, y0 = HOUSE[1] - 90, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
+    const sx = (1 - k) * (1 - k) * x0 + 2 * k * (1 - k) * ((x0 + x1) / 2) + k * k * x1, sy = (1 - k) * (1 - k) * y0 + 2 * k * (1 - k) * cy + k * k * y1;
+    TR(r.spark, sx, sy); O(r.spark, k > 0 && k < 1 ? Math.min(1, k * 8, (1 - k) * 8) : 0);
+    O(r.g, seg(t, r.at + .45, r.at + .8) * (1 - seg(t, T.dawn + .2, T.dawn + .7)));
+    typeTo(r.typed, seg(t, r.at + .8, r.at + 1.7, ease.lin));
+    put(r.caret, { x: RX + 26 + r.typed.w }); O(r.caret, t > r.at + .6 && t < r.at + 1.9 && (t * 2.4) % 1 < .6 ? 1 : 0);
+    O(r.subT, seg(t, r.at + 1.75, r.at + 2.05)); O(r.pillG, seg(t, r.at + 1.85, r.at + 2.15, ease.out));
+  });
+
+  // the morning
+  const up = seg(t, T.dawn + .9, T.dawn + 1.4, ease.out);
+  O(gToday, up * out); gToday.setAttribute('transform', `translate(0 ${((1 - up) * 12).toFixed(2)})`);
+  ITEMS.forEach((it, i) => O(it.g, seg(t, T.dawn + 1.5 + i * .35, T.dawn + 1.9 + i * .35)));
+  press(bLook, t, T.look); press(bDismiss, t, NEVER);
+
+  drawPointer(t);
+}
+
+// ---- your pointer, drawn over everything ----
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+function drawPointer(t) {
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
+  const m = seg(t, cur.t - 1, cur.t - .12);
+  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
+  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+}
+
+// ---- transport ----
+const playB = root.getElementById('play'), scrub = root.getElementById('scrub'), clock = root.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+root.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  (dead || (raf = requestAnimationFrame(frame)));
+}
+layoutRoute(); layout(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
+},
 trail: function (root) {
 let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
@@ -6070,445 +6653,6 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { la
 (dead || (raf = requestAnimationFrame(frame)));
 // the page says when this film can be seen: it only runs then; stop() ends it for good
 return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
-},
-night: function (root) {
-let dead = false, raf = 0; const cleanups = [];
-const NS = 'http://www.w3.org/2000/svg';
-const svg = root.getElementById('stage');
-const DUR = 35.4, PI = Math.PI, NEVER = 1e9;
-
-// ---- helpers ----
-const el = (tag, attrs, parent, text) => {
-  const n = document.createElementNS(NS, tag);
-  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
-  if (text != null) n.textContent = text;
-  (parent || svg).appendChild(n);
-  return n;
-};
-const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
-const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
-const lerp = (a, b, k) => a + (b - a) * k;
-const ease = {
-  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
-  out: k => 1 - Math.pow(1 - k, 3),
-  in: k => k * k * k,
-  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
-  lin: k => k,
-};
-const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
-// there from a to b, fading in and out over d
-const span = (t, a, b, d = .4) => seg(t, a, a + d, ease.out) * (1 - seg(t, b - d, b));
-const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
-const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
-// a class, a text or a set of attributes, written only when it changes
-const cls = (n, c) => { if (n.$c !== c) { n.$c = c; n.setAttribute('class', c); } };
-const say = (n, s) => { if (n.$s !== s) { n.$s = s; n.textContent = s; } };
-const put = (n, attrs) => { for (const k in attrs) n.setAttribute(k, typeof attrs[k] === 'number' ? attrs[k].toFixed(2) : attrs[k]); };
-// text that types itself
-const TYPERS = [];
-const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
-const typeTo = (o, k) => {
-  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
-  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
-  return o;
-};
-// buttons: drawn about their own centre so a press can squeeze them
-function button(parent, cx, cy, w, label, kind) {
-  const g = el('g', null, parent);
-  const box = el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
-  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
-  return { g, box, tn, cx, cy, label, state: null };
-}
-function press(b, t, tc, after) {
-  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
-  const done = t >= tc;
-  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
-}
-
-// ---- crew badges ----
-const CREW = { qm: `${TP.name('qm')}`, scout: `${TP.name('scout')}`, scribe: `${TP.name('scribe')}`, art: `${TP.name('art')}`, warden: `${TP.name('warden')}`, pilot: `${TP.name('pilot')}` };
-const GLYPH = {
-  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
-  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
-  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
-  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
-  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
-  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
-};
-// a badge at any size: its lines stay as heavy as they are at full size
-function badge(key, parent, s = 1) {
-  const g = el('g', { class: 'c-' + key }, parent), k = el('g', { transform: `scale(${s})`, style: `--sw: ${(2 / s).toFixed(2)}` }, g);
-  el('circle', { r: 24, class: 'disc' }, k);
-  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, k));
-  return g;
-}
-
-// ---- what every scene has: the logo in the corner, the film's name, a title card, captions, the route bar and a last card ----
-const defs = svg.querySelector('defs');
-// the kit's small mark and the name beside it (docs/brand), in the kit's own coordinates
-const gLogo = el('g', { transform: 'translate(56 36) scale(.19)' });
-el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, gLogo);
-el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, gLogo);
-el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, gLogo);
-el('circle', { cx: 100, cy: 100, r: 20, class: 'mk-dot' }, gLogo);
-el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, gLogo);   // an outpost, in a gap in the outer ring
-// the app's name beside it, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
-tx(gLogo, 247, 156, 'b wm-word', 'Outpost');
-tx(svg, 1216, 61, 'm scene-l', 'NIGHT SHIFT', { 'text-anchor': 'end' });
-
-function titleCard(eyebrow, ink, accent, sub) {
-  const g = el('g');
-  tx(g, 640, 296, 'm eyebrow', eyebrow, { 'text-anchor': 'middle' });
-  const tag = tx(g, 640, 366, 'd tagline', null, { 'text-anchor': 'middle' });
-  el('tspan', { class: 'f-ink' }, tag, ink);
-  el('tspan', { class: 'f-accent' }, tag, accent);
-  tx(g, 640, 412, 'b name-sub', sub, { 'text-anchor': 'middle' });
-  return g;
-}
-// the last card: how to open what the film showed
-function endCard(lead, box, sub) {
-  const g = el('g'), w = box.length * 8.45 + 56;
-  tx(g, 640, 312, 'd wcap', lead, { 'text-anchor': 'middle' });
-  el('rect', { x: 640 - w / 2, y: 346, width: w, height: 46, rx: 10, class: 'cmd-box' }, g);
-  tx(g, 640, 374, 'm cmd-t', box, { 'text-anchor': 'middle' });
-  tx(g, 640, 440, 'b name-sub', sub, { 'text-anchor': 'middle' });
-  return g;
-}
-// a caption and the line under it, from a to b
-const CAPS = [];
-const caption = (s, sub, a, b) => { const g = el('g'); tx(g, 72, 128, 'd wcap', s); tx(g, 72, 159, 'b bubble', sub); CAPS.push({ g, a, b }); };
-// the route bar: the tour's numbered pins and dashed trail, one stop for each part of the film
-const STOPS = [], gRoute = el('g');
-function makeRoute(list) {
-  list.forEach(([label, at], i) => {
-    const s = { label, at };
-    if (i < list.length - 1) {
-      s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
-      s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
-    }
-    s.g = el('g', { class: 'stop' }, gRoute);
-    el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
-    tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
-    s.txt = tx(s.g, 24, 668.3, 'm stop-l', label.toUpperCase());
-    STOPS.push(s);
-  });
-}
-function layoutRoute() {
-  const w = STOPS.map(s => s.txt.getComputedTextLength());
-  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
-  let x = 96;
-  STOPS.forEach((s, i) => {
-    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
-    if (s.base) {
-      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
-      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
-    }
-    x += 24 + w[i] + gap;
-  });
-}
-// The title card opens the film and comes back as it ends, so the loop has no seam. The captions and the route bar run between it and the last card.
-function drawChrome(t) {
-  O(gTitle, 1 - seg(t, 2.1, 2.6) + seg(t, DUR - .6, DUR - .1));
-  O(gEnd, span(t, END + .2, DUR - .5, .45));
-  CAPS.forEach(c => {
-    const p = seg(t, c.a, c.a + .45, ease.out);
-    O(c.g, p * (1 - seg(t, c.b - .35, c.b))); c.g.setAttribute('transform', `translate(0 ${((1 - p) * 10).toFixed(2)})`);
-  });
-  O(gRoute, seg(t, 2.5, 3) * (1 - seg(t, END - .4, END)));
-  STOPS.forEach((s, i) => {
-    s.g.classList.toggle('on', t >= s.at);
-    if (s.fill) { const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at); s.fill.setAttribute('x2', lerp(s.x1 || 0, s.x2 || 0, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0); }
-  });
-}
-// every click in the story is yours: where the pointer goes, and when it presses
-const CLICKS = [];
-
-// ---- the story: you switch it on, the camp goes quiet, the shift drafts and reports, and the morning shows what it found ----
-const T = { on: 5.6, dusk: 8.6, shift: 13.6, done: 20.6, dawn: 22.4, look: 29.2 }, END = 31.8;
-
-// ---- Settings: off until you switch it on ----
-const SX = 200, SY = 230, SW = 880, SH = 250, IX = SX + 28, swY = SY + 212;
-const gSet = el('g');
-el('rect', { x: SX, y: SY, width: SW, height: SH, rx: 14, class: 'card shadow' }, gSet);
-tx(gSet, IX, SY + 38, 'm lbl', 'WHAT MAE DOES UNASKED');
-tx(gSet, IX, SY + 76, 'd tk-title', 'Night shift');
-[`Off unless you turn it on. Between these hours, once the ${TP.w('camp')} has sat idle for half an hour, it drafts shorter`,
-  'versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping',
-  'could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it.',
-].forEach((l, i) => tx(gSet, IX, SY + 110 + i * 23, 'b t15 f-muted', l));
-el('line', { x1: IX, y1: SY + 176, x2: SX + SW - 28, y2: SY + 176, class: 'hr' }, gSet);
-const swTrack = el('rect', { x: IX, y: swY - 12, width: 44, height: 24, rx: 12 }, gSet), swKnob = el('circle', { cy: swY, r: 8 }, gSet);
-const swOff = tx(gSet, IX + 58, swY + 5, 'b t15 f-muted', 'Off');
-const gOn = el('g', null, gSet), onT = tx(gOn, IX + 58, swY + 5, 'b t15 w6 f-text', 'On, from'), gHours = el('g', null, gOn);
-[['01:00', IX + 134], ['05:00', IX + 240]].forEach(([s, x]) => {
-  el('rect', { x, y: swY - 16, width: 72, height: 32, rx: 8, class: 'inset' }, gHours);
-  tx(gHours, x + 36, swY + 4.5, 'm code f-text', s, { 'text-anchor': 'middle' });
-});
-tx(gHours, IX + 223, swY + 5, 'b t15 f-muted', 'to', { 'text-anchor': 'middle' });
-const bRun = button(gOn, SX + SW - 28 - 56, swY, 112, 'Run it now', 'ghost');
-
-// ---- a window on the camp: day, night and day again ----
-const WX = 72, WY = 196, WH = 434, WIDE = 1136, NARROW = 528, SHIFT = 300;
-const gCamp = el('g');
-const clip = el('rect', { x: WX, y: WY, height: WH, rx: 14 }, el('clipPath', { id: 'win' }, defs));
-const gWin = el('g', { 'clip-path': 'url(#win)' }, gCamp);
-el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'daysky' }, gWin);
-const sky = el('rect', { x: WX, y: WY, width: WIDE, height: WH, class: 'sky' }, gWin);
-const rnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
-const NSTARS = [];
-for (let i = 0; i < 54; i++) NSTARS.push({ ph: rnd(i + 300) * 6.28, sp: 1.2 + rnd(i + 400) * 1.8,
-  n: el('circle', { cx: (WX + 14 + rnd(i) * (WIDE - 28)).toFixed(1), cy: (WY + 12 + rnd(i + 100) * 300).toFixed(1), r: (.9 + rnd(i + 200) * 1.3).toFixed(2), class: 'nstar' }, gWin) });
-// the land moves across as the window narrows, so the camp is always in the middle of it
-const gLand = el('g', null, gWin);
-// a map line is drawn twice, for the day and for the night, and the two are cross-faded
-const TOPO = [];
-const topo = (d, parent) => { el('path', { d, class: 'contour' }, parent); TOPO.push(el('path', { d, class: 'contour topo-n' }, parent)); };
-// the sky: the Commander is the sun and the crew are its planets, on orbits drawn as map contours and seen from the camp at a tilt
-const SYS = [370, 398], TILT = .45, NORB = 6, orbR = i => 64 + i * 36;
-const gSys = el('g', { transform: `translate(${SYS[0]} ${SYS[1]})` }, gLand);
-const ORBS = Array.from({ length: NORB }, () => ({ day: el('path', { class: 'contour' }, gSys), night: el('path', { class: 'contour topo-n' }, gSys), lit: el('path', { class: 'contour lit' }, gSys) }));
-// a point on orbit i: the ring wanders in and out a little as it goes round, and drifts once round per loop
-const orbAt = (i, a, ph) => {
-  const w = Math.min(1, .2 + i * .2), r = orbR(i) * (1 + w * (.045 * Math.sin(3 * a + i * 1.3 + ph) + .03 * Math.sin(5 * a - i * .7 - 2 * ph)));
-  return [r * Math.cos(a), TILT * r * Math.sin(a)];
-};
-function orbPath(i, ph) {
-  let d = '';
-  for (let k = 0; k < 120; k++) { const [x, y] = orbAt(i, k / 120 * 2 * PI, ph); d += (k ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1); }
-  return d + 'Z';
-}
-const gSunQ = el('g', null, gSys), sunHalo = el('circle', { r: 72, fill: 'url(#glow)' }, gSunQ);
-el('circle', { r: 19, class: 'sunb' }, gSunQ);
-GLYPH.qm(el('g', { class: 'sun-q', transform: 'translate(-14.4 -14.4) scale(1.2)' }, gSunQ));
-const sunZ = tx(gSys, 0, 0, 'm zz', 'z');
-// each planet: its orbit, where it comes to rest for the night, and how fast it goes round by day
-const PLANETS = [['scout', 1, 205, .94], ['scribe', 2, 318, .74], ['art', 3, 128, .46], ['warden', 4, 28, .32], ['pilot', 5, 262, .24]].map(([key, orb, rest, sp], i) =>
-  ({ orb, rest: rest * PI / 180, sp, i: i + 1, g: badge(key, gSys, .46), z: tx(gSys, 0, 0, 'm zz', 'z') }));
-// how far the system has turned: it slows to a stop as night falls, and starts again in the morning
-const ramp = (t, a, b) => t < a ? 0 : t > b ? (b - a) / 2 + t - b : (t - a) ** 2 / (2 * (b - a));
-const turned = t => t - ramp(t, T.dusk + 1.1, T.dusk + 3.1) + ramp(t, T.dawn + .4, T.dawn + 2) - (T.dusk + 2.1);
-const gMoon = el('g', null, gLand);
-el('path', { d: 'M6 -21 A22 22 0 1 0 6 21 A24 24 0 0 1 6 -21 Z', class: 'moonb', transform: 'rotate(-24)' }, gMoon);
-// the hills on the skyline, each drawn by its contour lines
-const HILLS = [];
-[[-330, 210, 52, 14], [60, 250, 62, -18], [720, 300, 84, 22], [1150, 280, 60, -16]].forEach(([cx, w, h, lean], n) => {
-  const arch = j => {
-    const s = 1 - j * .24, x0 = cx + j * lean - w * s; let d = '';
-    for (let k = 0; k <= 48; k++) { const u = k / 48; d += (k ? 'L' : 'M') + (x0 + 2 * w * s * u).toFixed(1) + ' ' + (554 - h * s * Math.sin(PI * u) ** 2 * (1 + .1 * Math.sin(7 * u + n + j))).toFixed(1); }
-    return d;
-  };
-  el('path', { d: arch(0) + 'Z', class: 'hill' }, gLand); HILLS.push(el('path', { d: arch(0) + 'Z', class: 'hill-n' }, gLand));
-  for (let j = 0; j < 4; j++) topo(arch(j), gLand);
-});
-const GROUND = 'M-260 560 C-60 548 60 556 190 542 S460 540 640 548 S1000 526 1240 546 S1440 552 1540 544 V640 H-260 Z';
-el('path', { d: GROUND, class: 'gnd' }, gLand);
-const gndN = el('path', { d: GROUND, class: 'gnd-n' }, gLand);
-// the ground is a map too: its lines run under the camp
-for (let j = 0; j < 3; j++) {
-  let d = '';
-  for (let x = -260; x <= 1540; x += 20) d += (x > -260 ? 'L' : 'M') + x + ' ' + (571 + j * 23 + (7 - j) * Math.sin(x * .011 + j * 1.9) + 3 * Math.sin(x * .029 - j)).toFixed(1);
-  topo(d, gLand);
-}
-// what stands in the camp is drawn for the day, with a dark copy over it that comes up with the night
-const DARK = [];
-const stand = (d, parent) => { el('path', { d, class: 'stand' }, parent); DARK.push(el('path', { d, class: 'stand-n' }, parent)); };
-[[-150, 572, 1], [-96, 566, .78], [96, 572, .82], [548, 568, 1], [590, 562, .74], [770, 566, .9], [836, 572, 1.1]].forEach(([x, y, s]) => {
-  const g = el('g', { transform: `translate(${x} ${y})` }, gLand), q = v => (v * s).toFixed(1);
-  el('path', { d: `M0 0 V${q(-12)}`, class: 'log' }, g);
-  stand(`M${q(-17)} ${q(-10)} L0 ${q(-38)} L${q(17)} ${q(-10)} Z M${q(-13)} ${q(-29)} L0 ${q(-54)} L${q(13)} ${q(-29)} Z M${q(-9)} ${q(-46)} L0 ${q(-68)} L${q(9)} ${q(-46)} Z`, g);
-});
-// a little house, one storey high, and the lamp in its windows while the shift is on
-const HOUSE = [190, 566], gHouse = el('g', { transform: `translate(${HOUSE[0]} ${HOUSE[1]})` }, gLand);
-stand('M24 -64 V-90 H38 V-64 Z', gHouse);
-stand('M-58 0 V-46 H58 V0 Z', gHouse);
-stand('M-68 -44 L-42 -76 H42 L68 -44 Z', gHouse);
-el('path', { d: 'M-10 0 V-32 H10 V0 Z', class: 'door' }, gHouse);
-const PANES = 'M-46 -34 H-24 V-14 H-46 Z M24 -34 H46 V-14 H24 Z';
-const lampHalo = el('circle', { cy: -24, r: 62, fill: 'url(#glow)' }, gHouse), lamp = el('path', { d: PANES, class: 'lamp' }, gHouse);
-el('path', { d: PANES + ' M-35 -34 V-14 M35 -34 V-14', class: 'stand', fill: 'none' }, gHouse);
-// a second, smaller house
-const gHouse2 = el('g', { transform: 'translate(452 573)' }, gLand);
-stand('M-28 -40 V-57 H-19 V-40 Z', gHouse2);
-stand('M-36 0 V-29 H36 V0 Z', gHouse2);
-stand('M-43 -28 L-26 -49 H26 L43 -28 Z', gHouse2);
-el('path', { d: 'M-22 0 V-20 H-9 V0 Z', class: 'door' }, gHouse2);
-el('path', { d: 'M6 -21 H24 V-8 H6 Z M15 -21 V-8', class: 'stand', fill: 'none' }, gHouse2);
-// the fire, and the logs to sit on
-const gFire = el('g', { transform: 'translate(318 578)' }, gLand);
-const fireHalo = el('circle', { cy: -12, r: 44, fill: 'url(#glow)' }, gFire);
-el('path', { d: 'M-15 0 L15 -7 M-15 -7 L15 0 M-56 7 H-32 M34 9 H58', class: 'log' }, gFire);
-const flame = el('path', { d: 'M0 0 C-13 -8 -9 -22 0 -34 C9 -22 13 -8 0 0 Z', class: 'flame' }, gFire);
-const winFrame = el('rect', { x: WX, y: WY, height: WH, rx: 14, class: 'winframe' }, gCamp);
-// the clock in the corner of the window, and what the camp is doing
-const gClock = el('g', null, gCamp);
-el('rect', { x: WX + 20, y: WY + 18, width: 304, height: 72, rx: 12, class: 'card' }, gClock);
-const clockT = tx(gClock, WX + 40, WY + 52, 'd clock-t', '');
-tx(gClock, WX + 304, WY + 48, 'm lbl', 'HOURS 01:00 TO 05:00', { 'text-anchor': 'end' });
-const statusT = tx(gClock, WX + 40, WY + 75, 'm lbl', '');
-
-// ---- what the shift writes down, one row at a time ----
-const RX = 630, RW = 578;
-const ROWS = [
-  { at: 14.2, label: 'MEMORY DRAFTS', title: 'Drafted shorter versions of 2 memories', sub: `${TP.name('scout')}'s and ${TP.name('art')}'s, both more than 60% full`, pill: 'DRAFT · WAITS FOR YOUR OK' },
-  { at: 16.5, label: 'OLD LINES', title: 'Listed 5 old lines worth a look', sub: 'Not pinned, and more than 90 days old', pill: 'LISTED · NOTHING TOUCHED' },
-  { at: 18.6, label: 'HOUSEKEEPING', title: 'Found 1 thing housekeeping could clear', sub: '2 finished worktrees, about 48 MB', pill: 'REPORTED · NOTHING CLEARED' },
-];
-const gRows = el('g'), gSparks = el('g');
-ROWS.forEach((r, i) => {
-  r.y = 196 + 152 * i; r.g = el('g', null, gRows);
-  el('rect', { x: RX, y: r.y, width: RW, height: 130, rx: 14, class: 'card' }, r.g);
-  tx(r.g, RX + 24, r.y + 37, 'm lbl', r.label);
-  r.typed = typer(r.g, RX + 24, r.y + 74, 'b t19 w6 f-text', r.title);
-  r.caret = el('rect', { y: r.y + 58, width: 2, height: 20, class: 'caret' }, r.g);
-  r.subT = tx(r.g, RX + 24, r.y + 102, 'b t15 f-muted', r.sub);
-  const pw = r.pill.length * 7.4 + 26;
-  r.pillG = el('g', null, r.g);
-  el('rect', { x: RX + RW - 20 - pw, y: r.y + 20, width: pw, height: 24, rx: 12, class: 'pill' }, r.pillG);
-  tx(r.pillG, RX + RW - 20 - pw / 2, r.y + 36, 'm pill-t', r.pill, { 'text-anchor': 'middle' });
-  r.spark = el('g', null, gSparks);
-  el('circle', { r: 20, fill: 'url(#glow)' }, r.spark); el('circle', { r: 4.5, class: 'spark' }, r.spark);
-});
-
-// ---- the morning: the card on your Today page ----
-const TX0 = 630, TY = 196, TW = 578, TH = 434, JX = TX0 + 26;
-const gToday = el('g');
-el('rect', { x: TX0, y: TY, width: TW, height: TH, rx: 14, class: 'card shadow' }, gToday);
-tx(gToday, JX, TY + 48, 'd tk-title', 'While you were away');
-tx(gToday, TX0 + TW - 26, TY + 45, 'm lbl', 'NIGHT SHIFT, 01:04', { 'text-anchor': 'end' });
-el('line', { x1: JX, y1: TY + 70, x2: TX0 + TW - 26, y2: TY + 70, class: 'hr' }, gToday);
-const ITEMS = [
-  ['Drafted shorter versions of 2 memories', `${TP.name('scout')} and ${TP.name('art')}. Nothing changes until you approve them.`],
-  ['5 old lines worth a look', 'Not pinned, and more than 90 days old. Nothing was changed.'],
-  [`Housekeeping could remove 2 finished worktrees the ${TP.w('camp')} made`, `About 48 MB. Nothing was cleared: ask for ${TP.a('camp')} cleanup when you want it done.`],
-].map(([title, sub], i) => {
-  const y = TY + 106 + i * 82, g = el('g', null, gToday);
-  el('circle', { cx: JX + 5, cy: y - 5, r: 4, class: 'dot-a' }, g);
-  tx(g, JX + 20, y, 'b t16 w6 f-text', title); tx(g, JX + 20, y + 23, 'b t13 f-muted', sub);
-  el('line', { x1: JX, y1: y + 47, x2: TX0 + TW - 26, y2: y + 47, class: 'hr' }, g);
-  return { g, y };
-});
-const bLook = button(ITEMS[0].g, TX0 + TW - 26 - 66, ITEMS[0].y + 6, 132, 'Look them over');
-const bDismiss = button(gToday, JX + 46, TY + TH - 46, 92, 'Dismiss', 'ghost');
-tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reported. Nothing was applied or deleted.');
-
-CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
-
-const gTitle = titleCard('NEW AT THE OUTPOST · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the outpost is idle. Nothing changes until you approve it.');
-const gEnd = endCard('Switch it on under', 'Settings → What Mae does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
-caption('Off until you switch it on.', 'Under Settings → What Mae does unasked. You choose the hours.', 3.0, T.dusk - .3);
-caption('The outpost goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
-caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
-caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);
-makeRoute([['Switch it on', 2.8], ['Quiet hours', T.dusk], ['The shift', T.shift], ['Morning', T.dawn]]);
-
-// the hours sit right after "On, from", however wide the type runs
-function layout() { gHours.setAttribute('transform', `translate(${(onT.getComputedTextLength() - 64).toFixed(1)} 0)`); }
-
-const pad2 = n => String(n).padStart(2, '0');
-function render(t) {
-  drawChrome(t);
-  // the switch
-  O(gSet, span(t, 2.5, T.dusk, .45));
-  const on = t >= T.on + .08;
-  cls(swTrack, on ? 'sw on' : 'sw'); cls(swKnob, on ? 'sw-knob on' : 'sw-knob');
-  put(swKnob, { cx: IX + 12 + 20 * seg(t, T.on, T.on + .25) });
-  O(swOff, 1 - seg(t, T.on, T.on + .2)); O(gOn, seg(t, T.on + .1, T.on + .5, ease.out));
-  press(bRun, t, NEVER);
-
-  // the window: it narrows when the shift starts, and the land slides so the camp stays in view
-  const out = 1 - seg(t, END - .3, END + .1);
-  O(gCamp, seg(t, T.dusk - .1, T.dusk + .4) * out);
-  const narrow = seg(t, T.shift, T.shift + .7), ww = lerp(WIDE, NARROW, narrow), dx = SHIFT * (1 - narrow);
-  put(clip, { width: ww }); put(winFrame, { width: ww });
-  gLand.setAttribute('transform', `translate(${dx.toFixed(2)} 0)`);
-  const night = seg(t, T.dusk + 1.1, T.dusk + 3.1) * (1 - seg(t, T.dawn, T.dawn + 2));
-  O(sky, night); O(gndN, night);
-  HILLS.forEach(n => O(n, night)); TOPO.forEach(n => O(n, night * .22)); DARK.forEach(n => O(n, night * .62));
-  NSTARS.forEach(s => O(s.n, night * (.4 + .6 * Math.sin(t * s.sp + s.ph) ** 2)));
-  const first = t < (T.shift + T.dawn) / 2;
-  TR(gMoon, 548, lerp(274, 250, night)); O(gMoon, night);
-  // the sky: the crew go round the Commander by day, and come to rest and sleep at night
-  const ph = t / DUR * 2 * PI, wake = lerp(0, 330, seg(t, T.dawn + .7, T.dawn + 2.3, ease.lin));
-  ORBS.forEach((o, i) => {
-    const d = orbPath(i, ph); o.day.setAttribute('d', d); o.night.setAttribute('d', d); o.lit.setAttribute('d', d);
-    O(o.night, night * .22); O(o.lit, wake > 0 && wake < 330 ? clamp(1 - Math.abs(orbR(i) - wake) / 46) * .9 : 0);
-  });
-  O(sunHalo, .8 * (1 - night)); O(gSunQ, lerp(1, .7, night));
-  const zs = (z, x, y, i) => { const k = (t * .42 + i * .27) % 1; put(z, { x: x + 8 + k * 9, y: y - 13 - k * 24 }); O(z, night > .95 ? Math.sin(k * PI) * .9 : 0); };
-  zs(sunZ, 12, -8, 0);
-  const turn = turned(t);
-  PLANETS.forEach(p => {
-    const [x, y] = orbAt(p.orb, p.rest + p.sp * turn, ph);
-    TR(p.g, x, y); O(p.g, lerp(1, .78, night)); zs(p.z, x, y, p.i);
-  });
-  // the fire burns down for the night; the lamp in the house is the shift at work
-  const fire = first ? lerp(1, .38, seg(t, T.dusk + 2, T.dusk + 4)) : lerp(.38, 1, seg(t, T.dawn + .8, T.dawn + 2.2));
-  flame.setAttribute('transform', `scale(${(fire * (1 + .07 * Math.sin(t * 13))).toFixed(3)} ${(fire * (1 + .14 * Math.sin(t * 9.1 + 1))).toFixed(3)})`);
-  O(fireHalo, fire * .75);
-  const work = span(t, T.shift + .3, T.done + .5, .4) * (.8 + .2 * Math.sin(t * 10) ** 2);
-  O(lamp, work); O(lampHalo, work * .9);
-  // the clock, and what the camp is doing
-  const mins = t < T.shift ? lerp(10, 240, seg(t, T.dusk + .4, T.shift - 1.6)) : t < T.dawn ? lerp(240, 244, seg(t, T.shift + .6, T.done, ease.lin)) : lerp(245, 630, seg(t, T.dawn, T.dawn + 2.2));
-  const q = t >= T.shift && t < T.dawn ? 1 : 5, m = Math.round(mins / q) * q + 21 * 60;
-  say(clockT, pad2(Math.floor(m / 60) % 24) + ':' + pad2(m % 60));
-  say(statusT, t < T.shift - 1.6 ? 'THE OUTPOST IS IDLE' : t < T.shift ? 'IDLE, AND INSIDE YOUR HOURS' : t < T.done ? 'THE NIGHT SHIFT IS AT WORK' : t < T.dawn + 1.4 ? 'SHIFT DONE · NOTHING CHANGED' : 'MORNING');
-  cls(statusT, t >= T.shift && t < T.done ? 'm lbl st-on' : 'm lbl');
-
-  // each row: a spark leaves the house by the chimney, the row is written, and its tag says nothing was changed
-  ROWS.forEach(r => {
-    const k = seg(t, r.at, r.at + .6), x0 = HOUSE[0] + 31 + dx, y0 = HOUSE[1] - 90, x1 = RX, y1 = r.y + 65, cy = Math.min(y0, y1) - 110;
-    const sx = (1 - k) * (1 - k) * x0 + 2 * k * (1 - k) * ((x0 + x1) / 2) + k * k * x1, sy = (1 - k) * (1 - k) * y0 + 2 * k * (1 - k) * cy + k * k * y1;
-    TR(r.spark, sx, sy); O(r.spark, k > 0 && k < 1 ? Math.min(1, k * 8, (1 - k) * 8) : 0);
-    O(r.g, seg(t, r.at + .45, r.at + .8) * (1 - seg(t, T.dawn + .2, T.dawn + .7)));
-    typeTo(r.typed, seg(t, r.at + .8, r.at + 1.7, ease.lin));
-    put(r.caret, { x: RX + 26 + r.typed.w }); O(r.caret, t > r.at + .6 && t < r.at + 1.9 && (t * 2.4) % 1 < .6 ? 1 : 0);
-    O(r.subT, seg(t, r.at + 1.75, r.at + 2.05)); O(r.pillG, seg(t, r.at + 1.85, r.at + 2.15, ease.out));
-  });
-
-  // the morning
-  const up = seg(t, T.dawn + .9, T.dawn + 1.4, ease.out);
-  O(gToday, up * out); gToday.setAttribute('transform', `translate(0 ${((1 - up) * 12).toFixed(2)})`);
-  ITEMS.forEach((it, i) => O(it.g, seg(t, T.dawn + 1.5 + i * .35, T.dawn + 1.9 + i * .35)));
-  press(bLook, t, T.look); press(bDismiss, t, NEVER);
-
-  drawPointer(t);
-}
-
-// ---- your pointer, drawn over everything ----
-const ripple = el('circle', { class: 'ripple' });
-const ripple2 = el('circle', { class: 'ripple' });
-const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
-function drawPointer(t) {
-  let cur = null;
-  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
-  if (!cur) { O(pointer, 0); O(ripple, 0); O(ripple2, 0); return; }
-  const m = seg(t, cur.t - 1, cur.t - .12);
-  TR(pointer, lerp(cur.x + 300, cur.x, m), lerp(cur.y + 130, cur.y, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
-  O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
-  const rp = (t - cur.t) / .6, rp2 = (t - cur.t - .12) / .7;
-  put(ripple, { cx: cur.x, cy: cur.y, r: lerp(12, 62, ease.out(clamp(rp))) }); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
-  put(ripple2, { cx: cur.x, cy: cur.y, r: lerp(12, 104, ease.out(clamp(rp2))) }); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
-}
-
-// ---- transport ----
-const playB = root.getElementById('play'), scrub = root.getElementById('scrub'), clock = root.getElementById('clock');
-let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;
-const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
-function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
-function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
-playB.addEventListener('click', () => setPlaying(!playing));
-root.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
-scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
-function frame(now) {
-  if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
-  last = now;
-  (dead || (raf = requestAnimationFrame(frame)));
-}
-layoutRoute(); layout(); setPlaying(playing); render(0); sync();
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layout(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
-(dead || (raf = requestAnimationFrame(frame)));
-// the page says when this film can be seen: it only runs then; stop() ends it for good
-return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 }
   };
   var film = {};
@@ -6530,13 +6674,14 @@ return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimation
     f.ctl = null;
     stage.parentNode.replaceChild(fresh, stage);
   }
-  // Each section has its own tabs, and its films move only while that section is on screen.
-  [{ id: 'films', keys: ['sky', 'ticket', 'audit'] }, { id: 'videos', keys: ['trail', 'stars', 'night'] }].forEach(function (sec) {
+  // The films section has tabs, and its films move only while it is on screen. A film shown on its
+  // own is a group of one, with no tab, that moves only while it is itself on screen (not while its tab is hidden).
+  [{ id: 'films', keys: ['sky', 'whole', 'ticket', 'audit', 'night'] }, { id: 'film-trail', keys: ['trail'] }, { id: 'film-stars', keys: ['stars'] }].forEach(function (sec) {
     var keys = sec.keys, active = keys[0], inView = false;
     function update() {
       keys.forEach(function (key) {
         var f = film[key], on = key === active;
-        f.panel.hidden = !on; f.tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (f.tab) { f.panel.hidden = !on; f.tab.setAttribute('aria-selected', on ? 'true' : 'false'); }
         if (on && inView && !f.ctl) mount(key);
         if (f.ctl) f.ctl.show(on && inView);
       });
@@ -6547,7 +6692,7 @@ return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimation
     });
     keys.forEach(function (key) {
       film[key] = { panel: document.getElementById('film-' + key), tab: document.getElementById('film-tab-' + key), ctl: null };
-      film[key].tab.addEventListener('click', function () { active = key; update(); });
+      if (film[key].tab) film[key].tab.addEventListener('click', function () { active = key; update(); });
     });
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (entries) { inView = entries[entries.length - 1].isIntersecting; update(); }, { threshold: .2 }).observe(document.getElementById(sec.id));

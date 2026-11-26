@@ -1,4 +1,4 @@
-<h1><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/mae-lockup-on-dark.svg"><img src="docs/brand/mae-lockup-on-light.svg" alt="Outpost Mae" height="64"></picture></h1>
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/outpost-lockup-on-dark.svg"><img src="docs/brand/outpost-lockup-on-light.svg" alt="Outpost" height="64"></picture></h1>
 
 **Outpost** is a small, hackable multi-agent harness built on Claude: a place on your own machine where a crew gets your work done. This checkout is its first outpost, **Mae** (short for **M**y **A**lter **E**go). A **Quartermaster** plans your request, gets your OK on the plan, and sends specialists out on quests, several at once when the work allows. Each crew member has a fixed identity, its own memory and workspace, and clear limits on what it does.
 
@@ -13,7 +13,7 @@
 
 Ask a crew member for work outside its role and it declines in one line, naming the right teammate. You can add crew members of your own from the **+** on the crew bar.
 
-**For a tour of what it does, open mission control and choose _Tour_ from the header's ··· menu** (it's [`docs/index.html`](docs/index.html)).
+**For a tour of what it does, open mission control and choose _Tour_ from the header's ··· menu** (it's [`docs/index.html`](docs/index.html)), and it's online at [outpostmae.app](https://outpostmae.app).
 
 ## Quick start
 

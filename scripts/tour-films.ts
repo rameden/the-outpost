@@ -1,15 +1,16 @@
-// Put the films into the tour: the motion graphics in docs/films/ → the "On film" and "Videos"
-// sections of docs/index.html, drawn live in the page.
+// Put the films into the tour: the motion graphics in docs/films/ → the Films section of
+// docs/index.html (five films, a tab each) and two films shown on their own beside what they show
+// (the trail map in Orbit, the constellation in the kit's memory tab), all drawn live in the page.
 //   npm run tour:films            write them into docs/index.html
 //   tsx scripts/tour-films.ts --check   say whether docs/index.html is in step, and change nothing
 //
 // Each film is a page of its own (open it in a browser to watch or work on it). The tour can't load
 // another file: the camp serves it as one page under a policy that fetches nothing. So this copies
-// each film whole into the tour: the styles they share once (the audit film's), the few rules a film
+// each film whole into the tour: the styles they share once (the ticket film's), the few rules a film
 // adds of its own, its stage as a <template>, and the code that draws it. In the tour a film is mounted in a shadow root,
 // so its styles and the tour's never meet, and it takes its colours from the page: the tour's light
 // or dark mode and its palettes. Edit a film in docs/films/, then run this. Running it again replaces
-// what it wrote before (everything between the "films" and "videos" markers).
+// what it wrote before (everything between the "films", "films-code" and "film-<key>" markers).
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -19,20 +20,20 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TOUR = join(ROOT, "docs", "index.html");
 const FILMS_DIR = join(ROOT, "docs", "films");
 
-const FILMS: { key: string; section: string; file: string; tab: string; length: string; note: string; hidden?: boolean }[] = [
+// section: the films section, where each film has a tab. into: a film shown on its own, inside the
+// part of the tour that describes what it shows, between <!-- film-<key>:start --> and its end marker
+// (those markers are written by hand in docs/index.html; this fills in what's between them).
+const FILMS: { key: string; file: string; note: string; tab?: string; length?: string; section?: string; into?: string; hidden?: boolean }[] = [
   {
     key: "sky", section: "films", file: "ground-to-sky.html", tab: "Ground to sky", length: "1:16",
     note: "Outpost in one shot, from the ground to the sky. You claim your ground, your outpost lifts into orbit, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
   },
   {
-    // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in "On film".
-    // To show it again: take `hidden` off, put it back in that section's lede below (the lede counts
-    // the films and describes them), and run `npm run tour:films`.
-    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26", hidden: true,
+    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26",
     note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own <span data-word='crew'>crew</span>, memory and keys. Then a request comes in and goes round the <span data-word='crew'>crew</span> as comets, the <span data-crew='5'>Test Pilot</span> flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
   },
   {
-    key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket, start to finish", length: "0:54",
+    key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket", length: "0:54",
     note: "One example Jira ticket, from kicking off <span data-word='a quest'>a mission</span> to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review.",
   },
   {
@@ -40,33 +41,28 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
     note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review. You kick off <span data-word='a quest'>a mission</span> from the first, and it goes from ticket to reviewed pull request step by step; the other two follow the same route.",
   },
   {
-    key: "trail", section: "videos", file: "trail-map.html", tab: "The trail map", length: "0:36",
-    note: "The trail map: one plan as waypoints, lit as the <span data-word='crew'>crew</span> reaches each one, then every plan of the day on one map, as rings or as a tree. Open it with <code>/trail</code>.",
-  },
-  {
-    key: "stars", section: "videos", file: "constellation.html", tab: "The constellation", length: "0:39",
-    note: "The constellation: every line the <span data-word='crew'>crew</span> remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it. Open it from the Views menu in the top bar or with <code>/constellation</code>.",
-  },
-  {
-    key: "night", section: "videos", file: "night-shift.html", tab: "The night shift", length: "0:35",
+    key: "night", section: "films", file: "night-shift.html", tab: "Night shift", length: "0:35",
     note: "The night shift: off until you switch it on, then it drafts and reports while the outpost is idle. Nothing is applied, deleted or changed until you approve it.",
   },
-];
-// The sections the films are shown in: where each goes in the tour, and its link in the top bar.
-const SECTIONS = [
   {
-    id: "films", name: "On film", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the other two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it.",
-    before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
+    key: "trail", into: "orbit-trail", file: "trail-map.html",
+    note: "One plan as waypoints, lit as the <span data-word='crew'>crew</span> reaches each one, then every plan of the day on one map, as rings or as a tree.",
   },
   {
-    id: "videos", name: "Videos", label: "Videos", title: "Three parts of the outpost, in motion.",
-    lede: "Three more short films, drawn live in this page. Each shows one part of the outpost: the trail map, the constellation and the night shift.",
-    before: '<section id="kit">', linkBefore: '        <a href="#kit">The kit</a>', // after Orbit, ahead of the kit they belong to
+    key: "stars", into: "kit-memory", file: "constellation.html",
+    note: "Every line the <span data-word='crew'>crew</span> remembers, as a star in its place that grows each time it is used. Pick one to pin it, merge it with another or forget it.",
+  },
+];
+// The films section: where it goes in the tour, and its link in the top bar.
+const SECTIONS = [
+  {
+    id: "films", name: "Films", label: "Films", title: "Watch the work go round the crew.",
+    lede: "Five short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky, and the second all of it in one loop, from the star chart to the night shift. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.",
+    before: '<section id="orbit">', linkBefore: '        <a href="#kit">The kit</a>', // just ahead of the kit
   },
 ];
 // The film whose styles the others share. What a film has beyond them goes in with that film alone.
-const STYLES_FROM = "three-audit-findings.html";
+const STYLES_FROM = "one-ticket.html";
 
 // Colours the tour already has, which the films take from it.
 const TOUR_TOKENS = ["bg", "surface", "surface-2", "border", "border-strong", "text", "muted", "faint", "accent", "accent-soft", "accent-ink", "good", "good-soft",
@@ -243,7 +239,7 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
 
   const declare = (set: Record<string, string>) => Object.entries(set).map(([name, value]) => `--${name}: ${value};`).join(" ");
   const styles = `/* films:start */
-/* The films: in each section, a tab each over one stage. The tab that's showing has a solid 2px line under it. */
+/* The films: in the Films section, a tab each over one stage. The tab that's showing has a solid 2px line under it. */
 .film-tabs { display: flex; flex-wrap: wrap; gap: 0 28px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
 .film-tabs button { font: 600 15px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; cursor: pointer; }
 .film-tabs button span { font: 400 12px var(--mono); color: var(--faint); margin-left: 8px; }
@@ -251,6 +247,7 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
 .film-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .film-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .film-stage { display: block; color: var(--muted); font-size: 15px; }
+.film-inline { margin-top: 18px; }
 .film-note { margin: 14px 0 0; color: var(--muted); font-size: 15px; max-width: 72ch; }
 .film-note code { font-family: var(--mono); font-size: .92em; white-space: nowrap; }
 /* The few colours the films use that the page has no other need of. */
@@ -285,8 +282,15 @@ ${shown.map((f, i) => `    <div class="film" id="film-${f.key}" role="tabpanel" 
 
 `;
   });
+  // A film shown on its own, in the part of the tour about what it shows: no tab, just the stage and its note.
+  const inline = parts.filter((f) => f.into).map((f) => ({ ...f, html: `<!-- film-${f.key}:start -->
+      <div class="film film-inline" id="film-${f.key}">
+        <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+        <p class="film-note">${f.note} It loops. Click the stage to pause.</p>
+      </div>
+      <!-- film-${f.key}:end -->` }));
   const code = `<!-- films-code:start -->
-<!-- The films in the "On film" and "Videos" sections, written here by \`npm run tour:films\` (scripts/tour-films.ts)
+<!-- The films (the Films section, and the two shown beside what they show), written here by \`npm run tour:films\` (scripts/tour-films.ts)
      from the pages in docs/films/. Edit those and run it again, rather than changing anything between
      these markers. What follows is the styles the films share, each one's own rules and stage, then the code that draws it.
      Each is mounted in a shadow root, so nothing here meets the page's own styles, and takes its
@@ -328,13 +332,14 @@ ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
     f.ctl = null;
     stage.parentNode.replaceChild(fresh, stage);
   }
-  // Each section has its own tabs, and its films move only while that section is on screen.
-  [${SECTIONS.map((s) => `{ id: '${s.id}', keys: [${shownIn(s.id).map((f) => `'${f.key}'`).join(", ")}] }`).join(", ")}].forEach(function (sec) {
+  // The films section has tabs, and its films move only while it is on screen. A film shown on its
+  // own is a group of one, with no tab, that moves only while it is itself on screen (not while its tab is hidden).
+  [${[...SECTIONS.map((s) => `{ id: '${s.id}', keys: [${shownIn(s.id).map((f) => `'${f.key}'`).join(", ")}] }`), ...inline.map((f) => `{ id: 'film-${f.key}', keys: ['${f.key}'] }`)].join(", ")}].forEach(function (sec) {
     var keys = sec.keys, active = keys[0], inView = false;
     function update() {
       keys.forEach(function (key) {
         var f = film[key], on = key === active;
-        f.panel.hidden = !on; f.tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (f.tab) { f.panel.hidden = !on; f.tab.setAttribute('aria-selected', on ? 'true' : 'false'); }
         if (on && inView && !f.ctl) mount(key);
         if (f.ctl) f.ctl.show(on && inView);
       });
@@ -345,7 +350,7 @@ ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
     });
     keys.forEach(function (key) {
       film[key] = { panel: document.getElementById('film-' + key), tab: document.getElementById('film-tab-' + key), ctl: null };
-      film[key].tab.addEventListener('click', function () { active = key; update(); });
+      if (film[key].tab) film[key].tab.addEventListener('click', function () { active = key; update(); });
     });
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (entries) { inView = entries[entries.length - 1].isIntersecting; update(); }, { threshold: .2 }).observe(document.getElementById(sec.id));
@@ -369,6 +374,11 @@ ${parts.map((f) => `${f.key}: function (root) {\n${f.js}}`).join(",\n")}
   strip("/* films:start */", "/* films:end */\n");
   for (const s of SECTIONS) strip(`<!-- ${s.id}:start -->`, `<!-- ${s.id}:end -->`);
   strip("<!-- films-code:start -->", "<!-- films-code:end -->");
+  for (const f of inline) {
+    const from = `<!-- film-${f.key}:start -->`, to = `<!-- film-${f.key}:end -->`, i = page.indexOf(from), j = page.indexOf(to, i);
+    if (i < 0 || j < 0) throw new Error(`The tour has no place for the ${f.key} film: put ${from} and ${to} where it goes (in ${f.into})`);
+    page = page.slice(0, i) + f.html + page.slice(j + to.length);
+  }
   const link = (s: (typeof SECTIONS)[number]) => `        <a href="#${s.id}">${s.name}</a>\n`;
   for (const s of SECTIONS) page = page.replace(link(s), "");
   const before = (marker: string, text: string) => { page = swap(page, marker, text + marker); };
