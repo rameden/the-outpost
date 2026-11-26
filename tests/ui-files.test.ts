@@ -126,21 +126,25 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
 
 test("the tour's films are drawn by the page itself, so its policy needs nothing new", () => {
   const page = splashPage()!;
-  for (const id of ["films", "videos"]) {
-    assert.match(page, new RegExp(`<section id="${id}">`));
-    assert.match(page, new RegExp(`<a href="#${id}">`), "the top bar links to them");
-  }
-  for (const key of ["sky", "ticket", "audit", "trail", "stars", "night"]) {
+  // One films section, with a tab each for three films, and its own link in the top bar.
+  assert.match(page, /<section id="films">/);
+  assert.match(page, /<a href="#films">/, "the top bar links to it");
+  for (const key of ["sky", "ticket", "night"]) {
     assert.match(page, new RegExp(`<template id="film-${key}-stage">`), `the ${key} film's stage is in the page`);
     assert.match(page, new RegExp(`id="film-tab-${key}" aria-controls="film-${key}"`), `the ${key} film has its tab`);
   }
-  // "The whole sky" is hidden (`hidden` in scripts/tour-films.ts): its stage and code are still written in,
-  // but "On film" has no tab or panel for it, nothing in the page names it, and the section's code never asks for it.
-  assert.match(page, /<template id="film-whole-stage">/, "the hidden film's stage is kept in the page");
-  assert.doesNotMatch(page, /id="film-tab-whole"|id="film-whole"|data-film="whole"|The whole sky/i, "the hidden film is not shown");
-  assert.match(page, /\{ id: 'films', keys: \['sky', 'ticket', 'audit'\] \}/, "On film plays the three films it shows");
-  assert.equal(page.slice(page.indexOf("<!-- films:start -->"), page.indexOf("<!-- films:end -->")).match(/role="tab"/g)?.length, 3, "On film has three tabs");
+  assert.match(page, /\{ id: 'films', keys: \['sky', 'ticket', 'night'\] \}/, "the Films section plays the three films it shows");
+  assert.equal(page.slice(page.indexOf("<!-- films:start -->"), page.indexOf("<!-- films:end -->")).match(/role="tab"/g)?.length, 3, "Films has three tabs");
   assert.match(page, /<p class="lede">Three short films, drawn live in this page\./, "and its lede counts three");
+  // The trail map and the constellation are shown on their own, beside what they show, with no tab.
+  for (const [key, where] of [["trail", "orbit-trail"], ["stars", "kit-memory"]]) {
+    assert.match(page, new RegExp(`<template id="film-${key}-stage">`));
+    const at = page.indexOf(`<!-- film-${key}:start -->`);
+    assert.ok(at > page.indexOf(`id="${where}"`) && at > 0, `the ${key} film is in ${where}`);
+    assert.doesNotMatch(page, new RegExp(`id="film-tab-${key}"`));
+  }
+  // The films that were dropped are gone, stage, code and tab.
+  assert.doesNotMatch(page, /film-whole|film-audit|The whole sky|Three audit findings|id="videos"/);
   // They are the pages in docs/films/, written in by `npm run tour:films`: a film changed there and not written in again fails here.
   assert.ok(withFilms(page) === page, "docs/index.html has the films as they are in docs/films/ (run `npm run tour:films`)");
   // Writing them in twice is the same as once, and a tour without them gets them.
