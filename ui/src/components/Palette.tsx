@@ -15,6 +15,7 @@ import { cx } from "../format.ts";
 import { Icon, type IconName } from "./bits.tsx";
 import type { FileRoot } from "./Files.tsx";
 import { Dialog } from "./Dialog.tsx";
+import { w } from "../words.ts";
 
 export type PaletteGroup = "Do" | "Pages" | "Activity" | "Settings" | "Conversations" | "Projects" | "Crew" | "Tickets" | "Notes" | "Memory" | "Files";
 export type PaletteItem = { id: string; group: PaletteGroup; label: string; hint?: string; icon: IconName; run: () => void };
@@ -144,7 +145,7 @@ export function Palette({ items, roots, start = "", jira = false, onOpenFile, on
     <Dialog className="dialog palette" backdropClass="layout-backdrop" label="Go to anything" onClose={onClose}>
         <label className="fly-search">
           <Icon name="search" />
-          <input autoFocus role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" aria-label="Go to a page, conversation, crew member, project, file, ticket, note, setting or command"
+          <input autoFocus role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" aria-label={`Go to a page, conversation, ${w("member")}, project, file, ticket, note, setting or command`}
             aria-activedescendant={shown[at] ? `palette-${at}` : undefined}
             placeholder="Go to a page, conversation or setting, or do something (/ for commands)…" value={query} onChange={(ev) => setQuery(ev.target.value)} onKeyDown={onKeyDown} />
           <kbd>Esc</kbd>
