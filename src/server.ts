@@ -83,6 +83,7 @@ import { routingReport } from "./autoroute.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./reports.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
+import { CALLBACK_PATH as GCAL_CALLBACK, CalendarError, calendarStatus, finishCalendarLink, redirectFor, startCalendarLink, unlinkCalendar } from "./gcal.js";
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
 import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
@@ -639,6 +640,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
     history: sameHistory ? (undefined as unknown as ReturnType<typeof history>) : history(), // your conversations, filed under projects (the sidebar)
     historyVersion: historyNow,
     jira: jiraStatus(),   // whether your Jira account is linked, and as whom (never the token)
+    gcal: calendarStatus(), // whether your Google Calendar is linked, as whom, and whether the crew may add events (never a token)
     // The pull requests of recent worktrees, as the camp last saw them (prs.ts). attention: there's something new to look at.
     prs: prStates().map((p) => ({ ...p, attention: needsYou(p) })),
     runtime: campRuntime(),
@@ -736,6 +738,18 @@ const server = http.createServer(async (req, res) => {
       if (!takeSignInCode(code)) return send(res, 401, { error: `That sign-in link has been used, has lapsed, or is from an earlier start. Press Enter in the ${word("camp")}'s terminal for a new one, or make one under Settings → General in a browser that's signed in.` });
       return send(res, 200, { token: TOKEN });
     }
+    // Google sends the browser back here after you allow Google Calendar (gcal.ts). It can't carry
+    // the page's key, so what lets it in is the sign-in's own one-time state, which only a page
+    // with the key could have started; and only on this machine, where Google sends it.
+    if (req.method === "GET" && url.pathname === GCAL_CALLBACK) {
+      if (!fromHere(req)) return send(res, 403, `Google Calendar is linked from a browser on the ${word("camp")}'s own machine.`, "text/plain; charset=utf-8");
+      let title = "Google Calendar is linked", line = "You can close this tab and go back to Settings → Connectors.";
+      try { const st = await finishCalendarLink(url.searchParams); if (st.email) line = `Linked as ${st.email}. ${line}`; }
+      catch (e: any) { title = "Google Calendar wasn't linked"; line = e instanceof CalendarError ? e.message : "Something went wrong talking to Google."; }
+      const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+      return send(res, 200, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title><body style="font:15px system-ui;max-width:32em;margin:15vh auto;padding:0 16px"><h1 style="font-size:20px">${esc(title)}</h1><p>${esc(line)}</p><p><a href="/">Back to the ${esc(word("camp"))}</a></p>`, "text/html; charset=utf-8");
+    }
+
     // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
     if (req.method === "GET" && url.pathname === "/splash") {
       const page = splashPage(); // with this outpost's name in its title and logo, as the app page has
@@ -1373,6 +1387,15 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/jira") {
       try { return send(res, 200, body.disconnect ? disconnectJira() : await connectJira(body)); }
       catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
+    // Your Google Calendar: start linking it ({ clientId, clientSecret, write, origin }: gives back
+    // Google's sign-in address, which comes back to GET /oauth/google), or unlink it ({ disconnect: true }).
+    if (url.pathname === "/api/gcal") {
+      try {
+        if (body.disconnect) return send(res, 200, await unlinkCalendar());
+        if (!fromHere(req)) return send(res, 400, { error: `Google sends you back to the ${word("camp")}'s own machine after you sign in, so link Google Calendar from a browser there.` });
+        return send(res, 200, startCalendarLink(body, redirectFor(body.origin, PORT)));
+      } catch (e: any) { return send(res, e instanceof CalendarError && e.fixable ? 400 : 502, { error: e.message }); }
     }
     // Which tickets are pulled in ({ jql }; empty goes back to "assigned to me, not done"). Jira runs it first: a filter it rejects isn't kept.
     if (url.pathname === "/api/jira/filter") {

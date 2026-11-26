@@ -12,6 +12,7 @@ import { recallTool } from "./recall.js";
 import { listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
 import { gitFor } from "./git.js";
 import { jiraTool } from "./jira.js";
+import { calendarTool } from "./gcal.js";
 import { ticketsTool } from "./tickets.js";
 import { requestDisplay, viewFileFor, type Attachment, type RequestContent } from "./attachments.js";
 import { ask } from "./ask.js";
@@ -554,6 +555,7 @@ function buildQuartermaster(exp: Expedition, cost: Pick<AgentSpec, "model" | "ef
       outlineFor("quartermaster"),
       gitFor("quartermaster"),
       jiraTool(),
+      calendarTool(),
       ticketsTool({ project: () => exp.project, conversation: () => (exp.thread ? { id: exp.thread, title: exp.shown ?? "" } : undefined) }),
       rememberTool("quartermaster"),
       recallTool("quartermaster"),

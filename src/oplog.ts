@@ -39,6 +39,8 @@ export const verifies = (command: string) => VERIFIES.test(command);
 export function journals(tool: string, input: any): boolean {
   // Filing or changing an Outpost ticket (tickets.ts) is a change; listing or reading them isn't.
   if (tool === "tickets") return input?.action === "create" || input?.action === "update";
+  // Adding a Google Calendar event (gcal.ts) is a change; reading the calendar isn't.
+  if (tool === "calendar") return input?.action === "add";
   if (!JOURNALED.has(tool)) return false;
   if (tool !== "bash") return true;
   const command = String(input?.command ?? "");

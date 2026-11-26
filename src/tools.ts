@@ -63,7 +63,7 @@ function isHarnessCode(abs: string): boolean {
 }
 // Camp files that can hold tokens (connector env, the phone topic). Nobody's file tools read them.
 const PRIVATE_CAMP_FILES = new Set([
-  "mcp.json", "settings.json", "jira.json", "providers.json", "triggers.json", // jira.json holds your Jira API token; providers.json your other models' keys; triggers.json what starts work on its own
+  "mcp.json", "settings.json", "jira.json", "gcal.json", "providers.json", "triggers.json", // jira.json holds your Jira API token; gcal.json your Google Calendar sign-in; providers.json your other models' keys; triggers.json what starts work on its own
   ".token", // mission control's access token: with it, a command could drive the camp as you
   // The camp's own records of every conversation: what you asked, what each agent answered (other
   // agents' private work included), what was kept in memory, and how you rated it.
