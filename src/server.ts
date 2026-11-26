@@ -1,5 +1,5 @@
 // Mission control: a local web dashboard for the camp.
-// Run: npm run ui   → open the printed http://127.0.0.1:4747/?t=… link
+// Run: npm run ui   → open the printed http://localhost:4747/#k=… link
 // The page itself is a React app in ui/, built into ui/dist (see src/ui-files.ts).
 //
 // It streams every camp event to the browser, routes approvals (plans, shell commands, new jobs)
@@ -116,8 +116,8 @@ const TOKEN = campToken();
 // page trades it for the key (POST /api/login) and keeps the key in that browser's own storage
 // for this address and port, which no other site or local server can read. So nothing lasting
 // ends up in the browser's history, the address bar, or a bookmark, and after the first time
-// http://127.0.0.1:<port>/ opens by itself. (A cookie would have been simpler, but browsers send
-// a cookie to every port on 127.0.0.1: any other local server you opened would be handed it.)
+// http://localhost:<port>/ opens by itself. (A cookie would have been simpler, but browsers send
+// a cookie to every port on a host: any other local server you opened would be handed it.)
 // Who can reach it: this machine only, or (CAMP_LAN=1) your other machines at home too. See access.ts.
 const ACCESS = accessFrom(process.env, hostname(), networkInterfaces());
 const signInCodes = new Map<string, number>(); // code → when it lapses (Infinity: when it's used, or the camp stops)
@@ -131,7 +131,7 @@ function newSignInCode(lasts = Infinity): string {
 }
 const takeSignInCode = (code: string) => { const until = signInCodes.get(code); signInCodes.delete(code); return until !== undefined && Date.now() < until; };
 const linkAt = (origin: string, code: string) => `${origin}#k=${code}`;
-const HERE = `http://127.0.0.1:${PORT}/`;
+const HERE = `http://localhost:${PORT}/`;
 // The address to use from another machine (LAN mode): the first name this machine goes by.
 const fromElsewhere = () => (ACCESS.names.length ? addressOf(ACCESS.names[0], PORT) : null);
 // One code, good once, as a link for this machine and (in LAN mode) for another.
