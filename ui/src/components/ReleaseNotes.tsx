@@ -59,7 +59,7 @@ function ReleaseCard({ r }: { r: Release }) {
         <div key={side} className="release-side">
           <h3>{title}</h3>
           <ul>
-            {r[side].map((n, i) => <NoteLine key={i} n={n} url={url} />)}
+            {ordered(r[side]).map((n, i) => <NoteLine key={i} n={n} url={url} />)}
           </ul>
         </div>
       ))}
@@ -67,6 +67,10 @@ function ReleaseCard({ r }: { r: Release }) {
     </section>
   );
 }
+
+// New features first, then the rest; newest pull request first within each (saved notes may predate this order).
+const newest = (n: Note) => Math.max(0, ...n.prs);
+export const ordered = (notes: Note[]) => [...notes].sort((a, b) => Number(b.major) - Number(a.major) || newest(b) - newest(a));
 
 function NoteLine({ n, url }: { n: Note; url: Map<number, string> }) {
   return (
