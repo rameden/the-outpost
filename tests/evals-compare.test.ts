@@ -158,8 +158,10 @@ test("--compare-only compares a saved run, runs nothing, and fails only on a cle
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
   assert.match(ok.stdout, /No clear regression, 2 slipped/);
 
-  // Against the committed baseline (nothing recorded yet) there is nothing to fail on.
-  const first = cli(["--compare-only", RUN], offline);
+  // Against a baseline with nothing recorded there is nothing to fail on.
+  const none = join(dir, "none.json");
+  writeFileSync(none, JSON.stringify(emptyBaseline()));
+  const first = cli(["--compare-only", RUN, "--compare", none], offline);
   assert.equal(first.status, 0, first.stdout + first.stderr);
   assert.match(first.stdout, /No baseline is recorded yet/);
 });
@@ -169,9 +171,15 @@ test("--dry reads the baseline too, and the flags' values aren't taken for case 
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
   assert.match(ok.stdout, /^1 eval case well formed\. Nothing was run\./);
   assert.match(ok.stdout, new RegExp(`^Baseline: 7 of ${CASES.length} cases, recorded 2026-11-02\\.$`, "m"));
-  assert.match(cli(["--dry"]).stdout, /^Baseline: nothing recorded yet\.$/m);
+  // The committed baseline is read by a plain --dry, whatever is recorded in it.
+  const committed = cli(["--dry"]);
+  assert.equal(committed.status, 0, committed.stdout + committed.stderr);
+  assert.match(committed.stdout, /^Baseline: (nothing recorded yet|\d+ of \d+ cases, recorded \d{4}-\d\d-\d\d)\.$/m);
 
   const dir = mkdtempSync(join(tmpdir(), "mae-eval-compare-"));
+  const none = join(dir, "none.json");
+  writeFileSync(none, JSON.stringify(emptyBaseline()));
+  assert.match(cli(["--dry", "--compare", none]).stdout, /^Baseline: nothing recorded yet\.$/m);
   const stale = join(dir, "stale.json");
   writeFileSync(stale, JSON.stringify({ ...baseline(), cases: { ...baseline().cases, "long-gone": line(3, 3) } }));
   const bad = cli(["--dry", "--compare", stale]);

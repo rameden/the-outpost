@@ -20,7 +20,7 @@ npm run eval -- --trials 3                  # each case three times: a pass rate
 npm run eval -- --list                      # what the cases are
 ```
 
-Each case runs in its own process and a throwaway camp, capped at $2 (`EVAL_CASE_BUDGET`). Earlier single-case runs cost about $0.04 to $0.12 each, so expect a few dollars for one pass over all the cases; the loop cases send several crew members out and will cost more than that each. The run is printed and saved to `evals/results/<time>.json` (local, not committed).
+Each case runs in its own process and a throwaway camp, capped at $2 (`EVAL_CASE_BUDGET`). One pass over all 19 cases cost about $0.60 when the baseline was recorded (most cases a few cents, the loop cases $0.02 to $0.08 each). The run is printed and saved to `evals/results/<time>.json` (local, not committed).
 
 A case passes when every **required** check passes. Checks are plain rules over what happened (the files, the tool calls, the order of events); the judge (a Claude model reading the answer) is used only where a rule can't decide. `--no-judge` skips it.
 
@@ -67,14 +67,14 @@ One bad run is not a regression. With `--compare`, a case that fails and passes 
 
 With no baseline recorded, `--compare` has nothing to compare with and a failed case fails the run, as it does without the flag.
 
-### Recording the first baseline
+### The recorded baseline
 
-**No baseline has been recorded yet**: `evals/baseline.json` is committed empty, because recording one calls paid models. Either:
+The committed baseline was recorded on 2026-11-26: two trials of each of the 19 cases, on the subscription runtime (`claude-code`) with the default models. Every case passed both times, and the run cost about $1.22.
 
-- In GitHub: Actions → Evals → Run workflow, tick **baseline**. It runs every case three times on the API with the default models. Download `baseline.json` from the run's artifact and commit it as `evals/baseline.json`.
-- Or on your machine: `CAMP_RUNTIME=api npm run eval -- --trials 3 --write-baseline`, then commit the file. (Without `CAMP_RUNTIME=api` it runs the way your camp is set up, with your models; the baseline records which.)
+The baseline says which runtime and models it was recorded with. If CI is given an `ANTHROPIC_API_KEY`, record it again the way CI runs (the API, default models), or the weekly comparison is against a different setup:
 
-Cost: three trials of 19 cases. A rough guess is $10 to $25; the hard ceiling is the $2 cap per case per trial, about $114. Record it the way CI will run it (the API, default models), or every comparison will say the models differ.
+- In GitHub: Actions → Evals → Run workflow, tick **baseline**. It runs every case three times. Download `baseline.json` from the run's artifact and commit it as `evals/baseline.json`.
+- Or on your machine, with the key in `.env`: `CAMP_RUNTIME=api npm run eval -- --trials 3 --write-baseline`, then commit the file.
 
 ### Re-baselining
 
