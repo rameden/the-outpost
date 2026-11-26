@@ -15,6 +15,7 @@ import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { clipEntry, fitMemory } from "./memfit.js";
 import { today } from "./helpers.js";
 import { w } from "./words.js";
+import { noteWritten } from "./searchindex.js";
 
 // A place things are kept: "agent:<id>", "project:<id>", or "about".
 export type Where = string;
@@ -58,6 +59,7 @@ export function readAbout(): string {
 }
 export function writeAbout(text: string) {
   writeAtomic(ABOUT_PATH, String(text).trim().slice(0, 20_000) + (String(text).trim() ? "\n" : ""));
+  noteWritten();
 }
 export function addAbout(text: string, how: KeptHow = "remember", run?: string) {
   mkdirSync("camp", { recursive: true });
@@ -65,6 +67,7 @@ export function addAbout(text: string, how: KeptHow = "remember", run?: string) 
   if (!line) return;
   const prior = existsSync(ABOUT_PATH) ? readFileSync(ABOUT_PATH, "utf8").replace(/\n+$/, "") : "";
   writeAtomic(ABOUT_PATH, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
+  noteWritten();
   logKept("about", line, how, run);
 }
 // For every crew member's prompt. Empty until something's been noted.

@@ -9,7 +9,7 @@ import { ConfirmHost } from "./Confirm.tsx";
 import { Crew } from "./Crew.tsx";
 import { CrewDialog } from "./CrewDialog.tsx";
 
-const base = { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 20, defaultMaxTurns: 20, defaultModel: "claude-sonnet-5-5", defaultEffort: "medium", overridden: false, personality: "" };
+const base = { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 20, defaultMaxTurns: 20, defaultModel: "claude-sonnet-5-5", defaultEffort: "medium", overridden: false, helpers: false, personality: "" };
 const SCOUT = { ...base, id: "scout", name: "Scout", emoji: "🏹", role: "Research.", custom: false, color: null } as unknown as Character;
 const PILOT = { ...base, id: "testpilot", name: "Test Pilot", emoji: "🧪", role: "Testing.", custom: true, color: "rose", handles: "tests", notFor: "prose",
   persona: "Reproduce first.", abilities: { write: "project", shell: true }, aliases: [] } as unknown as Character;

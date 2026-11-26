@@ -61,7 +61,7 @@ import { writeAtomic } from "./atomic.js";
 import { creditState, planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { allTurns, latestDirect, setPlanAside, threadFor } from "./threads.js";
-import { chainNote, chainReady } from "./chains.js";
+import { chainNote, chainReady, unchain } from "./chains.js";
 import { ASIDE_BRIEFS, isAsideBrief } from "./review.js";
 import { projectPayoff } from "./reports.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
@@ -86,6 +86,7 @@ import { routingReport } from "./autoroute.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./reports.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
+import { CALLBACK_PATH as GCAL_CALLBACK, CalendarError, calendarStatus, finishCalendarLink, redirectFor, startCalendarLink, unlinkCalendar } from "./gcal.js";
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
 import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
@@ -190,8 +191,9 @@ const startedPlans = new Set<string>();
 // task: the request's opening words, for the page's list of what's running and waiting.
 // after: a chained request, held until that run has finished. held: the run it waited on didn't
 // finish cleanly (how it ended), so it stays put until you start it anyway or take it off.
+// said: a message's words in full, and retext: change them while it waits (null if they can't be).
 type Work = { id: string; label: string; run: (signal: AbortSignal, id: string, steering: Steering) => Promise<unknown>; controller?: AbortController; steering: Steering;
-  task?: string; after?: string; held?: string };
+  task?: string; after?: string; held?: string; said?: string; retext?: (said: string) => string | null };
 const queue: Work[] = [];
 const running = new Map<string, Work>();
 
@@ -242,7 +244,11 @@ const ready = (w: Work) => chainReady(w, inFlight);
 function stopWork(id?: string): string[] {
   const stopped: string[] = [];
   const waiting = id ? queue.findIndex((w) => w.id === id) : -1;
-  if (waiting >= 0) stopped.push(queue.splice(waiting, 1)[0].label);
+  if (waiting >= 0) {
+    const [w] = queue.splice(waiting, 1);
+    unchain(queue, w); // what was queued behind it keeps waiting for what it waited for
+    stopped.push(w.label);
+  }
   for (const w of running.values()) {
     if (id && w.id !== id) continue;
     if (!w.controller || w.controller.signal.aborted) continue;
@@ -580,6 +586,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
         maxTurns: resolveTurns({ id, maxTurns: base?.maxTurns }), defaultMaxTurns: base?.maxTurns ?? DEFAULT_TURNS,
         defaultModel: base?.model ?? DEFAULT_MODEL, defaultEffort: base?.effort ?? "default",
         overridden: !!(override.model || override.effort || override.maxTurns),
+        helpers: id !== "quartermaster" && override.helpers === true, // may send helpers of its own while it works
       };
     }),
     // The theme pack that's on, and every pack there is: the page needs the others' names for the
@@ -601,7 +608,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
     memories: none(() => CREW_IDS.map((id) => ({ id, name: CREW[id].name, emoji: CREW[id].emoji, memory: readMemory(id), sessions: recentSessions(id, 1000).length }))),
     xp,
     running: [...running.values()].map((w) => ({ id: w.id, label: w.label, task: w.task ?? "" })),
-    queued: queue.map((w) => ({ id: w.id, label: w.label, task: w.task ?? "", after: w.after ?? null, held: w.held ?? null })),
+    queued: queue.map((w) => ({ id: w.id, label: w.label, task: w.task ?? "", after: w.after ?? null, held: w.held ?? null, ...(w.retext ? { text: w.said ?? "" } : {}) })),
     parallel: parallelLimit(),
     sandbox: { on: shellSettings().sandbox === true, available: sandboxAvailable(), kind: sandboxKind() },
     // Everything the Settings page shows that isn't already above.
@@ -664,6 +671,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
     history: sameHistory ? (undefined as unknown as ReturnType<typeof history>) : history(), // your conversations, filed under projects (the sidebar)
     historyVersion: historyNow,
     jira: jiraStatus(),   // whether your Jira account is linked, and as whom (never the token)
+    gcal: calendarStatus(), // whether your Google Calendar is linked, as whom, and whether the crew may add events (never a token)
     // The pull requests of recent worktrees, as the camp last saw them (prs.ts). attention: there's something new to look at.
     prs: prStates().map((p) => ({ ...p, attention: needsYou(p) })),
     runtime: campRuntime(),
@@ -761,6 +769,18 @@ const server = http.createServer(async (req, res) => {
       if (!takeSignInCode(code)) return send(res, 401, { error: `That sign-in link has been used, has lapsed, or is from an earlier start. Press Enter in the ${word("camp")}'s terminal for a new one, or make one under Settings → General in a browser that's signed in.` });
       return send(res, 200, { token: TOKEN });
     }
+    // Google sends the browser back here after you allow Google Calendar (gcal.ts). It can't carry
+    // the page's key, so what lets it in is the sign-in's own one-time state, which only a page
+    // with the key could have started; and only on this machine, where Google sends it.
+    if (req.method === "GET" && url.pathname === GCAL_CALLBACK) {
+      if (!fromHere(req)) return send(res, 403, `Google Calendar is linked from a browser on the ${word("camp")}'s own machine.`, "text/plain; charset=utf-8");
+      let title = "Google Calendar is linked", line = "You can close this tab and go back to Settings → Connectors.";
+      try { const st = await finishCalendarLink(url.searchParams); if (st.email) line = `Linked as ${st.email}. ${line}`; }
+      catch (e: any) { title = "Google Calendar wasn't linked"; line = e instanceof CalendarError ? e.message : "Something went wrong talking to Google."; }
+      const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+      return send(res, 200, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title><body style="font:15px system-ui;max-width:32em;margin:15vh auto;padding:0 16px"><h1 style="font-size:20px">${esc(title)}</h1><p>${esc(line)}</p><p><a href="/">Back to the ${esc(word("camp"))}</a></p>`, "text/html; charset=utf-8");
+    }
+
     // The tour (docs/index.html): a static page with nothing of the camp in it, so no token.
     if (req.method === "GET" && url.pathname === "/splash") {
       const page = splashPage(); // with this outpost's name in its title and logo, as the app page has
@@ -1113,7 +1133,9 @@ const server = http.createServer(async (req, res) => {
       const direct = text.match(/^@(\w+)\s+([\s\S]+)$/) ?? (attachments.length ? text.match(/^@(\w+)$/) : null);
       let who = direct ? findCrew(direct[1]) : undefined;
       if (direct && !who) return send(res, 400, { error: `No ${word("crew")} member named "${direct[1]}"` });
-      const { content, attached } = buildRequest(direct ? direct[2] ?? "Take a look at what I attached." : text, attachments);
+      const built = buildRequest(direct ? direct[2] ?? "Take a look at what I attached." : text, attachments);
+      const attached = built.attached;
+      let content = built.content; // (a queued message's words can still change: retext, below)
       // A follow-up: { replyTo: <expedition id> } continues that conversation with whoever it was
       // with (unless the message names someone else). An agent's chat page sends { chat: true }
       // to carry on its latest direct chat.
@@ -1190,6 +1212,16 @@ const server = http.createServer(async (req, res) => {
       const where = { project: project.id, links, ...(without.length ? { without } : {}), ...(jira ? { jira } : {}), ...(ticket ? { ticket } : {}), ...(model ? { model } : {}) };
       const isNew = !replyTo;
       const task = (direct ? direct[2] ?? text : text).replace(/\s+/g, " ").slice(0, 90);
+      // While it waits its turn, what you wrote can be changed (the status stack's Edit). Who it's
+      // for and what's attached stay as they were. Not for a plan, a resume or someone stepping in.
+      const retext = !held && !resume && !aside ? (said: string) => {
+        const to = said.match(/^@(\w+)\s+([\s\S]+)$/);
+        if (direct ? to?.[1].toLowerCase() !== direct[1].toLowerCase() : to && findCrew(to[1])) return "It stays with whoever it was for. To send it to someone else, take it off and send a new one.";
+        text = said;
+        content = buildRequest(direct ? to![2] : said, attachments).content;
+        return null;
+      } : undefined;
+      const editable = { said: text, retext };
       // Worked out when it starts, not now: a chained request follows what its predecessor ended up doing.
       const chained = () => {
         if (!after) return { workspaces, links: where.links, extraSystem: undefined as string | undefined };
@@ -1205,14 +1237,14 @@ const server = http.createServer(async (req, res) => {
       // starting from a ticket, is asking for work to be done, so that still goes to the crew.
       const plain = !who && !aside && !jira && !ticket && !workspaces && (replyTo ? thread?.agent === CHAT : project.id === GENERAL);
       const w = plain
-        ? enqueue({ label: "chat", task, after, run: async (signal, id, steering) => {
+        ? enqueue({ label: "chat", task, after, ...editable, run: async (signal, id, steering) => {
             const c = chained();
             const r = await runChat(content, { attached, signal, id, replyTo, steering, stillRunning, links: c.links, without: where.without, model: where.model, extraSystem: c.extraSystem });
             if (isNew) void titleConversation(id, text, r.text);
             return r;
           } })
         : target && target.id !== "quartermaster"
-        ? enqueue({ label: `@${target.id}`, task, after, run: async (signal, id, steering) => {
+        ? enqueue({ label: `@${target.id}`, task, after, ...editable, run: async (signal, id, steering) => {
             const c = chained();
             const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem, aside });
             if (isNew && r) void titleConversation(id, text, r.text);
@@ -1220,7 +1252,7 @@ const server = http.createServer(async (req, res) => {
             if (r && !aside) void runFinished(id, r.status).catch(() => { /* the ticket goes without */ });
             return r;
           } })
-        : enqueue({ label: "expedition", task, after, run: async (signal, id, steering) => {
+        : enqueue({ label: "expedition", task, after, ...editable, run: async (signal, id, steering) => {
             const c = chained();
             // { review: true | false }: have this run's changes reviewed before it reports, whatever the project and camp are set to.
             const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem,
@@ -1247,6 +1279,12 @@ const server = http.createServer(async (req, res) => {
       if (!CREW[id]) return send(res, 404, { error: noSuch() });
       if (body.reset) {
         setAgentSettings(id, { model: null, effort: null, maxTurns: null });
+        return send(res, 200, { ok: true });
+      }
+      // Whether this crew member may send helpers of its own: set on its own, apart from the model.
+      if (typeof body.helpers === "boolean" && body.model === undefined) {
+        if (id === "quartermaster") return send(res, 400, { error: "The Quartermaster already sends the crew." });
+        setAgentSettings(id, { helpers: body.helpers });
         return send(res, 200, { ok: true });
       }
       // Turn limit: a whole number in range, or null/"" for the crew default.
@@ -1419,6 +1457,15 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/jira") {
       try { return send(res, 200, body.disconnect ? disconnectJira() : await connectJira(body)); }
       catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
+    // Your Google Calendar: start linking it ({ clientId, clientSecret, write, origin }: gives back
+    // Google's sign-in address, which comes back to GET /oauth/google), or unlink it ({ disconnect: true }).
+    if (url.pathname === "/api/gcal") {
+      try {
+        if (body.disconnect) return send(res, 200, await unlinkCalendar());
+        if (!fromHere(req)) return send(res, 400, { error: `Google sends you back to the ${word("camp")}'s own machine after you sign in, so link Google Calendar from a browser there.` });
+        return send(res, 200, startCalendarLink(body, redirectFor(body.origin, PORT)));
+      } catch (e: any) { return send(res, e instanceof CalendarError && e.fixable ? 400 : 502, { error: e.message }); }
     }
     // Which tickets are pulled in ({ jql }; empty goes back to "assigned to me, not done"). Jira runs it first: a filter it rejects isn't kept.
     if (url.pathname === "/api/jira/filter") {
@@ -1866,6 +1913,21 @@ const server = http.createServer(async (req, res) => {
       if (!w) return send(res, 404, { error: "That one isn't waiting any more." });
       delete w.after; delete w.held;
       drain();
+      return send(res, 200, { ok: true });
+    }
+
+    // Change what a queued message says before it starts ({ id, text }): the status stack's Edit.
+    if (url.pathname === "/api/queue/edit") {
+      const w = queue.find((q) => q.id === String(body.id));
+      const said = String(body.text ?? "").trim().slice(0, 100_000);
+      if (!w) return send(res, 404, { error: "That one has already started, or was taken off." });
+      if (!w.retext) return send(res, 409, { error: "This one can't be changed. Take it off and send a new one." });
+      if (!said) return send(res, 400, { error: "Nothing to send. To drop it, take it off." });
+      const refused = w.retext(said);
+      if (refused) return send(res, 400, { error: refused });
+      w.said = said;
+      w.task = said.replace(/^@\w+\s+/, "").replace(/\s+/g, " ").slice(0, 90);
+      emit({ type: "changed", what: "queue" });
       return send(res, 200, { ok: true });
     }
 

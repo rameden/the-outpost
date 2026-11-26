@@ -168,6 +168,23 @@ test("resume: what the cut-off run did is reused; a repeat that really runs is t
   assert.match(check(twice.r, "the notification went out exactly once").detail, /2 notifications sent/);
 });
 
+test("resume from the saved transcript: the model is sent what the cut-off run did, and goes on from there", async () => {
+  const receipt = write("app/receipt.md", "Order 7: notification sent.\n");
+  const [good, again] = await Promise.all([
+    runCase("loop-resume-restored", turns({ tools: [receipt] }, { text: "The notification had gone out; the receipt is written." })),
+    // It has the transcript in front of it and sends the notification anyway: a second call is a new call, and it runs.
+    runCase("loop-resume-restored", turns({ tools: [{ name: "bash", input: { command: "node app/notify.cjs" } }] }, { tools: [receipt] }, { text: "Sent and written." })),
+  ]);
+  passes(good.r);
+  const first = good.seen[0].body.messages;
+  assert.equal(first[0].content, "Send the order 7 notification by running `node app/notify.cjs`, then write app/receipt.md with the one line 'Order 7: notification sent.'");
+  assert.equal(first[1].content[0].input.command, "node app/notify.cjs");
+  assert.equal(first[2].content[0].content, "sent");
+  assert.match(JSON.stringify(first[2].content.slice(1)), /picked up again[\s\S]*Carry on from where you were cut off/);
+  assert.deepEqual(failed(again.r), ["the notification went out exactly once"]);
+  assert.equal(check(again.r, "the finished step wasn't asked for again").pass, false);
+});
+
 test("budget: a run that goes over its one cent stops, and its cost and tokens are counted", async () => {
   const { r, seen } = await runCase("loop-budget-stop", (b) => (whoAsks(b) === "Scout" ? { text: "should not run" }
     : { text: "Sending the Scout first.", tools: [dispatch("scout")], usage: { input_tokens: 2_000_000, output_tokens: 10 } }));
@@ -180,4 +197,31 @@ test("budget: a run that goes over its one cent stops, and its cost and tokens a
   assert.ok(r.cost > 0.01, `cost ${r.cost}`);
   assert.ok(r.tokens.in >= 2_000_000 && r.tokens.out > 0, JSON.stringify(r.tokens));
   assert.ok(r.models.length >= 1);
+});
+
+test("parallel writers: two sent at once work in worktrees and both land; one after another, or the same lines twice, is turned down", async () => {
+  const TAX = "links/depot/src/tax.mjs", DOC = "links/depot/docs/tax.md";
+  const tax = "export function tax(cents) {\n  return Math.round(cents * 0.2);\n}\n";
+  const run = (qm: Reply[], scribeWrites = DOC) => {
+    const next = turns(...qm);
+    return runCase("loop-parallel-writers", (b) => {
+      const who = whoAsks(b);
+      if (who === "Quartermaster") return next();
+      if (!isFirstTurn(b) || who === "Warden") return { text: `${who}: done.` };
+      return { tools: [who === "Artificer" ? write(TAX, tax) : write(scribeWrites, scribeWrites === DOC ? "# tax(cents)\n\nTwenty percent, rounded to the cent.\n" : "export const tax = () => 0;\n")] };
+    });
+  };
+  const said = { text: "Both are in the depot folder and its check passes." };
+  const [good, inTurn, clash] = await Promise.all([
+    run([{ tools: [dispatch("artificer"), dispatch("scribe")] }, said]),
+    run([{ tools: [dispatch("artificer")] }, { tools: [dispatch("scribe")] }, said]),
+    run([{ tools: [dispatch("artificer"), dispatch("scribe")] }, said], TAX),
+  ]);
+  passes(good.r);
+  assert.ok(check(good.r, "each quest's checks ran before it was merged").pass);
+  assert.ok(good.seen.some((s) => s.who === "Scribe" && /your own worktree/.test(systemText(s.body))), "each writer is told it has a worktree");
+  assert.deepEqual(failed(inTurn.r), ["they worked side by side, each in its own worktree"]);
+  assert.ok(check(inTurn.r, "both changes are in the folder").pass, "the work is done; it just wasn't done side by side");
+  assert.ok(failed(clash.r).includes("nothing was left on a branch"), failed(clash.r).join(", "));
+  assert.match(check(clash.r, "nothing was left on a branch").detail, /outpost\/quest-[0-9a-f]{8}/);
 });

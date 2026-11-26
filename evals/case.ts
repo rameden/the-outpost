@@ -78,6 +78,17 @@ if (c.resume && c.agent) {
     journal.started(op, d.tool);
     journal.done(op, d.tool, d.result);
   }
+  if (c.resume.transcript) {
+    // The transcript as the run last saved it: the task, then each thing it did with its result.
+    const { RunStore } = await import("../src/runstore.ts");
+    const messages: any[] = [{ role: "user", content: c.resume.earlier }];
+    c.resume.done.forEach((d, i) => messages.push(
+      { role: "assistant", content: [{ type: "tool_use", id: `toolu_before_${i + 1}`, name: d.tool, input: d.input }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: `toolu_before_${i + 1}`, content: d.result }] }));
+    const store = new RunStore(BEFORE, c.agent, `${BEFORE}:-:${c.agent}:1`);
+    store.save({ model: "", turn: c.resume.done.length, messages, authorOf: () => undefined, ops: journal.callCounts() });
+    store.abandon();
+  }
   journal.abandon();
 }
 
@@ -105,8 +116,9 @@ onEvent((e: any) => {
   if (e.type === "tool") { tools.push({ who: e.who, tool: e.tool, input: e.input }); trail.push({ type: "tool", who: e.who, tool: e.tool, input: String(e.input ?? "") }); }
   if (e.type === "dispatch" && e.who !== undefined) {
     if (c.agent === undefined) dispatches.push({ who: e.who, at: Date.now() });
-    trail.push({ type: "dispatch", who: e.who, ...(e.questId ? { quest: e.questId } : {}), ...(e.step ? { step: e.step } : {}) });
+    trail.push({ type: "dispatch", who: e.who, ...(e.questId ? { quest: e.questId } : {}), ...(e.step ? { step: e.step } : {}), ...(e.helperOf ? { helperOf: e.helperOf } : {}) });
   }
+  if (e.type === "quest_tree") trail.push({ type: "tree", who: e.who, quest: e.questId, link: e.link, branch: e.branch, state: e.state });
   if (e.type === "return" && e.who !== undefined) trail.push({ type: "return", who: e.who, ...(e.questId ? { quest: e.questId } : {}), status: String(e.status ?? "") });
   if (e.type === "plan" && Array.isArray(e.steps)) trail.push({ type: "plan", steps: e.steps.map((s: any) => ({ n: s.n, text: s.text, ...(s.after?.length ? { after: s.after } : {}) })) });
   if (e.type === "notice" && typeof e.text === "string") trail.push({ type: "notice", who: e.who ?? "", text: e.text });

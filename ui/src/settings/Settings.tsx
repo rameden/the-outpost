@@ -399,6 +399,15 @@ function Crew({ S, refresh }: { S: CampState; refresh: () => void }) {
       </div>
       <h4 className="set-sub">Model</h4>
       <ModelForm key={`${c.id}-${c.model}-${c.effort}-${c.maxTurns}`} c={c} runtime={S.runtime} refresh={refresh} />
+      {c.id !== "quartermaster" && (
+        <>
+          <h4 className="set-sub">Helpers</h4>
+          <Row label="May send helpers" help={`While it works, ${c.name} can split its ${w("quest")} and send helpers from the ${w("crew")}, several at once. Helpers that change the same repository each get their own worktree. A helper can't send anyone, ask you anything, or write to memory, and the limit on ${w("quests")} at once still holds.`}>
+            <label className="switch"><input type="checkbox" checked={c.helpers} aria-label={`${c.name} may send helpers`}
+              onChange={async (ev) => { try { await api("/api/agents", { id: c.id, helpers: ev.target.checked }); refresh(); } catch { /* the switch shows what was kept */ } }} /> {c.helpers ? "On" : "Off"}</label>
+          </Row>
+        </>
+      )}
       <h4 className="set-sub">{w("Member")} info</h4>
       <p className="set-note">{c.custom
         ? `You added this ${w("crew")} member. Change their name, role and how they work with the pencil on their card in the ${w("crew")} panel. Their memory and skills grow over time.`

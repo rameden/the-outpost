@@ -47,6 +47,23 @@ describe("parallel expeditions", () => {
     expect(b.nodes[1]).toMatchObject({ who: "Scribe", status: null, nodes: [{ kind: "msg", text: "Drafting" }] });
   });
 
+  test("a quest's worktree shows on its card: working, then how it ended; a helper is marked as one", () => {
+    const smith = { who: "Artificer", emoji: "🔨", depth: 1 };
+    const tree = { type: "quest_tree", ...smith, questId: "q1", expeditionId: "A", link: "web", branch: "outpost/quest-aaaaaaaa" } as const;
+    let s = feedOf([
+      start("A", "Two changes"),
+      { type: "dispatch", ...smith, questId: "q1", expeditionId: "A" },
+      { type: "dispatch", who: "Scribe", emoji: "✒️", questId: "q2", expeditionId: "A", helperOf: "q1" },
+      { ...tree, state: "working" },
+    ]);
+    const cards = () => findNodes(s.items, "quest");
+    expect(cards().find((q) => q.who === "Artificer")).toMatchObject({ trees: [{ link: "web", branch: "outpost/quest-aaaaaaaa", state: "working" }] });
+    expect(cards().find((q) => q.who === "Scribe")).toMatchObject({ helper: true });
+    expect(cards().find((q) => q.who === "Artificer")?.helper).toBeFalsy();
+    s = feedOf([{ ...tree, state: "kept", reason: "its checks failed", files: 2 }], s);
+    expect(cards().find((q) => q.who === "Artificer")?.trees).toEqual([{ link: "web", branch: "outpost/quest-aaaaaaaa", state: "kept", reason: "its checks failed", files: 2 }]);
+  });
+
   test("two quests in one expedition stay apart", () => {
     const two = feedOf([
       start("A", "Do two things"),

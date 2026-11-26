@@ -18,9 +18,10 @@ import { FileCard } from "./FileCard.tsx";
 import { WorkspaceBox } from "./Workspaces.tsx";
 import { AsideButton } from "./Aside.tsx";
 import { ForkButton } from "./Fork.tsx";
+import { Resend, useEditAsk, type ResendFrom } from "./EditAsk.tsx";
 import { cardsFor, type View } from "./conversation.ts";
 import { condense, summarize, type FeedDetail, type StepsNode } from "./condense.ts";
-import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode } from "./reducer.ts";
+import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type QuestTree } from "./reducer.ts";
 import { STEP_MARK, STEP_SAYS, stepPill } from "./steps.ts";
 import { Loose, looseOf, tally, TrailGround } from "../trail/Ground.tsx";
 import { useFeed, type FeedStore } from "./store.ts";
@@ -184,6 +185,16 @@ function PlanList({ plan }: { plan: PlanNode }) {
   );
 }
 
+// Where a quest works when others change the same repository at once, and what became of it.
+const TREE_SAYS = { working: "own worktree", merged: "merged back", kept: "kept on branch", unchanged: "no changes" } as const;
+function TreeChip({ tree }: { tree: QuestTree }) {
+  const title = tree.state === "working" ? `Working in its own worktree of links/${tree.link}, on the branch ${tree.branch}`
+    : tree.state === "merged" ? `Its changes to links/${tree.link} are merged back into the folder${tree.files ? ` (${tree.files} file${tree.files === 1 ? "" : "s"})` : ""}. The worktree and branch are gone.`
+    : tree.state === "kept" ? `Not merged into links/${tree.link}: ${tree.reason ?? "see the note below"}. Its changes are on the branch ${tree.branch}.`
+    : `It changed nothing in links/${tree.link}. The worktree and branch are gone.`;
+  return <span className={cx("quest-tree", tree.state)} title={title}><code>{tree.state === "merged" || tree.state === "unchanged" ? `links/${tree.link}` : tree.branch}</code> {TREE_SAYS[tree.state]}</span>;
+}
+
 function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   const ok = quest.status === "done";
   return (
@@ -191,7 +202,9 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
       <div className="quest-head">
         <span>{emojiNow(quest.who, quest.emoji)} {nameNow(quest.who)} {w("depart")}</span>
         {quest.step && <span className="quest-step" title={`Step ${quest.step} of the plan`}>Step {quest.step}</span>}
+        {quest.helper && <span className="quest-step" title={`Sent by another ${w("quest")} as its helper`}>Helper</span>}
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
+        {quest.trees?.map((t) => <TreeChip key={t.link} tree={t} />)}
         {quest.status === null ? <span className="pill live">On {w("quest")}</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
       </div>
       <div className="quest-body"><Nodes nodes={quest.nodes} onReply={onReply} live={quest.status === null} /></div>
@@ -206,15 +219,19 @@ const LONG_ASK = { chars: 900, lines: 14 };
 function Ask({ exp }: { exp: ExpNode }) {
   const [whole, setWhole] = useState(false);
   const long = exp.task.length > LONG_ASK.chars || exp.task.split("\n").length > LONG_ASK.lines;
+  // In a conversation, a message you sent can be changed and sent again (EditAsk.tsx).
+  const edit = useEditAsk(exp);
   return (
     <div className="exp-ask">
       {exp.attachments.length > 0 && <div className="exp-atts">{exp.attachments.map((a, i) => <AttachmentChip key={i} a={a} big />)}</div>}
       {/* Still the run's heading, so it can be found and jumped to like one. */}
       <div className={cx("ask-bubble", long && !whole && "folded")} role="heading" aria-level={3}><Markdown text={handlesNow(exp.task)} /></div>
       {long && <button type="button" className="linkish" aria-expanded={whole} onClick={() => setWhole((v) => !v)}>{whole ? "Show less" : "Show all of it"}</button>}
+      {edit.editor}
       <div className="ask-meta">
         {exp.source === "job" && <span title="Sent by a scheduled job, not typed just now">Scheduled job · {exp.job}</span>}
         {exp.followUp && <span title="Carries the earlier conversation"><Icon name="reply" /> Follow-up</span>}
+        {edit.button}
         <time>{clock(exp.time)}</time>
       </div>
     </div>
@@ -364,12 +381,22 @@ const NO_PAST: FeedNode[] = [];
 // past: that conversation's earlier runs, read back from history. waiting: a line for a blank page.
 // plain: a blank page outside any project, where a message is a plain chat with a model.
 // stopInBox: the run whose Stop is the message box's button.
-export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting, plain, stopInBox, detail = "condensed" }: {
+// project: the conversation's project (a changed first message starts a new conversation there).
+export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_PAST, waiting, plain, stopInBox, detail = "condensed", project }: {
   store: FeedStore; onReply: OnReply; onExample: (text: string) => void; view?: View; past?: FeedNode[]; waiting?: string; plain?: boolean; stopInBox?: string;
   detail?: FeedDetail; // condensed (behind-the-scenes work folded) or detailed (every line)
+  project?: string;
 }) {
   const live = useFeed(store, (s) => s.items);
   const items = useMemo(() => cardsFor(view, live, past), [view, live, past]);
+  // In a conversation: its runs in order, so a message can be changed and sent again from where it was.
+  // (Made again only when that changes, not with every word streamed in, so the messages aren't drawn again.)
+  const runsKey = view.kind !== "conversation" ? "" : items.flatMap((n) => (n.kind === "exp" ? [`${n.expId}${n.end ? "" : "*"}`] : [])).join(" ");
+  const resend = useMemo<ResendFrom | null>(() => {
+    if (view.kind !== "conversation") return null;
+    const runs = runsKey ? runsKey.split(" ") : [];
+    return { runs: runs.map((r) => r.replace(/\*$/, "")), project, busy: runs.some((r) => r.endsWith("*")) };
+  }, [view.kind, runsKey, project]);
   const viewKey = view.kind === "conversation" ? view.id : view.kind;
   const box = useRef<HTMLDivElement>(null);
   // Keep the newest lines in view, unless you've scrolled up to read something.
@@ -422,7 +449,7 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
             {(plain ? plainExamples() : examples()).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>
         </div>
-      ) : <Detail.Provider value={detail}><StopInBox.Provider value={stopInBox}><Nodes nodes={items} onReply={onReply} /></StopInBox.Provider></Detail.Provider>}
+      ) : <Detail.Provider value={detail}><StopInBox.Provider value={stopInBox}><Resend.Provider value={resend}><Nodes nodes={items} onReply={onReply} /></Resend.Provider></StopInBox.Provider></Detail.Provider>}
     </div>
   );
 }

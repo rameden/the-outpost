@@ -11,6 +11,7 @@ import { api, errorText } from "../api.ts";
 import { plural } from "../format.ts";
 import type { CampState } from "../types.ts";
 import { Icon } from "./bits.tsx";
+import { queueBehind } from "./StatusStack.tsx";
 
 export const chainedOf = (S: CampState) => (S.queued ?? []).filter((q) => q.after);
 
@@ -47,8 +48,11 @@ export function Chained({ S, onOpen, refresh }: { S: CampState; onOpen: (id: str
 }
 
 // The line above the message box: what's chained, in a sentence, and the Inbox to start one or take it off.
-export function Waiting({ S, onOpenInbox }: { S: CampState; onOpenInbox: () => void }) {
-  const chained = chainedOf(S);
+// here: the run this conversation's queue lines up behind. That line is in the message box's own
+// status stack (StatusStack.tsx), with its buttons, so it isn't counted again here.
+export function Waiting({ S, onOpenInbox, here }: { S: CampState; onOpenInbox: () => void; here?: string | null }) {
+  const shown = new Set(queueBehind(S.queued, here).map((q) => q.id));
+  const chained = chainedOf(S).filter((q) => !shown.has(q.id));
   if (!chained.length) return null;
   const held = chained.filter((q) => q.held).length;
   const one = chained.length === 1 ? chained[0] : null;

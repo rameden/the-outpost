@@ -19,6 +19,7 @@ import { isZip, uploadFile as sendFile, uploadZip } from "../upload.ts";
 import { noteFile } from "../notes.ts";
 import { isMaeKey } from "../tickets.ts";
 import { useDismiss } from "./usePopover.ts";
+import { StatusStack, queueBehind } from "./StatusStack.tsx";
 
 const MAX_FOLDER_FILES = 200;
 
@@ -51,9 +52,10 @@ function mentionToken(el: Pick<MessageInputHandle, "value" | "selectionStart">) 
 // conversation it follows that conversation's latest run; on a new page it can name a project.
 // folders: the linked folders that belong here (the "work in" picker shows only these).
 // newWorktree: the project starts each new conversation in its own worktree.
-// live: the conversation's run that's working right now. While it is, Send is a red Stop; Enter (or
-// Queue in its menu) queues the message for when the run has finished, and Send now in the menu says
-// it to the run straight away (the crew reads it on their next step).
+// live: the conversation's run that's working right now. While it is, Send is a red Stop, and a
+// Queue | Steer switch beside it says what Enter does: queue the message for when the run has
+// finished, or steer (say it to the run straight away: the crew reads it on their next step).
+// The menu on the Stop button does either once, whichever the switch is on.
 export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean; live?: string;
   working?: Record<string, string>;   // a conversation working in worktrees: the branch in each repository
   without?: string[] };               // a conversation started without some of its project's folders: which
@@ -66,7 +68,7 @@ export type SendContext = { replyTo?: string; project?: string; placeholder?: st
 // (memo: it's drawn again when what it's given changes, not each time the feed gets a word.)
 // The menu beside Send while an expedition works: queue what you've typed (as Enter does), or say it to the crew now.
 const SEND_OPTIONS = [
-  { label: "Queue", now: false, get title() { return `It goes once the ${w("expedition")} has finished (Enter does this too)`; } },
+  { label: "Queue", now: false, get title() { return `It goes once the ${w("expedition")} has finished`; } },
   { label: "Send now", now: true, get title() { return `The ${w("crew")} reads it on their next step, without waiting for the ${w("expedition")} to finish`; } },
 ];
 
@@ -113,20 +115,16 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   const [queueOpen, setQueueOpen] = useState(false);
   const queueMenu = useRef<HTMLDivElement>(null);
   const [stopping, setStopping] = useState<string | null>(null);
-  // The menu's highlighted option: it follows the mouse and the arrow keys, and starts on Queue (what Enter does).
+  // The menu's highlighted option: it follows the mouse and the arrow keys, and starts on what Enter does (Queue or Steer, below).
   const [pickAt, setPickAt] = useState(0);
   const typed = !!text.trim() || pending.length > 0;
   useEffect(() => { if (!live) setQueueOpen(false); }, [live]);
   // Messages queued behind the run go one after another, each after the last: find the end of the line.
-  const queueEnd = (run: string) => {
-    let end = run;
-    for (const seen = new Set<string>(); !seen.has(end); ) {
-      seen.add(end);
-      const next = (S?.queued ?? []).find((q) => q.after === end);
-      if (next) end = next.id;
-    }
-    return end;
-  };
+  const queueEnd = (run: string) => queueBehind(S?.queued, run).at(-1)?.id ?? run;
+  // While a run works, what Enter does with what you've typed: queue it for when the run has
+  // finished, or steer (say it to the crew now). It starts on queue for each run.
+  const [steer, setSteer] = useState(false);
+  useEffect(() => { setSteer(false); }, [live]);
   async function stopLive() {
     if (!live) return;
     setStopping(live);
@@ -134,8 +132,9 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   }
   useEffect(() => {
     if (!queueOpen) return;
-    setPickAt(0);
-    queueMenu.current?.querySelector<HTMLButtonElement>("[role=menuitem]:not(:disabled)")?.focus();
+    const at = steer ? 1 : 0;
+    setPickAt(at);
+    queueMenu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]:not(:disabled)")[at]?.focus();
   }, [queueOpen]);
   useDismiss(queueOpen, () => setQueueOpen(false), queueMenu);
   const [sends, setSends] = useState(0);
@@ -518,6 +517,8 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
   return (
     <div className={dragging ? "composer dragging" : "composer"} ref={box} hidden={hidden} onDragOver={onDragOver} onDrop={onDrop}
       onDragLeave={(ev) => { if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setDragging(false); }}>
+      <StatusStack S={S} store={store} anchor={context?.live ?? context?.replyTo} live={context?.live && (S?.running ?? []).some((w) => w.id === context.live) ? context.live : null}
+        draftKey={draftKey} refresh={refresh} />
       {reply && (
         <div className="reply-bar">
           <Icon name="reply" /><span>Following up on</span><b>{reply.task || `that ${w("expedition")}`}</b>
@@ -570,8 +571,8 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
           onUrl={(url) => { addUrl(url); closeMenu(); focus(); }}
           onNote={(note) => { void addFiles([noteFile(note)]); closeMenu(); focus(); }} />
       )}
-      <form className="composer-box" onSubmit={submit}>
-        <MessageInput ref={input} placeholder={live ? "Queue a message for when they're done…" : context?.placeholder ?? `Ask the ${leadName()}…`} label={`Request for the ${w("camp")}`} value={text}
+      <form className="composer-box" onSubmit={(ev) => void submit(ev, !!live && steer && !/^@\w+/.test(text.trim()))}>
+        <MessageInput ref={input} placeholder={live ? (steer ? `Steer: the ${w("crew")} reads it on their next step…` : "Queue a message for when they're done…") : context?.placeholder ?? `Ask the ${leadName()}…`} label={`Request for the ${w("camp")}`} value={text}
           onChange={(t) => { setText(t); updateMention(); }} onClick={updateMention} onKeyDown={onKeyDown} onPaste={onPaste} />
         {/* One row under the text: the + menu, the branch the request will work on (click for the menu's Work in panel), send. */}
         <div className="composer-bar">
@@ -605,6 +606,14 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
                   {afterLive && <button type="button" role="menuitem" className="mention-item" onClick={() => { setAfter(null); setAfterOpen(false); focus(); }}><span>Don't wait: send it now</span></button>}
                 </div>
               )}
+            </span>
+          )}
+          {/* While a run works, the choice Enter makes: wait for the run to finish, or say it now. */}
+          {live && (
+            <span className="detail-switch send-mode" role="group" aria-label="While they work">
+              {SEND_OPTIONS.map((o) => (
+                <button key={o.label} type="button" aria-pressed={steer === o.now} title={o.title} onClick={() => setSteer(o.now)}>{o.now ? "Steer" : "Queue"}</button>
+              ))}
             </span>
           )}
           {/* Send, at the right end of the row. While a run works the same button is a red Stop, and its

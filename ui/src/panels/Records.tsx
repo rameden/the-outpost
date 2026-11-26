@@ -3,6 +3,7 @@
 
 import { useContext, useEffect, useState } from "react";
 import { JiraConnection } from "../components/Jira.tsx";
+import { CalendarConnection } from "../components/Calendar.tsx";
 import { CrewSkills } from "../components/SkillCare.tsx";
 import { api, errorText } from "../api.ts";
 import { Empty, Icon } from "../components/bits.tsx";
@@ -207,6 +208,7 @@ export function Connectors({ S, refresh, onAttachLink }: Panel & { onAttachLink:
   return (
     <>
       <JiraConnection S={S} refresh={refresh} />
+      <CalendarConnection S={S} refresh={refresh} />
       <div className="wiki-group">
         <h4>Linked folders</h4>
         <p>Folders on your disk the {w("crew")} can read as links/&lt;name&gt;/, without uploading. Add one by adding its folder to a project.</p>

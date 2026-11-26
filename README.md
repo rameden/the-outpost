@@ -48,7 +48,7 @@ npm run outpost -- new Work   # a second outpost, apart from the first
 5. **Read the report.** The Quartermaster sums up what was done and where the files are. [`examples/agent-harness-memory.md`](examples/agent-harness-memory.md) is what that request produced on one run.
 6. **Point it at your own work.** Open **Projects** in the sidebar, make a project and add a folder to it. The crew can now read that folder, and conversations filed under the project work there.
 7. **Set a limit.** Settings → Limits & budget has a budget per expedition, which covers the Quartermaster and everyone it sends out.
-8. **Look around.** ⌘P (Ctrl+P) opens the command palette, and the header's Views menu has Orbit, a full-screen view of the crew at work.
+8. **Look around.** ⌘K (Ctrl+K) opens the command palette (⌘P still does; start with / for every command), and the header's Views menu has Orbit, a full-screen view of the crew at work.
 
 ## If something goes wrong
 

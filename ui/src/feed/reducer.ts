@@ -47,7 +47,11 @@ export function stepState(step: PlanStep, ended?: string): StepState {
   return step.quests.every((q) => q.status === "done") ? "done" : "failed";
 }
 // status null: still out. brief: the quest in a line. started: when it set out.
-export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[]; brief?: string; started?: string; step?: number };
+// trees: where it works when others write in the same repository at once: its own worktree, on
+// its own branch, and what became of its changes. helper: it was sent by another quest, not by whoever leads.
+export type QuestTree = { link: string; branch: string; state: "working" | "merged" | "kept" | "unchanged"; reason?: string; files?: number };
+export type QuestNode = { kind: "quest"; id: string; who: string; emoji: string; status: string | null; nodes: FeedNode[]; brief?: string; started?: string; step?: number;
+  trees?: QuestTree[]; helper?: boolean };
 // A quest that's out right now: whose it is, what it's for, and what it's doing this moment. Two
 // quests by the same crew member are two of these, which the crew's own status (one per member) can't show.
 export type QuestOut = { id: string; expId: string; node: string; who: string; emoji: string; brief: string; started: number; line: string; waiting: boolean; step?: number;
@@ -229,7 +233,7 @@ function addText(s: FeedState, e: EventOf<"text">) {
 function addDispatch(s: FeedState, e: EventOf<"dispatch">) {
   const exp = e.expeditionId ? s.open[e.expeditionId] : undefined;
   if (exp && e.expeditionId) {
-    const node: QuestNode = { kind: "quest", id: `q${e.seq}`, who: e.who, emoji: e.emoji, status: null, nodes: [], ...(e.brief ? { brief: e.brief } : {}), started: e.time, ...(e.step ? { step: e.step } : {}) };
+    const node: QuestNode = { kind: "quest", id: `q${e.seq}`, who: e.who, emoji: e.emoji, status: null, nodes: [], ...(e.brief ? { brief: e.brief } : {}), started: e.time, ...(e.step ? { step: e.step } : {}), ...(e.helperOf ? { helper: true } : {}) };
     // It's carrying out a step of the plan: the plan's list shows it against that step.
     if (e.step && exp.plan) {
       s.items = replaceNode(s.items, exp.plan, (n) => n.kind !== "plan" ? n
@@ -343,6 +347,12 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
       place(s, { kind: "route", id: `r${e.seq}`, who: e.who, model: e.model, ...(e.effort ? { effort: e.effort } : {}), choice: e.choice, reason: e.reason, switched: e.switched }, e.questId, e.expeditionId);
       break;
     case "dispatch": addDispatch(s, e); break;
+    case "quest_tree": {
+      const quest = e.expeditionId ? s.open[e.expeditionId]?.quests[e.questId] : undefined;
+      const tree: QuestTree = { link: e.link, branch: e.branch, state: e.state, ...(e.reason ? { reason: e.reason } : {}), ...(e.files !== undefined ? { files: e.files } : {}) };
+      if (quest) s.items = replaceNode(s.items, quest.node, (n) => (n.kind === "quest" ? { ...n, trees: [...(n.trees ?? []).filter((t) => t.link !== e.link), tree] } : n));
+      break;
+    }
     case "plan": addPlan(s, e); break;
     case "return": addReturn(s, e); break;
     case "ask": addAsk(s, e); break;

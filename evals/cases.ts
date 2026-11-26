@@ -14,7 +14,8 @@ export type PlanStep = { n: number; text: string; after?: number[] };
 // can say "the review came after the last change" by position, never by the clock.
 export type Moment =
   | { type: "plan"; steps: PlanStep[] }                                   // a plan that stood, as its steps
-  | { type: "dispatch"; who: string; quest?: string; step?: number }      // a crew member set out
+  | { type: "dispatch"; who: string; quest?: string; step?: number; helperOf?: string } // a crew member set out (helperOf: sent by that quest, as its helper)
+  | { type: "tree"; who: string; quest: string; link: string; branch: string; state: string } // a quest's own worktree: working, then merged, kept or unchanged
   | { type: "return"; who: string; quest?: string; status: string }       // and came back
   | { type: "tool"; who: string; tool: string; input: string }            // a tool call ("check": a linked folder's own check)
   | { type: "ask"; kind: string; title: string; body: string; answer: string } // you were asked, and what you said
@@ -34,7 +35,7 @@ export type CaseContext = {
 export type Check = { name: string; required?: boolean; run: (c: CaseContext) => boolean | string | Promise<boolean | string> };
 
 // The parts of the loop the set must cover (--dry fails if one has no case).
-export const LOOP = ["plan-order", "right-crew", "review-after-change", "ask-before-plan", "resume-no-repeat", "fix-after-check", "budget-stop"] as const;
+export const LOOP = ["plan-order", "right-crew", "review-after-change", "ask-before-plan", "resume-no-repeat", "resume-restored", "fix-after-check", "budget-stop", "parallel-writers"] as const;
 export type LoopPart = (typeof LOOP)[number];
 // A run written out by hand, to try a case's rules on without a model: what happened, the files it
 // left, and which commands now succeed. --dry runs every loop case's rules over a good one (they
@@ -59,7 +60,8 @@ export type EvalCase = {
   // The task is being picked up again: an earlier run of it in this conversation was cut off after
   // doing these things (they are in the task's journal, as oplog.ts wrote them). `files` holds
   // what that run left behind. Needs `agent`.
-  resume?: { earlier: string; done: { tool: string; input: Record<string, unknown>; result: string }[] };
+  // `transcript`: the cut-off run also left its saved transcript (camp/runs), so the reply starts from the conversation as it stood.
+  resume?: { earlier: string; done: { tool: string; input: Record<string, unknown>; result: string }[]; transcript?: boolean };
   covers?: LoopPart;              // the part of the loop this case is about
   rehearsal?: { good: Rehearsal; bad: (Rehearsal & { fails: string })[] }; // fails: the required check that must turn it down
   checks: Check[];
