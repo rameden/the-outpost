@@ -1,4 +1,4 @@
-// The memory, as a map over the whole page: every remembered line a star, standing with the other
+// The memory, as a map: every remembered line a star, standing with the other
 // lines of the place it lives in (a crew member's memory, a project's notes, the note about you),
 // and joined to the lines it's like and the lines it's used with. A star grows each time its line
 // is used. Pick one to read it, see where it came from and when it was used, and pin, forget or
@@ -12,11 +12,17 @@
 //
 // The map is worked out once from what the camp sends (layout.ts) and then stands still: nothing
 // the stars stay where they are. Only the joins stir: a spark now and then along lines used
-// together, and a steady pulse out of the star you picked. /constellation opens it; Esc steps back, then closes it.
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKey, type PointerEvent as ReactPointer } from "react";
+// together, and a steady pulse out of the star you picked.
+//
+// It's the Map view of the Memory page (components/MemoryHome.tsx), drawn in place there, and it
+// goes over the whole page and back ("Full screen", F) without being drawn again: the zoom, the star
+// you picked and the runs you chose stay as they were. /constellation opens it full screen. Full
+// screen it's a dialog (Tab stays inside it); Esc steps back, then leaves full screen for the tab.
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKey, type PointerEvent as ReactPointer } from "react";
+import { createPortal } from "react-dom";
 import { api, errorText } from "../api.ts";
 import { Icon } from "../components/bits.tsx";
-import { useModal } from "../components/Dialog.tsx";
+import { Dialog } from "../components/Dialog.tsx";
 import { contour, MARKS } from "../components/MaeSystem.tsx";
 import { crewNow, cx, plural } from "../format.ts";
 import type { GraphNode, GraphRun, MemoryGraph } from "../types.ts";
@@ -101,8 +107,18 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 const short = (text: string, most = 110) => (text.length > most ? text.slice(0, most).trimEnd() + "…" : text);
 const day = (iso: string) => new Date(iso).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
 
-export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
-  onClose: () => void;
+// Where the map stands: in the Memory page, or over the whole page. The map's box is one element
+// (the host) that's moved here, never drawn again, so nothing about it is lost on the way.
+function Stand({ host }: { host: HTMLElement }) {
+  const at = useRef<HTMLDivElement>(null);
+  // (Only when it isn't here already: putting a box back where it stands takes the keyboard off whatever in it had it.)
+  useLayoutEffect(() => { if (at.current && host.parentElement !== at.current) at.current.appendChild(host); }, [host]);
+  return <div className="con-stand" ref={at} />;
+}
+
+export function Constellation({ full, onFull, onOpenConversation, onOpenMemory }: {
+  full: boolean;                    // over the whole page (a dialog), or in place in Memory → Map
+  onFull: (on: boolean) => void;
   onOpenConversation: (id: string) => void;
   onOpenMemory: () => void;   // the Memory page, where a drafted merge waits for you
 }) {
@@ -112,9 +128,21 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
   const [merge, setMerge] = useState<Merge>(null);
   const [runsOpen, setRunsOpen] = useState<boolean | null>(null); // null: open when there are runs to list and room for them
   const [runsPicked, setRunsPicked] = useState<string[]>([]);
-  const root = useRef<HTMLDivElement>(null);
-  useModal(root, { focus: "box" }); // Tab stays inside, focus goes back on close; Escape is answered below
+  // (No useModal here: in place the map is a region Tab passes through. Full screen it stands in a Dialog, which is one.)
+  const root = useRef<HTMLDivElement>(null), fullButton = useRef<HTMLButtonElement>(null);
   const sky = useRef<SVGSVGElement>(null);
+  const [host] = useState(() => Object.assign(document.createElement("div"), { className: "con-host" }));
+  useEffect(() => () => host.remove(), [host]);
+  // Going full screen, the dialog takes the keyboard (Dialog.tsx puts it on its own box); coming back
+  // puts it on the button that goes there again. Opened in place, the map takes the keyboard from nothing.
+  const wasFull = useRef(false);
+  useLayoutEffect(() => {
+    if (!full && wasFull.current) fullButton.current?.focus({ preventScroll: true });
+    wasFull.current = full;
+  }, [full]);
+  // Where the keyboard rests when it's on no star and no button: full screen that's the dialog's own box
+  // (Tab wraps round from there), in place it's the map.
+  const rest = () => ((full && root.current?.closest<HTMLElement>(".whole-page")) || root.current)?.focus({ preventScroll: true });
   const [size, setSize] = useState({ w: 1200, h: 800 });
   const [cam, setCam] = useState<Cam | null>(null); // null: fitted to the whole map
 
@@ -126,13 +154,16 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
       (e) => setError(errorText(e)),
     );
   }, []);
-  useEffect(() => { void load(); root.current?.focus(); }, [load]);
-  // The page's size, for keeping the map in the middle of it.
+  useEffect(() => { void load(); }, [load]);
+  // The size of the box it's drawn in (the page's, full screen), for keeping the map in the middle of it.
   useEffect(() => {
-    const measure = () => { const r = sky.current?.getBoundingClientRect(); if (r && r.width > 0 && r.height > 0) setSize({ w: r.width, h: r.height }); };
+    const el = sky.current;
+    const measure = () => { const r = el?.getBoundingClientRect(); if (r && r.width > 0 && r.height > 0) setSize((was) => (was.w === r.width && was.h === r.height ? was : { w: r.width, h: r.height })); };
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    const seen = el && typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null; // the box changes size with no resize of the window: in place, full screen, back
+    if (el) seen?.observe(el);
+    return () => { window.removeEventListener("resize", measure); seen?.disconnect(); };
   }, []);
 
   const nodes = graph?.nodes ?? [], edges = graph?.edges ?? [], runs: GraphRun[] = graph?.runs ?? [], count = nodes.length;
@@ -232,16 +263,18 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
   const picking = merge?.step === "pick" && !!node;
   const onStar = (n: GraphNode) => { if (picking) void mergeWith(n); else pick(n.id); };
 
-  const onKey = (ev: ReactKey<HTMLDivElement>) => {
+  const onKey = (ev: ReactKey<HTMLElement>) => {
     if (ev.defaultPrevented) return;
     const typing = ev.target instanceof HTMLElement && ev.target.closest("input, textarea, select");
     if (ev.key === "Escape") {
-      ev.preventDefault();
       if (picking) setMerge(null);
-      else if (picked) { setPicked(null); setMerge(null); root.current?.focus(); }
+      else if (picked) { setPicked(null); setMerge(null); rest(); }
       else if (lit) setRunsPicked([]);
-      else onClose();
+      else if (full) onFull(false);
+      else return; // in place, with nothing left to step back from, the key is the page's
+      ev.preventDefault();
     } else if (typing || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    else if (ev.key === "f" || ev.key === "F") onFull(!full);
     else if (ev.key === "+" || ev.key === "=") zoom(1.4);
     else if (ev.key === "-" || ev.key === "_") zoom(1 / 1.4);
     else if (ev.key === "0") setCam(null);
@@ -257,8 +290,11 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
   const placeCount = map.clusters.length;
   const owner = ownerSize(view.k);
   const near = new Set(node ? edges.flatMap((e) => (e.a === node.id ? [e.b] : e.b === node.id ? [e.a] : [])) : []);
-  return (
-    <div className={cx("constellation", picking && "picking", lit && "isolating", listing && "runs-open")} ref={root} role="dialog" aria-modal="true" aria-label={`Memory constellation: what the ${w("crew")} remembers, as a map`} tabIndex={-1} onKeyDown={onKey}>
+  const name = `Memory constellation: what the ${w("crew")} remembers, as a map`;
+  const drawn = (
+    // Full screen, the dialog (below) carries the name; in place this is a region of the Memory page.
+    <div className={cx("constellation", full ? "full" : "inset", !wide && "narrow", picking && "picking", lit && "isolating", listing && "runs-open")} ref={root}
+      role={full ? undefined : "region"} aria-label={full ? undefined : name} tabIndex={full ? undefined : -1} onKeyDown={onKey}>
       {STARS.map(([tile, depth], j) => (
         <div key={j} className={`orb-stars s${j + 1}`} aria-hidden="true"
           style={{ transform: `translate3d(${wrap(-view.x * view.k * depth, tile).toFixed(1)}px, ${wrap(-view.y * view.k * depth, tile).toFixed(1)}px, 0)` }} />
@@ -308,7 +344,7 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
 
       <header className="con-top">
         <div className="con-title">
-          <h2>Memory</h2>
+          {full && <h2>Memory</h2>}{/* in place, the page's own heading stands over it */}
           {graph && count > 0 && <p>{lit
             ? `${lit.size} of ${count} ${plural(count, "line")}, used by ${chosen.length} ${plural(chosen.length, "run")}`
             : `${count} ${plural(count, "line")} in ${placeCount} ${plural(placeCount, "place")}`}</p>}
@@ -318,7 +354,9 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
           <button type="button" className="con-tool" title="Closer (+)" aria-label="Zoom in" onClick={() => zoom(1.4)}>+</button>
           <button type="button" className="con-tool" title="Further (-)" aria-label="Zoom out" onClick={() => zoom(1 / 1.4)}>−</button>
           <button type="button" className="con-tool worded" title="The whole map (0)" onClick={() => setCam(null)}>Fit</button>
-          <button type="button" className="con-tool" title="Close (Esc)" aria-label="Close the map" onClick={onClose}><Icon name="x" /></button>
+          {full
+            ? <button type="button" className="con-tool" title="Leave full screen: back to Memory (Esc)" aria-label="Leave full screen" onClick={() => onFull(false)}><Icon name="x" /></button>
+            : <button type="button" className="con-tool worded con-go-full" ref={fullButton} title="The map over the whole page (F)" onClick={() => onFull(true)}><Icon name="focus" /> <span>Full screen</span></button>}
         </div>
       </header>
 
@@ -354,16 +392,22 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
 
       {listing && (
         <RunsPanel runs={runs} picked={new Set(chosen.map((r) => r.id))} byId={byId} classOf={placeClass}
-          onToggle={toggleRun} onClear={() => setRunsPicked([])} onClose={() => { setRunsOpen(false); root.current?.focus(); }} />
+          onToggle={toggleRun} onClear={() => setRunsPicked([])} onClose={() => { setRunsOpen(false); rest(); }} />
       )}
 
       {node && (
         <LinePanel node={node} cls={placeClass(node.where)} edges={edges} nodes={nodes} merge={merge}
-          onClose={() => { setPicked(null); setMerge(null); root.current?.focus(); }}
+          onClose={() => { setPicked(null); setMerge(null); rest(); }}
           onSelect={pick} onMerge={setMerge} onPick={(other) => void mergeWith(other)}
-          onChanged={(gone) => { if (gone) { setPicked(null); setMerge(null); root.current?.focus(); } void load(); }}
+          onChanged={(gone) => { if (gone) { setPicked(null); setMerge(null); rest(); } void load(); }}
           onOpenConversation={onOpenConversation} onOpenMemory={onOpenMemory} />
       )}
     </div>
   );
+  return <>
+    {full
+      ? createPortal(<Dialog className="whole-page" backdropClass="no-veil" label={name} onClose={() => onFull(false)} onKeyDown={onKey}><Stand host={host} /></Dialog>, document.body)
+      : <Stand host={host} />}
+    {createPortal(drawn, host)}
+  </>;
 }

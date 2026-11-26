@@ -15,7 +15,7 @@ beforeEach(() => {
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   }));
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 let seq = 0;
 function send(store: ReturnType<typeof createFeedStore>, ...bodies: object[]) {
@@ -365,7 +365,7 @@ test("the approved plan is a live list: each step's state and who has it, and a 
     { type: "dispatch", ...smith, questId: "q2", expeditionId: "exp-pl", brief: "Studio UI", step: 2 },
     { type: "return", ...smith, status: "done", questId: "q1", expeditionId: "exp-pl" });
   const list = screen.getByRole("group", { name: "The plan, step by step" });
-  expect(list.querySelector(".plan-head")!.textContent).toBe("Plan1 of 3 done · 1 out");
+  expect([...list.querySelectorAll(".plan-head > b, .plan-head > b + span")].map((x) => x.textContent)).toEqual(["Plan", "1 of 3 done · 1 out"]);
   const rows = within(list).getAllByRole("listitem").map((li) => [...li.firstElementChild!.children].map((c) => c.textContent).join(" | "));
   expect(rows).toEqual(["✓ | 1 | Backend | 🔨 Artificer | Done", "● | 2 | Studio UI | 🔨 Artificer | Out", "○ | 3 | I read the diffs | Not started"]);
   // The plan's own card keeps its wording a click away, not twice on the page.
@@ -376,9 +376,85 @@ test("the approved plan is a live list: each step's state and who has it, and a 
   expect([...document.querySelectorAll(".quest-step")].map((x) => x.textContent)).toEqual(["Step 1", "Step 2"]);
   const seen = vi.fn();
   (document.querySelectorAll(".quest")[1] as HTMLElement).scrollIntoView = seen;
-  fireEvent.click(within(list).getAllByRole("button")[1]);
+  const steps = within(within(list).getByRole("list"));
+  fireEvent.click(steps.getAllByRole("button")[1]);
   expect(seen).toHaveBeenCalled();
-  expect(within(list).getAllByRole("button").length).toBe(2); // the Quartermaster's own step has nowhere to go
+  expect(steps.getAllByRole("button").length).toBe(2); // the Quartermaster's own step has nowhere to go
+});
+
+// A plan with steps that wait for others, part-way through: 1 done, 2 out, and a quest sent on no step.
+function planOnTheTrail(id = "exp-tr") {
+  const store = createFeedStore();
+  render(<Feed store={store} onReply={() => {}} onExample={() => {}} />);
+  const smith = { who: "Artificer", emoji: "🔨", depth: 1 }, scout = { who: "Scout", emoji: "🔭", depth: 1 };
+  send(store, { type: "expedition_start", id, task: "Share a whole thread", source: "user" },
+    { type: "plan", steps: [{ n: 1, text: "Read the code" }, { n: 2, text: "Backend", after: [1] }, { n: 3, text: "Page", after: [1] }, { n: 4, text: "I read the diffs", after: [2, 3] }], expeditionId: id },
+    { type: "dispatch", ...scout, questId: "q1", expeditionId: id, brief: "Read the code", step: 1 },
+    { type: "return", ...scout, status: "done", questId: "q1", expeditionId: id },
+    { type: "dispatch", ...smith, questId: "q2", expeditionId: id, brief: "Backend", step: 2 },
+    { type: "dispatch", ...scout, questId: "q3", expeditionId: id, brief: "Check the kiosk browsers" });
+  const card = screen.getByRole("group", { name: "The plan, step by step" });
+  const [asList, asTrail] = within(within(card).getByRole("group", { name: "How the plan is shown" })).getAllByRole("button");
+  return { card, asList, asTrail };
+}
+
+test("the plan's card shows its steps as a list or as a trail: waypoints, what waits for what, who's out, and the quests off the trail", () => {
+  const { card, asList, asTrail } = planOnTheTrail();
+  expect([asList.textContent, asList.getAttribute("aria-pressed"), asTrail.textContent, asTrail.getAttribute("aria-pressed")]).toEqual(["List", "true", "Trail", "false"]);
+  expect(within(within(card).getByRole("list")).getAllByRole("listitem")).toHaveLength(4);
+  expect(within(card).queryByRole("group", { name: "The plan as a trail" })).toBeNull();
+
+  fireEvent.click(asTrail);
+  expect([asList.getAttribute("aria-pressed"), asTrail.getAttribute("aria-pressed")]).toEqual(["false", "true"]);
+  expect([...card.querySelectorAll(".plan-head > b, .plan-head > b + span")].map((x) => x.textContent)).toEqual(["Plan", "1 of 4 done · 1 out"]); // the count stays over either
+  const trail = within(card).getByRole("group", { name: "The plan as a trail" });
+  expect(trail.tabIndex).toBe(0); // a trail wider than the card is scrolled from the keyboard too
+  expect(within(trail).getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual([
+    "Step 1, done: Read the code.", "Step 2, out: Backend. Waits for step 1.", "Step 3, not started: Page. Waits for step 1.", "Step 4, not started: I read the diffs. Waits for steps 2 and 3.",
+  ]);
+  expect(within(trail).getAllByRole("listitem").map((li) => `${li.dataset.n}@${li.dataset.col} ${li.dataset.state}`)).toEqual(["1@1 done", "2@2 out", "3@2 todo", "4@3 todo"]);
+  const lines = [...trail.querySelectorAll<SVGElement>("[data-line]")];
+  expect(lines.map((g) => g.dataset.line).sort()).toEqual(["1-2", "1-3", "2-4", "3-4"]);
+  expect(lines.filter((g) => g.classList.contains("walked")).map((g) => g.dataset.line).sort()).toEqual(["1-2", "1-3"]);
+  expect(lines.filter((g) => g.classList.contains("live")).map((g) => g.dataset.line)).toEqual(["1-2"]);
+  expect(within(trail).getByText("Nobody sent yet", { selector: '[data-n="3"] *' })).toBeTruthy();
+
+  // Whoever is on a step takes you to their quest, further down the conversation.
+  const quests = [...document.querySelectorAll<HTMLElement>(".quest")];
+  const seen = quests.map((q) => (q.scrollIntoView = vi.fn()));
+  fireEvent.click(within(trail).getByRole("button", { name: /^Artificer, out now: go to this/ }));
+  expect(seen.map((f) => f.mock.calls.length)).toEqual([0, 1, 0]);
+  // The quest sent without a step is listed under the trail, on no waypoint, and goes to its quest too.
+  const loose = within(card).getByRole("group", { name: /sent without a step$/ });
+  expect(loose.textContent).toMatch(/^Off the trail \(sent without a step\)/);
+  fireEvent.click(within(loose).getByRole("button", { name: /^Scout, out now: go to this/ }));
+  expect(seen.map((f) => f.mock.calls.length)).toEqual([0, 1, 1]);
+
+  fireEvent.click(asList);
+  expect(within(card).queryByRole("group", { name: "The plan as a trail" })).toBeNull();
+  expect(within(within(card).getByRole("list")).getAllByRole("listitem")).toHaveLength(4);
+});
+
+test("list or trail is remembered, and Full screen on the card opens the trail map on that card's plan", () => {
+  const first = planOnTheTrail();
+  fireEvent.click(first.asTrail);
+  expect(localStorage.getItem("camp-plan-view")).toBe("trail");
+  cleanup();
+  const { card, asList, asTrail } = planOnTheTrail("exp-again");
+  expect(asTrail.getAttribute("aria-pressed")).toBe("true");
+  expect(within(card).getByRole("group", { name: "The plan as a trail" })).toBeTruthy();
+
+  const heard: unknown[] = [];
+  const on = (ev: Event) => heard.push((ev as CustomEvent).detail);
+  window.addEventListener("camp:ask", on);
+  const full = within(card).getByRole("button", { name: "Open the trail map, full screen" });
+  expect(full.textContent).toBe("Full screen");
+  fireEvent.click(full);
+  fireEvent.click(asList);
+  fireEvent.click(full); // from the list too
+  window.removeEventListener("camp:ask", on);
+  expect(heard).toEqual([{ do: "command", name: "trail", arg: "exp-again" }, { do: "command", name: "trail", arg: "exp-again" }]);
+  expect(localStorage.getItem("camp-plan-view")).toBe("list");
 });
 
 test("a blank page outside a project offers a plain chat, and says how to bring the crew in", () => {

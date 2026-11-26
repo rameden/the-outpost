@@ -74,11 +74,11 @@ const planned = (steps: { n: number; text: string; after?: number[] }[], expedit
 const diamond = [{ n: 1, text: "Scout reads the code" }, { n: 2, text: "Artificer builds the backend", after: [1] }, { n: 3, text: "Artificer builds the page", after: [1] }, { n: 4, text: "I read the diffs", after: [2, 3] }];
 
 const S = { characters: [{ id: "scout", name: "Scout", emoji: "🔭" }, { id: "artificer", name: "Artificer", emoji: "🔨" }] } as unknown as CampState;
-function mount(events: CampEvent[] = [], camp: CampState | null = S) {
+function mount(events: CampEvent[] = [], camp: CampState | null = S, pick?: string) {
   const store = createFeedStore();
   for (const e of events) store.apply(e);
   const onClose = vi.fn(), onOpenQuest = vi.fn();
-  const r = render(<Trail S={camp} store={store} onClose={onClose} onOpenQuest={onOpenQuest} />);
+  const r = render(<Trail S={camp} store={store} onClose={onClose} onOpenQuest={onOpenQuest} pick={pick} />);
   return { ...r, store, onClose, onOpenQuest };
 }
 // The store tells React about new events a frame later.
@@ -180,6 +180,37 @@ describe("the trail map", () => {
     send(store, begin("C", "The third ask"), planned([{ n: 1, text: "x" }, { n: 2, text: "y" }], "C"));
     expect(stands(container)).toEqual(["1 todo"]);
     expect(pick.options).toHaveLength(3);
+  });
+
+  test("opened from a plan's card it shows that card's plan, not the newest; a run it can't find is the newest after all", () => {
+    const two = () => [begin("A", "The first ask"), planned([{ n: 1, text: "Only step" }], "A"), begin("B", "The second ask"), planned(diamond, "B")];
+    const { container, unmount } = mount(two(), S, "A");
+    expect((screen.getByLabelText("Which plan") as HTMLSelectElement).value).toBe("A");
+    expect(stands(container)).toEqual(["1 todo"]);
+    expect(container.querySelector(".trail-ask b")!.textContent).toBe("The first ask");
+    // Everything else is still a pick away: the other plans, the whole map, the replay.
+    fireEvent.change(screen.getByLabelText("Which plan"), { target: { value: "B" } });
+    expect(stands(container)).toHaveLength(4);
+    expect(["Whole map", "Replay"].map((name) => !!screen.getByRole("button", { name }))).toEqual([true, true]);
+    unmount();
+    seq = 0;
+    mount(two(), S, "gone");
+    expect((screen.getByLabelText("Which plan") as HTMLSelectElement).value).toBe("B");
+  });
+
+  test("it's a dialog over the page: Tab stays inside it, and the X leaves it", () => {
+    const { onClose } = mount([begin(), planned(diamond)]);
+    const map = screen.getByRole("dialog", { name: /Trail map/ });
+    expect(map.getAttribute("aria-modal")).toBe("true");
+    expect(document.activeElement).toBe(map);
+    const stops = [...map.querySelectorAll<HTMLElement>('button:not([disabled]), select, [tabindex="0"]')];
+    expect(stops.length).toBeGreaterThan(4);
+    expect(fireEvent.keyDown(map, { key: "Tab", shiftKey: true })).toBe(false); // back from the map itself: round to its last stop
+    expect(document.activeElement).toBe(stops.at(-1));
+    expect(fireEvent.keyDown(stops.at(-1)!, { key: "Tab" })).toBe(false);
+    expect(document.activeElement).toBe(stops[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Leave the trail map" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   test("the whole map shows every plan at once, newest first, each chip going to its own run's quest", () => {
@@ -457,6 +488,23 @@ describe("the whole map as rings", () => {
     expect(onOpenQuest).not.toHaveBeenCalled();
     fireEvent.click(moons[1]);
     expect(onOpenQuest).toHaveBeenCalledWith({ expId: "A", node: expect.any(String) });
+  });
+
+  test("keeping the step that's out in sight hands nothing back to the page, even where scrolling answers with a promise", () => {
+    // Newer browsers answer scrollIntoView with a promise; an effect that handed it back broke the map as it closed.
+    const scrolled: string[] = [];
+    Element.prototype.scrollIntoView = function (this: HTMLElement) { scrolled.push(this.dataset.n ?? ""); return Promise.resolve(); } as unknown as Element["scrollIntoView"];
+    const said = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { store, unmount } = mount([begin(), planned(diamond)]);
+      send(store, ev({ type: "dispatch", ...scout, questId: "q1", expeditionId: "A", brief: "Read", step: 1 }));
+      expect(scrolled).toEqual(["1"]);
+      expect(() => unmount()).not.toThrow();
+      expect(said).not.toHaveBeenCalled();
+    } finally {
+      said.mockRestore();
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
   });
 
   test("the tree climbs to a plan that joins at its tip, and not as it opens (it opens at its foot)", () => {

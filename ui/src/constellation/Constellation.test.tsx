@@ -1,6 +1,8 @@
 // The memory map: its stars and their names, the panel a star opens and what it can do (pin,
-// forget, merge), and what it says when there's nothing to draw.
+// forget, merge), and what it says when there's nothing to draw. It's drawn in the Memory page
+// (Map) and can go over the whole page: most of these look at it there, the last ones at both.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ConfirmHost } from "../components/Confirm.tsx";
 import { Opener, expectTabWraps } from "../components/modalkit.tsx";
@@ -36,11 +38,18 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-const open = () => {
-  const on = { onClose: vi.fn(), onOpenConversation: vi.fn(), onOpenMemory: vi.fn() };
-  render(<><Constellation {...on} /><ConfirmHost /></>);
+// The map as the Memory page holds it: over the whole page, or (open(false)) in place. Whoever holds it keeps which.
+const open = (whole = true) => {
+  const on = { onFull: vi.fn(), onOpenConversation: vi.fn(), onOpenMemory: vi.fn() };
+  function Held() {
+    const [over, setOver] = useState(whole);
+    return <><Constellation full={over} onFull={(to) => { on.onFull(to); setOver(to); }} onOpenConversation={on.onOpenConversation} onOpenMemory={on.onOpenMemory} /><ConfirmHost /></>;
+  }
+  render(<Held />);
   return on;
 };
+const inPlace = () => screen.getByRole("region", { name: /^Memory constellation/ });
+const overPage = () => screen.getByRole("dialog", { name: /^Memory constellation/ });
 const posts = () => calls.filter((c) => c.body !== undefined);
 const star = (name: RegExp) => screen.findByRole("button", { name });
 
@@ -169,7 +178,7 @@ test("the runs that used memory are listed down the side: pick one and only its 
   fireEvent.click(rows[0]); // let the first go
   expect(dimmed()).toEqual(["Use British spelling", "Use British spelling in docs", "Cite the source of every figure", "Eastern time"]);
 
-  // Show all, or Esc, brings the whole map back; only then does Esc close it.
+  // Show all, or Esc, brings the whole map back; only then does Esc leave full screen.
   fireEvent.click(within(runs).getByRole("button", { name: "Show all" }));
   expect(dimmed()).toEqual([]);
   expect(within(runs).queryByRole("button", { name: "Show all" })).toBeNull();
@@ -178,9 +187,9 @@ test("the runs that used memory are listed down the side: pick one and only its 
   expect(screen.getByText("1 of 5 lines, used by 1 run")).toBeTruthy();
   fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   expect(dimmed()).toEqual([]);
-  expect(on.onClose).not.toHaveBeenCalled();
+  expect(on.onFull).not.toHaveBeenCalled();
   fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-  expect(on.onClose).toHaveBeenCalledTimes(1);
+  expect(on.onFull.mock.calls).toEqual([[false]]);
 });
 
 test("the runs can be put away and brought back (the Runs button, or R), and say so when no run has used a line", async () => {
@@ -236,13 +245,13 @@ test("picking a star opens its panel: the line, where it came from, when it was 
   fireEvent.click(panel.getByRole("button", { name: /^Cite the source of every figure/ }));
   expect(within(screen.getByRole("complementary")).getByRole("heading", { name: "Scout's memory" })).toBeTruthy();
   expect((await star(/^Cite the source/)).getAttribute("aria-pressed")).toBe("true");
-  // Esc steps back: first off the star, then out of the map.
+  // Esc steps back: first off the star, then out of full screen.
   const map = screen.getByRole("dialog", { name: /^Memory constellation/ });
   fireEvent.keyDown(map, { key: "Escape" });
   expect(screen.queryByRole("complementary")).toBeNull();
-  expect(on.onClose).not.toHaveBeenCalled();
+  expect(on.onFull).not.toHaveBeenCalled();
   fireEvent.keyDown(map, { key: "Escape" });
-  expect(on.onClose).toHaveBeenCalledTimes(1);
+  expect(on.onFull.mock.calls).toEqual([[false]]);
 });
 
 test("a star opens from the keyboard, and focus alone picks it", async () => {
@@ -327,7 +336,7 @@ test("merging from the panel's list, stepping back out of it, and a draft that c
   // Esc leaves the picking, not the star.
   fireEvent.keyDown(screen.getByRole("dialog", { name: /^Memory constellation/ }), { key: "Escape" });
   expect(panel().queryByText(/Merge with which line\?/)).toBeNull();
-  expect(on.onClose).not.toHaveBeenCalled();
+  expect(on.onFull).not.toHaveBeenCalled();
   fireEvent.click(panel().getByRole("button", { name: "Merge with…" }));
   answer = (path) => (path === "/api/memory/merge" ? new Response(JSON.stringify({ error: "The draft couldn't be written just now." }), { status: 500 }) : undefined);
   fireEvent.click(panel().getByRole("button", { name: "No emoji in headings" }));
@@ -346,8 +355,8 @@ test("nothing remembered yet: the map says so, plainly", async () => {
   expect(screen.getByText(/it appears here as a star/)).toBeTruthy();
   expect(screen.queryByRole("button", { name: /Recalled|Not recalled/ })).toBeNull();
   expect(screen.queryByText(/Recall history/)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Close the map" }));
-  expect(on.onClose).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Leave full screen" }));
+  expect(on.onFull.mock.calls).toEqual([[false]]);
 });
 
 test("a map that can't be read says why, and can be tried again", async () => {
@@ -398,13 +407,100 @@ test("on the map, a place's line starts where its owner sits, and a name below t
   expect(all.map((p) => p.turn === 90)).toEqual([false, true, true, false]);
 });
 
-test("Tab stays inside the map, and focus goes back to what opened it when it closes", async () => {
-  render(<><Opener>{(close) => <Constellation onClose={close} onOpenConversation={vi.fn()} onOpenMemory={vi.fn()} />}</Opener><ConfirmHost /></>);
+test("in the Memory page it's a region drawn in place; Full screen (the button, or F) puts the same map over the page, and leaving hands the keyboard back", async () => {
+  const on = open(false);
+  const here = inPlace();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Memory" })).toBeNull(); // the page has its own
+  const s = await star(/^Use British spelling Scribe/);
+  fireEvent.click(s);
+  fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+  const world = () => document.querySelector("svg.con-sky > g")!.getAttribute("transform");
+  const at = world();
+  fireEvent.click(screen.getByRole("button", { name: "Full screen" }));
+  expect(on.onFull).toHaveBeenLastCalledWith(true);
+  const over = overPage();
+  expect(screen.queryByRole("region", { name: /^Memory constellation/ })).toBeNull();
+  // It's the one map, moved: the same star, still picked, its panel open and the sky where you left it.
+  expect(over.contains(here)).toBe(true);
+  expect(over.contains(s)).toBe(true);
+  expect(s.getAttribute("aria-pressed")).toBe("true");
+  expect(within(over).getByRole("complementary", { name: "The line you picked" })).toBeTruthy();
+  expect(world()).toBe(at);
+  expect(within(over).getByRole("heading", { name: "Memory" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
+  expect(document.activeElement).toBe(over); // the keyboard is on the map
+
+  fireEvent.keyDown(over, { key: "f" });
+  expect(on.onFull).toHaveBeenLastCalledWith(false);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(inPlace().contains(s)).toBe(true);
+  expect(s.getAttribute("aria-pressed")).toBe("true");
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Full screen" }));
+  fireEvent.keyDown(inPlace(), { key: "F" });
+  expect(on.onFull).toHaveBeenLastCalledWith(true);
+  fireEvent.click(within(overPage()).getByRole("button", { name: "Leave full screen" }));
+  expect(on.onFull.mock.calls).toEqual([[true], [false], [true], [false]]);
+});
+
+test("in place, everything the map does is still there: the runs, a star's panel and what it can do, and the tools", async () => {
+  graph = withRuns;
+  open(false);
+  const here = inPlace();
+  const runs = await within(here).findByRole("complementary", { name: "Runs that used memory" });
+  fireEvent.click(within(runs).getByRole("button", { name: /Fix the docs/ }));
+  expect(within(here).getByText("2 of 5 lines, used by 1 run")).toBeTruthy();
+  fireEvent.keyDown(here, { key: "r" });
+  expect(within(here).queryByRole("complementary", { name: "Runs that used memory" })).toBeNull();
+  fireEvent.click(await star(/^Use British spelling Scribe/));
+  const panel = within(within(here).getByRole("complementary", { name: "The line you picked" }));
+  expect(["Pin", "Merge with…", "Forget"].map((name) => !!panel.getByRole("button", { name }))).toEqual([true, true, true]);
+  expect(["Runs", "Zoom out", "Zoom in", "Fit", "Full screen"].map((name) => !!within(here).getByRole("button", { name }))).toEqual([true, true, true, true, true]);
+  expect(within(here).getByText(/^Recall history starts on /)).toBeTruthy();
+  // Forgetting asks first, as it does over the page.
+  fireEvent.click(panel.getByRole("button", { name: "Forget" }));
+  fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(posts()).toEqual([]);
+});
+
+test("in place, Esc steps back off a star but is the page's own once there's nothing to step back from, and Tab goes on down the page", async () => {
+  const on = open(false);
+  const here = inPlace();
+  fireEvent.click(await star(/^Use British spelling Scribe/));
+  expect(fireEvent.keyDown(here, { key: "Escape" })).toBe(false); // taken: the star is let go
+  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(fireEvent.keyDown(here, { key: "Escape" })).toBe(true);  // not the map's to take
+  expect(fireEvent.keyDown(here, { key: "Tab" })).toBe(true);
+  expect(on.onFull).not.toHaveBeenCalled();
+});
+
+test("over the whole page it's a dialog, and Tab stays inside it", async () => {
+  open();
+  const over = overPage();
+  await star(/^Eastern time/);
+  expect(over.getAttribute("aria-modal")).toBe("true");
+  expect(document.activeElement).toBe(over);
+  const stops = () => [...over.querySelectorAll<HTMLElement>('button:not([disabled]), [tabindex="0"]')];
+  const last = stops().at(-1)!;
+  expect(fireEvent.keyDown(over, { key: "Tab", shiftKey: true })).toBe(false); // back from the map itself: round to its last stop
+  expect(document.activeElement).toBe(last);
+  const [first, end] = [stops()[0], stops().at(-1)!];
+  end.focus();
+  expect(fireEvent.keyDown(end, { key: "Tab" })).toBe(false);
+  expect(document.activeElement).toBe(first);
+  expect(fireEvent.keyDown(first, { key: "Tab", shiftKey: true })).toBe(false);
+  expect(document.activeElement).toBe(stops().at(-1));
+});
+
+// (From main's Tab-trap work, moved with the map: over the page it's opened from somewhere else, as /constellation does.)
+test("opened over the page from elsewhere: Tab stays inside the map, and focus goes back to what opened it when it closes", async () => {
+  render(<><Opener>{(close) => <Constellation full onFull={(to) => { if (!to) close(); }} onOpenConversation={vi.fn()} onOpenMemory={vi.fn()} />}</Opener><ConfirmHost /></>);
   const opener = screen.getByRole("button", { name: "Open it" });
   opener.focus();
   fireEvent.click(opener);
   await star(/^Use British spelling Scribe's memory/);
-  const map = screen.getByRole("dialog", { name: /^Memory constellation/ });
+  const map = overPage();
   expect(map.contains(document.activeElement)).toBe(true);
   expectTabWraps(map); // (focusing the first star opens its panel, so then the last control is the panel's)
   fireEvent.keyDown(map, { key: "Escape" }); // puts the star down

@@ -1,27 +1,35 @@
 // The Memory page: everything the camp remembers, in one place, in three views. List is the
 // lines (how many suggestions are waiting in the Inbox, you, each crew member's memory, each project's notes) and the
 // wiki's pages: where you read, change and forget them. Map is the constellation (every line
-// a star), opened full screen from here. By member is one crew member's memory on its own.
+// a star), drawn in the page and taken full screen from there. By member is one crew member's memory on its own.
 // The two switches for how memory is looked after stay in Settings → Memory.
 
+import { lazy, Suspense } from "react";
 import type { MemoryTab } from "../feed/conversation.ts";
+import { cx } from "../format.ts";
 import { MemoryLines } from "../settings/MemoryPage.tsx";
 import type { CampState } from "../types.ts";
 import { w } from "../words.ts";
 import { Icon } from "./bits.tsx";
+import { ZoneBoundary } from "./ErrorBoundary.tsx";
 import { PageTabs, type PageTab } from "./PageTabs.tsx";
 import { WikiHome } from "./Wiki.tsx";
 
+// The map is its own script (it brings Orbit's sky with it), fetched the first time the Map view is opened.
+const Constellation = lazy(() => import("../constellation/Constellation.tsx").then((m) => ({ default: m.Constellation })));
+
 const TABS: PageTab<MemoryTab>[] = [
   { id: "list", label: "List", title: "Every line and every wiki page: read, change, forget" },
-  { id: "map", label: "Map", title: "Every line as a star on a map" },
+  { id: "map", label: "Map", title: "Every line as a star on a map: the constellation" },
   { id: "member", label: "By member", get title() { return `One ${w("crew")} member's memory`; } },
 ];
 
-export function MemoryHome({ S, tab, member, page, setView, refresh, onOpenMap, onOpenSettings, onOpenInbox }: {
+export function MemoryHome({ S, tab, member, page, setView, refresh, mapFull = false, onMapFull, onOpenConversation, onOpenSettings, onOpenInbox }: {
   S: CampState; tab: MemoryTab; member?: string; page?: string;
   setView: (v: { kind: "memory"; tab?: MemoryTab; member?: string; page?: string }) => void;
-  refresh: () => void; onOpenMap: () => void; onOpenSettings: () => void;
+  refresh: () => void; onOpenSettings: () => void;
+  mapFull?: boolean; onMapFull: (on: boolean) => void; // the map over the whole page (/constellation opens it that way), or in the page
+  onOpenConversation: (id: string) => void;            // a conversation a line came from or was used in
   onOpenInbox?: () => void; // where what's waiting for you is answered: Activity → Inbox
 }) {
   const open = (path: string | null) => setView(path ? { kind: "memory", tab: "list", page: path } : { kind: "memory", tab: "list" });
@@ -29,7 +37,7 @@ export function MemoryHome({ S, tab, member, page, setView, refresh, onOpenMap, 
   const who = S.characters.find((c) => c.id === member) ?? S.characters[0];
   const lines = (S.memory ?? []).reduce((n, p) => n + p.lines.length, 0);
   return (
-    <div className="feed proj-page memory-page">
+    <div className={cx("feed proj-page memory-page", tab === "map" && "on-map")}>
       <header className="proj-head">
         <div>
           <h2>Memory</h2>
@@ -48,9 +56,12 @@ export function MemoryHome({ S, tab, member, page, setView, refresh, onOpenMap, 
           </>
         ) : tab === "map" ? (
           <div className="memory-map">
-            <p className="set-note">Every remembered line is a star, grouped by where it lives: see what's alike and what gets used, and pin, forget or merge from there.</p>
-            <button type="button" className="btn primary" onClick={onOpenMap}><Icon name="constellation" /> Open the map</button>
-            <span className="meta"> Full screen. Esc comes back here.</span>
+            <p className="set-note">Every remembered line is a star, grouped by where it lives: see what's alike and what gets used, and pin, forget or merge from here.</p>
+            <ZoneBoundary name="The memory map">
+              <Suspense fallback={<p className="set-note" role="status">Drawing the map…</p>}>
+                <Constellation full={mapFull} onFull={onMapFull} onOpenConversation={onOpenConversation} onOpenMemory={() => setView({ kind: "memory", tab: "list" })} />
+              </Suspense>
+            </ZoneBoundary>
           </div>
         ) : (
           <>
