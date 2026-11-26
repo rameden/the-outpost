@@ -4,6 +4,7 @@
 import { useContext, useEffect, useState } from "react";
 import { JiraConnection } from "../components/Jira.tsx";
 import { CalendarConnection } from "../components/Calendar.tsx";
+import { CrewSkills } from "../components/SkillCare.tsx";
 import { api, errorText } from "../api.ts";
 import { Empty, Icon } from "../components/bits.tsx";
 import { ReadAloud, VoiceOn } from "../components/ReadAloud.tsx";
@@ -165,6 +166,7 @@ export function Skills({ S, refresh }: Panel) {
           ))}
         </ul>
       )}
+      <CrewSkills S={S} refresh={refresh} />
     </>
   );
 }

@@ -50,6 +50,8 @@ type Settings = {
   providersApproved?: string[];             // other providers you've said may be sent confidential projects' work (approved where you work, say)
   smallModel?: string;                      // what does the camp's own small jobs (titles, tidying a memory, suggestions): a Claude model, or "<provider>:<model>", or "auto"
   memoryCare?: { tidy?: boolean; suggest?: boolean }; // looking after what the crew remembers (see keeping.ts)
+  // The learning loop: the review that proposes memory and skills while a run goes (review.ts), and the curator that shelves skills nobody uses (curator.ts).
+  learning?: { review?: boolean; every?: number; curator?: boolean; staleDays?: number; archiveDays?: number; everyDays?: number };
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
@@ -321,6 +323,50 @@ export function setMemoryCare(c: { tidy?: unknown; suggest?: unknown }) {
   const kept = { ...(next.tidy ? {} : { tidy: false }), ...(next.suggest ? { suggest: true } : {}) };
   if (Object.keys(kept).length) s.memoryCare = kept; else delete s.memoryCare;
   save(s);
+}
+
+// The learning loop (review.ts, curator.ts).
+// review: while a run goes, every `every` tool calls, a copy of it is asked what's worth keeping.
+// It can only propose (memory suggestions, skill drafts): both wait for you. Off unless you turn
+// it on: each review is a model call on the run's own model.
+// curator: skills the crew wrote that nobody has opened for staleDays are marked stale, and after
+// archiveDays moved to skills/_archive/ (never deleted; pinned ones are left alone). It looks once
+// every everyDays, when the camp is idle. On unless you turn it off: it calls no model.
+export const LEARNING_DEFAULTS = { review: false, every: 10, curator: true, staleDays: 14, archiveDays: 30, everyDays: 7 } as const;
+export type Learning = { review: boolean; every: number; curator: boolean; staleDays: number; archiveDays: number; everyDays: number };
+const LEARNING_RANGE = { every: [2, 200], staleDays: [1, 365], archiveDays: [2, 730], everyDays: [1, 90] } as const;
+const within = (v: unknown, [lo, hi]: readonly [number, number], fallback: number) => {
+  const n = Math.round(Number(v));
+  return v != null && v !== "" && Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
+};
+export function learning(): Learning {
+  const l = read().learning ?? {};
+  const staleDays = within(l.staleDays, LEARNING_RANGE.staleDays, LEARNING_DEFAULTS.staleDays);
+  return {
+    review: l.review === true,
+    every: within(l.every, LEARNING_RANGE.every, LEARNING_DEFAULTS.every),
+    curator: l.curator !== false,
+    staleDays,
+    archiveDays: Math.max(staleDays + 1, within(l.archiveDays, LEARNING_RANGE.archiveDays, LEARNING_DEFAULTS.archiveDays)), // a skill is stale before it's shelved
+    everyDays: within(l.everyDays, LEARNING_RANGE.everyDays, LEARNING_DEFAULTS.everyDays),
+  };
+}
+export function setLearning(c: { [K in keyof Learning]?: unknown }): Learning {
+  const s = load();
+  const now = learning();
+  const next: Learning = {
+    review: typeof c.review === "boolean" ? c.review : now.review,
+    curator: typeof c.curator === "boolean" ? c.curator : now.curator,
+    every: within(c.every, LEARNING_RANGE.every, now.every),
+    staleDays: within(c.staleDays, LEARNING_RANGE.staleDays, now.staleDays),
+    archiveDays: within(c.archiveDays, LEARNING_RANGE.archiveDays, now.archiveDays),
+    everyDays: within(c.everyDays, LEARNING_RANGE.everyDays, now.everyDays),
+  };
+  // Only what differs from the defaults is written, so a default that changes later reaches you.
+  const kept = Object.fromEntries(Object.entries(next).filter(([k, v]) => v !== LEARNING_DEFAULTS[k as keyof Learning]));
+  if (Object.keys(kept).length) s.learning = kept; else delete s.learning;
+  save(s);
+  return learning();
 }
 
 // The terminal's quick actions: chips in the terminal's header that run a command of yours.

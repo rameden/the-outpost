@@ -532,7 +532,7 @@ async function draftFromRepeats(project: Project, week: string, ask: (system: st
   const draft = parseRetroSkill(await ask(say(SKILL_SYSTEM), prompt));
   if (!draft || skillStanding(draft.name)) return undefined;
   const reason = flat(`Asked for ${draft.seen.length} times in the last ${SKILL_WEEKS} weeks, for example "${flat(draft.seen[0], 80)}". ${draft.why}`, 400);
-  const done = draftSkill({ owner: draft.owner, name: draft.name, description: draft.description, instructions: draft.instructions, reason });
+  const done = draftSkill({ owner: draft.owner, name: draft.name, description: draft.description, instructions: draft.instructions, reason, by: "weekly retro" });
   return done.ok ? `${draft.owner}/${draft.name}` : undefined;
 }
 

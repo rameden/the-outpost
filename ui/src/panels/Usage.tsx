@@ -2,6 +2,7 @@
 // are changed in Settings), then the log of every expedition and job run.
 
 import { useState } from "react";
+import { ReviewSpend } from "../components/SkillCare.tsx";
 import { api, errorText } from "../api.ts";
 import { Clamp, Empty } from "../components/bits.tsx";
 import { autoName, cash, cClass, cx, kTok, money, nameNow, plural, resetIn, shortModel, spaced, took, when } from "../format.ts";
@@ -107,6 +108,7 @@ export function Usage({ S, refresh, onOpenSettings }: { S: CampState; refresh: (
   return (
     <>
       <SpendCard S={S} refresh={refresh} onOpenSettings={onOpenSettings} />
+      <ReviewSpend S={S} />
       {!S.quests.length ? <Empty title={`Nothing in the ${w("log")} yet`}>Every {w("expedition")}, {w("quest")} and job run is logged here with its time and cost.</Empty> : (
         <>
           <p className="panel-note">Newest first. Costs are estimates from token counts. Click a line to expand it.</p>

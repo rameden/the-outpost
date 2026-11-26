@@ -41,16 +41,19 @@ import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, chec
 import { briefDays, briefDue, readBrief, writeBrief } from "./brief.js";
 import { dayOf } from "./helpers.js";
 import { readRetro, retrosDue, runRetro, type Retro } from "./reports.js";
-import { markNightSeen, nightDue, nightPage, noteAsked, runNight } from "./nightshift.js";
+import { IDLE_FOR, lastAsked, markNightSeen, nightDue, nightPage, noteAsked, runNight } from "./nightshift.js";
 import { debriefsDue, readDebrief, runDebrief, workedOn } from "./reports.js";
 import { offers, scoreboard } from "./reports.js";
 import { drive, setDrive } from "./settings.js";
 import { recentQuests, questCost } from "./questlog.js";
 import { wikiPages, WIKI_DIR, saveWikiPage, removeWikiPage } from "./wiki.js";
 import { pendingDetails, approveSkill, rejectSkill } from "./forge.js";
+import { archivedSkills, curate, curatorTick, lastPass, pinSkill, restoreSkill, standings } from "./curator.js";
+import { reviews as learningReviews } from "./learning.js";
+import { learning, setLearning } from "./settings.js";
 import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, saveSkillFile, alwaysFor, setSkillAlways } from "./skillpacks.js";
 import { skillCommands } from "./settings.js";
-import { dueJobs, runJob, inboxEntries, inboxUnread, markInboxSeen, claimScheduler, schedulerOwner } from "./scheduler.js";
+import { dueJobs, runJob, inboxEntries, inboxUnread, markInboxSeen, claimScheduler, schedulerOwner, toInbox } from "./scheduler.js";
 import { feedEventsOf, feedSince, keepInFeed, loadFeed, saveToFeed, trimFeed } from "./feed.js";
 import { accessFrom, addressOf, hostAllowed, isLocal, relayed } from "./access.js";
 import { hostname, networkInterfaces } from "node:os";
@@ -382,6 +385,13 @@ setInterval(() => {
         })().finally(() => { debriefing = false; });
       }
     }
+    // The skills curator (curator.ts): a look over the crew's own skills when the camp is idle and
+    // the last look is old enough. It archives, never deletes, and says what it moved.
+    if (!pausedUntil()) {
+      const pass = curatorTick(Date.now(), { busy: running.size > 0 || queue.length > 0 || retroing || debriefing || nighting, asked: lastAsked(), idleFor: IDLE_FOR });
+      if (pass?.archived.length) toInbox(`Skills archived (${pass.at.slice(0, 10)})`,
+        `Nobody had used ${pass.archived.length === 1 ? "this skill" : "these skills"} in a while, so ${pass.archived.length === 1 ? "it's" : "they're"} in the archive now (skills/_archive). Nothing was deleted: restore from Settings → Skills.\n\n${pass.archived.map((k) => `- ${k}`).join("\n")}`);
+    }
     // The night shift (nightshift.ts): off unless switched on, and only when nothing else is going on.
     if (!nighting && nightDue(new Date(), { busy: running.size > 0 || queue.length > 0 || retroing || debriefing })) {
       nighting = true;
@@ -446,7 +456,16 @@ function spending(all: ReturnType<typeof recentQuests>) {
     if (t >= day.getTime()) { today += c; if (q.character) { const who = currentName(q.character); byAgent[who] = (byAgent[who] ?? 0) + c; } }
     if (now - t < 7 * 86_400_000) week += c;
   }
-  return { today, week, total, byAgent };
+  // Learning reviews (learning.ts) are logged apart from the runs they looked at, so they're added
+  // here: the totals are everything spent, and `reviews` is how much of each was reviews.
+  const reviews = { today: 0, week: 0, total: 0, count: 0 };
+  for (const r of learningReviews()) {
+    const c = r.costUsd, t = new Date(r.time).getTime();
+    total += c; reviews.total += c; reviews.count++;
+    if (t >= day.getTime()) { today += c; reviews.today += c; const who = CREW[r.agent as CrewId]?.name; if (who) byAgent[who] = (byAgent[who] ?? 0) + c; }
+    if (now - t < 7 * 86_400_000) { week += c; reviews.week += c; }
+  }
+  return { today, week, total, byAgent, reviews };
 }
 
 // Skills a crew member can use: its own plus the shared ones.
@@ -467,18 +486,20 @@ function skillsFor(id: CrewId) {
 
 // Every approved skill on disk, by owner (a crew member, or "shared").
 function installedSkills() {
-  const out: { owner: string; name: string; description: string; path: string; commands: string[]; alwaysFor: string[] }[] = [];
+  const out: ({ owner: string; name: string; description: string; path: string; commands: string[]; alwaysFor: string[] } & ReturnType<ReturnType<typeof standings>>)[] = [];
   if (!existsSync("skills")) return out;
+  const standingOf = standings(); // how much each is used, and where the curator has it (curator.ts)
   for (const owner of readdirSync("skills")) {
     const dir = join("skills", owner);
-    if (!existsSync(dir) || owner.startsWith(".")) continue;
+    if (!existsSync(dir) || owner.startsWith(".") || owner.startsWith("_")) continue; // (_pending and _archive aren't installed)
     for (const name of readdirSync(dir)) {
       const file = join(dir, name, "SKILL.md");
       if (!existsSync(file)) continue;
       const description = readFileSync(file, "utf8").match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
       // commands: what you let this skill run without asking (an imported skill's scripts, or prefixes you gave it).
       out.push({ owner, name, description, path: file, commands: (skillCommands()[`${owner}/${name}`] ?? []).map((c) => c.prefix),
-        alwaysFor: alwaysFor(owner, name) }); // the crew members who follow it always, not just when a task matches
+        alwaysFor: alwaysFor(owner, name), // the crew members who follow it always, not just when a task matches
+        ...standingOf(owner, name) });
     }
   }
   return out;
@@ -613,6 +634,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
       prWatch: prWatchOn(),
       termActions: termActions(),
       memoryCare: memoryCare(),
+      learning: learning(), // the learning review and the skills curator (Settings → Skills)
       smallModel: smallModel(),
       autoExclude: autoExcluded(), // models Auto never picks
       jiraWrite: writeBackSettings(),
@@ -624,6 +646,9 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
       lan: ACCESS.lan ? ACCESS.names.map((n) => addressOf(n, PORT)) : null,
     },
     installedSkills: none(() => installedSkills()),
+    archivedSkills: none(() => archivedSkills()), // skills the curator set aside (skills/_archive): kept, and one click to restore
+    curator: none(() => lastPass()),               // its last look: when, and what it moved
+    reviews: none(() => learningReviews().slice(-40).reverse()), // the latest learning reviews, for Usage
     limits: campRuntime() === "claude-code" ? planLimits().map((l) => ({ ...l, label: limitLabel(l.type) })) : [],
     credit: campRuntime() === "claude-code" ? creditState() : null, // extra usage: running on credit, and how much is left
     limitsMeasured: usageMeasuredAt() || null, // when the plan's own usage figures were last read
@@ -1054,6 +1079,27 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/inbox/seen") {
       const ok = markInboxSeen({ heading: typeof body.heading === "string" ? body.heading : undefined, all: body.all === true });
       return send(res, ok ? 200 : 404, ok ? { ok, unread: inboxUnread() } : { error: "No such entry in the inbox." });
+    }
+    // { owner, name, pinned }: a pinned skill is never marked stale or archived.
+    if (url.pathname === "/api/skills/pin") {
+      const done = pinSkill(String(body.owner ?? ""), String(body.name ?? ""), body.pinned !== false);
+      return send(res, done.ok ? 200 : 404, done.ok ? { ok: true } : { error: done.error });
+    }
+    // { owner, name }: bring an archived skill back to where it was.
+    if (url.pathname === "/api/skills/restore") {
+      const done = restoreSkill(String(body.owner ?? ""), String(body.name ?? ""));
+      return send(res, done.ok ? 200 : 400, done.ok ? { ok: true } : { error: done.error });
+    }
+    // Have the curator look over the crew's skills now, whatever the interval says.
+    if (url.pathname === "/api/skills/curate") {
+      try { return send(res, 200, { ok: true, pass: curate() }); }
+      catch (e: any) { return send(res, 500, { error: e.message }); }
+    }
+    // { review, every, curator, staleDays, archiveDays, everyDays }: any of them.
+    if (url.pathname === "/api/learning") {
+      const c: Parameters<typeof setLearning>[0] = {};
+      for (const k of ["review", "every", "curator", "staleDays", "archiveDays", "everyDays"] as const) if (k in body) c[k] = body[k];
+      return send(res, 200, { ok: true, learning: setLearning(c) });
     }
     if (url.pathname === "/api/skills/remove") {
       const ok = removeSkill(String(body.owner ?? ""), String(body.name ?? ""));

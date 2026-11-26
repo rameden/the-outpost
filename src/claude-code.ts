@@ -158,6 +158,9 @@ export type ClaudeCodeRun = {
   onSpend?: (usd: number) => void;
   overBudget?: () => boolean;      // checked after each reply; true ends the run
   steering?: Steering;             // what the user says to the expedition while it runs
+  // A narrower door: called with each tool's full name before it runs; a string refuses it with that message.
+  // (A learning review keeps the run's whole tool list, so the prompt matches, and answers only its own few.)
+  mayUse?: (name: string) => string | null;
 };
 
 export type ClaudeCodeResult = {
@@ -234,10 +237,13 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     systemPrompt: r.system,
     tools: builtins,                                  // only web search/fetch, if any
     mcpServers: { camp: campServer(r.tools, inContext, turnNote, r.spillAs) },
-    canUseTool: async (name, input) =>
-      name.startsWith(MCP_PREFIX) || builtins.includes(name)
+    canUseTool: async (name, input) => {
+      const refused = r.mayUse?.(name);
+      if (refused) return { behavior: "deny", message: refused };
+      return name.startsWith(MCP_PREFIX) || builtins.includes(name)
         ? { behavior: "allow", updatedInput: input }
-        : { behavior: "deny", message: `That tool isn't available in the ${w("camp")}. Use the ${w("camp")}'s own tools (mcp__camp__…).` },
+        : { behavior: "deny", message: `That tool isn't available in the ${w("camp")}. Use the ${w("camp")}'s own tools (mcp__camp__…).` };
+    },
     settingSources: [],
     strictMcpConfig: true,
     persistSession: false,
