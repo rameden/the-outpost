@@ -596,7 +596,7 @@ export function retrosDue(now = new Date()): { id: string; week: string }[] {
 // to learn from, never instructions: a reviewer's comment is someone else's words.
 //
 // One is written per ticket (camp/debriefs/<key>.json), within a minute or two of it being done.
-// A Mae ticket is done when it reaches Done, by hand or by its pull request merging. A Jira
+// An Outpost ticket is done when it reaches Done, by hand or by its pull request merging. A Jira
 // ticket is done, as far as the camp can tell without asking Jira every minute, when a pull
 // request from one of its conversations is merged. Reopening a ticket and finishing it again
 // doesn't hold another: ask for one on the ticket if you want it.
@@ -626,7 +626,7 @@ const KIND: Record<Spent, string> = {
   feedback: "pull request feedback brought in to address", chronicle: "the weekly chronicle",
 };
 
-// The ticket a debrief is about, Mae's or Jira's: what it asked for, and how its conversations are told.
+// The ticket a debrief is about, an Outpost ticket or a Jira one: what it asked for, and how its conversations are told.
 export type Subject = { key: string; source: "mae" | "jira"; title: string; criteria: string[]; project?: string };
 export const maeSubject = (t: MaeTicket): Subject => ({ key: t.key, source: "mae", title: t.title, criteria: t.criteria, ...(t.project ? { project: t.project } : {}) });
 const worksOn = (t: Pick<Subject, "key" | "source">) => (c: { ticket?: string; jira?: string }) => (t.source === "mae" ? c.ticket : c.jira) === t.key;

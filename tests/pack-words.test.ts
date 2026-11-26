@@ -13,9 +13,6 @@ const WORD = /\b(quests?|expeditions?|adventurers?|crew|camps?|quest log|mission
 // Whole files that are about the words themselves: the packs, the page's own copy of the Guild's
 // words, and the dialog where you write a pack.
 const ABOUT_WORDS = new Set(["src/packs.ts", "ui/src/words.ts", "ui/src/components/PackDialog.tsx"]);
-// Files another piece of work is changing (backend merges): what they still bake in is listed in
-// that pull request's notes, and they're left alone here.
-const ELSEWHERE = new Set(["chronicle", "retro", "debrief", "scoreboard", "payoff", "prs", "pulls", "nightshift"].map((f) => `src/${f}.ts`));
 // Sentences that mean what they say whatever the pack: file, and the text as the scan sees it.
 const ALLOWED = new Set([
   "src/briefnews.ts: is a multi-agent harness built on Claude: a planner (the Quartermaster) plans and dispatches a crew of agents (research, writing, coding, review, test", // describes the app to a news search
@@ -40,7 +37,7 @@ function scan(dir: string): string[] {
   const hits: string[] = [];
   for (const path of files(join(ROOT, dir))) {
     const file = relative(ROOT, path);
-    if (ABOUT_WORDS.has(file) || ELSEWHERE.has(file)) continue;
+    if (ABOUT_WORDS.has(file)) continue;
     // Comments blanked out (a "//" inside a string, as in a URL, is kept).
     const src = readFileSync(path, "utf8")
       .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
