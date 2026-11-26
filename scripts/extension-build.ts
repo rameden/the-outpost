@@ -1,4 +1,4 @@
-// Build Barnstorm, the browser extension: extension/ + the game in ui/src/egg → extension/dist,
+// Build Barnstorm, the browser extension: extension/ + the game in plugins/barnstorm → extension/dist,
 // which is the folder Chrome loads ("Load unpacked", on chrome://extensions with Developer mode on).
 //   npm run extension:build    build it
 //   npm run extension:pack     build it, and zip it up to hand to someone (extension/barnstorm-<version>.zip)
@@ -21,20 +21,20 @@ import { fileURLToPath } from "node:url";
 import { deflateRawSync, deflateSync } from "node:zlib";
 import react from "@vitejs/plugin-react";
 import { build } from "vite";
-import { PAINT, SPRITE } from "../ui/src/egg/flight.ts";
+import { PAINT, SPRITE } from "../plugins/barnstorm/src/flight.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXT = join(ROOT, "extension"), OUT = join(EXT, "dist");
 
-// ---------- The game's styles, out of Mae's stylesheet ----------
+// ---------- The game's styles, out of the plugin's stylesheet ----------
 // Everything from the game's heading to the end of the file is the game's. Of that, the rules on
 // the page's own elements (what's been shot) are for the page; the rest is the bar and the pill,
 // and goes inside the extension's shadow root after its own few (tokens.css). One rule is for
 // Mae's top bar, and is left out.
-const MARK = "/* ---------- Barnstorm, the easter egg (ui/src/egg) ---------- */";
+const MARK = "/* ---------- Barnstorm, the plugin (plugins/barnstorm): the plane over the page ---------- */";
 export function gameStyles(sheet: string): { page: string; overlay: string } {
   const at = sheet.indexOf(MARK);
-  if (at < 0) throw new Error(`Couldn't find the game's styles in ui/src/styles.css (looked for "${MARK}").`);
+  if (at < 0) throw new Error(`Couldn't find the game's styles in plugins/barnstorm/src/barnstorm.css (looked for "${MARK}").`);
   const lines = sheet.slice(at + MARK.length).split("\n");
   const forPage = (l: string) => l.startsWith("[data-barnstorm") || l.startsWith("::highlight(barnstorm)");
   const page = lines.filter(forPage), overlay = lines.filter((l) => !forPage(l) && !l.startsWith(".icon-btn"));
@@ -106,7 +106,7 @@ export function zip(files: { name: string; data: Uint8Array }[], when = new Date
 // ---------- The build ----------
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   console.log("🔨 Building the Barnstorm extension (extension/ → extension/dist)…");
-  const styles = gameStyles(readFileSync(join(ROOT, "ui", "src", "styles.css"), "utf8"));
+  const styles = gameStyles(readFileSync(join(ROOT, "plugins", "barnstorm", "src", "barnstorm.css"), "utf8"));
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
 
@@ -115,8 +115,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     root: EXT,
     logLevel: "warn",
     plugins: [react()],
-    // The game's one tie to Mae is where it keeps its best scores: here, that's the extension's storage.
-    resolve: { alias: [{ find: "../api.ts", replacement: join(EXT, "src", "store.ts") }] },
+    // The game's ties to Mae go through @outpost/sdk; here that's extension/src/sdk.ts, which keeps
+    // its best scores in the extension's storage. (Anything else that reaches for the page's api.ts gets the same.)
+    resolve: { alias: [{ find: "@outpost/sdk", replacement: join(EXT, "src", "sdk.ts") }, { find: "../api.ts", replacement: join(EXT, "src", "store.ts") }] },
     define: {
       "process.env.NODE_ENV": JSON.stringify("production"),
       OVERLAY_CSS: JSON.stringify(readFileSync(join(EXT, "src", "tokens.css"), "utf8") + styles.overlay),
@@ -130,7 +131,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     },
   });
 
-  writeFileSync(join(OUT, "page.css"), `/* How a piece of the page that's been shot is hidden (from Mae's ui/src/styles.css). */\n${styles.page}`);
+  writeFileSync(join(OUT, "page.css"), `/* How a piece of the page that's been shot is hidden (from plugins/barnstorm/src/barnstorm.css). */\n${styles.page}`);
   copyFileSync(join(EXT, "src", "background.js"), join(OUT, "background.js"));
   copyFileSync(join(EXT, "manifest.json"), join(OUT, "manifest.json"));
   for (const size of [16, 32, 48, 128]) writeFileSync(join(OUT, `icon-${size}.png`), icon(size));

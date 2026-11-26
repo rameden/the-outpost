@@ -1,0 +1,45 @@
+/* ---------- Barnstorm, the plugin (plugins/barnstorm): the plane over the page ---------- */
+/* What the plane has shot is hidden, not removed: an attribute on a part of the page, another
+   naming the sides of a border, and a highlight in no colour over a word. Taking them off puts
+   it all back (targets.ts). */
+[data-barnstormed] { visibility: hidden !important; }
+[data-barnstorm-edge~="top"] { border-top-color: transparent !important; }
+[data-barnstorm-edge~="right"] { border-right-color: transparent !important; }
+[data-barnstorm-edge~="bottom"] { border-bottom-color: transparent !important; }
+[data-barnstorm-edge~="left"] { border-left-color: transparent !important; }
+::highlight(barnstorm) { color: transparent; -webkit-text-fill-color: transparent; text-shadow: none; text-decoration-color: transparent; }
+/* The sky over the page: clicks go through it to the page below, except on the score card. */
+.barnstorm { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.barnstorm-sky { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The bar (Bar.tsx): one slim strip along the bottom with the numbers, the keys, and the
+   buttons. Square and plain, like the plane. Whatever doesn't fit is let go from the right:
+   the keys first, on a window too narrow for them. */
+.barnstorm-bar { position: absolute; inset: auto 0 0 0; height: 34px; display: flex; align-items: center; gap: 14px; padding: 0 10px 0 14px; pointer-events: auto; overflow: hidden; white-space: nowrap; background: var(--surface); color: var(--text); border-top: 2px solid var(--text); font: 12px/1 var(--mono); }
+.barnstorm-bar h2 { margin: 0; flex: none; font: 700 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-bar dl { margin: 0; flex: none; display: flex; gap: 14px; }
+.barnstorm-bar dl > div { display: flex; align-items: baseline; gap: 6px; }
+.barnstorm-bar dt { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.barnstorm-bar dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.barnstorm-status { margin: 0; flex: none; padding: 3px 6px; border: 2px solid var(--text); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.barnstorm-status.loud { background: var(--text); color: var(--surface); }
+.barnstorm-keys { margin: 0 0 0 auto; flex: 0 1 auto; min-width: 0; overflow: hidden; display: flex; gap: 10px; color: var(--muted); font-size: 11px; }
+.barnstorm-keys span { flex: none; }
+.barnstorm-keys kbd { border-radius: 0; font-size: 11px; padding: 0 3px; }
+/* Which game, and Reset / Land: small square buttons. The game you're in is filled. */
+.barnstorm-modes, .barnstorm-actions { flex: none; display: flex; }
+.barnstorm-actions { gap: 6px; }
+.barnstorm-keys + .barnstorm-actions { margin-left: 0; }
+.barnstorm-bar button { padding: 3px 8px; background: var(--surface); color: var(--text); border: 2px solid var(--text); border-radius: 0; font: 700 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-modes button + button { margin-left: -2px; }
+.barnstorm-bar button:hover, .barnstorm-modes button.on { background: var(--text); color: var(--surface); }
+.barnstorm-bar button:focus-visible { border-radius: 0; }
+@media (max-width: 1080px) { .barnstorm-keys { display: none; } .barnstorm-actions { margin-left: auto; } }
+/* Paused: no sky and no bar, so the page is all yours; just a pill in the corner to come back by. */
+.barnstorm.paused .barnstorm-sky { display: none; }
+.barnstorm-paused { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 10px; pointer-events: auto; white-space: nowrap; background: var(--surface); color: var(--text); border: 2px solid var(--text); box-shadow: 3px 3px 0 var(--text); font: 12px/1 var(--mono); }
+.barnstorm-paused h2 { margin: 0; font: 700 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-paused p { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.barnstorm-paused button { padding: 3px 8px; background: var(--surface); color: var(--text); border: 2px solid var(--text); border-radius: 0; font: 700 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-paused button:hover { background: var(--text); color: var(--surface); }
+.barnstorm-paused button:focus-visible { border-radius: 0; }
+/* The plane in the top bar, while its game is paused: lit, but not pressed. */

@@ -37,6 +37,7 @@ type Settings = {
   questsAtOnce?: number;  // how many dispatched quests run at once, across every expedition
   selfEdit?: boolean;     // let agents edit the camp's own source (src/, tests/, evals/, package.json)
   autoTitles?: boolean;   // name new conversations with the smallest model (titles.ts)
+  plugins?: Record<string, boolean>; // each page plugin (plugins/*) turned on or off by its id; one not listed is on
   pack?: string;          // the theme pack: what the crew are called, in the page and in their own prompts (packs.ts)
   phone?: PhoneSettings;
   jiraFilter?: string;    // which Jira tickets are pulled in (JQL); see jira.ts
@@ -366,6 +367,17 @@ export function setAutoTitles(on: boolean) {
   const s = load();
   if (on) s.autoTitles = true;
   else delete s.autoTitles;
+  save(s);
+}
+// The page's plugins (plugins/*): which are turned off or on, by id. One that isn't listed is on, as it was before it was a plugin.
+export const PLUGIN_ID = /^[a-z0-9-]{1,40}$/;
+export const pluginsSet = (): Record<string, boolean> => ({ ...(read().plugins ?? {}) });
+export function setPlugin(id: string, on: boolean) {
+  if (!PLUGIN_ID.test(id)) throw new Error(`"${id}" isn't a plugin's name: lowercase letters, digits and dashes.`);
+  const s = load();
+  const all = { ...(s.plugins ?? {}), [id]: on };
+  for (const [k, v] of Object.entries(all)) if (v) delete all[k]; // (on is how it starts: only what's off needs keeping)
+  if (Object.keys(all).length) s.plugins = all; else delete s.plugins;
   save(s);
 }
 export const selfEditAllowed = () => read().selfEdit === true;

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "packageManager": "npm@11.19.0",
   "description": "Outpost: a small multi-agent harness on Claude. A Quartermaster plans and dispatches a crew of specialists, with memory, skills, scheduled jobs, and mission control, a page on your own machine.",
+  "workspaces": ["plugins/*"],
   "scripts": {
     "start": "tsx scripts/launch.ts",
     "cli": "tsx --import ./scripts/env.mjs src/camp.ts",
