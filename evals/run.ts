@@ -17,7 +17,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { CASES, LOOP, caseProblems, loopGaps, rehearsalProblems } from "./cases.ts";
 import { RECHECK, baselineFrom, baselineProblems, compare, emptyBaseline, formatComparison, markdownComparison, needsRecheck, summarise, summaryOf, type Baseline, type Comparison } from "./compare.ts";
 
@@ -62,7 +62,11 @@ for (let i = 0; i < args.length; i++) {
 const wanted = args.filter((a, i) => !a.startsWith("--") && !taken.has(i));
 const unknown = wanted.filter((id) => !CASES.some((c) => c.id === id));
 const cases = wanted.length ? CASES.filter((c) => wanted.includes(c.id)) : CASES;
-const shown = (file: string) => file.replace(REPO + "/", "");
+// A file's name as shown: from the repo's top with forward slashes (on Windows too), or in full when it's elsewhere.
+const shown = (file: string) => {
+  const within = relative(REPO, file);
+  return within.startsWith("..") || isAbsolute(within) ? file : within.replaceAll("\\", "/");
+};
 
 /** The baseline in a file, and what's wrong with it. A file that isn't there is an empty baseline. */
 function readBaseline(file: string): { baseline: Baseline; problems: string[] } {
@@ -123,7 +127,8 @@ if (campRuntime() === "api" && !process.env.ANTHROPIC_API_KEY) throw new Error("
 
 function runCase(id: string): Promise<any> {
   return new Promise((ok) => {
-    const child = spawn(process.execPath, [join(REPO, "node_modules/.bin/tsx"), join(REPO, "evals/case.ts"), id], {
+    // tsx's own entry file, not node_modules/.bin/tsx: on Windows that one is a shell script node can't run.
+    const child = spawn(process.execPath, [join(REPO, "node_modules/tsx/dist/cli.mjs"), join(REPO, "evals/case.ts"), id], {
       cwd: REPO,
       env: { ...process.env, EVAL_SET: JSON.stringify(set), ...(args.includes("--no-judge") ? { EVAL_NO_JUDGE: "1" } : {}) },
       stdio: ["ignore", "pipe", "pipe"],
