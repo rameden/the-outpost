@@ -34,7 +34,7 @@ export type CaseContext = {
 export type Check = { name: string; required?: boolean; run: (c: CaseContext) => boolean | string | Promise<boolean | string> };
 
 // The parts of the loop the set must cover (--dry fails if one has no case).
-export const LOOP = ["plan-order", "right-crew", "review-after-change", "ask-before-plan", "resume-no-repeat", "fix-after-check", "budget-stop"] as const;
+export const LOOP = ["plan-order", "right-crew", "review-after-change", "ask-before-plan", "resume-no-repeat", "resume-restored", "fix-after-check", "budget-stop"] as const;
 export type LoopPart = (typeof LOOP)[number];
 // A run written out by hand, to try a case's rules on without a model: what happened, the files it
 // left, and which commands now succeed. --dry runs every loop case's rules over a good one (they
@@ -59,7 +59,8 @@ export type EvalCase = {
   // The task is being picked up again: an earlier run of it in this conversation was cut off after
   // doing these things (they are in the task's journal, as oplog.ts wrote them). `files` holds
   // what that run left behind. Needs `agent`.
-  resume?: { earlier: string; done: { tool: string; input: Record<string, unknown>; result: string }[] };
+  // `transcript`: the cut-off run also left its saved transcript (camp/runs), so the reply starts from the conversation as it stood.
+  resume?: { earlier: string; done: { tool: string; input: Record<string, unknown>; result: string }[]; transcript?: boolean };
   covers?: LoopPart;              // the part of the loop this case is about
   rehearsal?: { good: Rehearsal; bad: (Rehearsal & { fails: string })[] }; // fails: the required check that must turn it down
   checks: Check[];

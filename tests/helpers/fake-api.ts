@@ -16,6 +16,7 @@ export type Reply = {
   iterations?: any[]; // usage.iterations: one entry per attempt
   status?: number;     // answer with this HTTP error instead (529 overloaded, 429 rate limited…)
   retryAfter?: number; // seconds, sent as retry-after with an error
+  whole?: boolean;     // answer as one JSON message, not a stream (for a caller that didn't ask for one: the camp's small jobs)
 };
 
 export type Seen = { at: number; who: string; body: any; headers: http.IncomingHttpHeaders };
@@ -51,6 +52,11 @@ export async function startFakeApi(respond: (body: any) => Reply | Promise<Reply
         const type = r.status === 529 ? "overloaded_error" : r.status === 429 ? "rate_limit_error" : "api_error";
         res.writeHead(r.status, { "content-type": "application/json", ...(r.retryAfter != null ? { "retry-after": String(r.retryAfter) } : {}) });
         return res.end(JSON.stringify({ type: "error", error: { type, message: `fake ${type}` } }));
+      }
+      if (r.whole) {
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ id: `msg_${++n}`, type: "message", role: "assistant", model: r.model ?? "fake", content: [{ type: "text", text: r.text ?? "" }],
+          stop_reason: "end_turn", stop_sequence: null, usage: r.usage ?? { input_tokens: 100, output_tokens: 20 } }));
       }
       res.writeHead(200, { "content-type": "text/event-stream" });
       const send = (event: string, data: object) => res.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`);

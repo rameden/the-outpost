@@ -74,7 +74,8 @@ const PRIVATE_CAMP_FILES = new Set([
 // And whole folders: checkpoints/ keeps copies of files as they were before each change, from every
 // conversation and project, whatever this one may see.
 // briefs/ holds each morning's brief, which quotes your own notes (brief.ts).
-const PRIVATE_CAMP_DIRS = new Set(["checkpoints", "briefs"]);
+// runs/ holds the transcript of every task that's under way (runstore.ts), private work included.
+const PRIVATE_CAMP_DIRS = new Set(["checkpoints", "briefs", "runs"]);
 // A private file's other forms are as private as it is: the copy set aside when it couldn't be
 // read (settings.json.damaged-<time>), and the temp file a write goes through (….tmp-<pid>-<x>).
 const privateName = (name: string) => PRIVATE_CAMP_FILES.has(name.replace(/\.(damaged-[\w-]+|tmp-\d+-[a-z0-9]+)$/, ""));
@@ -157,6 +158,12 @@ function campRules(abs: string, path: string, mode: "read" | "write", self?: str
     throw new Error(`${path} holds the user's private ${w("camp")} configuration and is off limits.`);
   }
   if (top === "camp" && PRIVATE_CAMP_DIRS.has(parts[1])) throw new Error(`${path} is part of the ${w("camp")}'s own record keeping and is off limits.`);
+  // camp/spill/<agent>__<id>.txt: a tool's long output, set aside for the agent that ran it (spill.ts).
+  // It can hold what that agent read from its own private memory, so it's that agent's alone.
+  if (top === "camp" && parts[1] === "spill" && parts[2]) {
+    const owner = parts[2].match(/^(.+?)__[\w-]+\.txt$/)?.[1];
+    if (owner && self && owner !== self) throw new Error(`${path} is another ${w("crew")} member's tool output, set aside for them alone.`);
+  }
   // Git's own data at any depth (a nested repository's config and hooks can run programs).
   if (mode === "write" && parts.includes(".git")) throw new Error(`${path} is git's own data, which file tools don't change.`);
   if (mode === "write" && isHarnessCode(abs) && !selfEditAllowed()) {
