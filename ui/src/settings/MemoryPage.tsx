@@ -29,7 +29,9 @@ function Origin({ line }: { line: MemoryLine }) {
   );
 }
 
-function Waiting({ p, refresh }: { p: Proposal; refresh: () => void }) {
+// One thing the crew proposed about memory, to approve (edited first if you like) or turn down.
+// The Inbox lists them (components/Inbox.tsx).
+export function ProposalCard({ p, refresh }: { p: Proposal; refresh: () => void }) {
   const [text, setText] = useState(p.kind === "tidy" ? p.after : p.text);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -131,7 +133,7 @@ function Place({ m, refresh, waiting }: { m: MemoryPlace; refresh: () => void; w
           <span className="mem-bar"><span style={{ width: `${full}%` }} /></span>
           {m.size.toLocaleString()} of {m.limit.toLocaleString()} characters
         </span>
-        {m.lines.length >= 4 && <button type="button" className="btn small" disabled={!!busy || waiting} title={waiting ? "A shorter version is already waiting above" : "Have the smallest model draft a merged version, for you to approve"} onClick={tidy}>{busy === "tidy" ? "Drafting…" : "Tidy…"}</button>}
+        {m.lines.length >= 4 && <button type="button" className="btn small" disabled={!!busy || waiting} title={waiting ? "A shorter version is already waiting in the Inbox" : "Have the smallest model draft a merged version, for you to approve"} onClick={tidy}>{busy === "tidy" ? "Drafting…" : "Tidy…"}</button>}
       </div>
       {m.unloaded > 0 && (lists
         ? <div className="mem-warn" role="status">This no longer all fits in a prompt. {m.unloaded} older {m.unloaded === 1 ? "line is" : "lines are"} loaded only when a request is about {m.unloaded === 1 ? "it" : "them"} (recall can still find {m.unloaded === 1 ? "it" : "them"}). Pin a line to load it every time; a shorter version makes room.</div>
@@ -181,7 +183,8 @@ function AboutYou({ m, refresh }: { m: MemoryPlace; refresh: () => void }) {
 
 // The lines themselves, for the Memory page: what's waiting, you, each crew member's own memory
 // and each project's notes. member: only that crew member's (their id).
-export function MemoryLines({ S, refresh, member }: { S: CampState; refresh: () => void; member?: string }) {
+// onOpenInbox: where what's waiting for you is answered (Activity → Inbox); here it's a count and the way there.
+export function MemoryLines({ S, refresh, member, onOpenInbox }: { S: CampState; refresh: () => void; member?: string; onOpenInbox?: () => void }) {
   const places = S.memory ?? [];
   const waiting = (S.memoryProposals ?? []).filter((p) => !member || (p.where ?? "") === `agent:${member}`);
   const about = member ? undefined : places.find((p) => p.kind === "about");
@@ -191,7 +194,10 @@ export function MemoryLines({ S, refresh, member }: { S: CampState; refresh: () 
       {waiting.length > 0 && (
         <section aria-label="Waiting for you">
           <h4 className="set-sub">Waiting for you <span className="count needs">{waiting.length}</span></h4>
-          <ul className="mem-waiting">{waiting.map((p) => <Waiting key={p.id} p={p} refresh={refresh} />)}</ul>
+          <p className="set-note">
+            {waiting.length === 1 ? "1 suggestion about this memory is" : `${waiting.length} suggestions about this memory are`} waiting for your say. Nothing is kept or changed until you approve it.{" "}
+            {onOpenInbox && <button type="button" className="linkish" onClick={onOpenInbox}>Answer {waiting.length === 1 ? "it" : "them"} in the Inbox</button>}
+          </p>
         </section>
       )}
       {about && <AboutYou m={about} refresh={refresh} />}

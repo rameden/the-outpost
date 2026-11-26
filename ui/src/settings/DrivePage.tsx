@@ -6,11 +6,13 @@
 // the page keeps: figures wear text ink, one hue carries magnitude, a bar is thin, square at the
 // baseline and rounded at the end that says how much, and every week is also there as a table.
 //
-// What Mae does unasked: the switches for it. The morning brief and its time, the weekly retro,
-// and the watch on your pull requests, with the trigger that turns their feedback into work.
-// Nothing here starts work that doesn't then wait for your OK.
+// Automatic work (Settings → Automatic work): the switches for what Mae does without being asked.
+// The morning brief and its time, the weekly retro, the ticket debrief, the night shift, and the
+// watch on your pull requests, with the trigger that turns their feedback into work. Each says what
+// it is in a line, with how it works behind a disclosure. Nothing here starts work that doesn't then
+// wait for your OK. Activity keeps a summary of what's on, with a link here (AutomaticSummary).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, errorText } from "../api.ts";
 import { Icon } from "../components/bits.tsx";
 import { leadName, money, nameNow, plural, when } from "../format.ts";
@@ -30,7 +32,7 @@ const hours = (seconds: number) => (seconds < 3600 ? `${Math.round(seconds / 60)
 const versus = (now: number, was: number | undefined, unit = "") => (was === undefined ? "" : now === was ? "same as the week before" : `${now > was ? "up" : "down"} from ${was}${unit} the week before`);
 
 // The page both sections read (the same one Today reads).
-function useHome(project?: string) {
+export function useHome(project?: string) {
   const [home, setHome] = useState<HomePage | null>(null);
   const [note, setNote] = useState("");
   const load = useCallback(() => api<HomePage>(`/api/home${project ? `?project=${encodeURIComponent(project)}` : ""}`).then((h) => { setHome(h); setNote(""); }, (e) => setNote(errorText(e))), [project]);
@@ -121,7 +123,7 @@ export function StatsPage({ S }: { S: CampState }) {
   );
 }
 
-// ---------- What Mae does unasked ----------
+// ---------- Automatic work ----------
 // One thing the camp could take over, with the one click that turns it on (also shown on Today).
 export function OfferCard({ offer, onDone }: { offer: Offer; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -143,7 +145,12 @@ export function OfferCard({ offer, onDone }: { offer: Offer; onDone: () => void 
   );
 }
 
-export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refresh: () => void; onOpenSection: (s: "memory" | "jobs" | "inbox" | "skills") => void }) {
+// The rest of what a switch does, one press away: the line above it says what it is.
+function More({ children }: { children: ReactNode }) {
+  return <details className="set-more"><summary>How it works</summary><p>{children}</p></details>;
+}
+
+export function AutomaticPage({ S, refresh, onOpenSection }: { S: CampState; refresh: () => void; onOpenSection: (s: "memory" | "jobs" | "inbox" | "skills") => void }) {
   const { home, note, setNote, load } = useHome();
   const [busy, setBusy] = useState<string | null>(null);
   const doing = async (key: string, work: () => Promise<unknown>) => {
@@ -157,12 +164,13 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
   const d = home.drive;
   return (
     <div className="unasked-page">
-      <p className="panel-note">What the {w("camp")} does before you ask, while {w("hq")} is open. All of it prepares and proposes: work it starts still waits for your OK on its plan, and nothing is kept in memory or put on GitHub until you approve it.</p>
+      <p className="panel-note">What the {w("camp")} does before you ask, while {w("hq")} is open. All of it prepares and proposes: nothing is kept or sent until you approve it.</p>
       {note && <div className="meta bad" role="alert">{note}</div>}
 
       <div className="set-row">
         <div className="set-label"><b>Morning brief</b>
-          <p>Each weekday, where your work stands: what's waiting on you, your tickets, what's upcoming, your latest notes. Written from the {w("camp")}'s record and one look at GitHub and Jira; no model is called. It opens on Today, and goes to the inbox and your phone (without your notes).</p></div>
+          <p>Each weekday, where your work stands: what's waiting on you, your tickets and your latest notes.</p>
+          <More>Written from the {w("camp")}'s record and one look at GitHub and Jira; no model is called. It lists what's waiting on you, your tickets, what's upcoming and your latest notes. It opens on Today, and goes to the inbox and your phone (without your notes).</More></div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={d.brief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { brief: ev.target.checked }))} /> {d.brief ? "On, at" : "Off"}</label>
           {d.brief && <input type="time" aria-label="When the morning brief is written" value={d.briefAt} disabled={busy === "drive"} onChange={(ev) => ev.target.value && doing("drive", () => api("/api/drive", { briefAt: ev.target.value }))} />}
@@ -173,7 +181,8 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
       {d.brief && (
         <div className="set-row">
           <div className="set-label"><b>AI news in the brief</b>
-            <p>The brief also lists up to six recent things in AI that could help this {w("camp")}: news, new model and API features, best practices for agents, and trends, each with its link and a line on how it could help here. This part is a model call: once a day the smallest model searches the web (a few searches). Links aren't repeated from the last two weeks, and nothing changes because of them: they're for you to read.</p></div>
+            <p>The brief also lists up to six recent things in AI that could help this {w("camp")}.</p>
+            <More>News, new model and API features, best practices for agents, and trends, each with its link and a line on how it could help here. This part is a model call: once a day the smallest model searches the web (a few searches). Links aren't repeated from the last two weeks, and nothing changes because of them: they're for you to read.</More></div>
           <div className="set-control unasked-control">
             <label className="switch"><input type="checkbox" checked={!!d.briefNews} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { briefNews: ev.target.checked }))} /> {d.briefNews ? "On" : "Off"}</label>
           </div>
@@ -182,7 +191,8 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Weekly retro</b>
-          <p>On Friday afternoon the smallest model reads what you asked for that week and what reviewers said on your pull requests, and proposes up to five things worth keeping. If you asked for the same kind of work three times or more in the last four weeks, it also drafts a how-to for it. Two small calls per project per week; nothing is kept until you approve it under Memory or Skills.</p>
+          <p>On Friday afternoon, up to five things from the week worth keeping, for you to approve.</p>
+          <More>The smallest model reads what you asked for that week and what reviewers said on your pull requests, and proposes up to five things worth keeping. If you asked for the same kind of work three times or more in the last four weeks, it also drafts a how-to for it. Two small calls per project per week; nothing is kept until you approve it in the Inbox.</More>
           {home.retros.map((r) => (
             <p key={`${r.project}:${r.week}`}>{r.name}, {r.label}: read {r.requests} {plural(r.requests, "request")} and {r.heard} reviewer {plural(r.heard, "comment")}, and proposed {r.proposed.length} {plural(r.proposed.length, "thing")} to keep.
               {r.proposed.length > 0 && <> <button type="button" className="linkish" onClick={() => onOpenSection("memory")}>Look them over</button></>}
@@ -199,7 +209,8 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Ticket debrief</b>
-          <p>When a ticket is done (a Mae ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the {w("crew")} did on it (the plan, each {w("quest")} and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the {leadName()}, the {w("crew")} or the project. One small call per ticket; nothing is kept until you approve it under Memory.</p>
+          <p>When a ticket is done, what went well and what could have gone better, written on the ticket.</p>
+          <More>When a ticket is done (a Mae ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the {w("crew")} did on it (the plan, each {w("quest")} and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the {leadName()}, the {w("crew")} or the project. One small call per ticket; nothing is kept until you approve it in the Inbox.</More>
         </div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={d.debrief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { debrief: ev.target.checked }))} /> {d.debrief ? "On" : "Off"}</label>
@@ -208,7 +219,8 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Night shift</b>
-          <p>Off unless you turn it on. Between these hours, once the {w("camp")} has sat idle for half an hour, it drafts shorter versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</p>
+          <p>While the {w("camp")} sits idle at night, it drafts memory tidy-ups for you to approve.</p>
+          <More>Off unless you turn it on. Between these hours, once the {w("camp")} has sat idle for half an hour, it drafts shorter versions of the memories that are getting full, lists old lines worth a look, and notes what housekeeping could clear. It only drafts and reports: nothing is applied, deleted or changed until you approve it. It makes at most three small model calls a night, and waits while your usage limit is used up.</More>
           {home.lastNight && <p className="night-last">Last night shift, {when(home.lastNight.finished)}: {home.lastNight.line}</p>}
         </div>
         <div className="set-control unasked-control">
@@ -224,7 +236,8 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row">
         <div className="set-label"><b>Your pull requests</b>
-          <p>The {w("camp")} follows the pull requests you opened in linked repositories, wherever their branches live, reading them again every ten minutes. {home.pulls.error ? `They couldn't be read: ${home.pulls.error}` : home.pulls.fetched ? `Last read ${when(home.pulls.fetched)}: ${home.pulls.count} open.` : "They haven't been read yet."}</p></div>
+          <p>The {w("camp")} follows the pull requests you opened in linked repositories. {home.pulls.error ? `They couldn't be read: ${home.pulls.error}` : home.pulls.fetched ? `Last read ${when(home.pulls.fetched)}: ${home.pulls.count} open.` : "They haven't been read yet."}</p>
+          <More>It follows them wherever their branches live, reading them again every ten minutes. One that needs you (review comments, a failed check, ready to merge) is listed in the Inbox.</More></div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={S.settings.prWatch} disabled={busy === "watch"} onChange={(ev) => doing("watch", () => api("/api/pr-watch", { on: ev.target.checked }))} /> {S.settings.prWatch ? "Watching" : "Not watching"}</label>
         </div>
@@ -232,7 +245,8 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
 
       <div className="set-row wide">
         <div className="set-label"><b>Feedback on a pull request starts work</b>
-          <p>A trigger per repository: new review comments or a failed check carry on the conversation that did the work, as a plan for you to approve. It can also have the {nameNow("Scribe")} redraft the description after each push, for you to approve.</p></div>
+          <p>A trigger per repository: new review comments or a failed check become a plan for you to approve.</p>
+          <More>New review comments or a failed check carry on the conversation that did the work, as a plan for you to approve. It can also have the {nameNow("Scribe")} redraft the description after each push, for you to approve.</More></div>
         <div className="set-control">
           {watching.length > 0 && (
             <ul className="list">
@@ -252,6 +266,31 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
           <div className="meta">Change what a trigger says, or add one for issues or Jira tickets, under <button type="button" className="linkish" onClick={() => onOpenSection("jobs")}>Scheduled jobs</button>.</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// What Activity shows of it: which of these are on, and the way to the switches.
+export function AutomaticSummary({ S, onOpen }: { S: CampState; onOpen: () => void }) {
+  const { home, note } = useHome();
+  if (!home) return <div className="meta" role="status">{note || "Loading…"}</div>;
+  const d = home.drive;
+  const rows: [string, string, boolean][] = [
+    ["Morning brief", d.brief ? `On, at ${d.briefAt}` : "Off", d.brief],
+    ...(d.brief ? [["AI news in the brief", d.briefNews ? "On" : "Off", !!d.briefNews] as [string, string, boolean]] : []),
+    ["Weekly retro", d.retro ? "On" : "Off", d.retro],
+    ["Ticket debrief", d.debrief ? "On" : "Off", d.debrief],
+    ["Night shift", d.night ? `On, from ${d.nightFrom ?? "01:00"} to ${d.nightTo ?? "05:00"}` : "Off", d.night === true],
+    ["Your pull requests", S.settings.prWatch ? "Watching" : "Not watching", S.settings.prWatch],
+  ];
+  const triggers = (S.triggers ?? []).filter((t) => t.kind === "github-pr" && t.enabled).length;
+  return (
+    <div className="unasked-page auto-summary">
+      <p className="panel-note">What the {w("camp")} does before you ask. The switches are in Settings. <button type="button" className="linkish" onClick={onOpen}>Open Settings, Automatic work</button></p>
+      <ul className="auto-list" aria-label="Automatic work">
+        {rows.map(([name, state, on]) => <li key={name}><b>{name}</b><span className={on ? "auto-on" : "meta"}>{state}</span></li>)}
+        <li><b>Feedback on a pull request starts work</b><span className={triggers ? "auto-on" : "meta"}>{triggers ? `On for ${triggers} ${plural(triggers, "repository", "repositories")}` : "Off"}</span></li>
+      </ul>
     </div>
   );
 }

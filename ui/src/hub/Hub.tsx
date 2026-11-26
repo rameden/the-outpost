@@ -5,6 +5,10 @@
 // .hub-turn, and .hub-level to keep a planet and its name upright as it goes). Pick one to read about it in the panel, then launch it: the chart's server
 // (scripts/launch.ts) starts that outpost and this page goes to it, signed in. One that's running
 // glows; one that's stopped is dim.
+//
+// It is also the first page a newcomer sees, so under the title it says what The Outpost is, links
+// the Tour, and says what to do next: make an outpost when there's none, launch one when none is
+// running, or go into one that is.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from "react";
 import { Icon } from "../components/bits.tsx";
@@ -19,6 +23,14 @@ export type HubOutpost = {
   running: boolean; starting: boolean;
   ours: boolean;      // started from the chart, so the chart can stop it
   crew: number | null; lastActive: number | null; since: number | null;
+};
+
+// The Tour (docs/index.html). A running outpost serves it at /splash, in its own names and words;
+// with none running it's the public page.
+export const TOUR = "https://outpostmae.app";
+export const tourOf = (outposts: HubOutpost[] | null, host = location.hostname) => {
+  const up = outposts?.find((o) => o.running);
+  return up ? `http://${host}:${up.port}/splash` : TOUR;
 };
 
 const token = () => document.querySelector('meta[name="hub-token"]')?.getAttribute("content") ?? "";
@@ -107,6 +119,11 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
   const map = useMemo(() => chart(ids ? ids.split("\n") : []), [ids]);
   const sel = outposts?.find((o) => o.id === picked) ?? null;
   const up = outposts?.filter((o) => o.running).length ?? 0;
+
+  // What to do next: the outpost you were in last (or the only one), running first.
+  const latest = (list: HubOutpost[]) => [...list].sort((a, b) => (b.lastActive ?? 0) - (a.lastActive ?? 0))[0];
+  const next = outposts?.length ? latest(up ? outposts.filter((o) => o.running) : outposts) : undefined;
+  const starting = outposts?.some((o) => o.starting) ?? false;
 
   const pick = (id: string) => { setPicked(id); setError(""); setNaming(false); };
   const shut = () => { setPicked(null); setNaming(false); setError(""); };
@@ -226,6 +243,30 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
           <p>Start it again with <code>npm start</code>.</p>
         </div>
       ) : !outposts ? <p className="con-empty" role="status">Reading the chart…</p> : null}
+
+      {!lost && (
+        <section className="hub-about" aria-label="About The Outpost">
+          <p>The Outpost is a team of AI agents that works on your own machine: you ask, a lead plans the work and hands it to the team, and anything that matters waits for your OK. <a href={tourOf(outposts)} target="_blank" rel="noopener noreferrer">Take the Tour</a></p>
+          {outposts && !naming && (
+            <div className="hub-next" role="status">
+              {!outposts.length ? <>
+                <b>There are no outposts yet.</b>
+                <span>Make your first one: it starts empty, with a team, memory and settings of its own.</span>
+                <button type="button" className="btn small primary" onClick={() => { setNaming(true); setPicked(null); setError(""); }}>Make an outpost</button>
+              </> : !up ? <>
+                <b>{starting ? "An outpost is starting…" : "No outpost is running."}</b>
+                {!starting && <span>Launch one to go in: it starts, and this page takes you to it, signed in.{outposts.length > 1 ? " Or pick another on the chart." : ""}</span>}
+                {!starting && next && <button type="button" className="btn small primary" disabled={busy !== null} onClick={() => void launch(next)}>{busy === "launch" ? "Launching…" : `Launch ${next.name}`}</button>}
+              </> : <>
+                <b>{up} of {outposts.length} {up === 1 ? "is" : "are"} running.</b>
+                <span>Go into one that's running, or pick another on the chart to launch it.</span>
+                {next && <button type="button" className="btn small primary" disabled={busy !== null} onClick={() => void launch(next)}>{busy === "launch" ? "Entering…" : `Enter ${next.name}`}</button>}
+              </>}
+            </div>
+          )}
+          {error && !open && <p className="con-error" role="alert">{error}</p>}
+        </section>
+      )}
 
       {outposts && (
         <footer className="con-foot">

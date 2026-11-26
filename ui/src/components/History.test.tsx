@@ -74,7 +74,11 @@ test("new conversations: a clean page, or one filed under a project", () => {
   expect(setView).toHaveBeenLastCalledWith({ kind: "new" });
   fireEvent.click(screen.getByRole("button", { name: "New conversation in mi-web-app" }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "new", project: "p1" });
-  fireEvent.click(screen.getByRole("button", { name: /All activity/ }));
+  // "All runs" is the feed of every run; "Activity" is the page of usage, jobs and the inbox. Neither is named after the other.
+  expect(screen.queryByRole("button", { name: /All activity/ })).toBeNull();
+  const runs = screen.getByRole("button", { name: /All runs/ });
+  expect(runs.title).toBe("Every run in one feed as it happens, scheduled jobs included");
+  fireEvent.click(runs);
   expect(setView).toHaveBeenLastCalledWith({ kind: "all" });
 });
 
@@ -204,7 +208,7 @@ test("projects can be dragged into a new order, or moved a step from their menu,
 test("Projects sits under New conversation and opens the projects page; its + opens the dialog; a project's name opens its page", () => {
   const { setView, onNewProject, onEditProject } = setup();
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All activity"]);
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All runs"]);
   fireEvent.click(within(nav).getByRole("button", { name: /Projects$/ }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "projects" });
   expect(onNewProject).not.toHaveBeenCalled();
@@ -394,17 +398,27 @@ test("the sidebar offers Start a ticket, then Tickets, Activity and Memory under
   const { rerender } = render(<History S={linked} store={createFeedStore()} view={{ kind: "memory" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}}
     onStartTicket={onStartTicket} />);
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All activity"]);
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All runs"]);
   expect(within(nav).getByRole("button", { name: "Memory" }).getAttribute("aria-current")).toBe("page"); // you're on it
   fireEvent.click(within(nav).getByRole("button", { name: "Activity" }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "activity" });
   fireEvent.click(within(nav).getByRole("button", { name: "Memory" }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "memory" });
+  // What waits on you is one number, on Activity, and with it Activity opens on the Inbox. Memory carries none of its own.
+  const waiting = { ...linked, memoryProposals: [{ id: "m1" }, { id: "m2" }], skills: [{ name: "s" }] } as unknown as CampState;
+  rerender(<History S={waiting} store={createFeedStore()} view={{ kind: "new" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}}
+    onStartTicket={onStartTicket} inbox={{ waiting: 3, fresh: 1, total: 4 }} />);
+  const activity = within(nav).getByRole("button", { name: /^Activity/ });
+  expect(within(activity).getByLabelText("4 in the inbox").textContent).toBe("4");
+  expect(activity.title).toBe("3 waiting on you · 1 new: open the Inbox");
+  expect(within(nav).getByRole("button", { name: "Memory" }).textContent).toBe("Memory");
+  fireEvent.click(activity);
+  expect(setView).toHaveBeenLastCalledWith({ kind: "activity", tab: "inbox" });
   fireEvent.click(within(nav).getByRole("button", { name: "Start a ticket" }));
   expect(onStartTicket).toHaveBeenCalledTimes(1);
   // Without Jira there are still Mae's own tickets to start.
   rerender(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onStartTicket={onStartTicket} />);
-  expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All activity"]);
+  expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All runs"]);
 });
 
 test("words arriving in a reply don't redraw History: only a run starting, ending or asking does", () => {

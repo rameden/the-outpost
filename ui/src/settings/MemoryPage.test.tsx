@@ -1,8 +1,9 @@
-// The Memory page's lines (and Settings → Memory's switches): what's waiting for you, the note about you, and each memory line by line.
+// The Memory page's lines (and Settings → Memory's switches): how many suggestions are waiting and the way to the Inbox, the note
+// about you, and each memory line by line. The suggestions themselves (ProposalCard) are answered in the Inbox, which lists them.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState, MemoryPlace, Proposal } from "../types.ts";
-import { MemoryLines, MemoryPage } from "./MemoryPage.tsx";
+import { MemoryLines, MemoryPage, ProposalCard } from "./MemoryPage.tsx";
 
 const posts: { path: string; body: any }[] = [];
 let answer: (path: string) => Response = () => new Response(JSON.stringify({ ok: true }));
@@ -25,6 +26,8 @@ const scribe: MemoryPlace = { where: "agent:scribe", name: "Scribe's memory", em
 const scout: MemoryPlace = { where: "agent:scout", name: "Scout's memory", emoji: "🏹", kind: "agent", size: 0, limit: 5000, unloaded: 0, other: 0, lines: [] };
 const tidy: Proposal = { id: "p1", kind: "tidy", where: "agent:scribe", name: "Scribe's memory", created: "2026-03-02T10:00:00Z", before: "- a\n- b\n- c\n- d", after: "- 2026-01-05 Use British spelling\n- 2026-01-09 Headings in sentence case" };
 const keep: Proposal = { id: "p2", kind: "keep", where: "about", name: "About you", created: "2026-03-02T11:00:00Z", text: "Wants a test with every change", run: "r9", thread: "t9", title: "Add the share button" };
+// The cards as the Inbox lists them.
+const cards = (list: Proposal[], refresh: () => void = () => {}) => render(<ul>{list.map((p) => <ProposalCard key={p.id} p={p} refresh={refresh} />)}</ul>);
 const state = (memoryProposals: Proposal[] = [], care = { tidy: true, suggest: false }) => ({ memory: [about, scribe, scout], memoryProposals, settings: { memoryCare: care } }) as unknown as CampState;
 
 test("each memory: how full it is, what no longer fits, where a line came from, and forgetting one", async () => {
@@ -65,7 +68,7 @@ test("each memory: how full it is, what no longer fits, where a line came from, 
 test("a tidy of a memory that had outgrown its room says it was cut to fit, and which lines were left out", () => {
   const before = Array.from({ length: 6 }, (_, i) => `- 2026-01-0${i + 1} Lesson ${i + 1}`).join("\n");
   const cut: Proposal = { ...tidy, before, after: "- 2026-01-05 Lesson 5\n- 2026-01-06 Lesson 6", limit: 60, leftOut: ["- 2026-01-01 Lesson 1", "- 2026-01-02 Lesson 2"] } as Proposal;
-  render(<MemoryLines S={state([cut])} refresh={vi.fn()} />);
+  cards([cut]);
   const t = within(screen.getByRole("listitem", { name: "A shorter version of Scribe's memory" }));
   expect(t.getByText(/^6 lines to 2 · 131 characters to 43 · a prompt loads 60$/)).toBeTruthy();
   expect(t.getByText(/^This had outgrown what a prompt loads, so the smallest model drafted it to fit: .* More goes than usual, so read it before you approve/)).toBeTruthy();
@@ -100,10 +103,29 @@ test("the two switches say what each costs, and the page for the lines is one cl
   await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/memory/care", body: { suggest: true } }));
 });
 
-test("what's waiting: a tidy you can read, edit and approve; a suggestion you can reword, keep or drop", async () => {
-  const refresh = vi.fn();
-  render(<MemoryLines S={state([tidy, keep])} refresh={refresh} />);
+test("on the Memory page, what's waiting is a count and the way to the Inbox, where it's answered", () => {
+  const onOpenInbox = vi.fn();
+  const { rerender } = render(<MemoryLines S={state([tidy, keep])} refresh={vi.fn()} onOpenInbox={onOpenInbox} />);
   const waiting = within(screen.getByRole("region", { name: "Waiting for you" }));
+  expect(waiting.getByRole("heading").textContent).toBe("Waiting for you 2");
+  expect(waiting.getByText(/^2 suggestions about this memory are waiting for your say\. Nothing is kept or changed until you approve it\./)).toBeTruthy();
+  // No cards here, and nothing to approve by mistake: the Inbox has them.
+  expect(waiting.queryAllByRole("listitem")).toEqual([]);
+  expect(screen.queryByRole("button", { name: /Replace it with this|Keep it|Don't keep/ })).toBeNull();
+  fireEvent.click(waiting.getByRole("button", { name: "Answer them in the Inbox" }));
+  expect(onOpenInbox).toHaveBeenCalledTimes(1);
+  expect(posts).toEqual([]);
+  // While a tidy is waiting for a memory, another can't be asked for.
+  expect((within(screen.getByRole("region", { name: "Scribe's memory" })).getByRole("button", { name: "Tidy…" }) as HTMLButtonElement).disabled).toBe(true);
+  rerender(<MemoryLines S={state([keep])} refresh={vi.fn()} onOpenInbox={onOpenInbox} />);
+  expect(within(screen.getByRole("region", { name: "Waiting for you" })).getByRole("button", { name: "Answer it in the Inbox" })).toBeTruthy();
+  expect(screen.getByText(/^1 suggestion about this memory is waiting for your say\./)).toBeTruthy();
+});
+
+test("what's waiting, as the Inbox shows it: a tidy you can read, edit and approve; a suggestion you can reword, keep or drop", async () => {
+  const refresh = vi.fn();
+  cards([tidy, keep], refresh);
+  const waiting = screen;
   expect(waiting.getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["A shorter version of Scribe's memory", "Suggested for About you"]);
   const t = within(waiting.getByRole("listitem", { name: "A shorter version of Scribe's memory" }));
   expect(t.getByText(/^4 lines to 2 · 15 characters to 7\d$/)).toBeTruthy();
@@ -115,8 +137,7 @@ test("what's waiting: a tidy you can read, edit and approve; a suggestion you ca
   fireEvent.change(t.getByLabelText("The tidied Scribe's memory"), { target: { value: "- 2026-01-09 Headings in sentence case" } });
   fireEvent.click(t.getByRole("button", { name: "Replace it with this" }));
   await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/memory/proposal", body: { id: "p1", action: "approve", text: "- 2026-01-09 Headings in sentence case" } }));
-  // While one is waiting for a memory, another can't be asked for.
-  expect((within(screen.getByRole("region", { name: "Scribe's memory" })).getByRole("button", { name: "Tidy…" }) as HTMLButtonElement).disabled).toBe(true);
+  await waitFor(() => expect(refresh).toHaveBeenCalled());
 
   const s = within(waiting.getByRole("listitem", { name: "Suggested for About you" }));
   fireEvent.click(s.getByRole("button", { name: "Add the share button" }));
@@ -132,9 +153,9 @@ test("what's waiting: a tidy you can read, edit and approve; a suggestion you ca
   expect((await t.findByRole("alert")).textContent).toMatch(/has changed since this was drafted/);
 });
 
-test("a merge asked for on the map waits here: both lines, the one drafted for them, and the way to review it", async () => {
+test("a merge asked for on the map waits in the Inbox: both lines, the one drafted for them, and the way to review it", async () => {
   const merge: Proposal = { id: "p3", kind: "merge", where: "agent:scribe", name: "Scribe's memory", created: "2026-03-02T12:00:00Z", lines: ["Use British spelling", "Use British spelling in docs"], text: "Use British spelling, in docs too" };
-  render(<MemoryLines S={state([merge])} refresh={() => {}} />);
+  cards([merge]);
   const m = within(screen.getByRole("listitem", { name: "A merge in Scribe's memory" }));
   expect(m.getByText("Use British spelling in docs")).toBeTruthy();
   expect((m.getByLabelText("The merged line") as HTMLTextAreaElement).value).toBe("Use British spelling, in docs too");
@@ -144,12 +165,15 @@ test("a merge asked for on the map waits here: both lines, the one drafted for t
   fireEvent.click(m.getByRole("button", { name: "Keep both" }));
   await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/memory/proposal", body: { id: "p3", action: "dismiss" } }));
   // A merge waiting doesn't stop a tidy being asked for.
+  cleanup();
+  render(<MemoryLines S={state([merge])} refresh={() => {}} />);
   expect((within(screen.getByRole("region", { name: "Scribe's memory" })).getByRole("button", { name: "Tidy…" }) as HTMLButtonElement).disabled).toBe(false);
 });
 
 test("by member: only that member's memory and what's waiting for it, and none of the project or about lines", () => {
   render(<MemoryLines S={state([tidy, keep])} refresh={vi.fn()} member="scribe" />);
   expect(screen.getByRole("region", { name: "Scribe's memory" })).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Waiting for you" })).getByRole("heading").textContent).toBe("Waiting for you 1"); // the tidy of Scribe's, not the one about you
   expect(screen.queryByRole("region", { name: "About you" })).toBeNull();
   expect(screen.queryByRole("region", { name: "Scout's memory" })).toBeNull();
   cleanup();

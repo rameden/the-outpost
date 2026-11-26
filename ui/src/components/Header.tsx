@@ -1,4 +1,4 @@
-// The top bar, kept to what you look at often: what needs you, how busy the camp is (a menu with
+// The top bar, kept to what you look at often: what's waiting on you (a count that opens the Inbox), how busy the camp is (a menu with
 // what runs the crew, GitHub and today's spend), the connection (only when it drops), the Views
 // menu (Orbit, the trail map and the constellation), a ··· menu for the page's occasional
 // switches and Barnstorm, and Settings. A problem shows by itself.
@@ -16,7 +16,7 @@ import { Icon, type IconName } from "./bits.tsx";
 import { ReadingPlayer } from "./ReadAloud.tsx";
 import { MaeLogo } from "./MaeLogo.tsx";
 import { outpostName, setOutpostName } from "../outpost.ts";
-import { needsDoing, needsLabel, type Need } from "../needs.ts";
+import { inboxLabel, NO_INBOX, type InboxCount } from "../inbox.ts";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { showCost } from "../prefs.ts";
 import type { SettingsSection } from "../settings/sections.ts";
@@ -179,36 +179,12 @@ function ToolMenu({ name, title, icon, groups, className, waiting }: {
   );
 }
 
-// What needs you, as a list under its chip: each row goes to where the thing is.
-const NEED_ICON: Record<Need["kind"], IconName> = { decision: "check", pr: "branch", held: "clock", failed: "down", finished: "reply" };
-function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) => void; onSeenAll?: () => void }) {
-  const { open, setOpen, box } = usePopover();
-  if (!list.length) return null;
-  const doing = needsDoing(list).length > 0; // something to do, rather than only something to read
-  return (
-    <span className="needs-pick" ref={box}>
-      <button className={cx("chip", doing ? "needs" : "news")} type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => (list.length === 1 ? onGo(list[0]) : setOpen((o) => !o))}>{needsLabel(list)}</button>
-      {open && (
-        <div className="popover needs-menu" role="menu" aria-label="What needs you">
-          {list.map((n) => (
-            <button key={n.key} type="button" role="menuitem" className={cx("needs-item", n.kind)} onClick={() => { setOpen(false); onGo(n); }}>
-              <Icon name={NEED_ICON[n.kind]} /><span><b>{n.title}</b><small>{n.says}</small></span>
-            </button>
-          ))}
-          {onSeenAll && list.some((n) => n.kind === "finished") && (
-            <button type="button" role="menuitem" className="needs-item needs-clear" onClick={() => { setOpen(false); onSeenAll(); }}><span><small>Mark what's finished as seen</small></span></button>
-          )}
-        </div>
-      )}
-    </span>
-  );
-}
-
-// needs / onNeed: everything waiting on you and how to get to one.
+// inbox: how many things are waiting on you (inbox.ts). The chip says it and opens Activity → Inbox,
+// the one place they're listed and answered.
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, onOpenActivity, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail, constellation, onConstellation }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, onOpenActivity, focused, onToggleFocus, onOpenLayout, inbox = NO_INBOX, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail, constellation, onConstellation }: {
   onHome?: () => void; // the logo takes you to Today
-  needs: Need[]; onNeed: (n: Need) => void; onSeenAll?: () => void;
+  inbox?: InboxCount;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void; onOpenActivity?: (tab: ActivityTab) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
   // conversation; again brings back the ones it closed.
@@ -221,7 +197,6 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   // The game (egg/Barnstorm.tsx): fly a plane over the page. Its row starts it, then is play and pause.
   barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
 }) {
-  const asks = useFeed(store, (s) => s.asks);
   const running = useFeed(store, runningCount);
   const questsOut = useFeed(store, (s) => s.quests.length);
   const queued = S?.queued?.length ?? 0;
@@ -237,7 +212,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   // The star chart that started this outpost (npm start), when this page is on the same machine as
   // it: the chart answers only there, so from anywhere else the link would lead nowhere.
   const chart = S?.settings?.chart && ["127.0.0.1", "localhost"].includes(location.hostname) ? S.settings.chart : null;
-  useEffect(() => { document.title = asks.length ? `(${asks.length}) ${outpost}` : outpost; }, [asks.length, outpost]);
+  useEffect(() => { document.title = inbox.total ? `(${inbox.total}) ${outpost}` : outpost; }, [inbox.total, outpost]);
 
   return (
     <header className="top">
@@ -251,7 +226,11 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
       <div className="top-right">
         {/* What the camp is doing, then the page's own switches. On a phone the first group scrolls sideways and the second stays put (styles.css). */}
         <div className="top-chips">
-        <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} />
+        {inbox.total > 0 && (
+          <button className={cx("chip", inbox.waiting ? "needs" : "news")} type="button" title="Open the Inbox: everything waiting on you, and where you answer it" onClick={() => onOpenActivity?.("inbox")}>
+            <Icon name="inbox" /> {inboxLabel(inbox)}
+          </button>
+        )}
         {S?.pausedUntil && (
           <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={() => onOpenActivity?.("usage")}>
             ⏸ Plan limit · resets in {resetIn(S.pausedUntil)}
@@ -329,10 +308,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         ]} />
         {onOpenSettings && (
           <button className="icon-btn" type="button" title="Settings" aria-label="Settings" onClick={() => onOpenSettings()}>
-            <Icon name="gear" />{(() => {
-              const skills = S?.skills.length ?? 0, memory = S?.memoryProposals?.length ?? 0;
-              return skills + memory > 0 && <span className="badge" title={[skills && `${skills} skill ${skills === 1 ? "proposal" : "proposals"} to review`, memory && `${memory} about memory waiting for you`].filter(Boolean).join(" · ")}>{skills + memory}</span>;
-            })()}
+            <Icon name="gear" />
           </button>
         )}
         </div>

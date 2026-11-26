@@ -7,8 +7,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { About } from "../components/AgentDrawer.tsx";
 import { AUTO_CHOICES, useModelList } from "../components/ModelPicker.tsx";
-import { Connectors, Skills } from "../panels/Records.tsx";
+import { Connectors } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
+import { AutomaticPage } from "./DrivePage.tsx";
+import type { ActivityTab } from "../feed/conversation.ts";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
@@ -17,7 +19,7 @@ import { showCost } from "../prefs.ts";
 import { outpostName } from "../outpost.ts";
 import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
 import { SEASONS, seasonById } from "../seasons.ts";
-import { autoName, cClass, cx, isAuto, leadName, money, nameNow } from "../format.ts";
+import { autoName, cClass, cx, isAuto, leadName, money, nameNow, plural } from "../format.ts";
 import { w, a as an } from "../words.ts";
 import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
@@ -608,6 +610,18 @@ export function AlwaysOn({ S, skill, refresh }: { S: CampState; skill: CampState
   );
 }
 
+// Skills the lead proposed are approved or turned down in the Inbox (Activity → Inbox), with
+// everything else that waits on you. Here: how many, and the way there.
+function SkillProposals({ S, onOpenInbox }: { S: CampState; onOpenInbox?: () => void }) {
+  const n = S.skills.length;
+  return (
+    <p className="panel-note">
+      Skills the {leadName()} proposed after {w("expeditions")}. Nothing goes live until you approve it.{" "}
+      {n ? <><b>{n} {plural(n, "proposal")} {n === 1 ? "is" : "are"} waiting.</b>{" "}{onOpenInbox && <button type="button" className="linkish" onClick={onOpenInbox}>Answer {n === 1 ? "it" : "them"} in the Inbox</button>}</> : "None is waiting."}
+    </p>
+  );
+}
+
 function InstalledSkills({ S, refresh }: { S: CampState; refresh: () => void }) {
   const [asking, setAsking] = useState<{ owner: string; name: string } | null>(null);
   const [editing, setEditing] = useState<{ owner: string; name: string } | null>(null);
@@ -653,9 +667,11 @@ function InstalledSkills({ S, refresh }: { S: CampState; refresh: () => void }) 
 }
 
 // ---------- The page ----------
-export function Settings({ S, section, setSection, refresh, onAttachLink, onClose }: {
+export function Settings({ S, section, setSection, refresh, onAttachLink, onClose, onOpenActivity }: {
   S: CampState | null; section: SettingsSection; setSection: (s: SettingsSection) => void; refresh: () => void;
   onAttachLink: (link: Link) => void; onClose: () => void;
+  // Ways out of Settings to the pages its lines point at: a tab of Activity (the inbox, scheduled jobs), and Memory.
+  onOpenActivity?: (tab: ActivityTab) => void; // out of Settings to an Activity tab: the Inbox, Scheduled jobs
 }) {
   const closeBtn = useRef<HTMLButtonElement>(null);
   const pressedOutside = useRef(false);
@@ -667,7 +683,6 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
   }, [onClose]);
   const GROUPS = groups();
   const title = GROUPS.flatMap((g) => g.items).find(([id]) => id === section)?.[1] ?? "";
-  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, memory: S?.memoryProposals?.length };
   return (
     // A press that starts and ends on the dimmed backdrop closes it; a drag that began inside
     // (selecting text in a field, say) doesn't.
@@ -680,7 +695,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
         <select className="set-nav-select" aria-label="Settings section" value={section} onChange={(ev) => setSection(ev.target.value as SettingsSection)}>
           {GROUPS.map((g) => (
             <optgroup key={g.title} label={g.title}>
-              {g.items.map(([id, label]) => <option key={id} value={id}>{label}{counts[id] ? ` (${counts[id]})` : ""}</option>)}
+              {g.items.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </optgroup>
           ))}
         </select>
@@ -691,7 +706,6 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
               <button key={id} type="button" className="set-nav-item" aria-current={section === id ? "page" : undefined}
                 onClick={() => setSection(id)}>
                 <Icon name={icon} />{label}
-                {!!counts[id] && <span className="count needs">{counts[id]}</span>}
               </button>
             ))}
           </div>
@@ -715,8 +729,9 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "models" ? <ModelsPage S={S} refresh={refresh} />
             : section === "voice" ? <VoicePage S={S} refresh={refresh} />
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
+            : section === "automatic" ? <AutomaticPage S={S} refresh={refresh} onOpenSection={(s) => onOpenActivity?.(s === "jobs" ? "jobs" : "inbox")} />
             : section === "memory" ? <MemoryPage S={S} refresh={refresh} />
-            : section === "skills" ? <><Skills S={S} refresh={refresh} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>
+            : section === "skills" ? <><SkillProposals S={S} onOpenInbox={onOpenActivity && (() => onOpenActivity("inbox"))} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>
             : <Connectors S={S} refresh={refresh} onAttachLink={(l) => { onAttachLink(l); onClose(); }} />}
         </div>
         {/* What a button here couldn't do: the page's own line by the message box is behind this. */}

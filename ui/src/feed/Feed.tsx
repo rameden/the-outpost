@@ -25,7 +25,8 @@ import { useFeed, type FeedStore } from "./store.ts";
 import { complain } from "../components/StatusLine.tsx";
 
 import { w, a as an } from "../words.ts";
-const examples = () => [
+// Also what Today offers a newcomer to try (components/Home.tsx).
+export const examples = () => [
   `Have the ${nameNow("Scout")} look into how other agent harnesses handle memory, then the ${nameNow("Scribe")} write it up as a short doc.`,
   `Every weekday at 08:00, summarize anything new in the ${w("camp")} wiki's notes.`,
   `@${handleFor("scout")} What's new in agent memory research this month?`,
@@ -189,7 +190,7 @@ function Ask({ exp }: { exp: ExpNode }) {
 }
 
 // While an expedition runs, its Stop is the message box's button. A run whose Stop isn't there (one
-// in All activity, or an earlier run still going beside the newest) gets a small one under its corner.
+// in All runs, or an earlier run still going beside the newest) gets a small one under its corner.
 // A scheduled job has nobody to talk to, and says so.
 function RunFoot({ stop, job }: { stop: ReactNode; job: boolean }) {
   return <div className="run-stop">{job && <span className="steer-note">A scheduled job is running.</span>}{stop}</div>;

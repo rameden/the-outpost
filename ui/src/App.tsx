@@ -50,6 +50,7 @@ import { Feed } from "./feed/Feed.tsx";
 import { DETAIL_KEY, parseDetail, type FeedDetail } from "./feed/condense.ts";
 import { NextStep, WorkStrip, type Place } from "./feed/NextStep.tsx";
 import { Waiting } from "./components/Waiting.tsx";
+import { inboxCount } from "./inbox.ts";
 import { loadSeen, markSeen, needsOf, seenAll, type Need } from "./needs.ts";
 import { activityOf } from "./feed/conversation.ts";
 import { isSettingsSection, settingsGroups, type SettingsSection } from "./settings/sections.ts";
@@ -180,7 +181,7 @@ export function App({ store }: { store: FeedStore }) {
       ...(inProject ? { folders: project.links ?? [], newWorktree: project.settings?.workIn === "worktree" } : {}),
     };
   }, [view, liveRun, conversation, project]);
-  const heading = view.kind === "all" ? "All activity" : view.kind === "new" ? "New conversation" : conversation?.title ?? "Conversation";
+  const heading = view.kind === "all" ? "All runs" : view.kind === "new" ? "New conversation" : conversation?.title ?? "Conversation";
   const waiting = view.kind === "conversation" && S && !conversation ? "This one is waiting its turn. It shows up here when it starts."
     : view.kind === "new" && project && view.project && project.id !== "general" ? `It will be filed under ${project.name}. Ask the ${leadName()} for something, or @ ${an("crew")} member directly.`
     : view.kind === "new" ? `Outside a project this is a plain chat: what you ask goes straight to the model named beside the message box, with nobody from the ${w("crew")} involved. To put the ${w("crew")} on it, start your message with @ (for example @${handleOf({ id: "quartermaster", name: leadName() })}), or work in a project.`
@@ -313,6 +314,8 @@ export function App({ store }: { store: FeedStore }) {
   }, [conversation?.id, conversation?.updated]);
   const needs = useMemo(() => needsOf({ conversations: S?.history.conversations ?? [], prs: S?.prs, queued: S?.queued, activity, seen, viewing: thread }),
     [S?.history.conversations, S?.prs, S?.queued, activity, seen, thread]);
+  // The inbox's one count (inbox.ts): the header, the sidebar, Today and the Inbox all show this.
+  const inbox = useMemo(() => inboxCount(S, needs, asks.length), [S, needs, asks.length]);
   const goToNeed = (n: Need) => {
     if (n.kind === "decision") return nextDecision(n.conversation);
     setView({ kind: "conversation", id: n.conversation });
@@ -446,7 +449,7 @@ export function App({ store }: { store: FeedStore }) {
       id: `p:${p.id}`, group: "Projects", icon: "folder", label: p.name, hint: (p.links ?? []).map((l) => `links/${l}`).join(", "), run: () => setView({ kind: "project", id: p.id }),
     })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-    ...activityTabs(S).map((t): PaletteItem => ({ id: `a:${t.id}`, group: "Activity", icon: "activity", label: `Activity: ${t.label}`, hint: typeof t.title === "string" ? t.title : undefined, run: () => setView({ kind: "activity", tab: t.id }) })),
+    ...activityTabs(inbox.total).map((t): PaletteItem => ({ id: `a:${t.id}`, group: "Activity", icon: "activity", label: `Activity: ${t.label}`, hint: typeof t.title === "string" ? t.title : undefined, run: () => setView({ kind: "activity", tab: t.id }) })),
     ...settingsGroups().flatMap((g) => g.items.map(([id, label, icon]): PaletteItem => ({ id: `s:${id}`, group: "Settings", icon, label: `Settings: ${label}`, hint: g.title, run: () => openSettings(id) }))),
     ...tickets.tickets.map((t): PaletteItem => ({ id: `t:${t.key}`, group: "Tickets", icon: "flag", label: `${t.key}: ${t.title}`, hint: "Mae", run: () => { setSettings(null); setView({ kind: "tickets" }); showTicket(t.key); } })),
     ...notes.notes.map((n): PaletteItem => ({ id: `n:${n.id}`, group: "Notes", icon: "note", label: titleOf(n), hint: "Note", run: () => showNote(n.id) })),
@@ -522,15 +525,15 @@ export function App({ store }: { store: FeedStore }) {
   // function from one draw of the page to the next, so those parts (memo'd) are only drawn again
   // when something they show has changed, not every time a word arrives in the feed.
   const onToggleFocus = useCallback(() => act.current.toggleFocus(), []);
-  const onNeed = useCallback((n: Need) => act.current.goToNeed(n), []);
   const onSeenAll = useCallback(() => setSeen(seenAll()), []);
   const openLayout = useCallback(() => setLayoutEditor({}), []);
   const openActivity = useCallback((tab: ActivityTab) => { setSettings(null); setView({ kind: "activity", tab }); }, [setView]);
+  const openInbox = useCallback(() => openActivity("inbox"), [openActivity]);
   const startTicket = useCallback(() => setWizard({}), []);
   const newProject = useCallback(() => setDialog({ project: null }), []);
   const editProject = useCallback((p: Project) => setDialog({ project: p }), []);
   const setUpTerminal = useCallback(() => openSettings("terminal"), [openSettings]);
-  const inAll = view.kind === "all"; // All activity stays put when you send; anywhere else goes to the conversation
+  const inAll = view.kind === "all"; // All runs stays put when you send; anywhere else goes to the conversation
   const onSent = useCallback((r: SendResult) => { if (!inAll) setView({ kind: "conversation", id: r.thread }); }, [inAll, setView]);
 
   return (
@@ -538,7 +541,7 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} onOpenActivity={openActivity} focused={focused} onToggleFocus={onToggleFocus}
-            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={constellation} onConstellation={toggleConstellation} />
+            onOpenLayout={openLayout} inbox={inbox} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={constellation} onConstellation={toggleConstellation} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -553,7 +556,7 @@ export function App({ store }: { store: FeedStore }) {
               );
               case "history": return state === "collapsed" ? <HistoryRail onShow={toggleHistory} /> : (
                 <ZoneBoundary name="Workspace">
-                  <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory} needs={needs}
+                  <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory} needs={needs} inbox={inbox}
                     onStartTicket={startTicket} onNewProject={newProject} onEditProject={editProject} />
                 </ZoneBoundary>
               );
@@ -566,9 +569,10 @@ export function App({ store }: { store: FeedStore }) {
                   ) : page === "tickets" && S ? (
                     <TicketsPage S={S} onAttach={attachTicket} refresh={refresh} openKey={jiraKey} onOpened={() => setJiraKey(null)} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
                   ) : page === "memory" && S && view.kind === "memory" ? (
-                    <MemoryHome S={S} tab={view.tab ?? "list"} member={view.member} page={view.page} setView={setView} refresh={refresh} onOpenMap={openMap} onOpenSettings={() => openSettings("memory")} />
+                    <MemoryHome S={S} tab={view.tab ?? "list"} member={view.member} page={view.page} setView={setView} refresh={refresh} onOpenMap={openMap} onOpenSettings={() => openSettings("memory")} onOpenInbox={openInbox} />
                   ) : page === "activity" && S && view.kind === "activity" ? (
-                    <ActivityPage S={S} tab={view.tab ?? "usage"} setTab={(tab) => setView({ kind: "activity", tab })} refresh={refresh} onOpenSettings={openSettings} onOpenMemory={() => setView({ kind: "memory" })} />
+                    <ActivityPage S={S} store={store} tab={view.tab ?? "usage"} setTab={(tab) => setView({ kind: "activity", tab })} refresh={refresh} onOpenSettings={openSettings} setView={setView}
+                      needs={needs} inbox={inbox} onSeenAll={onSeenAll} onStartTicket={(t) => setWizard({ ticket: t })} />
                   ) : page === "releases" ? (
                     <ReleaseNotes />
                   ) : page === "projects" && S ? (
@@ -577,7 +581,8 @@ export function App({ store }: { store: FeedStore }) {
                     // Today's page, before the camp has answered: its heading, and nothing to mislead under it.
                     <><div className="conv-head"><h2>Today</h2></div><div className="feed" /></>
                   ) : view.kind === "home" && S ? (
-                    <Home S={S} setView={setView} onStartTicket={(t) => setWizard({ ticket: t })} onOpenNote={showNote} onOpenMemory={() => setView({ kind: "memory" })} />
+                    <Home S={S} setView={setView} onStartTicket={(t) => setWizard({ ticket: t })} onOpenNote={showNote} onOpenMemory={() => setView({ kind: "memory" })}
+                      refresh={refresh} needs={needs} inbox={inbox} asks={asks.length} onOpenInbox={openInbox} onOpenSettings={openSettings} onExample={onExample} />
                   ) : (
                     <>
                       <div className="conv-head">
@@ -617,8 +622,8 @@ export function App({ store }: { store: FeedStore }) {
                   {/* The foot of the pane floats over the thread, which scrolls underneath it (Dock.tsx). */}
                   <Dock>
                     {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
-                    {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} refresh={refresh} onOpen={(id) => setView({ kind: "conversation", id })} /></ZoneBoundary>}
-                    {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All activity shows the ones it records in the feed itself. */}
+                    {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} onOpenInbox={openInbox} /></ZoneBoundary>}
+                    {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All runs shows the ones it records in the feed itself. */}
                     <StatusLine skipFed={inAll} />
                     <ZoneBoundary name="The message box">
                       <Composer ref={composer} S={S} store={store} refresh={refresh} patch={patch} context={context}
@@ -683,7 +688,7 @@ export function App({ store }: { store: FeedStore }) {
       )}</Presence>
       <Presence>{settings && (
         <OverlayBoundary name="Settings" onClose={closeSettings}>
-          <Suspense fallback={<LazyWait />}><Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} /></Suspense>
+          <Suspense fallback={<LazyWait />}><Settings S={S} section={settings} setSection={setSection} refresh={refresh} onAttachLink={onAttachLink} onClose={closeSettings} onOpenActivity={openActivity} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       <Presence>{layoutEditor && (

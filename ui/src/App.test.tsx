@@ -42,7 +42,7 @@ test("what the page says back shows by the message box, where a conversation's v
   expect(line.childElementCount).toBe(0);
   act(() => say({ do: "command", name: "good" })); // what typing /good does, on a page with nothing to rate
   expect(within(line).getByText("There's no finished answer here to rate yet.")).toBeTruthy();
-  expect(store.getState().items.at(-1)).toMatchObject({ kind: "sys", text: "There's no finished answer here to rate yet." }); // and in the feed, for All activity
+  expect(store.getState().items.at(-1)).toMatchObject({ kind: "sys", text: "There's no finished answer here to rate yet." }); // and in the feed, for All runs
 });
 
 test("Orbit takes the whole page from the Views menu in the top bar or /orbit, and going anywhere on the page leaves it", async () => {

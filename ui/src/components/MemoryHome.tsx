@@ -1,5 +1,5 @@
 // The Memory page: everything the camp remembers, in one place, in three views. List is the
-// lines (what's waiting on you, you, each crew member's memory, each project's notes) and the
+// lines (how many suggestions are waiting in the Inbox, you, each crew member's memory, each project's notes) and the
 // wiki's pages: where you read, change and forget them. Map is the constellation (every line
 // a star), opened full screen from here. By member is one crew member's memory on its own.
 // The two switches for how memory is looked after stay in Settings → Memory.
@@ -18,10 +18,11 @@ const TABS: PageTab<MemoryTab>[] = [
   { id: "member", label: "By member", get title() { return `One ${w("crew")} member's memory`; } },
 ];
 
-export function MemoryHome({ S, tab, member, page, setView, refresh, onOpenMap, onOpenSettings }: {
+export function MemoryHome({ S, tab, member, page, setView, refresh, onOpenMap, onOpenSettings, onOpenInbox }: {
   S: CampState; tab: MemoryTab; member?: string; page?: string;
   setView: (v: { kind: "memory"; tab?: MemoryTab; member?: string; page?: string }) => void;
   refresh: () => void; onOpenMap: () => void; onOpenSettings: () => void;
+  onOpenInbox?: () => void; // where what's waiting for you is answered: Activity → Inbox
 }) {
   const open = (path: string | null) => setView(path ? { kind: "memory", tab: "list", page: path } : { kind: "memory", tab: "list" });
   if (page) return <WikiHome S={S} open={page} onOpen={open} refresh={refresh} />; // a page being read or written takes the whole page
@@ -41,7 +42,7 @@ export function MemoryHome({ S, tab, member, page, setView, refresh, onOpenMap, 
         {tab === "list" ? (
           <>
             <p className="set-note">Only the newest part of each memory fits in a prompt; the rest is still on disk, and the {w("crew")} can search it with <code>recall</code> (along with past sessions, this project's earlier conversations and the wiki).</p>
-            <MemoryLines S={S} refresh={refresh} />
+            <MemoryLines S={S} refresh={refresh} onOpenInbox={onOpenInbox} />
             <h3 className="page-sub">Wiki</h3>
             <WikiHome S={S} open={undefined} onOpen={open} refresh={refresh} embedded />
           </>
@@ -58,7 +59,7 @@ export function MemoryHome({ S, tab, member, page, setView, refresh, onOpenMap, 
                 {S.characters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
-            {who && <MemoryLines S={S} refresh={refresh} member={who.id} />}
+            {who && <MemoryLines S={S} refresh={refresh} member={who.id} onOpenInbox={onOpenInbox} />}
           </>
         )}
       </div>

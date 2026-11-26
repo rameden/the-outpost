@@ -1,5 +1,5 @@
 // What the page says back to you, just above the message box: "Queued (#2)", "Rated 👍", "Couldn't
-// find that file". These lines also go into the feed, but only All activity shows them there (a
+// find that file". These lines also go into the feed, but only All runs shows them there (a
 // conversation's view is its own runs and nothing else), so without this they were said to nobody.
 //
 // A plain line goes by itself after a few seconds. Something that went wrong stays until you
@@ -12,7 +12,7 @@ import type { FeedStore } from "../feed/store.ts";
 const SHOWN_MS = 4000;
 const KEPT = 3; // at most this many at once: the oldest makes way
 
-// Say it in both places: the feed (All activity) and the line by the message box.
+// Say it in both places: the feed (All runs) and the line by the message box.
 export function tell(store: FeedStore, text: string, error?: boolean) {
   store.addSys(text);
   say({ do: "tell", text, error, inFeed: true });
@@ -27,7 +27,7 @@ export function complain(text: string) {
 type Line = { id: number; text: string; error: boolean; until: number };
 let nextId = 1;
 
-// skipFed: leave out lines the feed already shows (All activity).
+// skipFed: leave out lines the feed already shows (All runs).
 export function StatusLine({ skipFed }: { skipFed?: boolean } = {}) {
   const [lines, setLines] = useState<Line[]>([]);
   useEffect(() => hear((ask) => {

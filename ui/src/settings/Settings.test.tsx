@@ -162,7 +162,63 @@ test("what moved to the Activity page, and the wiki's page, aren't sections here
   show("limits");
   const nav = screen.getByRole("navigation", { name: "Settings sections" });
   for (const name of ["Memory", "Skills", "Connectors", "Limits & budget"]) expect(within(nav).getByRole("button", { name: new RegExp(name) })).toBeTruthy();
-  for (const name of [/^Wiki/, /Scheduled jobs/, /^Inbox/, /^Stats/, /Usage/, /unasked/]) expect(within(nav).queryByRole("button", { name })).toBeNull();
+  for (const name of [/^Wiki/, /Scheduled jobs/, /^Inbox/, /^Stats/, /Usage/, /unasked/i]) expect(within(nav).queryByRole("button", { name })).toBeNull();
+});
+
+test("Automatic work is a section under Camp, and the nav carries no counts: what's waiting is counted in the Inbox", () => {
+  const waiting = { ...camp(), skills: [{ owner: "scribe", name: "release-notes", description: "", body: "" }], memoryProposals: [{ id: "m1" }], inbox: [{ heading: "h", body: "b", seen: false }] } as unknown as CampState;
+  const { setSection } = show("general", waiting);
+  const nav = screen.getByRole("navigation", { name: "Settings sections" });
+  const group = [...nav.querySelectorAll(".set-group-title")].find((t) => t.textContent === "Camp")!.parentElement!;
+  expect(within(group).getByRole("button", { name: "Automatic work" })).toBeTruthy();
+  fireEvent.click(within(nav).getByRole("button", { name: "Automatic work" }));
+  expect(setSection).toHaveBeenLastCalledWith("automatic");
+  expect((within(nav).getByRole("button", { name: /Skills/ }).textContent ?? "").trim()).toBe("Skills");
+  expect((within(nav).getByRole("button", { name: /Memory/ }).textContent ?? "").trim()).toBe("Memory");
+  expect(nav.querySelector(".count")).toBeNull();
+});
+
+test("Automatic work holds the switches; its links to what was proposed lead to the Inbox, and the one to scheduled jobs to that tab", async () => {
+  const home = { name: "Ryley", today: "2026-11-13", brief: null, days: [], board: { weeks: [] }, offers: [], held: [],
+    retros: [{ project: "p1", name: "web", week: "2026-11-09", label: "Nov 9 to Nov 15, 2026", written: "", requests: 12, heard: 4, proposed: ["Sign every commit."], skill: "scribe/release-notes" }],
+    drive: { brief: true, briefAt: "08:00", retro: false, debrief: false }, pulls: { count: 0 } };
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    if (init?.body) posts.push({ path, body: JSON.parse(String(init.body)) });
+    return new Response(JSON.stringify(String(path).startsWith("/api/home") ? home : { ok: true }), { status: 200 });
+  }));
+  const S = { ...camp(), history: { projects: [], conversations: [] }, triggers: [] } as unknown as CampState;
+  const onOpenActivity = vi.fn();
+  render(<Settings S={S} section="automatic" setSection={() => {}} refresh={() => {}} onAttachLink={() => {}} onClose={() => {}} onOpenActivity={onOpenActivity} />);
+  const brief = (await screen.findByText("Morning brief")).closest(".set-row") as HTMLElement;
+  await act(async () => { fireEvent.click(within(brief).getByRole("checkbox")); });
+  expect(posts).toContainEqual({ path: "/api/drive", body: { brief: false } });
+  fireEvent.click(screen.getByRole("button", { name: "Look them over" }));
+  expect(onOpenActivity).toHaveBeenLastCalledWith("inbox");
+  fireEvent.click(screen.getByRole("button", { name: "Review the draft" }));
+  expect(onOpenActivity).toHaveBeenLastCalledWith("inbox");
+  fireEvent.click(screen.getByRole("button", { name: "Scheduled jobs" }));
+  expect(onOpenActivity).toHaveBeenLastCalledWith("jobs");
+});
+
+test("Settings → Skills says how many proposals are waiting and sends you to the Inbox to answer them", () => {
+  const skill = (name: string) => ({ owner: "scribe", name, description: "How to do it", body: "Steps." });
+  const onOpenActivity = vi.fn();
+  const at = (skills: unknown[], open: typeof onOpenActivity | undefined = onOpenActivity) => {
+    cleanup();
+    render(<Settings S={{ ...camp(), skills } as unknown as CampState} section="skills" setSection={() => {}} refresh={() => {}} onAttachLink={() => {}} onClose={() => {}} onOpenActivity={open} />);
+    return screen.getByText(/proposed after/).closest("p") as HTMLElement;
+  };
+  let note = at([skill("release-notes"), skill("changelog")]);
+  expect(note.textContent).toMatch(/Nothing goes live until you approve it\. 2 proposals are waiting\. Answer them in the Inbox$/);
+  // The proposals themselves aren't listed here, so there's nothing to approve twice.
+  expect(screen.queryByText("How to do it")).toBeNull();
+  fireEvent.click(within(note).getByRole("button", { name: "Answer them in the Inbox" }));
+  expect(onOpenActivity).toHaveBeenCalledWith("inbox");
+  note = at([skill("release-notes")]);
+  expect(note.textContent).toMatch(/1 proposal is waiting\. Answer it in the Inbox$/);
+  note = at([]);
+  expect(note.textContent).toMatch(/Nothing goes live until you approve it\. None is waiting\.$/);
+  expect(within(note).queryByRole("button")).toBeNull();
 });
 
 test("Settings → Memory keeps the two switches and links to the Memory page for the lines", async () => {
@@ -192,7 +248,7 @@ test("General keeps to the camp's basics: looks, notifications and other devices
 test("today's cost can be taken out of the top bar's status menu, at once, and stays out in this browser", () => {
   localStorage.clear();
   const S = { ...camp(), spend: { today: 1.5 } } as unknown as CampState;
-  render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
+  render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
   show("general", S);
   // The spend is in the menu under the status chip; a click elsewhere (on the setting) shuts it, so it's opened each time.
   const spend = () => { fireEvent.click(screen.getByRole("button", { name: /^Idle/ })); const there = screen.queryByText("$1.50 today"); fireEvent.click(screen.getByRole("button", { name: /^Idle/ })); return there; };
