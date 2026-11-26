@@ -14,7 +14,7 @@
 // the page that lets every click through; only the bar along the bottom (Bar.tsx) takes the mouse.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { storeGet, storeSet } from "../api.ts";
+import { storeGet, storeSet } from "@outpost/sdk";
 import {
   BULLET_SPEED, FIRE_EVERY, GREMLIN_POINTS, PAINT, PIXEL, SPRITE, UP, muzzle, newPlane, scoreText, stepPlane,
   type Plane,
@@ -29,19 +29,17 @@ import {
   shotAngles, showing, tick as tickPowers, touching, type Active, type Crate,
 } from "./powerups.ts";
 import { Wreckage, type Hit, type Wreck } from "./targets.ts";
-import { cx } from "../format.ts";
-import { cap, w } from "../words.ts";
+import { cx } from "@outpost/sdk";
+import { cap, w } from "@outpost/sdk";
 import { EggBar, PausedPill, usePause, type GameProps, type Mode } from "./Bar.tsx";
 import { Sortie } from "./Sortie.tsx";
 import { lookOf, skinFor, type Look } from "./skins.ts";
-import { packNow } from "../themes.ts";
+import { packNow } from "@outpost/sdk";
 
 const BEST = "camp-barnstorm-best";
 const FLY: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 const FIRE = " ";
 
-// useKonami lives in konami.ts, so the page can listen for the code without loading the game.
-export { useKonami } from "./konami.ts";
 
 // over: what on the page it was last seen over (so it's noticed when that changes).
 type Bullet = { x: number; y: number; vx: number; vy: number; big: boolean; boom: boolean; hops: number; over?: Element | null };

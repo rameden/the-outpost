@@ -58,7 +58,7 @@ It doesn't run in the background on the pages you visit, read them, or send anyt
 
 ## How it's put together
 
-It isn't a copy of the game. It's built from the same files Outpost's page is (`ui/src/egg/`), so there's one game to change:
+It isn't a copy of the game. It's built from the same files Outpost's page is (`plugins/barnstorm/`), so there's one game to change:
 
 - `src/content.tsx` puts the game on the page, in a shadow root so the site's styles and the game's can't touch each other.
 - `src/store.ts` stands in for the one thing the game takes from Outpost: where it keeps best scores.

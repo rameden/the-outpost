@@ -1,0 +1,13 @@
+{
+  "name": "@outpost/orbit-hd",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An Outpost plugin: HD for Orbit, the camp in three dimensions.",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./manifest": "./src/manifest.ts"
+  },
+  "outpost": { "id": "orbit-hd", "manifest": "./src/manifest.ts" },
+  "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" }
+}

@@ -10,7 +10,7 @@
 // corner is all that's left: what was paused, and the way back into it.
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { cx } from "../format.ts";
+import { cx } from "@outpost/sdk";
 
 // wreck: fly over the page and shoot it to bits (Barnstorm.tsx). sortie: a top-down shooter over
 // the same page, against waves of enemy aircraft (Sortie.tsx).

@@ -27,7 +27,7 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT, heldPlans } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, autoExcluded, setAutoExcluded, uploadKeepDays, setUploadKeepDays } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, pluginsSet, setPlugin, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, autoExcluded, setAutoExcluded, uploadKeepDays, setUploadKeepDays } from "./settings.js";
 import { pruneUploads, uploadsUsage } from "./uploads.js";
 import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -598,6 +598,7 @@ async function fullState(full: boolean, historySeen?: string) {
       parallelMax: PARALLEL_MAX,
       selfEdit: selfEditAllowed(),
       autoTitles: autoTitlesOn(),
+      plugins: pluginsSet(), // the page's plugins turned off (false) by id; any not here is on
       uploadKeepDays: uploadKeepDays(), // null: uploads are never deleted by themselves
       fixAttempts: fixAttempts(),
       fixAttemptsMax: FIX_ATTEMPTS_MAX,
@@ -1514,6 +1515,13 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/auto-titles") {
       setAutoTitles(!!body.on);
       return send(res, 200, { ok: true, autoTitles: autoTitlesOn() });
+    }
+    // Turn one of the page's plugins on or off ({ id, on }).
+    if (url.pathname === "/api/plugins") {
+      try { setPlugin(String(body.id ?? ""), !!body.on); }
+      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
+      emit({ type: "changed", what: "settings" });
+      return send(res, 200, { ok: true, plugins: pluginsSet() });
     }
 
     // Survey a project's folders ({ id }): the Scout reads through them and saves a brief to the project.
