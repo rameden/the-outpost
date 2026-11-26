@@ -1,20 +1,46 @@
 // The eval set: standard tasks the crew should handle, each with checks.
 // Each case runs in its own throwaway camp (see case.ts), so evals never touch your real crew's memory.
 // "required" checks decide pass/fail; the others are reported for information.
+// The cases that exercise the loop itself (plan, hand out, review, ask, pick up, fix, stop) are in loop.ts.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, normalize } from "node:path";
 import { BUILT_IN } from "../src/builtin.ts";
+import { LOOP_CASES } from "./loop.ts";
+
+export type PlanStep = { n: number; text: string; after?: number[] };
+// One thing that happened in a run. A run's trail is these in the order they happened, so a rule
+// can say "the review came after the last change" by position, never by the clock.
+export type Moment =
+  | { type: "plan"; steps: PlanStep[] }                                   // a plan that stood, as its steps
+  | { type: "dispatch"; who: string; quest?: string; step?: number }      // a crew member set out
+  | { type: "return"; who: string; quest?: string; status: string }       // and came back
+  | { type: "tool"; who: string; tool: string; input: string }            // a tool call ("check": a linked folder's own check)
+  | { type: "ask"; kind: string; title: string; body: string; answer: string } // you were asked, and what you said
+  | { type: "notice"; who: string; text: string };                        // a line the camp itself put in the feed
 
 export type CaseContext = {
   result: { status: string; text: string };
   tools: { who: string; tool: string; input: string }[]; // every tool call made
   dispatches: { who: string; at: number }[];
   asked: { kind: string; title: string; answer: string }[]; // every approval the run asked for, and what it was told
+  trail: Moment[];                          // everything above and more, in the order it happened
+  spent: number;                            // what the run cost, in dollars (before any judging)
+  read: (path: string) => string | null;    // a file as the run left it (links/<name>/… is the linked folder), or null
+  ok: (command: string, cwd?: string) => boolean; // does this command succeed now (in the sandbox, or in links/<name>)
   judge: (rubric: string, evidence: string) => Promise<{ pass: boolean; reason: string }>;
 };
 export type Check = { name: string; required?: boolean; run: (c: CaseContext) => boolean | string | Promise<boolean | string> };
+
+// The parts of the loop the set must cover (--dry fails if one has no case).
+export const LOOP = ["plan-order", "right-crew", "review-after-change", "ask-before-plan", "resume-no-repeat", "fix-after-check", "budget-stop"] as const;
+export type LoopPart = (typeof LOOP)[number];
+// A run written out by hand, to try a case's rules on without a model: what happened, the files it
+// left, and which commands now succeed. --dry runs every loop case's rules over a good one (they
+// must all pass) and over bad ones (each must be turned down by the rule it names).
+export type Rehearsal = { result: { status: string; text: string }; trail: Moment[]; files?: Record<string, string>; passing?: string[]; spent?: number };
+
 export type EvalCase = {
   id: string;
   about: string;
@@ -23,6 +49,19 @@ export type EvalCase = {
   files?: Record<string, string>; // created in the sandbox before the run
   approveShell?: string[];        // shell commands to approve if asked (everything else is declined)
   approveTools?: string[];        // tool approvals to give: ones whose card's title contains one of these (the rest are declined)
+  // A folder of its own, outside the sandbox, linked for writing: the crew sees it as links/<name>/.
+  // verify: the folder's own checks, which the camp runs after a quest changes files there.
+  link?: { name: string; files: Record<string, string>; verify?: string[] };
+  answer?: string;                // what you say when the Quartermaster asks you a question (otherwise it's told "n")
+  budgetUsd?: number;             // this case's own budget (otherwise the runner's safety cap)
+  review?: boolean;               // an expedition whose changes get a review, whatever the camp's setting
+  plans?: boolean;                // the plan is put up for approval before anyone is sent, as in the app (and approved)
+  // The task is being picked up again: an earlier run of it in this conversation was cut off after
+  // doing these things (they are in the task's journal, as oplog.ts wrote them). `files` holds
+  // what that run left behind. Needs `agent`.
+  resume?: { earlier: string; done: { tool: string; input: Record<string, unknown>; result: string }[] };
+  covers?: LoopPart;              // the part of the loop this case is about
+  rehearsal?: { good: Rehearsal; bad: (Rehearsal & { fails: string })[] }; // fails: the required check that must turn it down
   checks: Check[];
 };
 
@@ -258,11 +297,13 @@ export const CASES: EvalCase[] = [
       } },
     ],
   },
+  ...LOOP_CASES,
 ];
 
 // What --dry checks without calling a model: every case is well formed, so a typo shows up in CI
 // rather than on a paid run. Returns the problems found (none: the set is good).
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const outside = (path: string) => isAbsolute(path) || normalize(path).startsWith("..");
 export function caseProblems(cases: EvalCase[] = CASES): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -285,9 +326,83 @@ export function caseProblems(cases: EvalCase[] = CASES): string[] {
       if (typeof x.run !== "function") out.push(`${at} the check "${x.name}" has nothing to run`);
     }
     for (const path of Object.keys(c.files ?? {})) {
-      if (isAbsolute(path) || normalize(path).startsWith("..")) out.push(`${at} the file ${path} would land outside the sandbox`);
+      if (outside(path)) out.push(`${at} the file ${path} would land outside the sandbox`);
     }
     for (const cmd of c.approveShell ?? []) if (!cmd.trim() || cmd.includes("\n")) out.push(`${at} an approved shell command should be one line`);
+
+    // What sets the run up.
+    if (c.link) {
+      if (!KEBAB.test(c.link.name ?? "")) out.push(`${at} the linked folder's name should be lower-case words joined by hyphens`);
+      if (!Object.keys(c.link.files ?? {}).length) out.push(`${at} the linked folder has no files`);
+      for (const path of Object.keys(c.link.files ?? {})) if (outside(path)) out.push(`${at} the file ${path} would land outside the linked folder`);
+      for (const cmd of c.link.verify ?? []) if (!cmd.trim() || cmd.includes("\n")) out.push(`${at} a check on the linked folder should be one line`);
+    }
+    if (c.answer !== undefined && !c.answer.trim()) out.push(`${at} the answer to a question is empty`);
+    // (Budgets are kept in whole cents: anything smaller would be read as no budget at all.)
+    if (c.budgetUsd !== undefined && !(c.budgetUsd >= 0.01)) out.push(`${at} a budget should be at least $0.01`);
+    if (c.review !== undefined && c.agent !== undefined) out.push(`${at} a review is the Quartermaster's to send: leave out "agent"`);
+    if (c.plans !== undefined && c.agent !== undefined) out.push(`${at} a plan is the Quartermaster's to make: leave out "agent"`);
+    if (c.resume) {
+      if (c.agent === undefined) out.push(`${at} a task that is picked up again needs "agent" (whose task it was)`);
+      if (!c.resume.earlier?.trim()) out.push(`${at} the earlier run has no request`);
+      if (!c.resume.done?.length) out.push(`${at} the earlier run did nothing, so there is nothing to repeat`);
+      for (const d of c.resume.done ?? []) if (!d.tool?.trim() || !d.input || typeof d.input !== "object") out.push(`${at} something the earlier run did has no tool or no input`);
+    }
+
+    // A case about the loop comes with a rehearsal, so its rules can be tried without a model.
+    if (c.covers !== undefined && !LOOP.includes(c.covers)) out.push(`${at} "${c.covers}" isn't a part of the loop (${LOOP.join(", ")})`);
+    if (c.covers !== undefined && !c.rehearsal) out.push(`${at} covers ${c.covers} but has no rehearsal to try its rules on`);
+    if (c.rehearsal) {
+      const required = new Set((c.checks ?? []).filter((x) => x.required).map((x) => x.name));
+      if (!c.rehearsal.bad?.length) out.push(`${at} the rehearsal has no bad run, so nothing shows its rules can fail`);
+      for (const b of c.rehearsal.bad ?? []) if (!required.has(b.fails)) out.push(`${at} a bad run is meant to fail "${b.fails}", which isn't one of its required checks`);
+    }
+  }
+  return out;
+}
+
+// The parts of the loop with no case about them.
+export const loopGaps = (cases: EvalCase[] = CASES): LoopPart[] => LOOP.filter((part) => !cases.some((c) => c.covers === part));
+
+// A rehearsal as the evidence a check sees. Nothing is run and nothing is judged: a judged check
+// is let through, so only the deterministic rules decide.
+export function rehearsalContext(r: Rehearsal): CaseContext {
+  const tools = r.trail.flatMap((m) => (m.type === "tool" ? [{ who: m.who, tool: m.tool, input: m.input }] : []));
+  return {
+    result: r.result, tools, trail: r.trail, spent: r.spent ?? 0,
+    dispatches: r.trail.flatMap((m, i) => (m.type === "dispatch" ? [{ who: m.who, at: i }] : [])),
+    asked: r.trail.flatMap((m) => (m.type === "ask" ? [{ kind: m.kind, title: m.title, answer: m.answer }] : [])),
+    read: (path) => r.files?.[path] ?? null,
+    ok: (command, cwd) => !!r.passing?.includes(cwd ? `${cwd}: ${command}` : command),
+    judge: async () => ({ pass: true, reason: "not judged in a rehearsal" }),
+  };
+}
+
+async function verdicts(c: EvalCase, r: Rehearsal): Promise<{ name: string; required: boolean; pass: boolean; detail: string }[]> {
+  const ctx = rehearsalContext(r);
+  const out = [];
+  for (const x of c.checks) {
+    let v: boolean | string;
+    try { v = await x.run(ctx); } catch (e: any) { v = `error: ${e.message}`; }
+    out.push({ name: x.name, required: !!x.required, pass: v === true, detail: v === true ? "" : String(v) });
+  }
+  return out;
+}
+
+// Tries each case's rules on its rehearsal: the good run must pass every required check, and each
+// bad run must be turned down by the check it names. So a rule that can never fail, or one that a
+// correct run can't satisfy, shows up here and not on a paid run.
+export async function rehearsalProblems(cases: EvalCase[] = CASES): Promise<string[]> {
+  const out: string[] = [];
+  for (const c of cases) {
+    if (!c.rehearsal) continue;
+    for (const v of await verdicts(c, c.rehearsal.good)) {
+      if (v.required && !v.pass) out.push(`${c.id}: the good rehearsal fails "${v.name}"${v.detail && v.detail !== "false" ? ` (${v.detail})` : ""}`);
+    }
+    for (const b of c.rehearsal.bad) {
+      const v = (await verdicts(c, b)).find((x) => x.name === b.fails);
+      if (v?.pass) out.push(`${c.id}: a bad rehearsal gets past "${b.fails}"`);
+    }
   }
   return out;
 }

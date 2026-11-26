@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "at": null,
+  "note": "Nothing is recorded yet. Record a baseline with `npm run eval -- --trials 3 --write-baseline` (it calls paid models: see evals/README.md), then commit this file.",
+  "cases": {}
+}

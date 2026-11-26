@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "at": "2026-11-02T06:20:00.000Z",
+  "commit": "abc1234",
+  "runtime": "api",
+  "cases": {
+    "artificer-bugfix": {
+      "trials": 3,
+      "passRate": 1.0,
+      "cost": 0.12,
+      "tokens": {
+        "in": 90000,
+        "out": 2100
+      },
+      "models": [
+        "Artificer: sonnet-5-5 \u00b7 medium"
+      ],
+      "seconds": 10
+    },
+    "expedition-parallel": {
+      "trials": 3,
+      "passRate": 1.0,
+      "cost": 0.21,
+      "tokens": {
+        "in": 160000,
+        "out": 3000
+      },
+      "models": [
+        "Quartermaster: opus-5-5 \u00b7 medium",
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "seconds": 10
+    },
+    "loop-plan-order": {
+      "trials": 3,
+      "passRate": 1.0,
+      "cost": 0.18,
+      "tokens": {
+        "in": 140000,
+        "out": 2600
+      },
+      "models": [
+        "Quartermaster: opus-5-5 \u00b7 medium",
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "seconds": 10
+    },
+    "memory-old-line": {
+      "trials": 3,
+      "passRate": 0.333,
+      "cost": 0.02,
+      "tokens": {
+        "in": 21000,
+        "out": 300
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "seconds": 10
+    },
+    "scout-local-lookup": {
+      "trials": 3,
+      "passRate": 1.0,
+      "cost": 0.03,
+      "tokens": {
+        "in": 30000,
+        "out": 400
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "seconds": 10
+    },
+    "scribe-summary": {
+      "trials": 3,
+      "passRate": 0.667,
+      "cost": 0.04,
+      "tokens": {
+        "in": 35000,
+        "out": 700
+      },
+      "models": [
+        "Scribe: sonnet-5-5 \u00b7 low"
+      ],
+      "seconds": 10
+    },
+    "warden-review": {
+      "trials": 3,
+      "passRate": 1.0,
+      "cost": 0.09,
+      "tokens": {
+        "in": 70000,
+        "out": 1500
+      },
+      "models": [
+        "Warden: opus-5-5 \u00b7 high"
+      ],
+      "seconds": 10
+    }
+  }
+}

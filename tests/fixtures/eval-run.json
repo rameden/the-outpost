@@ -1,0 +1,422 @@
+{
+  "at": "2026-11-23T06:21:00.000Z",
+  "set": {},
+  "trials": 3,
+  "passed": 4,
+  "total": 7,
+  "cost": 1.887,
+  "results": [
+    {
+      "id": "scout-local-lookup",
+      "trial": 1,
+      "pass": true,
+      "status": "done",
+      "seconds": 10,
+      "cost": 0.031,
+      "tokens": {
+        "in": 30100,
+        "out": 400
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "scout-local-lookup",
+      "trial": 2,
+      "pass": true,
+      "status": "done",
+      "seconds": 11,
+      "cost": 0.032,
+      "tokens": {
+        "in": 30200,
+        "out": 400
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "scout-local-lookup",
+      "trial": 3,
+      "pass": true,
+      "status": "done",
+      "seconds": 12,
+      "cost": 0.033,
+      "tokens": {
+        "in": 30300,
+        "out": 400
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "loop-plan-order",
+      "trial": 1,
+      "pass": false,
+      "status": "done",
+      "seconds": 10,
+      "cost": 0.17,
+      "tokens": {
+        "in": 139000,
+        "out": 2500
+      },
+      "models": [
+        "Quartermaster: opus-5-5 \u00b7 medium",
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": false,
+          "detail": "made up"
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "loop-plan-order",
+      "trial": 2,
+      "pass": true,
+      "status": "done",
+      "seconds": 11,
+      "cost": 0.17,
+      "tokens": {
+        "in": 139000,
+        "out": 2500
+      },
+      "models": [
+        "Quartermaster: opus-5-5 \u00b7 medium",
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "loop-plan-order",
+      "trial": 3,
+      "pass": false,
+      "status": "done",
+      "seconds": 12,
+      "cost": 0.17,
+      "tokens": {
+        "in": 139000,
+        "out": 2500
+      },
+      "models": [
+        "Quartermaster: opus-5-5 \u00b7 medium",
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": false,
+          "detail": "made up"
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "scribe-summary",
+      "trial": 1,
+      "pass": true,
+      "status": "done",
+      "seconds": 10,
+      "cost": 0.04,
+      "tokens": {
+        "in": 35500,
+        "out": 690
+      },
+      "models": [
+        "Scribe: sonnet-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "scribe-summary",
+      "trial": 2,
+      "pass": false,
+      "status": "done",
+      "seconds": 11,
+      "cost": 0.04,
+      "tokens": {
+        "in": 35500,
+        "out": 690
+      },
+      "models": [
+        "Scribe: sonnet-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": false,
+          "detail": "made up"
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "scribe-summary",
+      "trial": 3,
+      "pass": false,
+      "status": "done",
+      "seconds": 12,
+      "cost": 0.04,
+      "tokens": {
+        "in": 35500,
+        "out": 690
+      },
+      "models": [
+        "Scribe: sonnet-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": false,
+          "detail": "made up"
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "artificer-bugfix",
+      "trial": 1,
+      "pass": true,
+      "status": "done",
+      "seconds": 10,
+      "cost": 0.28,
+      "tokens": {
+        "in": 240000,
+        "out": 5200
+      },
+      "models": [
+        "Artificer: sonnet-5-5 \u00b7 medium"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "artificer-bugfix",
+      "trial": 2,
+      "pass": true,
+      "status": "done",
+      "seconds": 11,
+      "cost": 0.31,
+      "tokens": {
+        "in": 240000,
+        "out": 5200
+      },
+      "models": [
+        "Artificer: sonnet-5-5 \u00b7 medium"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "artificer-bugfix",
+      "trial": 3,
+      "pass": true,
+      "status": "done",
+      "seconds": 12,
+      "cost": 0.3,
+      "tokens": {
+        "in": 240000,
+        "out": 5200
+      },
+      "models": [
+        "Artificer: sonnet-5-5 \u00b7 medium"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "memory-old-line",
+      "trial": 1,
+      "pass": true,
+      "status": "done",
+      "seconds": 10,
+      "cost": 0.02,
+      "tokens": {
+        "in": 21000,
+        "out": 310
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "memory-old-line",
+      "trial": 2,
+      "pass": true,
+      "status": "done",
+      "seconds": 11,
+      "cost": 0.02,
+      "tokens": {
+        "in": 21000,
+        "out": 310
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "memory-old-line",
+      "trial": 3,
+      "pass": true,
+      "status": "done",
+      "seconds": 12,
+      "cost": 0.02,
+      "tokens": {
+        "in": 21000,
+        "out": 310
+      },
+      "models": [
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "expedition-parallel",
+      "trial": 1,
+      "pass": false,
+      "status": "done",
+      "seconds": 10,
+      "cost": 0.2,
+      "tokens": {
+        "in": 158000,
+        "out": 2900
+      },
+      "models": [
+        "Quartermaster: opus-5-5 \u00b7 medium",
+        "Scout: haiku-5-5 \u00b7 low"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": false,
+          "detail": "made up"
+        }
+      ],
+      "reply": "made up"
+    },
+    {
+      "id": "loop-budget-stop",
+      "trial": 1,
+      "pass": true,
+      "status": "done",
+      "seconds": 10,
+      "cost": 0.011,
+      "tokens": {
+        "in": 9000,
+        "out": 100
+      },
+      "models": [
+        "Quartermaster: opus-5-5 \u00b7 medium"
+      ],
+      "checks": [
+        {
+          "name": "finished",
+          "required": true,
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "reply": "made up"
+    }
+  ]
+}
