@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Outpost — your crew of Claude agents</title>
+<meta name="description" content="Outpost is a crew of Claude agents on your own machine. A planner turns your ask into a plan, waits for your OK, then sends specialists out several at once, checks their work, and nothing leaves without your click. Free and open source.">
+<meta property="og:title" content="Outpost — Your outpost. Your crew. Your call.">
+<meta property="og:description" content="A crew of Claude agents that plans, works in parallel, checks its own work, and waits for your click. Free and open source.">
+<meta property="og:image" content="og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#13110f">
+<link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* The landing page: a splash for people who haven't met Outpost yet. The film Ground to Sky
+   (films/ground-to-sky.html, framed with ?embed) is the page's first act: it is pinned to the
+   screen and the scroll plays it, from the ground to the sky, while its captions are set in the
+   page's own type and drift past it. Then the crew, the kit, the rules, and how to get it.
+   Colours and type are Outpost's own, the same names the films and the Tour use. */
+:root {
+  --page: #f0e8da; --bg: #f5efe4; --deep: #e0d2ba; --zenith: #eadcc4; --surface: #fffcf6; --surface-2: #f8f1e5; --border: #e2d7c5; --border-strong: #cdbfa8; --line: #c2b196;
+  --logo-ink: #14233f; --text: #2a231c; --muted: #5d5247; --faint: #72675b;
+  --accent: #9e5c0c; --accent-ink: #fffaf2; --logo-dot: #b97a12; --hot: #fff3d9; --good: #397034;
+  --c-qm: #9e5c0c; --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-pilot: #9b4ea3;
+  --night: #14233f; --night-text: #f3ede0; --night-muted: #b9b4c4; --night-line: #2c3b5c;
+  --shade: rgba(60, 40, 20, .16); --mote: rgba(120, 80, 30, .32);
+  --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
+  --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0b0a; --bg: #13110f; --deep: #070605; --zenith: #14233f; --surface: #1b1815; --surface-2: #171411; --border: #312b25; --border-strong: #453d34; --line: #574c40;
+    --logo-ink: #f3ede0; --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+    --accent: #f0a640; --accent-ink: #1b1308; --logo-dot: #d9982b; --hot: #fff1cf; --good: #93c47d;
+    --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #d79be0;
+    --night: #0a1226; --night-line: #22304f;
+    --shade: rgba(0, 0, 0, .5); --mote: rgba(255, 236, 200, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0b0a; --bg: #13110f; --deep: #070605; --zenith: #14233f; --surface: #1b1815; --surface-2: #171411; --border: #312b25; --border-strong: #453d34; --line: #574c40;
+  --logo-ink: #f3ede0; --text: #efe7da; --muted: #ab9f93; --faint: #90867b;
+  --accent: #f0a640; --accent-ink: #1b1308; --logo-dot: #d9982b; --hot: #fff1cf; --good: #93c47d;
+  --c-qm: #f0a640; --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-pilot: #d79be0;
+  --night: #0a1226; --night-line: #22304f;
+  --shade: rgba(0, 0, 0, .5); --mote: rgba(255, 236, 200, .5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); font-size: 17px; line-height: 1.55; overflow-x: hidden; }
+a { color: inherit; }
+img { display: block; max-width: 100%; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wrap { max-width: 1200px; margin: 0 auto; padding-left: var(--gutter); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+h2 { font-size: clamp(34px, 5vw, 64px); line-height: 1.04; }
+.lede { color: var(--muted); font-size: clamp(17px, 1.5vw, 20px); max-width: 60ch; margin: 18px 0 0; text-wrap: pretty; }
+
+/* ---- buttons ---- */
+.btn { --b: var(--border-strong); display: inline-flex; align-items: center; gap: 10px; font: 600 16px/1 var(--body); text-decoration: none; padding: 16px 24px; border-radius: 999px; border: 1px solid var(--b); background: var(--surface); color: var(--text); cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+.btn.gold { position: relative; overflow: hidden; border-color: transparent; background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 30px -8px color-mix(in srgb, var(--accent) 70%, transparent); }
+.btn.gold::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .45) 50%, transparent 70%); transform: translateX(-120%); animation: shine 4.5s ease-in-out 2.2s infinite; }
+.btn.gold:hover { box-shadow: 0 16px 40px -8px color-mix(in srgb, var(--accent) 85%, transparent); }
+.btn.sm { padding: 10px 16px; font-size: 14px; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+@keyframes shine { 0%, 62% { transform: translateX(-120%); } 82%, 100% { transform: translateX(120%); } }
+
+/* ---- the top bar ---- */
+.nav { position: fixed; inset: 0 0 auto; z-index: 50; display: flex; align-items: center; gap: 20px; padding: 14px var(--gutter); transition: background .3s, border-color .3s, backdrop-filter .3s; border-bottom: 1px solid transparent; }
+.nav.solid { background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); border-bottom-color: var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 20px/1 var(--body); color: var(--logo-ink); letter-spacing: -.01em; }
+.brand svg { width: 30px; height: 30px; }
+.links { display: flex; gap: 26px; margin-left: auto; }
+.links a { font-size: 15px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; }
+.links a:hover { color: var(--text); border-bottom-color: var(--accent); }
+.theme { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: transparent; color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.theme:hover { border-color: var(--accent); }
+.theme svg { width: 18px; height: 18px; }
+.theme .sun { display: none; }
+:root[data-dark="1"] .theme .sun { display: block; }
+:root[data-dark="1"] .theme .moon { display: none; }
+@media (max-width: 860px) { .links { display: none; } .theme { margin-left: auto; } }
+
+/* ---- act one: the film, pinned while the scroll plays it ---- */
+.film { position: relative; height: 1000vh; }
+.pin { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; background: var(--bg); }
+.pin iframe { position: absolute; left: var(--sx); top: var(--sy); width: var(--sw); height: var(--sh); border: 0; pointer-events: none; background: var(--bg);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 6%, #000 94%, transparent); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 6%, #000 94%, transparent); mask-composite: intersect; }
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 45%, color-mix(in srgb, var(--deep) 75%, transparent) 100%); }
+/* dust in front of the film, moving faster than it: the depth */
+.motes { position: absolute; inset: -20% 0; pointer-events: none; opacity: .55; background-image:
+  radial-gradient(1.6px 1.6px at 12% 18%, var(--mote), transparent), radial-gradient(1.2px 1.2px at 78% 9%, var(--mote), transparent),
+  radial-gradient(2px 2px at 44% 61%, var(--mote), transparent), radial-gradient(1.2px 1.2px at 91% 72%, var(--mote), transparent),
+  radial-gradient(1.4px 1.4px at 27% 88%, var(--mote), transparent), radial-gradient(1px 1px at 63% 34%, var(--mote), transparent);
+  background-size: 340px 420px; background-position: 0 var(--m1, 0px); }
+.motes.far { opacity: .35; background-size: 210px 260px; background-position: 40px var(--m2, 0px); }
+:root:not([data-dark="1"]) .motes { opacity: .3; }
+
+.hero { position: absolute; inset: 0; pointer-events: none; text-align: center; }
+.hero .top, .hero .bottom { position: absolute; left: 0; right: 0; padding: 0 var(--gutter); pointer-events: auto; will-change: transform, opacity; }
+.hero .top { top: max(84px, 12vh); }
+.hero .bottom { bottom: max(28px, 7vh); }
+.hero h1 { font-size: clamp(40px, 7vw, 108px); line-height: .98; margin-top: 18px; color: var(--text); text-shadow: 0 0 30px var(--bg), 0 0 12px var(--bg); }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero h1 .w { display: inline-block; opacity: 0; transform: translateY(.4em) rotate(2deg); filter: blur(8px); animation: rise 1s cubic-bezier(.2, .7, .2, 1) forwards; }
+.hero .sub { font-size: clamp(17px, 1.6vw, 21px); color: var(--text); max-width: 46ch; margin: 0 auto 26px; text-shadow: 0 0 18px var(--bg), 0 0 6px var(--bg); text-wrap: balance; }
+.hero .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.hero .meta { margin-top: 18px; font: 500 12px/1.4 var(--mono); letter-spacing: .08em; color: var(--muted); text-shadow: 0 0 10px var(--bg); }
+.hero .fade { opacity: 0; animation: fadeup .9s ease-out forwards; }
+.cue { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; display: grid; justify-items: center; gap: 6px; font: 500 10px/1 var(--mono); letter-spacing: .2em; color: var(--faint); opacity: 0; animation: fadeup .8s 2.6s forwards; }
+.cue i { display: block; width: 1px; height: 34px; background: linear-gradient(var(--accent), transparent); animation: drip 1.8s ease-in-out infinite; transform-origin: top; }
+@media (max-width: 600px) { .cue { display: none; } }
+@keyframes rise { to { opacity: 1; transform: none; filter: none; } }
+@keyframes fadeup { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes drip { 0% { transform: scaleY(0); opacity: 1; } 70% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+
+/* the film's captions, in the page's type: bottom left over the stage, or under it on a tall screen */
+.caps { position: absolute; left: calc(var(--sx) + var(--sw) * .056); bottom: calc(100% - var(--sy) - var(--sh) * .875); width: min(560px, 46vw); pointer-events: none; }
+.cap { position: absolute; left: 0; bottom: 0; width: 100%; opacity: 0; will-change: transform, opacity; }
+.cap .eb { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; font: 500 12px/1 var(--mono); letter-spacing: .18em; color: var(--accent); }
+.cap .eb b { font: 400 13px/1 var(--mono); color: var(--faint); letter-spacing: .1em; }
+.cap h2 { font-size: clamp(28px, 3.3vw, 50px); line-height: 1.08; text-shadow: 0 0 24px var(--bg), 0 0 8px var(--bg), 0 0 2px var(--bg); }
+.cap h2 span { display: block; will-change: transform, opacity; }
+.cap p { margin: 14px 0 0; font-size: clamp(15px, 1.15vw, 18px); color: var(--muted); max-width: 40ch; text-shadow: 0 0 14px var(--bg), 0 0 4px var(--bg); }
+.pin.tall .caps { left: var(--gutter); right: var(--gutter); width: auto; bottom: auto; top: calc(var(--sy) + var(--sh) + 18px); }
+.pin.tall .cap { bottom: auto; top: 0; }
+.pin.tall .cap h2 { font-size: clamp(26px, 7.4vw, 40px); }
+
+/* the end of the film: the mark is on, and the way in */
+.finale { position: absolute; left: 0; right: 0; bottom: calc(100% - var(--sy) - var(--sh) * .93); display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; padding: 0 var(--gutter); opacity: 0; pointer-events: none; }
+.finale.on { pointer-events: auto; }
+.pin.tall .finale { bottom: auto; top: calc(var(--sy) + var(--sh) + 24px); }
+
+/* where you are in the film; a chapter can be picked */
+.rail { position: absolute; left: 50%; bottom: 18px; translate: -50% 0; width: min(760px, calc(100% - 32px)); opacity: 0; }
+.rail .bar { display: flex; gap: 4px; }
+.rail button { flex: var(--len) 1 0; min-width: 0; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
+.rail button::before { content: ""; position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: var(--line); opacity: .7; }
+.rail button i { position: absolute; left: 0; top: 10px; height: 2px; width: calc(var(--fill, 0) * 100%); background: var(--accent); }
+.rail button span { position: absolute; left: 0; top: -12px; font: 500 9.5px/1 var(--mono); letter-spacing: .14em; color: var(--faint); white-space: nowrap; opacity: 0; transition: opacity .2s, color .2s; }
+.rail button:hover span, .rail button.now span { opacity: 1; }
+.rail button.now span { color: var(--text); }
+.skip { position: absolute; right: var(--gutter); top: 74px; font: 500 12px/1 var(--mono); letter-spacing: .1em; color: var(--muted); text-decoration: none; padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--bg) 70%, transparent); opacity: 0; }
+.skip:hover { color: var(--text); border-color: var(--accent); }
+
+/* ---- the acts after the film ---- */
+.sec { position: relative; padding: clamp(90px, 13vw, 170px) 0; }
+.sec-head { margin-bottom: clamp(40px, 6vw, 72px); }
+.sec-head .eyebrow { margin-bottom: 18px; }
+.reveal { opacity: 0; transform: translateY(36px); transition: opacity .9s ease, transform .9s cubic-bezier(.2, .7, .2, 1); transition-delay: var(--d, 0s); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* the crew, in any costume */
+#crew { background: linear-gradient(var(--bg), var(--page) 30%); }
+.costumes { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-bottom: 34px; border-bottom: 1px solid var(--border); }
+.costumes button { font: 600 15px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; cursor: pointer; }
+.costumes button:hover { color: var(--text); }
+.costumes button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.crew-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.crew-grid .col { display: grid; gap: 20px; align-content: start; }
+.card { position: relative; padding: 28px 26px 26px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 18px 50px -24px var(--shade); transition: transform .35s cubic-bezier(.2, .7, .2, 1), box-shadow .35s, border-color .35s; overflow: hidden; }
+.card::before { content: ""; position: absolute; width: 220px; height: 220px; right: -90px; top: -90px; border-radius: 50%; background: radial-gradient(color-mix(in srgb, var(--c) 30%, transparent), transparent 70%); opacity: .7; transition: opacity .35s, transform .5s; }
+.card:hover { transform: translateY(-6px); border-color: color-mix(in srgb, var(--c) 60%, var(--border)); box-shadow: 0 28px 60px -24px color-mix(in srgb, var(--c) 45%, transparent); }
+.card:hover::before { opacity: 1; transform: scale(1.25); }
+.card .who { display: flex; align-items: center; gap: 14px; position: relative; }
+.card .emo { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: color-mix(in srgb, var(--c) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); flex: none; }
+.card h3 { font-size: 26px; line-height: 1.1; perspective: 400px; }
+.card h3 span { display: inline-block; }
+.card h3 span.flip { animation: flip .5s ease; }
+.card .trade { font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--c); margin-top: 6px; }
+.card p { margin: 16px 0 0; color: var(--muted); font-size: 16px; position: relative; }
+.card .wont { margin-top: 12px; font-size: 14px; color: var(--faint); }
+.card .wont b { color: var(--muted); font-weight: 600; }
+@keyframes flip { 0% { transform: rotateX(0); opacity: 1; } 45% { transform: rotateX(90deg); opacity: 0; } 55% { transform: rotateX(-90deg); opacity: 0; } 100% { transform: rotateX(0); opacity: 1; } }
+.aside { margin-top: 30px; color: var(--faint); font-size: 15px; }
+@media (max-width: 900px) { .crew-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .crew-grid { grid-template-columns: 1fr; } }
+
+/* the four numbers */
+.nums { padding: clamp(70px, 10vw, 120px) 0; background: var(--page); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); overflow: hidden; }
+.nums .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
+.num b { display: block; font: 400 clamp(72px, 10vw, 150px)/.9 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.num span { display: block; margin-top: 14px; font-size: 16px; color: var(--muted); max-width: 22ch; }
+.num strong { color: var(--text); font-weight: 600; }
+@media (max-width: 760px) { .nums .grid { grid-template-columns: 1fr 1fr; gap: 44px 20px; } }
+
+/* the kit: the app itself, in layers that move at different speeds */
+#kit { background: var(--page); overflow: hidden; }
+.shots { position: relative; height: clamp(320px, 52vw, 640px); margin: 0 auto clamp(56px, 8vw, 100px); max-width: 1100px; }
+.shot { position: absolute; border-radius: 14px; overflow: hidden; border: 1px solid var(--border-strong); background: var(--surface); box-shadow: 0 40px 80px -30px var(--shade), 0 0 0 1px rgba(0, 0, 0, .03); will-change: transform; }
+.shot img { width: 100%; height: auto; }
+.shot.a { width: 70%; left: 15%; top: 6%; z-index: 2; }
+.shot.b { width: 44%; left: 0; top: 0; z-index: 1; opacity: .9; }
+.shot.c { width: 44%; right: 0; top: 30%; z-index: 3; }
+.shot figcaption { position: absolute; left: 12px; bottom: 12px; font: 500 11px/1 var(--mono); letter-spacing: .1em; color: var(--text); background: color-mix(in srgb, var(--surface) 88%, transparent); padding: 7px 10px; border-radius: 999px; border: 1px solid var(--border); }
+.feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
+.feat { background: var(--surface); padding: 30px 28px; transition: background .3s; }
+.feat:hover { background: var(--surface-2); }
+.feat .ic { width: 40px; height: 40px; color: var(--accent); margin-bottom: 18px; }
+.feat h3 { font-size: 23px; line-height: 1.15; }
+.feat p { margin: 10px 0 0; color: var(--muted); font-size: 16px; }
+@media (max-width: 900px) { .feats { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .feats { grid-template-columns: 1fr; } .shot figcaption { display: none; } }
+
+/* the rules, at night */
+#rules { background: var(--night); color: var(--night-text); overflow: hidden; }
+#rules .eyebrow { color: #f0a640; }
+#rules .lede { color: var(--night-muted); }
+.stars { position: absolute; inset: -30% 0; pointer-events: none; background-image:
+  radial-gradient(1.2px 1.2px at 10% 20%, #fff8, transparent), radial-gradient(1px 1px at 30% 70%, #fff6, transparent), radial-gradient(1.6px 1.6px at 55% 30%, #fffa, transparent),
+  radial-gradient(1px 1px at 80% 55%, #fff6, transparent), radial-gradient(1.3px 1.3px at 92% 12%, #fff8, transparent), radial-gradient(1px 1px at 66% 88%, #fff5, transparent);
+  background-size: 260px 260px; will-change: transform; }
+.stars.near { background-size: 420px 380px; opacity: .8; }
+.glowdot { position: absolute; right: 8%; top: 18%; width: 18px; height: 18px; border-radius: 50%; background: #d9982b; box-shadow: 0 0 40px 14px rgba(240, 166, 64, .35), 0 0 120px 40px rgba(240, 166, 64, .15); animation: breathe 4s ease-in-out infinite; will-change: transform; }
+@keyframes breathe { 50% { box-shadow: 0 0 60px 22px rgba(240, 166, 64, .45), 0 0 160px 60px rgba(240, 166, 64, .2); } }
+.rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px 48px; position: relative; }
+.rule { border-top: 1px solid var(--night-line); padding-top: 22px; }
+.rule h3 { font-size: 24px; color: var(--night-text); }
+.rule p { margin: 10px 0 0; color: var(--night-muted); font-size: 16px; }
+.rule code, .start code { font-family: var(--mono); font-size: .9em; }
+@media (max-width: 900px) { .rules { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .rules { grid-template-columns: 1fr; } }
+
+/* get it */
+#start { background: radial-gradient(ellipse 60% 50% at 50% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%), var(--bg); text-align: center; overflow: hidden; }
+#start .sec-head { margin-left: auto; margin-right: auto; max-width: 820px; }
+#start .lede { margin-left: auto; margin-right: auto; }
+.ember { width: 22px; height: 22px; margin: 0 auto 34px; border-radius: 50%; background: var(--logo-dot); position: relative; box-shadow: 0 0 40px 12px color-mix(in srgb, var(--accent) 40%, transparent); }
+.ember::before, .ember::after { content: ""; position: absolute; inset: -8px; border-radius: 50%; border: 1.5px solid var(--accent); animation: ring 3s ease-out infinite; }
+.ember::after { animation-delay: 1.5s; }
+@keyframes ring { from { transform: scale(.6); opacity: .9; } to { transform: scale(3.4); opacity: 0; } }
+.dl { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 44px; }
+.dl .btn { font-size: 17px; padding: 18px 28px; }
+.term { max-width: 760px; margin: 0 auto; text-align: left; border-radius: 16px; overflow: hidden; background: #0f0d0b; border: 1px solid #2a2520; box-shadow: 0 40px 90px -40px rgba(0, 0, 0, .6); color: #efe7da; }
+.term .chrome { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #2a2520; font: 500 12px/1 var(--mono); color: #90867b; }
+.term .chrome i { width: 11px; height: 11px; border-radius: 50%; background: #3a332c; }
+.term .chrome span { margin-left: 8px; }
+.term .chrome button { margin-left: auto; font: 500 12px/1 var(--mono); color: #efe7da; background: #1f1b17; border: 1px solid #3a332c; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.term .chrome button:hover { border-color: #f0a640; }
+.term ol { list-style: none; margin: 0; padding: 14px 0; counter-reset: s; }
+.term li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr auto; align-items: start; gap: 4px 10px; padding: 9px 16px; }
+.term li::before { content: counter(s); font: 500 12px/24px var(--mono); color: #6f655b; text-align: right; }
+.term li > code { font: 400 14.5px/24px var(--mono); color: #efe7da; overflow-wrap: anywhere; }
+.term li > code::before { content: "$ "; color: #f0a640; }
+.term li small { grid-column: 2 / 4; color: #90867b; font-size: 13.5px; line-height: 1.45; }
+.term li small code { color: #c9bfb3; }
+.term li button { font: 500 11px/1 var(--mono); color: #ab9f93; background: none; border: 1px solid #3a332c; border-radius: 6px; padding: 5px 8px; cursor: pointer; }
+.term li button:hover { color: #efe7da; border-color: #f0a640; }
+.needs { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 34px auto 0; max-width: 820px; }
+.needs span { font-size: 14px; color: var(--muted); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
+.needs b { color: var(--text); font-weight: 600; }
+.fine { margin: 26px auto 0; max-width: 62ch; color: var(--faint); font-size: 15px; }
+.fine a { color: var(--accent); }
+
+footer { padding: 40px 0 calc(40px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); background: var(--bg); }
+footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
+footer .tag { font-family: var(--display); font-size: 18px; color: var(--muted); }
+footer nav { display: flex; gap: 22px; margin-left: auto; flex-wrap: wrap; }
+footer nav a { color: var(--muted); text-decoration: none; font-size: 15px; border-bottom: 2px solid transparent; }
+footer nav a:hover { color: var(--text); border-bottom-color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+<a class="sr" href="#start">Skip to getting Outpost</a>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="Outpost, back to the top">
+    <svg viewBox="0 0 200 200" aria-hidden="true"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z"/><g fill="none" stroke="currentColor" stroke-width="7"><path d="M100 60 A40 40 0 0 1 100 140"/><path d="M100 36 A64 64 0 0 1 100 164"/><path d="M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5"/></g><circle cx="100" cy="100" r="17" fill="var(--logo-dot)"/><circle cx="162.58" cy="37.42" r="11" fill="var(--logo-dot)"/></svg>
+    Outpost
+  </a>
+  <nav class="links" aria-label="Sections">
+    <a href="#crew">The crew</a><a href="#kit">The kit</a><a href="#rules">The rules</a><a href="index.html">Tour</a>
+  </nav>
+  <button class="theme" id="theme" type="button" aria-label="Switch light or dark">
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+  <a class="btn gold sm" href="#start">Get Outpost</a>
+</header>
+
+<main>
+<!-- Act one: Ground to Sky. The section is tall; its stage stays on screen and the scroll plays the film. -->
+<section class="film" id="top" aria-label="Outpost, from the ground to the sky">
+  <div class="pin" id="pin">
+    <iframe id="film" src="films/ground-to-sky.html?embed" title="Ground to Sky, a film of Outpost" tabindex="-1" aria-hidden="true"></iframe>
+    <div class="vignette"></div>
+    <div class="motes far" aria-hidden="true"></div>
+    <div class="motes" aria-hidden="true"></div>
+
+    <div class="hero" id="hero">
+      <div class="top" id="heroTop">
+        <div class="eyebrow fade" style="animation-delay:.1s">A crew of Claude agents, on your machine</div>
+        <h1 aria-label="Your outpost. Your crew. Your call."><span class="w" style="animation-delay:.25s">Your</span> <span class="w" style="animation-delay:.35s">outpost.</span> <span class="w" style="animation-delay:.6s">Your</span> <span class="w" style="animation-delay:.7s">crew.</span><br><em><span class="w" style="animation-delay:1.05s">Your</span> <span class="w" style="animation-delay:1.15s">call.</span></em></h1>
+      </div>
+      <div class="bottom" id="heroBottom">
+        <p class="sub fade" style="animation-delay:1.5s">You ask once. A planner turns it into a plan and waits for your OK, specialists work it several at once, every report is checked, and nothing leaves without your click.</p>
+        <div class="ctas fade" style="animation-delay:1.7s">
+          <a class="btn gold" href="#start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Get Outpost, free</a>
+          <a class="btn" href="#film-start" id="lift"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>Watch it lift off</a>
+        </div>
+        <div class="meta fade" style="animation-delay:1.9s">OPEN SOURCE · RUNS ON CLAUDE PRO, MAX OR AN API KEY · macOS, WINDOWS</div>
+      </div>
+      <div class="cue" id="cue" aria-hidden="true">SCROLL<i></i></div>
+    </div>
+
+    <div class="caps" id="caps" aria-live="polite"></div>
+    <div class="finale" id="finale">
+      <a class="btn gold" href="#start" tabindex="-1">Claim your ground</a>
+      <a class="btn" href="#crew" tabindex="-1">Meet the crew</a>
+    </div>
+    <div class="rail" id="rail" aria-label="Chapters of the film"><div class="bar" id="bar"></div></div>
+    <a class="skip" id="skip" href="#crew">SKIP THE FILM ↓</a>
+  </div>
+  <span id="film-start" style="position:absolute;top:100vh"></span>
+  <p class="sr">The film follows one ask through Outpost. You claim your ground and your outpost starts on localhost. Its crew sits in orbit round a planner. You ask for something once; it becomes a plan that waits for your OK; the crew sets out on several missions at once, with a Test Pilot for the hardest; a reviewer checks what changed; and nothing leaves without your click. What the crew learns becomes memory, and a router picks the model that fits each task.</p>
+</section>
+
+<!-- Act two: the crew -->
+<section class="sec" id="crew">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">The crew</div>
+      <h2>Six specialists who know their trade, and stay in it.</h2>
+      <p class="lede">Not one assistant but six other pairs of hands. Each has a fixed identity, its own memory, its own workspace and its own limits. Ask one for work outside its trade and it names the teammate who should do it.</p>
+    </div>
+    <div class="costumes reveal" role="tablist" aria-label="Costumes" id="costumes"></div>
+    <div class="crew-grid" id="crewGrid"></div>
+    <p class="aside reveal">Same crew, same work, any costume: pick one in Settings. In the film they wear the Starship one.</p>
+  </div>
+</section>
+
+<section class="nums" aria-label="Outpost in numbers">
+  <div class="wrap grid">
+    <div class="num reveal" data-speed="-.06"><b data-to="6">6</b><span><strong>specialists</strong>, each in its own trade</span></div>
+    <div class="num reveal" style="--d:.1s" data-speed=".05"><b data-to="4">4</b><span><strong>quests out at once</strong>, each from a clean brief</span></div>
+    <div class="num reveal" style="--d:.2s" data-speed="-.04"><b data-to="1">1</b><span><strong>plan to approve</strong> before anyone sets out</span></div>
+    <div class="num reveal" style="--d:.3s" data-speed=".07"><b data-to="0" data-from="9">0</b><span><strong>pushes</strong> the crew makes on its own</span></div>
+  </div>
+</section>
+
+<!-- Act three: the kit -->
+<section class="sec" id="kit">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">The kit</div>
+      <h2>Mission control, at localhost.</h2>
+      <p class="lede">A dashboard for the whole outpost: conversations filed under projects, a live feed, plans you approve with a button, a file pane, a terminal along the bottom, and a layout you arrange yourself.</p>
+    </div>
+    <div class="shots" id="shots">
+      <figure class="shot b" data-speed=".10" style="margin:0"><img data-shot="today" alt="Today in mission control: what is waiting on you" loading="lazy" width="2720" height="1700"><figcaption>TODAY</figcaption></figure>
+      <figure class="shot a" data-speed="-.04" style="margin:0"><img data-shot="plan" alt="A plan in mission control, waiting for your OK" loading="lazy" width="2720" height="1700"><figcaption>THE PLAN WAITS FOR YOU</figcaption></figure>
+      <figure class="shot c" data-speed="-.16" style="margin:0"><img data-shot="run" alt="A run in mission control, the crew at work" loading="lazy" width="2720" height="1700"><figcaption>THE CREW AT WORK</figcaption></figure>
+    </div>
+    <div class="feats">
+      <div class="feat reveal"><svg class="ic" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="6" y="9" width="28" height="20" rx="3"/><path d="M14 34h12M20 29v5M11 15h8M11 20h12"/></svg><h3>Say yes from anywhere</h3><p>Approve a plan from your phone while you're out. The crew keeps working; the outpost stays yours.</p></div>
+      <div class="feat reveal" style="--d:.08s"><svg class="ic" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="12" r="2.2"/><circle cx="28" cy="9" r="2.2"/><circle cx="22" cy="24" r="2.2"/><circle cx="9" cy="30" r="2.2"/><circle cx="32" cy="29" r="2.2"/><path d="M12 12.6 20 22.4M24 23.4l6-12.2M20.2 25.4 11 29M24 25l6.2 3.2" stroke-dasharray="2 3"/></svg><h3>Memory as a map of stars</h3><p>Three layers that last. Each crew member grows its own memory, and you can browse it as a constellation.</p></div>
+      <div class="feat reveal" style="--d:.16s"><svg class="ic" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="20" r="3"/><path d="M11 20h6M17 20c4 0 4-9 9-9h4M17 20h13M17 20c4 0 4 9 9 9h4"/><circle cx="33" cy="11" r="2"/><circle cx="33" cy="20" r="2"/><circle cx="33" cy="29" r="2"/></svg><h3>A router picks the model</h3><p>Pick Auto and it sizes up each task: Economy, Balanced or Quality. Most of the crew starts on Sonnet, the Test Pilot on Opus.</p></div>
+      <div class="feat reveal"><svg class="ic" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M28 24.5A10 10 0 0 1 15.5 12a10 10 0 1 0 12.5 12.5Z"/><path d="M29 7v4M27 9h4M33 15v3M31.5 16.5h3"/></svg><h3>Leave it running</h3><p>Jobs on a schedule and a night shift that works while you sleep, with reports waiting when you're back.</p></div>
+      <div class="feat reveal" style="--d:.08s"><svg class="ic" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 32 20 8l12 24"/><path d="M14 32l6-12 6 12"/><path d="M5 32h30"/></svg><h3>From a note to a pull request</h3><p>Tickets of its own, worked to a branch and a pull request that waits for you, and a look back when one's done.</p></div>
+      <div class="feat reveal" style="--d:.16s"><svg class="ic" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="20" cy="20" r="4" fill="currentColor" stroke="none"/><ellipse cx="20" cy="20" rx="15" ry="6"/><circle cx="34" cy="19" r="2"/><circle cx="8" cy="23" r="2"/></svg><h3>As many outposts as you need</h3><p>One for work, one for home, each with the name you give it. The star chart lists them all and starts the one you pick.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- Act four: the rules -->
+<section class="sec" id="rules">
+  <div class="stars" data-speed=".25" aria-hidden="true"></div>
+  <div class="stars near" data-speed=".45" aria-hidden="true"></div>
+  <div class="glowdot" data-speed=".3" aria-hidden="true"></div>
+  <div class="wrap" style="position:relative">
+    <div class="sec-head reveal">
+      <div class="eyebrow">The rules</div>
+      <h2>Nothing leaves the outpost without your click.</h2>
+      <p class="lede">Clear limits, kept by the outpost's own code. An agent can't talk its way past them: the outpost's source is read-only to the crew, so nothing it reads can loosen them.</p>
+    </div>
+    <div class="rules">
+      <div class="rule reveal"><h3>Secrets stay put</h3><p>File tools never read <code>.env</code>, private keys or credentials, and your keys are left out of every command the crew starts.</p></div>
+      <div class="rule reveal" style="--d:.08s"><h3>Shell asks first</h3><p>Commands need your OK, stop after two minutes, and stop when you press Stop. A sandbox is there if you want it.</p></div>
+      <div class="rule reveal" style="--d:.16s"><h3>Read-only git</h3><p>Everyone can run <code>status</code>, <code>diff</code>, <code>log</code> and <code>blame</code>. Nobody pushes on their own.</p></div>
+      <div class="rule reveal"><h3>No trampling</h3><p>Parallel quests can't overwrite each other. A file another quest changed has to be read again first.</p></div>
+      <div class="rule reveal" style="--d:.08s"><h3>Pages are information</h3><p>Web pages, files and connector results are never taken as instructions, and suspected prompt injection is flagged.</p></div>
+      <div class="rule reveal" style="--d:.16s"><h3>Budgets hold</h3><p>Spending is tallied after every reply, across every quest, and the run stops when the budget is reached.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- Act five: get it -->
+<section class="sec" id="start">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="ember" aria-hidden="true"></div>
+      <div class="eyebrow">Get Outpost</div>
+      <h2>Claim your ground. It takes five commands.</h2>
+      <p class="lede">Outpost is free and open source. It runs on your Claude Pro or Max plan through Claude Code, or on an Anthropic API key, and you pay only for the model calls, the same as using Claude yourself.</p>
+    </div>
+    <div class="dl reveal">
+      <a class="btn gold" href="https://github.com/rameden/the-outpost/archive/refs/heads/main.zip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Download Outpost (.zip)</a>
+      <a class="btn" href="https://github.com/rameden/the-outpost"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.3 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>View on GitHub</a>
+    </div>
+    <div class="term reveal">
+      <div class="chrome"><i></i><i></i><i></i><span>Terminal</span><button type="button" id="copyAll">Copy all</button></div>
+      <ol id="steps">
+        <li><code>git clone https://github.com/rameden/the-outpost.git &amp;&amp; cd the-outpost</code><button type="button">Copy</button><small>Or unzip the download and open a terminal in its folder.</small></li>
+        <li><code>npm install -g @anthropic-ai/claude-code</code><button type="button">Copy</button><small>Once, if <code>claude</code> isn't on your PATH yet. Skip it on an API key.</small></li>
+        <li><code>npm install</code><button type="button">Copy</button></li>
+        <li><code>claude auth login</code><button type="button">Copy</button><small>On an API key instead, skip this and connect Anthropic under Settings → Models once the outpost is open.</small></li>
+        <li><code>npm start</code><button type="button">Copy</button><small>The star chart opens in your browser. Launch your first outpost (it's called Mae until you rename it) and you land in mission control, signed in.</small></li>
+      </ol>
+    </div>
+    <div class="needs reveal">
+      <span><b>Node</b> 22.12 or later, with npm</span>
+      <span><b>Claude</b> Pro or Max via Claude Code, or an API key</span>
+      <span><b>macOS</b> first · Windows works · Linux untested</span>
+    </div>
+    <p class="fine reveal">First thing to try: <em>"Research how other agent harnesses handle memory, then write it up as a short doc."</em> Want every detail first? <a href="index.html">Take the Tour</a>.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Outpost, back to the top"><svg viewBox="0 0 200 200" aria-hidden="true"><path fill="currentColor" d="M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z"/><g fill="none" stroke="currentColor" stroke-width="7"><path d="M100 60 A40 40 0 0 1 100 140"/><path d="M100 36 A64 64 0 0 1 100 164"/><path d="M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5"/></g><circle cx="100" cy="100" r="17" fill="var(--logo-dot)"/><circle cx="162.58" cy="37.42" r="11" fill="var(--logo-dot)"/></svg>Outpost</a>
+    <span class="tag">Your outpost. Your crew. Your call.</span>
+    <nav aria-label="More"><a href="index.html">Tour</a><a href="films/ground-to-sky.html">The film</a><a href="https://github.com/rameden/the-outpost">GitHub</a><a href="#start">Get Outpost</a></nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const smooth = u => u * u * (3 - 2 * u);
+const outCubic = u => 1 - Math.pow(1 - u, 3);
+const lerp = (a, b, u) => a + (b - a) * u;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+
+// ---- light or dark: the system's, unless you picked one here ----
+const film = $('#film'), root = document.documentElement, darkMq = matchMedia('(prefers-color-scheme: dark)');
+const picked = store.get('outpost-landing-theme');
+if (picked === 'light' || picked === 'dark') root.dataset.theme = picked;
+const isDark = () => root.dataset.theme ? root.dataset.theme === 'dark' : darkMq.matches;
+function applyTheme() {
+  root.dataset.dark = isDark() ? '1' : '0';
+  film.contentWindow && film.contentWindow.postMessage({ film: 'theme', theme: root.dataset.theme || null }, '*');
+  $$('img[data-shot]').forEach(img => { const k = img.dataset.shot, src = 'shots/' + k + (isDark() ? '-dark' : '-light') + '.webp'; if (img.getAttribute('src') !== src) img.src = src; });
+}
+$('#theme').addEventListener('click', () => { root.dataset.theme = isDark() ? 'light' : 'dark'; store.set('outpost-landing-theme', root.dataset.theme); applyTheme(); });
+darkMq.addEventListener('change', applyTheme);
+applyTheme();
+
+// ---- the film: the scroll sets its time ----
+// It answers 'ready' with its length, its beats and its captions; the page sets the captions itself,
+// each with a line more than the film has room for.
+const MORE = [
+  'Outpost runs on your own machine. An outpost is a folder of files you can open and read.',
+  'A planner at the centre; round it, specialists for research, writing, code and review, each with its own memory, workspace and limits.',
+  'Type it in mission control or the terminal. If it could mean two things, you get one short question first.',
+  'Approve it and start, hold it for later, or ask for changes. A budget, if you set one, covers the whole run.',
+  'Up to four run side by side, each from a clean written brief, so no one drags the whole conversation along.',
+  'The bug nobody can reproduce, the migration with no clean path. The Test Pilot runs on the strongest model.',
+  'Every report is read, and a failed check goes back to be fixed before you ever see it.',
+  'Read-only git for the whole crew. You approve again before anything is sent, merged or deleted.',
+  'Each crew member grows its own memory, in layers that last, and you can browse it as a map of stars.',
+  'Pick Auto and it chooses per task: Economy for the cheapest model that can do it, Quality for the surest.',
+];
+const pin = $('#pin'), filmSec = $('#top'), capsEl = $('#caps'), bar = $('#bar'), rail = $('#rail'), finale = $('#finale');
+const T0 = 2.4;                 // where the scroll starts the film: the ground drawn in and you on the trail (a short intro plays up to it)
+let F = null, tEnd = 70.6, caps = [], chapters = [], tShown = 0, tSent = -1, intro = reduce ? 1 : 0, introAt = null;
+
+addEventListener('message', e => {
+  const m = e.data;
+  if (e.source !== film.contentWindow || !m || m.film !== 'ready' || F) return;
+  F = m; tEnd = F.beats.mark + 8;
+  build(); applyTheme(); layout();
+});
+film.addEventListener('load', () => film.contentWindow.postMessage({ film: 'hello' }, '*'));
+
+function build() {
+  const names = [];
+  F.caps.forEach((c, i) => {
+    const short = c.eb.replace(/^(THE|YOUR) /, '');
+    if (!names.includes(c.eb)) { names.push(c.eb); chapters.push({ name: short, a: Math.max(c.a, T0 + .3) }); }
+    const el = document.createElement('div');
+    el.className = 'cap';
+    el.innerHTML = '<div class="eb"><b>' + String(names.indexOf(c.eb) + 1).padStart(2, '0') + '</b>' + c.eb + '</div><h2>' + c.l.map(s => '<span>' + s + '</span>').join('') + '</h2>' + (MORE[i] && F.caps.length === MORE.length ? '<p>' + MORE[i] + '</p>' : '');
+    capsEl.appendChild(el);
+    caps.push({ ...c, el, lines: [...el.querySelectorAll('h2 span, p')] });
+  });
+  chapters.push({ name: 'MARK', a: F.beats.mark + 2 });
+  chapters.forEach((ch, i) => {
+    const b = i + 1 < chapters.length ? chapters[i + 1].a : tEnd;
+    ch.b = b;
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.style.setProperty('--len', (b - ch.a).toFixed(2));
+    btn.innerHTML = '<i></i><span>' + ch.name + '</span>'; btn.setAttribute('aria-label', 'Go to ' + ch.name.toLowerCase());
+    btn.addEventListener('click', () => scrollTo({ top: scrollForT(ch.a + 1), behavior: reduce ? 'auto' : 'smooth' }));
+    bar.appendChild(btn); ch.btn = btn; ch.fill = btn.querySelector('i');
+  });
+}
+const span = () => Math.max(1, filmSec.offsetHeight - innerHeight);
+const scrollForT = t => filmSec.offsetTop + clamp((t - T0) / (tEnd - T0)) * span();
+$('#lift').addEventListener('click', e => { e.preventDefault(); scrollTo({ top: scrollForT(T0 + 4.5), behavior: reduce ? 'auto' : 'smooth' }); });
+
+// where the film's 16:9 stage sits in the pinned screen: the captions and the finale are placed against it
+function layout() {
+  const w = pin.clientWidth, h = pin.clientHeight, tall = w / h < 1.15;
+  let sw = Math.min(w, h * 16 / 9), sh = sw * 9 / 16;
+  const sx = (w - sw) / 2, sy = tall ? Math.max(64, (h - sh) * .36) : (h - sh) / 2;
+  pin.style.setProperty('--sx', sx + 'px'); pin.style.setProperty('--sy', sy + 'px');
+  pin.style.setProperty('--sw', sw + 'px'); pin.style.setProperty('--sh', sh + 'px');
+  pin.classList.toggle('tall', tall);
+}
+addEventListener('resize', layout); layout();
+
+const heroTop = $('#heroTop'), heroBottom = $('#heroBottom'), cue = $('#cue'), skip = $('#skip'), nav = $('#nav'), hero = $('#hero');
+const motes = $$('.motes');
+function drawFilm(t, y) {
+  const vh = innerHeight;
+  // the hero lifts away: the words rise, the ground sinks
+  const hv = 1 - smooth(clamp(y / (vh * .55)));
+  hero.style.visibility = hv > 0 ? 'visible' : 'hidden';
+  if (hv > 0) {
+    heroTop.style.transform = 'translate3d(0,' + (-y * .55) + 'px,0) scale(' + (1 + (1 - hv) * .06) + ')'; heroTop.style.opacity = hv;
+    heroBottom.style.transform = 'translate3d(0,' + (y * .3) + 'px,0)'; heroBottom.style.opacity = hv;
+    cue.style.opacity = hv * hv;
+  }
+  motes[0].style.setProperty('--m2', (-y * .12) + 'px'); motes[1].style.setProperty('--m1', (-y * .3) + 'px');
+  const end = smooth(prog(y, filmSec.offsetTop + span() - vh * .2, filmSec.offsetTop + span()));
+  const ui = (1 - hv) * (1 - end);
+  rail.style.opacity = ui; skip.style.opacity = ui; skip.style.pointerEvents = ui > .2 ? 'auto' : 'none';
+  if (!F) return;
+  // the captions: each fades in line by line, drifts up through its time, and fades out
+  for (const c of caps) {
+    const on = t > c.a - .1 && t < c.b + .1;
+    if (!on) { if (c.shown) { c.el.style.opacity = 0; c.shown = false; } continue; }
+    c.shown = true;
+    const out = smooth(prog(t, c.b - .5, c.b)), first = c === caps[0] ? 1 - hv : 1;
+    c.el.style.opacity = (1 - out) * first;
+    c.el.style.transform = 'translate3d(0,' + lerp(26, -26, prog(t, c.a, c.b)) + 'px,0)';
+    c.lines.forEach((ln, i) => { const u = prog(t, c.a + i * .14, c.a + i * .14 + .8); ln.style.opacity = smooth(u); ln.style.transform = 'translate3d(0,' + ((1 - outCubic(u)) * 22) + 'px,0)'; });
+  }
+  for (const ch of chapters) { ch.fill.style.setProperty('--fill', prog(t, ch.a, ch.b).toFixed(3)); ch.btn.classList.toggle('now', t >= ch.a && t < ch.b); }
+  // the mark is on: the way in
+  const fa = smooth(prog(t, F.beats.mark + 5.6, F.beats.mark + 6.6));
+  finale.style.opacity = fa; finale.style.transform = 'translate3d(0,' + (1 - fa) * 18 + 'px,0)';
+  finale.classList.toggle('on', fa > .5);
+  finale.querySelectorAll('a').forEach(a => a.tabIndex = fa > .5 ? 0 : -1);
+}
+
+// ---- parallax for the acts after the film: an element moves by its distance from the middle of the screen ----
+const par = $$('[data-speed]').map(el => ({ el, k: parseFloat(el.dataset.speed), host: el.closest('section') || el.parentElement }));
+function parallax() {
+  if (reduce) return;
+  const vh = innerHeight;
+  for (const p of par) {
+    const r = p.host.getBoundingClientRect();
+    if (r.bottom < -200 || r.top > vh + 200) continue;
+    const d = (r.top + r.height / 2) - vh / 2;
+    p.el.style.transform = 'translate3d(0,' + (d * p.k).toFixed(1) + 'px,0)';
+  }
+}
+
+let lastNow = 0, lastY = -1;
+function frame(now) {
+  const dt = lastNow ? Math.min(.1, (now - lastNow) / 1000) : 0; lastNow = now;
+  const y = scrollY, inFilm = y < filmSec.offsetTop + filmSec.offsetHeight;
+  if (F && intro < 1) { if (introAt == null) introAt = now; intro = Math.min(1, (now - introAt) / 2600); }
+  const p = clamp((y - filmSec.offsetTop) / span());
+  const target = T0 * outCubic(intro) + p * (tEnd - T0);
+  tShown = reduce || !Number.isFinite(tShown) ? target : tShown + (target - tShown) * Math.min(1, dt * 7);   // (a page opened in a hidden, sizeless window has no span yet)
+  if (Math.abs(target - tShown) < .001) tShown = target;
+  if (F && inFilm && Math.abs(tShown - tSent) > .0015) { film.contentWindow.postMessage({ film: 'seek', t: tShown }, '*'); tSent = tShown; }
+  if (y !== lastY || Math.abs(target - tShown) > 0 || intro < 1) {
+    if (inFilm) drawFilm(tShown, y);
+    if (y !== lastY) { parallax(); nav.classList.toggle('solid', y > innerHeight * .6); }
+    lastY = y;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---- the crew, and the costumes they can wear ----
+const PACKS = [
+  ['Guild', ['Quartermaster', 'Scout', 'Scribe', 'Artificer', 'Warden', 'Test Pilot'], ['🧭', '🏹', '🪶', '🔨', '🛡️', '🛸']],
+  ['Starship', ['Commander', 'Navigator', 'Comms Officer', 'Engineer', 'Security Chief', 'Test Pilot'], ['🚀', '🔭', '📡', '🔧', '🛡️', '🛸']],
+  ['Newsroom', ['Editor', 'Reporter', 'Columnist', 'Typesetter', 'Fact Checker', 'Stringer'], ['📰', '🔎', '✍️', '🖨️', '✅', '⚡']],
+  ['Studio', ['Director', 'Location Scout', 'Screenwriter', 'Set Builder', 'Script Supervisor', 'Stunt Double'], ['🎬', '📍', '📝', '🛠️', '📋', '🤸']],
+  ['Lab', ['Lab Lead', 'Field Researcher', 'Author', 'Technician', 'Peer Reviewer', 'Tinkerer'], ['🧪', '🔬', '📓', '⚙️', '🧐', '⚗️']],
+  ['Pirate', ['Commodore', 'Spyglass', 'Logkeeper', 'Rigger', 'First Mate', 'Powder Monkey'], ['🏴‍☠️', '🔭', '📜', '🪢', '⚓', '🧨']],
+];
+const ROLES = [
+  ['qm', 'Plans and dispatches', 'Turns your request into a plan, briefs the crew, reviews every report and hands you one next step.', 'Specialist work. It sends that out instead.'],
+  ['scout', 'Research', 'Web search and fetch, local files, and findings with their sources.', 'Polished writing or code.'],
+  ['scribe', 'Writing', 'Docs, posts, emails and READMEs, written and edited.', 'Code or new research.'],
+  ['art', 'Code', 'Reads, edits, runs and tests, with shell commands you approve.', 'Prose or open-ended research.'],
+  ['warden', 'Review', 'Reads the whole change first, then flags the few things that would matter.', "Nitpicks, or posting anything you haven't approved."],
+  ['pilot', 'The hardest problems', 'The bug nobody can reproduce, the problem nobody has mapped yet. Runs on the strongest model.', 'Hide a shortcut: every one it took is in its report.'],
+];
+const grid = $('#crewGrid'), tabs = $('#costumes'), cols = [0, 1, 2].map((_, i) => { const c = document.createElement('div'); c.className = 'col'; c.dataset.speed = ['.05', '-.05', '.09'][i]; grid.appendChild(c); return c; });
+const cards = ROLES.map(([key, trade, does, wont], i) => {
+  const el = document.createElement('article');
+  el.className = 'card reveal'; el.style.setProperty('--c', 'var(--c-' + key + ')'); el.style.setProperty('--d', (i % 3) * .08 + 's');
+  el.innerHTML = '<div class="who"><div class="emo"></div><div><h3><span></span></h3><div class="trade">' + trade + '</div></div></div><p>' + does + '</p><p class="wont"><b>Won’t:</b> ' + wont + '</p>';
+  cols[i % 3].appendChild(el);
+  return { emo: el.querySelector('.emo'), name: el.querySelector('h3 span') };
+});
+par.push(...cols.map(el => ({ el, k: parseFloat(el.dataset.speed), host: grid })));
+function wear(n, animate) {
+  const [, names, emo] = PACKS[n];
+  tabs.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-selected', i === n ? 'true' : 'false'));
+  cards.forEach((c, i) => {
+    const set = () => { c.name.textContent = names[i]; c.emo.textContent = emo[i]; };
+    if (!animate || reduce) return set();
+    c.name.classList.remove('flip'); void c.name.offsetWidth; c.name.classList.add('flip');
+    setTimeout(set, 220 + i * 30);
+  });
+}
+PACKS.forEach(([label], i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.role = 'tab'; b.textContent = label;
+  b.addEventListener('click', () => wear(i, true));
+  tabs.appendChild(b);
+});
+wear(0, false);
+if (matchMedia('(max-width: 600px)').matches) cols.forEach(c => delete c.dataset.speed), par.splice(par.length - 3, 3);
+
+// ---- coming into view: fade up, and the numbers count ----
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting) return;
+  e.target.classList.add('in'); io.unobserve(e.target);
+  const b = e.target.querySelector('b[data-to]');
+  if (b && !reduce) {
+    const to = +b.dataset.to, from = +(b.dataset.from || 0), t0 = performance.now();
+    const step = now => { const u = clamp((now - t0) / 1300); b.textContent = Math.round(lerp(from, to, outCubic(u))); if (u < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+}), { threshold: .2 });
+$$('.reveal').forEach(el => io.observe(el));
+
+// ---- copy the commands ----
+function copy(text, btn) {
+  const done = () => { const was = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => btn.textContent = was, 1400); };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, () => {});
+  else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch {} ta.remove(); }
+}
+$$('#steps li').forEach(li => li.querySelector('button').addEventListener('click', e => copy(li.querySelector('code').textContent, e.currentTarget)));
+$('#copyAll').addEventListener('click', e => copy($$('#steps li > code').map(c => c.textContent).filter(s => !s.startsWith('npm install -g')).join('\n'), e.currentTarget));
+})();
+</script>
+</body>
+</html>
