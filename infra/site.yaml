@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  The public landing page (docs/index.html) at the apex of a Route 53 domain, with www sending
-  you to it. A private S3 bucket holds the page; CloudFront serves it over HTTPS with a free ACM
+  The public site at the apex of a Route 53 domain, with www sending you to it: the landing page
+  (docs/landing.html) at /, and the Tour (docs/index.html) at /about. A private S3 bucket holds the page; CloudFront serves it over HTTPS with a free ACM
   certificate; Route 53 points the domain at CloudFront. Deploy it in us-east-1 (CloudFront only
   takes certificates from there): scripts/site.sh setup does this for you.
 
@@ -83,14 +83,15 @@ Resources:
         SigningBehavior: always
         SigningProtocol: sigv4
 
-  # www.<domain>/anything → https://<domain>/anything, at the edge.
+  # www.<domain>/anything → https://<domain>/anything, at the edge. And a page's address without
+  # .html is the page: /about is about.html. (The name stays: renaming it would replace it.)
   WwwRedirect:
     Type: AWS::CloudFront::Function
     Properties:
       Name: !Sub "${AWS::StackName}-www-redirect"
       AutoPublish: true
       FunctionConfig:
-        Comment: Send www to the bare domain
+        Comment: Send www to the bare domain; /about is about.html
         Runtime: cloudfront-js-2.0
       FunctionCode: !Sub |
         function handler(event) {
@@ -107,6 +108,10 @@ Resources:
               headers: { location: { value: 'https://${DomainName}' + req.uri + (qs ? '?' + qs : '') } }
             };
           }
+          var uri = req.uri;
+          if (uri.length > 1 && uri.split('/').pop().indexOf('.') < 0) {
+            req.uri = uri.replace(/\/+$/, '') + '.html';
+          }
           return req;
         }
 
@@ -114,7 +119,7 @@ Resources:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
-        Comment: !Sub "Landing page for ${DomainName}"
+        Comment: !Sub "Landing page and Tour for ${DomainName}"
         Enabled: true
         Aliases:
           - !Ref DomainName

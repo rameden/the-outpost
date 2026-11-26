@@ -23,6 +23,9 @@ import type { SettingsSection } from "../settings/sections.ts";
 import type { CampState, GithubStatus } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 import { usePopover } from "./usePopover.ts";
+
+// Outpost's public landing page (docs/landing.html; scripts/site.sh puts it up). The tour is at /about there.
+export const PROMO = "https://outpostmae.app/";
 import { complain } from "./StatusLine.tsx";
 import { switchRuntime } from "../runtime.ts";
 
@@ -284,7 +287,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             ],
           ]} />
         <ToolMenu name="More" icon="more" className="top-more" waiting={barnstorm === "paused"}
-          title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : "More: focus, layout, light or dark, notifications, Outposts, the tour and Barnstorm"} groups={[
+          title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : "More: focus, layout, light or dark, notifications, Outposts, About, Promo and Barnstorm"} groups={[
           [
             onToggleFocus && { label: "Focus mode", icon: "focus", checked: !!focused, wide: true, onClick: onToggleFocus,
               title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the workspace, files, notes and terminal, leaving the conversation" },
@@ -294,10 +297,12 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
               title: Notification.permission === "denied" ? "Notifications are blocked for this page in your browser's settings"
                 : notificationsOn() ? `On: you're pinged when the ${w("camp")} needs a decision. Click to turn off.` : `Get pinged when the ${w("camp")} needs a decision` },
           ],
-          // The ways out of this page: the star chart, and the tour (docs/index.html, served at /splash) in its own tab so nothing here is interrupted.
+          // The ways out of this page: the star chart; About, the tour (docs/index.html, served at /splash); and Promo, the public landing page
+          // (docs/landing.html, at outpostmae.app). Both in their own tab so nothing here is interrupted.
           [
             !!chart && { label: "Outposts", icon: "hub", href: chart, says: "Back to the star chart", title: "Outposts: back to the star chart, to pick another outpost. This one keeps running." },
-            { label: "Tour", icon: "book", href: "/splash", newTab: true, says: "A one-page tour, in a new tab", title: "A one-page tour of Outpost (opens in a new tab)" },
+            { label: "About", icon: "book", href: "/splash", newTab: true, says: "A one-page tour, in a new tab", title: "About Outpost: a one-page tour (opens in a new tab)" },
+            { label: "Promo", icon: "spark", href: PROMO, newTab: true, says: "The landing page, in a new tab", title: "Promo: Outpost's landing page at outpostmae.app (opens in a new tab)" },
           ],
           [
             onBarnstorm && { label: barnstorm === "on" ? "Pause Barnstorm" : barnstorm === "paused" ? "Resume Barnstorm" : "Barnstorm", icon: "plane", checked: barnstorm === "on", wide: true, onClick: onBarnstorm,

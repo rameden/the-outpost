@@ -11,7 +11,7 @@ It runs on your Claude subscription (through Claude Code) or an Anthropic API ke
 
 *A demo outpost with made-up content: the plan waits for your OK before anything starts.*
 
-**For the full tour**, see [outpostmae.app](https://outpostmae.app), or choose **Tour** from the ··· (More) menu in the page's header. It's [`docs/index.html`](docs/index.html).
+**For the full tour**, see [outpostmae.app/about](https://outpostmae.app/about), or choose **About** from the ··· (More) menu in the page's header. It's [`docs/index.html`](docs/index.html). The landing page at [outpostmae.app](https://outpostmae.app) is [`docs/landing.html`](docs/landing.html), **Promo** in the same menu.
 
 ## Words you'll meet
 

@@ -27,7 +27,7 @@ export type HubOutpost = {
 
 // The Tour (docs/index.html). A running outpost serves it at /splash, in its own names and words;
 // with none running it's the public page.
-export const TOUR = "https://outpostmae.app";
+export const TOUR = "https://outpostmae.app/about";
 export const tourOf = (outposts: HubOutpost[] | null, host = location.hostname) => {
   const up = outposts?.find((o) => o.running);
   return up ? `http://${host}:${up.port}/splash` : TOUR;
