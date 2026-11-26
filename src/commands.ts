@@ -45,6 +45,10 @@ export const COMMAND_REGISTRY = [
   { name: "new", description: "Start a new conversation", category: "Requests", surfaces: ["ui"], busy: "dispatch" },
   { name: "next", description: "Go to the next decision waiting on you", category: "Requests", surfaces: ["ui"], busy: "dispatch" },
   { name: "review", description: "Approve or reject skills the Quartermaster proposed", category: "Requests", surfaces: ["cli"], busy: "reject" },
+  { name: "goal", args: "[rounds] <goal>", description: "Work towards a goal: after each run a small model judges whether it's met, and the {crew} carries on until it is (10 rounds unless you say)", category: "Requests", surfaces: ["cli", "ui"], busy: "dispatch",
+    per: { ui: { args: "[rounds] <goal> | clear | resume", description: "Set a goal for this conversation: after each run a small model checks whether it's met, and the work carries on until it is" } } },
+  { name: "pause", args: "[why]", description: "Pause everything: no job, trigger, queued or new request starts (what's running finishes) until /resume", category: "Requests", surfaces: ["cli", "ui"], busy: "dispatch" },
+  { name: "resume", description: "Carry on after /pause: jobs, triggers and queued work start again", category: "Requests", surfaces: ["cli", "ui"], busy: "dispatch" },
 
   // ---- Getting about: pages and full-screen views
   { name: "today", description: "Open Today: your brief, and where things stand (the logo goes there too)", category: "Getting about", surfaces: ["ui"], busy: "dispatch" },

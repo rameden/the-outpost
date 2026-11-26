@@ -235,6 +235,12 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             <Icon name="inbox" /> {inboxLabel(inbox)}
           </button>
         )}
+        {S?.paused && (
+          <button className="chip paused" type="button" title={`Nothing new starts: jobs, triggers and queued work wait until you resume${S.paused.reason ? ` (${S.paused.reason})` : ""}. What's running finishes. Click to resume.`}
+            onClick={() => void api("/api/pause", { on: false }).then(refresh, (e) => complain(errorText(e)))}>
+            ⏸ Paused · Resume
+          </button>
+        )}
         {S?.pausedUntil && (
           <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={() => onOpenActivity?.("usage")}>
             ⏸ Plan limit · resets in {resetIn(S.pausedUntil)}

@@ -344,3 +344,16 @@ test("an outpost the star chart started links back to it, from this machine only
   fireEvent.click(screen.getByRole("button", { name: "More" }));
   expect(screen.queryByRole("menuitem", { name: "Outposts" })).toBeNull();
 });
+
+test("everything paused: the bar says so, and the chip resumes", async () => {
+  const refresh = vi.fn();
+  const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={refresh} />);
+  expect(screen.queryByRole("button", { name: /Paused · Resume/ })).toBeNull();
+  rerender(<Header S={camp({ paused: { since: "2026-11-20T09:00:00.000Z", reason: "deploying tonight" } } as Partial<CampState>)} store={createFeedStore()} conn="live" refresh={refresh} />);
+  const chip = screen.getByRole("button", { name: /Paused · Resume/ });
+  expect(chip.title).toMatch(/Nothing new starts: jobs, triggers and queued work wait until you resume \(deploying tonight\)\. What's running finishes\./);
+  fireEvent.click(chip);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(posts).toEqual([{ path: "/api/pause", body: { on: false } }]);
+  expect(refresh).toHaveBeenCalled();
+});

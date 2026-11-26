@@ -168,6 +168,17 @@ export function AutomaticPage({ S, refresh, onOpenSection }: { S: CampState; ref
       <p className="panel-note">What the {w("camp")} does before you ask, while {w("hq")} is open. All of it prepares and proposes: nothing is kept or sent until you approve it.</p>
       {note && <div className="meta bad" role="alert">{note}</div>}
 
+      <div className={S.paused ? "set-row pause-row on" : "set-row pause-row"}>
+        <div className="set-label"><b>Pause everything</b>
+          <p>{S.paused
+            ? <>Paused{S.paused.since ? ` since ${new Date(S.paused.since).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}` : ""}{S.paused.reason ? ` (${S.paused.reason})` : ""}. Nothing new starts until you resume.</>
+            : "Stop anything new from starting, here and in the background: scheduled jobs, triggers, queued and chained requests, goals, and everything on this page."}</p>
+          <More>Work that's already running is left to finish (Stop ends a run). Requests you send while paused wait in the queue. Pausing is a file, <code>camp/PAUSE</code>, so it also works from the terminal (<code>/pause</code> and <code>/resume</code> in <code>npm run cli</code>, or by making and deleting the file), and the background watcher honours it too.</More></div>
+        <div className="set-control unasked-control">
+          <label className="switch"><input type="checkbox" checked={!!S.paused} disabled={busy === "pause"} onChange={(ev) => doing("pause", () => api("/api/pause", { on: ev.target.checked }))} /> {S.paused ? "Paused" : "Running"}</label>
+        </div>
+      </div>
+
       <div className="set-row">
         <div className="set-label"><b>Morning brief</b>
           <p>Each weekday, where your work stands: what's waiting on you, your tickets and your latest notes.</p>

@@ -15,6 +15,7 @@ import { cx, handleOf, leadName } from "../format.ts";
 import { w, cap, a as an } from "../words.ts";
 import { ChatModel } from "./ChatModel.tsx";
 import { tell } from "./StatusLine.tsx";
+import { goalStanding, ownLine, parseTyped } from "../goal.ts";
 import { isZip, uploadFile as sendFile, uploadZip } from "../upload.ts";
 import { noteFile } from "../notes.ts";
 import { isMaeKey } from "../tickets.ts";
@@ -430,12 +431,32 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       return null;
     }
     if (given === undefined && pending.some((a) => a.status === "uploading")) { setError("Still uploading. It'll be ready in a moment."); return null; }
-    const message = (given ?? text).trim();
+    const said = (given ?? text).trim();
+    // /goal, /pause, /resume: for the outpost itself (goal.ts). "/goal <what>" is also the message: it's sent as the goal.
+    const typed = given === undefined ? parseTyped(said) : null;
+    if (typed && typed.do !== "goal") {
+      try {
+        if (typed.do === "pause" || typed.do === "resume") say({ do: "command", name: typed.do, arg: typed.do === "pause" ? typed.reason : undefined });
+        else {
+          const goal = followed && S?.goals?.find((g) => g.thread === followed.id);
+          if (typed.do === "goal-show") tell(store, goal ? `Goal: ${goal.goal} (${goalStanding(goal, !!S?.paused)})` : "No goal here. Set one with /goal and what you want reached: the work carries on until a small model judges it met.");
+          else if (!followed || !goal) { setError("This conversation has no goal. Set one with /goal and what you want reached."); return null; }
+          else {
+            await api("/api/goal", { thread: followed.id, action: typed.do === "goal-clear" ? "clear" : "resume", ...(typed.do === "goal-resume" && typed.maxRounds ? { maxRounds: typed.maxRounds } : {}) });
+            tell(store, typed.do === "goal-clear" ? "Goal cleared." : "Goal taken up again.");
+          }
+        }
+        setText(""); setMention(null); refresh();
+      } catch (e) { setError(errorText(e)); }
+      return null;
+    }
+    const message = typed ? typed.goal : said;
+    if (typed) now = false; // a goal is a turn of its own, judged when it ends: it isn't said into a run that's going
     const attachments = given !== undefined ? [] : pending.filter((a) => a.status === "ready").map(({ kind, name, path, url }) => ({ kind, name, path, url }));
     if (!message && !attachments.length) return null;
     setError("");
     // /new, /focus, /good…: for the page itself, not the crew.
-    const command = attachments.length || given !== undefined ? null : parseCommand(message);
+    const command = attachments.length || given !== undefined || ownLine(message) ? null : parseCommand(message);
     if (command) {
       say({ do: "command", name: command.name, arg: command.arg || undefined });
       setText("");
@@ -469,6 +490,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     setSending(true);
     try {
       const r = await api<SendResult>("/api/send", given !== undefined ? { text: message, attachments, ...(context?.replyTo ? { replyTo: context.replyTo } : { project: context?.project }) } : { text: message, attachments, ...(chainTo ? { after: chainTo } : {}),
+        ...(typed ? { goal: typed.maxRounds ? { maxRounds: typed.maxRounds } : true } : {}),
         ...(optIn && !followedProject && chatModelNow !== undefined ? { model: chatModelNow } : {}),
         ...(follows ? { replyTo: follows, use: usedIn(picks), without: leftOut(picks) } : { workspaces: chosenWorkspaces(picks), use: usedIn(picks), without: leftOut(picks), project: context?.project }) });
       onSent?.(r);
@@ -486,7 +508,8 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
       }
       if (r.after) tell(store, queue ? `Queued: it goes once the ${w("expedition")} has finished.` : `Waiting: it starts when "${afterLive?.name ?? "the other work"}" has finished.`);
       else if (r.position > 0) {
-        tell(store, S?.pausedUntil
+        tell(store, S?.paused ? `Queued (#${r.position}): everything is paused, so it starts when you resume`
+          : S?.pausedUntil
           ? `Queued (#${r.position}): it starts when your plan's limit resets`
           : `Queued (#${r.position}): ${S?.parallel ?? 3} ${w("expeditions")} are already running, so it starts when one finishes`);
       }

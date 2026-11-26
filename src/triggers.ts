@@ -26,6 +26,7 @@ import { conversationOf, feedbackText, freshPulls, type Pull } from "./pulls.js"
 import { writeJsonAtomic } from "./atomic.js";
 import { gh } from "./github.js";
 import { w } from "./words.js";
+import { isPaused } from "./pause.js";
 
 export const TRIGGERS_PATH = "camp/triggers.json";
 export const POLL_MS = 5 * 60_000;
@@ -162,6 +163,9 @@ export async function briefFor(t: Trigger, item: TriggerItem, sources: Sources =
 // One poll: the items that are new since last time (at most a few), with the trigger's record
 // updated. The first poll of a trigger only notes what's there.
 export async function pollTrigger(t: Trigger, sources: Sources = defaultSources): Promise<TriggerItem[]> {
+  // Everything is paused (pause.ts): nothing is looked for, so nothing is marked as seen, and
+  // whatever arrives meanwhile starts its conversation on the first poll after you resume.
+  if (isPaused()) return [];
   let items: TriggerItem[];
   try {
     if (t.kind === "github-issue") {

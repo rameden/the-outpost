@@ -35,7 +35,9 @@ import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, remov
 import { PACKS, RETIRED } from "./packs.js";
 import { say, w as word, withPack } from "./words.js"; // "word": w is what a piece of queued work is called here
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
-import { loadJobs, saveJobs } from "./jobs.js";
+import { loadJobs, saveJobs, claimJob, nextRunOf, scriptApproved, approveScript, saveJobByHand } from "./jobs.js";
+import { isPaused, pause, pauseState, resume } from "./pause.js";
+import { afterRound, clearGoal, continuationPrompt, goalFor, loadGoals, nextRound, resumeGoal, runEndsGoal, setGoal, stopGoal, type Goal } from "./goals.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
 import { draftPullRequest, updatePullRequest, ticketOf, prStates, needsYou, checkPullRequests, markSeen, startPrWatch, checkPulls, freshPulls, pulls as knownPulls } from "./pulls.js";
 import { briefDays, briefDue, readBrief, writeBrief } from "./brief.js";
@@ -190,7 +192,8 @@ const startedPlans = new Set<string>();
 // finish cleanly (how it ended), so it stays put until you start it anyway or take it off.
 // said: a message's words in full, and retext: change them while it waits (null if they can't be).
 type Work = { id: string; label: string; run: (signal: AbortSignal, id: string, steering: Steering) => Promise<unknown>; controller?: AbortController; steering: Steering;
-  task?: string; after?: string; held?: string; said?: string; retext?: (said: string) => string | null };
+  task?: string; after?: string; held?: string; said?: string; retext?: (said: string) => string | null;
+  thread?: string }; // the conversation it's a turn of, when it's one a goal could be set on (goals.ts)
 const queue: Work[] = [];
 const running = new Map<string, Work>();
 
@@ -207,6 +210,8 @@ function enqueue(work: Omit<Work, "id" | "steering">): Work {
 }
 
 // While your plan's usage limit is used up, nothing new starts; the queue picks up at the reset.
+// The same while everything is paused (camp/PAUSE, pause.ts): what's queued, chained or sent
+// meanwhile waits here, what's running runs on, and it all starts when you resume.
 let resumeTimer: NodeJS.Timeout | null = null;
 function drain() {
   const paused = pausedUntil();
@@ -215,13 +220,14 @@ function drain() {
     resumeTimer = setTimeout(drain, Math.min(paused - Date.now() + 1000, 2_000_000_000));
     resumeTimer.unref();
   }
-  while (!paused && running.size < parallelLimit()) {
+  while (!paused && !isPaused() && running.size < parallelLimit()) {
     const at = queue.findIndex(ready);
     if (at < 0) break;
     const w = queue.splice(at, 1)[0];
     w.controller = new AbortController();
     running.set(w.id, w);
     w.run(w.controller.signal, w.id, w.steering)
+      .then((r) => (w.thread ? goalAfter(w, r) : undefined))
       .catch((err: any) => console.error(`💥 ${w.label}: ${err.message}`))
       .finally(() => {
         running.delete(w.id);
@@ -245,6 +251,12 @@ function stopWork(id?: string): string[] {
     const [w] = queue.splice(waiting, 1);
     unchain(queue, w); // what was queued behind it keeps waiting for what it waited for
     stopped.push(w.label);
+    // Its goal has nothing left to carry it on: one whose conversation never started goes with
+    // it, and any other ends here, to be taken up again when you say.
+    if (w.thread && goalFor(w.thread)?.status === "active" && !threadBusy(w.thread)) {
+      if (allTurns().some((t) => t.thread === w.thread)) stopGoal(w.thread, runEndsGoal("stopped")!);
+      else clearGoal(w.thread);
+    }
   }
   for (const w of running.values()) {
     if (id && w.id !== id) continue;
@@ -265,10 +277,24 @@ function queuedJob(name: string) {
   return [...running.values(), ...queue].some((w) => w.label === `job:${name}`);
 }
 
+// Every tick. Each due job is claimed before it's queued (claimJob stamps its last run, which
+// moves its next run on), so whatever happens between here and the run starting, the same slot is
+// never queued twice: not by the next tick, not by a watcher, not after a crash and restart.
+let wasPaused = isPaused();
 setInterval(() => {
   try {
+    // camp/PAUSE can come and go by hand: the page hears of it, and a pause lifted starts the queue again.
+    if (isPaused() !== wasPaused) {
+      wasPaused = !wasPaused;
+      emit({ type: "changed", what: "pause" });
+      if (!wasPaused) afterResume();
+    }
     if (!claimScheduler("ui")) return; // `npm run watch` already has the jobs
-    for (const job of dueJobs()) if (!queuedJob(job.name)) enqueue({ label: `job:${job.name}`, run: (signal, id) => runJob(job, signal, id) });
+    for (const due of dueJobs()) {
+      if (queuedJob(due.name)) continue;
+      const job = claimJob(due.name);
+      if (job) enqueue({ label: `job:${job.name}`, run: (signal, id) => runJob(job, signal, id, { claimed: true }) });
+    }
   } catch (e: any) {
     console.error(`💥 scheduled jobs: ${e?.message ?? e}`); // a timer has nobody to catch for it: one bad tick mustn't end the camp
   }
@@ -347,6 +373,77 @@ function startFromPull(t: Trigger, item: TriggerItem, brief: string, by = `trigg
   return { id: w.id, thread: thread?.thread ?? w.id };
 }
 
+// ---------- A goal on a conversation (goals.ts) ----------
+// When a run in a conversation with a goal ends, the judge is asked and, if there's more to do,
+// the next round goes out as a reply in that conversation, through the same queue as a message of
+// yours: so the parallel limit, the usage pause, the budget and Stop all apply to it as usual.
+const threadBusy = (thread: string, but?: string) => [...running.values(), ...queue].some((x) => x.thread === thread && x.id !== but);
+async function goalAfter(w: Work, r: unknown) {
+  const result = r as { status?: unknown; text?: unknown } | null | undefined;
+  if (!w.thread || !result || typeof result.status !== "string") return;
+  await goalCheck(w.thread, { id: w.id, status: result.status, text: typeof result.text === "string" ? result.text : "" });
+}
+async function goalCheck(thread: string, run: { id: string; status: string; text: string }) {
+  if (goalFor(thread)?.status !== "active") return;
+  // You (or a chain) already have something on its way in this conversation: how that run ends decides.
+  if (threadBusy(thread, run.id)) return;
+  const turn = allTurns().find((t) => t.expedition === run.id);
+  // A plan you approved to start later is yours to start: no round is sent past it.
+  const next = await afterRound(thread, run, { project: projectOf(thread).id, paused: isPaused(), waiting: !!turn?.parked && !turn.parked.aside });
+  const goal = goalFor(thread);
+  const started = next && !threadBusy(thread, run.id) ? sendGoalRound(next, run.id) : null;
+  if (goal?.lastReason && !goal.owed) {
+    const text = started ? `Not there yet: ${goal.lastReason} Round ${goal.rounds} of ${goal.maxRounds} is starting.`
+      : goal.status === "done" ? `Goal reached. ${goal.lastReason}`
+      : goal.status === "blocked" ? `The goal needs you. ${goal.lastReason}`
+      : goal.status === "stopped" ? `The goal stopped. ${goal.lastReason}` : "";
+    if (text) emit({ type: "notice", who: "Goal", emoji: "🎯", depth: 0, text, expeditionId: started ?? run.id });
+  }
+}
+// One more round: a reply in the conversation, to whoever it's with, saying keep going.
+function sendGoalRound(goal: Goal, lastRun: string): string | null {
+  const found = threadFor(lastRun, isRunning);
+  if (!found) return null;
+  const project = projectOf(found.thread).id;
+  const brief = continuationPrompt(goal);
+  const shown = `🎯 Goal, round ${goal.rounds} of ${goal.maxRounds}: ${goal.goal}`;
+  const where = { project, links: found.links ?? [], ...(found.without?.length ? { without: found.without } : {}), ...(found.model ? { model: found.model } : {}) };
+  const label = "goal", task = shown.replace(/\s+/g, " ").slice(0, 90);
+  const w = found.agent === CHAT
+    ? enqueue({ label, task, thread: found.thread, run: (signal, id, steering) =>
+        runChat(brief, { signal, id, replyTo: lastRun, steering, stillRunning: isRunning, links: where.links, without: where.without, model: where.model }) })
+    : found.direct
+    ? enqueue({ label, task, thread: found.thread, run: async (signal, id, steering) => {
+        const r = await runDirect(found.agent, brief, "direct", undefined, signal, id, lastRun, { steering, stillRunning: isRunning, ...where, by: "goal" });
+        if (r) void afterRun({ run: id, who: found.agent, project, task: goal.goal, reply: r.text });
+        if (r) void runFinished(id, r.status).catch(() => { /* the ticket goes without */ });
+        return r;
+      } })
+    : enqueue({ label, task, thread: found.thread, run: async (signal, id, steering) => {
+        const r = await runExpedition(brief, { signal, id, replyTo: lastRun, steering, stillRunning: isRunning, displayTask: shown, ...where, by: "goal" });
+        void afterRun({ run: id, who: "quartermaster", project, task: goal.goal, reply: r.text });
+        void runFinished(id, r.status).catch(() => { /* the ticket goes without */ });
+        return r;
+      } });
+  return w.id;
+}
+// Start a round yourself: a goal set on a conversation that's standing still, or one taken up again.
+function kickGoal(thread: string): boolean {
+  if (threadBusy(thread)) return false;
+  const last = allTurns().filter((t) => t.thread === thread && !t.aside).pop();
+  const goal = last ? nextRound(thread) : null;
+  return !!goal && !!sendGoalRound(goal, last!.expedition);
+}
+// The pause is lifted: the queue starts again, and runs that ended meanwhile get their verdict.
+function afterResume() {
+  drain();
+  for (const g of loadGoals()) {
+    if (g.status !== "active" || !g.owed) continue;
+    const turn = allTurns().find((t) => t.expedition === g.owed);
+    if (turn) void goalCheck(g.thread, { id: turn.expedition, status: turn.status, text: turn.reply }).catch((e) => console.error(`💥 goal: ${e?.message ?? e}`));
+  }
+}
+
 // ---------- What the camp does unasked: the morning brief and the weekly retro ----------
 // Both are worked out from the record (brief.ts, retro.ts). The brief calls no model; the retro
 // makes one small call per project per week, and only proposes: you approve what's kept.
@@ -360,15 +457,15 @@ const lessonsLine = (n: number) => (n ? ` ${n} ${n === 1 ? "lesson is" : "lesson
 let nighting = false;
 setInterval(() => {
   try {
-    if (briefDue()) void writeBrief({ running: isRunning, waiting: waitingOnYou(), announce: true }).catch((e) => console.error(`💥 morning brief: ${e?.message ?? e}`));
-    if (!retroing && !pausedUntil()) {
+    if (!isPaused() && briefDue()) void writeBrief({ running: isRunning, waiting: waitingOnYou(), announce: true }).catch((e) => console.error(`💥 morning brief: ${e?.message ?? e}`));
+    if (!retroing && !pausedUntil() && !isPaused()) {
       const due = retrosDue();
       if (due.length) {
         retroing = true;
         void (async () => { for (const r of due) await runRetro(r.id, r.week).catch((e) => console.error(`💥 retro: ${e?.message ?? e}`)); })().finally(() => { retroing = false; });
       }
     }
-    if (!debriefing && !pausedUntil()) {
+    if (!debriefing && !pausedUntil() && !isPaused()) {
       const due = debriefsDue().filter((key) => Date.now() - (debriefFailed.get(key) ?? 0) > 3_600_000);
       if (due.length) {
         debriefing = true;
@@ -383,7 +480,7 @@ setInterval(() => {
       }
     }
     // The night shift (nightshift.ts): off unless switched on, and only when nothing else is going on.
-    if (!nighting && nightDue(new Date(), { busy: running.size > 0 || queue.length > 0 || retroing || debriefing })) {
+    if (!nighting && !isPaused() && nightDue(new Date(), { busy: running.size > 0 || queue.length > 0 || retroing || debriefing })) {
       nighting = true;
       void runNight().catch((e) => console.error(`💥 night shift: ${e?.message ?? e}`)).finally(() => { nighting = false; });
     }
@@ -420,7 +517,7 @@ function homePage(project?: string) {
 export type HomePage = ReturnType<typeof homePage>;
 let polling = false;
 async function pollTriggers() {
-  if (polling || pausedUntil()) return;
+  if (polling || pausedUntil() || isPaused()) return;
   polling = true;
   try {
     for (const t of loadTriggers().filter((x) => x.enabled)) {
@@ -632,7 +729,10 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
     jobsRunBy: schedulerOwner()?.owner ?? null, // "ui" (here), "watch" (a terminal or background watcher), or nobody yet
     phone: !!phoneConfig(),
     asks: [...pendingAsks.entries()].map(([id, { q }]) => ({ id, ...q })),
-    jobs: loadJobs(),
+    paused: pauseState(), // everything is paused by you (camp/PAUSE): { since?, reason? }, or null
+    goals: loadGoals(),
+    // next: when it next comes due, worked out here so the page needn't know cron. scriptApproved: false means its script won't run until you approve it.
+    jobs: loadJobs().map((j) => ({ ...j, next: j.enabled ? nextRunOf(j)?.toISOString() ?? null : null, ...(j.script ? { scriptApproved: scriptApproved(j) } : {}) })),
     triggers: loadTriggers().map(({ seen, ...t }) => ({ ...t, seen: seen?.length ?? 0 })),
     quests: none(() => all.slice(-80).reverse().map((q) => ({ ...q, cost: questCost(q) }))),
     spend: spending(all),
@@ -1220,6 +1320,20 @@ const server = http.createServer(async (req, res) => {
       const position = queue.indexOf(w) + 1; // 0: it started right away
       const conversation = replyTo && thread ? thread.thread : w.id; // a new conversation is named after its first run
       if (isNew) fileConversation(conversation, project.id);
+      // { goal: true | { maxRounds } }: this message is a goal for the conversation (goals.ts):
+      // after each run, a judge decides whether it's met, and the conversation carries on until it is.
+      if (!aside) w.thread = conversation;
+      if (body.goal && !aside) {
+        const goalText = (said: string) => (direct ? said.replace(/^@\w+\s+/, "") : said);
+        let goal = setGoal(conversation, goalText(text), typeof body.goal === "object" ? body.goal.maxRounds : undefined);
+        // Reworded while it waits in the queue: the goal is what the message says now.
+        const retext = w.retext;
+        if (retext) w.retext = (said) => {
+          const refused = retext(said);
+          if (!refused && goalFor(conversation)?.set === goal.set) goal = setGoal(conversation, goalText(said), goal.maxRounds);
+          return refused;
+        };
+      }
       // Started from a ticket, with write-back on: say so on the ticket (and move it, if you named a status).
       if (isNew && jira) void writeBack("start", jira, { branch: Object.values(workspaces ?? {})[0]?.branch }).then((note) => { if (note) emit({ type: "notice", who: "Jira", emoji: "🔖", depth: 0, text: note, expeditionId: w.id }); });
       // Started from an Outpost ticket: it's in progress now (unless it was already further along).
@@ -1853,6 +1967,34 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, ...r });
     }
 
+    // Pause everything, or resume (pause.ts). { on: true, reason? } stops anything new from
+    // starting; what's running carries on. { on: false } lifts it, and the queue starts again.
+    if (url.pathname === "/api/pause") {
+      if (body.on) { pause(typeof body.reason === "string" ? body.reason : undefined); wasPaused = true; }
+      else { resume(); wasPaused = false; afterResume(); }
+      emit({ type: "changed", what: "queue" });
+      return send(res, 200, { ok: true, paused: pauseState() });
+    }
+
+    // A conversation's goal (goals.ts). { thread, action: "set", goal, maxRounds? } sets one and,
+    // if nothing is running there, starts the first round; "resume" takes an ended one up again
+    // with a fresh count; "clear" removes it (a round already running finishes, and no more follow).
+    if (url.pathname === "/api/goal") {
+      const thread = String(body.thread ?? "");
+      if (body.action === "clear") { clearGoal(thread); return send(res, 200, { ok: true, goal: null }); }
+      if (!allTurns().some((t) => t.thread === thread)) return send(res, 404, { error: "That conversation can't be found." });
+      if (body.action === "set") {
+        const goal = typeof body.goal === "string" ? body.goal.trim() : "";
+        if (!goal) return send(res, 400, { error: "Say what the goal is." });
+        setGoal(thread, goal, body.maxRounds);
+        kickGoal(thread);
+      } else if (body.action === "resume") {
+        if (!resumeGoal(thread, body.maxRounds)) return send(res, 404, { error: "This conversation has no goal to resume." });
+        kickGoal(thread);
+      } else return send(res, 400, { error: "Unknown action" });
+      return send(res, 200, { ok: true, goal: goalFor(thread) });
+    }
+
     // "Try anyway": start queued work even though the plan's limit was reported as used up.
     if (url.pathname === "/api/limits/resume") {
       resumeNow();
@@ -1984,6 +2126,12 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === "/api/jobs") {
       const { name, action } = body;
+      // { action: "save", job: { name, schedule, timezone?, task, script?, noAgent?, skipExit?, contextFrom?, watch? } }:
+      // a new job, or an edit of one. It's you saving it, so its script is approved as saved.
+      if (action === "save") {
+        const saved = saveJobByHand({ ...(body.job && typeof body.job === "object" ? body.job : {}), ...(typeof name === "string" ? { name } : {}) });
+        return "error" in saved ? send(res, 400, saved) : send(res, 200, { ok: true });
+      }
       const jobs = loadJobs();
       const job = jobs.find((j) => j.name === name);
       if (!job) return send(res, 404, { error: `No job named "${name}"` });
@@ -1991,7 +2139,13 @@ const server = http.createServer(async (req, res) => {
         saveJobs(jobs.map((j) => (j.name === name ? { ...j, enabled: action === "enable" } : j)));
       } else if (action === "delete") {
         saveJobs(jobs.filter((j) => j.name !== name));
+        approveScript(name);
+      } else if (action === "approve") {
+        // The script was put in (or changed) outside mission control: this is you saying it may run as it now reads.
+        approveScript(name, job.script);
+        emit({ type: "changed", what: "jobs" });
       } else if (action === "run") {
+        if (isPaused()) return send(res, 409, { error: "Outpost is paused: resume it to run a job." });
         if (!queuedJob(name)) enqueue({ label: `job:${name}`, run: (signal, id) => runJob(job, signal, id, { asked: true }) });
       } else {
         return send(res, 400, { error: "Unknown action" });

@@ -19,6 +19,8 @@ import { runExpedition, runDirect } from "./quartermaster.js";
 import { pendingSkills, reviewPending } from "./forge.js";
 import { formatQuests } from "./questlog.js";
 import { describeJobs } from "./jobs.js";
+import { isPaused, pause, pausedNote, resume } from "./pause.js";
+import { continuationPrompt, decide, judgeGoal, roundsFrom, runEndsGoal, type Goal } from "./goals.js";
 import { wikiIndex } from "./wiki.js";
 import { attachConsole } from "./events.js";
 import { randomUUID } from "node:crypto";
@@ -131,6 +133,16 @@ const CLI: Handlers<"cli"> = {
   review: () => reviewPending(rl),
   log: () => console.log(`\n📒 ${w("Log")}\n${formatQuests()}`),
   jobs: () => console.log(`\n⏰ ${describeJobs()}`),
+  // /pause [why]: nothing new starts anywhere in this outpost (here, the page, the watcher) until /resume.
+  pause: (arg) => console.log(`⏸  ${pausedNote(pause(arg || undefined))} Type /resume to carry on.`),
+  resume: () => console.log(resume() ? "▶️  Resumed: jobs, triggers and queued work start again." : "Outpost wasn't paused."),
+  // /goal [rounds] <goal>: the request is a goal. The loop is the same one the page runs (goals.ts).
+  goal: (arg) => {
+    const aim = arg.match(/^(?:(\d+)\s+)?([\s\S]+)$/);
+    if (!aim) return console.log("Usage: /goal [rounds] <goal>");
+    if (isPaused()) return console.log(`⏸  ${pausedNote()} Type /resume to carry on.`);
+    return goalLoop(aim[2].trim(), roundsFrom(aim[1]));
+  },
   wiki: () => console.log(`\n${wikiIndex()}`),
   // /runtime [claude-code | api]
   runtime: (arg) => {
@@ -262,6 +274,7 @@ async function handle(input: string) {
 
 // A request: to one crew member (@name …), else the Quartermaster. replyTo continues that conversation.
 async function send(text: string, replyTo?: string) {
+  if (isPaused()) return console.log(`⏸  ${pausedNote()} Type /resume to carry on.`);
   const paused = pausedUntil();
   if (paused && campRuntime() === "claude-code") console.log(`⏸  ${pauseMessage(paused)} (Trying anyway.)`);
 
@@ -290,6 +303,27 @@ async function send(text: string, replyTo?: string) {
   if (workspaces === null) return;
   if (inProject && !replyTo) fileConversation(id, inProject);
   await stoppable((signal) => runExpedition(content, { attached, signal, id, replyTo, workspaces, ...(inProject ? { project: inProject } : {}) }));
+  announcePending();
+}
+
+// /goal: run the request, then keep the conversation going until the judge says the goal is met,
+// the crew needs you, the rounds run out, or you stop it (Ctrl+C) or pause the outpost.
+async function goalLoop(text: string, maxRounds: number) {
+  let goal: Goal = { thread: "", goal: text, status: "active", rounds: 0, maxRounds, set: new Date().toISOString() };
+  let replyTo: string | undefined;
+  for (;;) {
+    const id = (lastId = randomUUID());
+    if (inProject && !replyTo) fileConversation(id, inProject);
+    const prev = replyTo;
+    const r = await stoppable((signal) => runExpedition(prev ? continuationPrompt(goal) : text, { signal, id, replyTo: prev, ...(prev ? { by: "goal" } : {}), ...(inProject ? { project: inProject } : {}) }));
+    replyTo = id;
+    const ended = runEndsGoal(r.status) ?? (isPaused() ? pausedNote() : null);
+    if (ended) { console.log(`\n🎯 The goal stopped here. ${ended}`); break; }
+    const next = decide(goal, await judgeGoal(text, r.text, inProject ? { project: inProject } : {}));
+    goal = next.goal;
+    if (!next.next) { console.log(`\n🎯 ${goal.status === "done" ? "Goal reached." : goal.status === "blocked" ? "The goal needs you." : "The goal stopped."} ${goal.lastReason ?? ""}`); break; }
+    console.log(`\n🎯 Not there yet: ${goal.lastReason ?? ""} Round ${goal.rounds} of ${goal.maxRounds}.`);
+  }
   announcePending();
 }
 

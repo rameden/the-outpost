@@ -224,6 +224,48 @@ test("a message queued behind a run can be changed before it starts, and taking 
   assert.equal(await stop(c), 0);
 });
 
+test("while everything is paused a message waits, and its goal follows it: reworded with it, gone when it's taken off", async (t) => {
+  const { startFakeApi } = await import("./helpers/fake-api.ts");
+  const fake = await startFakeApi(() => ({ text: "All done." }));
+  t.after(() => fake.close());
+  const c = await start({ ANTHROPIC_BASE_URL: fake.url });
+  const post = async (path: string, body: object) => {
+    const r = await fetch(`http://127.0.0.1:${c.port}${path}`, { method: "POST", headers: { "x-camp-token": c.token, "content-type": "application/json" }, body: JSON.stringify(body) });
+    return { status: r.status, json: await r.json() as any };
+  };
+  const state = async () => (await (await get(c, "/api/state")).json()) as { paused: { reason?: string } | null; queued: { id: string }[]; goals: { thread: string; goal: string; status: string; maxRounds: number }[] };
+
+  assert.equal((await post("/api/pause", { on: true, reason: "a test" })).status, 200);
+  assert.equal((await state()).paused?.reason, "a test");
+  const a = (await post("/api/send", { text: "Ship the importer", goal: { maxRounds: 3 } })).json as { id: string; thread: string };
+  let s = await state();
+  assert.ok(s.queued.some((q) => q.id === a.id), "it waits in the queue");
+  assert.deepEqual(s.goals.map((g) => [g.thread, g.goal, g.status, g.maxRounds]), [[a.thread, "Ship the importer", "active", 3]]);
+
+  assert.equal((await post("/api/queue/edit", { id: a.id, text: "Ship the importer, with tests" })).status, 200);
+  assert.equal((await state()).goals[0].goal, "Ship the importer, with tests", "the goal is what the message says now");
+
+  // Taken off before it ever started: there's no conversation for the goal to be on.
+  assert.equal((await post("/api/stop", { id: a.id })).status, 200);
+  assert.deepEqual((await state()).goals, []);
+
+  // A goal can be cleared while its first message still waits; the message itself stays.
+  const b = (await post("/api/send", { text: "Tidy the notes", goal: true })).json as { id: string; thread: string };
+  assert.equal((await post("/api/goal", { thread: b.thread, action: "clear" })).status, 200);
+  s = await state();
+  assert.deepEqual(s.goals, []);
+  assert.ok(s.queued.some((q) => q.id === b.id));
+
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(fake.seen.length, 0, "nothing reached a model while paused");
+  assert.equal((await post("/api/pause", { on: false })).status, 200);
+  const asked = () => fake.seen.map((x) => JSON.stringify(x.body.messages));
+  for (let i = 0; i < 200 && !asked().some((m) => m.includes("Tidy the notes")); i++) await new Promise((r) => setTimeout(r, 50));
+  assert.ok(asked().some((m) => m.includes("Tidy the notes")), "resumed: what waited starts");
+  assert.ok(!asked().some((m) => m.includes("Ship the importer")), "and what was taken off never went");
+  assert.equal(await stop(c), 0);
+});
+
 // ---------- LAN mode ----------
 import http from "node:http";
 import { networkInterfaces } from "node:os";

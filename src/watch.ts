@@ -12,7 +12,8 @@ import { rl } from "./tools.js";
 import { attachConsole } from "./events.js";
 import { CREW } from "./crew.js";
 import { say, w } from "./words.js";
-import { loadJobs } from "./jobs.js";
+import { claimJob, loadJobs } from "./jobs.js";
+import { isPaused, pausedNote } from "./pause.js";
 import { claimScheduler, dueJobs, runJob, schedulerOwner } from "./scheduler.js";
 
 const TICK_MS = 30_000;
@@ -27,7 +28,12 @@ async function runDue() {
     return;
   }
   standingBy = false;
-  for (const job of dueJobs()) await runJob(job); // one at a time
+  // One at a time. Each is claimed first (its next run time moves on before it starts), so a crash
+  // part-way, or a second watcher, never runs the same slot again.
+  for (const due of dueJobs()) {
+    const job = claimJob(due.name);
+    if (job) await runJob(job, undefined, undefined, { claimed: true });
+  }
 }
 
 async function main() {
@@ -36,6 +42,7 @@ async function main() {
   if (runIdx >= 0) {
     const job = loadJobs().find((j) => j.name === args[runIdx + 1]);
     if (!job) console.log(`No job named "${args[runIdx + 1]}".`);
+    else if (isPaused()) console.log(`⏸  ${pausedNote()}`);
     else await runJob(job, undefined, undefined, { asked: true });
     return;
   }

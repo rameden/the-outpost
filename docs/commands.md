@@ -17,6 +17,8 @@ In `npm run cli`, type a request for the Quartermaster, or:
 | `/good [note]` · `/bad [note]` | Rate the last answer |
 | `/diff` · `/undo` | What the last expedition changed; put those files back |
 | `/review` | Approve or reject skills the Quartermaster proposed |
+| `/goal [rounds] <goal>` | Work towards a goal: after each run a small model judges whether it's met, and the crew carries on until it is (10 rounds unless you say) |
+| `/pause [why]` · `/resume` | Pause everything: no job, trigger, queued or new request starts (what's running finishes) until `/resume` |
 | `/log` · `/jobs` · `/wiki` · `/memory <name>` | Recent quests; scheduled jobs; the wiki index; what a crew member remembers |
 | `/model [name model [effort] \| name auto[:economy\|balanced\|quality] \| name reset]` · `/turns <name> <n \| reset>` | A crew member's model (or Auto), or how many turns one run may take |
 | `/runtime [claude-code \| api]` · `/budget [dollars \| off]` | What runs the crew; a spending cap per expedition |

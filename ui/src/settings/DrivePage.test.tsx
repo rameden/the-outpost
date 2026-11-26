@@ -157,13 +157,37 @@ test("Automatic work: each row says what it does in one line, and keeps the rest
   expect(more.textContent).toMatch(/no model is called/);
   // Every row has both: the line, and the longer account.
   const rows = [...document.querySelectorAll(".unasked-page .set-row")];
-  expect(rows.map((r) => r.querySelector(".set-label > b")!.textContent)).toEqual(["Morning brief", "AI news in the brief", "Weekly retro", "Ticket debrief", "Night shift", "Your pull requests", "Feedback on a pull request starts work"]);
+  expect(rows.map((r) => r.querySelector(".set-label > b")!.textContent)).toEqual(["Pause everything", "Morning brief", "AI news in the brief", "Weekly retro", "Ticket debrief", "Night shift", "Your pull requests", "Feedback on a pull request starts work"]);
   for (const r of rows) {
     expect(r.querySelector(".set-label > p")!.textContent!.length).toBeGreaterThan(20);
     expect(r.querySelectorAll("details.set-more > summary")).toHaveLength(1);
     expect((r.querySelector("details.set-more") as HTMLDetailsElement).open).toBe(false);
   }
   expect(screen.getByText(/^What the camp does before you ask/).textContent).toMatch(/nothing is kept or sent until you approve it\.$/);
+});
+
+test("Pause everything: one switch at the top of Automatic work, and the row says so while it's on", async () => {
+  const asked = camp({ "/api/home": page(), "/api/pause": { ok: true } });
+  const refresh = vi.fn();
+  const { rerender } = render(<AutomaticPage S={S()} refresh={refresh} onOpenSection={vi.fn()} />);
+  const row = (await screen.findByText("Pause everything")).closest(".set-row") as HTMLElement;
+  expect(row.className).toBe("set-row pause-row");
+  expect(row.textContent).toMatch(/scheduled jobs, triggers, queued and chained requests, goals/);
+  expect(row.textContent).toMatch(/Work that's already running is left to finish/);
+  const off = within(row).getByRole("checkbox", { name: "Running" }) as HTMLInputElement;
+  expect(off.checked).toBe(false);
+  fireEvent.click(off);
+  await waitFor(() => expect(refresh).toHaveBeenCalled());
+  expect(asked).toContain(`POST /api/pause ${JSON.stringify({ on: true })}`);
+
+  rerender(<AutomaticPage S={S({ paused: { since: "2026-11-13T09:00:00.000Z", reason: "deploying tonight" } })} refresh={refresh} onOpenSection={vi.fn()} />);
+  const paused = screen.getByText("Pause everything").closest(".set-row") as HTMLElement;
+  expect(paused.className).toBe("set-row pause-row on");
+  expect(paused.textContent).toMatch(/Paused since .*2026.* \(deploying tonight\)\. Nothing new starts until you resume\./);
+  const on = within(paused).getByRole("checkbox", { name: "Paused" }) as HTMLInputElement;
+  expect(on.checked).toBe(true);
+  fireEvent.click(on);
+  await waitFor(() => expect(asked).toContain(`POST /api/pause ${JSON.stringify({ on: false })}`));
 });
 
 test("Activity's Automatic work: what's on and what's off, read-only, with the way to its switches in Settings", async () => {

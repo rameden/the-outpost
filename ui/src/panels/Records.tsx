@@ -12,6 +12,7 @@ import { Markdown } from "../markdown.tsx";
 import type { CampState, Link } from "../types.ts";
 import { ask } from "../components/Confirm.tsx";
 import { complain } from "../components/StatusLine.tsx";
+import { JobForm } from "./JobForm.tsx";
 
 import { w, a as an, cap } from "../words.ts";
 type Panel = { S: CampState; refresh: () => void };
@@ -19,6 +20,8 @@ type Panel = { S: CampState; refresh: () => void };
 // ---------- Jobs ----------
 export function Jobs({ S, refresh }: Panel) {
   const act = (name: string, action: string) => api("/api/jobs", { name, action }).then(refresh, (e) => complain(errorText(e)));
+  const [editing, setEditing] = useState<string | null>(null); // a job's name, or "" for a new one
+  const closeForm = () => { setEditing(null); refresh(); };
   return (
     <>
       <p className="panel-note">
@@ -26,24 +29,33 @@ export function Jobs({ S, refresh }: Panel) {
           ? `The background watcher is running the jobs right now, so ${w("hq")} is standing by.`
           : `Jobs run on schedule while ${w("hq")} is open. To run them with nothing open, use npm run watch:install.`}
         {" "}Quiet runs (nothing new) don't ping you.{S.pausedUntil && <> <b>Paused until your plan's limit resets.</b></>}
+        {S.paused && <> <b>Everything is paused: no job runs until you resume.</b></>}
       </p>
-      {!S.jobs.length ? <Empty title="No scheduled jobs">Ask the {leadName()} for something recurring, like “Every weekday at 08:00, summarize what's new in the wiki.”</Empty> : (
+      {!S.jobs.length ? editing === "" ? null : <Empty title="No scheduled jobs">Ask the {leadName()} for something recurring, like “Every weekday at 08:00, summarize what's new in the wiki.”</Empty> : (
         <ul className="list">
-          {S.jobs.map((j) => (
+          {S.jobs.map((j) => editing === j.name ? <li key={j.name}><JobForm S={S} job={j} done={closeForm} /></li> : (
             <li className="card" key={j.name}>
-              <div className="card-top"><span className="who">⏰ {j.name}</span><time>{j.schedule}</time></div>
-              <div className="meta">{j.lastRun ? `Last ran ${when(j.lastRun)}` : "Hasn't run yet"}</div>
+              <div className="card-top"><span className="who">⏰ {j.name}</span><time>{j.schedule}{j.timezone ? ` · ${j.timezone}` : ""}</time></div>
+              <div className="meta">{j.lastRun ? `Last ran ${when(j.lastRun)}` : "Hasn't run yet"}{j.next ? ` · next ${Date.parse(j.next) <= Date.now() ? "run is due" : when(j.next)}` : ""}
+                {j.contextFrom?.length ? ` · starts from ${j.contextFrom.join(", ")}` : ""}{j.noAgent ? " · no model" : ""}</div>
               <div className="clamp open">{j.task}</div>
+              {j.script && <details><summary>Script{j.skipExit ? ` (exit ${j.skipExit}: nothing to do)` : ""}</summary><pre className="job-script-shown">{j.script}</pre></details>}
+              {j.script && j.scriptApproved === false && (
+                <div className="meta bad" role="alert">This script was added or changed outside this page, so it won't run (and neither will the job) until you approve it as it reads above.
+                  {" "}<button className="btn small" type="button" onClick={() => act(j.name, "approve")}>Approve the script</button></div>
+              )}
               {j.lastReport && <details><summary>Last report</summary><Markdown text={j.lastReport} style={{ marginTop: 6, fontSize: 13.5 }} /><div className="card-actions"><ReadAloud text={j.lastReport} markdown what={`Job report · ${j.name}`} /></div></details>}
               <div className="card-actions">
                 <label className="switch"><input type="checkbox" checked={j.enabled} onChange={(ev) => act(j.name, ev.target.checked ? "enable" : "disable")} /> {j.enabled ? "On" : "Off"}</label>
-                <button className="btn small" type="button" onClick={() => act(j.name, "run")}>Run now</button>
+                <button className="btn small" type="button" disabled={!!S.paused} title={S.paused ? "Everything is paused: resume to run it" : undefined} onClick={() => act(j.name, "run")}>Run now</button>
+                <button className="btn small" type="button" onClick={() => setEditing(j.name)}>Edit</button>
                 <button className="btn small danger" type="button" onClick={async () => { if (await ask({ title: `Delete the job "${j.name}"?`, action: "Delete", danger: true })) void act(j.name, "delete"); }}>Delete</button>
               </div>
             </li>
           ))}
         </ul>
       )}
+      {editing === "" ? <JobForm S={S} done={closeForm} /> : <button type="button" className="btn small" onClick={() => setEditing("")}>Add a job…</button>}
       <Triggers S={S} refresh={refresh} />
     </>
   );

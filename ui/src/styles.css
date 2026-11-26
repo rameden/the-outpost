@@ -3373,3 +3373,27 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 /* A page's tab row wraps on a phone rather than hiding tabs off the right edge. */
 @media (max-width: 640px) { .page-tabs { flex-wrap: wrap; overflow-x: visible; } .page-tabs .tab { padding-inline: 8px; } }
 .gcal-steps { margin: 4px 0 10px; padding-left: 20px; display: grid; gap: 4px; }
+
+/* ---------- Jobs: the editor, and a job's script ---------- */
+.job-form small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.job-form small code { font-size: 11.5px; }
+.job-form .job-script, .job-script-shown { font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12.5px; }
+.job-script-shown { margin: 6px 0 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+.job-form input:disabled { opacity: .6; }
+.job-from { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.job-from legend { padding: 0 4px; color: var(--muted); }
+
+/* ---------- A conversation's goal, above the message box ---------- */
+.goal-bar { pointer-events: auto; margin: 0 clamp(16px, 3vw, 32px) 6px; padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); font-size: 13px; display: grid; gap: 3px; }
+.goal-bar.done { border-color: var(--good, var(--accent)); }
+.goal-bar.blocked, .goal-bar.stopped { border-color: var(--bad); }
+.goal-line { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.goal-what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goal-what b { margin-right: 4px; }
+.goal-standing { flex: none; color: var(--muted); white-space: nowrap; }
+.goal-rounds { flex: none; width: 64px; height: 6px; accent-color: var(--accent); }
+.goal-reason { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .goal-line { flex-wrap: wrap; } .goal-what { flex-basis: 100%; } .goal-rounds { display: none; } }
+
+/* ---------- Settings, Automatic work: everything paused ---------- */
+.pause-row.on { border: 2px solid var(--bad); border-radius: 8px; padding: 10px 12px; }
