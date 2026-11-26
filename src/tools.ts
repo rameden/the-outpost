@@ -39,7 +39,8 @@ export const campMode = { get unattended() { return isUnattended(); } };
 export type ToolOutput = string | Exclude<Anthropic.ToolResultBlockParam["content"], string | undefined>;
 // ctx.opId: the operation id the call was journaled under (oplog.ts), for a tool that can use it as an idempotency key.
 export type Handler = (input: any, ctx?: { opId?: string }) => Promise<ToolOutput>;
-export type Tool = { def: Anthropic.ToolUnion; run?: Handler }; // no `run` = server-side tool
+// outputsOnly: a write_file that is kept to the agent's own outputs folder (it can't change a linked folder).
+export type Tool = { def: Anthropic.ToolUnion; run?: Handler; outputsOnly?: boolean }; // no `run` = server-side tool
 
 // ---------- Camp boundaries ----------
 // File tools only reach inside the camp folder, and each agent's tools are bound to that agent:
@@ -272,6 +273,7 @@ export function writeFileFor(self: string, opts: { outputsOnly?: boolean } = {})
       afterWrite(abs);
       return `Wrote ${content.length} chars to ${path}`;
     },
+    ...(opts.outputsOnly ? { outputsOnly: true } : {}),
   };
 }
 
