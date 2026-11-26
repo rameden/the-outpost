@@ -17,8 +17,10 @@ import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
 import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
 import { Presence } from "./motion.tsx";
-import { hear, COMMANDS } from "./bus.ts";
+import { hear, COMMANDS, pageCommand } from "./bus.ts";
+import { busyProblem, type Handlers } from "../../src/commands.ts";
 import { Palette, type PaletteItem } from "./components/Palette.tsx";
+import type { IconName } from "./components/bits.tsx";
 import { VoiceOn } from "./components/ReadAloud.tsx";
 import { FileViewer } from "./components/FileViewer.tsx";
 import { JiraTicket, type TicketStart } from "./components/JiraPage.tsx";
@@ -34,7 +36,7 @@ import { ProjectDialog } from "./components/ProjectDialog.tsx";
 import { CrewDialog } from "./components/CrewDialog.tsx";
 import { cx, handleOf, leadName, setCrewColors } from "./format.ts";
 import { useSeason, wearPack } from "./themes.ts";
-import { setWords, w, a as an } from "./words.ts";
+import { fillWords, setWords, w, a as an } from "./words.ts";
 import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { Home } from "./components/Home.tsx";
 import { api, errorText } from "./api.ts";
@@ -78,6 +80,18 @@ function Decorations() {
   const season = useSeason();
   return season ? <ErrorBoundary fallback={() => null}><Suspense fallback={null}><Decor season={season} /></Suspense></ErrorBoundary> : null;
 }
+
+// The page's commands' icons in the palette (focus for the rest).
+const COMMAND_ICONS: Record<string, IconName> = {
+  new: "plus", next: "check", today: "hub", orbit: "orbit", trail: "trail", constellation: "constellation", tickets: "flag", ticket: "flag",
+  settings: "gear", memory: "layers", wiki: "book", focus: "focus", files: "panelRight", terminal: "terminal", history: "list", notes: "note", note: "note", layout: "layout",
+};
+// The pages you can go to from the palette, as the history sidebar names them.
+const PAGES: [string, IconName, View][] = [
+  ["Today", "hub", { kind: "home" }], ["All runs", "list", { kind: "all" }], ["Projects", "folder", { kind: "projects" }], ["Tickets", "check", { kind: "tickets" }],
+  ["Activity", "activity", { kind: "activity" }], ["Memory", "layers", { kind: "memory", tab: "list" }], ["Memory: map", "map", { kind: "memory", tab: "map" }],
+  ["Release notes", "bookmark", { kind: "releases" }],
+];
 
 export function App({ store }: { store: FeedStore }) {
   // Settings opens over everything; the last section is remembered. (While it's open, refreshes
@@ -285,7 +299,7 @@ export function App({ store }: { store: FeedStore }) {
   };
 
   // ---------- Getting about from the keyboard ----------
-  // The command palette (⌘P / Ctrl+P), and a file opened over the page from it or from a path in an answer.
+  // The command palette (⌘K or ⌘P; Ctrl+K or Ctrl+P), and a file opened over the page from it or from a path in an answer.
   const closePalette = useCallback(() => setPalette(null), []);
   const [opened, setOpened] = useState<{ root: FileRoot; rel: string; line?: number } | null>(null);
   const closeOpened = useCallback(() => setOpened(null), []);
@@ -334,9 +348,11 @@ export function App({ store }: { store: FeedStore }) {
     const conv = of(ask) ?? (inConversation ? S?.history.conversations.find((c) => c.id === inConversation) : undefined);
     if (conv && view.kind !== "all" && !(view.kind === "conversation" && view.id === conv.id)) setView({ kind: "conversation", id: conv.id });
     let tries = 0;
+    const asked = document.activeElement; // if you've moved the keyboard on by the time it's drawn, it stays where you put it
     const look = () => {
       const card = document.getElementById(`ask-${ask.id}`);
       if (!card) { if (tries++ < 30) setTimeout(look, 50); return; }
+      if (tries && document.activeElement !== asked && document.activeElement !== document.body) return;
       card.scrollIntoView({ block: "center" });
       card.querySelector<HTMLElement>("button.primary, button, input")?.focus();
     };
@@ -394,29 +410,41 @@ export function App({ store }: { store: FeedStore }) {
     openNote(id);
     if (hasNotes) showNotes(true); else { tell(store, "Notes has no zone in your layout yet: pick one for it here."); setLayoutEditor({}); }
   };
-  // One place for everything a typed /command, the palette, or a shortcut can ask for.
+  // One place for everything a typed /command, the palette, or a shortcut can ask for: what each of
+  // the page's commands in the registry (src/commands.ts) does. The type makes sure none is left out.
+  const notesZone = () => { tell(store, "Notes has no zone in your layout yet: pick one for it here."); setLayoutEditor({}); };
+  const commands: Handlers<"ui"> = {
+    help: () => setPalette({ start: "/" }),
+    today: () => goHome(),
+    orbit: (arg) => { setTrail(false); setMapFull(false); setOrbit(arg.trim().toLowerCase() === "demo" ? "demo" : "live"); },
+    trail: (arg) => { setOrbit(false); setMapFull(false); setTrailPick(arg.trim() || undefined); setTrail(true); },
+    new: () => setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" }),
+    focus: () => toggleFocus(),
+    files: () => { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); },
+    terminal: () => toggleTerminal(),
+    history: () => toggleHistory(),
+    notes: () => { if (hasNotes) toggleNotes(); else notesZone(); },
+    note: (arg) => { if (arg.trim()) noteIt(arg, true); else { newNote(); if (hasNotes) showNotes(true); } },
+    find: (arg) => setPalette({ start: arg }),
+    next: () => { if (asks.length || !needs.length) nextDecision(); else goToNeed(needs[0]); },
+    good: (arg) => void rate("up", arg),
+    bad: (arg) => void rate("down", arg),
+    layout: () => setLayoutEditor({}),
+    settings: (arg) => { const s = arg.trim().toLowerCase(); openSettings(isSettingsSection(s) ? s : undefined); },
+    connectors: () => openSettings("connectors"),
+    tickets: () => { setSettings(null); setView({ kind: "tickets" }); },
+    memory: (arg) => { setSettings(null); setView(arg.trim() ? { kind: "memory", tab: "member", member: arg.trim() } : { kind: "memory" }); },
+    wiki: () => { setSettings(null); setView({ kind: "memory" }); },
+    constellation: () => openMap(),
+    ticket: () => setWizard({}),
+  };
   const command = (name: string, arg?: string) => {
-    if (name === "today") goHome();
-    else if (name === "orbit") { setTrail(false); setMapFull(false); setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live"); }
-    else if (name === "trail") { setOrbit(false); setMapFull(false); setTrailPick(arg?.trim() || undefined); setTrail(true); }
-    else if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
-    else if (name === "focus") toggleFocus();
-    else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
-    else if (name === "terminal") toggleTerminal();
-    else if (name === "history") toggleHistory();
-    else if (name === "notes") { if (hasNotes) toggleNotes(); else { tell(store, "Notes has no zone in your layout yet: pick one for it here."); setLayoutEditor({}); } }
-    else if (name === "note") { if (arg?.trim()) noteIt(arg, true); else { newNote(); if (hasNotes) showNotes(true); } }
-    else if (name === "find") setPalette({ start: arg ?? "" });
-    else if (name === "next") { if (asks.length || !needs.length) nextDecision(); else goToNeed(needs[0]); }
-    else if (name === "good") void rate("up", arg);
-    else if (name === "bad") void rate("down", arg);
-    else if (name === "layout") setLayoutEditor({});
-    else if (name === "settings") openSettings();
-    else if (name === "connectors") openSettings("connectors");
-    else if (name === "tickets") { setSettings(null); setView({ kind: "tickets" }); }
-    else if (name === "memory" || name === "wiki") { setSettings(null); setView(arg?.trim() ? { kind: "memory", tab: "member", member: arg.trim() } : { kind: "memory" }); }
-    else if (name === "constellation") openMap();
-    else if (name === "ticket") setWizard({});
+    const c = pageCommand(name);
+    const run = c && (commands as Record<string, (arg: string) => unknown>)[c.name];
+    if (!c || !run) return;
+    const busy = busyProblem(c, convRunning, fillWords);
+    if (busy) return tell(store, busy);
+    run(arg ?? "");
   };
   // The newest of each, for the listeners and the handlers below that are set up once.
   const act = useRef({ command, openPath, toggleFocus, goToNeed, noteIt });
@@ -433,7 +461,9 @@ export function App({ store }: { store: FeedStore }) {
     const onKey = (ev: KeyboardEvent) => {
       const mac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
       const mod = mac ? ev.metaKey && !ev.ctrlKey : ev.ctrlKey && !ev.metaKey;
-      if (mod && !ev.shiftKey && !ev.altKey && ev.code === "KeyP") { ev.preventDefault(); setPalette((p) => (p ? null : { start: "" })); }
+      // ⌘K or ⌘P (Ctrl+K, Ctrl+P). Ctrl+K in the terminal pane is the shell's (cut to the end of the line).
+      const inShell = !mac && ev.target instanceof Element && !!ev.target.closest(".xterm");
+      if (mod && !ev.shiftKey && !ev.altKey && (ev.code === "KeyP" || (ev.code === "KeyK" && !inShell))) { ev.preventDefault(); setPalette((p) => (p ? null : { start: "" })); }
       else if (ev.ctrlKey && ev.shiftKey && !ev.metaKey && !ev.altKey && ev.code === "KeyA") { ev.preventDefault(); act.current.command("next"); }
     };
     addEventListener("keydown", onKey, true);
@@ -442,10 +472,12 @@ export function App({ store }: { store: FeedStore }) {
   useEffect(() => { if (palette) { void loadNotes(); void loadTickets(); } }, [!!palette]); // eslint-disable-line react-hooks/exhaustive-deps
   const notes = useNotes();
   const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
-    ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
-      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "trail" ? "trail" : c.name === "constellation" ? "constellation" : c.name === "memory" ? "layers" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
-      label: c.does, hint: `/${c.name}`, run: () => act.current.command(c.name),
+    // help is the palette itself (with "/"), find is typing here, and good/bad need a note's words.
+    ...COMMANDS.filter((c) => !["help", "find", "good", "bad"].includes(c.name)).map((c): PaletteItem => ({
+      id: `do:${c.name}`, group: "Do", icon: COMMAND_ICONS[c.name] ?? "focus", label: c.does, hint: `/${c.name}${c.arg ? ` ${c.arg}` : ""}`, run: () => act.current.command(c.name),
     })),
+    ...PAGES.map(([label, icon, to]): PaletteItem => ({ id: `page:${label}`, group: "Pages", icon, label, run: () => { setSettings(null); setView(to); } })),
+    ...S.characters.map((c): PaletteItem => ({ id: `crew:${c.id}`, group: "Crew", icon: "users", label: c.name, hint: c.role, run: () => setAgentId(c.id) })),
     ...S.history.conversations.map((c): PaletteItem => ({
       id: `c:${c.id}`, group: "Conversations", icon: "reply", label: c.title, hint: S.history.projects.find((p) => p.id === c.project)?.name, run: () => setView({ kind: "conversation", id: c.id }),
     })),
@@ -461,7 +493,7 @@ export function App({ store }: { store: FeedStore }) {
       id: `m:${p.where}:${i}`, group: "Memory", icon: "layers", label: l.text.length > 80 ? `${l.text.slice(0, 80).trimEnd()}…` : l.text, hint: p.name,
       run: () => { setSettings(null); setView(p.kind === "agent" ? { kind: "memory", tab: "member", member: p.where.slice(6) } : { kind: "memory", tab: "list" }); },
     }))),
-  ], [palette, S?.history, S?.memory, tickets.tickets, notes.notes]);
+  ], [palette, S?.history, S?.memory, S?.characters, tickets.tickets, notes.notes]);
   // Where you are, for the draft kept in the message box.
   const draftKey = view.kind === "conversation" ? `c:${view.id}` : view.kind === "new" ? `new:${view.project ?? ""}` : view.kind === "home" ? "home" : view.kind === "project" ? `p:${view.id}` : view.kind;
 

@@ -119,3 +119,25 @@ test("the trail map and the constellation are in the Views menu too: it or /trai
   expect(screen.queryByRole("dialog", { name: /^Memory constellation/ })).toBeNull();
   expect(screen.queryByRole("region", { name: /^Memory constellation/ })).toBeNull();
 });
+
+test("Ctrl+K (⌘K on a Mac) opens the command palette and closes it again, but not from the terminal; /help opens it on the commands", () => {
+  render(<App store={createFeedStore()} />);
+  const palette = () => screen.queryByRole("combobox", { name: /Go to a page/ }) as HTMLInputElement | null;
+  expect(palette()).toBe(null);
+  fireEvent.keyDown(window, { key: "k", code: "KeyK", ctrlKey: true });
+  expect(palette()).toBeTruthy();
+  expect(palette()!.value).toBe("");
+  fireEvent.keyDown(window, { key: "k", code: "KeyK", ctrlKey: true });
+  expect(palette()).toBe(null);
+  // In the terminal pane, Ctrl+K is the shell's.
+  const shell = document.createElement("div");
+  shell.className = "xterm";
+  const typing = document.createElement("textarea");
+  shell.append(typing);
+  document.body.append(shell);
+  fireEvent.keyDown(typing, { key: "k", code: "KeyK", ctrlKey: true });
+  expect(palette()).toBe(null);
+  shell.remove();
+  act(() => say({ do: "command", name: "help" }));
+  expect(palette()!.value).toBe("/");
+});

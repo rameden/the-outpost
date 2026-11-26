@@ -11,7 +11,7 @@ import { Terminal as Xterm, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { api, errorText, storeGet, storeSet, termStreamUrl } from "../api.ts";
-import { cx } from "../format.ts";
+import { cx, youActed } from "../format.ts";
 import { DrawerHead, Icon } from "./bits.tsx";
 import type { TerminalInfo, TermAction } from "../types.ts";
 
@@ -111,7 +111,7 @@ function TerminalView({ id, onExit }: { id: string; onExit: (code: number) => vo
     const onScheme = () => { term.options.theme = themeNow(); };
     scheme?.addEventListener("change", onScheme);
 
-    term.focus();
+    if (youActed()) term.focus(); // (not when it's only come back open with the page)
     return () => {
       clearTimeout(settle); stream.close(); typed.dispose(); watching?.disconnect(); themed.disconnect(); scheme?.removeEventListener("change", onScheme);
       term.dispose();
