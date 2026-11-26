@@ -95,7 +95,7 @@ export function reviewPrompt(scope: ReviewScope, already: string[] = []): string
   const block =
     "<skill_proposal>\nowner: " + ["shared", ...CREW_IDS].join(" | ") + "\nname: kebab-case-name\ndescription: one line saying when to use it\nreason: one or two sentences for the user\n---\nThe SKILL.md body in Markdown.\n</skill_proposal>";
   return [
-    "[Learning review. This is a side copy of the conversation above, made by the camp, not a message from the user. " +
+    "[Learning review. This is a side copy of the conversation above, made by Outpost, not a message from the user. " +
       "The work itself carries on elsewhere: do NOT continue it, answer the user, or touch any file.]",
     "Look back over the conversation and decide whether anything in it is worth keeping for later runs. " +
       "Whatever you put forward here is only a PROPOSAL: it waits in a queue until the user approves it.",
