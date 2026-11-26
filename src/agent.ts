@@ -76,7 +76,7 @@ export const setRetryWaitsForTests = (ms: number[] | null) => { retryWaits = ms 
 // How much a model's context holds, in tokens. Tests make it small.
 let contextForTests: number | null = null;
 export const setContextForTests = (tokens: number | null) => { contextForTests = tokens; };
-const CONTEXT_ELSEWHERE: Record<string, number> = { deepseek: 128_000, gemini: 1_000_000, groq: 128_000, openrouter: 32_000 }; // as autoroute.ts has them
+const CONTEXT_ELSEWHERE: Record<string, number> = { deepseek: 128_000, gemini: 1_000_000, groq: 128_000, openai: 128_000, openrouter: 32_000 }; // as autoroute.ts has them
 // Wait, unless Stop comes first (true: waited it out; false: stopped).
 const pause = (ms: number, signal?: AbortSignal) => new Promise<boolean>((ok) => {
   if (signal?.aborted) return ok(false);
@@ -140,7 +140,7 @@ export function replyCost(model: string, turn: Usage, iterations: unknown): numb
 }
 
 // ---------- Models you can pick from ----------
-// provider: a model from another company (DeepSeek, Gemini, Groq, OpenRouter), named "<provider>:<model>". free: it costs nothing there.
+// provider: a model from another company (DeepSeek, Gemini, Groq, OpenAI, OpenRouter), named "<provider>:<model>". free: it costs nothing there.
 export type ModelInfo = { id: string; name: string; efforts: Effort[]; price?: string; provider?: string; free?: boolean };
 
 // Used when the Models API can't be reached.
@@ -164,7 +164,7 @@ export async function listModels(): Promise<{ models: ModelInfo[]; live: boolean
     try {
       // OpenRouter lists hundreds: only its free ones are offered here.
       return (await providerModels(p.id)).filter((m) => p.id !== "openrouter" || m.free).map((m) => {
-        const id = `${p.id}:${m.id}`, price = priceLabel(id); // a price is known for DeepSeek's own models only
+        const id = `${p.id}:${m.id}`, price = priceLabel(id); // a price is known for DeepSeek's own models and OpenAI's only
         return { id, name: m.name, efforts: [] as Effort[], provider: p.name, ...(m.free ? { free: true as const, price: "free" } : price ? { price } : {}) };
       });
     } catch { return []; /* it can't be reached just now: its models are left off the list */ }

@@ -9,7 +9,7 @@
 import { statSync } from "node:fs";
 import { appendLine, readJsonFile, readJsonl, writeAtomic, writeJsonAtomic } from "./atomic.js";
 import { rateOf } from "./costs.js";
-import { anthropicKey, providersState } from "./providers.js";
+import { anthropicKey, openaiTools, providersState } from "./providers.js";
 import { autoExcluded, campRuntime, type Effort } from "./settings.js";
 import { pausedUntil } from "./limits.js";
 import { verifies } from "./oplog.js";
@@ -35,15 +35,20 @@ function claudeTier(id: string): Tier | null {
   return null;
 }
 function openTier(id: string): Tier {
+  if (/^gpt-\d+(\.\d+)?-luna/.test(id)) return "open-fast"; // OpenAI's: Luna is its small one, Terra its middle
+  if (/^gpt-\d+(\.\d+)?-terra/.test(id)) return "open-unknown";
+  if (/^(gpt-([5-9]|\d{2})|o[3-9])/.test(id) && !/mini|nano/.test(id)) return "open-strong"; // its larger reasoning models
   if (/deepseek-v\d+-pro|deepseek-reasoner|gemini-[\d.]+-pro|qwen.*(235b|max)|llama.*(405b|maverick)/i.test(id)) return "open-strong";
   if (/flash|fast|mini|instant|lite|8b|scout|nano/i.test(id)) return "open-fast";
   return "open-unknown";
 }
 // What each provider's models can take, as far as is known. Anything unknown is assumed missing.
-const PROVIDER_CAPS: Record<string, { images: (id: string) => boolean; context: number; maxOutput: number }> = {
+export const PROVIDER_CAPS: Record<string, { images: (id: string) => boolean; context: number; maxOutput: number; tools?: (id: string) => boolean }> = {
   deepseek: { images: () => false, context: 128_000, maxOutput: 8_192 },
   gemini: { images: () => true, context: 1_000_000, maxOutput: 8_192 },
   groq: { images: (id) => /vision|vl\b|scout|maverick/i.test(id), context: 128_000, maxOutput: 8_192 },
+  // OpenAI: the 4o models write at most 16k; o1-mini and o3-mini can't be shown images; GPT-6.1 Terra can't call tools here.
+  openai: { images: (id) => !/^o[13]-mini/.test(id), context: 128_000, maxOutput: 16_384, tools: (id) => openaiTools(id) !== "no" },
   openrouter: { images: (id) => /vision|vl\b|gpt-4o|gemini|claude/i.test(id), context: 32_000, maxOutput: 8_192 },
 };
 
@@ -65,7 +70,7 @@ export function routesFrom(models: ModelInfo[], policy: Policy = POLICY): Route[
     const caps = PROVIDER_CAPS[provider] ?? { images: () => false, context: 32_000, maxOutput: 8_192 };
     const bare = m.id.slice(provider.length + 1);
     out.push({ id: routeId(m.id), model: m.id, provider, tier: openTier(bare), free: !!m.free,
-      caps: { images: caps.images(bare), tools: true, serverTools: false, contextTokens: caps.context, maxOutput: caps.maxOutput }, price: rateOf(m.id) ?? null });
+      caps: { images: caps.images(bare), tools: caps.tools?.(bare) ?? true, serverTools: false, contextTokens: caps.context, maxOutput: caps.maxOutput }, price: rateOf(m.id) ?? null });
   }
   return out;
 }

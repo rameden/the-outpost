@@ -1,4 +1,4 @@
-// Settings → Models: other companies' models beside Claude (DeepSeek, Gemini, Groq, OpenRouter).
+// Settings → Models: other companies' models beside Claude (DeepSeek, Gemini, Groq, OpenAI, OpenRouter).
 //
 // Connect one by pasting its API key: the camp checks it with the provider, keeps it on your
 // machine (camp/providers.json, readable only by you, off limits to the crew), and never shows it
@@ -190,7 +190,7 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
   };
   const small = S.settings.smallModel ?? "";
   const setSmall = (model: string) => api("/api/providers/small", { model: model || null }).then(refresh, (e) => setError(errorText(e)));
-  const other = small === "auto" || /^(deepseek|gemini|groq|openrouter):/.test(small);
+  const other = small === "auto" || /^(deepseek|gemini|groq|openai|openrouter):/.test(small);
   return (
     <>
       <p className="set-note">Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no {w("crew")} member can open, and are never shown again.</p>
@@ -226,8 +226,9 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
         <li><b>Confidential projects stay with Claude unless you approve a provider.</b> In a project whose web setting is "careful" or "off", {an("crew")} member set to another provider's model won't run, and that project's small jobs go to Claude whatever you chose{other ? " above" : ""}. Ticking "approved for confidential projects" on a provider's card lifts that for that provider only.</li>
         <li><b>These models don't have Claude's web search or fetch.</b> {cap(an("crew"))} member running on one works from files and the tools the {w("camp")} gives it.</li>
         <li><b>Long, many-step work is where they struggle.</b> Planning and editing code depend on calling tools reliably over many turns. Summaries, lookups and reviews are a better fit.</li>
-        <li><b>Only DeepSeek's cost is estimated.</b> It's counted at DeepSeek's listed peak-hour prices; off-peak is half that, so the estimate runs high. The {w("camp")} doesn't know the others' prices, so their usage counts as $0 in its estimates; free tiers also limit how many requests you can make a minute.</li>
+        <li><b>Only DeepSeek's and OpenAI's costs are estimated.</b> DeepSeek's is counted at its listed peak-hour prices; off-peak is half that, so the estimate runs high. OpenAI's are counted at its listed standard prices; one it hasn't listed yet is counted at the dearest, which runs high. The {w("camp")} doesn't know the others' prices, so their usage counts as $0 in its estimates; free tiers also limit how many requests you can make a minute.</li>
         <li><b>DeepSeek thinks before it answers.</b> That thinking is billed as output and isn't shown in the feed, so a reply can take a while to start. The {w("camp")}'s small jobs ask it not to.</li>
+        <li><b>OpenAI's API is billed apart from ChatGPT.</b> A key from platform.openai.com is paid for by the token; a ChatGPT Plus or Pro subscription doesn't cover it. GPT-6, GPT-5 and the o-series think before they answer, and that thinking is billed as output. GPT-6.1 Terra can't call tools here, so it suits small jobs, not {w("crew")} work.</li>
         <li><b>OpenRouter lists hundreds of models.</b> Only its free ones are offered in the pickers.</li>
       </ul>
     </>
