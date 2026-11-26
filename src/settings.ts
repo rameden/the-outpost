@@ -43,7 +43,7 @@ type Settings = {
   fixAttempts?: number;   // how many times a quest is sent back to fix its own failing checks (0 = never)
   reviewChanges?: boolean; // have the Warden review what changed before the Quartermaster reports
   runFoundChecks?: boolean; // in a folder with no checks of its own, run the ones the camp finds there (verify.ts); off unless true
-  prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
+  prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (pulls.ts); on unless false
   jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
   providersApproved?: string[];             // other providers you've said may be sent confidential projects' work (approved where you work, say)
   smallModel?: string;                      // what does the camp's own small jobs (titles, tidying a memory, suggestions): a Claude model, or "<provider>:<model>", or "auto"
@@ -51,7 +51,7 @@ type Settings = {
   termActions?: TermAction[];               // the terminal's quick actions: your own commands, a click away (at most five)
   alwaysSkills?: Record<string, string[]>; // crew member → the skills ("<owner>/<name>") loaded into every one of their prompts, not just listed
   skillCommands?: Record<string, SkillCommand[]>; // "<owner>/<name>" → the scripts of an imported skill that run without asking (skillpacks.ts)
-  drive?: { brief?: boolean; briefAt?: string; briefNews?: boolean; retro?: boolean; debrief?: boolean; night?: boolean; nightFrom?: string; nightTo?: string }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (retro.ts), a debrief when a ticket is done (debrief.ts)
+  drive?: { brief?: boolean; briefAt?: string; briefNews?: boolean; retro?: boolean; debrief?: boolean; night?: boolean; nightFrom?: string; nightTo?: string }; // what the camp does unasked: a brief each weekday morning (brief.ts), a retro each week (reports.ts), a debrief when a ticket is done (reports.ts)
   autoExclude?: string[];  // models (or id prefixes, like "openrouter:") Auto never picks (routing.ts); set in Settings → Models, or by hand
 };
 // Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
@@ -219,7 +219,7 @@ export function setRunFoundChecks(on: boolean) {
 // week's requests and what reviewers said, and proposes things worth keeping, for you to approve.
 // That one is a model call, so it follows "suggestions" (memoryCare) unless you set it yourself.
 // debrief: when a ticket is done (a Mae ticket reaching Done, a Jira ticket's pull request merging), the smallest model reads how the crew did on it and proposes
-// lessons for the Quartermaster, the crew and the project (debrief.ts). The same kind of call, the same default.
+// lessons for the Quartermaster, the crew and the project (reports.ts). The same kind of call, the same default.
 // night: the night shift (nightshift.ts). Between nightFrom and nightTo (your local time; the hours may
 // cross midnight), once the camp has been idle a while, it drafts memory tidies and writes a report for
 // the morning. It only drafts and reports, and it's off unless you turn it on. drive() always sets the

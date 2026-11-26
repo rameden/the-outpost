@@ -6,7 +6,7 @@ import { appendFileSync, writeFileSync } from "node:fs";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
 enterSandbox("debrief");
-const D = await import("../src/debrief.ts");
+const D = await import("../src/reports.ts");
 const { createTicket, updateTicket } = await import("../src/tickets.ts");
 const { addProject, fileConversation } = await import("../src/conversations.ts");
 const { proposals, settleProposal } = await import("../src/keeping.ts");
