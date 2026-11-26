@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { Opener, expectTabWraps } from "../components/modalkit.tsx";
 import { createFeedStore } from "../feed/store.ts";
 import { setCrewColors } from "../format.ts";
 import type { CampEvent, CampState } from "../types.ts";
@@ -674,4 +675,21 @@ test("the sun can be turned down from its own panel, and stays as you left it", 
   const again = show();
   expect(num(again.container.querySelector(".orb-sun-core"), "opacity")).toBeLessThan(1);
   localStorage.removeItem("camp-orbit-sun");
+});
+
+test("Tab stays inside Orbit, and focus goes back to what opened it when it closes", () => {
+  render(<Opener>{(close) => <Orbit S={S} store={createFeedStore()} onClose={close} onOpenAgent={vi.fn()} onOpenQuest={vi.fn()} onOpenConversation={vi.fn()} />}</Opener>);
+  const opener = screen.getByRole("button", { name: "Open it" });
+  opener.focus();
+  fireEvent.click(opener);
+  const view = screen.getByRole("dialog", { name: "Orbit: the crew at work" });
+  expect(document.activeElement).toBe(view);
+  expectTabWraps(view);
+  fireEvent.keyDown(view, { key: "1" }); // its own keys still answer: look closer at the first of the crew
+  expect(view.classList.contains("looking")).toBe(true);
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" }); // steps back out
+  expect(screen.queryByRole("dialog")).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" }); // and leaves
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
 });

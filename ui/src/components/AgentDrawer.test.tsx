@@ -53,3 +53,32 @@ test("the memory tab links to that member's memory on the Memory page, and close
   expect(onClose).toHaveBeenCalled();
   window.removeEventListener("camp:ask", hear);
 });
+
+// A table in a reply: drawn as a table while it's still coming in, and a row cut short isn't a line of pipes.
+test("a reply with a table is drawn as a table while it comes in and after, with a cut-off row marked, never raw pipes", async () => {
+  const table = "| # | Step | Status |\n|---|---|---|\n| 1 | Line up the trackers | RIGHT |\n| 4 | Trackin…";
+  const scout = { ...SCOUT, sessions: [{ file: "s1.json", time: "2026-01-01T09:00:00.000Z", source: "direct", task: "Where are we?", result: table, status: "done" }] };
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify(scout)))));
+  const store = createFeedStore();
+  const { container } = render(<AgentDrawer agentId="scout" tab="chat" setTab={() => {}} S={null} store={store} pickerOpen={false} onOpenPicker={() => {}} onClose={() => {}} />);
+  await screen.findByText("Where are we?");
+  const saved = container.querySelector(".bubble.agent .md")!;
+  expect(saved.querySelector(".md-table table")).toBeTruthy();
+  expect(saved.querySelectorAll("tbody tr")).toHaveLength(2);
+  expect(saved.querySelector("tbody tr:last-child")!.classList.contains("md-row-cut")).toBe(true);
+  expect(saved.textContent).not.toContain("|");
+
+  // Now a reply streaming in: half a table so far.
+  let seq = 0;
+  const send = (body: object) => act(() => { store.apply({ ...body, seq: ++seq, time: new Date().toISOString() } as never); });
+  send({ type: "text_delta", who: "Scout", emoji: "🔭", depth: 0, delta: "| Who | What |\n|---|---|\n| Scout | Readi" });
+  const live = await waitFor(() => { const el = container.querySelector(".md.live"); expect(el).toBeTruthy(); return el!; });
+  expect(live.querySelector("table")).toBeTruthy();
+  expect(live.querySelector("tbody tr")!.classList.contains("md-row-cut")).toBe(true);
+  expect(live.textContent).not.toContain("|");
+  send({ type: "text_delta", who: "Scout", emoji: "🔭", depth: 0, delta: "ng the code |" });
+  expect(container.querySelector(".md.live tbody tr")!.classList.contains("md-row-cut")).toBe(false);
+  send({ type: "text", who: "Scout", emoji: "🔭", depth: 0, text: "| Who | What |\n|---|---|\n| Scout | Reading the code |" });
+  expect(container.querySelector(".md.live")).toBeNull();
+  expect([...container.querySelectorAll(".bubble.agent .md tbody td")].map((td) => td.textContent)).toContain("Reading the code");
+});

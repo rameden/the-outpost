@@ -8,6 +8,7 @@ import { SETTINGS_SECTIONS } from "./sections.ts";
 import { Header } from "../components/Header.tsx";
 import { createFeedStore } from "../feed/store.ts";
 import { hear } from "../bus.ts";
+import { Opener, expectTabWraps } from "../components/modalkit.tsx";
 
 const posts: { path: string; body: unknown }[] = [];
 beforeEach(() => {
@@ -422,4 +423,17 @@ test("on a narrow screen the nav is one select: every section is in it, and pick
   expect([...pick.options].map((o) => o.value).sort()).toEqual([...SETTINGS_SECTIONS].sort());
   fireEvent.change(pick, { target: { value: "limits" } });
   expect(setSection).toHaveBeenCalledWith("limits");
+});
+
+test("Tab stays inside Settings, it opens on its close button, and focus goes back to what opened it when it closes", () => {
+  render(<Opener>{(close) => <Settings S={camp()} section="general" setSection={() => {}} refresh={() => {}} onAttachLink={() => {}} onClose={close} />}</Opener>);
+  const opener = screen.getByRole("button", { name: "Open it" });
+  opener.focus();
+  fireEvent.click(opener);
+  const page = screen.getByRole("dialog");
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close settings" }));
+  expectTabWraps(page);
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
 });

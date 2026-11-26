@@ -25,6 +25,7 @@ import type { AgentDetail, CampState, Character, Link } from "../types.ts";
 import { Icon, type IconName } from "../components/bits.tsx";
 import { ask, Confirm } from "../components/Confirm.tsx";
 import { PackDialog, type PackLine } from "../components/PackDialog.tsx";
+import { useModal } from "../components/Dialog.tsx";
 import { Presence } from "../motion.tsx";
 import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
@@ -673,14 +674,9 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
   // Ways out of Settings to the pages its lines point at: a tab of Activity (the inbox, scheduled jobs), and Memory.
   onOpenActivity?: (tab: ActivityTab) => void; // out of Settings to an Activity tab: the Inbox, Scheduled jobs
 }) {
-  const closeBtn = useRef<HTMLButtonElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const pressedOutside = useRef(false);
-  useEffect(() => {
-    closeBtn.current?.focus();
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape" && !document.querySelector('.popover, [role="alertdialog"], .dialog[role="dialog"]')) onClose(); }; // a menu, a dialog or a question on top closes first
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useModal(box, { onClose }); // Escape (a menu, a dialog or a question on top closes first), Tab kept inside, focus back on close
   const GROUPS = groups();
   const title = GROUPS.flatMap((g) => g.items).find(([id]) => id === section)?.[1] ?? "";
   return (
@@ -688,7 +684,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
     // (selecting text in a field, say) doesn't.
     <div className="settings-backdrop" onMouseDown={(ev) => { pressedOutside.current = ev.target === ev.currentTarget; }}
       onClick={(ev) => { if (pressedOutside.current && ev.target === ev.currentTarget) onClose(); pressedOutside.current = false; }}>
-    <div className="settings" role="dialog" aria-modal="true" aria-label="Settings">
+    <div className="settings" ref={box} role="dialog" aria-modal="true" aria-label="Settings" tabIndex={-1}>
       <nav className="set-nav" aria-label="Settings sections">
         <div className="set-nav-head">Settings</div>
         {/* Under ~640px the list becomes one select: every section is one pick away, none scrolled out of sight. */}
@@ -714,7 +710,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
       <div className="set-main">
         <header className="set-head">
           <div className="crumbs">Settings <span>›</span> <b>{title}</b></div>
-          <button ref={closeBtn} className="icon-btn" type="button" aria-label="Close settings" onClick={onClose}><Icon name="x" /></button>
+          <button data-autofocus className="icon-btn" type="button" aria-label="Close settings" onClick={onClose}><Icon name="x" /></button>
         </header>
         <div className="set-body">
           {!S ? <div className="meta">Loading…</div>

@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKey, type PointerEvent as ReactPointer } from "react";
 import { api, errorText } from "../api.ts";
 import { Icon } from "../components/bits.tsx";
+import { useModal } from "../components/Dialog.tsx";
 import { contour, MARKS } from "../components/MaeSystem.tsx";
 import { crewNow, cx, plural } from "../format.ts";
 import type { GraphNode, GraphRun, MemoryGraph } from "../types.ts";
@@ -112,6 +113,7 @@ export function Constellation({ onClose, onOpenConversation, onOpenMemory }: {
   const [runsOpen, setRunsOpen] = useState<boolean | null>(null); // null: open when there are runs to list and room for them
   const [runsPicked, setRunsPicked] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
+  useModal(root, { focus: "box" }); // Tab stays inside, focus goes back on close; Escape is answered below
   const sky = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 800 });
   const [cam, setCam] = useState<Cam | null>(null); // null: fitted to the whole map

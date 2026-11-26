@@ -31,6 +31,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { Icon } from "../components/bits.tsx";
+import { useModal } from "../components/Dialog.tsx";
 import { STEP_MARK, STEP_SAYS, stepPill } from "../feed/Feed.tsx";
 import { stepState, type FeedNode, type PlanNode, type PlanQuest, type StepState } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
@@ -383,6 +384,7 @@ export function Trail({ S, store, onClose, onOpenQuest }: {
   const [zoom, setZoom] = useState(1); // how big the whole map is drawn (one of ZOOMS)
   const [draw, setDraw] = useState<Draw>(() => (storeGet(DRAW_KEY) === "tree" ? "tree" : "rings")); // how the whole map is drawn
   const root = useRef<HTMLDivElement>(null), all = useRef<HTMLOListElement>(null), sky = useRef<HTMLDivElement>(null);
+  useModal(root, { focus: "box" }); // Tab stays inside, focus goes back on close; Escape is answered below
   const byHand = useRef(false), fitted = useRef(""), grew = useRef(false); // the size: yours? fitted for which view? just refitted as a plan joined?
   useEffect(() => { root.current?.focus({ preventScroll: true }); }, []);
 

@@ -86,6 +86,13 @@ const QUOTE = /^>\s?/;
 const FENCE = /^\s*```/; // set in or not: under a list item it usually is
 const ROW = /^\s*\|.*\|\s*$/;
 const DIVIDER = /^\s*\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|\s*$/; // |---|:-:|--:|
+// Once a table has started, any line that starts with a pipe is one of its rows, even one that
+// stops short (a reply still coming in, or one cut off with "…"); and a row of dashes still coming
+// in, as the very last line, already makes the line above it a table's head.
+const IN_TABLE = /^\s*\|/;
+const DIVIDER_SO_FAR = /^\s*\|[\s:|]*-[\s:|-]*$/;
+const tableAt = (lines: string[], i: number) =>
+  ROW.test(lines[i]) && i + 1 < lines.length && (DIVIDER.test(lines[i + 1]) || (i + 2 === lines.length && DIVIDER_SO_FAR.test(lines[i + 1])));
 const STARTS_BLOCK = /^(#{1,4}\s|\s*```|\s*[-*]\s+|\s*\d+[.)]\s+|>)/;
 const indentOf = (line: string) => line.match(/^[ \t]*/)![0].replace(/\t/g, "    ").length;
 const blank = (line: string) => !line.trim();
@@ -176,18 +183,19 @@ function blocks(lines: string[]): ReactNode[] {
       i = list.next;
       continue;
     }
-    // A table: a row of cells, a row of dashes under it, then the rest.
-    if (ROW.test(line) && i + 1 < lines.length && DIVIDER.test(lines[i + 1])) {
+    // A table: a row of cells, a row of dashes under it, then the rest. A row that stops short
+    // has the cells it got so far, and says it's cut off rather than showing its pipes.
+    if (tableAt(lines, i)) {
       const cells = (l: string) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
       const head = cells(line);
       const aligns = cells(lines[i + 1]).map((c) => (c.startsWith(":") && c.endsWith(":") ? "center" : c.endsWith(":") ? "right" : undefined));
       i += 2;
-      const body: string[][] = [];
-      while (i < lines.length && ROW.test(lines[i])) body.push(cells(lines[i++]));
+      const body: { cells: string[]; cut: boolean }[] = [];
+      while (i < lines.length && IN_TABLE.test(lines[i])) { const l = lines[i++]; body.push({ cells: cells(l), cut: !ROW.test(l) }); }
       out.push(
         <div key={key} className="md-table"><table>
           <thead><tr>{head.map((c, n) => <th key={n} style={aligns[n] ? { textAlign: aligns[n] } : undefined}>{inline(c)}</th>)}</tr></thead>
-          <tbody>{body.map((r, m) => <tr key={m}>{head.map((_, n) => <td key={n} style={aligns[n] ? { textAlign: aligns[n] } : undefined}>{inline(r[n] ?? "")}</td>)}</tr>)}</tbody>
+          <tbody>{body.map((r, m) => <tr key={m} className={r.cut ? "md-row-cut" : undefined}>{head.map((_, n) => <td key={n} style={aligns[n] ? { textAlign: aligns[n] } : undefined}>{inline(r.cells[n] ?? "")}</td>)}</tr>)}</tbody>
         </table></div>);
       continue;
     }
@@ -199,7 +207,7 @@ function blocks(lines: string[]): ReactNode[] {
     }
     if (!line.trim()) { i++; continue; }
     const para: ReactNode[] = [];
-    while (i < lines.length && lines[i].trim() && !STARTS_BLOCK.test(lines[i]) && !(ROW.test(lines[i]) && i + 1 < lines.length && DIVIDER.test(lines[i + 1]))) {
+    while (i < lines.length && lines[i].trim() && !STARTS_BLOCK.test(lines[i]) && !tableAt(lines, i)) {
       if (para.length) para.push(<br key={`br${i}`} />);
       para.push(<Fragment key={i}>{inline(lines[i])}</Fragment>);
       i++;

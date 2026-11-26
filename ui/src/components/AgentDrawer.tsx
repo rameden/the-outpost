@@ -135,7 +135,7 @@ function Chat({ a, live }: { a: AgentDetail; live: LiveItem[] }) {
         : it.kind === "note" ? <div key={it.id} className="thread-day">{it.text}</div>
         : it.kind === "brief" ? <div key={it.id} className="bubble brief">{leadEmoji()} The {leadName()} sent them on {an("quest")}…</div>
         : it.kind === "tool" ? <div key={it.id} className="tool"><b>{it.tool}</b><code>{it.input}</code></div>
-        : <div key={it.id} className="bubble agent">{it.streaming ? <div className="md streaming">{it.text}</div> : <Markdown text={it.text} />}</div>)}
+        : <div key={it.id} className="bubble agent"><Markdown text={it.text} className={it.streaming ? "live" : undefined} /></div>)}
     </div>
   );
 }
