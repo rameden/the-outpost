@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { Hub, ago, type HubOutpost } from "./Hub.tsx";
 
 const outpost = (over: Partial<HubOutpost>): HubOutpost => ({
-  id: "_here", name: "Mae", port: 4747, dir: "/code/mae", here: true, running: false, starting: false, ours: false, crew: 5, lastActive: Date.now() - 3 * 3_600_000, since: null, ...over,
+  id: "_here", name: "Mae", port: 4747, dir: "/code/mae", here: true, running: false, starting: false, ours: false, crew: 6, lastActive: Date.now() - 3 * 3_600_000, since: null, ...over,
 });
 
 function serve(outposts: HubOutpost[], more: Record<string, (body: any) => { status?: number; json: object }> = {}) {
@@ -29,14 +29,14 @@ describe("the star chart page", () => {
   });
 
   it("tells about the outpost you pick, then launches it and goes there", async () => {
-    const calls = serve([outpost({}), outpost({ id: "work", name: "Work", port: 4748, dir: "/home/me/Outposts/work", here: false, crew: 3 })], {
+    const calls = serve([outpost({}), outpost({ id: "work", name: "Work", port: 4748, dir: "/home/me/Outposts/work", here: false, crew: 8 })], {
       "/api/launch": () => ({ json: { url: "http://127.0.0.1:4748/#k=abc" } }),
     });
     const go = vi.fn();
     render(<Hub go={go} />);
     fireEvent.click(await screen.findByRole("button", { name: "Outpost Work, stopped" }));
     expect(screen.getByRole("heading", { name: "Outpost Work" })).toBeTruthy();
-    expect(screen.getByText("3 members")).toBeTruthy();
+    expect(screen.getByText("8 members")).toBeTruthy();
     expect(screen.getByText("3 hours ago")).toBeTruthy();
     expect(screen.getByText("localhost:4748")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Launch" }));
