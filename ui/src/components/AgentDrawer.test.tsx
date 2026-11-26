@@ -41,3 +41,15 @@ test("a second Enter while a message is still on its way doesn't send it twice",
   fireEvent.keyDown(box, { key: "Enter" });
   await waitFor(() => expect(sends.length).toBe(2));
 });
+
+test("the memory tab links to that member's memory on the Memory page, and closes the drawer", async () => {
+  const asked: unknown[] = [];
+  const hear = (ev: Event) => asked.push((ev as CustomEvent).detail);
+  window.addEventListener("camp:ask", hear);
+  const onClose = vi.fn();
+  render(<AgentDrawer agentId="scout" tab="memory" setTab={() => {}} S={null} store={createFeedStore()} pickerOpen={false} onOpenPicker={() => {}} onClose={onClose} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Open in Memory" }));
+  expect(asked).toEqual([{ do: "command", name: "memory", arg: "scout" }]);
+  expect(onClose).toHaveBeenCalled();
+  window.removeEventListener("camp:ask", hear);
+});

@@ -405,7 +405,7 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "layout") setLayoutEditor({});
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
-    else if (name === "memory" || name === "wiki") { setSettings(null); setView({ kind: "memory" }); }
+    else if (name === "memory" || name === "wiki") { setSettings(null); setView(arg?.trim() ? { kind: "memory", tab: "member", member: arg.trim() } : { kind: "memory" }); }
     else if (name === "constellation") openMap();
     else if (name === "ticket") setWizard({});
   };
