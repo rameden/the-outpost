@@ -57,6 +57,17 @@ export const History = memo(function History({ S, store, view, setView, patch, o
   const running = useFeed(store, runningCount);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  // On a narrow window the history is a drawer behind a Menu bar (styles.css): shut until asked,
+  // and shut again when you go somewhere or press Esc.
+  const [navOpen, setNavOpen] = useState(false);
+  const viewKey = JSON.stringify(view);
+  useEffect(() => setNavOpen(false), [viewKey]);
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setNavOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
   // Search looks inside conversations too (their requests and answers), so it asks the camp.
   const [found, setFound] = useState<{ query: string; results: { id: string; snippet: string }[] } | null>(null);
   useEffect(() => {
@@ -277,7 +288,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
   };
 
   const panel = (
-    <aside className="history" aria-label="History">
+    <aside className={cx("history", navOpen && "nav-open")} id="history-panel" aria-label="History">
       <nav className="hist-nav">
         <div className="hist-top">
           <button type="button" className={cx("hist-nav-item", "hist-new", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
@@ -350,7 +361,16 @@ export const History = memo(function History({ S, store, view, setView, patch, o
       </div>
     </aside>
   );
+  const body = (
+    <>
+      <button type="button" className="hist-narrow-toggle" aria-expanded={navOpen} aria-controls="history-panel" onClick={() => setNavOpen((o) => !o)}>
+        <Icon name="list" /><span>Menu</span>
+      </button>
+      {navOpen && <button type="button" className="hist-scrim" aria-label="Close the menu" tabIndex={-1} onClick={() => setNavOpen(false)} />}
+      {panel}
+    </>
+  );
   return onHide
-    ? <Drawer icon="list" label="History" onHide={onHide} hideLabel="Hide the history" hideTitle="Hide the history. Its tab brings it back.">{panel}</Drawer>
-    : panel;
+    ? <Drawer icon="list" label="History" onHide={onHide} hideLabel="Hide the history" hideTitle="Hide the history. Its tab brings it back.">{body}</Drawer>
+    : body;
 });

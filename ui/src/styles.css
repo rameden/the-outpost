@@ -1827,6 +1827,21 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .composer { padding: 10px 16px 12px; }
   .tool, .notice, .steps { padding-left: 0; }
 }
+/* Narrow: the history (New conversation, Projects, Tickets, the list) is a drawer behind one Menu
+   bar, shut until asked (History.tsx), instead of a strip that takes half the screen. */
+.hist-narrow-toggle, .hist-scrim { display: none; }
+@media (max-width: 860px) {
+  .app .side-drawer { display: block; }
+  .side-drawer > .zone-rail.open { display: none; }
+  /* Drawn like the other zones' bars on the stack (.zone.collapsed > .zone-rail). */
+  .hist-narrow-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 16px; border: 0; background: var(--surface); color: var(--muted); font: 600 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; text-align: left; cursor: pointer; }
+  .hist-narrow-toggle:hover { color: var(--accent); background: var(--surface-2); }
+  .hist-narrow-toggle .icon { flex: none; width: 15px; height: 15px; }
+  .hist-narrow-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .history:not(.nav-open) { display: none; }
+  .history.nav-open { display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: 46; width: min(320px, 88vw); max-height: none; overflow-y: auto; box-shadow: 12px 0 40px rgba(0, 0, 0, .25); }
+  .hist-scrim { display: block; position: fixed; inset: 0; z-index: 45; padding: 0; border: 0; background: var(--scrim); cursor: default; }
+}
 .exp-feedback { border-top: 1px solid var(--border); padding: 8px 16px; display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
 .fb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .fb-ask { margin-right: 2px; }
