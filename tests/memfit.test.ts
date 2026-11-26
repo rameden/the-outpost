@@ -11,7 +11,7 @@ let script: (body: any) => Reply | Promise<Reply> = () => ({ text: "ok" });
 const api = await startFakeApi((body) => script(body));
 process.env.ANTHROPIC_BASE_URL = api.url; // must be set before src/agent.ts loads
 
-const { fitMemory, parseEntry, withPin, stem, wordsOf, alike, PIN } = await import("../src/memfit.ts");
+const { fitMemory, parseEntry, withPin, stem, wordsOf, alike, alikeWords, bearing, clipEntry, tooLong, ENTRY_MAX, PIN } = await import("../src/memfit.ts");
 const { rememberTool, fullMemory, readMemory, writeMemory, MEMORY_MAX_CHARS } = await import("../src/memory.ts");
 const k = await import("../src/keeping.ts");
 const { scoreText, searchTerms } = await import("../src/recall.ts");
@@ -293,4 +293,31 @@ test("a note too long for one line is handed back to be shortened, not cut and c
   // A pin mark typed with a space in front of it is still just the mark, not part of the note.
   assert.match(String(await remember("scout", { entry: `  ${PIN} Always cite the source` })), /^Remembered\./);
   assert.match(fullMemory("scout").split("\n").at(-1)!, /^- \d{4}-\d\d-\d\d Always cite the source$/);
+});
+
+test("a note is kept on one line, cut with … past its length, and a too-long one is handed back rather than cut", () => {
+  assert.equal(clipEntry("  two\n  lines  "), "two lines");
+  const long = "word ".repeat(200);
+  const cut = clipEntry(long);
+  assert.ok(cut.length <= ENTRY_MAX && cut.endsWith("…"), `${cut.length} chars`);
+  // Never through the middle of an emoji: what's left is whole characters.
+  const emoji = clipEntry("😀".repeat(400));
+  assert.ok(!/[\uD800-\uDBFF]…$/.test(emoji) && emoji.endsWith("…"));
+  assert.equal(tooLong("short and sweet"), null);
+  assert.match(tooLong(long)!, new RegExp(`^Nothing was saved: that's ${long.trim().length} characters, and one note holds ${ENTRY_MAX}`));
+});
+
+test("two notes are alike only when they share two words or more, scaled to the shorter", () => {
+  assert.equal(alikeWords(new Set(), new Set(["a"])), 0);
+  assert.equal(alikeWords(new Set(["deploy", "heron"]), new Set(["deploy", "other", "words"])), 0); // one shared word isn't enough
+  assert.equal(alikeWords(new Set(["deploy", "heron"]), new Set(["deploy", "heron", "staging", "server"])), 1);
+});
+
+test("bearing: only the lines that stand out for the request score, and an empty request scores none", () => {
+  const rows = [...filler(8), HERON];
+  const lines = rows.map((_, i) => i);
+  const hit = bearing(rows, lines, "how do we deploy to the heron staging server?");
+  assert.deepEqual([...hit.keys()], [8]);
+  assert.equal(bearing(rows, lines, "").size, 0);
+  assert.equal(bearing(rows, [], "heron").size, 0);
 });

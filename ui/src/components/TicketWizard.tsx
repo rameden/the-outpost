@@ -71,7 +71,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
     if (!ticket) return;
     if (isMaeKey(ticket.key)) {
       if (!mine) { setDetail(null); return; } // not read yet (or deleted since)
-      setDetail({ summary: mine.title, description: mine.description, criteria: mine.criteria, type: "Mae ticket", status: STATUS_NAMES[mine.status], priority: mine.priority ?? null, assignee: null, epic: null });
+      setDetail({ summary: mine.title, description: mine.description, criteria: mine.criteria, type: "Your ticket", status: STATUS_NAMES[mine.status], priority: mine.priority ?? null, assignee: null, epic: null });
       setCriteria(mine.criteria.map((text) => ({ text, on: true })));
       setBrief(null);
       return;
@@ -194,8 +194,8 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
                 <input autoFocus aria-label="Find a ticket" placeholder={jiraOn ? "A key like MAE-3 or APP-123, or words…" : "A key like MAE-3, or words…"} value={query} autoComplete="off" spellCheck={false} onChange={(ev) => setQuery(ev.target.value)} />
               </label>
               <div className="wizard-list" role="listbox" aria-label="Tickets">
-                {jiraOn && <div className="section-label wizard-whose">Mae</div>}
-                {!maeShown.length && <div className="meta">{query.trim() ? "No Mae tickets match." : "No Mae tickets waiting. Make one on the Tickets page, or turn a note or a plan into some."}</div>}
+                {jiraOn && <div className="section-label wizard-whose">Yours</div>}
+                {!maeShown.length && <div className="meta">{query.trim() ? "None of your tickets match." : "None of your tickets waiting. Make one on the Tickets page, or turn a note or a plan into some."}</div>}
                 {maeShown.map((t) => (
                   <button key={t.key} type="button" role="option" aria-selected={ticket?.key === t.key} className={cx("jira-item", ticket?.key === t.key && "on")}
                     onClick={() => { setTicket({ key: t.key, summary: t.title }); go(1); }}>

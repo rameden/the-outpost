@@ -1707,6 +1707,8 @@ a.att-name { color: var(--accent); }
 .sign-in .outpost-sub { font-size: 12px; }
 .sign-in .mae-orb { --orb: 72px; margin: 0 0 14px 6px; }
 .sign-in p { margin: 0; }
+.sign-in-ways { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.sign-in code { font: 12px var(--mono); overflow-wrap: anywhere; }
 .sign-in kbd { font: 600 12px var(--mono); padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; }
 .mem-out { color: var(--bad); }
 .mem-pinned { color: var(--accent); }
@@ -1824,6 +1826,21 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .exp-ask { max-width: 92%; }
   .composer { padding: 10px 16px 12px; }
   .tool, .notice, .steps { padding-left: 0; }
+}
+/* Narrow: the history (New conversation, Projects, Tickets, the list) is a drawer behind one Menu
+   bar, shut until asked (History.tsx), instead of a strip that takes half the screen. */
+.hist-narrow-toggle, .hist-scrim { display: none; }
+@media (max-width: 860px) {
+  .app .side-drawer { display: block; }
+  .side-drawer > .zone-rail.open { display: none; }
+  /* Drawn like the other zones' bars on the stack (.zone.collapsed > .zone-rail). */
+  .hist-narrow-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 16px; border: 0; background: var(--surface); color: var(--muted); font: 600 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; text-align: left; cursor: pointer; }
+  .hist-narrow-toggle:hover { color: var(--accent); background: var(--surface-2); }
+  .hist-narrow-toggle .icon { flex: none; width: 15px; height: 15px; }
+  .hist-narrow-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .history:not(.nav-open) { display: none; }
+  .history.nav-open { display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: 46; width: min(320px, 88vw); max-height: none; overflow-y: auto; box-shadow: 12px 0 40px rgba(0, 0, 0, .25); }
+  .hist-scrim { display: block; position: fixed; inset: 0; z-index: 45; padding: 0; border: 0; background: var(--scrim); cursor: default; }
 }
 .exp-feedback { border-top: 1px solid var(--border); padding: 8px 16px; display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
 .fb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -2981,8 +2998,9 @@ a.orb-btn { display: inline-block; text-decoration: none; }
   /* A narrow screen: the panel is a sheet over the lower half, and the camp's numbers give their room to the buttons. */
   .orb-read, .orb-hint, .orb-holding, .orb-reel-speed, .orb-title span:not(.orb-pretend) { display: none; }
   .orb-reel { inset: auto 12px 84px 12px; } .orbit:has(.orb-reel) .orb-panel { bottom: 140px; } .orb-caption { left: 18px; bottom: 20px; }
-  .orb-title .orb-pretend { position: absolute; top: 56px; left: 18px; right: 14px; }
-  .orb-top { padding: 14px 14px 0 18px; } .orb-tools { margin-left: auto; } .orb-alert { position: absolute; top: 56px; left: 18px; }
+  .orb-title .orb-pretend { position: absolute; top: 112px; left: 18px; right: 14px; }
+  /* The buttons are wider than a phone: the title takes a line to itself and they wrap beneath it, so Leave is never cut off. */
+  .orb-top { flex-wrap: wrap; gap: 8px; padding: 14px 14px 0 18px; } .orb-title { flex: 1 0 100%; } .orb-tools { flex-wrap: wrap; margin-left: auto; } .orb-alert { position: absolute; top: 112px; left: 18px; }
   .orb-strip { inset: auto 12px 14px 12px; } .orb-cell { min-width: 118px; }
   .orb-panel { top: 50%; left: 12px; right: 12px; bottom: 84px; width: auto; }
 }

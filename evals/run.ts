@@ -3,7 +3,9 @@
 //   npm run eval -- scout-local-lookup            just these cases
 //   npm run eval -- --set scout=claude-haiku-5-5:low --set artificer=claude-sonnet-5-5
 //                                                 try other models without changing your settings
+//   npm run eval -- --set scout=auto:economy      or let Auto pick, with a preference
 //   npm run eval -- --list                        show the cases
+//   npm run eval -- --dry                         check every case is well formed, calling no model (CI runs this)
 //   npm run eval -- --no-judge                    skip the Claude-judged checks
 // Results are printed and saved to evals/results/<time>.json (local, gitignored).
 // This spends real usage (your subscription, or API tokens): each case is capped at $2 (EVAL_CASE_BUDGET).
@@ -11,7 +13,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { CASES } from "./cases.ts";
+import { CASES, caseProblems } from "./cases.ts";
 
 const REPO = resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
@@ -21,17 +23,33 @@ if (args.includes("--list")) {
   process.exit(0);
 }
 
+// A model can have colons of its own ("auto:economy", "<provider>:<model>"), so only a known
+// effort at the very end is read as the effort.
+const EFFORT = /:(low|medium|high|xhigh|max)$/;
 const set: Record<string, { model: string; effort?: string }> = {};
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--set") {
-    const [agent, spec] = (args[++i] ?? "").split("=");
-    const [model, effort] = (spec ?? "").split(":");
+    const [agent, spec = ""] = (args[++i] ?? "").split(/=(.*)/s);
+    const effort = spec.match(EFFORT)?.[1];
+    const model = effort ? spec.slice(0, -effort.length - 1) : spec;
     if (!agent || !model) throw new Error("Use --set agent=model[:effort], e.g. --set scout=claude-haiku-5-5:low");
     set[agent] = { model, ...(effort ? { effort } : {}) };
   }
 }
 const wanted = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--set");
+const unknown = wanted.filter((id) => !CASES.some((c) => c.id === id));
 const cases = wanted.length ? CASES.filter((c) => wanted.includes(c.id)) : CASES;
+
+// Offline: load every case and check it's well formed, with no model, key or camp needed.
+if (args.includes("--dry")) {
+  const problems = [...caseProblems(CASES), ...unknown.map((id) => `${id}: no such case`)];
+  for (const p of problems) console.log(`  ✗ ${p}`);
+  console.log(problems.length
+    ? `${problems.length} problem${problems.length === 1 ? "" : "s"} in the eval cases.`
+    : `${cases.length} eval case${cases.length === 1 ? "" : "s"} well formed${Object.keys(set).length ? `, with ${JSON.stringify(set)}` : ""}. Nothing was run.`);
+  process.exit(problems.length ? 1 : 0);
+}
+if (unknown.length) throw new Error(`No case called ${unknown.join(", ")}. Try --list.`);
 if (!cases.length) throw new Error(`No matching cases. Try --list.`);
 // On the API runtime evals need a key; on the subscription runtime they use Claude Code's login.
 const { campRuntime } = await import("../src/settings.ts");
@@ -75,3 +93,4 @@ mkdirSync(join(REPO, "evals/results"), { recursive: true });
 const file = join(REPO, "evals/results", `${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
 writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), set, passed, total: results.length, cost: total, results }, null, 2));
 console.log(`Saved ${file.replace(REPO + "/", "")}`);
+process.exitCode = passed === results.length ? 0 : 1; // a failed case shows as a failed run (in CI too)

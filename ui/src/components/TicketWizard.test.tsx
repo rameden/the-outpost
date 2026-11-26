@@ -254,7 +254,7 @@ test("a Mae ticket is picked up the same way: its own details, and it moves alon
   expect(calls.some((c) => c.url.startsWith("/api/jira"))).toBe(false);
   fireEvent.click(within(dialog).getByRole("option", { name: /MAE-3/ }));
   expect((within(dialog).getByLabelText("Criterion 1") as HTMLInputElement).value).toBe("Every page has a heading");
-  expect(dialog.textContent).toContain("Mae ticket · To do · high");
+  expect(dialog.textContent).toContain("Your ticket · To do · high");
   next("Where"); next("Who"); next("Start");
   const summary = dialog.querySelector(".wizard-summary")!.textContent!;
   expect(summary).toContain("moves to In progress as the work starts, and to Done when its pull request merges");

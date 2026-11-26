@@ -36,11 +36,12 @@ test("the chart tells counts and dates about an outpost, and nothing for a new o
   const dir = mkdtempSync(join(tmpdir(), "mae-hub-"));
   assert.deepEqual(outpostFacts(dir), { crew: null, lastActive: null, since: null });
   mkdirSync(join(dir, "camp"));
+  assert.equal(outpostFacts(dir).crew, 6, "the six built in, before anyone is added");
   writeFileSync(join(dir, "camp", "outpost.json"), JSON.stringify({ name: "Work", port: 4748 }));
-  writeFileSync(join(dir, "camp", "crew.json"), JSON.stringify({ crew: [{ id: "a" }, { id: "b" }] }));
+  writeFileSync(join(dir, "camp", "crew.json"), JSON.stringify({ crew: [{ id: "a" }, { id: "b" }, { id: "wizard" }] }));
   writeFileSync(join(dir, "camp", "feed.jsonl"), "{}\n");
   const facts = outpostFacts(dir);
-  assert.equal(facts.crew, 2);
+  assert.equal(facts.crew, 8, "six built in plus two added (a built-in's handle counts once)");
   assert.ok(facts.lastActive && Date.now() - facts.lastActive < 60_000);
   assert.ok(facts.since);
   writeFileSync(join(dir, "camp", "crew.json"), "{ not json");

@@ -1,0 +1,90 @@
+# Runs the eval set (evals/) against the real API: by hand from the Actions tab, and once a week.
+# It spends real tokens, so it runs only when the repository has an ANTHROPIC_API_KEY secret, and
+# skips cleanly when it hasn't. Each case is capped at EVAL_CASE_BUDGET dollars (see evals/case.ts).
+# The cases themselves are checked on every pull request without a key: tests/evals.test.ts runs
+# `evals/run.ts --dry` as part of npm test.
+name: Evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: "Case ids to run, separated by spaces (empty: all of them)"
+        required: false
+        default: ""
+      set:
+        description: "Model overrides, e.g. --set scout=auto:economy (empty: the defaults)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 6 * * 1" # Mondays, 06:17 UTC
+
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    name: Run the evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # A secret can't be read in a job's `if`, so this step says whether there is one.
+      - name: Is there an API key?
+        id: key
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Evals skipped::Add an ANTHROPIC_API_KEY secret to the repository to run the evals."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up git
+        if: steps.key.outputs.present == 'true'
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+
+      - name: Install
+        if: steps.key.outputs.present == 'true'
+        run: npm ci
+
+      - name: Check the cases
+        if: steps.key.outputs.present == 'true'
+        run: npx tsx evals/run.ts --dry
+
+      # The runner prints each case and saves the whole run to evals/results/<time>.json.
+      - name: Run the evals
+        if: steps.key.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CAMP_RUNTIME: api
+          CASES: ${{ github.event.inputs.cases }}
+          SET: ${{ github.event.inputs.set }}
+        # Word-split on purpose: CASES is ids, SET is --set flags.
+        run: npx tsx evals/run.ts $SET $CASES
+
+      - name: Keep the results
+        if: always() && steps.key.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results-${{ github.run_number }}
+          path: evals/results/
+          if-no-files-found: warn
+          retention-days: 90

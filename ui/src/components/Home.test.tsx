@@ -78,10 +78,10 @@ test("the page opens with the greeting and where you left off; each line of the 
 
   const needs = screen.getByText("Waiting on you · 2").closest("section")!;
   expect(within(needs).getByRole("link", { name: "Open #7 MP-544: Open button in a new tab" }).getAttribute("href")).toBe("https://github.com/acme/web/pull/7");
-  fireEvent.click(within(needs).getByRole("button", { name: "Address it" }));
+  fireEvent.click(within(needs).getByRole("button", { name: /^Address it/ }));
   await waitFor(() => expect(props.setView).toHaveBeenCalledWith({ kind: "conversation", id: "c1" }));
   expect(asked).toContain('POST /api/pulls/address {"url":"https://github.com/acme/web/pull/7"}');
-  fireEvent.click(within(needs).getByRole("button", { name: "Resume" }));
+  fireEvent.click(within(needs).getByRole("button", { name: /^Resume/ }));
   await waitFor(() => expect(asked).toContain('POST /api/send {"resume":"run-9"}'));
   expect(within(screen.getByText("In motion · 1").closest("section")!).queryByRole("button", { name: /Address|Resume|Start/ })).toBeNull();
 });
@@ -101,7 +101,7 @@ test("plans you approved to start later wait on Home, and Start carries on their
   expect(screen.getByRole("status").textContent).toMatch(/One plan you approved is ready to start when you are\./);
   fireEvent.click(within(ready).getByRole("button", { name: "Migrate the settings page" }));
   expect(props.setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "c3" });
-  fireEvent.click(within(ready).getByRole("button", { name: "Start plan" }));
+  fireEvent.click(within(ready).getByRole("button", { name: /^Start the plan for/ }));
   await waitFor(() => expect(asked).toContain('POST /api/send {"start":"ask_7"}'));
   await waitFor(() => expect(props.setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "c3" }));
 });
@@ -123,7 +123,7 @@ test("your tickets, what's upcoming and your notes are part of it; the numbers a
   expect(within(upcoming).getAllByRole("listitem").map((r) => r.textContent)).toEqual(["MP-1HighTo DoNext upStart…", "Scheduledwiki-digestRuns by itself, weekdays 08:00"]);
   expect(within(upcoming).getByText("MP-1").className).toBe("jira-key");
   expect(within(upcoming).getByText("To Do").className).toContain("pill");
-  fireEvent.click(within(upcoming).getByRole("button", { name: "Start…" }));
+  fireEvent.click(within(upcoming).getByRole("button", { name: /^Start: / }));
   expect(props.onStartTicket).toHaveBeenCalledWith({ key: "MP-1", summary: "Next up" });
 
   fireEvent.click(within(screen.getByText("Your notes · 1").closest("section")!).getByRole("button", { name: /Share rules/ }));
@@ -151,7 +151,7 @@ test("with no brief yet it says so and offers to write one; an earlier day's can
   show();
   fireEvent.change(await screen.findByRole("combobox", { name: "Which day's brief" }), { target: { value: "2026-11-12" } });
   expect(await screen.findByText("The brief for 2026-11-12.")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Address it" })).toBeNull(); // yesterday's next steps aren't today's
+  expect(screen.queryByRole("button", { name: /^Address it/ })).toBeNull(); // yesterday's next steps aren't today's
   expect(screen.queryByText("Where you left off")).toBeNull();
 });
 

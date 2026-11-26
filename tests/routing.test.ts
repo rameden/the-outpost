@@ -4,7 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  AttemptTracker, POLICY, expectedTaskCost, isAutoChoice, materialChange, parseChoice, priorSuccess, profileTask, RequestSizer, requestTokens, routeId, selectRoute,
+  AttemptTracker, POLICY, autoLabel, carried, exclusionOf, expectedTaskCost, failureSignature, isAutoChoice, materialChange, measurePart, parseChoice, priorSuccess, profileTask,
+  repeatedFailureEvidence, replayUsd, RequestSizer, requestTokens, routeId, routeName, selectRoute, showsRisk,
   type CandidateSnapshot, type Route, type SessionState, type TaskProfile,
 } from "../src/routing.ts";
 import { enterSandbox } from "./helpers/sandbox.ts";
@@ -317,4 +318,61 @@ test("a route whose provider trims the conversation itself is sized by what it l
   // And a route that doesn't trim is never sized by someone else's count.
   const untrimmed = selectRoute(task("Carry on with the refactor", { requestTokens: 190_000, managedTokens: 90_000 }), fresh, snap([sonnet, plain]), POLICY, "balanced");
   assert.equal(untrimmed.kind, "unavailable");
+});
+
+test("hard requirements, one at a time: each rule names its own reason, in the order they're checked", () => {
+  const p = task("Tidy the wording in the README");
+  const sonnet = claude("claude-sonnet-5-5", "sonnet");
+  assert.equal(exclusionOf(sonnet, p, snap([sonnet])), null);
+  assert.equal(exclusionOf(sonnet, p, snap([sonnet], { workspace: { confidential: false, approvedProviders: [], exclude: ["claude-sonnet"] } })), "excluded by your model policy");
+  const deep = open("deepseek:chat");
+  assert.match(exclusionOf(deep, p, snap([deep], { workspace: { confidential: true, approvedProviders: [] } }))!, /confidential/);
+  assert.equal(exclusionOf(deep, p, snap([deep], { workspace: { confidential: true, approvedProviders: ["deepseek"] } })), null);
+  assert.equal(exclusionOf(sonnet, p, snap([sonnet], { credentials: {} })), "not connected");
+  assert.equal(exclusionOf(deep, { ...p, needs: { ...p.needs, images: true } }, snap([deep])), "can't be shown images");
+  assert.equal(exclusionOf(open("groq:x", { tools: false }), p, snap([])), "can't call tools");
+  assert.equal(exclusionOf(deep, { ...p, needs: { ...p.needs, serverTools: true } }, snap([deep])), "doesn't have the web tools");
+  assert.match(exclusionOf(deep, { ...p, needs: { ...p.needs, requestTokens: 125_000 } }, snap([deep]))!, /~125k tokens.*128k context/);
+  // A cooldown on the route itself, or on its whole provider; one that's run out doesn't count.
+  assert.equal(exclusionOf(sonnet, p, snap([sonnet], { health: { [sonnet.id]: { cooldownUntil: 1_030_000 } } })), "cooling down for 30s");
+  assert.equal(exclusionOf(sonnet, p, snap([sonnet], { health: { "provider:anthropic": { cooldownUntil: 1_000_500 } } })), "cooling down for 1s");
+  assert.equal(exclusionOf(sonnet, p, snap([sonnet], { health: { [sonnet.id]: { cooldownUntil: 999_000 } } })), null);
+});
+
+test("a route that manages its own context carries what the provider last counted, when it has counted", () => {
+  const plain = claude("claude-sonnet-5-5", "sonnet");
+  const managed: Route = { ...plain, caps: { ...plain.caps, managesContext: true } };
+  assert.equal(carried(plain, { requestTokens: 180_000, managedTokens: 40_000 }), 180_000);
+  assert.equal(carried(managed, { requestTokens: 180_000, managedTokens: 40_000 }), 40_000);
+  assert.equal(carried(managed, { requestTokens: 180_000 }), 180_000);
+});
+
+test("names and small sums: labels, replay cost, and a free route replays for nothing", () => {
+  assert.deepEqual((["economy", "balanced", "quality"] as const).map(autoLabel), ["Auto · Economy", "Auto · Balanced", "Auto · Quality"]);
+  assert.equal(routeName(claude("claude-opus-5-5", "opus", "high")), "claude-opus-5-5 (high effort)");
+  assert.equal(routeName(claude("claude-opus-5-5", "opus")), "claude-opus-5-5");
+  assert.equal(replayUsd(claude("m", "sonnet"), 100_000), 0.3); // 100k tokens at $3 a million
+  assert.equal(replayUsd({ ...open("groq:x"), free: true }, 100_000), 0);
+  assert.equal(replayUsd(open("groq:x"), 1_000_000), POLICY.unknownRate.input); // an unknown price is priced at the policy's guess
+  assert.equal(repeatedFailureEvidence(1, "boom"), "after one distinct patch reproduced the same failure (“boom”)");
+});
+
+test("a risk is read from a log only in plain words for it, not from look-alikes", () => {
+  for (const line of ["WARNING: DATA RACE", "retried 3 times", "duplicate key value", "the order was double-charged"]) assert.ok(showsRisk(line), line);
+  for (const line of ["ran 12 tests", "package-lock.json updated", "security.txt not found"]) assert.ok(!showsRisk(line), line);
+});
+
+test("a failure's signature ignores numbers, paths and timings, and a log with no failure has none", () => {
+  const a = failureSignature("ok 1\nError: expected 3 to equal 5 at /home/a/src/x.ts:12\ndone in 40ms");
+  const b = failureSignature("Error: expected 4 to equal 6 at /Users/b/src/x.ts:99\ndone in 900ms");
+  assert.ok(a && b);
+  assert.equal(a.signature, b.signature);
+  assert.equal(a.excerpt, "Error: expected 3 to equal 5 at /home/a/src/x.ts:12");
+  assert.equal(failureSignature("all 12 passed\nexit code 1"), null);
+  assert.notEqual(failureSignature("Error: cannot find module")!.signature, a.signature);
+});
+
+test("a request is sized by its string values: an image or a document counts as one picture, key names count for nothing", () => {
+  assert.deepEqual(measurePart({ role: "user", content: [{ type: "text", text: "abcd" }, { type: "image", source: { data: "x".repeat(9_999) } }] }), { chars: 4 + 4 + 4, images: 1 });
+  assert.deepEqual(measurePart([{ type: "document" }, "hi", 42, null]), { chars: 2, images: 1 });
 });

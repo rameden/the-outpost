@@ -9,6 +9,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { BUILT_IN } from "./builtin.js";
 import { OUTPOST_FILE } from "./outpost.js";
 
 export const HUB_PORT = 4700;
@@ -38,12 +39,21 @@ const mtime = (file: string) => { try { return statSync(file).mtimeMs; } catch {
 
 // What the chart says about an outpost before you enter it: how many are in its crew, when it
 // last did anything, and when it was made. Counts and dates only, never what its records say.
+// The crew is the six built in (src/builtin.ts) plus the ones you added, which are all that
+// camp/crew.json holds; an entry there with a built-in's handle goes on as that one (crew.ts).
 export function outpostFacts(dir: string): OutpostFacts {
   let crew: number | null = null;
   const file = join(dir, "camp", "crew.json");
   if (existsSync(file)) {
-    try { const j = JSON.parse(readFileSync(file, "utf8")); if (Array.isArray(j?.crew)) crew = j.crew.length; } catch { /* unreadable: say nothing */ }
-  }
+    try {
+      const j = JSON.parse(readFileSync(file, "utf8"));
+      if (Array.isArray(j?.crew)) {
+        const added = new Set(j.crew.map((m: { id?: unknown }) => String(m?.id ?? "")).filter((id: string) => id && !(BUILT_IN as readonly string[]).includes(id)));
+        crew = BUILT_IN.length + added.size;
+      }
+    } catch { /* unreadable: say nothing */ }
+  } else if (existsSync(join(dir, "camp"))) crew = BUILT_IN.length; // set up, nobody added yet
+
   const active = ["feed.jsonl", "quest-log.jsonl", "threads.jsonl"].map((f) => mtime(join(dir, "camp", f))).filter((t): t is number => t !== null);
   let since: number | null = null;
   try { since = statSync(join(dir, OUTPOST_FILE)).birthtimeMs || null; } catch { /* Mae has no outpost.json until it's renamed */ }
