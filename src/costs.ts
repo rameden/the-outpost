@@ -28,6 +28,32 @@ const RATES: Record<string, Rate> = {
   // Its cache has no write charge. From api-docs.deepseek.com/quick_start/pricing, November 2026.
   "deepseek:deepseek-flash": { input: 0.3, output: 1.2, cacheRead: 0.006 },
   "deepseek:deepseek-v4-pro": { input: 1.32, output: 3.96, cacheRead: 0.044 },
+  // OpenAI's chat models, standard processing, from developers.openai.com/api/docs/pricing,
+  // November 2026. Prompts over 272k tokens cost more there; these estimates ignore that.
+  "openai:gpt-6.2-astra": { input: 8, output: 40, cacheRead: 0.4 },
+  "openai:gpt-6.2-sol": { input: 2, output: 10, cacheRead: 0.1 },
+  "openai:gpt-6.1-sol": { input: 2, output: 10, cacheRead: 0.1 },
+  "openai:gpt-6.1-terra": { input: 1, output: 5, cacheRead: 0.05 },
+  "openai:gpt-6-astra": { input: 10, output: 50, cacheRead: 1 },
+  "openai:gpt-6-sol": { input: 2, output: 10, cacheRead: 0.2 },
+  "openai:gpt-6-luna": { input: 0.1, output: 0.5, cacheRead: 0.01 },
+  "openai:gpt-5.6-sol": { input: 4, output: 20, cacheRead: 0.4 },
+  "openai:gpt-5.6-terra": { input: 2, output: 12, cacheRead: 0.2 },
+  "openai:gpt-5.6-luna": { input: 0.2, output: 1.2, cacheRead: 0.02 },
+  "openai:gpt-5.5": { input: 5, output: 30, cacheRead: 0.5 },
+  "openai:gpt-5.4": { input: 2.5, output: 15, cacheRead: 0.25 },
+  "openai:gpt-5.4-mini": { input: 0.75, output: 4.5, cacheRead: 0.075 },
+  "openai:gpt-5.4-nano": { input: 0.2, output: 1.25, cacheRead: 0.02 },
+  "openai:gpt-5.2": { input: 1.75, output: 14, cacheRead: 0.175 },
+  "openai:gpt-5.1": { input: 1.25, output: 10, cacheRead: 0.125 },
+  "openai:gpt-5": { input: 1.25, output: 10, cacheRead: 0.125 },
+  "openai:gpt-5-mini": { input: 0.25, output: 2, cacheRead: 0.025 },
+  "openai:gpt-5-nano": { input: 0.05, output: 0.4, cacheRead: 0.005 },
+  "openai:o3": { input: 2, output: 8, cacheRead: 0.5 },
+  "openai:gpt-4.1": { input: 2, output: 8, cacheRead: 0.5 },
+  "openai:gpt-4.1-mini": { input: 0.4, output: 1.6, cacheRead: 0.1 },
+  "openai:gpt-4o": { input: 2.5, output: 10, cacheRead: 1.25 },
+  "openai:gpt-4o-mini": { input: 0.15, output: 0.6, cacheRead: 0.075 },
 };
 
 // Dated ids (claude-haiku-4-5-20251001) share their family's price.
@@ -46,11 +72,11 @@ export function priceLabel(model: string): string | undefined {
 // listed rate, so budgets still stop a run on it: counting it as free would switch the budget off
 // for exactly the models most likely to be expensive. Only for cost and budgets: the price shown
 // beside a model (priceLabel) stays blank until its real price is listed here. The same goes for
-// a DeepSeek model that isn't listed yet. Any other provider's model has no known price.
+// a DeepSeek or OpenAI model that isn't listed yet, so a new one may be counted high until it's added. Any other provider's model has no known price.
 const FAMILIES = ["fable", "mythos", "opus", "sonnet", "haiku"];
 function estimateRate(model: string): Rate | undefined {
   const family = FAMILIES.find((f) => model.startsWith(`claude-${f}-`));
-  const prefix = family ? `claude-${family}-` : model.startsWith("deepseek:") ? "deepseek:" : null;
+  const prefix = family ? `claude-${family}-` : model.startsWith("deepseek:") ? "deepseek:" : model.startsWith("openai:") ? "openai:" : null;
   if (!prefix) return undefined;
   return Object.entries(RATES).filter(([id]) => id.startsWith(prefix)).map(([, r]) => r).sort((a, b) => b.input - a.input)[0];
 }

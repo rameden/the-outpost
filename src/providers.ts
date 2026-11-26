@@ -1,6 +1,6 @@
-// Other models: DeepSeek, Gemini, Groq and OpenRouter, beside Claude.
+// Other models: DeepSeek, Gemini, Groq, OpenAI (ChatGPT's models) and OpenRouter, beside Claude.
 //
-// All four accept the same request shape (OpenAI's chat completions), so one adapter serves
+// All five accept the same request shape (OpenAI's chat completions), so one adapter serves
 // them. A model from one of them is named "<provider>:<model>" wherever the camp names a model
 // ("groq:llama-3.3-70b-versatile"), and anything named that way is sent here instead of to
 // Claude. The camp's own loop stays the same: this file turns its request into the provider's
@@ -8,8 +8,8 @@
 //
 // Your keys are kept in camp/providers.json, readable only by you and off limits to every crew
 // member, and are never sent to the page. Each one is checked with the provider before it's kept.
-// DEEPSEEK_API_KEY, GEMINI_API_KEY, GROQ_API_KEY and OPENROUTER_API_KEY set where the camp starts
-// are used instead.
+// DEEPSEEK_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY and OPENROUTER_API_KEY set where
+// the camp starts are used instead.
 //
 // What these providers don't have: Claude's web search and fetch (those tools are left out for a
 // crew member running on one), effort levels, and a cost estimate (their usage counts as $0 here).
@@ -24,12 +24,30 @@ import { writeJsonAtomic } from "./atomic.js";
 import { fileStamp } from "./helpers.js";
 
 export const PROVIDERS_PATH = "camp/providers.json";
-export type ProviderId = "deepseek" | "gemini" | "groq" | "openrouter";
+export type ProviderId = "deepseek" | "gemini" | "groq" | "openai" | "openrouter";
 // check: a path that only answers a valid key. OpenRouter's model list is public, so listing it proves nothing about a key.
 // thinks: its models reason before they answer, and want that reasoning sent back with every later
 // request of a run (DeepSeek answers 400 without it once tools are in play). paid: you pay by the
 // token, and its limit is on requests at once rather than a free tier's requests a minute.
-type Preset = { id: ProviderId; name: string; baseUrl: string; env: string; keysAt: string; privacy: string; check?: string; thinks?: true; paid?: true };
+// completionTokens: it wants the reply's allowance as max_completion_tokens (OpenAI's reasoning
+// models answer 400 to max_tokens). chat: which of its listed models can hold a conversation here.
+// maxOut: the most a model may be asked to write, where it's less than the camp asks for.
+// reasons: this model thinks before it answers, and that thinking counts against the allowance.
+// tools: how this model calls tools through chat completions: "plain" only with its thinking
+// turned off, "no" not at all (it needs OpenAI's Responses API, which the camp doesn't speak).
+type Preset = { id: ProviderId; name: string; baseUrl: string; env: string; keysAt: string; privacy: string; check?: string; thinks?: true; paid?: true;
+  completionTokens?: true; chat?: (id: string) => boolean; blind?: (id: string) => boolean; maxOut?: (id: string) => number | undefined; reasons?: (id: string) => boolean;
+  tools?: (id: string) => "plain" | "no" | undefined; title?: (id: string) => string };
+// OpenAI lists everything it sells under /models: images, speech, embeddings, moderation, and
+// models that only its newer Responses API serves (the -pro and codex ones). Only the chat models
+// are kept, and not their dated snapshots (gpt-4o-2024-08-06), which would crowd the pickers.
+const openaiChat = (id: string) => /^(gpt-\d|chatgpt-|o[1-9])/.test(id) && !/^gpt-(3\.5|4)(-|$)/.test(id)
+  && !/image|dall-e|moderation|realtime|audio|transcribe|tts|search|computer-use|instruct|codex|deep-research|embedding|cyber|rosalind|-pro(-|$)/.test(id)
+  && !/-\d{4}(-\d{2}-\d{2})?$/.test(id);
+// From OpenAI's model pages (developers.openai.com/api/docs/models, November 2026): GPT-6.1 Terra
+// calls tools only through the Responses API; GPT-6 Luna, through chat completions, only with its
+// reasoning effort set to none.
+export const openaiTools = (id: string): "plain" | "no" | undefined => (/^gpt-6(\.\d+)?-terra/.test(id) ? "no" : /^gpt-6(\.\d+)?-luna/.test(id) ? "plain" : undefined);
 export const PROVIDERS: Preset[] = [
   { id: "deepseek", name: "DeepSeek", baseUrl: "https://api.deepseek.com", env: "DEEPSEEK_API_KEY", keysAt: "https://platform.deepseek.com/api_keys", thinks: true, paid: true,
     privacy: "A Chinese company: its privacy policy says what it collects is kept in China. You pay up front, by the token. Check its terms cover your work before sending anything confidential." },
@@ -37,6 +55,11 @@ export const PROVIDERS: Preset[] = [
     privacy: "On the free tier, Google may use what you send to improve its products. Don't send it confidential work." },
   { id: "groq", name: "Groq", baseUrl: "https://api.groq.com/openai/v1", env: "GROQ_API_KEY", keysAt: "https://console.groq.com/keys",
     privacy: "Runs open models fast, with a free tier that's rate-limited. Check its data terms before sending anything confidential." },
+  { id: "openai", name: "OpenAI", baseUrl: "https://api.openai.com/v1", env: "OPENAI_API_KEY", keysAt: "https://platform.openai.com/api-keys", paid: true, completionTokens: true,
+    chat: openaiChat, blind: (id) => /^o[13]-mini/.test(id), maxOut: (id) => (/4o/.test(id) ? 16_384 : undefined),
+    reasons: (id) => /^(o[1-9]|gpt-([5-9]|\d{2}))/.test(id) && !/chat/.test(id), tools: openaiTools,
+    title: (id) => id.replace(/^chatgpt/, "ChatGPT").replace(/^gpt/, "GPT"),
+    privacy: "ChatGPT's models (GPT-6 and earlier), through OpenAI's API. Billed by the token from platform.openai.com, separately from a ChatGPT Plus or Pro subscription. OpenAI says it doesn't train on what's sent through its API unless you opt in." },
   { id: "openrouter", name: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", env: "OPENROUTER_API_KEY", keysAt: "https://openrouter.ai/keys", check: "/key",
     privacy: "Passes your request on to whichever company hosts the model. Models marked free are often free because your prompts may be used for training." },
 ];
@@ -160,6 +183,10 @@ async function call(p: Preset, key: string, path: string, init: RequestInit = {}
   if (res.status === 401 || res.status === 403 || (res.status === 400 && /api key/i.test(said))) throw new ProviderError(`${p.name} didn't accept that key${said ? `: ${said}` : "."}`);
   // DeepSeek is paid for up front: 402 means the balance is spent.
   if (res.status === 402) throw new ProviderError(`${p.name} says your balance has run out${said ? `: ${said}` : "."} Top up with ${p.name}, then try again.`);
+  // OpenAI says the same with 429 and insufficient_quota: no credit left, which waiting won't fix.
+  let code = "";
+  try { code = String(JSON.parse(body)?.error?.code ?? ""); } catch {}
+  if (res.status === 429 && code === "insufficient_quota") throw new ProviderError(`${p.name} says your account has no credit left${said ? `: ${said}` : "."} Add credit with ${p.name}, then try again.`, { status: 429 });
   if (res.status === 429) throw new ProviderError(`${p.name} says you've hit its rate limit${said ? `: ${said}` : "."} ${p.paid ? "It allows only so many requests at once." : "Free tiers allow only so many requests a minute."}`, passing);
   throw new ProviderError(`${p.name} answered ${res.status}${said ? `: ${said}` : "."}`, passing);
 }
@@ -173,10 +200,10 @@ async function fetchModels(p: Preset, key: string): Promise<ProviderModel[]> {
   const list: any[] = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
   return list.flatMap((m): ProviderModel[] => {
     const id = String(m?.id ?? "").replace(/^models\//, ""); // Gemini lists "models/gemini-…"
-    if (!id || /embed|whisper|tts|guard|imagen|veo|aqa/i.test(id)) return []; // not for conversation
+    if (!id || /embed|whisper|tts|guard|imagen|veo|aqa/i.test(id) || (p.chat && !p.chat(id))) return []; // not for conversation
     const free = p.id === "openrouter" && (id.endsWith(":free") || (m?.pricing?.prompt === "0" && m?.pricing?.completion === "0"));
-    const blind = Array.isArray(m?.input_modalities) && !m.input_modalities.includes("image");
-    return [{ id, name: String(m?.name ?? m?.display_name ?? id), ...(free ? { free: true } : {}), ...(blind ? { noImages: true as const } : {}) }];
+    const blind = (Array.isArray(m?.input_modalities) && !m.input_modalities.includes("image")) || !!p.blind?.(id);
+    return [{ id, name: String(m?.name ?? m?.display_name ?? p.title?.(id) ?? id), ...(free ? { free: true } : {}), ...(blind ? { noImages: true as const } : {}) }];
   }).sort((a, b) => Number(!!b.free) - Number(!!a.free) || a.id.localeCompare(b.id));
 }
 // A provider's conversational models (cached for ten minutes). Empty if it isn't connected.
@@ -240,8 +267,9 @@ export const maySend = (provider: string, web: string | undefined) => !(web === 
 
 // ---------- Naming a model ----------
 // "groq:llama-3.3-70b-versatile" → that provider and its model; a Claude model (no prefix) → null.
+const NAMED = new RegExp(`^(${PROVIDERS.map((p) => p.id).join("|")}):(.+)$`);
 export function otherModel(model: string | undefined): { provider: ProviderId; name: string; model: string } | null {
-  const m = String(model ?? "").match(/^(deepseek|gemini|groq|openrouter):(.+)$/);
+  const m = String(model ?? "").match(NAMED);
   return m ? { provider: m[1] as ProviderId, name: preset(m[1])!.name, model: m[2] } : null;
 }
 
@@ -292,13 +320,20 @@ export async function providerChat(o: { provider: string; model: string; system:
   const k = p && keyOf(p);
   if (!p || !k) throw new ProviderError(`${p?.name ?? o.provider} isn't connected. Add its key under Settings → Models.`);
   const tools = toChatTools(o.tools ?? []);
+  const toolWay = tools.length ? p.tools?.(o.model) : undefined;
+  if (toolWay === "no") throw new ProviderError(`${o.model} can only call tools through ${p.name}'s Responses API, which this outpost doesn't use. Pick another model for work that uses tools; it can still do small jobs.`);
   // A picture goes as words to a model its provider lists as text-only (the list is cached).
   const pictured = o.messages.some((m) => Array.isArray(m.content) && m.content.some((b) => b.type === "image"));
   const blind = pictured && !!(await providerModels(p.id).catch(() => [])).find((m) => m.id === o.model)?.noImages;
+  // A model that reasons first spends part of its allowance thinking, so a small job's few dozen
+  // tokens would go before a word was written: it's asked to think briefly and given room to.
+  const reasons = !!p.reasons?.(o.model);
+  const allowance = Math.min(Math.max(o.maxTokens ?? 8192, reasons && o.quick ? 2048 : 0), p.maxOut?.(o.model) ?? Infinity);
   const res = await call(p, k.key, "/chat/completions", {
     method: "POST", signal: o.signal,
-    body: JSON.stringify({ model: o.model, messages: toChatMessages(o.system, o.messages, { reasoning: !!p.thinks, images: !blind }), ...(tools.length ? { tools } : {}), max_tokens: o.maxTokens ?? 8192,
-      ...(p.thinks && o.quick ? { thinking: { type: "disabled" } } : {}), stream: true, stream_options: { include_usage: true } }),
+    body: JSON.stringify({ model: o.model, messages: toChatMessages(o.system, o.messages, { reasoning: !!p.thinks, images: !blind }), ...(tools.length ? { tools } : {}),
+      [p.completionTokens ? "max_completion_tokens" : "max_tokens"]: allowance,
+      ...(p.thinks && o.quick ? { thinking: { type: "disabled" } } : {}), ...(toolWay === "plain" ? { reasoning_effort: "none" } : reasons && o.quick ? { reasoning_effort: "low" } : {}), stream: true, stream_options: { include_usage: true } }),
   }, RATE_RETRIES);
   let text = "", thought = "", finish = "", buffer = "";
   const calls: { id: string; name: string; args: string }[] = [];
@@ -314,7 +349,8 @@ export async function providerChat(o: { provider: string; model: string; system:
       usage.input_tokens = j.usage.prompt_tokens ?? usage.input_tokens;
       usage.output_tokens = j.usage.completion_tokens ?? usage.output_tokens;
       // DeepSeek says how much of the prompt it had cached, which it charges far less for.
-      const hit = Number(j.usage.prompt_cache_hit_tokens);
+      // OpenAI says so as prompt_tokens_details.cached_tokens.
+      const hit = Number(j.usage.prompt_cache_hit_tokens ?? j.usage.prompt_tokens_details?.cached_tokens);
       if (hit > 0 && hit <= usage.input_tokens) { usage.input_tokens -= hit; usage.cache_read_input_tokens = hit; }
     }
     const choice = j.choices?.[0];

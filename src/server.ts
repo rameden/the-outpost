@@ -694,7 +694,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
     // the names your packs used to give, by crew id: old history is still written with them.
     packsLeftOut: packsLeftOut(),
     packNamesBefore: RETIRED,
-    // Other models you've connected (DeepSeek, Gemini, Groq, OpenRouter): which, and how many models each offers. Never a key.
+    // Other models you've connected (DeepSeek, Gemini, Groq, OpenAI, OpenRouter): which, and how many models each offers. Never a key.
     providers: none(() => providersState()),
     anthropic: anthropicKeyState(),
     // Reading aloud (voice.ts): whether ElevenLabs is connected, and which voice and model read. Never the key.

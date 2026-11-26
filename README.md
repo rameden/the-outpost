@@ -2,7 +2,7 @@
 
 **Outpost** is a small, hackable multi-agent harness built on Claude: a place on your own machine where a crew gets your work done. You ask for something, a **Quartermaster** plans it and gets your OK on the plan, then sends specialists out to do the parts, several at once when the work allows, and reviews what they bring back before you see it. Each crew member has a fixed role, its own memory and workspace, and clear limits on what it does.
 
-It runs on your Claude subscription (through Claude Code) or an Anthropic API key, and you watch and steer it from a page in your browser.
+It runs on your Claude subscription (through Claude Code) or an Anthropic API key, and you watch and steer it from a page in your browser. Other providers' models can join too: add an OpenAI, DeepSeek, Gemini, Groq or OpenRouter key and they show up beside Claude's in every picker.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/shots/plan-dark.webp">

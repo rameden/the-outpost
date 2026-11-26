@@ -45,6 +45,21 @@ export function rateModel(m: Pick<ModelInfo, "id" | "name" | "provider" | "free"
     if (/pro/.test(id)) return { cost, speed: "Steady", fit: "Harder reasoning and long documents. A reasonable second opinion on Claude's work. Text only: it can't be shown images.", rated: true };
     return { cost, speed: "Not rated", fit: "Not rated: try it on a small task first.", rated: false };
   }
+  // OpenAI's families. The price is its listed one where this outpost knows it; speed and fit go by the family's name.
+  if (m.provider === "OpenAI") {
+    const r = rateOf(m.id);
+    const listed = r ? `${dollars(r.input)} ($${r.input} in / $${r.output} out per million tokens)` : null;
+    if (/gpt-\d[.\d]*-luna/.test(id)) return { cost: listed ?? "$", speed: "Fastest", fit: "Simple jobs in bulk: titles, tagging, short summaries. Calls tools only with its thinking off, so it does that whenever tools are in play.", rated: true };
+    if (/gpt-6[.\d]*-terra/.test(id)) return { cost: listed ?? "$$", speed: "Fast", fit: "Small jobs and writing. Can't call tools here (it needs OpenAI's Responses API), so not for work that uses tools.", rated: true };
+    if (/gpt-\d[.\d]*-terra/.test(id)) return { cost: listed ?? "$$", speed: "Fast", fit: "Everyday work at low cost: summaries, lookups, reviews, small changes.", rated: true };
+    if (/gpt-\d[.\d]*-sol/.test(id)) return { cost: listed ?? "$$", speed: "Steady (it thinks first)", fit: "Everyday work: research, writing, reviews, code changes. A strong second opinion on Claude's work.", rated: true };
+    if (/gpt-\d[.\d]*-astra/.test(id)) return { cost: listed ?? "$$$$", speed: "Steady (it thinks first)", fit: "The hardest work: planning, large changes, tricky reasoning.", rated: true };
+    if (/nano/.test(id)) return { cost: listed ?? "$", speed: "Fastest", fit: "Simple jobs in bulk: titles, tagging, short summaries.", rated: true };
+    if (/mini/.test(id)) return { cost: listed ?? "$", speed: "Fast", fit: "Everyday work at low cost: summaries, lookups, reviews, small changes. Good at calling tools for its size.", rated: true };
+    if (/^(openai:)?(gpt-5|o[1-9])/.test(id)) return { cost: listed ?? "$$", speed: "Steady (it thinks first)", fit: "Hard, many-step work: planning, code changes, tricky reasoning. A strong second opinion on Claude's work.", rated: true };
+    if (/^(openai:)?(gpt-4|chatgpt-)/.test(id)) return { cost: listed ?? "$$", speed: "Fast", fit: "Everyday work: writing, research, reviews. Doesn't reason before it answers.", rated: true };
+    return { cost: listed ?? "not known", speed: "Not rated", fit: "Not rated: try it on a small task first.", rated: false };
+  }
   // Gemini's families.
   if (/gemini/.test(id) && /flash-lite|flash-8b|nano/.test(id)) return { cost: free ?? "$", speed: "Fastest", fit: "Simple jobs in bulk: titles, tagging, short summaries.", rated: true };
   if (/gemini/.test(id) && /flash/.test(id)) return { cost: free ?? "$", speed: "Fast", fit: "Everyday work at low cost: summaries, lookups, reviews, small changes. Long many-step tool work is hit and miss.", rated: true };
@@ -78,6 +93,8 @@ export async function modelGuide(now = new Date()): Promise<string> {
     return `${p.approved ? "You've approved it for confidential projects." : "Not approved for confidential projects: a project marked confidential is never sent to it."} ${p.privacy} ` +
       (p.id === "deepseek"
         ? `Its prices below are DeepSeek's listed ones, the ones this outpost's cost estimates use. Speed and fit are a rule of thumb.`
+        : p.id === "openai"
+        ? `Its prices below are OpenAI's listed ones, the ones this outpost's cost estimates use; a model not listed yet is counted at the dearest, so its estimate runs high. Speed and fit are a rule of thumb.`
         : `Its cost, speed and fit below are judged from each model's family name, as a rule of thumb: the provider tells this outpost a model's name and nothing more.`);
   };
   const notConnected = providers.filter((p) => !p.connected).map((p) => p.name);
@@ -90,7 +107,7 @@ updated: ${day}
 
 Written by this outpost on ${day} from the models it can reach${live ? "" : " (Claude's list couldn't be read just now, so its usual models are shown)"}. It's rewritten when you connect or disconnect a provider, or press **Update the guide** under Settings → Models.
 
-Source: this outpost's own model list and prices for Claude and DeepSeek; for other providers, the model's family name only. Treat the ratings for other providers as a starting point, not a measurement: their prices, limits and line-ups change, and the provider's own pricing page is the authority.
+Source: this outpost's own model list and prices for Claude, DeepSeek and OpenAI; for other providers, the model's family name only. Treat the ratings for other providers as a starting point, not a measurement: their prices, limits and line-ups change, and the provider's own pricing page is the authority.
 
 ## How to choose
 

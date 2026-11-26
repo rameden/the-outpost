@@ -44,6 +44,7 @@ Every `CAMP_` variable also answers to an `OUTPOST_` name: `OUTPOST_PORT` is `CA
 | Variable | What it does |
 |---|---|
 | `ANTHROPIC_API_KEY` | An Anthropic API key for the API runtime. A key saved in Settings → Models is used first. |
+| `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` | Another provider's key, so its models show up in the pickers without saving a key in Settings → Models. Here the environment key is used first. OpenAI's is an API key from platform.openai.com, billed by OpenAI by the token, apart from any ChatGPT plan. |
 | `CAMP_RUNTIME` | Pins the runtime: `claude-code` (your subscription) or `api`. |
 | `CAMP_PORT` | The port for an outpost you start by itself (`npm run ui`, `npm run ui:serve`). Started from the star chart or `npm run outpost`, it uses the port in its `camp/outpost.json` (4747 for Mae when there's no file). |
 | `CAMP_UI_PORT` | The live-reload page's port under `npm run ui`. |

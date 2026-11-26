@@ -1,4 +1,4 @@
-// Other models (DeepSeek, Gemini, Groq, OpenRouter): connecting with a key, what's kept and what's shown,
+// Other models (DeepSeek, Gemini, Groq, OpenAI, OpenRouter): connecting with a key, what's kept and what's shown,
 // the request and reply translated both ways, a crew member running on one, the camp's small
 // jobs sent to one, and confidential projects kept with Claude. A stand-in plays the provider.
 import { test, after, beforeEach } from "node:test";
@@ -15,7 +15,7 @@ process.env.ANTHROPIC_BASE_URL = claude.url;
 
 // The stand-in provider: lists models, and answers chat requests from a script, as a stream.
 // think: reasoning sent ahead of the words, as DeepSeek does. usage: sent on the last chunk, as DeepSeek does.
-type Said = { text?: string; think?: string; calls?: { name: string; args: string; id?: string }[]; finish?: string; status?: number; error?: string; usage?: object };
+type Said = { text?: string; think?: string; calls?: { name: string; args: string; id?: string }[]; finish?: string; status?: number; error?: string; code?: string; usage?: object };
 let say: (body: any) => Said = () => ({ text: "ok" });
 const seen: { path: string; auth: string; body: any }[] = [];
 let models: any = { data: [{ id: "llama-fast", name: "Llama Fast" }, { id: "text-embedding-1" }, { id: "whisper-large" }] };
@@ -28,7 +28,7 @@ const provider = http.createServer((req, res) => {
     if (req.headers.authorization !== "Bearer good-key-123456") { res.writeHead(401, { "content-type": "application/json" }); return res.end(JSON.stringify({ error: { message: "Invalid API Key" } })); }
     if (req.url === "/models") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(models)); }
     const r = say(body);
-    if (r.status) { res.writeHead(r.status, { "content-type": "application/json" }); return res.end(JSON.stringify({ error: { message: r.error ?? "nope" } })); }
+    if (r.status) { res.writeHead(r.status, { "content-type": "application/json" }); return res.end(JSON.stringify({ error: { message: r.error ?? "nope", ...(r.code ? { code: r.code } : {}) } })); }
     res.writeHead(200, { "content-type": "text/event-stream" });
     const send = (j: object) => res.write(`data: ${JSON.stringify(j)}\n\n`);
     // Words and tool-call arguments arrive in pieces, as they do for real.
@@ -47,8 +47,8 @@ const provider = http.createServer((req, res) => {
 });
 await new Promise<void>((ok) => provider.listen(0, "127.0.0.1", ok));
 const base = `http://127.0.0.1:${(provider.address() as AddressInfo).port}`;
-for (const id of ["DEEPSEEK", "GEMINI", "GROQ", "OPENROUTER"]) process.env[`PROVIDER_BASE_URL_${id}`] = base;
-for (const k of ["DEEPSEEK_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY"]) delete process.env[k];
+for (const id of ["DEEPSEEK", "GEMINI", "GROQ", "OPENAI", "OPENROUTER"]) process.env[`PROVIDER_BASE_URL_${id}`] = base;
+for (const k of ["DEEPSEEK_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"]) delete process.env[k];
 
 const p = await import("../src/providers.ts");
 const stateOf = (id: string) => p.providersState().find((s) => s.id === id)!;
@@ -131,7 +131,7 @@ test("agent and small-job requests use saved Anthropic keys and pick up replacem
 });
 
 test("connecting: the provider checks the key, it's kept on disk for you alone, and the page is never shown it", async () => {
-  assert.deepEqual(p.providersState().map((s) => [s.id, s.connected]), [["deepseek", false], ["gemini", false], ["groq", false], ["openrouter", false]]);
+  assert.deepEqual(p.providersState().map((s) => [s.id, s.connected]), [["deepseek", false], ["gemini", false], ["groq", false], ["openai", false], ["openrouter", false]]);
   await assert.rejects(p.connectProvider("groq", "bad-key-000000"), /Groq didn't accept that key: Invalid API Key/);
   await assert.rejects(p.connectProvider("groq", "short"), /doesn't look like an API key/);
   await assert.rejects(p.connectProvider("groq", "has a space in it"), /doesn't look like an API key/);
@@ -262,7 +262,7 @@ test("a crew member set to another provider's model runs there: same tools, same
   assert.equal(p.maySend("groq", undefined), true, "a project that isn't confidential never needed it");
   assert.equal(p.approveProvider("groq", true), true);
   assert.equal(p.approveProvider("chatgpt", true), false);
-  assert.deepEqual(p.providersState().map((s) => [s.id, s.approved]), [["deepseek", false], ["gemini", false], ["groq", true], ["openrouter", false]]);
+  assert.deepEqual(p.providersState().map((s) => [s.id, s.approved]), [["deepseek", false], ["gemini", false], ["groq", true], ["openai", false], ["openrouter", false]]);
   assert.deepEqual([p.maySend("groq", "careful"), p.maySend("groq", "off"), p.maySend("openrouter", "careful")], [true, true, false], "the approval is that provider's alone");
   say = () => ({ text: "A summary of the work app." });
   const ok = await runDirect("scout", "Summarise the repo", "direct", [], undefined, "conf2", undefined, { project: secret.id, links: [] });
@@ -387,7 +387,7 @@ test("the models guide: every model the camp can reach, by cost, speed and what 
   assert.match(page, /## Groq\n\nYou've approved it for confidential projects\. [^\n]*judged from each model's family name, as a rule of thumb/);
   assert.match(page, /\| Llama 3\.3 70B \| `groq:llama-3\.3-70b-versatile` \| \$ \| Very fast/);
   assert.match(page, /Treat the ratings for other providers as a starting point, not a measurement/);
-  assert.match(page, /## Not connected\n\nDeepSeek, Gemini, OpenRouter: add a key under Settings → Models/);
+  assert.match(page, /## Not connected\n\nDeepSeek, Gemini, OpenAI, OpenRouter: add a key under Settings → Models/);
   assert.ok(page.indexOf("claude-haiku") < page.indexOf("claude-opus"), "cheapest first within a group");
   assert.ok(!page.includes("good-key"), "no key is ever in it");
   // Written into the wiki's notes (claims to weigh), where the crew's index lists it.
@@ -503,4 +503,78 @@ test("DeepSeek: its thinking goes back with every later request, small jobs skip
   process.env.DEEPSEEK_API_KEY = "good-key-123456";
   assert.deepEqual([stateOf("deepseek").connected, stateOf("deepseek").from], [true, "env"]);
   delete process.env.DEEPSEEK_API_KEY;
+});
+
+test("OpenAI: only its chat models are offered, the allowance goes as max_completion_tokens, small jobs ask its reasoning models to think briefly, and no credit is said plainly", async () => {
+  const { rateModel } = await import("../src/modelguide.ts");
+  const { tierOf, PROVIDER_CAPS } = await import("../src/autoroute.ts");
+  const { costOf, priceLabel } = await import("../src/costs.ts");
+  // Its list has everything it sells, with no names: only the chat models stay, without their dated snapshots.
+  models = { object: "list", data: ["gpt-5", "gpt-5-mini", "gpt-5-2025-08-07", "gpt-5-pro", "gpt-5-codex", "gpt-4o", "gpt-4o-2024-08-06", "gpt-4o-realtime-preview",
+    "gpt-4o-mini-tts", "gpt-4-turbo", "gpt-3.5-turbo", "o3-mini", "o4-mini", "chatgpt-4o-latest", "gpt-6-cyber", "dall-e-3", "gpt-image-1", "text-embedding-3-small", "omni-moderation-latest", "whisper-1"]
+    .map((id) => ({ id, object: "model", owned_by: "openai" })) };
+  await assert.rejects(p.connectProvider("openai", "bad-key-000000"), /OpenAI didn't accept that key: Invalid API Key/);
+  const state = await p.connectProvider("openai", "good-key-123456");
+  assert.deepEqual([state.connected, state.models, state.keysAt], [true, 6, "https://platform.openai.com/api-keys"]);
+  assert.match(state.privacy, /separately from a ChatGPT Plus or Pro subscription/);
+  assert.deepEqual(await p.providerModels("openai"), [
+    { id: "chatgpt-4o-latest", name: "ChatGPT-4o-latest" }, { id: "gpt-4o", name: "GPT-4o" }, { id: "gpt-5", name: "GPT-5" },
+    { id: "gpt-5-mini", name: "GPT-5-mini" }, { id: "o3-mini", name: "o3-mini", noImages: true }, { id: "o4-mini", name: "o4-mini" }]);
+  assert.deepEqual((await listModels()).models.filter((m) => m.provider === "OpenAI").map((m) => m.id).slice(0, 2), ["openai:chatgpt-4o-latest", "openai:gpt-4o"]);
+  assert.deepEqual(p.otherModel("openai:gpt-5"), { provider: "openai", name: "OpenAI", model: "gpt-5" });
+
+  // A crew member's request: the allowance as max_completion_tokens, cut to what 4o can write; cached input counted apart.
+  say = () => ({ text: "Hi.", usage: { prompt_tokens: 1000, completion_tokens: 20, prompt_tokens_details: { cached_tokens: 700 } } });
+  const r = await p.providerChat({ provider: "openai", model: "gpt-4o", system: "S", messages: [{ role: "user", content: "hi" }], maxTokens: 32_000 });
+  assert.deepEqual(r.usage, { input_tokens: 300, output_tokens: 20, cache_read_input_tokens: 700 });
+  assert.deepEqual([seen.at(-1)!.body.max_completion_tokens, seen.at(-1)!.body.max_tokens, seen.at(-1)!.body.reasoning_effort], [16_384, undefined, undefined]);
+  await p.providerChat({ provider: "openai", model: "gpt-5", system: "S", messages: [{ role: "user", content: "hi" }], maxTokens: 32_000 });
+  assert.deepEqual([seen.at(-1)!.body.max_completion_tokens, seen.at(-1)!.body.reasoning_effort], [32_000, undefined], "a crew member's run thinks as long as it likes");
+  // A small job on a reasoning model: think briefly, with room to.
+  await p.providerAsk({ provider: "openai", model: "gpt-5-mini" }, "S", "name this", 40);
+  assert.deepEqual([seen.at(-1)!.body.max_completion_tokens, seen.at(-1)!.body.reasoning_effort, seen.at(-1)!.body.thinking], [2048, "low", undefined]);
+  await p.providerAsk({ provider: "openai", model: "gpt-4o" }, "S", "name this", 40);
+  assert.deepEqual([seen.at(-1)!.body.max_completion_tokens, seen.at(-1)!.body.reasoning_effort], [40, undefined], "one that doesn't reason is asked as usual");
+  // Other providers still get max_tokens.
+  await p.providerAsk({ provider: "groq", model: "llama-fast" }, "S", "x", 40);
+  assert.deepEqual([seen.at(-1)!.body.max_tokens, seen.at(-1)!.body.max_completion_tokens], [40, undefined]);
+
+  // No credit left isn't a rate limit to wait out.
+  const ask = () => p.providerChat({ provider: "openai", model: "gpt-5", system: "", messages: [{ role: "user", content: "x" }] });
+  say = () => ({ status: 429, error: "You exceeded your current quota.", code: "insufficient_quota" });
+  await assert.rejects(ask(), (e: any) => /OpenAI says your account has no credit left: You exceeded your current quota\. Add credit with OpenAI/.test(e.message) && !e.passing);
+  say = () => ({ status: 429, error: "Rate limit reached" });
+  await assert.rejects(ask(), (e: any) => /OpenAI says you've hit its rate limit/.test(e.message) && e.passing);
+
+  // Auto and the guide place its models.
+  assert.deepEqual(["openai:gpt-5", "openai:gpt-5-mini", "openai:gpt-4o"].map(tierOf), ["open-strong", "open-fast", "open-unknown"]);
+  assert.match(rateModel({ id: "openai:gpt-5", name: "GPT-5", provider: "OpenAI" }).fit, /many-step/);
+  assert.equal(rateModel({ id: "openai:gpt-5-nano", name: "GPT-5-nano", provider: "OpenAI" }).speed, "Fastest");
+
+  // GPT-6: Luna calls tools with its thinking off; Terra can't call them through chat completions at all.
+  say = () => ({ text: "Done." });
+  const work = (model: string) => p.providerChat({ provider: "openai", model, system: "S", messages: [{ role: "user", content: "go" }], tools: [{ name: "read_file", input_schema: {} }] });
+  await work("gpt-6-luna");
+  assert.equal(seen.at(-1)!.body.reasoning_effort, "none");
+  const sent = seen.length;
+  await assert.rejects(work("gpt-6.1-terra"), /can only call tools through OpenAI's Responses API/);
+  assert.equal(seen.length, sent, "nothing is sent that would fail");
+  await p.providerAsk({ provider: "openai", model: "gpt-6.1-terra" }, "S", "name this", 40);
+  assert.equal(seen.at(-1)!.body.reasoning_effort, "low", "a small job without tools is fine");
+  assert.deepEqual(["openai:gpt-6.2-astra", "openai:gpt-6.2-sol", "openai:gpt-6-luna", "openai:gpt-5.6-luna"].map(tierOf), ["open-strong", "open-strong", "open-fast", "open-fast"]);
+  assert.equal(PROVIDER_CAPS.openai.tools!("gpt-6.1-terra"), false);
+  assert.equal(PROVIDER_CAPS.openai.tools!("gpt-6-luna"), true);
+  // Its listed prices count; one not listed yet is counted at the dearest.
+  const u = { input: 1_000_000, output: 1_000_000, cacheRead: 0, cacheWrite: 0 };
+  assert.equal(costOf("openai:gpt-6-luna", u), 0.6);
+  assert.equal(costOf("openai:gpt-4o", u), 12.5);
+  assert.equal(costOf("openai:gpt-7-sol", u), 60);
+  assert.equal(priceLabel("openai:gpt-6.2-sol"), "$2 / $10");
+  assert.equal(priceLabel("openai:gpt-4o"), "$2.50 / $10");
+  assert.equal(priceLabel("openai:gpt-7-sol"), undefined);
+  assert.match(rateModel({ id: "openai:gpt-6.2-sol", name: "GPT-6.2-sol", provider: "OpenAI" }).cost, /^\$\$ \(\$2 in \/ \$10 out/);
+  assert.match(rateModel({ id: "openai:gpt-6.1-terra", name: "GPT-6.1-terra", provider: "OpenAI" }).fit, /Can't call tools here/);
+
+  assert.equal(p.disconnectProvider("openai"), true);
+  assert.ok(!(await listModels()).models.some((m) => m.provider === "OpenAI"));
 });
