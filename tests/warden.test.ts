@@ -61,7 +61,7 @@ test("the Warden is one of the original crew, and their kit only reads", () => {
   assert.throws(() => crew.updateMember("warden", { name: "Nitpicker", role: "x" }), /can't be changed here/);
   assert.ok(!crew.removeMember("warden"));
   const names = ROSTER.warden.tools.map((t) => ("name" in t.def ? t.def.name : "")).sort();
-  assert.deepEqual(names, ["git", "glob", "grep", "jira", "list_dir", "outline", "post_review", "pull_request", "read_file", "recall", "remember", "view_file"]);
+  assert.deepEqual(names, ["calendar", "git", "glob", "grep", "jira", "list_dir", "outline", "post_review", "pull_request", "read_file", "recall", "remember", "view_file"]);
   assert.ok(SIDE_BY_SIDE.has("pull_request"), "reading a pull request can run beside other reads");
   assert.ok(!SIDE_BY_SIDE.has("post_review"), "posting is never marked read-only");
   for (const id of ["scout", "scribe", "artificer"]) assert.ok(!ROSTER[id].tools.some((t) => "name" in t.def && t.def.name === "post_review"), `${id} can't post`);

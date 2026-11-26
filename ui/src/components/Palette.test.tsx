@@ -2,7 +2,7 @@
 // folders attached where you are.
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { matches, Palette, type PaletteItem } from "./Palette.tsx";
+import { matches, Palette, score, type PaletteItem } from "./Palette.tsx";
 
 const gets: string[] = [];
 beforeEach(() => {
@@ -117,4 +117,61 @@ test("Jira tickets are found by key or title once two letters are typed, and ope
   expect(options()).toEqual(["MP-601: Fix the nav"]);
   fireEvent.keyDown(box, { key: "Enter" });
   expect(onOpenJira).toHaveBeenCalledWith("MP-601");
+});
+
+// Loose matching, best first; / for the commands only; the pages and the crew to go to.
+function showAll() {
+  const ran: string[] = [];
+  const item = (id: string, group: PaletteItem["group"], label: string, hint?: string): PaletteItem => ({ id, group, label, hint, icon: "file", run: () => ran.push(id) });
+  const items = [item("do:new", "Do", "Start a new conversation", "/new"), item("do:focus", "Do", "Close the history, files and terminal", "/focus"),
+    ...Array.from({ length: 9 }, (_, i) => item(`do:x${i}`, "Do", `Command ${i}`, `/x${i}`)),
+    item("page:Today", "Pages", "Today"), item("page:Memory: map", "Pages", "Memory: map"), item("page:Release notes", "Pages", "Release notes"),
+    item("crew:scout", "Crew", "Scout", "Finds things out"), item("crew:scribe", "Crew", "Scribe", "Writes it up"),
+    item("c:1", "Conversations", "Notes on the release", "General")];
+  render(<Palette items={items} roots={[]} onOpenFile={() => {}} onClose={() => {}} />);
+  const box = screen.getByRole("combobox") as HTMLInputElement;
+  const options = () => screen.queryAllByRole("option").map((o) => o.querySelector(".palette-label")!.textContent);
+  return { ran, box, options };
+}
+
+test("loose matching: each word's letters in order from a word's start, and the closest match first", () => {
+  expect(matches({ label: "Start a new conversation" }, "nw conv")).toBe(true);
+  expect(matches({ label: "Start a new conversation" }, "nconv")).toBe(true);    // n·ew conv·ersation
+  expect(matches({ label: "Start a new conversation" }, "tartnew")).toBe(false); // starts mid-word
+  expect(matches({ label: "Start a new conversation" }, "conv zz")).toBe(false); // every word has to be found
+  expect(score({ label: "Scout" }, "sc")).toBeGreaterThan(score({ label: "Describe", hint: "a scene" }, "sc"));
+  expect(score({ label: "Release notes" }, "release")).toBeGreaterThan(score({ label: "Notes on the release" }, "release"));
+  const { box, options, ran } = showAll();
+  fireEvent.change(box, { target: { value: "release" } });
+  expect(options()).toEqual(["Release notes", "Notes on the release"]); // the group with the closer match comes first
+  fireEvent.change(box, { target: { value: "scr" } });
+  expect(options()[0]).toBe("Scribe"); // s·c·r in "Start a new conversation" too, further down
+  fireEvent.keyDown(box, { key: "Enter" });
+  expect(ran).toEqual(["crew:scribe"]);
+});
+
+test("the pages and the crew are offered from the start; / lists every command, and only commands", () => {
+  const { box, options } = showAll();
+  const first = options();
+  expect(first).toContain("Today");
+  expect(first).toContain("Scout");
+  expect(first.filter((o) => o?.startsWith("Command")).length).toBe(5); // seven commands a group, unasked
+  fireEvent.change(box, { target: { value: "/" } }); // what /help opens on
+  expect(options().length).toBe(11);
+  expect(options()).not.toContain("Today");
+  fireEvent.change(box, { target: { value: "/nw" } });
+  expect(options()).toEqual(["Start a new conversation"]);
+});
+
+test("the list is a proper listbox: the box names the active option, and PageDown/End move far", () => {
+  const { box } = showAll();
+  expect(box.getAttribute("aria-activedescendant")).toBe("palette-0");
+  fireEvent.keyDown(box, { key: "PageDown" });
+  expect(box.getAttribute("aria-activedescendant")).toBe("palette-8");
+  fireEvent.keyDown(box, { key: "End", ctrlKey: true });
+  const all = screen.getAllByRole("option");
+  expect(all.at(-1)!.getAttribute("aria-selected")).toBe("true");
+  expect(all.every((o) => o.tabIndex === -1)).toBe(true); // Tab doesn't wander the list; arrows do
+  fireEvent.keyDown(box, { key: "Home", ctrlKey: true });
+  expect(all[0].getAttribute("aria-selected")).toBe("true");
 });

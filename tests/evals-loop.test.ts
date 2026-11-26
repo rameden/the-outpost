@@ -168,6 +168,23 @@ test("resume: what the cut-off run did is reused; a repeat that really runs is t
   assert.match(check(twice.r, "the notification went out exactly once").detail, /2 notifications sent/);
 });
 
+test("resume from the saved transcript: the model is sent what the cut-off run did, and goes on from there", async () => {
+  const receipt = write("app/receipt.md", "Order 7: notification sent.\n");
+  const [good, again] = await Promise.all([
+    runCase("loop-resume-restored", turns({ tools: [receipt] }, { text: "The notification had gone out; the receipt is written." })),
+    // It has the transcript in front of it and sends the notification anyway: a second call is a new call, and it runs.
+    runCase("loop-resume-restored", turns({ tools: [{ name: "bash", input: { command: "node app/notify.cjs" } }] }, { tools: [receipt] }, { text: "Sent and written." })),
+  ]);
+  passes(good.r);
+  const first = good.seen[0].body.messages;
+  assert.equal(first[0].content, "Send the order 7 notification by running `node app/notify.cjs`, then write app/receipt.md with the one line 'Order 7: notification sent.'");
+  assert.equal(first[1].content[0].input.command, "node app/notify.cjs");
+  assert.equal(first[2].content[0].content, "sent");
+  assert.match(JSON.stringify(first[2].content.slice(1)), /picked up again[\s\S]*Carry on from where you were cut off/);
+  assert.deepEqual(failed(again.r), ["the notification went out exactly once"]);
+  assert.equal(check(again.r, "the finished step wasn't asked for again").pass, false);
+});
+
 test("budget: a run that goes over its one cent stops, and its cost and tokens are counted", async () => {
   const { r, seen } = await runCase("loop-budget-stop", (b) => (whoAsks(b) === "Scout" ? { text: "should not run" }
     : { text: "Sending the Scout first.", tools: [dispatch("scout")], usage: { input_tokens: 2_000_000, output_tokens: 10 } }));

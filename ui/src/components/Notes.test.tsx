@@ -60,6 +60,17 @@ test("a new note opens ready to write, and what you type is saved by itself", as
   expect(screen.getAllByRole("listitem")[0].querySelector("b")!.textContent).toBe("Standup");
 });
 
+test("a blank note that only came back open with the page doesn't take the keyboard before you've done anything", async () => {
+  render(<NotesPanel onHide={() => {}} />);
+  await screen.findByRole("button", { name: /Release steps/ });
+  fireEvent.click(screen.getByRole("button", { name: /New note/ }));
+  cleanup(); // the page is loaded again, with that blank note still open
+  vi.stubGlobal("navigator", { ...navigator, userActivation: { hasBeenActive: false, isActive: false } });
+  render(<NotesPanel onHide={() => {}} />);
+  const box = await screen.findByLabelText("The note");
+  expect(document.activeElement).not.toBe(box);
+});
+
 test("a note goes into your message as text (all of it, or the part selected) or as a file", async () => {
   const onInsert = vi.fn(), onAttach = vi.fn(), onOpenConversation = vi.fn();
   render(<NotesPanel onHide={() => {}} onInsert={onInsert} onAttach={onAttach} onOpenConversation={onOpenConversation} />);

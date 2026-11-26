@@ -20,6 +20,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Options, SDKMessage, SDKUserMessage, McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { spillOutput } from "./spill.js";
 import { clipOutput, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import type { Steering } from "./context.js";
 import { w } from "./words.js";
@@ -110,7 +111,7 @@ export const SIDE_BY_SIDE = new Set(["dispatch", "dispatch_helper", "read_file",
 
 // An MCP server (inside this process) exposing the agent's camp tools. Handlers run in the
 // run's own context, so budgets, quests, and Stop work across tool calls.
-function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R, note: () => string | null = () => null): McpSdkServerConfigWithInstance {
+function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R, note: () => string | null = () => null, spillAs?: string): McpSdkServerConfigWithInstance {
   const server = new McpServer({ name: "camp", version: "1.0.0" }, { capabilities: { tools: {} } });
   const handlers = new Map<string, NonNullable<Tool["run"]>>();
   const listed: { name: string; description?: string; inputSchema: Record<string, unknown>; annotations?: { readOnlyHint: true } }[] = [];
@@ -127,7 +128,7 @@ function campServer(tools: Tool[], inContext: <R>(fn: () => R) => R, note: () =>
     try {
       const out = await inContext(() => handler(req.params.arguments ?? {}));
       const extra = note(); // a heads-up near the turn limit rides along with the result
-      return { content: [...toMcpContent(clipOutput(out)), ...(extra ? [{ type: "text" as const, text: extra }] : [])] };
+      return { content: [...toMcpContent(spillAs ? spillOutput(out, spillAs) : clipOutput(out)), ...(extra ? [{ type: "text" as const, text: extra }] : [])] };
     } catch (err: any) {
       return { content: [{ type: "text", text: `Error: ${err?.stderr || err?.message || err}` }], isError: true };
     }
@@ -146,6 +147,8 @@ export type ClaudeCodeRun = {
   budgetLeftUsd?: number;          // remaining expedition budget, if any
   signal?: AbortSignal;
   messages: Anthropic.MessageParam[]; // the transcript, filled in as the run goes
+  onMessage?: () => void;          // called after each message is added to it (the run is saved as it goes: runstore.ts)
+  spillAs?: string;                // whose long tool output this is: it goes to camp/spill/ for them (spill.ts) instead of being cut
   onDelta: (text: string) => void;
   onText: (text: string) => void;
   onTool: (name: string, input: unknown) => void;
@@ -230,7 +233,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     ...(r.effort ? { effort: r.effort as Options["effort"] } : {}),
     systemPrompt: r.system,
     tools: builtins,                                  // only web search/fetch, if any
-    mcpServers: { camp: campServer(r.tools, inContext, turnNote) },
+    mcpServers: { camp: campServer(r.tools, inContext, turnNote, r.spillAs) },
     canUseTool: async (name, input) =>
       name.startsWith(MCP_PREFIX) || builtins.includes(name)
         ? { behavior: "allow", updatedInput: input }
@@ -286,6 +289,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
       } else if (m.type === "assistant" && !m.parent_tool_use_id) {
         const blocks = (m.message.content ?? []) as any[];
         r.messages.push({ role: "assistant", content: blocks.filter((b) => b.type !== "thinking") });
+        r.onMessage?.();
         for (const b of blocks) {
           if (b.type === "text" && b.text.trim()) { text = b.text.trim(); r.onText(text); }
           if (b.type === "tool_use") r.onTool(String(b.name).replace(MCP_PREFIX, ""), b.input);
@@ -293,6 +297,7 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
         noteUsage(m.message);
       } else if (m.type === "user" && !m.parent_tool_use_id && Array.isArray(m.message.content)) {
         r.messages.push({ role: "user", content: m.message.content as any });
+        r.onMessage?.();
       } else if (m.type === "result") {
         resultMsg = m;
         finished();

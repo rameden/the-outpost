@@ -26,6 +26,7 @@ import { allTurns, copyTurns, foldersOf, THREADS_PATH, type Turn } from "./threa
 import { undoCheckpoint } from "./checkpoints.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { fileStamp } from "./helpers.js";
+import { indexAvailable, searchTurns } from "./searchindex.js";
 
 export const CONVERSATIONS_PATH = "camp/conversations.json";
 export const GENERAL = "general";
@@ -295,25 +296,52 @@ export function fileConversation(thread: string, project: unknown) {
 }
 
 // ---------- Searching ----------
-// Conversations whose title, requests, or answers mention the words, newest first, each with
-// the line that matched.
+// Conversations whose title, requests, or answers mention what was typed, each with the line
+// that matched. It goes through the search index (searchindex.ts): first the conversations that
+// hold it exactly as typed, newest first as they're listed; then the ones that hold all of its
+// words in any order, the best first. Without the index, the runs are read and searched directly.
 export function searchConversations(query: string, limit = 30): { id: string; snippet: string }[] {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
-  const listed = new Map(history().conversations.map((c) => [c.id, c]));
+  const listed = history().conversations;
+  if (indexAvailable()) {
+    try { return searchIndexed(q, listed, limit); } catch { /* the index can't be used right now: read the runs instead */ }
+  }
+  const byId = new Map(listed.map((c) => [c.id, c]));
   const hits = new Map<string, string>();
   const turns = allTurns();
   for (let i = turns.length - 1; i >= 0; i--) {
     const t = turns[i];
-    const c = listed.get(t.thread);
+    const c = byId.get(t.thread);
     if (!c || hits.has(t.thread)) continue;
     const found = [c.title, t.task, t.reply].find((text) => text.toLowerCase().includes(q));
-    if (!found) continue;
-    const at = found.toLowerCase().indexOf(q);
-    const from = Math.max(0, at - 40);
-    hits.set(t.thread, (from > 0 ? "…" : "") + found.slice(from, at + q.length + 80).replace(/\s+/g, " ").trim() + (found.length > at + q.length + 80 ? "…" : ""));
+    if (found) hits.set(t.thread, snippetOf(found, found.toLowerCase().indexOf(q), q.length));
   }
-  return [...listed.values()].filter((c) => hits.has(c.id)).slice(0, limit).map((c) => ({ id: c.id, snippet: hits.get(c.id)! }));
+  return listed.filter((c) => hits.has(c.id)).slice(0, limit).map((c) => ({ id: c.id, snippet: hits.get(c.id)! }));
+}
+const snippetOf = (found: string, at: number, length: number) => {
+  const from = Math.max(0, at - 40);
+  return (from > 0 ? "…" : "") + found.slice(from, at + length + 80).replace(/\s+/g, " ").trim() + (found.length > at + length + 80 ? "…" : "");
+};
+function searchIndexed(q: string, listed: Conversation[], limit: number): { id: string; snippet: string }[] {
+  const exact = new Map<string, string>(), loose = new Map<string, string>();
+  const words = q.match(/[\p{L}\p{N}]+/gu) ?? [];
+  for (const c of listed) {
+    const title = c.title.toLowerCase();
+    if (title.includes(q)) exact.set(c.id, snippetOf(c.title, title.indexOf(q), q.length));
+  }
+  const byId = new Map(listed.map((c) => [c.id, c]));
+  for (const r of searchTurns(q, Math.max(200, limit * 4))) {
+    if (!byId.has(r.thread) || exact.has(r.thread) || loose.has(r.thread)) continue;
+    const found = [r.task, r.reply].find((text) => text.toLowerCase().includes(q));
+    if (found) { exact.set(r.thread, snippetOf(found, found.toLowerCase().indexOf(q), q.length)); continue; }
+    if (r.exact) continue; // it matched across the join of the request and the answer: not a match
+    // All of the words, somewhere: the line is taken from around the first one that can be seen.
+    const text = `${r.task}\n${r.reply}`, lower = text.toLowerCase();
+    const at = Math.min(...words.map((w) => lower.indexOf(w)).filter((i) => i >= 0), 0x7fffffff);
+    loose.set(r.thread, at === 0x7fffffff ? snippetOf(text, 0, 0) : snippetOf(text, at, words.find((w) => lower.startsWith(w, at))!.length));
+  }
+  return [...listed.filter((c) => exact.has(c.id)).map((c) => ({ id: c.id, snippet: exact.get(c.id)! })), ...[...loose].map(([id, snippet]) => ({ id, snippet }))].slice(0, limit);
 }
 
 // ---------- Reading a conversation back ----------

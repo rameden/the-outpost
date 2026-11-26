@@ -300,6 +300,44 @@ const resumeNoRepeat: EvalCase = {
   },
 };
 
+// ---------- 5b. A task picked up again from its saved transcript ----------
+const RESTORED = /Picked up from the saved transcript/;
+const restoredGood: Rehearsal = {
+  result: done("The order 7 notification had gone out before the run was cut off. I wrote the receipt, which was what was left."),
+  trail: [
+    notice("Artificer", "⏪ Picked up from the saved transcript of the run that broke off (3 messages), so finished steps aren't done again."),
+    tool("Artificer", "write_file", "app/receipt.md"),
+  ],
+  files: { "app/sent.log": "notified order 7\n", "app/receipt.md": "Order 7: notification sent.\n" },
+};
+const resumeRestored: EvalCase = {
+  ...resumeNoRepeat,
+  id: "loop-resume-restored",
+  covers: "resume-restored",
+  about: "A task cut off mid-run is picked up from its saved transcript: it goes on from where it was, without doing the finished part over",
+  resume: { ...resumeNoRepeat.resume!, transcript: true },
+  checks: [
+    finished,
+    { name: "the saved transcript was restored", required: true, run: (c) => notices(c).some((n) => RESTORED.test(n.text)) || "the run started from the task alone" },
+    { name: "the notification went out exactly once", required: true, run: (c) => lineCount(c.read("app/sent.log")) === 1 || `${lineCount(c.read("app/sent.log"))} notifications sent` },
+    { name: "the rest of the task got done", required: true, run: (c) => /order 7/i.test(c.read("app/receipt.md") ?? "") || (c.read("app/receipt.md") === null ? "no receipt written" : "the receipt doesn't name order 7") },
+    // With the call and its result in front of it, it has no reason to ask for the command again.
+    { name: "the finished step wasn't asked for again", run: (c) => !c.trail.some((m) => m.type === "tool" && m.tool === "bash" && m.input.includes("notify")) || "asked for the notification again" },
+  ],
+  rehearsal: {
+    good: restoredGood,
+    bad: [
+      // The transcript wasn't there (or wasn't read): it starts over from the task.
+      but(restoredGood, "the saved transcript was restored", { trail: [tool("Artificer", "write_file", "app/receipt.md")] }),
+      // It has the transcript and sends the notification anyway.
+      but(restoredGood, "the notification went out exactly once", { trail: [...restoredGood.trail, tool("Artificer", "bash", NOTIFY)],
+        files: { ...restoredGood.files, "app/sent.log": "notified order 7\nnotified order 7\n" } }),
+      // It reads that the notification went out and stops there.
+      but(restoredGood, "the rest of the task got done", { trail: [restoredGood.trail[0]], files: { "app/sent.log": "notified order 7\n" } }),
+    ],
+  },
+};
+
 // ---------- 6. A failing check sends the work back ----------
 const LINT = "node tools/lint.mjs", TESTS = "node check.mjs", LEDGER = "links/ledger";
 const checkRuns = (c: CaseContext) => notices(c).flatMap((n) => { const m = n.text.match(/^([✓✗]) check: (.+)$/); return m ? [{ at: n.at, passed: m[1] === "✓", command: m[2] }] : []; });
@@ -508,4 +546,4 @@ const parallelWriters: EvalCase = {
   },
 };
 
-export const LOOP_CASES: EvalCase[] = [planOrder, rightCrew, reviewAfterChange, askBeforePlan, resumeNoRepeat, fixAfterCheck, budgetStop, parallelWriters];
+export const LOOP_CASES: EvalCase[] = [planOrder, rightCrew, reviewAfterChange, askBeforePlan, resumeNoRepeat, resumeRestored, fixAfterCheck, budgetStop, parallelWriters];

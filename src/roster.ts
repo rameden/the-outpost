@@ -14,13 +14,14 @@ import { viewFileFor } from "./attachments.js";
 import { editFileFor, listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
 import { gitFor } from "./git.js";
 import { jiraTool } from "./jira.js";
+import { calendarTool } from "./gcal.js";
 import { pullRequestFor, postReviewFor, describePrFor } from "./prtool.js";
 import { FINDINGS_FORMAT } from "./review.js";
 
 // Search tools for everyone, read-only git included (what changed, not just what's there now);
 // edits only for the roles that change files.
-// (jira: reading the user's tickets, which says so itself when Jira isn't connected.)
-const search = (id: string) => [listDirFor(id), globFor(id), grepFor(id), outlineFor(id), gitFor(id), jiraTool()];
+// (jira and calendar: reading the user's tickets and calendar, each saying so itself when it isn't linked.)
+const search = (id: string) => [listDirFor(id), globFor(id), grepFor(id), outlineFor(id), gitFor(id), jiraTool(), calendarTool()];
 
 // Adventurers can't ask follow-up questions mid-quest, so these rules keep their work useful.
 const QUEST_RULES = `

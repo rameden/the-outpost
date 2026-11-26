@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
 import { skillsStamp } from "./helpers.js";
 import { posix } from "node:path";
-import { campPath, clipOutput, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
+import { campPath, displayPath, steerNote, wrapUpNote, type Tool, type ToolOutput } from "./tools.js";
 import { wikiIndex } from "./wiki.js";
 import { emit } from "./events.js";
 import { identityBlock, type CrewId } from "./crew.js";
@@ -14,13 +14,16 @@ import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } f
 import { aboutBlock } from "./memlog.js";
 import { logAboutRelevant } from "./recalllog.js";
 import { requestText, type RequestContent } from "./attachments.js";
-import { agentSettings, alwaysSkills, campRuntime, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
+import { agentSettings, alwaysSkills, campRuntime, compactAt, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
 import { PROVIDERS, ProviderError, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
 import { currentExpeditionId, currentLedger, currentQuestId, currentReplyTo, currentRunKey, currentSignal, currentSteering, currentThread, conversationModel } from "./context.js";
 import { autoLabel, isAutoChoice, parseChoice, profileTask, RequestSizer, routeId, type Decision, type Route } from "./routing.js";
 import { TaskRouter, Verification, autoMode, coolDown, gradeOf, lastRouteOf, logOutcome, noteOutcome, tierOf, type RouteStep, type RouteUse } from "./autoroute.js";
 import { OpJournal, journaled } from "./oplog.js";
+import { RunStore, resumeMessages, transcriptText } from "./runstore.js";
+import { compact, tokensOf } from "./compaction.js";
+import { spillOutput } from "./spill.js";
 import { filesWrittenBy } from "./checkpoints.js";
 import { costOf, priceLabel, usd } from "./costs.js";
 import { connectorsFor, mcpToolsFor } from "./mcp.js";
@@ -68,6 +71,10 @@ export function isPassingFailure(err: unknown): boolean {
 // Tests shorten the waits.
 let retryWaits = RETRY_WAITS_MS;
 export const setRetryWaitsForTests = (ms: number[] | null) => { retryWaits = ms ?? RETRY_WAITS_MS; };
+// How much a model's context holds, in tokens. Tests make it small.
+let contextForTests: number | null = null;
+export const setContextForTests = (tokens: number | null) => { contextForTests = tokens; };
+const CONTEXT_ELSEWHERE: Record<string, number> = { deepseek: 128_000, gemini: 1_000_000, groq: 128_000, openrouter: 32_000 }; // as autoroute.ts has them
 // Wait, unless Stop comes first (true: waited it out; false: stopped).
 const pause = (ms: number, signal?: AbortSignal) => new Promise<boolean>((ok) => {
   if (signal?.aborted) return ok(false);
@@ -506,7 +513,16 @@ export async function runAgent(
   }
   const ledger = currentLedger(); // shared by everyone in this expedition
   const overBudget = () => !!ledger?.budget && ledger.spent >= ledger.budget;
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: task }];
+  // Its transcript is saved every turn (runstore.ts): a run that replies to one that broke off
+  // carries on from that one's messages, with this message on the end. With none saved, it starts
+  // from the task alone, as it always did (the journal still guards what was changed).
+  const store = thread && journal ? new RunStore(thread, spec.id, runId, currentReplyTo()) : null;
+  const restored = store?.restored ?? null;
+  const messages: Anthropic.MessageParam[] = restored ? resumeMessages(restored.messages, task) : [{ role: "user", content: task }];
+  if (restored) {
+    journal!.seedCounts(restored.ops);
+    notice(`⏪ Picked up from the saved transcript of the run that broke off (${restored.messages.length} messages), so finished steps aren't done again.`);
+  }
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   let lastText = "";
   let cutoffs = 0;
@@ -613,6 +629,41 @@ export async function runAgent(
   // unique and in the form every provider accepts.
   const authorOf = new WeakMap<object, string>();
   const usedIds = new Set<string>();
+  if (restored) {
+    restored.messages.forEach((m, i) => { if (restored.authors?.[i]) authorOf.set(m, restored.authors[i]!); });
+    for (const m of messages) if (m.role === "assistant" && Array.isArray(m.content)) for (const b of m.content as any[]) if (b?.type === "tool_use") usedIds.add(String(b.id));
+  }
+  // Saved after every message added, so what's on disk is never more than a turn behind.
+  const saveRun = () => store?.save({ model, turn, messages, authorOf: (m) => authorOf.get(m), ops: journal?.callCounts() ?? [] });
+  const add = (m: Anthropic.MessageParam) => { messages.push(m); sizer.addMessage(m); saveRun(); };
+
+  // ---------- Keeping within the context ----------
+  // Looked at before each request (compaction.ts): past the set share of the model's context, old
+  // tool results are cleared, and if that isn't enough the middle of the transcript becomes a
+  // summary, written on the cheapest route.
+  let compactedAt = 0; // the size it was left at last time, so a transcript that can't shrink isn't tried every turn
+  const contextOf = (m: string) => contextForTests ?? router?.route?.caps.contextTokens ?? (otherModel(m) ? CONTEXT_ELSEWHERE[otherModel(m)!.provider] ?? 32_000 : 200_000);
+  const keepInContext = async () => {
+    const share = compactAt();
+    if (!share) return;
+    const limit = Math.floor(contextOf(model) * share);
+    const size = reqTokens();
+    if (size < limit || (compactedAt && size < compactedAt * 1.15)) return;
+    const fixedPart = size - tokensOf(messages); // the system prompt and the tools: not for compacting
+    const project = currentProjectId();
+    const done = await compact(messages, {
+      limit: Math.max(1_000, limit - fixedPart),
+      summarise: async (system, prompt) => (await import("./small.js")).askSmall(system, prompt, 2_000, { project }),
+    }).catch(() => null);
+    if (done) {
+      messages.splice(0, messages.length, ...done.messages);
+      sizer.setMessages(messages);
+      saveRun();
+      notice(`🗜️ The conversation was nearing ${spec.name}'s context limit, so it was made smaller (about ${Math.round(done.before / 1000)}k tokens to ${Math.round(done.after / 1000)}k): ` +
+        [done.pruned ? `${done.pruned} old tool result${done.pruned === 1 ? "" : "s"} cleared` : "", done.summarised ? `${done.summarised} earlier messages replaced by a summary${done.fallback ? " (put together without a model: the summariser didn't answer)" : ""}` : ""].filter(Boolean).join(", ") + ".");
+    }
+    compactedAt = reqTokens();
+  };
   const forRoute = (list: Anthropic.MessageParam[], target: string): Anthropic.MessageParam[] => list.map((m) => {
     if (m.role !== "assistant" || !Array.isArray(m.content) || authorOf.get(m) === target) return m;
     const toClaude = !otherModel(target);
@@ -654,8 +705,13 @@ export async function runAgent(
       if (signal?.aborted) return finish("stopped", stoppedNote);
       if (overBudget()) return finish("over_budget", budgetNote());
       let spentLive = 0;
+      // Claude Code keeps its own conversation (and compacts it itself), so a restored transcript
+      // goes in as words, ahead of the message that picked the task up again.
+      const before = restored ? `[Outpost note: this task broke off part-way and was picked up again. Its transcript as it stood is below: carry on from where it stopped, and don't redo steps that already finished.]\n\n${transcriptText(restored.messages)}\n\n[End of the restored transcript. What was said on picking it up again follows.]\n\n` : "";
+      const ccTask: RequestContent = !before ? task : typeof task === "string" ? before + task : [{ type: "text", text: before }, ...task];
+      saveRun();
       const r = await runClaudeCode({
-        model, effort, system: systemFor(model), task, tools, signal, messages, steering,
+        model, effort, system: systemFor(model), task: ccTask, tools, signal, messages, steering, spillAs: spec.id, onMessage: saveRun,
         // The shared tally moves with every reply, so parallel quests and the Quartermaster see
         // each other's spending while they run, and the run ends itself once the budget is gone.
         onSpend: (usd) => { spentLive += usd; if (ledger) ledger.spent += usd; },
@@ -691,6 +747,7 @@ export async function runAgent(
       }
       // Auto: the route is checked before every dispatch (still available, still big enough), and
       // looked at again if the last turn's tool calls turned up a reason to.
+      await keepInContext();
       if (router) {
         const t = router.check(reqTokens());
         if (t) { const stopped = await reroute(t.trigger, t.evidence); if (stopped) { turn--; return stopped; } }
@@ -701,7 +758,7 @@ export async function runAgent(
       for (let attempt = 0, got = false; !got; attempt++) {
         if (signal?.aborted) { turn--; return finish("stopped", stoppedNote); }
         route = servedBy();
-        const outgoing = router ? forRoute(messages, model) : messages;
+        const outgoing = router || restored ? forRoute(messages, model) : messages;
         try {
           if (other) {
             resp = await providerChat({ provider: other.provider, model: other.model, system: systemFor(model), messages: outgoing as any, tools: defs, maxTokens: MAX_TOKENS, signal,
@@ -770,8 +827,7 @@ export async function runAgent(
       if (Array.isArray(resp.usage.iterations) && resp.usage.iterations.some((i: any) => i?.type === "fallback_message")) fellBack = true; // (a later reply in a conversation that already fell back has no block)
       const reply: Anthropic.MessageParam = { role: "assistant", content: kept as unknown as Anthropic.ContentBlockParam[] };
       authorOf.set(reply, model);
-      messages.push(reply);
-      sizer.addMessage(reply);
+      add(reply);
       const turnUsage = {
         input: resp.usage.input_tokens,
         output: resp.usage.output_tokens,
@@ -826,8 +882,7 @@ export async function runAgent(
               }))
             : "Your response was cut off by the output token limit. Continue from where you stopped.",
         };
-        messages.push(cutMsg);
-        sizer.addMessage(cutMsg);
+        add(cutMsg);
         continue;
       }
       // No tool requested: this character is done, unless the user said something in the meantime.
@@ -835,8 +890,7 @@ export async function runAgent(
         const said = takeSteer();
         if (!said) return finish("done");
         const steerMsg: Anthropic.MessageParam = { role: "user", content: said };
-        messages.push(steerMsg);
-        sizer.addMessage(steerMsg);
+        add(steerMsg);
         continue;
       }
 
@@ -858,10 +912,10 @@ export async function runAgent(
         const handler = handlers.get(block.name);
         try {
           const out: ToolOutput = handler ? await handler(block.input) : `Unknown tool: ${block.name}`;
-          return { type: "tool_result" as const, tool_use_id: block.id, content: clipOutput(out), ...(handler ? {} : { is_error: true }) };
+          return { type: "tool_result" as const, tool_use_id: block.id, content: spillOutput(out, spec.id), ...(handler ? {} : { is_error: true }) };
         } catch (err: any) {
           // Let the model adapt instead of crashing, and tell it plainly that the call failed.
-          return { type: "tool_result" as const, tool_use_id: block.id, content: clipOutput(`Error: ${err.stderr || err.message}`), is_error: true };
+          return { type: "tool_result" as const, tool_use_id: block.id, content: spillOutput(`Error: ${err.stderr || err.message}`, spec.id), is_error: true };
         }
       };
       const together = uses.map((b) => (SIDE_BY_SIDE.has(b.name) ? runOne(b) : null));
@@ -870,8 +924,7 @@ export async function runAgent(
       // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn limit.
       const notes = [takeSteer(), maxTurns >= 6 ? wrapUpNote(maxTurns - turn) : null].filter((n): n is string => !!n);
       const toolMsg: Anthropic.MessageParam = { role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] };
-      messages.push(toolMsg);
-      sizer.addMessage(toolMsg);
+      add(toolMsg);
       // What the tools turned up: a failure reproduced after distinct fixes, or a bigger task than it looked.
       const calls = uses.map((b, i) => ({ name: b.name, input: b.input, output: resultText(results[i]?.content), failed: !!results[i]?.is_error }));
       if (router) router.observe(calls, reqTokens());
@@ -898,14 +951,18 @@ export async function runAgent(
     } catch { /* the log is a record, never a reason to fail a run */ }
   };
   journal?.begin();
+  saveRun();
   try {
     const r = await work();
     journal?.end();
+    store?.finish();
     settle(r);
     return r;
   } catch (err: any) {
-    if (signal?.aborted) { journal?.end(); const r = finish("stopped", stoppedNote); settle(r); return r; }
+    if (signal?.aborted) { journal?.end(); store?.finish(); const r = finish("stopped", stoppedNote); settle(r); return r; }
     journal?.abandon();
+    saveRun();
+    store?.abandon();
     const e: AgentFailure = err instanceof Error ? err : new Error(String(err));
     const partial = finish("error", `\n\n[Failed: ${e.message}]`);
     e.partial = campRuntime() === "claude-code" && !other ? { ...partial, runtime: "claude-code", costUsd: failedCost ?? 0 } : partial;

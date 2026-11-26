@@ -39,6 +39,8 @@ export const verifies = (command: string) => VERIFIES.test(command);
 export function journals(tool: string, input: any): boolean {
   // Filing or changing an Outpost ticket (tickets.ts) is a change; listing or reading them isn't.
   if (tool === "tickets") return input?.action === "create" || input?.action === "update";
+  // Adding a Google Calendar event (gcal.ts) is a change; reading the calendar isn't.
+  if (tool === "calendar") return input?.action === "add";
   if (!JOURNALED.has(tool)) return false;
   if (tool !== "bash") return true;
   const command = String(input?.command ?? "");
@@ -56,6 +58,7 @@ type Rec =
 export type Reconciled = { state: "done"; result: string } | { state: "not_done" } | { state: "unknown" };
 
 const live = new Set<string>(); // runs going right now in this process: never someone else's to take over
+export const isLiveRun = (run: string) => live.has(run);
 
 // A journal as it's on record. A line torn by a crash, or that isn't a record at all, is skipped.
 const readJournal = (path: string): Rec[] => readJsonl<Rec>(path).filter((r) => r && typeof r === "object");
@@ -117,6 +120,12 @@ export class OpJournal {
     return `op_${hash(`${this.task}\n${base}\n${n}`)}`;
   }
   priorOf(op: string) { return this.prior.get(op); }
+  // How many times each call has been made so far. Kept with a run's saved transcript (runstore.ts):
+  // a run restored from it carries on counting where that one stopped, so a call the transcript
+  // already holds isn't mistaken for the next one like it, and a call that was under way when the
+  // run broke off gets the id it had.
+  callCounts(): [string, number][] { return [...this.counts]; }
+  seedCounts(counts: [string, number][]) { for (const [k, n] of counts) if (typeof k === "string" && Number.isFinite(n)) this.counts.set(k, n); }
   started(op: string, tool: string) { this.write({ kind: "started", run: this.run, op, tool, at: Date.now() }); }
   done(op: string, tool: string, out: ToolOutput, failed = false) {
     this.write({ kind: "done", run: this.run, op, tool, at: Date.now(), result: textOf(out).slice(0, 20_000), ...(failed ? { failed: true } : {}) });

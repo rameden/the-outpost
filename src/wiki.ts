@@ -14,6 +14,7 @@ import type { Tool } from "./tools.js";
 import { emit } from "./events.js";
 import { today } from "./helpers.js";
 import { say, w } from "./words.js";
+import { noteWritten } from "./searchindex.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -90,6 +91,7 @@ export function wikiBodies(): { page: WikiPage; body: string }[] {
 function bustWikiCache() {
   pagesCache = null;
   indexCache = null;
+  noteWritten(); // a page was written or removed: the search index follows
 }
 
 // The index goes into every character's system prompt: page paths and one-line summaries only.

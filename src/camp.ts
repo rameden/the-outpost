@@ -28,6 +28,7 @@ import { history, fileConversation, getProject } from "./conversations.js";
 import { giveFeedback } from "./feedback.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { pausedUntil, pauseMessage } from "./limits.js";
+import { dispatch, helpText, type Handlers } from "./commands.js";
 
 // The last expedition or direct chat in this terminal, for /reply, /diff, and /undo.
 let lastId: string | undefined;
@@ -35,6 +36,8 @@ let lastId: string | undefined;
 let inProject: string | undefined;
 // Where the next requests work in each linked repo (/worktree): a new worktree, or one you named.
 const workIn: Record<string, WorkspaceChoice> = {};
+// Set by exit (or /exit, /quit): the prompt loop ends.
+let exiting = false;
 
 attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back"), say }));
 
@@ -48,36 +51,14 @@ const handles = () => CREW_IDS.map((id) => {
 const sign = () => (activePack().id === "guild" ? "🏕️" : CREW.quartermaster.emoji);
 
 // In the active pack's words (words.ts), so it's written when it's asked for, never at import.
+// What isn't a /command comes first; the commands are the registry's (commands.ts), grouped.
 const help = () => say(`Commands:
   <request>          Send the Quartermaster on {an expedition} (you approve the plan first)
   @${handles().join(" / @")} <task>
                      Talk to one {crew} member directly (aliases work too: @writer, @dev, @research)
   @path/to/file      Attach a project file or folder anywhere in a message (images and PDFs are shown)
-  /link <path> [--edit]
-                     Let the {crew} read a folder on your disk as links/<name>/ (no upload); /links, /unlink <name>
-  /reply <message>   Follow up on the last {expedition} or chat, with that whole conversation carried over
-  /diff · /undo      What the last {expedition}'s file tools changed; put those files back
-  /good [note] · /bad [note]
-                     Rate the last answer. A note is kept as a standing note, so the next runs start with it
-  /project [name | off]
-                     List your projects, or work in one: its folders, notes, and defaults apply to what you send
-  /worktree [<link> new [branch] | <link> <path> | <link> off]
-                     Work in a git worktree of a linked repo: a new one per request, or one you already have
-  /memory <name>     What that {crew} member remembers, and how many sessions they've had
-  /runtime [claude-code | api]
-                     Show or switch what runs the {crew}: your Claude subscription (default) or the API
-  /budget [dollars | off]
-                     Stop each {expedition} once it has spent this much (all agents together)
-  /model [name model [effort] | name reset]
-                     Show or change which model each {crew} member runs on
-  /turns <name> <number | reset>
-                     How many turns one run of that {crew} member may take before it stops
-  /review            Approve or reject skills the Quartermaster proposed
-  /log               The {log}: recent runs ({expeditions}, {quests} and jobs), with who went, how it ended, time, tokens, and cost
-  /jobs              Scheduled jobs (they run while {hq} is open; npm run watch:install for always)
-  /wiki              The {camp} wiki's index (pages live in camp/wiki/)
-  /help              This list
-  exit               {Close}`);
+
+`) + helpText("cli", say);
 
 // /model                         list each crew member's model and effort
 // /model <name> <model> [effort] change one (applies from their next run)
@@ -141,73 +122,75 @@ function announcePending() {
   if (n) console.log(`\n📥 ${n} skill proposal${n === 1 ? "" : "s"} waiting. Type /review to look.`);
 }
 
-async function handle(input: string) {
-  const cmd = input.trim();
-  if (cmd === "/help") return console.log(`\n${help()}`);
-  if (cmd === "/review") return reviewPending(rl);
-  if (cmd === "/log") return console.log(`\n📒 ${w("Log")}\n${formatQuests()}`);
-  if (cmd === "/jobs") return console.log(`\n⏰ ${describeJobs()}`);
-  if (cmd === "/wiki") return console.log(`\n${wikiIndex()}`);
+// What each /command does in the terminal. The registry (commands.ts) says which these are, what
+// they take and what /help says of them; the type makes sure none of them is left without one.
+// A required argument that's missing is answered with its usage line before these run.
+const CLI: Handlers<"cli"> = {
+  help: () => console.log(`\n${help()}`),
+  exit: () => { exiting = true; },
+  review: () => reviewPending(rl),
+  log: () => console.log(`\n📒 ${w("Log")}\n${formatQuests()}`),
+  jobs: () => console.log(`\n⏰ ${describeJobs()}`),
+  wiki: () => console.log(`\n${wikiIndex()}`),
   // /runtime [claude-code | api]
-  const rt = cmd.match(/^\/runtime(?:\s+(claude-code|api|subscription))?$/);
-  if (rt) {
-    if (rt[1]) {
+  runtime: (arg) => {
+    if (arg) {
+      if (!["claude-code", "api", "subscription"].includes(arg)) return console.log("Usage: /runtime [claude-code | api]");
       if (process.env.CAMP_RUNTIME) return console.log(`CAMP_RUNTIME=${process.env.CAMP_RUNTIME} is set for this session; change it there.`);
-      setRuntime(rt[1] === "api" ? "api" : "claude-code");
+      setRuntime(arg === "api" ? "api" : "claude-code");
     }
     return describeRuntime(true);
-  }
-  // /link /path/to/folder [--edit]   /links   /unlink <name>
-  const link = cmd.match(/^\/link\s+(.+?)(\s+--edit)?$/);
-  if (link) {
+  },
+  // /link /path/to/folder [--edit]
+  link: (arg) => {
+    const edit = /\s+--edit$/.test(arg);
     try {
-      const l = addLink(link[1], link[2] ? "write" : "read");
-      return console.log(`📁 Linked ${l.path} as links/${l.name}/ (${l.files} files, ${l.access === "write" ? "can edit" : "read-only"}). Mention @links/${l.name} in a message to attach it.`);
+      const l = addLink(arg.replace(/\s+--edit$/, ""), edit ? "write" : "read");
+      console.log(`📁 Linked ${l.path} as links/${l.name}/ (${l.files} files, ${l.access === "write" ? "can edit" : "read-only"}). Mention @links/${l.name} in a message to attach it.`);
     } catch (e: any) {
-      return console.log(`Couldn't link it: ${e.message}`);
+      console.log(`Couldn't link it: ${e.message}`);
     }
-  }
-  if (cmd === "/links") {
+  },
+  links: () => {
     const links = loadLinks();
-    return console.log(links.length ? links.map((l) => `📁 links/${l.name}/  ${l.path}  (${l.files ?? "?"} files, ${l.access === "write" ? "can edit" : "read-only"})`).join("\n") : "No linked folders. Add one with /link /path/to/folder");
-  }
-  const unlink = cmd.match(/^\/unlink\s+(\S+)$/);
-  if (unlink) return console.log(removeLink(unlink[1]) ? `Unlinked links/${unlink[1]} (the folder itself is untouched).` : `No linked folder named "${unlink[1]}".`);
-  const budget = cmd.match(/^\/budget(?:\s+(\S+))?$/);
-  if (budget) return budgetCommand(budget[1]);
+    console.log(links.length ? links.map((l) => `📁 links/${l.name}/  ${l.path}  (${l.files ?? "?"} files, ${l.access === "write" ? "can edit" : "read-only"})`).join("\n") : "No linked folders. Add one with /link /path/to/folder");
+  },
+  unlink: (arg) => {
+    const name = arg.split(/\s+/)[0];
+    console.log(removeLink(name) ? `Unlinked links/${name} (the folder itself is untouched).` : `No linked folder named "${name}".`);
+  },
+  budget: (arg) => budgetCommand(arg.split(/\s+/)[0] || undefined),
   // /turns <name> <number | reset>
-  const turns = cmd.match(/^\/turns\s+(\S+)\s+(\S+)$/);
-  if (turns) {
-    const who = findCrew(turns[1]);
-    if (!who) return console.log(`No ${w("crew")} member named "${turns[1]}".`);
+  turns: (arg) => {
+    const [name, value] = arg.split(/\s+/);
+    if (!value) return console.log(`Usage: /turns ${name} <${TURNS_MIN}–${TURNS_MAX} | reset>`);
+    const who = findCrew(name);
+    if (!who) return console.log(`No ${w("crew")} member named "${name}".`);
     const defaults = who.id === "quartermaster" ? QM_DEFAULTS : ROSTER[who.id];
-    if (turns[2] === "reset") setAgentSettings(who.id, { maxTurns: null });
+    if (value === "reset") setAgentSettings(who.id, { maxTurns: null });
     else {
-      const n = Number(turns[2]);
-      if (!Number.isInteger(n) || n < TURNS_MIN || n > TURNS_MAX) return console.log(`Usage: /turns ${turns[1]} <${TURNS_MIN}–${TURNS_MAX}>, or /turns ${turns[1]} reset`);
+      const n = Number(value);
+      if (!Number.isInteger(n) || n < TURNS_MIN || n > TURNS_MAX) return console.log(`Usage: /turns ${name} <${TURNS_MIN}–${TURNS_MAX}>, or /turns ${name} reset`);
       setAgentSettings(who.id, { maxTurns: n });
     }
-    return console.log(`${who.emoji} ${who.name} gets ${resolveTurns({ id: who.id, maxTurns: defaults?.maxTurns })} turns per run, from their next run.`);
-  }
-  const modelCmd = cmd.match(/^\/model(?:\s+(\S+))?(?:\s+(\S+))?(?:\s+(\S+))?$/);
-  if (modelCmd) return modelCommand(modelCmd[1], modelCmd[2], modelCmd[3]);
-  const mem = cmd.match(/^\/memory\s+(\S+)/);
-  if (mem) {
-    const who = findCrew(mem[1]);
-    if (!who) return console.log(`\nNo ${w("crew")} member named "${mem[1]}".`);
+    console.log(`${who.emoji} ${who.name} gets ${resolveTurns({ id: who.id, maxTurns: defaults?.maxTurns })} turns per run, from their next run.`);
+  },
+  model: (arg) => { const [name, model, effort] = arg ? arg.split(/\s+/) : []; return modelCommand(name, model, effort); },
+  memory: (arg) => {
+    const name = arg.split(/\s+/)[0];
+    const who = findCrew(name);
+    if (!who) return console.log(`\nNo ${w("crew")} member named "${name}".`);
     const n = recentSessions(who.id, 100_000).length;
-    return console.log(`\n${CREW[who.id].emoji} ${who.name}: ${n} session${n === 1 ? "" : "s"}\n${readMemory(who.id)}`);
-  }
-
+    console.log(`\n${CREW[who.id].emoji} ${who.name}: ${n} session${n === 1 ? "" : "s"}\n${readMemory(who.id)}`);
+  },
   // /project            list them        /project <name>   work in it        /project off   back to no project
-  const proj = cmd.match(/^\/projects?(?:\s+(.+))?$/);
-  if (proj) {
+  project: (arg) => {
     const { projects, conversations } = history();
-    if (proj[1]?.trim().toLowerCase() === "off") inProject = undefined;
-    else if (proj[1]) {
-      const want = proj[1].trim().toLowerCase();
+    if (arg.toLowerCase() === "off") inProject = undefined;
+    else if (arg) {
+      const want = arg.toLowerCase();
       const hit = projects.find((p) => p.name.toLowerCase() === want) ?? projects.find((p) => p.name.toLowerCase().startsWith(want));
-      if (!hit) return console.log(`No project named "${proj[1].trim()}". Type /project to list them.`);
+      if (!hit) return console.log(`No project named "${arg}". Type /project to list them.`);
       inProject = hit.id === "general" ? undefined : hit.id;
     }
     for (const p of projects) {
@@ -215,20 +198,20 @@ async function handle(input: string) {
       const here = (inProject ?? "general") === p.id ? "→" : " ";
       console.log(`${here} ${p.name.padEnd(24)} ${String(n).padStart(3)} conversation${n === 1 ? " " : "s"}${p.links?.length ? `  📁 ${p.links.map((l) => `links/${l}`).join(", ")}` : ""}`);
     }
-    return console.log(inProject ? `Requests are filed under ${getProject(inProject)?.name}: the ${w("crew")} sees its folders, notes, and description. /project off to stop.` : `Requests aren't filed under a project: the ${w("crew")} sees every linked folder. /project <name> to work in one.`);
-  }
-  const wt = cmd.match(/^\/worktree(?:\s+(\S+)(?:\s+(\S+)(?:\s+(\S+))?)?)?$/);
-  if (wt) {
+    console.log(inProject ? `Requests are filed under ${getProject(inProject)?.name}: the ${w("crew")} sees its folders, notes, and description. /project off to stop.` : `Requests aren't filed under a project: the ${w("crew")} sees every linked folder. /project <name> to work in one.`);
+  },
+  worktree: async (arg) => {
+    const [link, how, branch] = arg ? arg.split(/\s+/) : [];
     const repos = await linkedRepos();
-    if (wt[1] && wt[2]) {
-      const repo = repos.find((r) => r.link === wt[1]);
-      if (!repo) return console.log(`links/${wt[1]} isn't a linked git repository. Linked repos: ${repos.map((r) => r.link).join(", ") || "none"}.`);
-      if (wt[2] === "off") delete workIn[wt[1]];
-      else if (wt[2] === "new") workIn[wt[1]] = { mode: "new", branch: wt[3] };
+    if (link && how) {
+      const repo = repos.find((r) => r.link === link);
+      if (!repo) return console.log(`links/${link} isn't a linked git repository. Linked repos: ${repos.map((r) => r.link).join(", ") || "none"}.`);
+      if (how === "off") delete workIn[link];
+      else if (how === "new") workIn[link] = { mode: "new", branch };
       else {
-        const hit = repo.worktrees.find((w) => w.path === wt[2] || w.branch === wt[2] || w.path.endsWith("/" + wt[2]));
-        if (!hit) return console.log(`No worktree of ${wt[1]} matches "${wt[2]}". Type /worktree to list them.`);
-        workIn[wt[1]] = { mode: "existing", path: hit.path };
+        const hit = repo.worktrees.find((w) => w.path === how || w.branch === how || w.path.endsWith("/" + how));
+        if (!hit) return console.log(`No worktree of ${link} matches "${how}". Type /worktree to list them.`);
+        workIn[link] = { mode: "existing", path: hit.path };
       }
     }
     if (!repos.length) return console.log("No linked git repositories. Link one with /link <path> --edit");
@@ -237,41 +220,50 @@ async function handle(input: string) {
       console.log(`📁 links/${r.link}  (linked checkout on ${r.branch})  →  ${!c ? "working in the linked checkout" : c.mode === "new" ? `a new worktree for each request${c.branch ? ` (branch ${c.branch})` : ""}` : `worktree ${c.path}`}`);
       for (const w of r.worktrees) console.log(`     ${w.branch.padEnd(44)} ${w.path}`);
     }
-    return;
-  }
+  },
   // /good [note]   /bad [note]: rate the last answer; a note becomes a standing note.
-  const rate = cmd.match(/^\/(good|bad)(?:\s+([\s\S]+))?$/);
-  if (rate) {
+  good: (arg) => rate("up", arg),
+  bad: (arg) => rate("down", arg),
+  diff: () => {
     if (!lastId) return console.log("Nothing has run in this session yet.");
-    try {
-      const f = giveFeedback(lastId, { rating: rate[1] === "good" ? "up" : "down", note: rate[2], keep: true });
-      return console.log(`${f.rating === "up" ? "👍" : "👎"} Noted.${f.kept ? ` Your note was added to ${f.kept}.` : " Add a note (/bad be briefer) and it's kept for next time."}`);
-    } catch (e: any) {
-      return console.log(e.message);
-    }
-  }
-  if (cmd === "/diff" || cmd === "/undo") {
+    const d = checkpointDiff(lastId);
+    console.log(d.files.length ? `\n${d.files.map((f) => `${f.change.padEnd(9)} ${f.path}`).join("\n")}\n\n${d.diff}` : `The last ${w("expedition")}'s file tools didn't change any files.`);
+  },
+  undo: () => {
     if (!lastId) return console.log("Nothing has run in this session yet.");
-    if (cmd === "/diff") {
-      const d = checkpointDiff(lastId);
-      return console.log(d.files.length ? `\n${d.files.map((f) => `${f.change.padEnd(9)} ${f.path}`).join("\n")}\n\n${d.diff}` : `The last ${w("expedition")}'s file tools didn't change any files.`);
-    }
     const r = undoCheckpoint(lastId);
-    return console.log(r.restored.length ? `↩️  Put back: ${r.restored.join(", ")}${r.skipped.length ? `\n   Couldn't restore (too large to keep a copy): ${r.skipped.join(", ")}` : ""}` : "Nothing to undo.");
-  }
-  const paused = pausedUntil();
-  if (paused && campRuntime() === "claude-code") console.log(`⏸  ${pauseMessage(paused)} (Trying anyway.)`);
-
+    console.log(r.restored.length ? `↩️  Put back: ${r.restored.join(", ")}${r.skipped.length ? `\n   Couldn't restore (too large to keep a copy): ${r.skipped.join(", ")}` : ""}` : "Nothing to undo.");
+  },
   // /reply <message>: continue the last conversation, with whoever it was with.
-  let replyTo: string | undefined;
-  let text = cmd;
-  const reply = cmd.match(/^\/reply\s+([\s\S]+)$/);
-  if (reply) {
+  reply: (arg) => {
     const thread = threadFor(lastId);
     if (!thread) return console.log("There's nothing to reply to yet in this session.");
-    replyTo = lastId;
-    text = thread.direct && !/^@\w+\s/.test(reply[1]) ? `@${thread.agent} ${reply[1]}` : reply[1];
+    return send(thread.direct && !/^@\w+\s/.test(arg) ? `@${thread.agent} ${arg}` : arg, lastId);
+  },
+};
+
+function rate(rating: "up" | "down", note: string) {
+  if (!lastId) return console.log("Nothing has run in this session yet.");
+  try {
+    const f = giveFeedback(lastId, { rating, note: note || undefined, keep: true });
+    console.log(`${f.rating === "up" ? "👍" : "👎"} Noted.${f.kept ? ` Your note was added to ${f.kept}.` : " Add a note (/bad be briefer) and it's kept for next time."}`);
+  } catch (e: any) {
+    console.log(e.message);
   }
+}
+
+// A line typed at the prompt: a /command (the registry's), else a request.
+async function handle(input: string) {
+  const cmd = input.trim();
+  const done = await dispatch(cmd, "cli", CLI, { fill: say });
+  if (done.ran === "refused") return console.log(done.message);
+  if (done.ran === "none") return send(cmd);
+}
+
+// A request: to one crew member (@name …), else the Quartermaster. replyTo continues that conversation.
+async function send(text: string, replyTo?: string) {
+  const paused = pausedUntil();
+  if (paused && campRuntime() === "claude-code") console.log(`⏸  ${pauseMessage(paused)} (Trying anyway.)`);
 
   // @path/to/file anywhere in the message attaches that file (images and PDFs are shown to the agent).
   const direct = text.match(/^@(\w+)\s+([\s\S]+)$/);
@@ -336,8 +328,9 @@ async function main() {
   const firstTask = process.argv.slice(2).join(" ");
   let task = firstTask || (await rl.question(`\n${CREW.quartermaster.emoji} What's the ${w("expedition")}? `));
 
-  while (task.trim() && task.trim() !== "exit") {
+  while (task.trim() && task.trim() !== "exit" && task.trim() !== "quit") {
     await handle(task);
+    if (exiting) break;
     task = await rl.question(`\n${CREW.quartermaster.emoji} Next ${w("expedition")}? (/help, or 'exit') `);
   }
   rl.close();

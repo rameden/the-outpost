@@ -231,14 +231,16 @@ test("a dropped connection after a write: picking the task up again reuses what 
   await assert.rejects(runDirect("artificer", "Send the order 7 notification", ...chat("drop1")));
   assert.equal(readFileSync("app/sent.log", "utf8"), "notified order 7\n");
 
-  // Picked up again in the same conversation: the model asks for the same command; it isn't run again.
-  events.length = 0;
+  // Picked up again in the same conversation: the run's saved transcript is restored, so the model
+  // is sent the command and its result, and has no need to ask for it again. (A call that was under
+  // way when the run broke off is still the journal's to guard: tests/long-runs.test.ts.)
+  events.length = 0; api.seen.length = 0;
   script = (body) => (toolResults(body).length === 0 ? { tools: [notifyCall] } : { text: "Sent." });
   const r = await runDirect("artificer", "Carry on.", "direct", [], undefined, "drop2", "drop1", { project: "general", links: [], model: "auto:balanced" });
   assert.equal(r?.status, "done");
   assert.equal(readFileSync("app/sent.log", "utf8"), "notified order 7\n", "exactly one notification");
-  assert.match(toolResults(api.seen.at(-1)!.body)[0].content, /Recorded result reused[\s\S]*sent/);
-  assert.ok(events.some((e) => e.type === "notice" && /already ran before this task was picked up again/.test(e.text)));
+  assert.match(toolResults(api.seen[0].body)[0].content, /sent/);
+  assert.ok(events.some((e) => e.type === "notice" && /Picked up from the saved transcript/.test(e.text)));
   // The resumed task started from the route it was on.
   assert.equal(routeEvents()[0].trigger, "resume");
 
