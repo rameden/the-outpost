@@ -27,6 +27,7 @@ import { clipEntry, fitMemory, tooLong } from "./memfit.js";
 import { logRelevant } from "./recalllog.js";
 import { SAFE_ID, today } from "./helpers.js";
 import { w } from "./words.js";
+import { noteWritten } from "./searchindex.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
 const join = posix.join;
@@ -48,6 +49,7 @@ function write(id: string, file: "notes.md" | "brief.md", text: string) {
   if (!SAFE_ID.test(id)) throw new Error("No such project.");
   mkdirSync(dir(id), { recursive: true });
   writeAtomic(join(dir(id), file), text.trim() ? text.trim() + "\n" : "");
+  if (file === "notes.md") noteWritten();
   emit({ type: "changed", what: "history" });
 }
 // You can edit either by hand, from the project's page.
@@ -63,6 +65,7 @@ export function addProjectNote(id: string, text: string, how: KeptHow = "remembe
   if (!line) return;
   const prior = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "") : "";
   writeAtomic(path, (prior ? prior + "\n" : "") + `- ${today()} ${line}\n`);
+  noteWritten();
   logKept(`project:${id}`, line, how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "history" });
 }
