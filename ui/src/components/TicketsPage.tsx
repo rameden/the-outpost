@@ -59,11 +59,13 @@ type PageProps = {
   S: CampState;
   onAttach: (issue: Pick<JiraRef, "key" | "summary">) => void;
   refresh: () => void;
+  openKey?: string | null; // a Jira ticket to open on arriving (picked in the command palette)
+  onOpened?: () => void;
   onStart: (start: TicketStart) => void;
   onKickoff?: () => void;
 };
 
-export function TicketsPage({ S, onAttach, refresh, onStart, onKickoff }: PageProps) {
+export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, onKickoff }: PageProps) {
   const jiraOn = !!S.jira?.connected;
   const { tickets: mae, loaded, error: maeError } = useTickets();
   useEffect(() => { if (!loaded) void loadTickets(); }, [loaded]);
@@ -92,6 +94,7 @@ export function TicketsPage({ S, onAttach, refresh, onStart, onKickoff }: PagePr
   const [editFilter, setEditFilter] = useState(false);
   const [moved, setMoved] = useState(""); // said aloud to a screen reader after a card is moved
   const [open, setOpen] = useState<string | null>(null); // the Jira ticket open over the page
+  useEffect(() => { if (openKey) { setOpen(openKey); onOpened?.(); } }, [openKey, onOpened]);
   const projects = S.history.projects.filter((p) => p.id !== "general");
   const nameOf = (id?: string) => (id ? projects.find((p) => p.id === id)?.name ?? id : undefined);
 

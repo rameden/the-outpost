@@ -28,20 +28,10 @@ import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
 import { TerminalActions } from "./TerminalActions.tsx";
 
-import type { SettingsSection } from "./sections.ts";
+import { settingsGroups as groups, type SettingsSection } from "./sections.ts";
 import { complain, StatusLine } from "../components/StatusLine.tsx";
 import { switchRuntime } from "../runtime.ts";
 export { isSettingsSection, type SettingsSection } from "./sections.ts";
-type NavItem = [SettingsSection, string, IconName];
-// The navigation, in groups. A label is a function where it names the outpost or a theme-pack noun.
-const groups = (): { title: string; items: NavItem[] }[] => [
-  { title: w("Camp"), items: [["general", "General", "gear"], ["models", "Models", "cpu"], ["crew", `${w("Crew")}`, "users"], ["connectors", "Connectors", "plug"]] },
-  { title: "Look & sound", items: [["appearance", "Appearance", "theme"], ["notifications", "Notifications", "bell"], ["voice", "Voice", "speaker"]] },
-  { title: "Safety", items: [["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"]] },
-  { title: "Access", items: [["devices", "Devices & uploads", "link"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"]] },
-  { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "bolt"]] },
-];
-
 const PACK_CREW = ["quartermaster", "scout", "artificer", "scribe", "warden", "wizard"] as const; // in the order the crew is listed
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
   try { await work(); then(); } catch (e) { complain(errorText(e)); }

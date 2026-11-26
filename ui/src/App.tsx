@@ -12,7 +12,7 @@ import { History, HistoryRail } from "./components/History.tsx";
 import { TerminalRail } from "./components/TerminalRail.tsx";
 import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
 import { NotesPanel, NotesRail, PickToNote } from "./components/Notes.tsx";
-import { appendToNote, newNote, noteFile, notesNow, openNote, titleOf } from "./notes.ts";
+import { appendToNote, loadNotes, newNote, noteFile, notesNow, openNote, titleOf, useNotes } from "./notes.ts";
 import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
 import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
@@ -26,7 +26,7 @@ import { DraftTicketsDialog, MaeTicketDialog, TicketsPage } from "./components/T
 import { closeDrafting, closeTicket as closeMaeTicket, loadTickets, showTicket, useTickets } from "./tickets.ts";
 import { TicketWizard } from "./components/TicketWizard.tsx";
 import { MemoryHome } from "./components/MemoryHome.tsx";
-import { ActivityPage } from "./components/ActivityPage.tsx";
+import { ActivityPage, activityTabs } from "./components/ActivityPage.tsx";
 import { ReleaseNotes } from "./components/ReleaseNotes.tsx";
 import { treeQuery } from "./api.ts";
 import { runningCount } from "./feed/reducer.ts";
@@ -52,7 +52,7 @@ import { NextStep, WorkStrip, type Place } from "./feed/NextStep.tsx";
 import { Waiting } from "./components/Waiting.tsx";
 import { loadSeen, markSeen, needsOf, seenAll, type Need } from "./needs.ts";
 import { activityOf } from "./feed/conversation.ts";
-import { isSettingsSection, type SettingsSection } from "./settings/sections.ts";
+import { isSettingsSection, settingsGroups, type SettingsSection } from "./settings/sections.ts";
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link, Note } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
@@ -86,7 +86,9 @@ export function App({ store }: { store: FeedStore }) {
   // Which conversation (or page) the middle of the screen shows (remembered across reloads).
   const [view, setViewState] = useState<View>(() => parseView(storeGet("camp-view")));
   // The camp's records (memories, the wiki, the quest log…) come along while something that shows them is open.
-  const { S, refresh, patch, stale } = useCampState(!!settings || view.kind === "memory" || view.kind === "activity");
+  const [palette, setPalette] = useState<{ start: string } | null>(null); // the command palette (below)
+  const [jiraKey, setJiraKey] = useState<string | null>(null); // a Jira ticket picked in the palette, for the Tickets page to open
+  const { S, refresh, patch, stale } = useCampState(!!settings || !!palette || view.kind === "memory" || view.kind === "activity");
   const conn = useCampEvents(store, refresh);
   const composer = useRef<ComposerHandle>(null);
 
@@ -279,7 +281,6 @@ export function App({ store }: { store: FeedStore }) {
 
   // ---------- Getting about from the keyboard ----------
   // The command palette (⌘P / Ctrl+P), and a file opened over the page from it or from a path in an answer.
-  const [palette, setPalette] = useState<{ start: string } | null>(null);
   const closePalette = useCallback(() => setPalette(null), []);
   const [opened, setOpened] = useState<{ root: FileRoot; rel: string; line?: number } | null>(null);
   const closeOpened = useCallback(() => setOpened(null), []);
@@ -431,6 +432,8 @@ export function App({ store }: { store: FeedStore }) {
     addEventListener("keydown", onKey, true);
     return () => removeEventListener("keydown", onKey, true);
   }, []);
+  useEffect(() => { if (palette) { void loadNotes(); void loadTickets(); } }, [!!palette]); // eslint-disable-line react-hooks/exhaustive-deps
+  const notes = useNotes();
   const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
     ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
       id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "trail" ? "trail" : c.name === "constellation" ? "constellation" : c.name === "memory" ? "layers" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
@@ -443,7 +446,15 @@ export function App({ store }: { store: FeedStore }) {
       id: `p:${p.id}`, group: "Projects", icon: "folder", label: p.name, hint: (p.links ?? []).map((l) => `links/${l}`).join(", "), run: () => setView({ kind: "project", id: p.id }),
     })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [palette, S?.history]);
+    ...activityTabs(S).map((t): PaletteItem => ({ id: `a:${t.id}`, group: "Activity", icon: "activity", label: `Activity: ${t.label}`, hint: typeof t.title === "string" ? t.title : undefined, run: () => setView({ kind: "activity", tab: t.id }) })),
+    ...settingsGroups().flatMap((g) => g.items.map(([id, label, icon]): PaletteItem => ({ id: `s:${id}`, group: "Settings", icon, label: `Settings: ${label}`, hint: g.title, run: () => openSettings(id) }))),
+    ...tickets.tickets.map((t): PaletteItem => ({ id: `t:${t.key}`, group: "Tickets", icon: "flag", label: `${t.key}: ${t.title}`, hint: "Mae", run: () => { setSettings(null); setView({ kind: "tickets" }); showTicket(t.key); } })),
+    ...notes.notes.map((n): PaletteItem => ({ id: `n:${n.id}`, group: "Notes", icon: "note", label: titleOf(n), hint: "Note", run: () => showNote(n.id) })),
+    ...(S.memory ?? []).flatMap((p) => p.lines.map((l, i): PaletteItem => ({
+      id: `m:${p.where}:${i}`, group: "Memory", icon: "layers", label: l.text.length > 80 ? `${l.text.slice(0, 80).trimEnd()}…` : l.text, hint: p.name,
+      run: () => { setSettings(null); setView(p.kind === "agent" ? { kind: "memory", tab: "member", member: p.where.slice(6) } : { kind: "memory", tab: "list" }); },
+    }))),
+  ], [palette, S?.history, S?.memory, tickets.tickets, notes.notes]);
   // Where you are, for the draft kept in the message box.
   const draftKey = view.kind === "conversation" ? `c:${view.id}` : view.kind === "new" ? `new:${view.project ?? ""}` : view.kind === "home" ? "home" : view.kind === "project" ? `p:${view.id}` : view.kind;
 
@@ -553,7 +564,7 @@ export function App({ store }: { store: FeedStore }) {
                   {page === "project" && S && project ? (
                     <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
                   ) : page === "tickets" && S ? (
-                    <TicketsPage S={S} onAttach={attachTicket} refresh={refresh} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
+                    <TicketsPage S={S} onAttach={attachTicket} refresh={refresh} openKey={jiraKey} onOpened={() => setJiraKey(null)} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
                   ) : page === "memory" && S && view.kind === "memory" ? (
                     <MemoryHome S={S} tab={view.tab ?? "list"} member={view.member} page={view.page} setView={setView} refresh={refresh} onOpenMap={openMap} onOpenSettings={() => openSettings("memory")} />
                   ) : page === "activity" && S && view.kind === "activity" ? (
@@ -716,7 +727,7 @@ export function App({ store }: { store: FeedStore }) {
       )}</Presence>
       <Presence>{palette && (
         <OverlayBoundary name="The command palette" onClose={closePalette}>
-          <Palette items={paletteItems} roots={fileRoots} start={palette.start} onOpenFile={openFile} onClose={closePalette} />
+          <Palette items={paletteItems} roots={fileRoots} start={palette.start} jira={!!S?.jira?.connected} onOpenJira={(k) => { setSettings(null); setView({ kind: "tickets" }); setJiraKey(k); }} onOpenFile={openFile} onClose={closePalette} />
         </OverlayBoundary>
       )}</Presence>
       <Presence>{opened && (
