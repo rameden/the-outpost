@@ -3263,6 +3263,31 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 .home-line + .home-line { border-top: 1px solid var(--border); }
 .home-line-text { display: grid; gap: 1px; flex: 1; min-width: 0; }
 .home-line-text .meta { margin: 0; }
+/* Your week (WeekCalendar.tsx): seven glass days in a row; today has a solid accent border. On a phone, one day under another. */
+.home-week-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.home-week-nav { display: flex; gap: 4px; }
+.home-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 6px 0 0; padding: 0; list-style: none; }
+.home-week-day { display: grid; align-content: start; gap: 6px; min-width: 0; min-height: 96px; padding: 10px; border: 1px solid var(--border); border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(10px) saturate(1.15); backdrop-filter: blur(10px) saturate(1.15); }
+.home-week-day.today { border: 2px solid var(--accent); padding: 9px; }
+.home-week-day.past { opacity: .62; }
+.home-week-date { display: flex; align-items: baseline; gap: 6px; font-size: 12px; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+.home-week-date b { font: 600 18px/1 var(--serif); color: var(--text); letter-spacing: 0; }
+.home-week-day.today .home-week-date b { color: var(--accent); }
+.home-week-free { margin: 0; font-size: 12px; }
+.home-week-events { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.home-week-event > :is(a, span) { display: flex; gap: 6px; min-width: 0; font-size: 12.5px; line-height: 1.35; color: var(--text); text-decoration: none; }
+.home-week-event > a:hover .home-week-title { text-decoration: underline; }
+.home-week-event.all-day > :is(a, span) { padding: 2px 6px; border-radius: 6px; background: var(--accent-soft); }
+.home-week-time { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.home-week-event { min-width: 0; }
+.home-week-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-week-event.answer-declined .home-week-title { text-decoration: line-through; color: var(--faint); }
+.home-week-event:is(.answer-needsAction, .answer-tentative) .home-week-title { font-style: italic; color: var(--muted); }
+@media (max-width: 760px) {
+  .home-week { grid-template-columns: 1fr; }
+  .home-week-day { min-height: 0; grid-template-columns: 64px minmax(0, 1fr); align-items: baseline; }
+}
 /* Plans held for later: cards like "Where you left off", each with its text folded under it to read before you start it. */
 .home-held-cards { display: grid; gap: 8px; }
 /* Your tickets: the Tickets page's cards (.proj-card.jira-card) in its grid. One with a conversation opens it from

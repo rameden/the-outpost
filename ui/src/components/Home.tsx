@@ -3,6 +3,7 @@
 // Everything else on the page waits to be asked. This is where the camp speaks first: it greets
 // you, says in a few plain sentences where things stand, and lays out the morning brief
 // (brief.ts) to start the day from:
+//   - your week, when Google Calendar is linked (WeekCalendar.tsx);
 //   - where you left off, to step straight back in;
 //   - plans you approved to start later, as cards under it, each with its Start button;
 //   - what's waiting on you: the Inbox's count (inbox.ts) and its first few lines, which open the
@@ -37,6 +38,7 @@ import { Icon } from "./bits.tsx";
 import { Confirm } from "./Confirm.tsx";
 import { HomeSky, type HomeSkyHandle } from "./HomeSky.tsx";
 import { NightCard } from "./NightCard.tsx";
+import { WeekCalendar } from "./WeekCalendar.tsx";
 
 import { ACT } from "../inbox.ts";
 const said = (status: string) => { const s = status.replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); }; // "Stopped", "Over budget"
@@ -263,6 +265,9 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory, refr
       </header>
       {note && <div className="meta bad" role="alert">{note}</div>}
       {!day && <RunsOn S={S} refresh={refresh} onOpenSettings={onOpenSettings} />}
+
+      {/* Your week, when Google Calendar is linked and Google still takes the sign-in. */}
+      {!day && S.gcal?.connected && !S.gcal.broken && <WeekCalendar now={now} />}
 
       {blank && onExample && (
         <section aria-label="Requests to try">
