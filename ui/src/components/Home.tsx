@@ -133,7 +133,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
               <span className="meta">{l.says}</span>
             </span>
             {l.url && <a className="home-line-out" href={l.url} target="_blank" rel="noopener noreferrer" title={l.kind === "ticket" ? "Open the ticket" : "Open the pull request"} aria-label={`Open ${l.title} in a new tab`}><Icon name="link" /></a>}
-            {l.act && !day && <button type="button" className="btn small" disabled={busy === l.title} onClick={() => act(l)}>{busy === l.title ? "Starting…" : ACT[l.act.do]}</button>}
+            {l.act && !day && <button type="button" className="btn small" disabled={busy === l.title} aria-label={busy === l.title ? undefined : `${ACT[l.act.do].replace("…", "")}: ${l.title}`} onClick={() => act(l)}>{busy === l.title ? "Starting…" : ACT[l.act.do]}</button>}
           </li>
         ))}
       </ul>
@@ -158,7 +158,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
       <span className="home-card-foot">
         <span className="meta">{c.foot}</span>
         {c.url && <a className="home-line-out" href={c.url} target="_blank" rel="noopener noreferrer" title={c.urlTitle} aria-label={`Open ${c.name ?? c.title} in a new tab`}><Icon name="link" /></a>}
-        {c.line?.act && !day && <button type="button" className="btn small" disabled={busy === c.line.title} onClick={() => act(c.line!)}>{busy === c.line.title ? "Starting…" : ACT[c.line.act.do]}</button>}
+        {c.line?.act && !day && <button type="button" className="btn small" disabled={busy === c.line.title} aria-label={busy === c.line.title ? undefined : `${ACT[c.line.act.do].replace("…", "")}: ${c.title}`} onClick={() => act(c.line!)}>{busy === c.line.title ? "Starting…" : ACT[c.line.act.do]}</button>}
       </span>
     </li>
   );
@@ -225,8 +225,8 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
                   <details className="home-held-plan"><summary>The plan</summary><div className="ask-body">{h.plan}</div></details>
                 </span>
                 <span className="home-held-actions">
-                  <button type="button" className="btn small" disabled={busy === `aside:${h.ask}`} onClick={() => setRemoving(h)}>Remove</button>
-                  <button type="button" className="btn small primary" disabled={busy === h.ask} onClick={() => void startPlan(h)}>{busy === h.ask ? "Starting…" : "Start plan"}</button>
+                  <button type="button" className="btn small" disabled={busy === `aside:${h.ask}`} aria-label={`Remove ${h.title}`} onClick={() => setRemoving(h)}>Remove</button>
+                  <button type="button" className="btn small primary" disabled={busy === h.ask} aria-label={busy === h.ask ? undefined : `Start the plan for ${h.title}`} onClick={() => void startPlan(h)}>{busy === h.ask ? "Starting…" : "Start plan"}</button>
                 </span>
               </div>
             ))}

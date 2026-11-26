@@ -147,7 +147,8 @@ function LockedWarning({ title, children, onNew, onHere, onCancel }: { title: st
   }, [onCancel]);
   return (
     <>
-      <div className="drawer-backdrop" onClick={onCancel} />
+      {/* A mouse shortcut for Cancel: Esc and the Cancel button do the same from the keyboard. */}
+      <div className="drawer-backdrop" aria-hidden="true" onClick={onCancel} />
       <div className="dialog confirm term-locked" role="alertdialog" aria-modal="true" aria-labelledby="term-locked-title" aria-describedby="term-locked-body">
         <h2 id="term-locked-title">{title}</h2>
         <div className="confirm-body" id="term-locked-body">{children}</div>
