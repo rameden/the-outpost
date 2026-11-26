@@ -3,7 +3,7 @@
 // suggestions after a run. The smallest model is stood in for by a function, so nothing is called.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { enterSandbox } from "./helpers/sandbox.ts";
 
@@ -470,12 +470,20 @@ test("recall miss is logged; near-duplicate suggestions are skipped; session dig
 test("wiki pages and index are cached until a page changes", async () => {
   const wiki = await import("../src/wiki.ts");
   mkdirSync(join("camp", "wiki", "facts"), { recursive: true });
-  writeFileSync(join("camp", "wiki", "facts", "caching.md"), "---\nsummary: Cache test\nupdated: 2026-01-01\n---\n\n# caching\n\nBody one.\n");
+  // Both writes get one whole-second modified time, as a coarse clock (Windows among them) gives.
+  const page = join("camp", "wiki", "facts", "caching.md"), tick = Math.floor(Date.now() / 1000);
+  writeFileSync(page, "---\nsummary: Cache test\nupdated: 2026-01-01\n---\n\n# caching\n\nBody one.\n");
+  utimesSync(page, tick, tick);
+  const was = statSync(page);
   const first = wiki.wikiIndex();
   assert.equal(wiki.wikiIndex(), first);
   const bodies = wiki.wikiBodies();
   assert.equal(bodies.length, wiki.wikiPages().length);
   assert.ok(bodies.some((b) => b.page.path.includes("caching") && b.body.includes("Body one")));
-  writeFileSync(join("camp", "wiki", "facts", "caching.md"), "---\nsummary: Cache test\nupdated: 2026-01-02\n---\n\n# caching\n\nBody two.\n");
+  // Rewritten at the same size within the same tick: still read again.
+  writeFileSync(page, "---\nsummary: Cache test\nupdated: 2026-01-02\n---\n\n# caching\n\nBody two.\n");
+  utimesSync(page, tick, tick);
+  assert.equal(statSync(page).size, was.size);
+  assert.equal(statSync(page).mtimeMs, was.mtimeMs);
   assert.ok(wiki.wikiBodies().some((b) => b.body.includes("Body two")));
 });
