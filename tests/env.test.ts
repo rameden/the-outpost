@@ -7,8 +7,10 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
-const ENV = join(import.meta.dirname, "..", "scripts", "env.mjs");
+// A file:// URL: --import won't take a bare Windows path (D:\…).
+const ENV = pathToFileURL(join(import.meta.dirname, "..", "scripts", "env.mjs")).href;
 const read = (env: Record<string, string>, names: string[], cwd?: string) => {
   const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CAMP_") && !k.startsWith("OUTPOST_")));
   const out = execFileSync(process.execPath, ["--import", ENV, "-e", `console.log(JSON.stringify(${JSON.stringify(names)}.map((n) => process.env[n] ?? null)))`],

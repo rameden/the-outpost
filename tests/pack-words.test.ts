@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
 const WORD = /\b(quests?|expeditions?|adventurers?|crew|camps?|quest log|mission control)\b/i;
@@ -36,7 +36,7 @@ function* files(dir: string): Generator<string> {
 function scan(dir: string): string[] {
   const hits: string[] = [];
   for (const path of files(join(ROOT, dir))) {
-    const file = relative(ROOT, path);
+    const file = relative(ROOT, path).split(sep).join("/"); // the same keys on Windows
     if (ABOUT_WORDS.has(file)) continue;
     // Comments blanked out (a "//" inside a string, as in a URL, is kept).
     const src = readFileSync(path, "utf8")
