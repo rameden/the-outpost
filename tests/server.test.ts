@@ -189,6 +189,41 @@ test("in a plain chat, a crew member @mentioned anywhere in the message steps in
   assert.equal(await stop(c), 0);
 });
 
+test("a message queued behind a run can be changed before it starts, and taking one out of the line keeps the rest waiting", async (t) => {
+  const { startFakeApi } = await import("./helpers/fake-api.ts");
+  let first = true;
+  const fake = await startFakeApi(() => { const slow = first; first = false; return { text: "All done.", ...(slow ? { delayMs: 3000 } : {}) }; });
+  t.after(() => fake.close());
+  const c = await start({ ANTHROPIC_BASE_URL: fake.url });
+  const post = async (path: string, body: object) => {
+    const r = await fetch(`http://127.0.0.1:${c.port}${path}`, { method: "POST", headers: { "x-camp-token": c.token, "content-type": "application/json" }, body: JSON.stringify(body) });
+    return { status: r.status, json: await r.json() as any };
+  };
+  const queued = async () => ((await (await get(c, "/api/state")).json()) as any).queued as { id: string; after: string | null; task: string; text?: string }[];
+  const run = (await post("/api/send", { text: "Look into the slow page" })).json.id as string;
+  const b = (await post("/api/send", { text: "Then the second thing", replyTo: run, after: run })).json.id as string;
+  const cc = (await post("/api/send", { text: "Then the third thing", replyTo: run, after: b })).json.id as string;
+  assert.equal((await queued()).find((q) => q.id === b)?.text, "Then the second thing", "its words in full, for the stack to edit");
+
+  assert.equal((await post("/api/queue/edit", { id: cc, text: "Then the third thing, done properly" })).status, 200);
+  const edited = (await queued()).find((q) => q.id === cc)!;
+  assert.equal(edited.text, "Then the third thing, done properly");
+  assert.equal(edited.task, "Then the third thing, done properly");
+  assert.equal((await post("/api/queue/edit", { id: cc, text: "@scout go look instead" })).status, 400, "it stays with whoever it was for");
+  assert.equal((await post("/api/queue/edit", { id: cc, text: "  " })).status, 400);
+  assert.equal((await post("/api/queue/edit", { id: "nope", text: "Hi" })).status, 404);
+  assert.equal((await post("/api/queue/edit", { id: run, text: "Hi" })).status, 404, "a run that has started can't be edited");
+
+  assert.equal((await post("/api/stop", { id: b })).status, 200);
+  assert.equal((await queued()).find((q) => q.id === cc)?.after, run, "the next in line now waits for the run itself, not nothing");
+
+  const asked = () => fake.seen.map((s) => JSON.stringify(s.body.messages));
+  for (let i = 0; i < 200 && !asked().some((m) => m.includes("done properly")); i++) await new Promise((r) => setTimeout(r, 50));
+  assert.ok(asked().some((m) => m.includes("Then the third thing, done properly")), "what was sent is what you changed it to");
+  assert.ok(!asked().some((m) => m.includes("Then the second thing")), "and the one taken off never went");
+  assert.equal(await stop(c), 0);
+});
+
 // ---------- LAN mode ----------
 import http from "node:http";
 import { networkInterfaces } from "node:os";

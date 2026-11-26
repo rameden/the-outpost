@@ -195,6 +195,43 @@ test("the menu highlights the option you're on: Queue when it opens, then wherev
   expect(now.className).toContain("active");
 });
 
+test("while a run works, a Queue | Steer switch says what Enter does, and starts on Queue for each run", async () => {
+  const { write, submit, go } = setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
+  const queue = screen.getByRole("button", { name: "Queue" });
+  const steer = screen.getByRole("button", { name: "Steer" });
+  expect(queue.getAttribute("aria-pressed")).toBe("true");
+  expect(steer.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(steer);
+  expect(steer.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("textbox").getAttribute("aria-placeholder")).toContain("Steer");
+  expect(document.activeElement).not.toBe(screen.getByRole("textbox")); // a click on the switch doesn't move you
+  write("Focus on the tests");
+  submit();
+  await waitFor(() => expect(steers).toEqual([{ path: "/api/steer", id: "run-1", text: "Focus on the tests" }]));
+  expect(sends.length).toBe(0);
+  // A message for someone else still starts their own work, whatever the switch says.
+  write("@scout look at the logs");
+  submit();
+  await waitFor(() => expect(sends.length).toBe(1));
+  expect(sends[0].after).toBeUndefined();
+  await land(0);
+  // The menu opens on what the switch is on.
+  write("One more thing");
+  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
+  expect(screen.getByRole("menuitem", { name: "Send now" }).className).toContain("active");
+  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
+  // Once that run is over, the next one starts on Queue again.
+  go({ replyTo: "run-1", placeholder: "Reply…" }, "c:a");
+  expect(screen.queryByRole("button", { name: "Steer" })).toBeNull();
+  go({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a");
+  expect(screen.getByRole("button", { name: "Queue" }).getAttribute("aria-pressed")).toBe("true");
+});
+
+test("with nothing running there's no switch", () => {
+  setup({ replyTo: "run-1", placeholder: "Reply…" }, "c:a");
+  expect(screen.queryByRole("button", { name: "Steer" })).toBeNull();
+});
+
 test("a message sent for you (a review's \"fix these\") goes to the working run now, and leaves what you've typed alone", async () => {
   const { ref, write } = setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
   write("my half-written note");
