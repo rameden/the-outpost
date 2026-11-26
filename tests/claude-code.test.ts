@@ -155,6 +155,36 @@ test("the budget is enforced while a run is going, not after it", async () => {
   assert.equal(r?.usage.input, 800_000, "a stopped run still reports what it used");
 });
 
+// Claude Code hands over a result that isn't a success and then exits with an error, which the
+// SDK raises ("Claude Code returned an error result: …"). Found by the loop-budget-stop eval.
+function endsWith(subtype: string, why: string) {
+  return async function* ({ prompt }: any) {
+    for await (const _ of prompt) break;
+    yield { type: "assistant", parent_tool_use_id: null, message: { id: "msg_0", content: [{ type: "text", text: "part of the work" }] } };
+    yield { type: "result", subtype, num_turns: 1, total_cost_usd: 0.5, is_error: true, errors: [why],
+      usage: { input_tokens: 1000, output_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } };
+    throw new Error(`Claude Code returned an error result: ${why}`);
+  };
+}
+
+test("Claude Code's own budget cap ends the run as over budget, not as a failure", async () => {
+  useQueryForTests(endsWith("error_max_budget_usd", "Reached maximum budget ($0.50)") as any);
+  const r = await runDirect("scribe", "Write a lot");
+  assert.equal(r?.status, "over_budget");
+  assert.match(r!.text, /part of the work[\s\S]*reached its budget/);
+  assert.equal(r?.costUsd, 0.5, "what it spent is still reported");
+});
+
+test("running out of turns ends the run as out of turns, not as a failure", async () => {
+  useQueryForTests(endsWith("error_max_turns", "Reached maximum number of turns (1)") as any);
+  assert.equal((await runDirect("scribe", "Go on for ever"))?.status, "out_of_turns");
+});
+
+test("any other error result is still a failure, and says why", async () => {
+  useQueryForTests(endsWith("error_during_execution", "the model went away") as any);
+  await assert.rejects(() => runDirect("scribe", "Doomed") as Promise<unknown>, /the model went away/);
+});
+
 test("a run that fails part-way is still logged, with what it spent", async () => {
   useQueryForTests(meteredSession(1, "connection lost") as any);
   const before = recentQuests(1000).length;
