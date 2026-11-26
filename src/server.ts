@@ -91,6 +91,7 @@ import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, uiNotBuilt, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
 import { OUTPOST, renameOutpost, withOutpost } from "./outpost.js";
 import { chartAddress } from "./hub.js";
+import { releases as knownReleases, startReleaseNotes, writeReleaseNotes } from "./releases.js";
 
 // CAMP_PORT wins; else the port this outpost was given (camp/outpost.json); else 4747.
 const PORT = Number(process.env.CAMP_PORT ?? OUTPOST.port);
@@ -933,6 +934,8 @@ const server = http.createServer(async (req, res) => {
       catch (e: any) { return send(res, e instanceof JiraError && e.fixable ? 400 : 502, { error: e.message }); }
     }
 
+    // Release notes (releases.ts): every write-up so far, newest first.
+    if (req.method === "GET" && url.pathname === "/api/releases") return send(res, 200, knownReleases());
     // Your notes (notes.ts): all of them. The Notes panel asks when it opens, and when you come back to the window.
     if (req.method === "GET" && url.pathname === "/api/notes") return send(res, 200, { notes: loadNotes() });
     if (req.method === "GET" && url.pathname === "/api/tickets") return send(res, 200, { tickets: loadTickets() });
@@ -1574,6 +1577,9 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, on: !!phoneConfig() });
     }
 
+    // Write release notes now, from what was merged since the last ones (the page's "Check now").
+    if (url.pathname === "/api/releases/refresh") return send(res, 200, await writeReleaseNotes());
+
     if (url.pathname === "/api/links/remove") {
       const ok = removeLink(String(body.name));
       if (ok) emit({ type: "changed", what: "links" });
@@ -1957,6 +1963,7 @@ startPhoneBridge((askId, answer) => {
 });
 
 startPrWatch();
+startReleaseNotes(); // release notes from the merged pull requests, every 48 hours (releases.ts)
 
 // On the subscription: read the plan's usage as the camp starts, and again whenever the page asks
 // for its state and the figures are more than five minutes old (it costs nothing; see refreshPlanUsage).
