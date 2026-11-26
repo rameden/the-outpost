@@ -1677,6 +1677,20 @@ a.att-name { color: var(--accent); }
 .mem-before { margin: 0; max-height: 220px; overflow: auto; padding: 8px 10px; border-radius: 8px; background: var(--surface); font: 12px/1.5 var(--mono); white-space: pre-wrap; color: var(--muted); }
 .mem-care { display: grid; gap: 4px; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
 .mem-care .field-hint { margin: -2px 0 8px 24px; }
+/* Settings → Skills → Learning: the same box, with numbers you can type inside the hints. */
+.learn-care .field-hint { margin-left: 36px; line-height: 1.9; }
+.learn-count { width: 58px; padding: 2px 6px; margin: 0 2px; font: inherit; color: var(--text); border-radius: 6px; border: 1px solid var(--field); background: var(--surface); }
+.learn-count:focus-visible { outline: none; border: 2px solid var(--accent); padding: 1px 5px; }
+.learn-count:disabled { opacity: .55; }
+.learn-last { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+.learn-last .meta { margin-right: auto; }
+/* An installed skill's use and standing: one line of small facts, then Pin. */
+.skill-standing { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 4px; }
+.skill-standing .linkish[aria-pressed="true"] { text-decoration: underline; text-decoration-thickness: 2px; }
+/* Usage: what the learning reviews cost, folded under the totals. */
+.review-spend { margin: -4px 0 14px; font-size: 13px; color: var(--muted); }
+.review-spend summary { cursor: pointer; }
+.review-spend .list { margin-top: 8px; }
 .mem-place { --c: var(--c-other); padding: 16px 0 8px; border-top: 1px solid var(--border); }
 .mem-place-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 6px; }
 .mem-place-head h4 { margin: 0 auto 0 0; font: 600 15px var(--serif); color: color-mix(in srgb, var(--c) 60%, var(--text)); }

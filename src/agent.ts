@@ -22,6 +22,8 @@ import { autoLabel, isAutoChoice, parseChoice, profileTask, RequestSizer, routeI
 import { TaskRouter, Verification, autoMode, coolDown, gradeOf, lastRouteOf, logOutcome, noteOutcome, tierOf, type RouteStep, type RouteUse } from "./autoroute.js";
 import { OpJournal, journaled } from "./oplog.js";
 import { filesWrittenBy } from "./checkpoints.js";
+import { noteSkillsInlined } from "./curator.js";
+import { Reviewer, digest, emptyOutcome, logReview, proposeFromText, reviewEvery, reviewNotice, reviewPrompt, reviewTools, runReview, type ReviewScope } from "./learning.js";
 import { costOf, priceLabel, usd } from "./costs.js";
 import { connectorsFor, mcpToolsFor } from "./mcp.js";
 import { linksBlock, projectInstructions } from "./links.js";
@@ -456,6 +458,7 @@ export async function runAgent(
   // to fix a failing check, a quick follow-up, two quests side by side).
   const parts = (list: (string | false | undefined)[]) => list.filter((p): p is string => !!p).join("\n\n");
   const always = opts.plain ? [] : alwaysOn(spec.id, spec.skillDirs);
+  noteSkillsInlined(always.map((s) => s.key)); // inlined into this prompt: that's a use (curator.ts)
   const fixed = opts.plain
     ? spec.persona
     : parts([
@@ -633,6 +636,82 @@ export async function runAgent(
   };
   const pinnedHint = ` Pick Auto for this conversation (beside the message box) or for the ${w("crew")} member to let another model carry on.`;
 
+  // One request to the model, as this run sends it: the system prompt, tools, model and effort of
+  // the moment. The run's own turns go through here, and so does a learning review (learning.ts),
+  // which is how the two are sure to send the same thing ahead of the conversation.
+  type Reply = { content: any[]; stop_reason: string | null; model?: string; usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null; iterations?: unknown } };
+  const send = async (outgoing: Anthropic.MessageParam[], onDelta?: (delta: string) => void): Promise<Reply> => {
+    if (other) {
+      return providerChat({ provider: other.provider, model: other.model, system: systemFor(model), messages: outgoing as any, tools: defs, maxTokens: MAX_TOKENS, signal,
+        ...(onDelta ? { onDelta } : {}) });
+    }
+    const moving = movingFor(model);
+    const stream = client().beta.messages.stream({
+      model,
+      max_tokens: MAX_TOKENS,
+      betas: ["context-management-2025-06-27", ...(fallsBack(model) ? [FALLBACK_BETA] : [])],
+      context_management: CONTEXT_MANAGEMENT,
+      ...(fallsBack(model) ? { fallbacks: "default" as const } : {}),
+      ...(effort ? { output_config: { effort } } : {}),
+      // Three cache layers: a breakpoint after the fixed part of the prompt (with the tools
+      // ahead of it), one after the moving part, and automatic caching for the conversation,
+      // which grows by one turn each loop.
+      cache_control: { type: "ephemeral" },
+      system: [
+        { type: "text" as const, text: fixed, cache_control: { type: "ephemeral" as const } },
+        ...(moving ? [{ type: "text" as const, text: moving, cache_control: { type: "ephemeral" as const } }] : []),
+      ],
+      tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
+      messages: outgoing as unknown as Anthropic.Beta.BetaMessageParam[],
+    // Under Auto the router owns retries, so one budget covers the whole task across models.
+    }, { signal, ...(router ? { maxRetries: 0 } : {}) });
+    // Words appear in mission control as they're written.
+    if (onDelta) stream.on("text", onDelta);
+    return stream.finalMessage() as Promise<Reply>;
+  };
+
+  // ---------- The learning review (off unless it's turned on in Settings → Skills) ----------
+  // Every so many tool calls a copy of this run is asked what's worth keeping. It only proposes
+  // (memory and skills, into the queues you approve from), and the run never waits for it.
+  const every = opts.plain ? null : reviewEvery();
+  const scope = (): ReviewScope => ({ agent: spec.id, name: spec.name, toolNames: tools.flatMap((t) => ("name" in t.def ? [t.def.name] : [])),
+    ...(inProject && project ? { project: project.id } : {}), ...(currentExpeditionId() ? { run: currentExpeditionId()! } : {}) });
+  const spend = (usd: number) => { if (ledger) ledger.spent += usd; };
+  const reviewer = !every ? null : new Reviewer(every, async (snapshot, already) => {
+    if (signal?.aborted || overBudget()) return null;
+    return runReview({
+      ...scope(), model, signal, overBudget, spend,
+      ask: async (msgs) => {
+        const by = model;
+        const r = await send(msgs);
+        const u = { input: r.usage.input_tokens, output: r.usage.output_tokens, cacheRead: r.usage.cache_read_input_tokens ?? 0, cacheWrite: r.usage.cache_creation_input_tokens ?? 0 };
+        return { content: afterFallback(r.content).content, stop_reason: r.stop_reason, usage: u, costUsd: replyCost(by, u, r.usage.iterations) };
+      },
+    }, snapshot, already);
+  });
+  // On a Claude subscription there's no request of ours to send again, so the review is a short
+  // Claude Code run of its own: the same system prompt, model and tool list, the work so far told
+  // to it, and every one of those tools answering as a review's tool (nothing else is allowed).
+  const codeReviewer = !every ? null : new Reviewer(every, async (snapshot, already) => {
+    if (signal?.aborted || overBudget()) return null;
+    const sc = scope(), out = emptyOutcome(), by = model;
+    let error: string | undefined;
+    const r = await runClaudeCode({
+      model: by, effort, system: systemFor(by), tools: reviewTools(tools, sc, out), signal, messages: [], maxTurns: 4,
+      task: `${digest(requestText(task), snapshot)}\n\n${reviewPrompt(sc, already)}`,
+      mayUse: (name) => (name.startsWith("mcp__camp__") ? null : `Refused: ${name} isn't available in a learning review. Do not retry.`),
+      onSpend: spend, overBudget,
+      onDelta: () => {}, onText: () => {}, onTool: () => {},
+    }).catch((err: ClaudeCodeFailure) => { error = String(err?.message ?? err).slice(0, 200); return err.partial ?? null; });
+    if (!r) return null;
+    spend(r.costUsd - r.spentLive); // settle up with Claude Code's own total
+    await proposeFromText(r.text, sc, out); // a skill written out in the reply, for crew without propose_skill
+    logReview({ time: new Date().toISOString(), agent: sc.agent, model: by, runtime: "claude-code", ...(sc.run ? { run: sc.run } : {}), ...(sc.project ? { project: sc.project } : {}),
+      turns: r.turns, usage: r.usage, costUsd: r.costUsd, memory: out.memory.length, skills: out.skills.length, refused: out.refused.length, ...(error ? { error } : {}) });
+    reviewNotice(sc, out);
+    return { proposed: [...out.memory, ...out.skills.map((k) => `skill ${k}`)] };
+  });
+
   const work = async (): Promise<AgentResult> => {
     if (router) {
       const was = thread ? lastRouteOf(`${thread}:${spec.id}`, spec.id) : undefined;
@@ -664,7 +743,7 @@ export async function runAgent(
         budgetLeftUsd: ledger?.budget != null ? ledger.budget - ledger.spent : undefined,
         onDelta: (delta) => emit({ type: "text_delta", ...me, delta }),
         onText: (text) => emit({ type: "text", ...me, text }),
-        onTool: (tool, input) => emit({ type: "tool", ...me, tool, input: preview(input) }),
+        onTool: (tool, input) => { emit({ type: "tool", ...me, tool, input: preview(input) }); codeReviewer?.note(1, () => structuredClone(messages)); },
         onNotice: (text) => emit({ type: "notice", ...me, text }),
       }).catch((err: ClaudeCodeFailure) => {
         if (err.partial) { Object.assign(usage, err.partial.usage); turn = err.partial.turns; lastText = err.partial.text; failedCost = err.partial.costUsd; }
@@ -694,7 +773,7 @@ export async function runAgent(
         const t = router.check(reqTokens());
         if (t) { const stopped = await reroute(t.trigger, t.evidence); if (stopped) { turn--; return stopped; } }
       }
-      let resp!: { content: any[]; stop_reason: string | null; model?: string; usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null; iterations?: unknown } };
+      let resp!: Reply;
       const servedBy = () => router?.route;
       let route = servedBy();
       for (let attempt = 0, got = false; !got; attempt++) {
@@ -702,34 +781,7 @@ export async function runAgent(
         route = servedBy();
         const outgoing = router ? forRoute(messages, model) : messages;
         try {
-          if (other) {
-            resp = await providerChat({ provider: other.provider, model: other.model, system: systemFor(model), messages: outgoing as any, tools: defs, maxTokens: MAX_TOKENS, signal,
-              onDelta: (delta) => emit({ type: "text_delta", ...me, delta }) });
-          } else {
-            const moving = movingFor(model);
-            const stream = client().beta.messages.stream({
-              model,
-              max_tokens: MAX_TOKENS,
-              betas: ["context-management-2025-06-27", ...(fallsBack(model) ? [FALLBACK_BETA] : [])],
-              context_management: CONTEXT_MANAGEMENT,
-              ...(fallsBack(model) ? { fallbacks: "default" as const } : {}),
-              ...(effort ? { output_config: { effort } } : {}),
-              // Three cache layers: a breakpoint after the fixed part of the prompt (with the tools
-              // ahead of it), one after the moving part, and automatic caching for the conversation,
-              // which grows by one turn each loop.
-              cache_control: { type: "ephemeral" },
-              system: [
-                { type: "text" as const, text: fixed, cache_control: { type: "ephemeral" as const } },
-                ...(moving ? [{ type: "text" as const, text: moving, cache_control: { type: "ephemeral" as const } }] : []),
-              ],
-              tools: defs as unknown as Anthropic.Beta.BetaToolUnion[],
-              messages: outgoing as unknown as Anthropic.Beta.BetaMessageParam[],
-            // Under Auto the router owns retries, so one budget covers the whole task across models.
-            }, { signal, ...(router ? { maxRetries: 0 } : {}) });
-            // Words appear in mission control as they're written.
-            stream.on("text", (delta) => emit({ type: "text_delta", ...me, delta }));
-            resp = await stream.finalMessage();
-          }
+          resp = await send(outgoing, (delta) => emit({ type: "text_delta", ...me, delta }));
           got = true;
         } catch (err: any) {
           if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
@@ -871,6 +923,7 @@ export async function runAgent(
       const toolMsg: Anthropic.MessageParam = { role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] };
       messages.push(toolMsg);
       sizer.addMessage(toolMsg);
+      reviewer?.note(uses.length, () => structuredClone(router ? forRoute(messages, model) : messages));
       // What the tools turned up: a failure reproduced after distinct fixes, or a bigger task than it looked.
       const calls = uses.map((b, i) => ({ name: b.name, input: b.input, output: resultText(results[i]?.content), failed: !!results[i]?.is_error }));
       if (router) router.observe(calls, reqTokens());

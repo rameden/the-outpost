@@ -29,6 +29,7 @@ import { useModal } from "../components/Dialog.tsx";
 import { Presence } from "../motion.tsx";
 import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
+import { ArchivedSkills, LearningSettings, SkillStanding } from "../components/SkillCare.tsx";
 import { TerminalActions } from "./TerminalActions.tsx";
 
 import { settingsGroups as groups, type SettingsSection } from "./sections.ts";
@@ -587,7 +588,7 @@ function Phone({ S, refresh }: { S: CampState; refresh: () => void }) {
 // Who follows a skill always. Normally a skill is listed for the crew by name and description,
 // and opened when a task seems to match. Ticked here, its instructions go into every one of that
 // crew member's prompts, so they follow it without having to notice it applies.
-export function AlwaysOn({ S, skill, refresh }: { S: CampState; skill: CampState["installedSkills"][number]; refresh: () => void }) {
+export function AlwaysOn({ S, skill, refresh }: { S: CampState; skill: Pick<CampState["installedSkills"][number], "owner" | "name" | "alwaysFor">; refresh: () => void }) {
   const [busy, setBusy] = useState(false);
   const on = skill.alwaysFor ?? [];
   const who = S.characters.filter((c) => skill.owner === "shared" || c.id === skill.owner);
@@ -658,6 +659,7 @@ function InstalledSkills({ S, refresh }: { S: CampState; refresh: () => void }) 
                   </span></div>
                 <div className="meta">{s.description || "No description."}</div><div className="meta"><code>{s.path}</code></div>
                 {s.commands?.length > 0 && <div className="meta skill-commands">Runs without asking: {s.commands.map((c) => <code key={c}>{c}</code>)}</div>}
+                <SkillStanding skill={s} refresh={refresh} />
                 <AlwaysOn S={S} skill={s} refresh={refresh} /></li>
             ))}
           </ul>
@@ -727,7 +729,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
             : section === "automatic" ? <AutomaticPage S={S} refresh={refresh} onOpenSection={(s) => onOpenActivity?.(s === "jobs" ? "jobs" : "inbox")} />
             : section === "memory" ? <MemoryPage S={S} refresh={refresh} />
-            : section === "skills" ? <><SkillProposals S={S} onOpenInbox={onOpenActivity && (() => onOpenActivity("inbox"))} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>
+            : section === "skills" ? <><SkillProposals S={S} onOpenInbox={onOpenActivity && (() => onOpenActivity("inbox"))} /><LearningSettings S={S} refresh={refresh} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /><ArchivedSkills S={S} refresh={refresh} /></>
             : <Connectors S={S} refresh={refresh} onAttachLink={(l) => { onAttachLink(l); onClose(); }} />}
         </div>
         {/* What a button here couldn't do: the page's own line by the message box is behind this. */}

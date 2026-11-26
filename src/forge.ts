@@ -10,6 +10,7 @@ import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { ROSTER } from "./roster.js";
 import type { Tool } from "./tools.js";
 import { emit } from "./events.js";
+import { noteSkillCreated } from "./curator.js";
 import { a, w } from "./words.js";
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
@@ -86,18 +87,21 @@ export const proposeSkill: Tool = {
   },
 };
 
-export type SkillDraft = { owner: string; name: string; description: string; instructions: string; reason: string };
+// by: who wrote it. It's kept as `created_by` in the skill's front matter once approved, which is
+// how the curator (curator.ts) knows a skill is the crew's own and not one you wrote or installed.
+export type SkillDraft = { owner: string; name: string; description: string; instructions: string; reason: string; by?: string };
 
 // Put a skill in the waiting pile. The Quartermaster does it through propose_skill; the weekly
 // retro does it when the same kind of work keeps being asked for (reports.ts). Either way it waits
 // for you.
-export function draftSkill({ owner, name, description, instructions, reason }: SkillDraft): { ok: true; replaces: boolean } | { ok: false; error: string } {
+export function draftSkill({ owner, name, description, instructions, reason, by }: SkillDraft): { ok: true; replaces: boolean } | { ok: false; error: string } {
   if (!owners().includes(owner)) return { ok: false, error: `Unknown owner '${owner}'. Use one of: ${owners().join(", ")}.` };
   if (!NAME_RE.test(name)) return { ok: false, error: `Skill names must be kebab-case (got '${name}').` };
   const desc = String(description).replace(/\s+/g, " ").trim();
   const why = String(reason).replace(/\s+/g, " ").trim();
+  const author = String(by ?? "").replace(/[^\w .()-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "quartermaster";
   const body =
-    `---\nname: ${name}\ndescription: ${desc}\nproposed: ${new Date().toISOString().slice(0, 10)}\n` +
+    `---\nname: ${name}\ndescription: ${desc}\ncreated_by: ${author}\nproposed: ${new Date().toISOString().slice(0, 10)}\n` +
     `reason: ${why}\n---\n\n${String(instructions).trim()}\n`;
   mkdirSync(join(PENDING_DIR, owner, name), { recursive: true });
   writeFileSync(pendingPath(owner, name), body);
@@ -179,6 +183,7 @@ export function approveSkill(owner: string, name: string): boolean {
   mkdirSync(join(SKILLS_DIR, p.owner, p.name), { recursive: true });
   writeFileSync(livePath(p.owner, p.name), clean);
   clearPending(p);
+  noteSkillCreated(`${p.owner}/${p.name}`); // its unused clock starts now, not at the curator's next look
   if (passedSkills().some((x) => x.owner === p.owner && x.name === p.name)) writeJsonAtomic(PASSED_PATH, forgetPassed(p.owner, p.name));
   emit({ type: "changed", what: "skills" });
   return true;

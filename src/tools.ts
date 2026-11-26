@@ -21,6 +21,7 @@ import { childEnv, gitSafeEnv, sandboxAvailable, sandboxKind, sandboxed, type Sa
 import { allowedHosts, ensureProxy, proxyEnv, refusedSince } from "./netproxy.js";
 import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell } from "./checkpoints.js";
 import { agentShell, shellNote, stopTree } from "./platform.js";
+import { noteSkillUse, skillKeyOf } from "./curator.js";
 
 // How a real path is shown to agents: relative inside the camp, links/<name>/… inside a linked folder.
 export function displayPath(abs: string): string {
@@ -211,6 +212,8 @@ export function readFileFor(self: string): Tool {
       const abs = campPath(path, "read", self);
       const text = readFileSync(abs, "utf8");
       noteRead(abs);
+      const skill = skillKeyOf(relative(CAMP_ROOT, abs)); // opening a skill's SKILL.md is using it (curator.ts)
+      if (skill) noteSkillUse(skill, "read");
       return pageOf(text, offset, limit);
     },
   };
