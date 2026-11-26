@@ -27,7 +27,7 @@ import { rl } from "./tools.js";
 import { setAsker } from "./ask.js";
 import { attachConsole } from "./events.js";
 import { CREW, findCrew } from "./crew.js";
-import { w } from "./words.js";
+import { say, w } from "./words.js";
 import { runDirect, runExpedition } from "./quartermaster.js";
 import { prepareWorkspaces, workspaceStatus, type WorkspaceChoice } from "./repos.js";
 import { changedFiles } from "./checkpoints.js";
@@ -121,7 +121,7 @@ async function main() {
   if (!a.task) { console.error('Say what to do: npm run headless -- "…" (or pipe it in with -).'); process.exit(1); }
   // Progress on stderr, so stdout is only the answer (written with process.stdout below).
   console.log = (...args: unknown[]) => console.error(...args);
-  if (!a.quiet) attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back") }));
+  if (!a.quiet) attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back"), say }));
   const controller = new AbortController();
   process.once("SIGINT", () => controller.abort());
   const r = await runHeadless(a, controller.signal);

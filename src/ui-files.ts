@@ -28,7 +28,7 @@ export const uiCsp = (styleNonce: string) =>
 export const uiNotBuilt = (hq = "Mission control") => `${hq}'s page hasn't been built yet. Open the link \`npm run ui\` prints (it serves the page as you edit it), or build it with \`npm run ui:build\`.`;
 export const UI_NOT_BUILT = uiNotBuilt();
 
-// The tour: Mae's one-page introduction (docs/index.html), served at /splash. It's the same
+// The tour: Outpost's one-page introduction (docs/index.html), served at /splash. It's the same
 // static page that's in the repo, so it needs no token and reads nothing of the camp. Its own
 // policy allows its inline style and script and its Google fonts, and nothing else: no requests
 // back to the camp, no forms, no frames.

@@ -10,16 +10,20 @@ import type { AskKind, Attached, CampEvent, EventOf, Workspaces } from "../types
 import { askOutcome, heldAnswer } from "./asks.ts";
 
 import { w, atCamp } from "../words.ts";
-import { leadName } from "../format.ts";
+import { leadName, shown } from "../format.ts";
 export type CrewStatus = { status: "idle" | "active" | "waiting"; line: string };
 
 export type MsgNode = { kind: "msg"; id: string; who: string; emoji: string; text: string; streaming: boolean };
 export type ToolNode = { kind: "tool"; id: string; who: string; tool: string; input: string };
 // A file the crew wrote whole: a card that opens it. It takes the place of the write_file line it came from.
 export type FileNode = { kind: "file"; id: string; who: string; path: string; change: "created" | "updated"; bytes: number };
-export type NoticeNode = { kind: "notice"; id: string; text: string };
+// kept: the notice as the camp wrote it, with {tokens} for the pack's words (the feed shows it with
+// shown(), so it reads in whichever pack is on); text: the same filled in once, for anything that
+// reads it as it is (Orbit).
+export type NoticeNode = { kind: "notice"; id: string; text: string; kept?: string };
 // Auto chose a model for a crew member, or switched part-way: which, under what preference, and why.
 export type RouteNode = { kind: "route"; id: string; who: string; model: string; effort?: string; choice: string; reason: string; switched: boolean };
+const notice = (id: string, kept: string): NoticeNode => ({ kind: "notice", id, text: shown(kept), kept });
 export type SysNode = { kind: "sys"; id: string; text: string };
 export type SteerNode = { kind: "steer"; id: string; text: string }; // what you said to it while it worked
 // listed: an approved plan whose steps are shown as the live list under it (so the card itself folds its text away).
@@ -27,7 +31,8 @@ export type SteerNode = { kind: "steer"; id: string; text: string }; // what you
 // waiting: plans from its conversation already waiting to start, when it was asked. aside: a held
 // plan set aside unstarted ("replaced" by a newer plan, or "removed").
 export type AskNode = { kind: "ask"; id: string; askId: string; askKind: AskKind; title: string; body: string; who: string; outcome: string | null; listed?: boolean; plain?: string; // plain: what it does, in plain words
-  held?: boolean; started?: string; waiting?: { ask: string; held: string }[]; aside?: "replaced" | "removed" };
+  held?: boolean; started?: string; waiting?: { ask: string; held: string }[]; aside?: "replaced" | "removed";
+  lapsed?: boolean }; // lapsed: never answered (the camp restarted): the card says so in the pack that's on now
 // The plan you approved, as a list that fills in: each numbered step, and the quests carrying it out.
 // ended: how the run finished, once it has (a step still out then was cut short).
 export type PlanQuest = { node: string; who: string; emoji: string; status: string | null };
@@ -177,7 +182,7 @@ function endExpedition(s: FeedState, e: EventOf<"expedition_end">) {
   const failed = e.status === "error" || e.status === "interrupted";
   s.items = replaceNode(s.items, exp.node, (n) => n.kind !== "exp" ? n : {
     ...n,
-    nodes: failed ? [...n.nodes, { kind: "notice", id: `n${e.seq}`, text: e.text }] : n.nodes,
+    nodes: failed ? [...n.nodes, notice(`n${e.seq}`, e.text)] : n.nodes,
     end: { status: e.status, seconds, changed: e.changed ?? 0, workspaces: e.workspaces ?? [] },
   });
   if (exp.plan) s.items = replaceNode(s.items, exp.plan, (n) => (n.kind === "plan" ? { ...n, ended: e.status } : n));
@@ -297,7 +302,7 @@ function resolveAsk(s: FeedState, e: EventOf<"answered">) {
   const ask = s.asks.find((a) => a.id === e.id);
   if (!ask) return;
   const held = !e.lapsed && heldAnswer(e.answer);
-  s.items = replaceNode(s.items, ask.node, (n) => (n.kind === "ask" ? { ...n, outcome: askOutcome(n.askKind, e.answer, e.lapsed), ...(held && n.askKind === "plan" ? { held: true } : {}) } : n));
+  s.items = replaceNode(s.items, ask.node, (n) => (n.kind === "ask" ? { ...n, outcome: askOutcome(n.askKind, e.answer, e.lapsed), ...(e.lapsed ? { lapsed: true } : {}), ...(held && n.askKind === "plan" ? { held: true } : {}) } : n));
   s.asks = s.asks.filter((a) => a.id !== e.id);
   setCrew(s, ask.who, "active");
   // Still waiting only if another of its questions is open.
@@ -332,7 +337,7 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
       touchQuest(s, e, { line: `Using ${e.tool}` });
       break;
     case "file": addFile(s, e); break;
-    case "notice": place(s, { kind: "notice", id: `n${e.seq}`, text: e.text }, e.questId, e.expeditionId); break;
+    case "notice": place(s, notice(`n${e.seq}`, e.text), e.questId, e.expeditionId); break;
     case "route":
       finishLive(s, (k) => k === liveKey(e)); // a new model's words start a new message
       place(s, { kind: "route", id: `r${e.seq}`, who: e.who, model: e.model, ...(e.effort ? { effort: e.effort } : {}), choice: e.choice, reason: e.reason, switched: e.switched }, e.questId, e.expeditionId);

@@ -209,7 +209,7 @@ test("two quests that change files in the same linked folder take turns; neither
   assert.ok(!watch.overlapped(), "both quests were working in the folder at the same time");
   const order = events.filter((e) => e.type === "dispatch" || e.type === "return").map((e) => `${e.type} ${e.who}`);
   assert.deepEqual(order, ["dispatch Scribe", "return Scribe", "dispatch Artificer", "return Artificer"], "the second set out when the first was back");
-  assert.ok(noticed(new RegExp(`Artificer's quest is waiting for Scribe's to finish in ${L}`)), "the user is told what it's waiting for");
+  assert.ok(noticed(new RegExp(`Artificer's \\{quest\\} is waiting for Scribe's to finish in ${L}`)), "the user is told what it's waiting for");
   assert.equal(readFileSync(join(repo, "Scribe.txt"), "utf8"), "Scribe was here\n");
   assert.equal(readFileSync(join(repo, "Artificer.txt"), "utf8"), "Artificer was here\n");
   assert.deepEqual(folderLocksForTests.now(), { held: {}, waiting: 0 }, "the folder is free again");
@@ -294,7 +294,7 @@ test("talking to a crew member directly waits for the folder too, and is told wh
   let asked!: () => void;
   const artificerAsked = new Promise<void>((ok) => (asked = ok));
   script = (b) => { if (whoAsks(b) === "Artificer") asked(); return { text: "Artificer back." }; };
-  const waitingNotice = new Promise<void>((ok) => onEvent((e: any) => { if (e.type === "notice" && /Waiting for Scribe's quest to finish in links\//.test(e.text)) ok(); }));
+  const waitingNotice = new Promise<void>((ok) => onEvent((e: any) => { if (e.type === "notice" && /Waiting for Scribe's \{quest\} to finish in links\//.test(e.text)) ok(); }));
   const run = runDirect("artificer", "Change something");
   await waitingNotice;
   assert.equal(went("Artificer"), 0, "nothing was asked of the model while the folder was taken");

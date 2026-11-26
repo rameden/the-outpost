@@ -156,7 +156,7 @@ export function App({ store }: { store: FeedStore }) {
   const closeWizard = useCallback(() => setWizard(null), []);
   const [ticketOpen, setTicketOpen] = useState<string | null>(null); // a conversation's ticket, opened over it
   const closeTicket = useCallback(() => setTicketOpen(null), []);
-  // Mae's own tickets (tickets.ts): read on arriving and on coming back to the window; the camp's change events keep them current between.
+  // The Outpost's own tickets (tickets.ts): read on arriving and on coming back to the window; the camp's change events keep them current between.
   const tickets = useTickets();
   useEffect(() => {
     void loadTickets();
@@ -450,7 +450,7 @@ export function App({ store }: { store: FeedStore }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
     ...activityTabs(inbox.total).map((t): PaletteItem => ({ id: `a:${t.id}`, group: "Activity", icon: "activity", label: `Activity: ${t.label}`, hint: typeof t.title === "string" ? t.title : undefined, run: () => setView({ kind: "activity", tab: t.id }) })),
     ...settingsGroups().flatMap((g) => g.items.map(([id, label, icon]): PaletteItem => ({ id: `s:${id}`, group: "Settings", icon, label: `Settings: ${label}`, hint: g.title, run: () => openSettings(id) }))),
-    ...tickets.tickets.map((t): PaletteItem => ({ id: `t:${t.key}`, group: "Tickets", icon: "flag", label: `${t.key}: ${t.title}`, hint: "Mae", run: () => { setSettings(null); setView({ kind: "tickets" }); showTicket(t.key); } })),
+    ...tickets.tickets.map((t): PaletteItem => ({ id: `t:${t.key}`, group: "Tickets", icon: "flag", label: `${t.key}: ${t.title}`, hint: "Outpost", run: () => { setSettings(null); setView({ kind: "tickets" }); showTicket(t.key); } })),
     ...notes.notes.map((n): PaletteItem => ({ id: `n:${n.id}`, group: "Notes", icon: "note", label: titleOf(n), hint: "Note", run: () => showNote(n.id) })),
     ...(S.memory ?? []).flatMap((p) => p.lines.map((l, i): PaletteItem => ({
       id: `m:${p.where}:${i}`, group: "Memory", icon: "layers", label: l.text.length > 80 ? `${l.text.slice(0, 80).trimEnd()}…` : l.text, hint: p.name,
@@ -703,7 +703,7 @@ export function App({ store }: { store: FeedStore }) {
           <JiraTicket id={ticketOpen} summary="" onClose={closeTicket} onOpen={setTicketOpen} />
         </OverlayBoundary>
       )}</Presence>
-      {/* A Mae ticket, and turning a note or a plan into tickets: opened from the Tickets page, a note, a plan card or a conversation. */}
+      {/* An Outpost ticket, and turning a note or a plan into tickets: opened from the Tickets page, a note, a plan card or a conversation. */}
       <Presence>{tickets.showing && S && (
         <OverlayBoundary key={"key" in tickets.showing ? tickets.showing.key : "new"} name="This ticket" onClose={closeMaeTicket}>
           <MaeTicketDialog S={S} onAttach={attachTicket} onStart={(t) => setWizard({ ticket: t })} onOpenConversation={openConversation} />

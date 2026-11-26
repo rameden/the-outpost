@@ -1,4 +1,4 @@
-// Release notes: what changed in Mae itself, written up from the pull requests merged into its
+// Release notes: what changed in Outpost itself (the app), written up from the pull requests merged into its
 // repository. Every 48 hours (while mission control is open) the camp reads the pull requests
 // merged since the last write-up, asks the small model to sum them up in two halves, front end
 // and back end, with the big features first, and keeps the result in camp/releases.json. The
@@ -73,7 +73,7 @@ const newest = (n: Note) => Math.max(0, ...n.prs);
 export const majorFirst = (notes: Note[]) => [...notes].sort((a, b) => Number(b.major) - Number(a.major) || newest(b) - newest(a));
 
 // ---------- The write-up ----------
-const SYSTEM = `You write release notes for Mae, a multi-agent app: a Node/TypeScript back end (src/, scripts/, tests/) and a React front end (ui/), plus an in-app tour (docs/) and a browser extension (extension/), which count as front end.
+const SYSTEM = `You write release notes for Outpost, a multi-agent app: a Node/TypeScript back end (src/, scripts/, tests/) and a React front end (ui/), plus an in-app tour (docs/) and a browser extension (extension/), which count as front end.
 You're given the pull requests merged in one window. Sum them up for someone who uses the app: what they can now do, see, or rely on, in plain words. Group related pull requests into one note. Leave out pure test, CI or refactor work unless it changes behaviour, folding it into a related note if there is one.
 Answer with JSON only, no prose and no code fence:
 {"frontend":[{"title":"...","detail":"...","major":true,"prs":[12]}],"backend":[...]}

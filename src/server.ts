@@ -33,7 +33,7 @@ import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
 import { CAMP_ROOT, rl } from "./tools.js";
 import { CREW, CREW_IDS, findCrew, mentionedCrew, addMember, updateMember, removeMember, ownOf, activePack, setPack, addPack, updatePack, removePack, packsLeftOut, currentName, type CrewId } from "./crew.js";
 import { PACKS, RETIRED } from "./packs.js";
-import { w as word, withPack } from "./words.js"; // "word": w is what a piece of queued work is called here
+import { say, w as word, withPack } from "./words.js"; // "word": w is what a piece of queued work is called here
 import { readMemory, recentSessions, readSession, writeMemory, listOutputs, workspace, ensureWorkspace } from "./memory.js";
 import { loadJobs, saveJobs } from "./jobs.js";
 import { briefFor, cleanTrigger, loadTriggers, pollTrigger, pullItems, saveTriggers, setTriggerEnabled, POLL_MS, PR_TASK, type Trigger, type TriggerItem } from "./triggers.js";
@@ -147,7 +147,7 @@ const BUFFER_SIZE = 800;
 const TICK_MS = 30_000;
 const STREAM_BACKLOG_MAX = 8_000_000;
 
-attachConsole(() => ({ lead: CREW.quartermaster.name, back: word("back") })); // the terminal still shows everything
+attachConsole(() => ({ lead: CREW.quartermaster.name, back: word("back"), say })); // the terminal still shows everything
 
 // ---------- Event buffer + live streams ----------
 // The feed is saved to camp/feed.jsonl and reloaded here, so it survives a restart.
@@ -1086,7 +1086,7 @@ const server = http.createServer(async (req, res) => {
       if (!thread || (who && who.id !== thread.agent && !aside)) replyTo = undefined; // addressed to someone else: a fresh start
       // { jira: "APP-123" }: the ticket a new conversation is working on; a reply keeps its conversation's.
       const jira = replyTo ? thread?.jira : (typeof body.jira === "string" && JIRA_KEY.test(body.jira.toUpperCase()) ? body.jira.toUpperCase() : undefined);
-      // { ticket: "MAE-3" }: the same for a Mae ticket (tickets.ts). It has to be one that's there.
+      // { ticket: "MAE-3" }: the same for an Outpost ticket (tickets.ts). It has to be one that's there.
       const maeKey = typeof body.ticket === "string" ? body.ticket.trim().toUpperCase() : "";
       if (!replyTo && maeKey && !(MAE_KEY.test(maeKey) && getTicket(maeKey))) return send(res, 400, { error: `There's no ticket ${maeKey} any more.` });
       const ticket = replyTo ? thread?.ticket : maeKey || undefined;
@@ -1190,7 +1190,7 @@ const server = http.createServer(async (req, res) => {
       if (isNew) fileConversation(conversation, project.id);
       // Started from a ticket, with write-back on: say so on the ticket (and move it, if you named a status).
       if (isNew && jira) void writeBack("start", jira, { branch: Object.values(workspaces ?? {})[0]?.branch }).then((note) => { if (note) emit({ type: "notice", who: "Jira", emoji: "🔖", depth: 0, text: note, expeditionId: w.id }); });
-      // Started from a Mae ticket: it's in progress now (unless it was already further along).
+      // Started from an Outpost ticket: it's in progress now (unless it was already further along).
       if (isNew && ticket && advanceTicket(ticket, "doing")) emit({ type: "changed", what: "tickets" });
       return send(res, 200, { ok: true, id: w.id, position, attached: attached.length, thread: conversation, ...(after ? { after } : {}) });
     }
@@ -1624,7 +1624,7 @@ const server = http.createServer(async (req, res) => {
       } catch (e: any) { return send(res, e.fixable ? 400 : 500, { error: e.message }); }
     }
 
-    // Mae tickets (tickets.ts). { action: "create", title, criteria, description, status?, labels?, priority?, project?, from? },
+    // Outpost tickets (tickets.ts). { action: "create", title, criteria, description, status?, labels?, priority?, project?, from? },
     // { action: "createMany", tickets: [...], project?, from? } (drafts you chose to keep, filed together),
     // { action: "update", key, ...fields }, { action: "remove", key }.
     if (url.pathname === "/api/tickets") {
@@ -1655,7 +1655,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, { ok: true, drafts });
       } catch (e: any) { return send(res, e.fixable ? 400 : 502, { error: e.message }); }
     }
-    // Attach a Mae ticket to the message being written ({ key, batch? }), as it stands now.
+    // Attach an Outpost ticket to the message being written ({ key, batch? }), as it stands now.
     if (url.pathname === "/api/tickets/attach") {
       const t = getTicket(String(body.key ?? ""));
       if (!t) return send(res, 404, { error: "That ticket isn't there any more." });
@@ -1990,7 +1990,7 @@ const USAGE_STALE = 5 * 60_000;
 const freshenUsage = () => { if (campRuntime() === "claude-code" && Date.now() - usageMeasuredAt() > USAGE_STALE) void refreshPlanUsage(); };
 server.on("error", (err: NodeJS.ErrnoException) => {
   console.error(err.code === "EADDRINUSE"
-    ? `💥 Port ${PORT} is taken: another ${word("camp")} may be running. Stop it, or set CAMP_PORT to a free port.`
+    ? `💥 Port ${PORT} is taken: another ${word("camp")} may be running. Stop it, or set OUTPOST_PORT to a free port.`
     : `💥 ${word("Hq")} couldn't start: ${err.message}`);
   process.exit(1);
 });

@@ -1,7 +1,7 @@
 // The theme pack's nouns: the Guild's until the camp says otherwise, with capitals and plurals.
 import { afterEach, expect, test } from "vitest";
 import { PACKS } from "../../src/packs.ts";
-import { a, atCamp, cap, many, setWords, w } from "./words.ts";
+import { a, atCamp, cap, fillWords, many, setWords, w } from "./words.ts";
 
 afterEach(() => setWords(undefined));
 
@@ -62,4 +62,12 @@ test("an idle crew member is at the pack's place: \"At camp\" for the Guild, wit
   expect(atCamp()).toBe("At the ship");
   setWords("newsroom", PACKS);
   expect(atCamp()).toBe("At the newsroom");
+});
+
+test("fillWords fills the pack's {tokens}, with articles and capitals, and leaves other braces alone", () => {
+  setWords("starship", PACKS);
+  expect(fillWords("{A quest} for the {crew}: {Quests} left the {camp}, {an expedition} ended.")).toBe("A mission for the crew: Missions left the ship, a voyage ended.");
+  expect(fillWords("{ \"json\": 1 } and {nonesuch} stay")).toBe("{ \"json\": 1 } and {nonesuch} stay");
+  setWords("guild", PACKS);
+  expect(fillWords("{An expedition} from the {camp}")).toBe("An expedition from the camp");
 });

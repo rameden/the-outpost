@@ -42,7 +42,6 @@ import { allTurns } from "./threads.js";
 import { dayOf } from "./helpers.js";
 import { gatherNews, type NewsItem } from "./briefnews.js";
 import { pausedUntil } from "./limits.js";
-import { w } from "./words.js";
 import { OUTPOST } from "./outpost.js";
 
 export const BRIEFS_DIR = posix.join("camp", "briefs");
@@ -176,7 +175,7 @@ export function briefText(b: Brief): string {
   if (since.length) parts.push(`**Since last time**\n${since.join(", ")}.`);
   const say = b.waiting.memory + b.waiting.skills;
   if (b.news?.length) parts.push(`**AI news for ${OUTPOST.name} (${b.news.length})**\n${b.news.map((x) => `- [${x.title}](${x.url}): ${[x.says, x.why].filter(Boolean).join(" ")}`).join("\n")}`);
-  if (say) parts.push(`${n(say, "suggestion")} from the ${w("crew")} ${say === 1 ? "is" : "are"} waiting for your say.`);
+  if (say) parts.push(`${n(say, "suggestion")} ${say === 1 ? "is" : "are"} waiting for your say.`);
   if (b.notes.length) parts.push(b.notes.map((x) => `_${x}_`).join("\n"));
   return parts.join("\n\n") || "Nothing is waiting on you, and nothing is in motion."; // (your notes aren't in it: this text leaves the page)
 }

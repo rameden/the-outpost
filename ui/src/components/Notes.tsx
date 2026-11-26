@@ -16,7 +16,7 @@
 // work" puts it in your message. "Suggest ideas" asks what the project's record points at next:
 // what comes back sits in the list marked as suggested, until you keep it or delete it.
 //
-// And two that make Mae tickets of it (tickets.ts): "Turn into tickets" splits the note into
+// And two that make Outpost tickets of it (tickets.ts): "Turn into tickets" splits the note into
 // pieces of work for you to choose from, and a ticket written up here can be added to them as it is.
 // A note that's been filed says so, and opens its tickets.
 
@@ -157,7 +157,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
   const empty = !note.text.trim();
   const blank = empty && !note.title.trim();
   const noBox = "Open a conversation first: this page has no message box.";
-  // Mae tickets made from this note, and making them.
+  // Outpost tickets made from this note, and making them.
   const filed = filedFrom(useTickets().tickets, note.id);
   const from = { kind: "note" as const, id: note.id, title: titleOf(note) };
   const [filing, setFiling] = useState(false);

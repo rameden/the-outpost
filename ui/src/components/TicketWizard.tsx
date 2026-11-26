@@ -6,7 +6,7 @@
 // most of the time it's Next, Next, Next, Start. Anything can be changed on the way, and the
 // brief on the last step is yours to edit: nothing is sent until you press Start there.
 //
-// The ticket is a Mae ticket (MAE-3, tickets.ts) or, with Jira connected, a Jira one. A Mae
+// The ticket is an Outpost ticket (MAE-3, tickets.ts) or, with Jira connected, a Jira one. A Mae
 // ticket's details are its own; starting work on it moves it to In progress.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -24,7 +24,7 @@ import { useJiraSearch } from "./useJiraSearch.ts";
 import { w } from "../words.ts";
 export const WIZARD_STEPS = ["Ticket", "Details", "Where", "Who", "Start"] as const;
 type Criterion = { text: string; on: boolean };
-// What the details step shows: a Jira ticket's, or a Mae ticket's made to look the same.
+// What the details step shows: a Jira ticket's, or an Outpost ticket's made to look the same.
 type Detail = Pick<JiraDetail, "summary" | "description" | "criteria" | "type" | "status" | "priority" | "assignee" | "epic">;
 
 // What the wizard sends: everything /api/send needs to start the work (the ticket itself is attached first).
@@ -122,7 +122,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
   const [project, setProject] = useState(() => { const last = storeGet("camp-jira-project"); return projects.some((p) => p.id === last) ? last! : projects.find((p) => p.links?.length)?.id ?? projects[0]?.id ?? "general"; });
   const [repos, setRepos] = useState<RepoInfo[]>([]);
   useEffect(() => { api<{ repos: RepoInfo[] }>("/api/repos").then((r) => setRepos(r.repos), () => setRepos([])); }, []);
-  // A Mae ticket filed under a project is worked on there, unless you choose otherwise.
+  // An Outpost ticket filed under a project is worked on there, unless you choose otherwise.
   useEffect(() => { if (mine?.project && projects.some((p) => p.id === mine.project)) setProject(mine.project); }, [mine?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = projects.find((p) => p.id === project);
   // The project's repositories the crew may change: each can have a worktree of its own for this.

@@ -514,3 +514,45 @@ test("Read aloud under a finished answer reads the answer, said without its Mark
   player.stop();
   vi.unstubAllGlobals();
 });
+
+// A conversation written on the starship, opened after a switch to the Guild: what the camp wrote
+// (a notice, an approval's title) reads in the Guild's words. The page draws the feed again on a
+// switch (App keys it by pack), which a fresh render stands in for here.
+test("a notice and an approval written under one pack read in the pack that's on now", async () => {
+  const { PACKS } = await import("../../../src/packs.ts");
+  const { setCrewColors } = await import("../format.ts");
+  const { setWords } = await import("../words.ts");
+  const crewOf = (id: string) => Object.entries(PACKS.find((p) => p.id === id)!.crew).map(([cid, c]) => ({ id: cid, name: c.name, emoji: c.emoji, role: "" }));
+  const store = createFeedStore();
+  const draw = (pack: string) => {
+    setCrewColors(crewOf(pack), PACKS);
+    setWords(pack, PACKS);
+    cleanup();
+    render(<Feed key={pack} store={store} onReply={() => {}} onExample={() => {}} />);
+  };
+  try {
+    draw("starship");
+    send(store,
+      { type: "expedition_start", id: "exp-s", task: "Check the release", source: "user" },
+      { type: "notice", text: "The {camp} was restarted while this {quest} was running.", expeditionId: "exp-s" },
+      { type: "text", who: "Commander", emoji: "🚀", depth: 0, text: "Reading the notes.", expeditionId: "exp-s" },
+      { type: "ask", id: "ask-q", kind: "question", title: "❓ The Commander asks: which branch?", body: "main or next?", expeditionId: "exp-s" },
+      { type: "answered", id: "ask-q", answer: "n", lapsed: true, expeditionId: "exp-s" },
+    );
+    const avatars = () => [...document.querySelectorAll(".avatar")].map((a) => a.textContent);
+    expect(screen.getByText("The ship was restarted while this mission was running.")).toBeTruthy();
+    expect(screen.getByText("The Commander asks: which branch?")).toBeTruthy();
+    expect(screen.getByText("Not answered (the ship was restarted)")).toBeTruthy();
+    expect(avatars()).toContain("🚀");
+    draw("guild");
+    expect(screen.getByText("The camp was restarted while this quest was running.")).toBeTruthy();
+    expect(screen.getByText("The Quartermaster asks: which branch?")).toBeTruthy();
+    expect(screen.getByText("Not answered (the camp was restarted)")).toBeTruthy();
+    expect(screen.getByText("Quartermaster")).toBeTruthy();
+    expect(avatars()).toContain("🧭");
+    expect(avatars()).not.toContain("🚀");
+    expect(screen.queryByText(/\bship\b|Commander/)).toBeNull();
+    // What you were asked is shown as it was written.
+    expect(screen.getByText("main or next?")).toBeTruthy();
+  } finally { setWords(undefined); setCrewColors([]); }
+});

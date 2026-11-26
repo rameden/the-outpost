@@ -1,5 +1,7 @@
 // Small formatting helpers shared across the page.
 
+import { fillWords } from "./words.ts";
+
 export function slug(name: string | undefined | null) { return String(name || "").toLowerCase().replace(/[^a-z]/g, ""); }
 // Crew members you added, by name: the colour you picked for each (the page sets this when the
 // crew loads or changes, so messages and cards anywhere on the page can look it up).
@@ -53,6 +55,10 @@ export function setCrewColors(crew: CrewLine[], packs: PackLine[] = [], retired:
       called.set(who, (called.get(who) ?? new Set()).add(n));
     }
   }
+  // Every name one of the six has had under any pack (not one someone you added goes by), longest first.
+  const mine = new Set(crew.filter((c) => c.custom).map((c) => slug(c.name)));
+  const ever = [...new Set(BUILT_IN.flatMap(calledEver))].filter((n) => n && !mine.has(slug(n))).sort((x, y) => y.length - x.length);
+  anyName = ever.length ? new RegExp(`\\b(${ever.map((n) => n.replace(/[.*+?^$(){}|[\]\\]/g, "\\$&")).join("|")})\\b`, "g") : null;
 }
 // Every name someone has had under any pack, as it was written (for matching history to who it was):
 // one of the six, or someone you added whose old name is kept.
@@ -68,6 +74,31 @@ export function nameNow(name: string) {
   const id = crewId(name) ?? addedAs.get(slug(name));
   return (id && crewList.find((c) => c.id === id)?.name) || name;
 }
+// The emoji someone has now: one of the six (by any name they've gone by) gets their pack's emoji
+// today, so 🚀 written on the starship is 🧭 back in the Guild. Anyone else keeps the one written.
+export function emojiNow(name: string, emoji: string) {
+  const id = crewId(name);
+  return (id && crewList.find((c) => c.id === id && !c.custom)?.emoji) || emoji;
+}
+// Text the camp wrote and kept, with whatever names the six had then, in the names they have now:
+// "❓ The First Officer asks:" written on the starship reads "❓ The Quartermaster asks:" back in the
+// Guild. Anything in quotes ("a job called "Scout report"") is someone's own words and stays.
+let anyName: RegExp | null = null;
+export function namesNow(text: string): string {
+  const names = anyName;
+  if (!names || !text) return text;
+  return text.split(/("[^"\n]*"|“[^”\n]*”)/).map((part, i) => (i % 2 ? part : part.replace(names, (n) => nameNow(n)))).join("");
+}
+// Text the camp kept (an approval's title, a notice, a line in the feed), in the pack that's on
+// now: its {tokens} filled and the six called what they're called now. Text someone wrote (yours, a
+// crew member's answer, a command to approve) is never put through this: it's shown as written.
+export const shown = (text: string): string => namesNow(fillWords(text));
+// "@scout" as it's typed now: "@navigator" on the starship. A handle nobody of the six has is left alone.
+export const handlesNow = (text: string): string =>
+  text.replace(/(^|[\s(])@([A-Za-z0-9]+)\b/g, (m, before: string, handle: string) => {
+    const id = crewId(handle);
+    return id ? `${before}@${handleFor(id)}` : m;
+  });
 // What to type after @ to reach someone, as their name now reads: "commsofficer" for the Comms
 // Officer (the camp takes every form of a pack's names). A crew member you added keeps their id.
 export const handleOf = (c: { id: string; name: string; custom?: boolean }) => (c.custom ? c.id : c.name.toLowerCase().replace(/[^a-z0-9]/g, "") || c.id);

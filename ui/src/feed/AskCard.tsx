@@ -5,8 +5,8 @@
 
 import { memo, useState } from "react";
 import { api, errorText } from "../api.ts";
-import { cx, when } from "../format.ts";
-import { ASK_LABELS, REPLACE_LATER, REPLACE_START, START_LATER, heldAnswer } from "./asks.ts";
+import { cx, shown, when } from "../format.ts";
+import { ASK_LABELS, REPLACE_LATER, REPLACE_START, START_LATER, askOutcome, heldAnswer } from "./asks.ts";
 import type { AskNode } from "./reducer.ts";
 import { turnIntoTickets } from "../tickets.ts";
 import { complain } from "../components/StatusLine.tsx";
@@ -21,6 +21,8 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   const [choosing, setChoosing] = useState<"start" | "later" | null>(null);
   const kind = ask.askKind;
   const resolved = ask.outcome !== null;
+  // Kept as it was worked out, except "not answered (the camp was restarted)": that names the pack's word, so it's worked out again.
+  const outcome = ask.lapsed ? askOutcome(kind, "", true) : ask.outcome;
 
   async function answer(value: string) {
     setSending(true);
@@ -46,8 +48,8 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
   if (resolved && !ask.listed && (kind === "shell" || kind === "tool")) {
     return (
       <details className="ask resolved folded" id={`ask-${ask.askId}`} data-kind={kind}>
-        <summary><span className="ask-outcome">{ask.outcome}</span><code>{ask.body.split("\n").find((l) => l.trim()) ?? ""}</code></summary>
-        <div className="ask-title">{ask.title.replace(/^\S+\s+/, "")}</div>
+        <summary><span className="ask-outcome">{outcome}</span><code>{ask.body.split("\n").find((l) => l.trim()) ?? ""}</code></summary>
+        <div className="ask-title">{shown(ask.title).replace(/^\S+\s+/, "")}</div>
         {ask.plain && (
           <div className="ask-plain" role="note" aria-label="In plain words">
             <div className="ask-plain-head">In plain words</div>
@@ -61,7 +63,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
 
   return (
     <div className={cx("ask", resolved && "resolved", waiting && "held")} id={`ask-${ask.askId}`} data-kind={kind}>
-      <div className="ask-title">{ask.title.replace(/^\S+\s+/, "")}</div>
+      <div className="ask-title">{shown(ask.title).replace(/^\S+\s+/, "")}</div>
       {/* An approved plan is shown as the live list under this card: its own wording folds away. */}
       {ask.plain && (
         <div className="ask-plain" role="note" aria-label="In plain words">
@@ -73,7 +75,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
       {ask.listed
         ? <details className="ask-written"><summary>The plan as it was written</summary><div className="ask-body">{ask.body}</div></details>
         : <div className={kind === "shell" || kind === "tool" ? "ask-body cmd" : "ask-body"}>{ask.body}</div>}
-      {/* A plan's steps can be tracked as Mae tickets, approved or not (the app files them under this conversation). */}
+      {/* A plan's steps can be tracked as Outpost tickets, approved or not (the app files them under this conversation). */}
       {kind === "plan" && ask.body.trim() && (
         <div className="ask-tickets">
           <button type="button" className="linkish" title="Split this plan into tickets, one per piece of work: you choose which to file"
@@ -82,7 +84,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
       )}
       {resolved ? (
         <>
-          <div className="ask-outcome">{ask.started ? "▶ Plan approved, and started" : ask.aside === "replaced" ? "↺ Set aside: a newer plan took its place" : ask.aside === "removed" ? "✕ Removed from Ready to start" : ask.outcome}</div>
+          <div className="ask-outcome">{ask.started ? "▶ Plan approved, and started" : ask.aside === "replaced" ? "↺ Set aside: a newer plan took its place" : ask.aside === "removed" ? "✕ Removed from Ready to start" : outcome}</div>
           {waiting && (
             <div className="ask-start">
               <button type="button" className="btn primary" disabled={starting} onClick={start}>{starting ? "Starting…" : "Start plan"}</button>

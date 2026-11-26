@@ -379,9 +379,9 @@ test("the models guide: every model the camp can reach, by cost, speed and what 
   await p.connectProvider("groq", "good-key-123456");
   p.approveProvider("groq", true);
   const page = await modelGuide(new Date("2026-11-12T10:00:00Z"));
-  assert.match(page, /^---\nsummary: Every model the camp can use[^\n]*\nupdated: 2026-11-12\n---\n\n# Models guide/);
+  assert.match(page, /^---\nsummary: Every model this outpost can use[^\n]*\nupdated: 2026-11-12\n---\n\n# Models guide/);
   assert.match(page, /## How to choose/);
-  assert.match(page, /## Claude\n\nRuns the crew by default\. Prices are the camp's own/);
+  assert.match(page, /## Claude\n\nUsed by default\. Prices are this outpost's own/);
   assert.match(page, /\| Claude Haiku 5\.5 \| `claude-haiku-5-5` \| \$ \(\$0\.1 in \/ \$0\.5 out per million tokens\) \| Fastest \|/);
   // The provider's section says whether it's approved, what to watch for, and that its ratings are a rule of thumb.
   assert.match(page, /## Groq\n\nYou've approved it for confidential projects\. [^\n]*judged from each model's family name, as a rule of thumb/);
@@ -394,7 +394,7 @@ test("the models guide: every model the camp can reach, by cost, speed and what 
   assert.equal(await writeModelGuide(), "camp/wiki/notes/models-guide.md");
   assert.ok(readFileSync(GUIDE_PATH, "utf8").includes("# Models guide"));
   const { wikiIndex } = await import("../src/wiki.ts");
-  assert.match(wikiIndex(), /camp\/wiki\/notes\/models-guide\.md: Every model the camp can use/);
+  assert.match(wikiIndex(), /camp\/wiki\/notes\/models-guide\.md: Every model this outpost can use/);
   p.approveProvider("groq", false);
 });
 

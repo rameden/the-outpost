@@ -39,6 +39,8 @@ export const STEPS = ["uploads", "worktrees", "damaged", "leftovers", "feed", "t
 export type Step = (typeof STEPS)[number];
 
 // One step with something to clean. lost: what you give up, in a sentence, for the approval card.
+// title is kept (in the night report, and as an approval's title), so it names no pack word: it
+// reads the same whichever pack is on when it's shown.
 export type Finding = { step: Step; title: string; count: number; bytes: number; items: string[]; lost: string };
 
 const FEED_LARGE = 10_000_000;   // a feed past this is worth offering to trim (the camp trims by itself at 40 MB)
@@ -142,7 +144,7 @@ export async function findings(only?: Step, now = Date.now()): Promise<Finding[]
   }
   if (want("worktrees")) {
     const w = await spareWorktrees();
-    if (w.length) out.push({ step: "worktrees", title: `remove ${w.length} finished worktree${w.length === 1 ? "" : "s"} the ${word("camp")} made`,
+    if (w.length) out.push({ step: "worktrees", title: `remove ${w.length} finished worktree${w.length === 1 ? "" : "s"} made for earlier work`,
       count: w.length, bytes: w.reduce((n, x) => n + x.bytes, 0),
       items: few(w.map((x) => `links/${x.link}: ${x.branch} (${x.why}${x.bytes ? `, ${size(x.bytes)}` : ""}) at ${x.path}`)),
       lost: "The folders go (with whatever was installed or built in them). The branches and their commits stay, and each has nothing uncommitted. A conversation that worked there can be given a new worktree of the same branch." });
@@ -209,7 +211,7 @@ export async function clean(step: Step, now = Date.now()): Promise<string> {
 }
 
 // ---------- The tool ----------
-const describe = (f: Finding) => `${f.step}: ${f.title}${f.bytes ? ` (frees about ${size(f.bytes)})` : ""}\n${f.items.map((i) => `  - ${i}`).join("\n")}\n  What's given up: ${f.lost}`;
+const describe = (f: Finding) => say(`${f.step}: ${f.title}${f.bytes ? ` (frees about ${size(f.bytes)})` : ""}\n${f.items.map((i) => `  - ${i}`).join("\n")}\n  What's given up: ${f.lost}`);
 
 export const housekeeping: Tool = {
   get def(): Tool["def"] { return { // built as it's asked for: the words are the active pack's
@@ -245,7 +247,7 @@ export const housekeeping: Tool = {
     const [found] = await findings(step as Step);
     if (!found) return `Nothing to clean for "${step}" right now.`;
     const answer = (await ask({ kind: "tool", title: `🧹 Clean up: ${found.title}?`, body: `${found.items.join("\n")}\n\n${found.lost}${found.bytes ? `\n\nFrees about ${size(found.bytes)}.` : ""}` })).toLowerCase();
-    if (answer !== "y" && answer !== "yes") return `The user declined to ${found.title}. Leave it, and carry on with any other steps.`;
+    if (answer !== "y" && answer !== "yes") return say(`The user declined to ${found.title}. Leave it, and carry on with any other steps.`);
     const did = await clean(step as Step);
     emit({ type: "notice", who: "Housekeeping", emoji: "🧹", depth: 0, text: `🧹 ${did}` });
     return did;

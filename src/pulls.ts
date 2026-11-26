@@ -205,7 +205,7 @@ export async function checkPullRequests(now = Date.now()): Promise<PrState[]> {
         // Merged since the last look: say so on its ticket, if you've turned write-back on (jiramoments.ts).
         if (was?.state === "OPEN" && found?.state === "MERGED") {
           void pullMerged(c.id, ticketOf({ link, path: ws.path }), found.url).catch(() => { /* the ticket goes without */ });
-          // A Mae ticket's work merged: it's done.
+          // An Outpost ticket's work merged: it's done.
           if (c.ticket && advanceTicket(c.ticket, "done")) emit({ type: "notice", who: "Tickets", emoji: "🎫", depth: 0, text: `${c.ticket} is done: its pull request was merged.` });
         }
       }

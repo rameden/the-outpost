@@ -46,7 +46,7 @@ export function loadFeed(limit: number): CampEvent[] {
   const closing: CampEvent[] = [];
   for (const a of openAsks.values()) closing.push({ type: "answered", id: (a as any).id, answer: "n", lapsed: true, expeditionId: a.expeditionId, time, seq: ++seq } as CampEvent);
   for (const q of openQuests.values()) closing.push({ type: "return", who: q.who, emoji: q.emoji, status: "interrupted", questId: q.questId, expeditionId: q.expeditionId, time, seq: ++seq } as CampEvent);
-  for (const id of openExps) closing.push({ type: "expedition_end", id, status: "interrupted", text: `The ${w("camp")} was restarted while this was running.`, expeditionId: id, time, seq: ++seq } as CampEvent);
+  for (const id of openExps) closing.push({ type: "expedition_end", id, status: "interrupted", text: "The {camp} was restarted while this was running.", expeditionId: id, time, seq: ++seq } as CampEvent);
   const all = [...recent, ...closing];
 
   // Keep the file from growing forever: once it's large, drop the older half. Conversations

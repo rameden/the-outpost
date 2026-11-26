@@ -2,7 +2,8 @@
 // called them when a line of history was written.
 import { beforeEach, expect, test } from "vitest";
 import { PACKS } from "../../src/packs.ts";
-import { calledEver, cClass, crewId, isLead, leadName, nameNow, setCrewColors } from "./format.ts";
+import { calledEver, cClass, crewId, handlesNow, isLead, leadName, nameNow, namesNow, setCrewColors, shown } from "./format.ts";
+import { setWords } from "./words.ts";
 
 const crewOf = (pack: string) => {
   const p = PACKS.find((x) => x.id === pack)!;
@@ -97,4 +98,29 @@ test("names a pack of yours gave before it was changed or deleted keep their col
   // Without them (an older camp), nothing changes.
   setCrewColors(crewOf("guild"), PACKS);
   expect(cClass("Lookout")).toBe("");
+});
+
+// Text the camp kept is shown in the pack that's on now, whichever pack was on when it was written.
+test("a line written on the starship reads in the Guild's words after a switch, and back again", () => {
+  setCrewColors(crewOf("guild"), PACKS);
+  setWords("guild", PACKS);
+  try {
+    expect(namesNow("❓ The Commander asks: which branch?")).toBe("❓ The Quartermaster asks: which branch?");
+    expect(namesNow("The Comms Officer and the Navigator are done")).toBe("The Scribe and the Scout are done");
+    expect(shown("The {camp} was restarted while the {quest} was running.")).toBe("The camp was restarted while the quest was running.");
+    // Someone's own words, in quotes, stay as they were written.
+    expect(namesNow('a job called "Commander report" ran')).toBe('a job called "Commander report" ran');
+    expect(handlesNow("@navigator look at the logs, (@pilot too) but not me@navigator")).toBe("@scout look at the logs, (@testpilot too) but not me@navigator");
+    setCrewColors(crewOf("starship"), PACKS);
+    setWords("starship", PACKS);
+    expect(shown("❓ The Quartermaster asks: start {a quest}?")).toBe("❓ The Commander asks: start a mission?");
+    expect(shown("The {camp} was restarted.")).toBe("The ship was restarted.");
+    expect(handlesNow("@scout and @artificer")).toBe("@navigator and @engineer");
+    expect(handlesNow("@nobody stays")).toBe("@nobody stays");
+  } finally { setWords(undefined); }
+});
+
+test("someone you added keeps their name, even one a pack gives one of the six", () => {
+  setCrewColors([...crewOf("guild"), { id: "nav", name: "Navigator", emoji: "🧿", role: "", custom: true, color: "teal" }], PACKS);
+  expect(namesNow("The Navigator and the Commander")).toBe("The Navigator and the Quartermaster");
 });

@@ -36,7 +36,7 @@ let inProject: string | undefined;
 // Where the next requests work in each linked repo (/worktree): a new worktree, or one you named.
 const workIn: Record<string, WorkspaceChoice> = {};
 
-attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back") }));
+attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back"), say }));
 
 // What to type after @ for each crew member: their name now, as one word (@testpilot, @navigator),
 // or their id where that wouldn't find them.

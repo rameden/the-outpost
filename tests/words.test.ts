@@ -100,3 +100,24 @@ test("a fix brief is known for one whatever pack wrote it", () => {
   } finally { crew.setPack("guild"); }
   assert.equal(spentOn("The tests ran fine, now add a feature"), "work");
 });
+
+// Text the camp keeps (a notice in the feed) holds the pack's nouns as {tokens}: the page and the
+// terminal fill them with the pack that's on when it's shown, not the one that was on when it was written.
+test("a kept notice reads in whichever pack is on when it's shown", async () => {
+  const { attachConsole, emit } = await import("../src/events.ts");
+  const kept = "The {camp} was restarted while this {quest} was running.";
+  crew.setPack("starship");
+  try { assert.equal(say(kept), "The ship was restarted while this mission was running."); }
+  finally { crew.setPack("guild"); }
+  assert.equal(say(kept), "The camp was restarted while this quest was running.");
+  // The terminal fills a notice as it prints it.
+  const printed: string[] = [];
+  const log = console.log;
+  console.log = (line: string) => { printed.push(line); };
+  try {
+    attachConsole(() => ({ lead: "Quartermaster", back: "returns to camp", say }));
+    crew.setPack("starship");
+    emit({ type: "notice", text: kept, who: "Quartermaster", emoji: "🧭", depth: 0 });
+  } finally { console.log = log; crew.setPack("guild"); }
+  assert.ok(printed.some((l) => l.trim() === "The ship was restarted while this mission was running."), printed.join("\n"));
+});

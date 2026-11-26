@@ -11,8 +11,9 @@ import { ReadAloud } from "../components/ReadAloud.tsx";
 import type { CampState } from "../types.ts";
 
 import { w, many } from "../words.ts";
+import { outpostName } from "../outpost.ts";
 type Voice = { id: string; name: string; about: string };
-const sample = () => `This is the voice Mae reads in. A debrief sounds like this: three ${many(w("expedition"))}, two ${w("quests")}, and one lesson worth keeping.`;
+const sample = () => `This is the voice ${outpostName()} reads in. A debrief sounds like this: three ${many(w("expedition"))}, two ${w("quests")}, and one lesson worth keeping.`;
 
 export function VoicePage({ S, refresh }: { S: CampState; refresh: () => void }) {
   // (A camp server started before reading aloud existed doesn't send this: say so rather than fall over.)
@@ -42,7 +43,7 @@ export function VoicePage({ S, refresh }: { S: CampState; refresh: () => void })
 
   return (
     <div>
-      <p className="set-note">Mae can read to you. Press <b>Read aloud</b> under an answer, a job's report, an inbox item or a ticket's debrief, or select some text in a conversation and choose <b>Read aloud</b>. A small player appears while it reads.</p>
+      <p className="set-note">{outpostName()} can read to you. Press <b>Read aloud</b> under an answer, a job's report, an inbox item or a ticket's debrief, or select some text in a conversation and choose <b>Read aloud</b>. A small player appears while it reads.</p>
       <section className="prov" aria-label="ElevenLabs">
         <div className="prov-head">
           <h4>ElevenLabs</h4>

@@ -1,4 +1,4 @@
-// Mae tickets, as the page holds them: the camp's own tickets (camp/tickets.json), kept beside
+// Outpost tickets, as the page holds them: the camp's own tickets (camp/tickets.json), kept beside
 // Jira's for work that isn't tracked there. One store for the page, reloaded whenever the camp says
 // they changed (filed by the crew, or moved along as their work started or merged).
 
@@ -25,7 +25,7 @@ export const ticketsNow = () => state;
 
 export const STATUS_NAMES: Record<TicketStatus, string> = { todo: "To do", doing: "In progress", done: "Done" };
 export const STATUS_ORDER: TicketStatus[] = ["todo", "doing", "done"];
-// A Mae ticket's key (MAE-3); anything else is a Jira key.
+// An Outpost ticket's key (MAE-3); anything else is a Jira key.
 export const isMaeKey = (key: string | undefined) => /^MAE-\d{1,7}$/i.test(String(key ?? "").trim());
 
 export async function loadTickets() {

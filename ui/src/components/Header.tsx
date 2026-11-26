@@ -251,7 +251,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             <span>The {w("camp")} isn't running. Start it again, or reopen the link it prints in the terminal.</span>
           </span>
         ) : conn !== "live" ? (
-          <span className="chip" title="Connection to the camp: the page isn't getting updates until it's back" role="status">
+          <span className="chip" title={`Connection to the ${w("camp")}: the page isn't getting updates until it's back`} role="status">
             <span className={cx("dot", conn === "reconnecting" && "warn")} />
             <span>{conn === "reconnecting" ? "Reconnecting…" : "Connecting…"}</span>
           </span>

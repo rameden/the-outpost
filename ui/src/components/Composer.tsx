@@ -251,7 +251,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     setError("");
     const key = add({ kind: "file", name: `${issue.key} · ${issue.summary}`.slice(0, 80), status: "uploading" });
     try {
-      // A Mae ticket (MAE-3) is the camp's own; any other key is Jira's.
+      // An Outpost ticket (MAE-3) is the camp's own; any other key is Jira's.
       const r = await api<Uploaded>(isMaeKey(issue.key) ? "/api/tickets/attach" : "/api/jira/attach", { key: issue.key, batch: batch.current });
       batch.current = r.batch;
       update(key, { path: r.path, status: "ready" });

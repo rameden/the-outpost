@@ -6,7 +6,7 @@
 // the page keeps: figures wear text ink, one hue carries magnitude, a bar is thin, square at the
 // baseline and rounded at the end that says how much, and every week is also there as a table.
 //
-// Automatic work (Settings → Automatic work): the switches for what Mae does without being asked.
+// Automatic work (Settings → Automatic work): the switches for what the outpost does without being asked.
 // The morning brief and its time, the weekly retro, the ticket debrief, the night shift, and the
 // watch on your pull requests, with the trigger that turns their feedback into work. Each says what
 // it is in a line, with how it works behind a disclosure. Nothing here starts work that doesn't then
@@ -19,6 +19,7 @@ import { leadName, money, nameNow, plural, when } from "../format.ts";
 import type { CampState, HomePage, Kind, Offer, WeekScore } from "../types.ts";
 
 import { w } from "../words.ts";
+import { outpostName } from "../outpost.ts";
 export const KIND: Record<Kind, string> = {
   work: "Building and changing", feedback: "Bringing in review feedback", writeup: "Asking for a write-up",
   goahead: "Saying “go ahead”", question: "Asking how something is", review: "Asking for a review",
@@ -92,7 +93,7 @@ export function StatsPage({ S }: { S: CampState }) {
             <Tile label="Requests you typed" value={String(shown.week.requests)} note={versus(shown.week.requests, shown.before?.requests || undefined)} />
             <Tile label="Spent operating" value={`${shown.week.operating}%`} note={versus(shown.week.operating, shown.before?.requests ? shown.before.operating : undefined, "%")}
               title="The share of what you typed that was running the pipeline (bringing in review feedback, asking for a write-up, saying go ahead) rather than deciding something. Lower is better." />
-            <Tile label="Started by Mae" value={String(shown.week.byMae)} note={shown.week.byMae ? "runs a trigger began for you" : "nothing yet: no trigger is on"} />
+            <Tile label={`Started by ${outpostName()}`} value={String(shown.week.byMae)} note={shown.week.byMae ? "runs a trigger began for you" : "nothing yet: no trigger is on"} />
             {shown.week.perTicket !== null && <Tile label="Requests per ticket" value={String(Math.round(shown.week.perTicket * 10) / 10)} note="the typical ticket this week" />}
             <Tile label="Pull requests merged" value={String(shown.week.prs.merged)}
               note={shown.week.prs.merged ? [shown.week.prs.rounds !== null ? `${shown.week.prs.rounds} ${plural(shown.week.prs.rounds, "round")} of review` : "", shown.week.prs.hoursToMerge !== null ? `${Math.round(shown.week.prs.hoursToMerge)} h open` : ""].filter(Boolean).join(", ") : `${shown.week.prs.opened} opened`} />
@@ -110,7 +111,7 @@ export function StatsPage({ S }: { S: CampState }) {
           </div>
           <div className="section-label">Week by week</div>
           <table className="payoff stats-weeks">
-            <thead><tr><th scope="col">Week of</th><th scope="col">You typed</th><th scope="col">Operating</th><th scope="col">Started by Mae</th><th scope="col">Merged</th><th scope="col">{w("Crew")} time</th><th scope="col">Used</th></tr></thead>
+            <thead><tr><th scope="col">Week of</th><th scope="col">You typed</th><th scope="col">Operating</th><th scope="col">Started by {outpostName()}</th><th scope="col">Merged</th><th scope="col">{w("Crew")} time</th><th scope="col">Used</th></tr></thead>
             <tbody>
               {[...home.board.weeks].reverse().map((w) => (
                 <tr key={w.week}><th scope="row">{w.label.replace(/,.*$/, "")}</th><td>{w.requests}</td><td>{w.requests ? `${w.operating}%` : "–"}</td><td>{w.byMae}</td><td>{w.prs.merged}</td><td>{w.seconds ? hours(w.seconds) : "–"}</td><td>{w.cost ? money(w.cost) : "–"}</td></tr>
@@ -135,7 +136,7 @@ export function OfferCard({ offer, onDone }: { offer: Offer; onDone: () => void 
   }
   return (
     <section className="home-offer">
-      <div className="card-top"><span className="who"><Icon name="spark" /> {offer.what}</span><span className="pill live">Mae could take this over</span></div>
+      <div className="card-top"><span className="who"><Icon name="spark" /> {offer.what}</span><span className="pill live">{outpostName()} could take this over</span></div>
       <p>{offer.why}</p>
       <div className="card-actions">
         <button type="button" className="btn small primary" disabled={busy} onClick={on}>{busy ? "Turning it on…" : "Turn it on"}</button>
@@ -210,7 +211,7 @@ export function AutomaticPage({ S, refresh, onOpenSection }: { S: CampState; ref
       <div className="set-row">
         <div className="set-label"><b>Ticket debrief</b>
           <p>When a ticket is done, what went well and what could have gone better, written on the ticket.</p>
-          <More>When a ticket is done (a Mae ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the {w("crew")} did on it (the plan, each {w("quest")} and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the {leadName()}, the {w("crew")} or the project. One small call per ticket; nothing is kept until you approve it in the Inbox.</More>
+          <More>When a ticket is done (an Outpost ticket reaching Done, or a Jira ticket's pull request merging), the smallest model reads how the {w("crew")} did on it (the plan, each {w("quest")} and how it ended, what reviews and checks caught, what you had to ask for twice) and writes what went well and what could have gone better on the ticket. It proposes up to four lessons for the {leadName()}, the {w("crew")} or the project. One small call per ticket; nothing is kept until you approve it in the Inbox.</More>
         </div>
         <div className="set-control unasked-control">
           <label className="switch"><input type="checkbox" checked={d.debrief} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { debrief: ev.target.checked }))} /> {d.debrief ? "On" : "Off"}</label>

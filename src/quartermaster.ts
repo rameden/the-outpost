@@ -252,11 +252,11 @@ async function sendQuest(exp: Expedition, spec: AgentSpec, brief: string, step?:
   const lead = { who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0 };
   const folders = foldersToLock(spec);
   const free = await lockFolders(folders.map((f) => f.root), spec.name, currentSignal(), (holder, root) =>
-    emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s ${w("quest")} is waiting for ${holder}'s to finish in links/${folders.find((f) => f.root === root)?.name}: one ${w("quest")} at a time changes files in a folder.` }));
+    emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s {quest} is waiting for ${holder}'s to finish in links/${folders.find((f) => f.root === root)?.name}: one {quest} at a time changes files in a folder.` }));
   if (!free) return null;
   try {
     if (questsRunning >= questLimit()) {
-      emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s ${w("quest")} is waiting for a free slot (${questLimit()} ${w("quests")} run at once).` });
+      emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s {quest} is waiting for a free slot (${questLimit()} {quests} run at once).` });
     }
     if (!(await questSlot(currentSignal()))) return null;
     // Each quest gets its own id, so parallel quests keep their events and approvals apart.
@@ -581,7 +581,7 @@ export async function runExpedition(
     project?: string; links?: string[];
     without?: string[];  // folders of the project this conversation leaves out
     jira?: string;       // the Jira ticket a new conversation is working on (its key)
-    ticket?: string;     // the Mae ticket a new conversation is working on (its key)
+    ticket?: string;     // the Outpost ticket a new conversation is working on (its key)
     model?: string;      // the model picked for this conversation: the Quartermaster answers on it (quests keep their own)
     effort?: AgentSpec["effort"]; // scheduled job override (with jobDefaults)
     maxTurns?: number;   // scheduled job override (with jobDefaults)
@@ -760,7 +760,7 @@ export async function runDirect(
       // Stopped while waiting: carry on without it, the run ends at once without touching anything.
       const folders = foldersToLock(spec);
       const free = await lockFolders(folders.map((f) => f.root), spec.name, currentSignal(), (holder, root) =>
-        emit({ type: "notice", who: spec.name, emoji: spec.emoji, depth: 1, questId, text: `⏳ Waiting for ${holder}'s ${w("quest")} to finish in links/${folders.find((f) => f.root === root)?.name}: one ${w("quest")} at a time changes files in a folder.` }));
+        emit({ type: "notice", who: spec.name, emoji: spec.emoji, depth: 1, questId, text: `⏳ Waiting for ${holder}'s {quest} to finish in links/${folders.find((f) => f.root === root)?.name}: one {quest} at a time changes files in a folder.` }));
       try {
         const setup = await setUpWorkspaces(workspaces, { who: spec.name, emoji: spec.emoji });
         const extraSystem = [setup, more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;

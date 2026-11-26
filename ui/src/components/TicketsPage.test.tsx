@@ -1,5 +1,5 @@
 // The Tickets page: Mae's own tickets and Jira's as one set of cards, Mae's carrying Mae's mark,
-// narrowed to one kind or the other with the Mae / Jira chips. (Jira's side in full: JiraPage.test.tsx.)
+// narrowed to one kind or the other with the Outpost / Jira chips. (Jira's side in full: JiraPage.test.tsx.)
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
@@ -35,16 +35,16 @@ test("Mae's tickets and Jira's are one set of cards, what's being worked on firs
   show();
   await waitFor(() => expect(cards()).toEqual(["◉ MAE-1", "MP-544", "◉ MAE-2", "MP-601"]));
   const card = screen.getByRole("button", { name: "MAE-2: Tidy the settings page" });
-  expect(card.querySelector(".mae-mark")!.getAttribute("aria-label")).toBe("Mae ticket");
+  expect(card.querySelector(".mae-mark")!.getAttribute("aria-label")).toBe("Outpost ticket");
   expect(card.textContent).toContain("To do");
   expect(card.textContent).toMatch(/Web app · 1 criterion · changed /);
   expect(screen.getByText("4 tickets")).toBeTruthy();
 });
 
-test("the Mae / Jira chips narrow the page to one kind, and the choice is kept", async () => {
+test("the Outpost / Jira chips narrow the page to one kind, and the choice is kept", async () => {
   show();
   await waitFor(() => expect(cards().length).toBe(4));
-  fireEvent.click(screen.getByRole("button", { name: /^Mae/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Outpost/ }));
   expect(cards()).toEqual(["◉ MAE-1", "◉ MAE-2"]);
   expect(screen.getByText("2 of 4")).toBeTruthy();
   expect(document.querySelector(".jira-using")).toBeNull(); // Jira's filter has nothing to do with these
