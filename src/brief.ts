@@ -2,7 +2,7 @@
 //
 // It's put together from what the camp already has and one look outside: your pull requests in
 // linked repositories (pulls.ts), the tickets your Jira filter pulls in, and the camp's own
-// record of conversations and runs. No model is called, so nothing in it is a guess: every line
+// record of conversations and runs. No model is called (unless you turn on AI news), so nothing in it is a guess: every line
 // is something that's there to open. It says:
 //
 //   - Waiting on you: pull requests with open comments, failing checks or a conflict; ones
@@ -14,6 +14,8 @@
 //     that will run by themselves.
 //   - Your notes: the ones you changed most recently, to pick a thought back up.
 //   - Since last time: what finished, what merged, and what it used.
+//   - AI news (only if you turn it on): recent AI news, features, best practices and trends that
+//     could help the outpost, with links. This is the one part that calls a model (briefnews.ts).
 //
 // Each line that has an obvious next step carries it (address the feedback, resume the run,
 // start the ticket), so the entry page can offer it as one click. Starting any of them is still
@@ -38,6 +40,8 @@ import { notify, toInbox } from "./scheduler.js";
 import { drive, type Drive } from "./settings.js";
 import { allTurns } from "./threads.js";
 import { dayOf } from "./helpers.js";
+import { gatherNews, type NewsItem } from "./briefnews.js";
+import { pausedUntil } from "./limits.js";
 import { w } from "./words.js";
 import { OUTPOST } from "./outpost.js";
 
@@ -49,6 +53,7 @@ const MAX_TICKETS = 12;
 const MAX_NOTES = 5;
 const NOTE_CHARS = 200;
 const KEEP = 60; // days of briefs kept
+const NEWS_SEEN_DAYS = 14; // links in this many past briefs aren't reported again
 
 // What one click on a line does. address: bring a pull request's feedback to the crew. resume:
 // pick a stopped run back up. start: begin work on a ticket.
@@ -65,6 +70,7 @@ export type Brief = {
   yourNotes: BriefNote[]; // your latest notes (shown on the page only)
   done: { finished: { conversation: string; title: string; runs: number }[]; merged: { title: string; url: string }[]; requests: number; byMae: number; cost: number };
   waiting: { memory: number; skills: number }; // proposals waiting for your say
+  news?: NewsItem[];      // AI news that could help the outpost (only when you've turned it on)
   notes: string[];        // what couldn't be read, and why
 };
 
@@ -86,7 +92,7 @@ export function briefDays(limit = 14): string[] {
 // tickets: what your Jira filter pulls in (null: Jira isn't linked). running: is that run going right now?
 // jobs: the camp's scheduled jobs. yours: your own notes. notes: what couldn't be read.
 export function gatherBrief(o: { now?: Date; pulls: Pulls; tickets: JiraCard[] | null; running?: (expedition: string) => boolean; waiting?: { memory: number; skills: number };
-  jobs?: Job[]; yours?: Note[]; notes?: string[] }): Brief {
+  jobs?: Job[]; yours?: Note[]; notes?: string[]; news?: NewsItem[] | null }): Brief {
   const now = o.now ?? new Date();
   const day = dayOf(now);
   // "Since last time": since the brief before this one, or a day back when there isn't a recent one.
@@ -147,6 +153,7 @@ export function gatherBrief(o: { now?: Date; pulls: Pulls; tickets: JiraCard[] |
       requests: after.length, byMae: after.filter((t) => t.by).length, cost: Math.round(cost * 100) / 100,
     },
     waiting: o.waiting ?? { memory: 0, skills: 0 },
+    ...(o.news ? { news: o.news } : {}),
     notes: [...(o.notes ?? []), ...(o.pulls.error ? [`Your pull requests couldn't be read: ${o.pulls.error}`] : [])],
   };
 }
@@ -168,6 +175,7 @@ export function briefText(b: Brief): string {
   ].filter(Boolean);
   if (since.length) parts.push(`**Since last time**\n${since.join(", ")}.`);
   const say = b.waiting.memory + b.waiting.skills;
+  if (b.news?.length) parts.push(`**AI news for ${OUTPOST.name} (${b.news.length})**\n${b.news.map((x) => `- [${x.title}](${x.url}): ${[x.says, x.why].filter(Boolean).join(" ")}`).join("\n")}`);
   if (say) parts.push(`${n(say, "suggestion")} from the ${w("crew")} ${say === 1 ? "is" : "are"} waiting for your say.`);
   if (b.notes.length) parts.push(b.notes.map((x) => `_${x}_`).join("\n"));
   return parts.join("\n\n") || "Nothing is waiting on you, and nothing is in motion."; // (your notes aren't in it: this text leaves the page)
@@ -183,13 +191,15 @@ export function briefLine(b: Brief): string {
 // the inbox and send a notification (the morning one does; one you ask for from the page doesn't).
 let writing: Promise<Brief> | null = null;
 export function writeBrief(o: { now?: Date; running?: (expedition: string) => boolean; waiting?: { memory: number; skills: number }; announce?: boolean;
-  read?: { pulls?: () => Promise<Pulls>; tickets?: () => Promise<JiraCard[] | null>; jobs?: () => Job[]; notes?: () => Note[] } } = {}): Promise<Brief> {
+  read?: { pulls?: () => Promise<Pulls>; tickets?: () => Promise<JiraCard[] | null>; jobs?: () => Job[]; notes?: () => Note[]; news?: (since: string, seen: string[]) => Promise<NewsItem[]> };
+  d?: Drive } = {}): Promise<Brief> {
   return (writing ??= (async () => {
     const notes: string[] = [];
     const pulls = await (o.read?.pulls ?? (() => checkPulls()))().catch(() => knownPulls());
     const tickets = await (o.read?.tickets ?? (async () => (jiraConnected() ? (await pulledTickets()).tickets : null)))()
       .catch((e: any) => { notes.push(`Jira couldn't be read: ${String(e?.message ?? e).slice(0, 200)}`); return null; });
-    const b = gatherBrief({ now: o.now, pulls, tickets, running: o.running, waiting: o.waiting, notes, jobs: (o.read?.jobs ?? loadJobs)(), yours: (o.read?.notes ?? loadNotes)() });
+    const news = await briefNews(o.now ?? new Date(), o.d ?? drive(), o.read?.news, notes);
+    const b = gatherBrief({ now: o.now, pulls, tickets, running: o.running, waiting: o.waiting, notes, jobs: (o.read?.jobs ?? loadJobs)(), yours: (o.read?.notes ?? loadNotes)(), news });
     mkdirSync(BRIEFS_DIR, { recursive: true });
     writeJsonAtomic(fileOf(b.day), b);
     for (const old of briefDays(1000).slice(KEEP)) rmSync(fileOf(old), { force: true });
@@ -201,6 +211,20 @@ export function writeBrief(o: { now?: Date; running?: (expedition: string) => bo
     }
     return b;
   })().finally(() => { writing = null; }));
+}
+
+// The day's AI news, when you've turned it on (null: it's off, or couldn't be had). A brief
+// written again the same day keeps the news it already found, rather than searching again.
+async function briefNews(now: Date, d: Drive, read: ((since: string, seen: string[]) => Promise<NewsItem[]>) | undefined, notes: string[]): Promise<NewsItem[] | null> {
+  if (!d.briefNews) return null;
+  const today = readBrief(dayOf(now));
+  if (today?.news) return today.news;
+  if (!read && pausedUntil(now.getTime())) { notes.push("AI news was skipped: your plan's usage limit is used up for now."); return null; }
+  const past = briefDays(NEWS_SEEN_DAYS).map(readBrief).filter((b): b is Brief => !!b);
+  const seen = past.flatMap((b) => (b.news ?? []).map((x) => x.url));
+  const since = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+  try { return await (read ?? ((s, u) => gatherNews({ since: s, seen: u })))(since, seen); }
+  catch (e: any) { notes.push(`AI news couldn't be gathered: ${String(e?.message ?? e).slice(0, 200)}`); return null; }
 }
 
 // Is this morning's brief due? On a weekday, once the time you set has passed, if today's isn't written yet.

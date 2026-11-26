@@ -197,3 +197,20 @@ test("While you were away: one tidy reads as one, what couldn't be done is said,
   await screen.findByText(/Good (morning|afternoon|evening)/);
   expect(screen.queryByRole("region", { name: "While you were away" })).toBeNull();
 });
+
+test("AI news, when the brief has it, is its own section: each item with what it is, how it could help, and its link", async () => {
+  const news = [{ kind: "feature" as const, title: "Prompt caching for tools", url: "https://example.com/caching", says: "Tool definitions can be cached.", why: "Cuts the crew's cost." }];
+  camp({ "/api/home": page({ brief: { ...brief, news } }) });
+  show();
+  const section = (await screen.findByText(/^AI news for .* · 1$/)).closest("section")!;
+  expect(within(section).getByText("Prompt caching for tools")).toBeTruthy();
+  expect(within(section).getByText("Tool definitions can be cached. Cuts the crew's cost.")).toBeTruthy();
+  expect(within(section).getByRole("link", { name: "Open Prompt caching for tools in a new tab" }).getAttribute("href")).toBe("https://example.com/caching");
+});
+
+test("a brief without news has no AI news section", async () => {
+  camp({ "/api/home": page() });
+  show();
+  await screen.findByText("Your tickets · 1");
+  expect(screen.queryByText(/^AI news for/)).toBeNull();
+});

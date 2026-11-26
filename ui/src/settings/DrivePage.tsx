@@ -170,6 +170,16 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
         </div>
       </div>
 
+      {d.brief && (
+        <div className="set-row">
+          <div className="set-label"><b>AI news in the brief</b>
+            <p>The brief also lists up to six recent things in AI that could help this {w("camp")}: news, new model and API features, best practices for agents, and trends, each with its link and a line on how it could help here. This part is a model call: once a day the smallest model searches the web (a few searches). Links aren't repeated from the last two weeks, and nothing changes because of them: they're for you to read.</p></div>
+          <div className="set-control unasked-control">
+            <label className="switch"><input type="checkbox" checked={!!d.briefNews} disabled={busy === "drive"} onChange={(ev) => doing("drive", () => api("/api/drive", { briefNews: ev.target.checked }))} /> {d.briefNews ? "On" : "Off"}</label>
+          </div>
+        </div>
+      )}
+
       <div className="set-row">
         <div className="set-label"><b>Weekly retro</b>
           <p>On Friday afternoon the smallest model reads what you asked for that week and what reviewers said on your pull requests, and proposes up to five things worth keeping. If you asked for the same kind of work three times or more in the last four weeks, it also drafts a how-to for it. Two small calls per project per week; nothing is kept until you approve it under Memory or Skills.</p>

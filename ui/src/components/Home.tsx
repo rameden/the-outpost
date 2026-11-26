@@ -273,6 +273,22 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
               <div className="meta">{brief.done.requests} {plural(brief.done.requests, "request")}{brief.done.byMae ? `, ${brief.done.byMae} of them started by ${outpostName()}` : ""}{brief.done.cost ? ` · ${money(brief.done.cost)} at API prices` : ""}</div>
             </section>
           )}
+          {!!brief.news?.length && (
+            <section>
+              <div className="section-label">AI news for {outpostName()} · {brief.news.length}</div>
+              <ul className="list home-lines">
+                {brief.news.map((x) => (
+                  <li className="home-line" key={x.url}>
+                    <span className="home-line-text">
+                      <span className="home-line-title">{x.title}</span>
+                      <span className="meta">{[x.says, x.why].filter(Boolean).join(" ")}</span>
+                    </span>
+                    <a className="home-line-out" href={x.url} target="_blank" rel="noopener noreferrer" title="Open the source" aria-label={`Open ${x.title} in a new tab`}><Icon name="link" /></a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {waiting > 0 && !day && (
             <div className="meta">{waiting} {plural(waiting, "suggestion")} from the {w("crew")} {waiting === 1 ? "is" : "are"} waiting for your say. <button type="button" className="linkish" onClick={onOpenMemory}>Look them over</button></div>
           )}
