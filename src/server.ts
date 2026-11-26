@@ -565,6 +565,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
         maxTurns: resolveTurns({ id, maxTurns: base?.maxTurns }), defaultMaxTurns: base?.maxTurns ?? DEFAULT_TURNS,
         defaultModel: base?.model ?? DEFAULT_MODEL, defaultEffort: base?.effort ?? "default",
         overridden: !!(override.model || override.effort || override.maxTurns),
+        helpers: id !== "quartermaster" && override.helpers === true, // may send helpers of its own while it works
       };
     }),
     // The theme pack that's on, and every pack there is: the page needs the others' names for the
@@ -1232,6 +1233,12 @@ const server = http.createServer(async (req, res) => {
       if (!CREW[id]) return send(res, 404, { error: noSuch() });
       if (body.reset) {
         setAgentSettings(id, { model: null, effort: null, maxTurns: null });
+        return send(res, 200, { ok: true });
+      }
+      // Whether this crew member may send helpers of its own: set on its own, apart from the model.
+      if (typeof body.helpers === "boolean" && body.model === undefined) {
+        if (id === "quartermaster") return send(res, 400, { error: "The Quartermaster already sends the crew." });
+        setAgentSettings(id, { helpers: body.helpers });
         return send(res, 200, { ok: true });
       }
       // Turn limit: a whole number in range, or null/"" for the crew default.

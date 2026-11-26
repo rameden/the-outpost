@@ -436,7 +436,8 @@ export async function runAgent(
   task: RequestContent, // text, or text plus image/PDF blocks the user attached
   // plain: not a crew member at all (a plain chat with a model): no identity, memory, skills,
   // wiki or session history of its own; just what it's told here, and the tools it's handed.
-  opts: { extraSystem?: string; depth?: number; source?: SessionSource; plain?: boolean } = {}
+  opts: { extraSystem?: string; depth?: number; source?: SessionSource; plain?: boolean;
+    leaf?: boolean } = {} // leaf: a helper sent by a quest (it keeps no notes about the project)
 ): Promise<AgentResult> {
   const me = { who: spec.name, emoji: spec.emoji, depth: opts.depth ?? 0, questId: currentQuestId() };
   const startedAt = Date.now();
@@ -501,7 +502,7 @@ export async function runAgent(
   const runId = `${currentExpeditionId() ?? "solo"}:${currentQuestId() ?? "-"}:${spec.id}:${(++runCount).toString(36)}`;
   const journal = thread ? new OpJournal(`${thread}:${spec.id}`, runId, currentReplyTo()) : null;
   const notice = (text: string) => emit({ type: "notice", ...me, text });
-  const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject && !opts.plain ? [projectRemember] : []), ...(opts.plain ? [] : await mcpToolsFor(spec.id))]
+  const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject && !opts.plain && !opts.leaf ? [projectRemember] : []), ...(opts.plain ? [] : await mcpToolsFor(spec.id))]
     .map((t) => announcingFiles(t, spec.id, me))
     .map((t) => (journal ? journaled(t, journal, notice) : t));
   const defsFor = (m: string) => toolsFor(m, tools.map((t) => t.def));

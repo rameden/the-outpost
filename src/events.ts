@@ -30,7 +30,13 @@ export type CampEventBody =
   | ({ type: "route"; model: string; effort?: string; choice: string; trigger: string; reason: string; switched: boolean } & Who)
   // brief: the quest in a line (how its brief opens), so two quests by the same crew member can be told apart
   // step: the numbered step of the approved plan this quest carries out, when the Quartermaster said
-  | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string; step?: number }
+  // helperOf: this is a helper, sent by the quest with that id (a crew member allowed to send its own), not by whoever leads.
+  | { type: "dispatch"; who: string; emoji: string; questId?: string; brief?: string; step?: number; helperOf?: string }
+  // Where a quest that writes alongside another works: its own worktree of a linked folder, on its
+  // own branch. working: it is there now. merged: its changes are back in the folder (the branch
+  // is gone). kept: they weren't brought back, and are on the branch (reason says why).
+  // unchanged: it changed nothing there.
+  | { type: "quest_tree"; who: string; emoji: string; questId: string; link: string; branch: string; state: "working" | "merged" | "kept" | "unchanged"; reason?: string; files?: number }
   // The plan you approved, as its numbered steps: the feed keeps them as a list that fills in as quests go out and come back.
   // after: the steps a step waits for, when the plan said so ("(after 1, 2)"); the trail map draws them as its edges.
   | { type: "plan"; steps: { n: number; text: string; after?: number[] }[] }

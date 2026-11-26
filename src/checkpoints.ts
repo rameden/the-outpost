@@ -28,11 +28,13 @@ export const CHECKPOINTS_DIR = join("camp", "checkpoints");
 const MAX_SNAPSHOT_BYTES = 5_000_000;
 const KEEP = 60; // expeditions with checkpoints kept on disk
 
-type Entry = { path: string; abs: string; existed: boolean; blob?: string; tooBig?: boolean };
+// gone: the file was in a quest's own worktree, which has been taken down (its changes are in the
+// folder itself now, or on the quest's branch): no longer part of what the run changed.
+type Entry = { path: string; abs: string; existed: boolean; blob?: string; tooBig?: boolean; gone?: boolean };
 // A git repository the expedition ran shell commands in: its working tree before the first
 // command (before), and when the expedition ended (after). Both are commits on private refs.
 // shown: how the crew sees the repository's top (links/web).
-type Snapshot = { root: string; shown: string; before: string; after?: string };
+type Snapshot = { root: string; shown: string; before: string; after?: string; gone?: boolean };
 type Manifest = { id: string; started: string; undone?: string; files: Entry[]; snapshots?: Snapshot[] };
 export type ChangedFile = { path: string; change: "created" | "modified" | "deleted" };
 
@@ -176,10 +178,10 @@ export function snapshotBeforeShell(dir: string, showTop: (abs: string) => strin
 // When an expedition ends: record where each repository it ran commands in was left.
 export async function sealSnapshots(id: string): Promise<void> {
   const first = load(id);
-  if (!first?.snapshots?.some((x) => !x.after)) return;
+  if (!first?.snapshots?.some((x) => !x.after && !x.gone)) return;
   const after = new Map<string, string>();
   for (const [n, x] of first.snapshots.entries()) {
-    if (x.after) continue;
+    if (x.after || x.gone) continue;
     try { after.set(x.root, await commitOfAsync(x.root, await treeNowAsync(x.root), refFor(id, n, "after"))); } catch { /* left open: shown as it is now */ }
   }
   const m = load(id) ?? first;
@@ -205,7 +207,7 @@ function shellChanges(m: Manifest, sealedOnly = false): ShellChange[] {
   const byTools = new Set(m.files.map((f) => f.abs));
   const out: ShellChange[] = [];
   for (const snap of m.snapshots ?? []) {
-    if (sealedOnly && !snap.after) continue;
+    if (snap.gone || (sealedOnly && !snap.after)) continue;
     let lines: string[];
     try {
       const key = snap.after ? `${snap.root}|${snap.before}|${snap.after}` : "";
@@ -270,6 +272,32 @@ export function filesWrittenBy(runKey: string): string[] {
   return [...lastWrite].filter(([, w]) => w.by === runKey).map(([abs]) => abs);
 }
 
+// ---------- A quest's own worktree (questtrees.ts) ----------
+// The working tree of a repository as it is now, as a git tree: what a quest's worktree is cut
+// from, and what its changes are merged into when it is back.
+export const workingTree = (root: string): Promise<string> => treeNowAsync(root);
+// What git should leave out of a commit made for the camp (secret files), as pathspecs.
+export const SECRETS_OUT = LEAVE_OUT;
+export const campGitEnv = () => ({ ...gitSafeEnv(), ...idEnv() });
+
+// A quest's worktree was taken down: what the run recorded there (files its tools changed, a
+// snapshot taken before a command) is no longer something it changed. The changes themselves are
+// in the folder now (recorded there before they landed) or on the quest's branch.
+export function forgetFolder(id: string | undefined, dir: string) {
+  const under = (abs: string) => abs === dir || abs.startsWith(dir + sep);
+  for (const abs of [...lastWrite.keys()]) if (under(abs)) lastWrite.delete(abs);
+  for (const key of [...lastSeen.keys()]) if (under(key.slice(key.indexOf("|") + 1))) lastSeen.delete(key);
+  if (!id || !SAFE_ID.test(id)) return;
+  const m = load(id);
+  if (!m || !(m.files.some((f) => !f.gone && under(f.abs)) || m.snapshots?.some((x) => !x.gone && under(x.root)))) return;
+  save({ ...m, files: m.files.map((f) => (under(f.abs) ? { ...f, gone: true } : f)), ...(m.snapshots ? { snapshots: m.snapshots.map((x) => (under(x.root) ? { ...x, gone: true } : x)) } : {}) });
+}
+// A quest's changes landed in these files: whoever read them before reads them again before
+// writing over them, as with any change made by other work going on at the same time.
+export function noteLanded(files: string[], by: string) {
+  for (const abs of files) lastWrite.set(abs, { by, at: Date.now(), order: ++tick });
+}
+
 export function afterWrite(abs: string) {
   const order = ++tick;
   lastWrite.set(abs, { by: currentRunKey(), at: Date.now(), order });
@@ -278,6 +306,7 @@ export function afterWrite(abs: string) {
 
 // ---------- What an expedition changed ----------
 function changeOf(dir: string, f: Entry): ChangedFile["change"] | null {
+  if (f.gone) return null;
   const now = existsSync(f.abs);
   if (!f.existed) return now ? "created" : null;
   if (!now) return "deleted";
@@ -354,6 +383,7 @@ export function undoCheckpoint(id: string): { restored: string[]; skipped: strin
   // Then what shell commands changed: each file goes back to how it was before the first command,
   // unless something else has changed it since the expedition ended (that's someone else's work).
   for (const snap of m.snapshots ?? []) {
+    if (snap.gone) continue;
     const mine = shellChanges({ ...m, snapshots: [snap] });
     if (!mine.length) continue;
     let since = new Set<string>();

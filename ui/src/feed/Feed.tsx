@@ -21,7 +21,7 @@ import { ForkButton } from "./Fork.tsx";
 import { Resend, useEditAsk, type ResendFrom } from "./EditAsk.tsx";
 import { cardsFor, type View } from "./conversation.ts";
 import { condense, summarize, type FeedDetail, type StepsNode } from "./condense.ts";
-import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode } from "./reducer.ts";
+import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type QuestTree } from "./reducer.ts";
 import { STEP_MARK, STEP_SAYS, stepPill } from "./steps.ts";
 import { Loose, looseOf, tally, TrailGround } from "../trail/Ground.tsx";
 import { useFeed, type FeedStore } from "./store.ts";
@@ -185,6 +185,16 @@ function PlanList({ plan }: { plan: PlanNode }) {
   );
 }
 
+// Where a quest works when others change the same repository at once, and what became of it.
+const TREE_SAYS = { working: "own worktree", merged: "merged back", kept: "kept on branch", unchanged: "no changes" } as const;
+function TreeChip({ tree }: { tree: QuestTree }) {
+  const title = tree.state === "working" ? `Working in its own worktree of links/${tree.link}, on the branch ${tree.branch}`
+    : tree.state === "merged" ? `Its changes to links/${tree.link} are merged back into the folder${tree.files ? ` (${tree.files} file${tree.files === 1 ? "" : "s"})` : ""}. The worktree and branch are gone.`
+    : tree.state === "kept" ? `Not merged into links/${tree.link}: ${tree.reason ?? "see the note below"}. Its changes are on the branch ${tree.branch}.`
+    : `It changed nothing in links/${tree.link}. The worktree and branch are gone.`;
+  return <span className={cx("quest-tree", tree.state)} title={title}><code>{tree.state === "merged" || tree.state === "unchanged" ? `links/${tree.link}` : tree.branch}</code> {TREE_SAYS[tree.state]}</span>;
+}
+
 function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   const ok = quest.status === "done";
   return (
@@ -192,7 +202,9 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
       <div className="quest-head">
         <span>{emojiNow(quest.who, quest.emoji)} {nameNow(quest.who)} {w("depart")}</span>
         {quest.step && <span className="quest-step" title={`Step ${quest.step} of the plan`}>Step {quest.step}</span>}
+        {quest.helper && <span className="quest-step" title={`Sent by another ${w("quest")} as its helper`}>Helper</span>}
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
+        {quest.trees?.map((t) => <TreeChip key={t.link} tree={t} />)}
         {quest.status === null ? <span className="pill live">On {w("quest")}</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
       </div>
       <div className="quest-body"><Nodes nodes={quest.nodes} onReply={onReply} live={quest.status === null} /></div>

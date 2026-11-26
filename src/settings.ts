@@ -13,7 +13,8 @@ export const SETTINGS_PATH = "camp/settings.json";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export const EFFORTS: Effort[] = ["low", "medium", "high", "xhigh", "max"];
 // maxTurns: how many replies (each with its tool calls) one run may take before it stops.
-export type AgentSettings = { model?: string; effort?: Effort; maxTurns?: number };
+// helpers: this crew member may send helpers of its own while it works (see quartermaster.ts).
+export type AgentSettings = { model?: string; effort?: Effort; maxTurns?: number; helpers?: boolean };
 export const DEFAULT_TURNS = 20;
 export const TURNS_MIN = 5;
 export const TURNS_MAX = 200;
@@ -502,11 +503,12 @@ export function agentSettings(id: CrewId): AgentSettings {
 }
 
 // Set (or with an empty value, clear) an agent's model/effort/turn-limit override.
-export function setAgentSettings(id: CrewId, patch: { model?: string | null; effort?: Effort | null; maxTurns?: number | null }) {
+export function setAgentSettings(id: CrewId, patch: { model?: string | null; effort?: Effort | null; maxTurns?: number | null; helpers?: boolean | null }) {
   const s = load();
   const next: AgentSettings = { ...(s.agents[id] ?? {}) };
   if (patch.model !== undefined) patch.model ? (next.model = patch.model) : delete next.model;
   if (patch.effort !== undefined) patch.effort ? (next.effort = patch.effort) : delete next.effort;
+  if (patch.helpers !== undefined) patch.helpers ? (next.helpers = true) : delete next.helpers;
   if (patch.maxTurns !== undefined) {
     if (patch.maxTurns) next.maxTurns = Math.min(TURNS_MAX, Math.max(TURNS_MIN, Math.round(patch.maxTurns)));
     else delete next.maxTurns;

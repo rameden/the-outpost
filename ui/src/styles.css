@@ -1328,6 +1328,12 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .ask-written > .ask-body { margin-top: 8px; }
 .quest-step, .co-step { flex: none; font: 600 11px/1 var(--mono); padding: 2px 6px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
 .co-step { margin-right: 6px; }
+/* A quest's own worktree: its branch and what became of it. A plain square-cornered box, so the state colour is a straight edge. */
+.quest-tree { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/1.2 var(--sans); padding: 2px 6px; border: 1px solid var(--border); border-radius: 0; color: var(--muted); }
+.quest-tree code { font: 600 11px/1 var(--mono); color: inherit; background: none; padding: 0; }
+.quest-tree.working { border-bottom: 2px solid var(--accent); }
+.quest-tree.merged { border-bottom: 2px solid var(--good); }
+.quest-tree.kept { border-bottom: 2px solid var(--bad); color: var(--text); }
 @media (max-width: 760px) { .plan-step > * { grid-template-columns: 16px 18px minmax(0, 1fr) auto; } .plan-who { display: none; } }
 .quest-brief { font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .member-count { flex: none; font: 600 11px/1 var(--mono); padding: 2px 5px; border-radius: 999px; background: var(--c); color: var(--bg); }

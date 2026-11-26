@@ -1,6 +1,6 @@
 // The cases that exercise the loop, not a single answer: the plan's order, who gets which work,
 // the review after a change, the question before a plan, a task picked up again, a failing check
-// sent back, and a budget that stops the run.
+// sent back, a budget that stops the run, and two writers in one repository at once.
 //
 // Their rules read the run's trail (what happened, in order) and the files it left, and nothing
 // else, so each rule gives the same verdict every time and can be tried without a model: every
@@ -475,4 +475,75 @@ const budgetStop: EvalCase = {
   },
 };
 
-export const LOOP_CASES: EvalCase[] = [planOrder, rightCrew, reviewAfterChange, askBeforePlan, resumeNoRepeat, resumeRestored, fixAfterCheck, budgetStop];
+// ---------- 8. Two writers in one repository ----------
+const DEPOT = "links/depot", DEPOT_TESTS = "node check.mjs", TAX = `${DEPOT}/src/tax.mjs`, TAX_DOC = `${DEPOT}/docs/tax.md`;
+const tree = (who: string, quest: string, state: Of<"tree">["state"]): Moment => ({ type: "tree", who, quest, link: "depot", branch: `outpost/quest-${quest}`, state });
+const trees = (c: CaseContext) => c.trail.filter((m): m is Of<"tree"> => m.type === "tree" && m.link === "depot");
+const writersGood: Rehearsal = {
+  result: done("Both are in the depot folder: tax(cents) in src/tax.mjs and its page in docs/tax.md. Each was written in its own worktree and merged back; the folder's check passes."),
+  trail: [
+    out("Artificer"), out("Scribe"),
+    tree("Artificer", "a1", "working"), tree("Scribe", "s1", "working"),
+    tool("Artificer", "write_file", TAX), tool("Scribe", "write_file", TAX_DOC),
+    tool("Scribe", "check", `${DEPOT_TESTS}  (${DEPOT})`), notice("Scribe", `✓ check: ${DEPOT_TESTS}`), tree("Scribe", "s1", "merged"), back("Scribe"),
+    tool("Artificer", "check", `${DEPOT_TESTS}  (${DEPOT})`), notice("Artificer", `✓ check: ${DEPOT_TESTS}`), tree("Artificer", "a1", "merged"), back("Artificer"),
+  ],
+  files: { [TAX]: "export function tax(cents) {\n  return Math.round(cents * 0.2);\n}\n", [TAX_DOC]: "# tax(cents)\n\nTwenty percent of the amount, rounded to the cent.\n" },
+  passing: [`${DEPOT}: ${DEPOT_TESTS}`],
+};
+const parallelWriters: EvalCase = {
+  id: "loop-parallel-writers",
+  covers: "parallel-writers",
+  about: "Two crew members change one repository at the same time: each works in its own worktree, both changes are merged back into the folder, and nothing is left on a branch",
+  request:
+    "Two separate jobs in the depot folder, to be done at the same time, not one after the other: the Artificer adds src/tax.mjs exporting `tax(cents)` (20% of the amount, " +
+    "rounded to the cent), and the Scribe writes docs/tax.md, a short page saying what tax(cents) returns. Neither needs the other's file. Send both at once.",
+  link: {
+    name: "depot",
+    files: {
+      "src/price.mjs": "export function price(cents, qty) {\n  return cents * qty;\n}\n",
+      // Passes with or without the new file, so each writer's own worktree can pass it; with the file, it tests it.
+      "check.mjs": "import { existsSync } from 'node:fs';\nimport { price } from './src/price.mjs';\nlet ok = price(250, 2) === 500;\nif (existsSync('./src/tax.mjs')) { const { tax } = await import('./src/tax.mjs'); ok = ok && tax(1000) === 200 && tax(333) === 67; }\nconsole.log(ok ? 'PASS' : 'FAIL');\nprocess.exit(ok ? 0 : 1);\n",
+      "docs/price.md": "# price(cents, qty)\n\nThe price of a line: what one costs, times how many.\n",
+    },
+    verify: [DEPOT_TESTS],
+  },
+  approveShell: [DEPOT_TESTS],
+  checks: [
+    finished,
+    { name: "two crew members changed the folder", required: true, run: (c) => {
+      const who = new Set(c.trail.flatMap((m) => (wrote(`${DEPOT}/`)(m) && m.type === "tool" ? [m.who] : [])));
+      return who.size >= 2 || `only ${[...who].join(", ") || "nobody"} wrote in ${DEPOT}`;
+    } },
+    { name: "they worked side by side, each in its own worktree", required: true, run: (c) => {
+      const working = new Set(trees(c).filter((t) => t.state === "working").map((t) => t.quest));
+      return working.size >= 2 || (working.size ? "only one quest had a worktree" : `no worktrees: ${names(c)} worked one after another in the folder itself`);
+    } },
+    { name: "nothing was left on a branch", required: true, run: (c) => {
+      const kept = trees(c).filter((t) => t.state === "kept");
+      return !kept.length || `not merged back: ${kept.map((t) => `${t.who}'s ${t.branch}`).join(", ")}`;
+    } },
+    { name: "both changes are in the folder", required: true, run: (c) => {
+      const missing = [TAX, TAX_DOC].filter((f) => !c.read(f)?.trim());
+      return !missing.length || `missing: ${missing.join(", ")}`;
+    } },
+    { name: "the folder's check passes with both changes in", required: true, run: (c) => c.ok(DEPOT_TESTS, DEPOT) || `${DEPOT_TESTS} fails` },
+    { name: "each quest's checks ran before it was merged", run: (c) => {
+      const late = trees(c).filter((t) => t.state === "merged").find((t) => !c.trail.slice(0, c.trail.indexOf(t)).some((m) => m.type === "tool" && m.tool === "check" && m.who === t.who));
+      return !late || `${late.who}'s changes were merged with no check run first`;
+    } },
+  ],
+  rehearsal: {
+    good: writersGood,
+    bad: [
+      // One after the other in the folder itself: nothing ran side by side.
+      but(writersGood, "they worked side by side, each in its own worktree", { trail: [out("Artificer"), tool("Artificer", "write_file", TAX), back("Artificer"), out("Scribe"), tool("Scribe", "write_file", TAX_DOC), back("Scribe")] }),
+      // Both wrote the same lines: the second couldn't be merged and sits on its branch.
+      but(writersGood, "nothing was left on a branch", { trail: writersGood.trail.map((m) => (m.type === "tree" && m.who === "Artificer" && m.state === "merged" ? { ...m, state: "kept" as const } : m)), files: { [TAX_DOC]: writersGood.files![TAX_DOC] } }),
+      // One of the two never made its change.
+      but(writersGood, "two crew members changed the folder", { trail: writersGood.trail.filter((m) => !(m.type === "tool" && m.who === "Scribe" && m.tool === "write_file")), files: { [TAX]: writersGood.files![TAX] } }),
+    ],
+  },
+};
+
+export const LOOP_CASES: EvalCase[] = [planOrder, rightCrew, reviewAfterChange, askBeforePlan, resumeNoRepeat, resumeRestored, fixAfterCheck, budgetStop, parallelWriters];
