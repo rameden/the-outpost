@@ -58,7 +58,7 @@ import { writeAtomic } from "./atomic.js";
 import { creditState, planLimits, pausedUntil, pauseMessage, resumeNow, limitLabel, usageMeasuredAt } from "./limits.js";
 import { checkpointDiff, undoCheckpoint } from "./checkpoints.js";
 import { allTurns, latestDirect, setPlanAside, threadFor } from "./threads.js";
-import { chainNote, chainReady } from "./chains.js";
+import { chainNote, chainReady, unchain } from "./chains.js";
 import { ASIDE_BRIEFS, isAsideBrief } from "./review.js";
 import { projectPayoff } from "./reports.js";
 import { phoneConfig, startPhoneBridge } from "./phone.js";
@@ -188,8 +188,9 @@ const startedPlans = new Set<string>();
 // task: the request's opening words, for the page's list of what's running and waiting.
 // after: a chained request, held until that run has finished. held: the run it waited on didn't
 // finish cleanly (how it ended), so it stays put until you start it anyway or take it off.
+// said: a message's words in full, and retext: change them while it waits (null if they can't be).
 type Work = { id: string; label: string; run: (signal: AbortSignal, id: string, steering: Steering) => Promise<unknown>; controller?: AbortController; steering: Steering;
-  task?: string; after?: string; held?: string };
+  task?: string; after?: string; held?: string; said?: string; retext?: (said: string) => string | null };
 const queue: Work[] = [];
 const running = new Map<string, Work>();
 
@@ -240,7 +241,11 @@ const ready = (w: Work) => chainReady(w, inFlight);
 function stopWork(id?: string): string[] {
   const stopped: string[] = [];
   const waiting = id ? queue.findIndex((w) => w.id === id) : -1;
-  if (waiting >= 0) stopped.push(queue.splice(waiting, 1)[0].label);
+  if (waiting >= 0) {
+    const [w] = queue.splice(waiting, 1);
+    unchain(queue, w); // what was queued behind it keeps waiting for what it waited for
+    stopped.push(w.label);
+  }
   for (const w of running.values()) {
     if (id && w.id !== id) continue;
     if (!w.controller || w.controller.signal.aborted) continue;
@@ -581,7 +586,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
     memories: none(() => CREW_IDS.map((id) => ({ id, name: CREW[id].name, emoji: CREW[id].emoji, memory: readMemory(id), sessions: recentSessions(id, 1000).length }))),
     xp,
     running: [...running.values()].map((w) => ({ id: w.id, label: w.label, task: w.task ?? "" })),
-    queued: queue.map((w) => ({ id: w.id, label: w.label, task: w.task ?? "", after: w.after ?? null, held: w.held ?? null })),
+    queued: queue.map((w) => ({ id: w.id, label: w.label, task: w.task ?? "", after: w.after ?? null, held: w.held ?? null, ...(w.retext ? { text: w.said ?? "" } : {}) })),
     parallel: parallelLimit(),
     sandbox: { on: shellSettings().sandbox === true, available: sandboxAvailable(), kind: sandboxKind() },
     // Everything the Settings page shows that isn't already above.
@@ -1081,7 +1086,9 @@ const server = http.createServer(async (req, res) => {
       const direct = text.match(/^@(\w+)\s+([\s\S]+)$/) ?? (attachments.length ? text.match(/^@(\w+)$/) : null);
       let who = direct ? findCrew(direct[1]) : undefined;
       if (direct && !who) return send(res, 400, { error: `No ${word("crew")} member named "${direct[1]}"` });
-      const { content, attached } = buildRequest(direct ? direct[2] ?? "Take a look at what I attached." : text, attachments);
+      const built = buildRequest(direct ? direct[2] ?? "Take a look at what I attached." : text, attachments);
+      const attached = built.attached;
+      let content = built.content; // (a queued message's words can still change: retext, below)
       // A follow-up: { replyTo: <expedition id> } continues that conversation with whoever it was
       // with (unless the message names someone else). An agent's chat page sends { chat: true }
       // to carry on its latest direct chat.
@@ -1158,6 +1165,16 @@ const server = http.createServer(async (req, res) => {
       const where = { project: project.id, links, ...(without.length ? { without } : {}), ...(jira ? { jira } : {}), ...(ticket ? { ticket } : {}), ...(model ? { model } : {}) };
       const isNew = !replyTo;
       const task = (direct ? direct[2] ?? text : text).replace(/\s+/g, " ").slice(0, 90);
+      // While it waits its turn, what you wrote can be changed (the status stack's Edit). Who it's
+      // for and what's attached stay as they were. Not for a plan, a resume or someone stepping in.
+      const retext = !held && !resume && !aside ? (said: string) => {
+        const to = said.match(/^@(\w+)\s+([\s\S]+)$/);
+        if (direct ? to?.[1].toLowerCase() !== direct[1].toLowerCase() : to && findCrew(to[1])) return "It stays with whoever it was for. To send it to someone else, take it off and send a new one.";
+        text = said;
+        content = buildRequest(direct ? to![2] : said, attachments).content;
+        return null;
+      } : undefined;
+      const editable = { said: text, retext };
       // Worked out when it starts, not now: a chained request follows what its predecessor ended up doing.
       const chained = () => {
         if (!after) return { workspaces, links: where.links, extraSystem: undefined as string | undefined };
@@ -1173,14 +1190,14 @@ const server = http.createServer(async (req, res) => {
       // starting from a ticket, is asking for work to be done, so that still goes to the crew.
       const plain = !who && !aside && !jira && !ticket && !workspaces && (replyTo ? thread?.agent === CHAT : project.id === GENERAL);
       const w = plain
-        ? enqueue({ label: "chat", task, after, run: async (signal, id, steering) => {
+        ? enqueue({ label: "chat", task, after, ...editable, run: async (signal, id, steering) => {
             const c = chained();
             const r = await runChat(content, { attached, signal, id, replyTo, steering, stillRunning, links: c.links, without: where.without, model: where.model, extraSystem: c.extraSystem });
             if (isNew) void titleConversation(id, text, r.text);
             return r;
           } })
         : target && target.id !== "quartermaster"
-        ? enqueue({ label: `@${target.id}`, task, after, run: async (signal, id, steering) => {
+        ? enqueue({ label: `@${target.id}`, task, after, ...editable, run: async (signal, id, steering) => {
             const c = chained();
             const r = await runDirect(target.id, content, "direct", attached, signal, id, replyTo, { workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem, aside });
             if (isNew && r) void titleConversation(id, text, r.text);
@@ -1188,7 +1205,7 @@ const server = http.createServer(async (req, res) => {
             if (r && !aside) void runFinished(id, r.status).catch(() => { /* the ticket goes without */ });
             return r;
           } })
-        : enqueue({ label: "expedition", task, after, run: async (signal, id, steering) => {
+        : enqueue({ label: "expedition", task, after, ...editable, run: async (signal, id, steering) => {
             const c = chained();
             // { review: true | false }: have this run's changes reviewed before it reports, whatever the project and camp are set to.
             const r = await runExpedition(content, { attached, signal, id, replyTo, workspaces: c.workspaces, steering, stillRunning, ...where, links: c.links, extraSystem: c.extraSystem,
@@ -1843,6 +1860,21 @@ const server = http.createServer(async (req, res) => {
       if (!w) return send(res, 404, { error: "That one isn't waiting any more." });
       delete w.after; delete w.held;
       drain();
+      return send(res, 200, { ok: true });
+    }
+
+    // Change what a queued message says before it starts ({ id, text }): the status stack's Edit.
+    if (url.pathname === "/api/queue/edit") {
+      const w = queue.find((q) => q.id === String(body.id));
+      const said = String(body.text ?? "").trim().slice(0, 100_000);
+      if (!w) return send(res, 404, { error: "That one has already started, or was taken off." });
+      if (!w.retext) return send(res, 409, { error: "This one can't be changed. Take it off and send a new one." });
+      if (!said) return send(res, 400, { error: "Nothing to send. To drop it, take it off." });
+      const refused = w.retext(said);
+      if (refused) return send(res, 400, { error: refused });
+      w.said = said;
+      w.task = said.replace(/^@\w+\s+/, "").replace(/\s+/g, " ").slice(0, 90);
+      emit({ type: "changed", what: "queue" });
       return send(res, 200, { ok: true });
     }
 

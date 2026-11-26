@@ -619,14 +619,15 @@ export function App({ store }: { store: FeedStore }) {
                           title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)}
                           refresh={stepLooks} onChanged={stepChanged} onShowRepos={showFiles} />
                       )}
-                      <Feed key={S?.pack /* its cards are memoised: a new pack draws them again in its words */} store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} detail={detail} />
+                      <Feed key={S?.pack /* its cards are memoised: a new pack draws them again in its words */} store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} detail={detail}
+                        project={project && project.id !== "general" ? project.id : undefined} />
                     </>
                   )}
                   </ZoneBoundary>
                   {/* The foot of the pane floats over the thread, which scrolls underneath it (Dock.tsx). */}
                   <Dock>
                     {/* The message box belongs to conversations: the pages (Projects, a project, Jira, the wiki) don't have one. */}
-                    {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} onOpenInbox={openInbox} /></ZoneBoundary>}
+                    {S && !page && <ZoneBoundary name="What's waiting"><Waiting S={S} onOpenInbox={openInbox} here={context?.live ?? context?.replyTo} /></ZoneBoundary>}
                     {/* What the page has to say back (nothing to rate, a file it couldn't find, "queued"). All runs shows the ones it records in the feed itself. */}
                     <StatusLine skipFed={inAll} />
                     <ZoneBoundary name="The message box">
