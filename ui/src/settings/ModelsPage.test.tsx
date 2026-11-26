@@ -69,6 +69,18 @@ test("Anthropic's environment key can be imported without displaying or sending 
   expect(posts).toContainEqual({ path: "/api/anthropic/key", body: { import: true } });
 });
 
+test("from another machine the Anthropic key isn't set or imported, and says where it is; other providers are as they were", () => {
+  const away = { ...state([prov("groq", "Groq")]), here: false } as CampState;
+  const { unmount } = render(<ModelsPage S={away} refresh={() => {}} />);
+  const anthropic = within(screen.getByRole("region", { name: "Anthropic" }));
+  expect(anthropic.queryByLabelText("Anthropic API key")).toBeNull();
+  expect(anthropic.getByText(/An Anthropic key is set only on the camp's own machine/)).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Groq" })).getByLabelText("Groq API key")).toBeTruthy();
+  unmount();
+  render(<ModelsPage S={{ ...away, anthropic: { connected: true, saved: false, environment: true, from: "env" as const } }} refresh={() => {}} />);
+  expect(within(screen.getByRole("region", { name: "Anthropic" })).queryByRole("button", { name: "Import environment key" })).toBeNull();
+});
+
 test("a saved Anthropic connection can be forgotten after confirmation, without an extra approval checkbox", async () => {
   const refresh = vi.fn();
   const S = { ...state([]), anthropic: { connected: true, saved: true, environment: false, from: "camp" as const } };

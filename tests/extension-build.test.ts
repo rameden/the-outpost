@@ -1,4 +1,4 @@
-// The Barnstorm extension's build: the game's styles lifted out of the plugin's stylesheet, and its icons.
+// The Barnstorm extension's build: the game's styles lifted out of Mae's stylesheet, and its icons.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -9,8 +9,8 @@ import { gameStyles, icon, zip } from "../scripts/extension-build.ts";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("the game's styles come out of the plugin's stylesheet in two parts: the page's, and the game's own", () => {
-  const { page, overlay } = gameStyles(readFileSync(join(REPO, "plugins/barnstorm/src/barnstorm.css"), "utf8"));
+test("the game's styles come out of Mae's stylesheet in two parts: the page's, and the game's own", () => {
+  const { page, overlay } = gameStyles(readFileSync(join(REPO, "ui/src/styles.css"), "utf8"));
   // For the page: what hides a part that's been shot, each side of a border, and a word.
   assert.match(page, /^\[data-barnstormed\] \{ visibility: hidden !important; \}$/m);
   for (const side of ["top", "right", "bottom", "left"]) assert.ok(page.includes(`[data-barnstorm-edge~="${side}"]`), side);
@@ -23,7 +23,7 @@ test("the game's styles come out of the plugin's stylesheet in two parts: the pa
 
 test("a stylesheet that's been rearranged stops the build, and doesn't make a broken extension", () => {
   assert.throws(() => gameStyles("body { margin: 0; }"), /Couldn't find the game's styles/);
-  const mark = "/* ---------- Barnstorm, the plugin (plugins/barnstorm): the plane over the page ---------- */";
+  const mark = "/* ---------- Barnstorm, the easter egg (ui/src/egg) ---------- */";
   assert.throws(() => gameStyles(`${mark}\n[data-barnstormed] { visibility: hidden !important; }\n.barnstorm-bar { }\n.barnstorm-paused { }`), /Expected 6 rules for the page/);
 });
 

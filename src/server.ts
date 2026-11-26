@@ -15,7 +15,7 @@
 
 import http from "node:http";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { join, normalize, resolve, sep } from "node:path";
 import { onEvent, attachConsole, emit, continueSeqFrom, type CampEvent } from "./events.js";
 import { setAsker, type Question } from "./ask.js";
@@ -27,7 +27,7 @@ import { DEFAULT_ALLOW } from "./shell.js";
 import { runExpedition, runDirect, QM_DEFAULTS, quartermasterSpec, runChat, CHAT, heldPlans } from "./quartermaster.js";
 import { ROSTER } from "./roster.js";
 import { DEFAULT_MODEL, listModels, resolveModel, resolveTurns } from "./agent.js";
-import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, approvalLevel, setApprovalLevel, setShellLists, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, pluginsSet, setPlugin, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, autoExcluded, setAutoExcluded, uploadKeepDays, setUploadKeepDays } from "./settings.js";
+import { agentSettings, setAgentSettings, EFFORTS, budgetUsd, setBudgetUsd, campRuntime, setRuntime, parallelLimit, setParallelLimit, PARALLEL_MAX, shellSettings, approvalLevel, setApprovalLevel, setShellLists, loosensApproval, loosensShell, setShellReviewer, setPlainApprovals, questLimit, setQuestLimit, QUESTS_MAX, selfEditAllowed, setSelfEdit, autoTitlesOn, setAutoTitles, fixAttempts, setFixAttempts, FIX_ATTEMPTS_MAX, reviewChangesOn, setReviewChanges, prWatchOn, setPrWatch, phoneSettings, setPhoneSettings, DEFAULT_TURNS, TURNS_MIN, TURNS_MAX, type Effort, termActions, setTermActions, memoryCare, setMemoryCare, smallModel, setSmallModel, autoExcluded, setAutoExcluded, uploadKeepDays, setUploadKeepDays } from "./settings.js";
 import { pruneUploads, uploadsUsage } from "./uploads.js";
 import { claudeLogin, refreshPlanUsage } from "./claude-code.js";
 import { connectorStatus, closeConnectors, mcpToolsFor } from "./mcp.js";
@@ -532,10 +532,11 @@ export type AgentDetail = Awaited<ReturnType<typeof agentDetail>>;
 export type CampState = Awaited<ReturnType<typeof fullState>>;
 // historySeen: the history stamp the page already has. A light refresh leaves history out when
 // it's unchanged (it's most of the answer, and the sidebar needn't redraw).
-async function state(full = true, historySeen?: string): Promise<CampState> {
-  return fullState(full, historySeen);
+// here: is the browser asking on the camp's own machine? Some settings are changed only there (see onlyHere).
+async function state(full = true, historySeen?: string, here = true): Promise<CampState> {
+  return fullState(full, historySeen, here);
 }
-async function fullState(full: boolean, historySeen?: string) {
+async function fullState(full: boolean, historySeen: string | undefined, here: boolean) {
   const historyNow = historyVersion();
   const sameHistory = !full && historySeen === historyNow;
   const all = recentQuests(Number.MAX_SAFE_INTEGER);
@@ -544,6 +545,7 @@ async function fullState(full: boolean, historySeen?: string) {
   for (const q of all) if (q.status === "done") { const who = currentName(q.character); xp[who] = (xp[who] ?? 0) + 10; }
   return {
     bootId: BOOT_ID,
+    here,
     characters: CREW_IDS.map((id) => {
       const c = CREW[id];
       const base = id === "quartermaster" ? QM_DEFAULTS : ROSTER[id];
@@ -598,7 +600,6 @@ async function fullState(full: boolean, historySeen?: string) {
       parallelMax: PARALLEL_MAX,
       selfEdit: selfEditAllowed(),
       autoTitles: autoTitlesOn(),
-      plugins: pluginsSet(), // the page's plugins turned off (false) by id; any not here is on
       uploadKeepDays: uploadKeepDays(), // null: uploads are never deleted by themselves
       fixAttempts: fixAttempts(),
       fixAttemptsMax: FIX_ATTEMPTS_MAX,
@@ -686,12 +687,31 @@ const noSuch = () => `No such ${word("crew")} member`;
 // The mark on the terminal's own lines: the Guild's tent, or whoever leads under another pack.
 const sign = () => (activePack().id === "guild" ? "🏕️" : CREW.quartermaster.emoji);
 const notFromHere = () => `The terminal is a shell on the ${word("camp")}'s own machine, so it only opens in a browser on that machine. Everything else works from here.`;
+// What lets the crew do more on this machine (a looser approval level or shell rule, editing the
+// camp's own code, the Anthropic key) is changed on this machine only: a key that has left it,
+// through a relay or the network, can't be used to widen what it reaches. From anywhere else those
+// settings can still be read, and made stricter. what: the change refused; still: what can be done.
+const onlyHere = (what: string, still: string) => `${what} only on the ${word("camp")}'s own machine: open Settings in a browser there. ${still}`;
+
+// Is this the camp's key? Compared in constant time, so how long a wrong one takes says nothing
+// about how much of it was right.
+const KEY = Buffer.from(TOKEN);
+function isKey(given: unknown): boolean {
+  if (typeof given !== "string") return false;
+  const g = Buffer.from(given);
+  return g.length === KEY.length && timingSafeEqual(g, KEY);
+}
+// The key in the address (?t=) is for what a browser fetches by itself and can't put a header on:
+// the two event streams and three kinds of image. Nothing else takes it there, so a key in a
+// link never changes anything.
+const KEY_IN_ADDRESS = new Set(["/events", "/api/term/stream", "/api/tree/raw", "/api/upload", "/api/agent/output"]);
 
 const server = http.createServer(async (req, res) => {
   try {
     if (!hostOk(req)) return send(res, 403, { error: "Bad host" });
     const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
-    const authed = req.headers["x-camp-token"] === TOKEN || url.searchParams.get("t") === TOKEN;
+    const authed = isKey(req.headers["x-camp-token"])
+      || (req.method === "GET" && KEY_IN_ADDRESS.has(url.pathname) && isKey(url.searchParams.get("t")));
 
     // The page and its scripts and styles: the same built files for everyone, with nothing of the
     // camp in them, so they need no key. What the page then asks for does.
@@ -766,7 +786,7 @@ const server = http.createServer(async (req, res) => {
     // The last day of the feed, for Orbit to play back.
     if (req.method === "GET" && url.pathname === "/api/feed/day") return send(res, 200, { events: feedSince(Date.now() - 86_400_000) });
 
-    if (req.method === "GET" && url.pathname === "/api/state") { freshenUsage(); return send(res, 200, await state(url.searchParams.get("full") !== "0", url.searchParams.get("history") ?? undefined)); }
+    if (req.method === "GET" && url.pathname === "/api/state") { freshenUsage(); return send(res, 200, await state(url.searchParams.get("full") !== "0", url.searchParams.get("history") ?? undefined, fromHere(req))); }
 
     if (req.method === "GET" && url.pathname === "/api/wiki") {
       const rel = normalize(url.searchParams.get("path") ?? "");
@@ -1211,7 +1231,11 @@ const server = http.createServer(async (req, res) => {
 
     // Per-expedition budget in dollars ({ usd: 2.5 }); 0 or empty removes it.
     // Switch what runs the crew: { runtime: "claude-code" | "api" }.
+    // The Anthropic key: { key } saves one, { import: true } saves the one the camp was started with,
+    // { key: null } forgets the saved one. A key is set on the camp's own machine only; from
+    // anywhere it can be forgotten. It is never sent back (anthropicKeyState says only whether there is one).
     if (url.pathname === "/api/anthropic/key") {
+      if ((body.import === true || body.key !== null) && !fromHere(req)) return send(res, 403, { error: onlyHere("An Anthropic key is set", "From here you can remove the saved one.") });
       try {
         const key = body.import === true ? process.env.ANTHROPIC_API_KEY : body.key;
         return send(res, 200, { ok: true, anthropic: await setAnthropicKey(key) });
@@ -1423,6 +1447,8 @@ const server = http.createServer(async (req, res) => {
       const level = body.level;
       if (level !== "ask" && level !== "safe" && level !== "sandbox" && level !== "god") return send(res, 400, { error: "level must be ask, safe, sandbox or god" });
       if (level === "sandbox" && !sandboxAvailable()) return send(res, 400, { error: SANDBOX_NEEDS });
+      // From another machine the level only goes down (ask < safe < sandbox < god).
+      if (loosensApproval(level) && !fromHere(req)) return send(res, 403, { error: onlyHere("The approval level is raised", "From here you can lower it.") });
       setApprovalLevel(level);
       return send(res, 200, { ok: true, level: approvalLevel() });
     }
@@ -1430,11 +1456,16 @@ const server = http.createServer(async (req, res) => {
     // Your shell allow-list and "Always allow" commands ({ allow?: string[], exact?: string[] }).
     if (url.pathname === "/api/shell") {
       const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : undefined);
-      setShellLists({ allow: list(body.allow), exact: list(body.exact), deny: list(body.deny), ask: list(body.ask), allowHosts: list(body.allowHosts) });
+      const lists = { allow: list(body.allow), exact: list(body.exact), deny: list(body.deny), ask: list(body.ask), allowHosts: list(body.allowHosts) };
+      // From another machine the rules only get stricter (see loosensShell).
+      if (!fromHere(req) && loosensShell(lists)) return send(res, 403, { error: onlyHere("The shell rules are loosened (a line added to the allow-list, the always-allowed commands or the sandbox's hosts, or one changed or taken out of “Never run” or “Always ask”)", "From here you can make them stricter: take lines off the first three, add lines to the last two.") });
+      setShellLists(lists);
       return send(res, 200, { ok: true });
     }
     // The approval reviewer ({ on }): the smallest model clears routine commands before you're asked (reviewer.ts).
     if (url.pathname === "/api/shell-reviewer") {
+      // On, it runs commands you'd otherwise be asked about: a looser rule, so turned on here only.
+      if (body.on && shellSettings().reviewer !== true && !fromHere(req)) return send(res, 403, { error: onlyHere("The approval reviewer is turned on", "From here you can turn it off.") });
       setShellReviewer(!!body.on);
       return send(res, 200, { ok: true, on: !!body.on });
     }
@@ -1516,13 +1547,6 @@ const server = http.createServer(async (req, res) => {
       setAutoTitles(!!body.on);
       return send(res, 200, { ok: true, autoTitles: autoTitlesOn() });
     }
-    // Turn one of the page's plugins on or off ({ id, on }).
-    if (url.pathname === "/api/plugins") {
-      try { setPlugin(String(body.id ?? ""), !!body.on); }
-      catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
-      emit({ type: "changed", what: "settings" });
-      return send(res, 200, { ok: true, plugins: pluginsSet() });
-    }
 
     // Survey a project's folders ({ id }): the Scout reads through them and saves a brief to the project.
     if (url.pathname === "/api/project/survey") {
@@ -1556,6 +1580,7 @@ const server = http.createServer(async (req, res) => {
 
     // Let agents edit the camp's own source ({ on }).
     if (url.pathname === "/api/self-edit") {
+      if (body.on && !selfEditAllowed() && !fromHere(req)) return send(res, 403, { error: onlyHere(`The ${word("crew")} is let into the ${word("camp")}'s own code`, "From here you can turn that off.") });
       setSelfEdit(!!body.on);
       return send(res, 200, { ok: true, selfEdit: selfEditAllowed() });
     }

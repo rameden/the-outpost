@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "lib": [
-      "es2023",
-      "dom",
-      "dom.iterable"
-    ],
+    "lib": ["es2023", "dom", "dom.iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -14,17 +10,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "types": [
-      "node",
-      "vite/client"
-    ],
-    "paths": {
-      "@outpost/sdk": [
-        "./src/sdk.ts"
-      ]
-    }
+    "types": ["node", "vite/client"]
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

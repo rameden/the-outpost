@@ -11,7 +11,6 @@ import { Connectors, Skills } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
-import { PluginsPage } from "./PluginsPage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { chimeOn, playChime, setChime } from "../chime.ts";
 import { showCost } from "../prefs.ts";
@@ -406,14 +405,22 @@ function Crew({ S, refresh }: { S: CampState; refresh: () => void }) {
 }
 
 // ---------- Approvals ----------
-function ListEditor({ label, value, placeholder, onSave }: { label: string; value: string[]; placeholder: string; onSave: (lines: string[]) => void }) {
+// away: this browser isn't on the camp's own machine, where a rule can only be made stricter.
+// "shorter": the list may lose lines, not gain them (what's allowed); "longer": the other way
+// round (what's refused or asked about). A save that would loosen is held back here, with why;
+// the camp refuses it too (loosensShell in settings.ts).
+function ListEditor({ label, value, placeholder, onSave, away }: { label: string; value: string[]; placeholder: string; onSave: (lines: string[]) => void; away?: "shorter" | "longer" }) {
   const saved = value.join("\n");
   const [text, setText] = useState(saved);
   useEffect(() => setText(saved), [saved]);
+  const tidy = (l: string) => l.trim().replace(/\s+/g, " ");
+  const now = text.split("\n").map(tidy).filter(Boolean);
+  const loosens = away === "shorter" ? now.some((l) => !value.includes(l)) : away === "longer" ? value.some((l) => !now.includes(l)) : false;
   return (
     <div className="list-edit">
       <textarea aria-label={label} spellCheck={false} placeholder={placeholder} value={text} onChange={(ev) => setText(ev.target.value)} />
-      <div><button type="button" className="btn small primary" aria-label={`Save ${label.toLowerCase()}`} disabled={text === saved} onClick={() => onSave(text.split("\n"))}>Save</button></div>
+      <div><button type="button" className="btn small primary" aria-label={`Save ${label.toLowerCase()}`} disabled={text === saved || loosens} onClick={() => onSave(text.split("\n"))}>Save</button></div>
+      {loosens && <div className="field-hint" role="note">{away === "shorter" ? "Lines are added" : "Lines are changed or taken out"} only on the {w("camp")}'s own machine. From here you can {away === "shorter" ? "take lines out" : "add lines"}.</div>}
     </div>
   );
 }
@@ -421,35 +428,43 @@ function ListEditor({ label, value, placeholder, onSave }: { label: string; valu
 function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
   const st = S.settings;
   const noSandbox = S.sandbox.available ? undefined : "Needs macOS (sandbox-exec), or Linux with bubblewrap (bwrap) installed.";
+  // From another machine (through the relay, Tailscale or the network) these only get stricter:
+  // what would loosen them is shown as it is, and says where it's changed. The camp refuses it too.
+  const away = S.here === false;
+  const LEVELS = ["ask", "safe", "sandbox", "god"];
+  const higher = (id: string) => (away && LEVELS.indexOf(id) > LEVELS.indexOf(st.approval) ? `Raised only on the ${w("camp")}'s own machine.` : undefined);
+  const onlyThere = <span className="field-hint" role="note">Turned on only on the {w("camp")}'s own machine.</span>;
   return (
     <>
+      {away && <p className="set-note" role="note">You're on another machine. From here these can be made stricter, not looser: a higher approval level, a looser rule, the reviewer and letting the {w("crew")} edit the {w("camp")}'s own code are changed only on the {w("camp")}'s own machine, in a browser there.</p>}
       <Row label="Approval level" help={`What the ${w("crew")}'s shell commands may do without asking you. Plans, new scheduled jobs and connector writes always ask.`} wide>
         <Choices name="Approval level" value={st.approval} onChange={(level) => tryIt(() => api("/api/approvals", { level }), refresh)} options={[
           { id: "ask", label: "Ask every time", help: "Every command waits for your OK, even ls and git status. Your allow-lists below are ignored." },
-          { id: "safe", label: "Allow safe commands (default)", help: "Simple read-only commands (ls, git status, git diff…) and your allow-lists run; everything else asks." },
-          { id: "sandbox", label: "Sandbox the rest", help: `Everything else runs without asking, with no network and writes only inside the project and the ${w("crew")}’s own outputs. Installs and pushes still ask.`, disabled: noSandbox },
-          { id: "god", label: "God mode", help: `Every command runs without asking, outside the sandbox: installs, pushes, the network, and changes to any file you can change. Nothing stands between the ${w("crew")} and your computer except your “Never run” and “Always ask” rules below. Scheduled jobs still run in the sandbox.` },
+          { id: "safe", label: "Allow safe commands (default)", help: "Simple read-only commands (ls, git status, git diff…) and your allow-lists run; everything else asks.", disabled: higher("safe") },
+          { id: "sandbox", label: "Sandbox the rest", help: `Everything else runs without asking, with no network and writes only inside the project and the ${w("crew")}’s own outputs. Installs and pushes still ask.`, disabled: noSandbox ?? higher("sandbox") },
+          { id: "god", label: "God mode", help: `Every command runs without asking, outside the sandbox: installs, pushes, the network, and changes to any file you can change. Nothing stands between the ${w("crew")} and your computer except your “Never run” and “Always ask” rules below. Scheduled jobs still run in the sandbox.`, disabled: higher("god") },
         ]} />
       </Row>
       <Row label="Hosts the sandbox can reach" help={S.sandbox.kind === "bwrap"
         ? "On Linux the sandbox has no network at all for now, so this list isn't used: commands that need the network ask to run outside it."
         : <>Sandboxed commands can reach these hosts, and only these, through a proxy the {w("camp")} runs, so installs and fetches stop asking. One per line; <code>*.github.com</code> covers its subdomains. Tools that ignore proxy settings still get no network.</>} wide>
-        <ListEditor label="Hosts the sandbox can reach" value={st.allowHosts} placeholder={"registry.npmjs.org\npypi.org\nfiles.pythonhosted.org"} onSave={(allowHosts) => tryIt(() => api("/api/shell", { allowHosts }), refresh)} />
+        <ListEditor label="Hosts the sandbox can reach" value={st.allowHosts} placeholder={"registry.npmjs.org\npypi.org\nfiles.pythonhosted.org"} onSave={(allowHosts) => tryIt(() => api("/api/shell", { allowHosts }), refresh)} away={away ? "shorter" : undefined} />
       </Row>
       <Row label="Never run" help={<>Commands that never run, whatever else allows them: not with your OK, not in the sandbox. One per line; <code>*</code> matches anything, so <code>git push*</code> covers every push. Each part of a chained command is checked, so <code>cd web &amp;&amp; git push</code> is caught too.</>} wide>
-        <ListEditor label="Commands that never run" value={st.deny} placeholder={"git push*\nrm -rf *"} onSave={(deny) => tryIt(() => api("/api/shell", { deny }), refresh)} />
+        <ListEditor label="Commands that never run" value={st.deny} placeholder={"git push*\nrm -rf *"} onSave={(deny) => tryIt(() => api("/api/shell", { deny }), refresh)} away={away ? "longer" : undefined} />
       </Row>
       <Row label="Always ask" help="Commands that always wait for your OK, even where the sandbox or your allow-list would run them. Same patterns as above." wide>
-        <ListEditor label="Commands that always ask" value={st.askAlways} placeholder={"npm install*\ngit commit*"} onSave={(ask) => tryIt(() => api("/api/shell", { ask }), refresh)} />
+        <ListEditor label="Commands that always ask" value={st.askAlways} placeholder={"npm install*\ngit commit*"} onSave={(ask) => tryIt(() => api("/api/shell", { ask }), refresh)} away={away ? "longer" : undefined} />
       </Row>
       <Row label="Approval reviewer" help="Before a command waits for you, the smallest model looks at it. It can run a routine one (tests, builds, formatters, read-only commands) and says so in the feed, or leave it for you with its reason. It never declines for you, and it can't clear anything with sudo, deleting, pushing, installs or the network, or anything in a scheduled job. Each look is a small call.">
-        <label className="switch"><input type="checkbox" checked={st.reviewer} onChange={(ev) => tryIt(() => api("/api/shell-reviewer", { on: ev.target.checked }), refresh)} /> {st.reviewer ? "On" : "Off"}</label>
+        <label className="switch"><input type="checkbox" checked={st.reviewer} disabled={away && !st.reviewer} onChange={(ev) => tryIt(() => api("/api/shell-reviewer", { on: ev.target.checked }), refresh)} /> {st.reviewer ? "On" : "Off"}</label>
+        {away && !st.reviewer && onlyThere}
       </Row>
       <Row label="Approvals in plain words" help="When a shell command or a connector call waits for you, the smallest model adds a short summary to its card: what it does, what it changes, what it contacts outside this machine, and anything worth a second look. It's a reading aid: it never approves anything, it can be wrong, and what runs is the command on the card. Each summary is one small call (free if your small jobs run on a free model, under Models); the same command isn't summarized twice.">
         <label className="switch"><input type="checkbox" checked={st.plainApprovals} onChange={(ev) => tryIt(() => api("/api/plain-approvals", { on: ev.target.checked }), refresh)} /> {st.plainApprovals ? "On" : "Off"}</label>
       </Row>
       <Row label="Your allow-list" help={<>Command prefixes that run without asking, one per line. <code>npm run build</code> also allows <code>npm run build --watch</code>, and <code>*</code> matches anything (<code>npm run test:*</code>). Only simple commands match (no pipes, chaining or paths outside the {w("camp")}). Test runners run project code the {nameNow("Artificer")} can edit, so add them only if that's fine with you.</>} wide>
-        <ListEditor label="Allowed command prefixes" value={st.allow} placeholder={"npm run build\npytest"} onSave={(allow) => tryIt(() => api("/api/shell", { allow }), refresh)} />
+        <ListEditor label="Allowed command prefixes" value={st.allow} placeholder={"npm run build\npytest"} onSave={(allow) => tryIt(() => api("/api/shell", { allow }), refresh)} away={away ? "shorter" : undefined} />
       </Row>
       <Row label="Always allowed" help="Exact commands you chose “Always allow” for on an approval. Remove one to be asked again." wide>
         {!st.exact.length ? <div className="meta">None yet.</div> : (
@@ -466,8 +481,9 @@ function Approvals({ S, refresh }: { S: CampState; refresh: () => void }) {
         <div className="tool-chips" style={{ margin: 0 }}>{st.defaultAllow.map((c) => <code key={c}>{c}</code>)}</div>
       </Row>
       <Row label={`Let the ${w("crew")} edit the ${w("camp")}'s own code`} help={`src/, tests/, evals/ and package.json are read-only to the ${w("crew")} unless this is on. Leave it off unless you're asking them to improve the ${w("camp")} itself.`}>
-        <label className="switch"><input type="checkbox" checked={st.selfEdit}
+        <label className="switch"><input type="checkbox" checked={st.selfEdit} disabled={away && !st.selfEdit}
           onChange={async (ev) => { const on = ev.target.checked; if (!on || await ask({ title: `Let the ${w("crew")} change the ${w("camp")}'s own source code?`, action: "Let them", danger: true })) void tryIt(() => api("/api/self-edit", { on }), refresh); }} /> {st.selfEdit ? "On" : "Off"}</label>
+        {away && !st.selfEdit && onlyThere}
       </Row>
     </>
   );
@@ -698,7 +714,6 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "terminal" ? <TerminalActions S={S} refresh={refresh} />
             : section === "models" ? <ModelsPage S={S} refresh={refresh} />
             : section === "voice" ? <VoicePage S={S} refresh={refresh} />
-            : section === "plugins" ? <PluginsPage S={S} refresh={refresh} />
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
             : section === "memory" ? <MemoryPage S={S} refresh={refresh} />
             : section === "skills" ? <><Skills S={S} refresh={refresh} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>

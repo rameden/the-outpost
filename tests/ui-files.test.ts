@@ -152,7 +152,13 @@ test("the tour's films are drawn by the page itself, so its policy needs nothing
   const bare = page.slice(0, page.indexOf("<!-- films-code:start -->")) + page.slice(page.indexOf("<!-- films-code:end -->") + "<!-- films-code:end -->\n".length);
   assert.ok(withFilms(bare) === page, "the films' code is put back where it was");
   // Nothing to fetch: no media files, no frames, no requests from the films' code.
-  assert.doesNotMatch(page, /<(video|audio|iframe|source|img)\b/i);
+  assert.doesNotMatch(page, /<(video|audio|iframe|source)\b/i);
+  // The screenshots are written into the page itself (data: addresses), so they fetch nothing either: the Tour is
+  // served with img-src data: only (SPLASH_CSP), and the site deploys this one file. Each says what it shows.
+  for (const img of page.match(/<img\b[^>]*>/gi) ?? []) {
+    assert.match(img, /\ssrc="data:image\/webp;base64,/, "a picture in the Tour is inlined");
+    assert.match(img, /\salt="[^"]{20,}"/, "and has alt text");
+  }
   assert.doesNotMatch(page, /\bfetch\(|XMLHttpRequest|WebSocket|EventSource/);
   // The films take the page's colours; the few they need beyond those are set for light and for dark.
   const extra = [...page.matchAll(/--bad: (#[0-9a-f]{6});/g)].map((m) => m[1]);
