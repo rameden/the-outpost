@@ -4,6 +4,8 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, normalize } from "node:path";
+import { BUILT_IN } from "../src/builtin.ts";
 
 export type CaseContext = {
   result: { status: string; text: string };
@@ -16,7 +18,7 @@ export type Check = { name: string; required?: boolean; run: (c: CaseContext) =>
 export type EvalCase = {
   id: string;
   about: string;
-  agent?: "scout" | "scribe" | "artificer"; // talk to one directly; omit for a full expedition
+  agent?: Exclude<(typeof BUILT_IN)[number], "quartermaster">; // talk to one directly; omit for a full expedition
   request: string;
   files?: Record<string, string>; // created in the sandbox before the run
   approveShell?: string[];        // shell commands to approve if asked (everything else is declined)
@@ -28,6 +30,24 @@ const lines = (t: string) => t.trim().split("\n").filter((l) => l.trim()).length
 const used = (c: CaseContext, tool: string, pathPart?: string) =>
   c.tools.some((t) => t.tool === tool && (!pathPart || t.input.includes(pathPart)));
 const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+
+// A change with one real bug in it (the last item of every page is dropped), for the review cases.
+const PAGINATE_DIFF = `--- a/src/paginate.mjs
++++ b/src/paginate.mjs
+@@ -1,4 +1,6 @@
+-export function page(items, n, size) {
+-  return items.slice(n * size, n * size + size);
++// Pages count from 1 now, to match the URL.
++export function page(items, n, size) {
++  const start = (n - 1) * size;
++  return items.slice(start, start + size - 1);
+ }
+`;
+const REVIEW_FILES = {
+  "change.diff": PAGINATE_DIFF,
+  "src/paginate.mjs": "// Pages count from 1 now, to match the URL.\nexport function page(items, n, size) {\n  const start = (n - 1) * size;\n  return items.slice(start, start + size - 1);\n}\n",
+};
+const spotsTheBug = (t: string) => /size\s*-\s*1|off[- ]by[- ]one|drops?|last (item|element|one)|one (item|element) short|short by one/i.test(t) || "didn't name the dropped item";
 
 export const CASES: EvalCase[] = [
   {
@@ -190,6 +210,33 @@ export const CASES: EvalCase[] = [
     ],
   },
   {
+    id: "warden-review",
+    about: "The Warden reviews a change, finds the one real bug with its file, and posts nothing",
+    agent: "warden",
+    request: "Review the change in change.diff (it's already applied to src/paginate.mjs). Is it good to merge?",
+    files: REVIEW_FILES,
+    checks: [
+      { name: "finished", required: true, run: (c) => c.result.status === "done" },
+      { name: "names the dropped item", required: true, run: (c) => spotsTheBug(c.result.text) },
+      { name: "points at src/paginate.mjs", required: true, run: (c) => /paginate\.mjs/.test(c.result.text) || "no file named" },
+      { name: "changed nothing and posted nothing", required: true, run: (c) => (!used(c, "write_file") && !used(c, "edit_file") && !used(c, "post_review")) || "wrote or posted" },
+      { name: "doesn't call it good to merge", run: (c) => c.judge("PASS if the review's verdict is that the change should NOT be merged as it stands (fixes needed or rework). FAIL if it says it's good to merge.", c.result.text).then((v) => v.pass || v.reason) },
+    ],
+  },
+  {
+    id: "route-review-to-warden",
+    about: "Asked for a review, the Quartermaster sends the Warden, not the Artificer, and nothing is edited",
+    request: "Please review change.diff (it's already applied to src/paginate.mjs) and tell me whether it's safe to merge. Don't fix anything.",
+    files: REVIEW_FILES,
+    checks: [
+      { name: "finished", required: true, run: (c) => c.result.status === "done" },
+      { name: "dispatched the Warden", required: true, run: (c) => c.dispatches.some((d) => d.who === "Warden") || `dispatched: ${c.dispatches.map((d) => d.who).join(", ") || "nobody"}` },
+      { name: "didn't send the Artificer", required: true, run: (c) => !c.dispatches.some((d) => d.who === "Artificer") },
+      { name: "the file is untouched", required: true, run: () => readFileSync("src/paginate.mjs", "utf8") === REVIEW_FILES["src/paginate.mjs"] || "src/paginate.mjs was changed" },
+      { name: "reports the dropped item", run: (c) => spotsTheBug(c.result.text) },
+    ],
+  },
+  {
     id: "expedition-parallel",
     about: "The Quartermaster plans, sends two independent quests out together, and reports back",
     request:
@@ -212,3 +259,35 @@ export const CASES: EvalCase[] = [
     ],
   },
 ];
+
+// What --dry checks without calling a model: every case is well formed, so a typo shows up in CI
+// rather than on a paid run. Returns the problems found (none: the set is good).
+const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export function caseProblems(cases: EvalCase[] = CASES): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const crew = new Set<string>(BUILT_IN.filter((id) => id !== "quartermaster"));
+  for (const c of cases) {
+    const at = `${c.id || "(no id)"}:`;
+    if (!KEBAB.test(c.id ?? "")) out.push(`${at} the id should be lower-case words joined by hyphens`);
+    if (seen.has(c.id)) out.push(`${at} the id is used twice`);
+    seen.add(c.id);
+    if (!c.about?.trim()) out.push(`${at} says nothing about what it checks`);
+    if (!c.request?.trim()) out.push(`${at} has no request`);
+    if (c.agent !== undefined && !crew.has(c.agent)) out.push(`${at} "${c.agent}" isn't one of the crew (${[...crew].join(", ")})`);
+    if (!c.checks?.length) out.push(`${at} has no checks`);
+    else if (!c.checks.some((x) => x.required)) out.push(`${at} has no required check, so it can never fail`);
+    const names = new Set<string>();
+    for (const x of c.checks ?? []) {
+      if (!x.name?.trim()) out.push(`${at} a check has no name`);
+      if (names.has(x.name)) out.push(`${at} two checks are called "${x.name}"`);
+      names.add(x.name);
+      if (typeof x.run !== "function") out.push(`${at} the check "${x.name}" has nothing to run`);
+    }
+    for (const path of Object.keys(c.files ?? {})) {
+      if (isAbsolute(path) || normalize(path).startsWith("..")) out.push(`${at} the file ${path} would land outside the sandbox`);
+    }
+    for (const cmd of c.approveShell ?? []) if (!cmd.trim() || cmd.includes("\n")) out.push(`${at} an approved shell command should be one line`);
+  }
+  return out;
+}
