@@ -886,11 +886,11 @@ footer .outpost-sub { font-size: 10px; }
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">One example Jira ticket, from picking it up to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review. It loops. Click the stage to pause.</p>
+      <p class="film-note">One example Jira ticket, from kicking off <span data-word='a quest'>a mission</span> to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-audit" role="tabpanel" aria-labelledby="film-tab-audit" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
-      <p class="film-note">Three findings from a SOC 2 Type I and ISO 27001 readiness review. The first goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops. Click the stage to pause.</p>
+      <p class="film-note">Three findings from a SOC 2 Type I and ISO 27001 readiness review. You kick off <span data-word='a quest'>a mission</span> from the first, and it goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops. Click the stage to pause.</p>
     </div>
   </div>
 </section>
@@ -1578,6 +1578,8 @@ footer .outpost-sub { font-size: 10px; }
 .cmd-t .p { fill: var(--night-muted); }
 .scene-l { font-size: 12px; letter-spacing: .12em; fill: var(--faint); }
 .cap { font-size: 42px; fill: var(--ink); }
+.cap-eb { font-size: 12px; letter-spacing: .15em; fill: var(--accent); }
+.roll { font-size: 11.5px; letter-spacing: .14em; }
 /* Route bar: the tour's numbered pins and dashed trail */
 .pin { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; transition: fill .25s, stroke .25s; }
 .pin-n { font-size: 12px; fill: var(--faint); transition: fill .25s; }
@@ -1687,7 +1689,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </template>
 <template id="film-ticket-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system. The title card reads Your outpost, on localhost. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you kick off a mission from the ticket, the plan waits for your OK, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. Last, the orbits close back into the mark, over the line Your outpost. Your crew. Your call. and the crew's names, each in its own colour.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -1713,7 +1715,7 @@ h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
 </template>
 <template id="film-audit-stage">
   <div class="stage" id="frame">
-    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system, working through three findings from a SOC 2 Type I and ISO 27001 readiness review. The Commander is the sun and the crew are planets. The view goes close on each in turn as the first finding, an account with no role that can void invoices, becomes a reviewed pull request: you start the ticket and approve the plan, the Navigator finds the gap, the Engineer changes one line and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. The other two findings then go round the same crew.">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system, working through three findings from a SOC 2 Type I and ISO 27001 readiness review. The Commander is the sun and the crew are planets. The title card reads Your outpost, on localhost. The view goes close on each in turn as the first finding, an account with no role that can void invoices, becomes a reviewed pull request: you kick off a mission from the finding, the plan waits for your OK, the Navigator finds the gap, the Engineer changes one line and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. The other two findings then go round the same crew. Last, the orbits close back into the mark, over the line Your outpost. Your crew. Your call. and the crew's names, each in its own colour.">
       <defs>
         <radialGradient id="glow">
           <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
@@ -3652,7 +3654,7 @@ const CREW = [
 const QM = { key: 'qm', name: `${TP.name('qm')}`, sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
-// The Test Pilot has no quest on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
+// The Test Pilot has no mission on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
 const PILOT = { key: 'pilot', name: `${TP.name('pilot')}`, slot: 5, i: 4, R: 292 };
 // how close the camera is on a body: 0 is the whole system, 1 is the close-up
 const focusOf = (b, t) => seg(t, b.zi, b.zi + 1) * (1 - seg(t, b.zo, b.zo + 1));
@@ -3698,7 +3700,7 @@ function camera(t) {
 }
 const proj = (cam, p) => [cam.S[0] + (p[0] - cam.F[0]) * cam.z, cam.S[1] + (p[1] - cam.F[1]) * cam.z];
 
-// the sun's dot breathes; while a quest is out it breathes quicker and sends a ring out
+// the sun's dot breathes; while a mission is out it breathes quicker and sends a ring out
 const act = t => seg(t, 13.6, 14.2) * (1 - seg(t, FIN - .2, FIN + .4));
 const PH = [0];
 for (let i = 1; i <= Math.round(DUR * 20); i++) PH.push(PH[i - 1] + (1 + .43 * act((i - .5) / 20)) / 20);
@@ -3744,9 +3746,9 @@ function contour(i, ph, R) {
   }
   return d + 'Z';
 }
-// a ping goes out from the sun when the system opens, when the ticket lands, each time a quest leaves or a report comes home, and for the logo
+// a ping goes out from the sun when the system opens, when the ticket lands, each time a mission leaves or a report comes home, and for the logo
 const PINGS = [1.35, 2.8, 4.15, ...CREW.flatMap(c => [c.a - 1.4, c.b + 1.4]), FIN + 1.05, FIN + 3.1].sort((a, b) => a - b);
-// orbits, the tail each planet leaves along its own, the comet that carries a quest out and a report home
+// orbits, the tail each planet leaves along its own, the comet that carries a mission out and a report home
 CREW.forEach(c => {
   c.orbit = el('circle', { class: 'sorbit' }, gWorld);
   c.orbitTone = el('circle', { class: 'sorbit tone c-' + c.key }, gWorld);
@@ -3834,15 +3836,16 @@ function layoutRoute() {
 
 // ---- captions: one for each close-up, over the panel ----
 const CAPX = 470;
+// each has an eyebrow over it in the accent, as the captions in Ground to sky do
 const CAPS = [
-  ['Start from a ticket.', 4.9, 9.3],
-  ['You approve the plan.', 10.1, 14.4],
-  [`The ${TP.name('scout')} finds the bug.`, 17.0, 20.3],
-  [`The ${TP.name('art')} fixes it.`, 23.3, 28.9],
-  ['You make the commit.', 29.3, 31.7],
-  ['Nothing leaves without your click.', 34.7, 39.2],
-  [`Then the ${TP.name('warden')} reviews it.`, 42.2, 46.4],
-].map(([s, a, b]) => ({ a, b, words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
+  ['THE TICKET', `Kick off ${TP.a('quest')} from a ticket.`, 4.9, 9.3],
+  ['THE PLAN', 'The plan waits for your OK.', 10.1, 14.4],
+  ['THE WORK', `The ${TP.name('scout')} finds the bug.`, 17.0, 20.3],
+  ['THE WORK', `The ${TP.name('art')} fixes it, and proves it.`, 23.3, 28.9],
+  ['YOUR CLICK', 'You make the commit.', 29.3, 31.7],
+  ['YOUR CLICK', 'Nothing leaves without your click.', 34.7, 39.2],
+  ['THE REVIEW', `The ${TP.name('warden')} reviews it.`, 42.2, 46.4],
+].map(([eb, s, a, b]) => ({ a, b, eb: tx(svg, CAPX + 2, 104, 'm cap-eb', eb), words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
 const capProbe = [tx(svg, 0, -200, 'd cap', 'xx'), tx(svg, 0, -200, 'd cap', 'x x')];
 function layoutCaps() {
   const sp = capProbe[1].getComputedTextLength() - capProbe[0].getComputedTextLength();
@@ -4057,7 +4060,7 @@ const wdChip = chip(gWd, 494, 556, 'Posted on pull request #418');
 
 // ---- title card and the name, drawn ----
 const gTitle = el('g');
-tx(gTitle, 640, 190, 'm eyebrow', `${TP.A('crew').toUpperCase()} ON YOUR OWN MACHINE`, { 'text-anchor': 'middle' });
+tx(gTitle, 640, 190, 'm eyebrow', 'YOUR OUTPOST, ON LOCALHOST', { 'text-anchor': 'middle' });
 const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'f-ink' }, tag, `Your outpost. Your ${TP.w('crew')}. `);
 el('tspan', { class: 'f-accent' }, tag, 'Your call.');
@@ -4091,7 +4094,12 @@ function ringAt(idx, t) {
 const gName = el('g');
 const NAME = [['Your outpost.', 0], [`Your ${TP.w('crew')}.`, 0], ['Your call.', 1]]
   .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
-const nameSub = tx(svg, 640, 506, 'b name-sub', `The ${TP.w('crew')} you'd be if there were more of you.`, { 'text-anchor': 'middle' });
+// under it, the roll call, each name in its own colour, as Ground to sky ends
+const nameSub = tx(svg, 640, 506, 'm roll', null, { 'text-anchor': 'middle' });
+[['qm', `${TP.name('qm').toUpperCase()}`], ['scout', `${TP.name('scout').toUpperCase()}`], ['scribe', `${TP.name('scribe').toUpperCase()}`], ['art', `${TP.name('art').toUpperCase()}`], ['warden', `${TP.name('warden').toUpperCase()}`], ['pilot', `${TP.name('pilot').toUpperCase()}`]].forEach(([k, n], i) => {
+  if (i) el('tspan', { class: 'f-faint' }, nameSub, '  ·  ');
+  el('tspan', { class: 'c-' + k + ' f-tone' }, nameSub, n);
+});
 function layoutName() {
   NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
   const sp = 18;
@@ -4156,7 +4164,7 @@ function render(t) {
   });
 
   PILOT.orbit.setAttribute('r', pilotR(t).toFixed(2)); O(PILOT.orbit, clamp((expand(t, 3) - .1) / .4) * .85);
-  // orbits, the planets' tails, quests going out and reports coming home
+  // orbits, the planets' tails, missions going out and reports coming home
   const speed = 1 - .94 * anyFocus(t);
   CREW.forEach((c, j) => {
     const r = orbR(t, j), e = clamp((expand(t, j) - .1) / .4), a = angleOf(c, t), P = [r * Math.cos(a), r * Math.sin(a)];
@@ -4217,10 +4225,14 @@ function render(t) {
   });
 
   // captions
-  CAPS.forEach(c => c.words.forEach((w, j) => {
-    const a = c.a + .08 * j, i = seg(t, a, a + .4, ease.out), y = 1 - seg(t, a, a + .55, ease.back), o = seg(t, c.b - .35, c.b, ease.in);
-    O(w.n, i * (1 - o)); w.n.setAttribute('transform', 'translate(0 ' + (y * 30 - o * 12).toFixed(2) + ')');
-  }));
+  CAPS.forEach(c => {
+    const o = seg(t, c.b - .35, c.b, ease.in), ei = seg(t, c.a - .1, c.a + .3, ease.out);
+    O(c.eb, ei * (1 - o)); c.eb.setAttribute('transform', 'translate(0 ' + ((1 - ei) * 10 - o * 6).toFixed(2) + ')');
+    c.words.forEach((w, j) => {
+      const a = c.a + .08 * j, i = seg(t, a, a + .4, ease.out), y = 1 - seg(t, a, a + .55, ease.back);
+      O(w.n, i * (1 - o)); w.n.setAttribute('transform', 'translate(0 ' + (y * 30 - o * 12).toFixed(2) + ')');
+    });
+  });
 
   // the ticket arrives from off stage and drops into the sun
   const ck = seg(t, 3.3, 4.15);
@@ -4443,11 +4455,11 @@ const CREW = [
 const QM = { key: 'qm', name: `${TP.name('qm')}`, sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
 CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
 const BODIES = [QM, ...CREW];
-// The Test Pilot has no quest on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
+// The Test Pilot has no mission on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
 const PILOT = { key: 'pilot', name: `${TP.name('pilot')}`, slot: 5, i: 4, R: 292 };
 // after the first finding, the next two go round the crew quickly: T is when a finding's tag leaves the list
 const LAPS = [48.2, 51.7].map(T => ({ T }));
-const lapOut = (L, j) => L.T + .7 + .3 * j, lapBack = (L, j) => L.T + 1.8 + .3 * j;   // a quest leaves the sun; its report sets off home
+const lapOut = (L, j) => L.T + .7 + .3 * j, lapBack = (L, j) => L.T + 1.8 + .3 * j;   // a mission leaves the sun; its report sets off home
 // how close the camera is on a body: 0 is the whole system, 1 is the close-up
 const focusOf = (b, t) => seg(t, b.zi, b.zi + 1) * (1 - seg(t, b.zo, b.zo + 1));
 const anyFocus = t => BODIES.reduce((m, b) => Math.max(m, focusOf(b, t)), 0);
@@ -4492,7 +4504,7 @@ function camera(t) {
 }
 const proj = (cam, p) => [cam.S[0] + (p[0] - cam.F[0]) * cam.z, cam.S[1] + (p[1] - cam.F[1]) * cam.z];
 
-// the sun's dot breathes; while a quest is out it breathes quicker and sends a ring out
+// the sun's dot breathes; while a mission is out it breathes quicker and sends a ring out
 const act = t => seg(t, 13.6, 14.2) * (1 - seg(t, FIN - .2, FIN + .4));
 const PH = [0];
 for (let i = 1; i <= Math.round(DUR * 20); i++) PH.push(PH[i - 1] + (1 + .43 * act((i - .5) / 20)) / 20);
@@ -4538,9 +4550,9 @@ function contour(i, ph, R) {
   }
   return d + 'Z';
 }
-// a ping goes out from the sun when the system opens, when the ticket lands, each time a quest leaves or a report comes home, and for the logo
+// a ping goes out from the sun when the system opens, when the ticket lands, each time a mission leaves or a report comes home, and for the logo
 const PINGS = [1.35, 2.8, 4.15, ...CREW.flatMap(c => [c.a - 1.4, c.b + 1.4]), ...LAPS.flatMap(L => [L.T + .7, L.T + 3.3]), FIN + 1.05, FIN + 3.1].sort((a, b) => a - b);
-// orbits, the tail each planet leaves along its own, the comet that carries a quest out and a report home
+// orbits, the tail each planet leaves along its own, the comet that carries a mission out and a report home
 CREW.forEach(c => {
   c.orbit = el('circle', { class: 'sorbit' }, gWorld);
   c.orbitTone = el('circle', { class: 'sorbit tone c-' + c.key }, gWorld);
@@ -4628,15 +4640,16 @@ function layoutRoute() {
 
 // ---- captions: one for each close-up, over the panel ----
 const CAPX = 470;
+// each has an eyebrow over it in the accent, as the captions in Ground to sky do
 const CAPS = [
-  ['Start from an audit finding.', 4.9, 9.3],
-  ['You approve the plan.', 10.1, 14.4],
-  [`The ${TP.name('scout')} finds the gap.`, 17.0, 20.3],
-  [`The ${TP.name('art')} closes it.`, 23.3, 28.9],
-  ['You make the commit.', 29.3, 31.7],
-  ['Nothing leaves without your click.', 34.7, 39.2],
-  [`Then the ${TP.name('warden')} reviews it.`, 42.2, 46.4],
-].map(([s, a, b]) => ({ a, b, words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
+  ['THE FINDING', `Kick off ${TP.a('quest')} from a finding.`, 4.9, 9.3],
+  ['THE PLAN', 'The plan waits for your OK.', 10.1, 14.4],
+  ['THE WORK', `The ${TP.name('scout')} finds the gap.`, 17.0, 20.3],
+  ['THE WORK', `The ${TP.name('art')} closes it, and proves it.`, 23.3, 28.9],
+  ['YOUR CLICK', 'You make the commit.', 29.3, 31.7],
+  ['YOUR CLICK', 'Nothing leaves without your click.', 34.7, 39.2],
+  ['THE REVIEW', `The ${TP.name('warden')} reviews it.`, 42.2, 46.4],
+].map(([eb, s, a, b]) => ({ a, b, eb: tx(svg, CAPX + 2, 104, 'm cap-eb', eb), words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
 const capProbe = [tx(svg, 0, -200, 'd cap', 'xx'), tx(svg, 0, -200, 'd cap', 'x x')];
 function layoutCaps() {
   const sp = capProbe[1].getComputedTextLength() - capProbe[0].getComputedTextLength();
@@ -4698,10 +4711,10 @@ FIND.forEach(f => {
 });
 // beside the system while the last two go round, and the tally at the end
 const WCAPS = [
-  { lines: ['Then the next', 'finding.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[0].T + .1, b: LAPS[1].T - .1 },
-  { lines: ['And the', 'next.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[1].T + .1, b: LAPS[1].T + 3.5 },
-  { lines: ['Three findings,', 'three reviewed', 'pull requests.'], sub: null, a: LAPS[1].T + 3.7, b: FIN + .15 },
-].map(c => ({ ...c, n: c.lines.map((line, k) => tx(svg, 56, 322 + k * 44, 'd wcap', line)), s: c.sub ? tx(svg, 57, 322 + c.lines.length * 44 - 8, 'b t16 f-muted', c.sub) : null }));
+  { eb: 'THE NEXT FINDING', lines: ['Then the next', 'finding.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[0].T + .1, b: LAPS[1].T - .1 },
+  { eb: 'THE NEXT FINDING', lines: ['And the', 'next.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[1].T + .1, b: LAPS[1].T + 3.5 },
+  { eb: 'THREE FOR THREE', lines: ['Three findings,', 'three reviewed', 'pull requests.'], sub: null, a: LAPS[1].T + 3.7, b: FIN + .15 },
+].map(c => ({ ...c, e: tx(svg, 58, 274, 'm cap-eb', c.eb), n: c.lines.map((line, k) => tx(svg, 56, 322 + k * 44, 'd wcap', line)), s: c.sub ? tx(svg, 57, 322 + c.lines.length * 44 - 8, 'b t16 f-muted', c.sub) : null }));
 
 // ---- close on the sun: the ticket ----
 const gTk = el('g', { class: 'shadow' });
@@ -4885,7 +4898,7 @@ const wdChip = chip(gWd, 494, 556, 'Posted on pull request #1');
 
 // ---- title card and the name, drawn ----
 const gTitle = el('g');
-tx(gTitle, 640, 190, 'm eyebrow', `${TP.A('crew').toUpperCase()} ON YOUR OWN MACHINE`, { 'text-anchor': 'middle' });
+tx(gTitle, 640, 190, 'm eyebrow', 'YOUR OUTPOST, ON LOCALHOST', { 'text-anchor': 'middle' });
 const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
 el('tspan', { class: 'f-ink' }, tag, 'Your audit findings ');
 el('tspan', { class: 'f-accent' }, tag, `have ${TP.a('crew')}.`);
@@ -4919,7 +4932,12 @@ function ringAt(idx, t) {
 const gName = el('g');
 const NAME = [['Your outpost.', 0], [`Your ${TP.w('crew')}.`, 0], ['Your call.', 1]]
   .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
-const nameSub = tx(svg, 640, 506, 'b name-sub', `The ${TP.w('crew')} you'd be if there were more of you.`, { 'text-anchor': 'middle' });
+// under it, the roll call, each name in its own colour, as Ground to sky ends
+const nameSub = tx(svg, 640, 506, 'm roll', null, { 'text-anchor': 'middle' });
+[['qm', `${TP.name('qm').toUpperCase()}`], ['scout', `${TP.name('scout').toUpperCase()}`], ['scribe', `${TP.name('scribe').toUpperCase()}`], ['art', `${TP.name('art').toUpperCase()}`], ['warden', `${TP.name('warden').toUpperCase()}`], ['pilot', `${TP.name('pilot').toUpperCase()}`]].forEach(([k, n], i) => {
+  if (i) el('tspan', { class: 'f-faint' }, nameSub, '  ·  ');
+  el('tspan', { class: 'c-' + k + ' f-tone' }, nameSub, n);
+});
 function layoutName() {
   NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
   const sp = 18;
@@ -4984,7 +5002,7 @@ function render(t) {
   });
 
   PILOT.orbit.setAttribute('r', pilotR(t).toFixed(2)); O(PILOT.orbit, clamp((expand(t, 3) - .1) / .4) * .85);
-  // orbits, the planets' tails, quests going out and reports coming home
+  // orbits, the planets' tails, missions going out and reports coming home
   const speed = 1 - .94 * anyFocus(t);
   CREW.forEach((c, j) => {
     const r = orbR(t, j), e = clamp((expand(t, j) - .1) / .4), a = angleOf(c, t), P = [r * Math.cos(a), r * Math.sin(a)];
@@ -5047,10 +5065,14 @@ function render(t) {
   });
 
   // captions
-  CAPS.forEach(c => c.words.forEach((w, j) => {
-    const a = c.a + .08 * j, i = seg(t, a, a + .4, ease.out), y = 1 - seg(t, a, a + .55, ease.back), o = seg(t, c.b - .35, c.b, ease.in);
-    O(w.n, i * (1 - o)); w.n.setAttribute('transform', 'translate(0 ' + (y * 30 - o * 12).toFixed(2) + ')');
-  }));
+  CAPS.forEach(c => {
+    const o = seg(t, c.b - .35, c.b, ease.in), ei = seg(t, c.a - .1, c.a + .3, ease.out);
+    O(c.eb, ei * (1 - o)); c.eb.setAttribute('transform', 'translate(0 ' + ((1 - ei) * 10 - o * 6).toFixed(2) + ')');
+    c.words.forEach((w, j) => {
+      const a = c.a + .08 * j, i = seg(t, a, a + .4, ease.out), y = 1 - seg(t, a, a + .55, ease.back);
+      O(w.n, i * (1 - o)); w.n.setAttribute('transform', 'translate(0 ' + (y * 30 - o * 12).toFixed(2) + ')');
+    });
+  });
 
   // the findings wait on the right of a wide view; each one's tag drops into the sun, and its row keeps score
   const lin = seg(t, 2.6, 3.1, ease.out);
@@ -5068,6 +5090,8 @@ function render(t) {
     const out = seg(t, c.b - .3, c.b, ease.in);
     c.n.forEach((n, k) => { const a = c.a + .12 * k, i = seg(t, a, a + .4, ease.out); O(n, i * (1 - out)); n.setAttribute('transform', 'translate(0 ' + ((1 - seg(t, a, a + .55, ease.back)) * 22 - out * 10).toFixed(2) + ')'); });
     if (c.s) O(c.s, seg(t, c.a + .5, c.a + .9) * (1 - out));
+    const ei = seg(t, c.a - .1, c.a + .3, ease.out);
+    O(c.e, ei * (1 - out)); c.e.setAttribute('transform', 'translate(0 ' + ((1 - ei) * 10 - out * 6).toFixed(2) + ')');
   });
 
   // close on the sun: the ticket fills itself in, you start the work, it folds back into the Commander
