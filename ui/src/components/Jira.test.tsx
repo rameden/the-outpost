@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState } from "../types.ts";
 import { ConfirmHost } from "./Confirm.tsx";
-import { JIRA_PRESETS, JiraConnection, JiraPicker } from "./Jira.tsx";
+import { JIRA_PRESETS, JiraConnection, JiraFilter, JiraPicker } from "./Jira.tsx";
 
 const calls: { url: string; body?: any }[] = [];
 let answer: (url: string, body?: any) => { status?: number; json: unknown } = () => ({ json: {} });
@@ -44,6 +44,16 @@ test("linking: the address, email and token are sent to be checked; a refusal is
   expect((screen.getByLabelText("API token") as HTMLInputElement).value).toBe(""); // not kept in the page once it's sent
 });
 
+test("linked: the connection has no filter of its own, it points at the Tickets page", () => {
+  const said = vi.fn();
+  window.addEventListener("camp:ask", said);
+  render(<JiraConnection S={on()} refresh={() => {}} />);
+  expect(screen.queryByLabelText("Filter (JQL)")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Open Tickets" }));
+  expect((said.mock.calls[0][0] as CustomEvent).detail).toEqual({ do: "command", name: "tickets" });
+  window.removeEventListener("camp:ask", said);
+});
+
 test("linked: it says where and as whom, and can be unlinked; set in the environment, it says to remove it there", async () => {
   const refresh = vi.fn();
   const { rerender } = render(<><JiraConnection S={on()} refresh={refresh} /><ConfirmHost /></>);
@@ -59,7 +69,7 @@ test("linked: it says where and as whom, and can be unlinked; set in the environ
   expect(screen.getByText(/JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN/)).toBeTruthy();
 });
 
-test("which tickets are pulled in is set here, with the account: try a filter, then keep it", async () => {
+test("which tickets are pulled in is set on the Tickets page: try a filter, then keep it", async () => {
   const refresh = vi.fn();
   const pull = (jql: string, saved: string, keys: string[]) => ({ json: { jql, saved, more: false, tickets: keys.map((key) => ({ key })) } });
   answer = (url, body) => {
@@ -67,7 +77,7 @@ test("which tickets are pulled in is set here, with the account: try a filter, t
     if (jql.includes("BROKEN")) return { status: 400, json: { error: "Jira refused the request. Error in the JQL Query." } };
     return pull(jql, url === "/api/jira/filter" ? jql : MINE, jql.includes("MP") ? ["MP-544", "MP-601"] : []);
   };
-  const { rerender } = render(<><JiraConnection S={on()} refresh={refresh} /><ConfirmHost /></>);
+  const { rerender } = render(<JiraFilter kept={MINE} refresh={refresh} />);
   const box = screen.getByLabelText("Filter (JQL)") as HTMLInputElement;
   expect(box.value).toBe(MINE);
   expect((screen.getByLabelText("A usual filter") as HTMLSelectElement).value).toBe(MINE);
@@ -87,7 +97,7 @@ test("which tickets are pulled in is set here, with the account: try a filter, t
   await waitFor(() => expect(refresh).toHaveBeenCalled());
   expect(calls.at(-1)).toEqual({ url: "/api/jira/filter", body: { jql: "project = MP" } });
   expect(screen.getByRole("status").textContent).toContain("Kept.");
-  rerender(<JiraConnection S={on("saved", "project = MP")} refresh={refresh} />);
+  rerender(<JiraFilter kept="project = MP" refresh={refresh} />);
   expect(screen.getByText(/This is the filter in use/)).toBeTruthy();
 
   // One Jira rejects says why, and isn't kept; a usual filter is one pick away.

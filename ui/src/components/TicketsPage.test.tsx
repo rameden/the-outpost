@@ -28,7 +28,7 @@ afterEach(() => { cleanup(); closeTicket(); closeDrafting(); vi.unstubAllGlobals
 
 const S = (connected: boolean) => ({ jira: connected ? { connected: true, siteUrl: "https://team.atlassian.net", filter: "assignee = currentUser()" } : undefined,
   history: { projects: [{ id: "general", name: "General" }, { id: "p1", name: "Web app" }], conversations: [] } }) as unknown as CampState;
-const show = (connected = true) => render(<TicketsPage S={S(connected)} onAttach={() => {}} onFilter={() => {}} onStart={() => {}} />);
+const show = (connected = true) => render(<TicketsPage S={S(connected)} onAttach={() => {}} refresh={() => {}} onStart={() => {}} />);
 const cards = () => [...document.querySelectorAll(".jira-card")].map((c) => `${c.querySelector(".mae-mark") ? "◉ " : ""}${c.querySelector(".jira-key")!.textContent}`);
 
 test("Mae's tickets and Jira's are one set of cards, what's being worked on first, Mae's marked as hers", async () => {
@@ -158,4 +158,40 @@ test("the quick fill: a title, the checklist or list as the criteria, and the re
   // A plan's own heading says more than its conversation's name.
   expect(roughTicket("Plan: Banner toggle\n\n1. Add it", "lets write up a plan").title).toBe("Banner toggle");
   expect(roughTicket("## Banner toggle\n- Add it", "lets write up a plan")).toEqual({ title: "Banner toggle", criteria: ["Add it"], description: "- Add it" });
+});
+
+test("keyboard: Enter opens a card, the arrows walk the cards, Shift and an arrow move a Mae ticket along", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    calls.push(`${init?.method ?? "GET"} ${url}`);
+    if (url === "/api/tickets") return new Response(JSON.stringify({ tickets: MAE, ticket: { ...MAE[0], status: "doing" } }));
+    return new Response(JSON.stringify({ jql: "", saved: "", tickets: JIRA, more: false }));
+  }));
+  show();
+  await waitFor(() => expect(cards().length).toBe(4));
+  const first = screen.getByRole("button", { name: "MAE-1: Write the tour" });
+  first.focus();
+  fireEvent.keyDown(first, { key: "ArrowRight" });
+  expect(document.activeElement!.getAttribute("aria-label")).toBe("MP-544: Open button on file citations");
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowLeft" });
+  expect(document.activeElement).toBe(first);
+  // Shift+Right moves the Mae ticket on a state (To do → In progress), and says so aloud.
+  const todo = screen.getByRole("button", { name: "MAE-2: Tidy the settings page" });
+  fireEvent.keyDown(todo, { key: "ArrowRight", shiftKey: true });
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe("MAE-2 moved to In progress"));
+  expect(calls).toContain("POST /api/tickets");
+  // A Jira card isn't moved from here.
+  const before = calls.length;
+  fireEvent.keyDown(screen.getByRole("button", { name: "MP-601: Fix the nav" }), { key: "ArrowRight", shiftKey: true });
+  expect(calls.length).toBe(before);
+});
+
+test("the Jira filter is changed on this page, folded away until asked for", async () => {
+  show();
+  await waitFor(() => expect(cards().length).toBe(4));
+  expect(screen.queryByLabelText("Filter (JQL)")).toBeNull();
+  const open = screen.getByRole("button", { name: "Change the filter" });
+  expect(open.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(open);
+  expect((screen.getByLabelText("Filter (JQL)") as HTMLInputElement).value).toBe("assignee = currentUser()");
+  expect(screen.getByRole("button", { name: "Hide the filter" }).getAttribute("aria-expanded")).toBe("true");
 });

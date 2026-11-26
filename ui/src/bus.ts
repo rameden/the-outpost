@@ -43,6 +43,7 @@ export const COMMANDS: { name: string; arg?: string; does: string }[] = [
   { name: "good", arg: "note", does: "Rate the last answer 👍, with an optional note" },
   { name: "bad", arg: "note", does: "Rate the last answer 👎, with an optional note" },
   { name: "ticket", does: "Start a ticket: pick it, check it, say where and who" },
+  { name: "tickets", does: "Open Tickets: Mae's own and Jira's, and which Jira ones show" },
   { name: "memory", get does() { return `Open Memory: what the ${w("crew")} remembers, and the wiki`; } },
   { name: "constellation", get does() { return `See everything the ${w("crew")} remembers as a map of stars, full screen`; } },
   { name: "layout", does: "Arrange the page's zones" },

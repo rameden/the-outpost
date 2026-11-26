@@ -405,6 +405,7 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "layout") setLayoutEditor({});
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
+    else if (name === "tickets") { setSettings(null); setView({ kind: "tickets" }); }
     else if (name === "memory" || name === "wiki") { setSettings(null); setView(arg?.trim() ? { kind: "memory", tab: "member", member: arg.trim() } : { kind: "memory" }); }
     else if (name === "constellation") openMap();
     else if (name === "ticket") setWizard({});
@@ -552,7 +553,7 @@ export function App({ store }: { store: FeedStore }) {
                   {page === "project" && S && project ? (
                     <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
                   ) : page === "tickets" && S ? (
-                    <TicketsPage S={S} onAttach={attachTicket} onFilter={() => openSettings("connectors")} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
+                    <TicketsPage S={S} onAttach={attachTicket} refresh={refresh} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
                   ) : page === "memory" && S && view.kind === "memory" ? (
                     <MemoryHome S={S} tab={view.tab ?? "list"} member={view.member} page={view.page} setView={setView} refresh={refresh} onOpenMap={openMap} onOpenSettings={() => openSettings("memory")} />
                   ) : page === "activity" && S && view.kind === "activity" ? (
