@@ -488,13 +488,14 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .hist-nav-item.selected { background: var(--surface-2); font-weight: 600; }
 .hist-count { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--good); }
 .hist-search { margin: 2px 4px 4px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); color: var(--text); font-size: 14px; min-width: 0; }
-/* Search, once it's clicked: the same row, now a box to type in. Focus is the row's solid edge. */
+/* Search: a box to type in at the top of the menu. Focus is the row's solid edge. */
 .hist-search-row { display: flex; align-items: center; gap: 10px; padding: 0 2px 0 9px; border: 1px solid var(--field); border-radius: 8px; background: var(--bg); color: var(--muted); }
 .hist-search-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .hist-search-row > .hist-search { flex: 1; min-width: 0; margin: 0; padding: 5px 0; border: 0; border-radius: 0; background: none; }
 .hist-search-row > .hist-search:focus-visible { outline: none; }
 .hist-search-row > .hist-icon { width: 24px; height: 24px; }
 .hist-search-row > .hist-icon > .icon { width: 13px; height: 13px; }
+.hist-search-top { min-height: 32px; margin-bottom: 6px; } /* the clear button coming and going doesn't move the menu */
 .hist-projects { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px; padding-top: 8px; border-top: 1px solid var(--border); margin-top: 4px; }
 .hist-project { min-width: 0; }
 .hist-project-head { display: flex; align-items: center; gap: 2px; padding: 0 2px 0 4px; }

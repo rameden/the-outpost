@@ -59,7 +59,6 @@ export const History = memo(function History({ S, store, view, setView, patch, o
   const waiting = S?.memoryProposals?.length ?? 0; // memory suggestions waiting on you, on Memory
   const running = useFeed(store, runningCount);
   const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
   // On a narrow window the history is a drawer behind a Menu bar (styles.css): shut until asked,
   // and shut again when you go somewhere or press Esc.
   const [navOpen, setNavOpen] = useState(false);
@@ -293,6 +292,13 @@ export const History = memo(function History({ S, store, view, setView, patch, o
   const panel = (
     <aside className={cx("history", navOpen && "nav-open")} id="history-panel" aria-label="Workspace">
       <nav className="hist-nav">
+        {/* Search is always a box at the top, ready to type in; Esc or × clears it. */}
+        <div className="hist-search-row hist-search-top">
+          <Icon name="search" />
+          <input className="hist-search" value={query} placeholder="Search titles and what was said…" aria-label="Search conversations"
+            onChange={(ev) => setQuery(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Escape") setQuery(""); }} />
+          {query && <button type="button" className="hist-icon" aria-label="Clear the search" title="Clear the search (Esc)" onClick={() => setQuery("")}><Icon name="x" /></button>}
+        </div>
         <div className="hist-top">
           <button type="button" className={cx("hist-nav-item", "hist-new", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
             <Icon name="plus" />New conversation
@@ -325,19 +331,6 @@ export const History = memo(function History({ S, store, view, setView, patch, o
           title="What's changed in Mae: the merged pull requests, summed up every 48 hours" onClick={() => setView({ kind: "releases" })}>
           <Icon name="bookmark" />Release notes
         </button>
-        {/* Search turns into its own box, in place: nothing under it moves, and it isn't lit like the page you're on. */}
-        {searching ? (
-          <div className="hist-search-row">
-            <Icon name="search" />
-            <input className="hist-search" autoFocus value={query} placeholder="Search titles and what was said…" aria-label="Search conversations"
-              onChange={(ev) => setQuery(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Escape") { setSearching(false); setQuery(""); } }} />
-            <button type="button" className="hist-icon" aria-label="Close the search" title="Close the search (Esc)" onClick={() => { setSearching(false); setQuery(""); }}><Icon name="x" /></button>
-          </div>
-        ) : (
-          <button type="button" className="hist-nav-item" onClick={() => { setSearching(true); setQuery(""); }}>
-            <Icon name="search" />Search
-          </button>
-        )}
         <button type="button" className={cx("hist-nav-item", view.kind === "all" && "selected")} title="Everything at once, scheduled jobs included" onClick={() => setView({ kind: "all" })}>
           <Icon name="list" />All activity
           {running > 0 && <span className="hist-count">{running} running</span>}
