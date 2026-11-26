@@ -180,6 +180,9 @@ const reviewAfterChange: EvalCase = {
     } },
     { name: "the Warden changed nothing", required: true, run: (c) => !c.trail.some(wrote("", "Warden")) || "the Warden wrote a file" },
     { name: "the fix works", required: true, run: (c) => c.ok("node check.mjs", "links/shop") || "node check.mjs still fails" },
+    // Not a rule: the camp sends the Warden itself when the Quartermaster finishes without a review,
+    // so the change is still reviewed. But then nothing found can be fixed, so it is worth seeing.
+    { name: "the Quartermaster sent the Warden, not the camp in its place", run: (c) => !notices(c).some((n) => /hasn't been reviewed/.test(n.text)) || "the camp had to send the Warden itself" },
     { name: "one review, not several", run: (c) => c.trail.filter(setOut("Warden")).length === 1 || `${c.trail.filter(setOut("Warden")).length} reviews` },
     { name: "the answer mentions the review", run: (c) => /review|warden/i.test(c.result.text) || "not mentioned" },
   ],

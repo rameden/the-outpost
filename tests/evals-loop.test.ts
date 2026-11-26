@@ -117,20 +117,30 @@ test("fix after a failed check: the linked folder's checks run, and a red ending
   assert.ok(check(stuck.r, "a failed check sent the work back").pass, "it was sent back; it just didn't fix it");
 });
 
-test("review after a change: the Warden after the last change passes; no review is turned down", async () => {
+test("review after a change: the Warden after the last change passes; a change after the review is turned down", async () => {
   const CART = "links/shop/src/cart.mjs";
   const fixed = "// The total for a cart: every item's price times how many of it there are.\nexport function cartTotal(items) {\n  return items.reduce((sum, item) => sum + item.price * item.qty, 0);\n}\n";
   const crew = (b: any): Reply => (!isFirstTurn(b) ? { text: "Done." } : whoAsks(b) === "Warden" ? { tools: [{ name: "read_file", input: { path: CART } }] } : { tools: [write(CART, fixed)] });
-  const reviewed = turns({ tools: [dispatch("artificer")] }, { tools: [dispatch("warden")] }, { text: "Fixed, and the Warden's review found nothing to change." });
-  const unreviewed = turns({ tools: [dispatch("artificer")] }, { text: "Fixed." });
-  const [good, bad] = await Promise.all([
-    runCase("loop-review-after-change", (b) => (whoAsks(b) === "Quartermaster" ? reviewed() : crew(b))),
-    runCase("loop-review-after-change", (b) => (whoAsks(b) === "Quartermaster" ? unreviewed() : crew(b))),
+  const run = (...qm: Reply[]) => { const next = turns(...qm); return runCase("loop-review-after-change", (b) => (whoAsks(b) === "Quartermaster" ? next() : crew(b))); };
+  const [good, forgot, late] = await Promise.all([
+    run({ tools: [dispatch("artificer")] }, { tools: [dispatch("warden")] }, { text: "Fixed, and the Warden's review found nothing to change." }),
+    // The Quartermaster reports with no review: the camp sends the Warden itself before the summary.
+    run({ tools: [dispatch("artificer")] }, { text: "Fixed." }),
+    // Reviewed, and then changed again: what the user gets was never looked at.
+    run({ tools: [dispatch("artificer")] }, { tools: [dispatch("warden")] }, { tools: [dispatch("artificer")] }, { text: "Fixed and reviewed." }),
   ]);
+  const own = "the Quartermaster sent the Warden, not the camp in its place";
   passes(good.r);
+  assert.ok(check(good.r, own).pass);
   assert.ok(good.seen.some((s) => s.who === "Quartermaster" && /Warden/.test(systemText(s.body)) && /review/i.test(systemText(s.body))), "the run was told to have changes reviewed");
-  assert.deepEqual(failed(bad.r), ["the Warden was sent after the last change"]);
-  assert.ok(check(bad.r, "the fix works").pass, "the rule that failed is the review, not the fix");
+
+  passes(forgot.r);
+  assert.equal(forgot.seen.filter((s) => s.who === "Warden").length, 2, "the camp's own review ran: the Warden read the file, then reported");
+  assert.match(check(forgot.r, own).detail, /the camp had to send the Warden itself/);
+
+  assert.deepEqual(failed(late.r), ["the Warden was sent after the last change"]);
+  assert.match(check(late.r, "the Warden was sent after the last change").detail, /changed again after the review/);
+  assert.ok(check(late.r, "the fix works").pass, "the rule that failed is the review, not the fix");
 });
 
 test("resume: what the cut-off run did is reused; a repeat that really runs is turned down", async () => {

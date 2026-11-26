@@ -74,7 +74,7 @@ With no baseline recorded, `--compare` has nothing to compare with and a failed 
 - In GitHub: Actions → Evals → Run workflow, tick **baseline**. It runs every case three times on the API with the default models. Download `baseline.json` from the run's artifact and commit it as `evals/baseline.json`.
 - Or on your machine: `CAMP_RUNTIME=api npm run eval -- --trials 3 --write-baseline`, then commit the file. (Without `CAMP_RUNTIME=api` it runs the way your camp is set up, with your models; the baseline records which.)
 
-Cost: three trials of 19 cases. A rough guess is $10 to $25; the hard ceiling is the $2 cap per case per trial, about $108. Record it the way CI will run it (the API, default models), or every comparison will say the models differ.
+Cost: three trials of 19 cases. A rough guess is $10 to $25; the hard ceiling is the $2 cap per case per trial, about $114. Record it the way CI will run it (the API, default models), or every comparison will say the models differ.
 
 ### Re-baselining
 
