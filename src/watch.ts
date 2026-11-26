@@ -11,12 +11,12 @@
 import { rl } from "./tools.js";
 import { attachConsole } from "./events.js";
 import { CREW } from "./crew.js";
-import { w } from "./words.js";
+import { say, w } from "./words.js";
 import { loadJobs } from "./jobs.js";
 import { claimScheduler, dueJobs, runJob, schedulerOwner } from "./scheduler.js";
 
 const TICK_MS = 30_000;
-attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back") }));
+attachConsole(() => ({ lead: CREW.quartermaster.name, back: w("back"), say }));
 
 // Mission control (or another watcher) may already be running jobs: then this one stands by.
 let standingBy = false;

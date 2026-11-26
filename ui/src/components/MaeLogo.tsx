@@ -18,7 +18,7 @@ export function MaeLogo({ className, name = outpostName() }: { className?: strin
   );
 }
 
-// The mark alone, at the size of a word: what marks a Mae ticket beside Jira's (TicketsPage.tsx).
+// The mark alone, at the size of a word: what marks an Outpost ticket beside Jira's (TicketsPage.tsx).
 export function MaeMark({ className, title }: { className?: string; title?: string }) {
   return (
     <svg className={className ? `mae-mark ${className}` : "mae-mark"} xmlns="http://www.w3.org/2000/svg" viewBox="10 10 180 180" role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>

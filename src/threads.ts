@@ -34,7 +34,7 @@ export type Turn = { thread: string; expedition: string; agent: string; direct: 
   // without, and any folder taken out along the way. Nothing from them is given to the crew.
   without?: string[];
   jira?: string;      // the Jira ticket this conversation is working on (its key), set when it's started from one
-  ticket?: string;    // the Mae ticket it's working on (tickets.ts), set the same way
+  ticket?: string;    // the Outpost ticket it's working on (tickets.ts), set the same way
   model?: string;     // the model you picked for this conversation, if you did (a reply keeps it unless you change it)
   by?: string;        // what started it, when it wasn't you typing: "trigger:<name>" (the scoreboard counts these apart)
   // aside: someone else stepping in for one turn (a second opinion, a review). It reads the
@@ -155,7 +155,7 @@ export type ThreadContext = { thread: string; agent: string; direct: boolean; tu
   without?: string[];                        // its project's folders this conversation leaves out
   model?: string;                            // the model picked for the conversation, as of its latest run
   jira?: string                              // the ticket the conversation is working on;
-  ticket?: string }                          // the Mae ticket it's working on;                        // folders attached earlier in the conversation stay attached
+  ticket?: string }                          // the Outpost ticket it's working on;                        // folders attached earlier in the conversation stay attached
 
 // The conversation a reply continues, ready to put in the prompt. `replyTo` is an expedition id.
 // `stillRunning` says whether a run is going right now (mission control knows; a plain "running"

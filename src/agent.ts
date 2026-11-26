@@ -645,7 +645,7 @@ export async function runAgent(
       // The exception is a provider you've approved for confidential work (Settings → Models).
       if (!maySend(other.provider, getProject(currentProjectId())?.settings?.web)) {
         throw new Error(`${spec.name} is set to run on ${other.name} (${other.model}), but this project is marked confidential, so nothing from it is sent to another provider. ` +
-          `If ${other.name} is approved for this work, say so under Settings → Models. Otherwise put ${spec.name} back on a Claude model for this project (the project's page → Crew).`);
+          `If ${other.name} is approved for this work, say so under Settings → Models. Otherwise put ${spec.name} back on a Claude model for this project (the project's settings → Models).`);
       }
     }
     // ---------- On your Claude subscription, through Claude Code ----------

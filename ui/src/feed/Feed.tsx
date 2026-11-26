@@ -7,7 +7,7 @@ import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
-import { autoName, cClass, clock, crewNow, cx, handleFor, leadName, nameNow, plural, shortModel, spaced } from "../format.ts";
+import { autoName, cClass, clock, crewNow, cx, emojiNow, handleFor, handlesNow, leadName, nameNow, plural, shortModel, shown, spaced } from "../format.ts";
 import { Icon } from "../components/bits.tsx";
 import { ReadAloud } from "../components/ReadAloud.tsx";
 import { MaeSystem } from "../components/MaeSystem.tsx";
@@ -73,7 +73,7 @@ const Steps = memo(function Steps({ steps, onReply, now }: { steps: StepsNode; o
         <span className="steps-text">{sum.text}</span>
         {sum.allowed > 0 && <span className="steps-tag">{sum.allowed} approved</span>}
         {sum.declined > 0 && <span className="steps-tag bad">{sum.declined} declined</span>}
-        <span className="steps-count">{n} {plural(n, "step")}{sum.who.length > 1 ? ` · ${sum.who.join(", ")}` : ""}</span>
+        <span className="steps-count">{n} {plural(n, "step")}{sum.who.length > 1 ? ` · ${sum.who.map(nameNow).join(", ")}` : ""}</span>
         {now && !open && sum.last && <code className="steps-last" title={sum.last}>{sum.last}</code>}
       </button>
       {open && <div className="steps-body">{steps.nodes.map((x) => <ItemBoundary key={x.id}><NodeView node={x} onReply={onReply} /></ItemBoundary>)}</div>}
@@ -90,9 +90,9 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
     case "msg":
       return (
         <div className={cx("msg", cClass(node.who))}>
-          <div className="avatar" aria-hidden="true">{node.emoji}</div>
+          <div className="avatar" aria-hidden="true">{emojiNow(node.who, node.emoji)}</div>
           <div style={{ minWidth: 0 }}>
-            <div className="msg-who">{node.who}</div>
+            <div className="msg-who">{nameNow(node.who)}</div>
             {/* Text arriving as it's written is shown plain, then formatted once it's whole. */}
             {node.streaming ? <div className="md streaming">{node.text}</div> : <Markdown text={node.text} />}
           </div>
@@ -100,13 +100,13 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
       );
     case "tool": return <div className={cx("tool", cClass(node.who))}><b>{node.tool}</b><code title={node.input}>{node.input}</code></div>;
     case "file": return <FileCard file={node} />;
-    case "notice": return <div className="notice">{node.text}</div>;
+    case "notice": return <div className="notice">{shown(node.kept ?? node.text)}</div>;
     case "route": return (
       <div className="notice route" title={`${autoName(node.choice)}: ${node.reason}`}>
-        🧭 {node.who} {node.switched ? "switched to" : "is on"} <b>{shortModel(node.model)}{node.effort ? ` · ${node.effort}` : ""}</b> ({autoName(node.choice)}). {node.reason}
+        🧭 {nameNow(node.who)} {node.switched ? "switched to" : "is on"} <b>{shortModel(node.model)}{node.effort ? ` · ${node.effort}` : ""}</b> ({autoName(node.choice)}). {node.reason}
       </div>
     );
-    case "sys": return <div className="sys">{node.text}</div>;
+    case "sys": return <div className="sys">{shown(node.text)}</div>;
     case "steer": return <div className="steer-msg"><small>You, while it was working</small>{node.text}</div>;
   }
 });
@@ -135,7 +135,7 @@ function PlanList({ plan }: { plan: PlanNode }) {
               <span className="plan-mark" aria-hidden="true">{STEP_MARK[state]}</span>
               <span className="plan-n">{s.n}</span>
               <span className="plan-text">{s.text}</span>
-              {who.length > 0 && <span className="plan-who">{who.map((q) => `${q.emoji} ${q.who}${s.quests.filter((x) => x.who === q.who).length > 1 ? ` ×${s.quests.filter((x) => x.who === q.who).length}` : ""}`).join(", ")}</span>}
+              {who.length > 0 && <span className="plan-who">{who.map((q) => `${emojiNow(q.who, q.emoji)} ${nameNow(q.who)}${s.quests.filter((x) => x.who === q.who).length > 1 ? ` ×${s.quests.filter((x) => x.who === q.who).length}` : ""}`).join(", ")}</span>}
               <span className={stepPill(state)}>{STEP_SAYS[state]}</span>
             </>
           );
@@ -157,7 +157,7 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   return (
     <section className={cx("quest", cClass(quest.who))} id={`quest-${quest.id}`}>
       <div className="quest-head">
-        <span>{quest.emoji} {quest.who} {w("depart")}</span>
+        <span>{emojiNow(quest.who, quest.emoji)} {nameNow(quest.who)} {w("depart")}</span>
         {quest.step && <span className="quest-step" title={`Step ${quest.step} of the plan`}>Step {quest.step}</span>}
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}
         {quest.status === null ? <span className="pill live">On {w("quest")}</span> : <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Returned" : spaced(quest.status)}</span>}
@@ -178,7 +178,7 @@ function Ask({ exp }: { exp: ExpNode }) {
     <div className="exp-ask">
       {exp.attachments.length > 0 && <div className="exp-atts">{exp.attachments.map((a, i) => <AttachmentChip key={i} a={a} big />)}</div>}
       {/* Still the run's heading, so it can be found and jumped to like one. */}
-      <div className={cx("ask-bubble", long && !whole && "folded")} role="heading" aria-level={3}><Markdown text={exp.task} /></div>
+      <div className={cx("ask-bubble", long && !whole && "folded")} role="heading" aria-level={3}><Markdown text={handlesNow(exp.task)} /></div>
       {long && <button type="button" className="linkish" aria-expanded={whole} onClick={() => setWhole((v) => !v)}>{whole ? "Show less" : "Show all of it"}</button>}
       <div className="ask-meta">
         {exp.source === "job" && <span title="Sent by a scheduled job, not typed just now">Scheduled job · {exp.job}</span>}
@@ -299,7 +299,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
               {answer?.kind === "msg" && answer.text.trim() && (
                 <button type="button" className="btn small" title="Keep this answer in a note: the one you have open, or a new one" onClick={() => say({ do: "note", text: answer.text })}>Note</button>
               )}
-              {answer?.kind === "msg" && answer.text.trim() && <ReadAloud text={answer.text} markdown what={exp.source === "job" ? `Job report · ${exp.job}` : `${answer.who}'s answer`} />}
+              {answer?.kind === "msg" && answer.text.trim() && <ReadAloud text={answer.text} markdown what={exp.source === "job" ? `Job report · ${exp.job}` : `${nameNow(answer.who)}'s answer`} />}
               {exp.source !== "job" && <ForkButton expId={exp.expId} />}
               {exp.source !== "job" && (
                 <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>

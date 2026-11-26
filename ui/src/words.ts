@@ -65,3 +65,14 @@ export function a(noun: Noun | Capitalize<Noun>): string {
 // Where an idle crew member is: "At camp" for the Guild, "At the ship", "At the newsroom" for the rest
 // (a pack's camp word is a place with an article; only "camp" reads without one).
 export const atCamp = (): string => (now.camp.toLowerCase() === "camp" ? `At ${now.camp}` : `At the ${now.camp}`);
+
+// Text the camp keeps (a notice in the feed, an approval's title) is written with {tokens} where
+// the pack's words go, so it reads in whichever pack is on when it's shown, not the one it was
+// written under: fillWords("⏳ The Scout's {quest} is waiting") → "⏳ The Scout's mission is waiting".
+// The same tokens as say() in src/words.ts: {crew}, {Quest}, {a quest}, {An expedition}, {members}, {hq}…
+// Names are format.ts's to change (namesNow); shown() in shown.ts does both.
+const NOUNS = "crew|quests?|camps?|expeditions?|members?|log|ready|close|closing|back|depart|hq";
+const TOKEN = new RegExp(`\\{(an? |An? )?(${NOUNS}|${NOUNS.replace(/(^|\|)(\w)/g, (_m, bar: string, c: string) => bar + c.toUpperCase())})\\}`, "g");
+export const fillWords = (text: string): string =>
+  text.replace(TOKEN, (_m, art: string | undefined, noun: string) =>
+    art ? a((art[0] === "A" ? cap(noun) : noun) as Noun) : w(noun as Noun));

@@ -1,10 +1,11 @@
-// Release notes, as a page of its own: what changed in Mae, written up from the pull requests
+// Release notes, as a page of its own: what changed in Outpost, written up from the pull requests
 // merged into its repository (releases.ts). The camp writes one every 48 hours while it's open,
 // split into the front end and the back end, with the big features first. Newest first.
 
 import { useCallback, useEffect, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { plural } from "../format.ts";
+import { w } from "../words.ts";
 import type { Releases, Release, Note } from "../../../src/releases.ts";
 
 export const RELEASES_CHANGED = "camp:releases-changed";
@@ -33,7 +34,7 @@ export function ReleaseNotes() {
         <div>
           <h2>Release notes</h2>
           <div className="meta">
-            What's changed in {data?.repo ? <a href={`https://github.com/${data.repo}`} target="_blank" rel="noreferrer">{data.repo}</a> : "Mae"}, summed up from its merged pull requests every 48 hours.
+            What's changed in {data?.repo ? <a href={`https://github.com/${data.repo}`} target="_blank" rel="noreferrer">{data.repo}</a> : "Outpost"}, summed up from its merged pull requests every 48 hours.
             {data?.checked ? ` Last looked ${day(data.checked)}${next ? `; next around ${day(next.toISOString())}` : ""}.` : ""}
           </div>
         </div>
@@ -44,7 +45,7 @@ export function ReleaseNotes() {
         </div>
       </header>
       {(error || data?.error) && <div className="hist-empty" role="alert">Couldn't read the merged pull requests: {error || data?.error}</div>}
-      {data && !list.length && <div className="hist-empty">No release notes yet. The first are written a minute after the camp starts, from the last two weeks of merged pull requests, or <button type="button" className="linkish" onClick={checkNow}>write them now</button>.</div>}
+      {data && !list.length && <div className="hist-empty">No release notes yet. The first are written a minute after the {w("camp")} starts, from the last two weeks of merged pull requests, or <button type="button" className="linkish" onClick={checkNow}>write them now</button>.</div>}
       {list.map((r) => <ReleaseCard key={r.id} r={r} />)}
     </div>
   );

@@ -224,7 +224,7 @@ test("the brief sorts what's waiting on you from what's moving, your tickets und
   assert.match(text, /\*\*Your tickets \(3\)\*\*\n- \[MP-9 Marked in progress\]/);
   assert.match(text, /\*\*Upcoming \(2\)\*\*/);
   assert.ok(!text.includes("Ask Ana") && !text.includes("Retro ideas"), "your notes stay on the page: this text goes to the inbox and your phone");
-  assert.match(text, /2 suggestions from the crew are waiting for your say\./);
+  assert.match(text, /2 suggestions are waiting for your say\./);
   assert.equal(B.briefLine(b), "3 things waiting on you, 1 in motion, 3 tickets under way, 2 upcoming.");
   const running = B.gatherBrief({ now: new Date(2026, 10, 13, 8), pulls: { fetched: "", login: "", pulls: [] }, tickets: null, running: (id) => id === stopped });
   assert.deepEqual(running.needs, [], "a run that's going right now isn't unfinished");

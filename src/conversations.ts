@@ -65,7 +65,7 @@ export type Conversation = {
   status: string;        // how the latest run ended ("running" while it's going)
   suggest?: string;      // filed under General, but it used a folder that belongs to this project
   jira?: string;         // the Jira ticket it's working on (its key), if it was started from one
-  ticket?: string;       // the Mae ticket it's working on (tickets.ts), if it was started from one
+  ticket?: string;       // the Outpost ticket it's working on (tickets.ts), if it was started from one
   model?: string;        // the model you picked for it, as of its latest run (none: whoever it's with uses their own)
   links?: string[];      // linked folders attached to it along the way, beyond its project's own
   without?: string[];    // folders it's without: left out when it started, or taken out since (the crew sees nothing of them here)

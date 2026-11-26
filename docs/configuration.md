@@ -39,6 +39,8 @@ Everything in `camp/` is local to you and gitignored. The main files:
 
 Put these in `.env` in the folder an outpost runs in (this checkout for Mae), or in the shell that starts it. The star chart and `npm run outpost` don't read `.env`, so `HUB_PORT` and `OUTPOSTS_DIR` go in the shell. [`.env.example`](../.env.example) has the ones most people touch. None is required on a Claude subscription.
 
+Every `CAMP_` variable also answers to an `OUTPOST_` name: `OUTPOST_PORT` is `CAMP_PORT`, `OUTPOST_LAN` is `CAMP_LAN`, and so on. Use either; if both are set, the `CAMP_` one wins.
+
 | Variable | What it does |
 |---|---|
 | `ANTHROPIC_API_KEY` | An Anthropic API key for the API runtime. A key saved in Settings → Models is used first. |

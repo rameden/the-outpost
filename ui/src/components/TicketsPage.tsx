@@ -1,9 +1,9 @@
 // The Tickets page: Mae's own tickets, for work that isn't tracked in Jira, and (when Jira is
-// connected) the tickets the camp's Jira filter pulls in, as one set of cards. A Mae ticket
+// connected) the tickets the camp's Jira filter pulls in, as one set of cards. An Outpost ticket
 // carries Mae's mark; the Mae / Jira chips narrow the page to one or the other.
 //
-// Mae tickets: starting work on one moves it to In progress, and its pull request merging moves
-// it to Done; you can move it either way yourself. A Mae ticket opens over whatever page you're
+// Outpost tickets: starting work on one moves it to In progress, and its pull request merging moves
+// it to Done; you can move it either way yourself. An Outpost ticket opens over whatever page you're
 // on (MaeTicketDialog), so a note that was filed as one can open it too. Notes and plans become
 // tickets through DraftTicketsDialog: the small model splits the text into pieces of work, and
 // you choose which to file.
@@ -33,7 +33,8 @@ import { TicketDebrief } from "./TicketDebrief.tsx";
 import { Dialog } from "./Dialog.tsx";
 
 import { w } from "../words.ts";
-const DONE_SHOWN = 12; // Mae's Done grows for ever: the latest few, and the rest on asking
+import { outpostName } from "../outpost.ts";
+const DONE_SHOWN = 12; // The Outpost's Done grows for ever: the latest few, and the rest on asking
 const SOURCE_KEY = "camp-tickets-source";
 const EPIC_KEY = "camp-jira-by-epic";
 // What's being worked on first, then what's waiting, then what's done; each kind keeps its own order within.
@@ -86,7 +87,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
   const [source, setSourceNow] = useState<Source>(() => { const s = storeGet(SOURCE_KEY); return s === "mae" || s === "jira" ? s : ""; });
   const setSource = (s: Source) => { setSourceNow(s); storeSet(SOURCE_KEY, s); };
   const [group, setGroup] = useState<TicketStatus | "">("");
-  const [type, setType] = useState("");         // Jira's issue types: Mae tickets have none
+  const [type, setType] = useState("");         // Jira's issue types: Outpost tickets have none
   const [epic, setEpic] = useState("");          // an epic's key, or "none" for tickets in no epic
   const [project, setProject] = useState("");    // the camp's projects: Jira tickets are in none
   const [byEpic, setByEpic] = useState(() => storeGet(EPIC_KEY) === "1");
@@ -127,7 +128,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
   for (const c of whose) counts[c.group]++;
   const shown = whose.filter((c) => fits(c) && (!group || c.group === group));
   const narrowed = !!(words.trim() || group || type || epic || project);
-  // Done Mae tickets pile up: unless Done is asked for, the latest few.
+  // Done Outpost tickets pile up: unless Done is asked for, the latest few.
   const doneMae = shown.flatMap((c) => (c.source === "mae" && c.group === "done" ? [c.mae] : []));
   const cut = !allDone && group !== "done" && doneMae.length > DONE_SHOWN;
   const kept = cut ? new Set(doneMae.sort((a, b) => b.updated.localeCompare(a.updated)).slice(0, DONE_SHOWN).map((t) => t.key)) : null;
@@ -143,7 +144,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
     if (loose.length) sections.push({ epic: null, list: loose, titled: true });
   }
   // Keyboard on the board: the arrows walk the cards (up and down to the nearest card in the next row),
-  // and Shift+Left / Shift+Right move a Mae ticket back or on a state. Enter opens a card (it's a button).
+  // and Shift+Left / Shift+Right move an Outpost ticket back or on a state. Enter opens a card (it's a button).
   const WORKFLOW: TicketStatus[] = ["todo", "doing", "done"];
   const onBoardKey = (ev: React.KeyboardEvent<HTMLElement>) => {
     const k = ev.key;
@@ -184,7 +185,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
       <header className="proj-head">
         <div>
           <h2>Tickets</h2>
-          <div className="meta">Mae's own tickets, for work that isn't in Jira: starting work on one moves it to In progress, and its pull request merging moves it to Done.</div>
+          <div className="meta">The Outpost's own tickets, for work that isn't in Jira: starting work on one moves it to In progress, and its pull request merging moves it to Done.</div>
           {jiraOn && <div className="meta">Jira: {S.jira?.siteUrl?.replace(/^https?:\/\//, "")}{S.jira?.displayName ? ` · ${S.jira.displayName}` : ""} · {S.settings?.jiraWrite?.on ? `the ${w("camp")} comments on a ticket as its work moves along (started, ready to look over, pull request opened, merged).` : "read-only: nothing here changes a ticket."}</div>}
         </div>
         <div className="proj-actions">
@@ -209,7 +210,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
           <input aria-label="Narrow by words" className="hist-search" placeholder={jiraOn ? "Narrow by key, words, person or label…" : "Narrow by key, words or label…"} value={words} onChange={(ev) => setWords(ev.target.value)} />
           {jiraOn && (
             <span className="ticket-sources" role="group" aria-label="Whose tickets">
-              <button type="button" className={cx("jira-chip", source === "mae" && "on")} aria-pressed={source === "mae"} title="Only Mae's own tickets" onClick={() => setSource(source === "mae" ? "" : "mae")}><MaeMark />Mae <small>{maeCount}</small></button>
+              <button type="button" className={cx("jira-chip", source === "mae" && "on")} aria-pressed={source === "mae"} title="Only the Outpost's own tickets" onClick={() => setSource(source === "mae" ? "" : "mae")}><MaeMark />Outpost <small>{maeCount}</small></button>
               <button type="button" className={cx("jira-chip", source === "jira" && "on")} aria-pressed={source === "jira"} title="Only the tickets from Jira" onClick={() => setSource(source === "jira" ? "" : "jira")}>Jira <small>{jiraCount}</small></button>
             </span>
           )}
@@ -233,7 +234,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
                 </select>
               )}
               {source !== "jira" && maeCount > 0 && projects.length > 0 && (
-                <select aria-label="Project" title={`The ${w("camp")} project a Mae ticket is filed under`} value={project} onChange={(ev) => setProject(ev.target.value)}>
+                <select aria-label="Project" title={`The ${w("camp")} project an Outpost ticket is filed under`} value={project} onChange={(ev) => setProject(ev.target.value)}>
                   <option value="">Every project</option>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   <option value="none">In no project</option>
@@ -267,7 +268,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
           <div className="proj-grid jira-grid" onKeyDown={onBoardKey}>
             {sec.list.map((c) => c.source === "mae" ? (
               <button key={c.key} type="button" className="proj-card jira-card ticket-card" data-key={c.key} aria-keyshortcuts="Shift+ArrowLeft Shift+ArrowRight" aria-label={`${c.key}: ${c.title}`} title="Enter opens it. Shift and the left or right arrow move it back or on a state" onClick={() => showTicket(c.key)}>
-                <span className="jira-card-top"><MaeMark title="Mae ticket" /><span className="jira-key">{c.key}</span>{c.mae.priority && <span className={cx("ticket-priority", c.mae.priority)}>{c.mae.priority}</span>}<span className={pillOf(c.group)}>{STATUS_NAMES[c.group]}</span></span>
+                <span className="jira-card-top"><MaeMark title="Outpost ticket" /><span className="jira-key">{c.key}</span>{c.mae.priority && <span className={cx("ticket-priority", c.mae.priority)}>{c.mae.priority}</span>}<span className={pillOf(c.group)}>{STATUS_NAMES[c.group]}</span></span>
                 <b>{c.title}</b>
                 <Labels list={c.labels} />
                 <span className="meta">{[nameOf(c.mae.project), c.mae.criteria.length ? `${c.mae.criteria.length} ${c.mae.criteria.length === 1 ? "criterion" : "criteria"}` : "", `changed ${when(c.mae.updated)}`].filter(Boolean).join(" · ")}</span>
@@ -285,7 +286,7 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
         </section>
       ))}
       <div className="sr-only" role="status" aria-live="polite">{moved}</div>
-      {cut && <button type="button" className="linkish tickets-more" onClick={() => setAllDone(true)}>Show all {doneMae.length} done Mae tickets</button>}
+      {cut && <button type="button" className="linkish tickets-more" onClick={() => setAllDone(true)}>Show all {doneMae.length} done Outpost tickets</button>}
       <Presence>{open && <JiraTicket key={open} id={open} summary={jira.find((t) => t.key === open)?.summary ?? epics.find((e) => e.key === open)?.summary ?? ""}
         onClose={() => setOpen(null)} onOpen={setOpen} onAttach={(i) => { onAttach(i); setOpen(null); }} onStart={(st) => { setOpen(null); onStart(st); }} />}</Presence>
     </div>
@@ -296,7 +297,7 @@ const Labels = ({ list }: { list: string[] }) => (list.length > 0
   ? <span className="jira-labels">{list.slice(0, 4).map((l) => <span key={l} className="jira-label">{l}</span>)}{list.length > 4 && <span className="meta">+{list.length - 4}</span>}</span>
   : null);
 
-// One Mae ticket over the page: read it, move it along, change it, or pick it up.
+// One Outpost ticket over the page: read it, move it along, change it, or pick it up.
 // Drawn by the app for whichever ticket is showing (tickets.ts), new ones included.
 export function MaeTicketDialog({ S, onAttach, onStart, onOpenConversation }: {
   S: CampState; onAttach?: (issue: Pick<JiraRef, "key" | "summary">) => void; onStart?: (start: TicketStart) => void; onOpenConversation: (id: string) => void;
@@ -491,7 +492,7 @@ function TicketForm({ start, projects, busy, onSave, onCancel, saveLabel }: {
       <div className="file-body">
         {offer && (
           <div className="ticket-start">
-            <label className="field"><span>Start from <small>one of your notes or a plan ready to start: Mae fills in what it can</small></span>
+            <label className="field"><span>Start from <small>one of your notes or a plan ready to start: {outpostName()} fills in what it can</small></span>
               <select value={picked} onChange={(ev) => choose(ev.target.value)}>
                 <option value="">Nothing: write it from scratch</option>
                 {shownNotes.length > 0 && <optgroup label="Your notes">{shownNotes.map((n) => <option key={n.id} value={`note:${n.id}`}>{titleOf(n)} · {when(n.updated)}</option>)}</optgroup>}
@@ -500,10 +501,10 @@ function TicketForm({ start, projects, busy, onSave, onCancel, saveLabel }: {
             </label>
             {fill && (
               <div className="meta ticket-fill" role="status">
-                {fill.state === "writing" ? <>Filled in from the {what}’s text; Mae is writing the rest…</>
+                {fill.state === "writing" ? <>Filled in from the {what}’s text; {outpostName()} is writing the rest…</>
                   : fill.state === "written" ? <>Written up from the {what}. Check it over: anything you change is yours.</>
                   : fill.state === "kept" ? <>From the ticket written up on this note.</>
-                  : <span title={fill.error}>Filled in from the {what}’s text only: Mae couldn’t write the rest just now. <button type="button" className="linkish" onClick={() => source && void write(source)}>Try again</button></span>}
+                  : <span title={fill.error}>Filled in from the {what}’s text only: {outpostName()} couldn’t write the rest just now. <button type="button" className="linkish" onClick={() => source && void write(source)}>Try again</button></span>}
                 {source && <> <button type="button" className="linkish" title={`Split the ${what} into several tickets, and choose which to file`} onClick={split}>Make several tickets of it instead</button></>}
               </div>
             )}

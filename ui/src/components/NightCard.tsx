@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
-import { plural, when } from "../format.ts";
+import { plural, shown, when } from "../format.ts";
 import type { HomePage } from "../types.ts";
 import { Icon } from "./bits.tsx";
 
@@ -48,7 +48,7 @@ export function NightCard({ night, onOpenMemory, onOpenInbox = onOpenMemory, onD
         )}
         {housekeeping.length > 0 && (
           <li>
-            <span>Housekeeping could {housekeeping.map((f) => f.title).join("; ")}{night.frees ? ` (about ${night.frees})` : ""}. <span className="meta">Nothing was cleared: ask for {an("camp")} cleanup when you want it done.</span></span>
+            <span>Housekeeping could {housekeeping.map((f) => shown(f.title)).join("; ")}{night.frees ? ` (about ${night.frees})` : ""}. <span className="meta">Nothing was cleared: ask for {an("camp")} cleanup when you want it done.</span></span>
           </li>
         )}
         {night.notes.map((n) => <li key={n}><span className="meta">{n}</span></li>)}

@@ -1,6 +1,6 @@
 // Barnstorm, the browser extension: the game, put onto whatever page you're looking at.
 //
-// This is the same game as in Mae (ui/src/egg: both of them, Wreck and the Sortie), not a
+// This is the same game as in Outpost (ui/src/egg: both of them, Wreck and the Sortie), not a
 // copy of it: the extension is built from those files. All that's here is what a page that
 // isn't Mae needs:
 //   - somewhere to put it. The game's bar and its sky go in a shadow root on an element of

@@ -63,7 +63,7 @@ async function startVite(code: string, sign: string) {
     for (const line of held ?? []) console.log(line);
     held = null;
     console.error(`\nCouldn't start the page's dev server: ${e instanceof Error ? e.message : String(e)}`);
-    console.error("Set CAMP_UI_PORT to a free port, or run `npm run ui:serve` for the camp without live reload.\n");
+    console.error("Set OUTPOST_UI_PORT to a free port, or run `npm run ui:serve` for the camp without live reload.\n");
     camp.kill("SIGTERM");
   }
 }

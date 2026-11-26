@@ -218,7 +218,7 @@ export function setRunFoundChecks(on: boolean) {
 // is called, so it's on unless you turn it off. retro: once a week the smallest model reads the
 // week's requests and what reviewers said, and proposes things worth keeping, for you to approve.
 // That one is a model call, so it follows "suggestions" (memoryCare) unless you set it yourself.
-// debrief: when a ticket is done (a Mae ticket reaching Done, a Jira ticket's pull request merging), the smallest model reads how the crew did on it and proposes
+// debrief: when a ticket is done (an Outpost ticket reaching Done, a Jira ticket's pull request merging), the smallest model reads how the crew did on it and proposes
 // lessons for the Quartermaster, the crew and the project (debrief.ts). The same kind of call, the same default.
 // night: the night shift (nightshift.ts). Between nightFrom and nightTo (your local time; the hours may
 // cross midnight), once the camp has been idle a while, it drafts memory tidies and writes a report for

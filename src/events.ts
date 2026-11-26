@@ -66,9 +66,11 @@ export function onEvent(fn: (e: CampEvent) => void): () => void {
 }
 
 // The terminal view: the same output the camp has always printed.
-// words: the active pack's name for whoever leads, and how it says someone is back. They're handed
-// in by whoever attaches (events.ts can't read the pack itself: crew.ts → settings.ts → here).
-export function attachConsole(words: () => { lead: string; back: string } = () => ({ lead: "Quartermaster", back: "returns to camp" })) {
+// words: the active pack's name for whoever leads, how it says someone is back, and say() to put a
+// notice's {tokens} in its words (a notice is kept with them: see shown() in ui/src/format.ts). They're
+// handed in by whoever attaches (events.ts can't read the pack itself: crew.ts → settings.ts → here).
+type ConsoleWords = { lead: string; back: string; say?: (text: string) => string };
+export function attachConsole(words: () => ConsoleWords = () => ({ lead: "Quartermaster", back: "returns to camp" })) {
   onEvent((e) => {
     const pad = "depth" in e ? "    ".repeat(e.depth) : "";
     switch (e.type) {
@@ -79,7 +81,7 @@ export function attachConsole(words: () => { lead: string; back: string } = () =
       case "file":
         return console.log(`${pad}  📄 ${e.change === "created" ? "Created" : "Updated"} ${e.path}`);
       case "notice":
-        return console.log(`${pad}  ${e.text}`);
+        return console.log(`${pad}  ${(words().say ?? String)(e.text)}`);
       case "route":
         return console.log(`${pad}  🧭 ${e.switched ? "Now on" : "On"} ${e.model}${e.effort ? ` (${e.effort})` : ""}: ${e.reason}`);
       case "dispatch":

@@ -178,7 +178,7 @@ export const scheduleJob: Tool = {
         name: { type: "string", description: "kebab-case, e.g. 'morning-brief'" },
         schedule: { type: "string" },
         task: { type: "string" },
-        model: { type: "string", description: "Optional: a cheaper model for this job (otherwise the camp's job defaults)." },
+        model: { type: "string", description: "Optional: a cheaper model for this job (otherwise the defaults for jobs)." },
         effort: { type: "string", enum: [...EFFORTS], description: "Optional: how hard this job thinks (default: low)." },
         maxTurns: { type: "number", description: `Optional: turn cap for this job (${TURNS_MIN}–${TURNS_MAX}; default: 12).` },
         watch: { type: "array", items: { type: "string" }, description: "Optional: files or folders this job watches. When set, a run is skipped while nothing in them has changed since the last run. Only for jobs whose whole subject is those files; leave it out for anything that depends on the web, mail, the date or the time." },

@@ -37,7 +37,7 @@ const CHECK = anyOf([...VERIFYING, "git\\s+(status|diff|log|show)\\b"]);
 const VERIFIES = anyOf(VERIFYING);
 export const verifies = (command: string) => VERIFIES.test(command);
 export function journals(tool: string, input: any): boolean {
-  // Filing or changing a Mae ticket (tickets.ts) is a change; listing or reading them isn't.
+  // Filing or changing an Outpost ticket (tickets.ts) is a change; listing or reading them isn't.
   if (tool === "tickets") return input?.action === "create" || input?.action === "update";
   if (!JOURNALED.has(tool)) return false;
   if (tool !== "bash") return true;

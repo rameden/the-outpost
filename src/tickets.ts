@@ -1,4 +1,4 @@
-// Mae tickets: the camp's own tickets, for the work that isn't in Jira (camp/tickets.json).
+// Outpost tickets: the camp's own tickets, for the work that isn't in Jira (camp/tickets.json).
 //
 // A ticket is the same shape as one the Scout writes from a note (ticket.ts): an imperative
 // title, acceptance criteria that say what's true when it's done, and a Markdown description.
