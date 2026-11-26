@@ -127,7 +127,6 @@ test("renaming happens in the row: Enter keeps the new name once, Escape leaves 
 test("search looks inside conversations and shows where the words were found", async () => {
   vi.useRealTimers();
   const { setView } = setup();
-  fireEvent.click(screen.getByRole("button", { name: /Search/ }));
   fireEvent.change(screen.getByRole("textbox", { name: "Search conversations" }), { target: { value: "guard" } });
   await vi.waitFor(() => expect(screen.getByText(/the flaky parallel-edit guard/)).toBeTruthy());
   expect(posts.map((p) => p.path)).toEqual(["/api/history/search?q=guard"]);
@@ -135,6 +134,18 @@ test("search looks inside conversations and shows where the words were found", a
   expect(screen.queryByRole("button", { name: "General" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /Fix the flaky test/ }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "conversation", id: "c2" });
+});
+
+test("search is always a box, above New conversation, and Esc clears it", () => {
+  setup();
+  const nav = screen.getByRole("navigation");
+  const box = within(nav).getByRole("textbox", { name: "Search conversations" }) as HTMLInputElement;
+  const first = within(nav).getByRole("button", { name: "New conversation" });
+  expect(box.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.change(box, { target: { value: "guard" } });
+  fireEvent.keyDown(box, { key: "Escape" });
+  expect(box.value).toBe("");
+  expect(within(nav).getByRole("textbox", { name: "Search conversations" })).toBe(box);
 });
 
 test("a long project shows its newest conversations and a way to see them all; projects can be pinned", async () => {
@@ -193,7 +204,7 @@ test("projects can be dragged into a new order, or moved a step from their menu,
 test("Projects sits under New conversation and opens the projects page; its + opens the dialog; a project's name opens its page", () => {
   const { setView, onNewProject, onEditProject } = setup();
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "Search", "All activity"]);
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All activity"]);
   fireEvent.click(within(nav).getByRole("button", { name: /Projects$/ }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "projects" });
   expect(onNewProject).not.toHaveBeenCalled();
@@ -383,7 +394,7 @@ test("the sidebar offers Start a ticket, then Tickets, Activity and Memory under
   const { rerender } = render(<History S={linked} store={createFeedStore()} view={{ kind: "memory" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}}
     onStartTicket={onStartTicket} />);
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "Search", "All activity"]);
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All activity"]);
   expect(within(nav).getByRole("button", { name: "Memory" }).getAttribute("aria-current")).toBe("page"); // you're on it
   fireEvent.click(within(nav).getByRole("button", { name: "Activity" }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "activity" });
@@ -393,7 +404,7 @@ test("the sidebar offers Start a ticket, then Tickets, Activity and Memory under
   expect(onStartTicket).toHaveBeenCalledTimes(1);
   // Without Jira there are still Mae's own tickets to start.
   rerender(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onStartTicket={onStartTicket} />);
-  expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "Search", "All activity"]);
+  expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "All activity"]);
 });
 
 test("words arriving in a reply don't redraw History: only a run starting, ending or asking does", () => {
