@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "at": "2026-11-26T04:17:03.242Z",
-  "commit": "d64a98c",
+  "at": "2026-11-26T04:29:30.782Z",
+  "commit": "6ebe880",
   "runtime": "claude-code",
   "cases": {
     "artificer-bugfix": {
@@ -141,11 +141,11 @@
     },
     "loop-plan-order": {
       "trials": 5,
-      "passRate": 0.8,
-      "cost": 0.0556,
+      "passRate": 1,
+      "cost": 0.0597,
       "tokens": {
-        "in": 120204,
-        "out": 2219
+        "in": 128388,
+        "out": 2391
       },
       "models": [
         "Artificer: sonnet-5-5 · high",
@@ -241,15 +241,15 @@
     "scribe-summary": {
       "trials": 5,
       "passRate": 0.4,
-      "cost": 0.0254,
+      "cost": 0.0253,
       "tokens": {
-        "in": 24332,
-        "out": 584
+        "in": 24350,
+        "out": 596
       },
       "models": [
         "Scribe: sonnet-5-5 · medium"
       ],
-      "seconds": 8
+      "seconds": 7
     },
     "warden-review": {
       "trials": 5,
