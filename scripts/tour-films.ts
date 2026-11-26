@@ -1,5 +1,5 @@
 // Put the films into the tour: the motion graphics in docs/films/ → the Films section of
-// docs/index.html (four films, a tab each) and two films shown on their own beside what they show
+// docs/index.html (five films, a tab each) and two films shown on their own beside what they show
 // (the trail map in Orbit, the constellation in the kit's memory tab), all drawn live in the page.
 //   npm run tour:films            write them into docs/index.html
 //   tsx scripts/tour-films.ts --check   say whether docs/index.html is in step, and change nothing
@@ -29,10 +29,7 @@ const FILMS: { key: string; file: string; note: string; tab?: string; length?: s
     note: "Outpost in one shot, from the ground to the sky. You claim your ground, your outpost lifts into orbit, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
   },
   {
-    // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in the Films section.
-    // To show it again: take `hidden` off, put it in the section's lede below (the lede counts the
-    // films and describes them), and run `npm run tour:films`.
-    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26", hidden: true,
+    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26",
     note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own <span data-word='crew'>crew</span>, memory and keys. Then a request comes in and goes round the <span data-word='crew'>crew</span> as comets, the <span data-crew='5'>Test Pilot</span> flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
   },
   {
@@ -60,7 +57,7 @@ const FILMS: { key: string; file: string; note: string; tab?: string; length?: s
 const SECTIONS = [
   {
     id: "films", name: "Films", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Four short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.",
+    lede: "Five short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky, and the second all of it in one loop, from the star chart to the night shift. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.",
     before: '<section id="orbit">', linkBefore: '        <a href="#kit">The kit</a>', // just ahead of the kit
   },
 ];
