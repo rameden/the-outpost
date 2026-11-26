@@ -1,6 +1,6 @@
 // The whole page, put together: it comes up before the camp has answered, and a zone that throws
 // while drawing itself says so in its own space, leaving the message box (and the rest) working.
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { say } from "./bus.ts";
 import { createFeedStore } from "./feed/store.ts";
@@ -62,4 +62,49 @@ test("Orbit takes the whole page from the Views menu in the top bar or /orbit, a
   // /orbit demo opens it on its demo: a pretend camp, which says that's what it is.
   act(() => say({ do: "command", name: "orbit", arg: "demo" }));
   expect(within(screen.getByRole("dialog", { name: "Orbit: the crew at work" })).getByRole("status").textContent).toMatch(/^Demo: a pretend camp/);
+});
+
+test("the trail map and the constellation aren't in the top bar: /trail opens the map over the page, /constellation opens Memory's Map over the page", async () => {
+  // The Memory page is drawn from what the camp holds, so here the camp answers (with next to nothing in it).
+  const camp = { characters: [], quests: [], queued: [], parallel: 3, limits: [], pausedUntil: null, pauseMessage: null, spend: { today: 0, week: 0, total: 0 }, budgetUsd: null, runtime: "api", login: null,
+    history: { conversations: [], projects: [] }, prs: [], packs: [], links: [], memory: [], memoryProposals: [], wiki: [], settings: { memoryCare: { tidy: false, suggest: false } } };
+  vi.stubGlobal("fetch", vi.fn((path: string) => (String(path).startsWith("/api/state") ? Promise.resolve(new Response(JSON.stringify(camp))) : new Promise<Response>(() => {}))));
+  // The page asks for it once the stream says hello.
+  vi.stubGlobal("EventSource", class { readyState = 1; onmessage = null; onerror = null; close() {}
+    addEventListener(name: string, heard: (m: unknown) => void) { if (name === "hello") setTimeout(() => heard({ data: JSON.stringify({ bootId: "b1" }) })); } });
+  render(<App store={createFeedStore()} />);
+  await waitFor(() => expect(screen.queryByText("Connecting…")).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Views" }));
+  expect(within(screen.getByRole("menu", { name: "Views" })).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit"]);
+  fireEvent.keyDown(screen.getByRole("menu", { name: "Views" }), { key: "Escape" });
+
+  act(() => say({ do: "command", name: "trail" })); // what typing /trail does, and a plan card's "Full screen"
+  const trail = await screen.findByRole("dialog", { name: /^Trail map/ });
+  expect(within(trail).getByText("No plan yet")).toBeTruthy();
+  fireEvent.keyDown(trail, { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: /^Trail map/ })).toBeNull();
+
+  act(() => say({ do: "command", name: "trail" }));
+  expect(screen.getByRole("dialog", { name: /^Trail map/ })).toBeTruthy();
+  act(() => say({ do: "command", name: "constellation" })); // what typing /constellation does
+  expect(screen.queryByRole("dialog", { name: /^Trail map/ })).toBeNull(); // one whole-page view at a time
+  const map = await screen.findByRole("dialog", { name: /^Memory constellation/ });
+  expect(within(map).getByRole("button", { name: "Leave full screen" })).toBeTruthy();
+  // Under it is the Memory page, on Map: leaving full screen (Esc) leaves the same map there, in the page.
+  expect(screen.getByRole("tab", { name: "Map" }).getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(map, { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: /^Memory constellation/ })).toBeNull();
+  const here = screen.getByRole("region", { name: /^Memory constellation/ });
+  fireEvent.click(within(here).getByRole("button", { name: "Full screen" }));
+  expect(screen.getByRole("dialog", { name: /^Memory constellation/ })).toBeTruthy();
+  // Going anywhere on the page leaves full screen; so does opening the trail map or Orbit.
+  act(() => say({ do: "command", name: "trail" }));
+  expect(screen.queryByRole("dialog", { name: /^Memory constellation/ })).toBeNull();
+  expect(screen.getByRole("dialog", { name: /^Trail map/ })).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole("dialog", { name: /^Trail map/ }), { key: "Escape" });
+  act(() => say({ do: "command", name: "constellation" }));
+  expect(screen.getByRole("dialog", { name: /^Memory constellation/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "List", hidden: true }));
+  expect(screen.queryByRole("dialog", { name: /^Memory constellation/ })).toBeNull();
+  expect(screen.queryByRole("region", { name: /^Memory constellation/ })).toBeNull();
 });

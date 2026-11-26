@@ -1,6 +1,6 @@
 // The top bar, kept to what you look at often: what's waiting on you (a count that opens the Inbox), how busy the camp is (a menu with
 // what runs the crew, GitHub and today's spend), the connection (only when it drops), the Views
-// menu (Orbit, the trail map and the constellation), a ··· menu for the page's occasional
+// menu (Orbit; the trail map opens from a plan, the memory's map is in Memory), a ··· menu for the page's occasional
 // switches and Barnstorm, and Settings. A problem shows by itself.
 
 import { memo, useEffect, useState } from "react";
@@ -141,7 +141,8 @@ function StatusMenu({ S, refresh, onOpenSettings, onOpenActivity, gh, running, q
 // A menu under an icon in the bar: rows with an icon and a name, and a tick on what's on. Two of
 // them use it. ···  holds the page's occasional switches: focus, how it's laid out, light or dark,
 // and notifications. (The files and notes are /files and /notes.) Views holds the camp's
-// full-screen views: Orbit, the trail map and the constellation. Barnstorm, the game, is the last row of ···.
+// full-screen view, Orbit. (The trail map opens from a plan card, or /trail; the memory's map is Memory → Map, or
+// /constellation.) Barnstorm, the game, is the last row of ···.
 // A row with an href is a link to another page (newTab: in its own tab) rather than a switch.
 type MenuItem = { label: string; icon: IconName; title: string; onClick?: () => void; href?: string; newTab?: boolean; checked?: boolean; wide?: boolean; says?: string; quiet?: boolean };
 function ToolMenu({ name, title, icon, groups, className, waiting }: {
@@ -182,7 +183,7 @@ function ToolMenu({ name, title, icon, groups, className, waiting }: {
 // inbox: how many things are waiting on you (inbox.ts). The chip says it and opens Activity → Inbox,
 // the one place they're listed and answered.
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, onOpenActivity, focused, onToggleFocus, onOpenLayout, inbox = NO_INBOX, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail, constellation, onConstellation }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, onOpenActivity, focused, onToggleFocus, onOpenLayout, inbox = NO_INBOX, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit }: {
   onHome?: () => void; // the logo takes you to Today
   inbox?: InboxCount;
   S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void; onOpenActivity?: (tab: ActivityTab) => void;
@@ -190,10 +191,8 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   // conversation; again brings back the ones it closed.
   focused?: boolean; onToggleFocus?: () => void;
   onOpenLayout?: () => void;
-  // The Views menu's three. Each is left out of the menu when it has no way to be opened.
+  // The Views menu's row. It's left out of the menu when it has no way to be opened.
   orbit?: boolean; onOrbit?: () => void; // the crew at work as a solar system, full screen (orbit/Orbit.tsx)
-  trail?: boolean; onTrail?: () => void; // the plan as a trail of steps, full screen (trail/Trail.tsx)
-  constellation?: boolean; onConstellation?: () => void; // the memory as a map of stars, full screen (constellation/Constellation.tsx)
   // The game (egg/Barnstorm.tsx): fly a plane over the page. Its row starts it, then is play and pause.
   barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
 }) {
@@ -269,17 +268,13 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <ReadingPlayer />
         {/* With the icons, so it sits as close to them as they do to each other. */}
         <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} onOpenActivity={onOpenActivity} gh={gh} running={running} questsOut={questsOut} queued={queued} />
-        {/* The full-screen views are in Views; the page's occasional switches, and the game, are behind ···. */}
+        {/* Orbit is in Views; the page's occasional switches, and the game, are behind ···. */}
         <ToolMenu name="Views" icon="views"
-          title="Views: Orbit, the trail map and the constellation, each full screen"
+          title={`Views: Orbit, the ${w("crew")} at work, full screen`}
           groups={[
             [
               onOrbit && { label: orbit ? "Leave Orbit" : "Orbit", icon: "orbit", checked: !!orbit, onClick: onOrbit, says: `The ${w("crew")} at work, as a solar system`,
                 title: `Orbit: watch the ${w("crew")} at work as a solar system, full screen` },
-              onTrail && { label: trail ? "Leave the trail map" : "Trail map", icon: "trail", checked: !!trail, onClick: onTrail, says: "The plan, step by step",
-                title: "Trail map: the plan step by step, and who's on each, full screen" },
-              onConstellation && { label: constellation ? "Leave the constellation" : "Constellation", icon: "constellation", checked: !!constellation, onClick: onConstellation, says: "The memory, as a map of stars",
-                title: `Constellation: every line the ${w("crew")} remembers as a star, to pin, forget or merge, full screen` },
             ],
           ]} />
         <ToolMenu name="More" icon="more" className="top-more" waiting={barnstorm === "paused"}

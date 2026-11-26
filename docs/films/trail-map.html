@@ -492,7 +492,7 @@ const bTree = tb(890, 68, 'Tree'), bRings = tb(968, 72, 'Rings'), bWhole = tb(10
 CLICKS.push({ t: T.map, x: 1070, y: 122 }, { t: T.tree, x: 890, y: 122 });
 
 const gTitle = titleCard('NEW AT THE OUTPOST · TRAIL MAP', 'The plan, ', 'drawn as a trail.', 'Every step a waypoint, and every plan of the day on one map.');
-const gEnd = endCard('Open it beside Orbit, or type', '/trail', 'M for the whole map · R for tree or rings · P to replay the day');
+const gEnd = endCard('Open it from a plan, or type', '/trail', 'M for the whole map · R for tree or rings · P to replay the day');
 caption('Each step is a waypoint.', 'A line runs from a step to each step that has to wait for it. It fills in as the crew works.', 3.0, T.map - .4);
 caption('Every plan of the day, on one map.', 'Each plan is a ring, the first asked innermost, so the map grows outward as the day goes on.', T.map + .3, T.tree - .3);
 caption('Or draw it as a tree.', 'One trunk for the day, the first plan at the foot, and each plan a bough growing off it.', T.tree + .3, T.join - .3);

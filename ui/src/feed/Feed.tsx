@@ -3,7 +3,7 @@
 // approvals waiting inside it). Several can be running at once.
 
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { api, errorText } from "../api.ts";
+import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { say } from "../bus.ts";
 import { AttachmentChip } from "../components/AttachmentChip.tsx";
 import { ItemBoundary } from "../components/ErrorBoundary.tsx";
@@ -20,7 +20,9 @@ import { AsideButton } from "./Aside.tsx";
 import { ForkButton } from "./Fork.tsx";
 import { cardsFor, type View } from "./conversation.ts";
 import { condense, summarize, type FeedDetail, type StepsNode } from "./condense.ts";
-import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type StepState } from "./reducer.ts";
+import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode } from "./reducer.ts";
+import { STEP_MARK, STEP_SAYS, stepPill } from "./steps.ts";
+import { Loose, looseOf, tally, TrailGround } from "../trail/Ground.tsx";
 import { useFeed, type FeedStore } from "./store.ts";
 import { complain } from "../components/StatusLine.tsx";
 
@@ -111,43 +113,72 @@ const NodeView = memo(function NodeView({ node, onReply }: { node: FeedNode; onR
   }
 });
 
-// The plan you approved, as a list that fills in while the run goes: each step says whether it's
-// not started, out (and with whom), done, or didn't make it. A step with a quest goes to that
-// quest's block when clicked. Steps nobody was sent on are the Quartermaster's own.
-// A step's pill: lit while it is out, ticked when done, plain before it starts, red when it went wrong.
-export const stepPill = (state: StepState) => cx("pill", state === "out" ? "live" : state === "done" ? "done" : state === "todo" ? "" : "bad");
-export const STEP_SAYS: Record<StepState, string> = { todo: "Not started", out: "Out", done: "Done", failed: "Didn't finish", stopped: "Cut short" };
-export const STEP_MARK: Record<StepState, string> = { todo: "○", out: "●", done: "✓", failed: "!", stopped: "–" };
+// The plan you approved, as a card that fills in while the run goes. As a list, each step says
+// whether it's not started, out (and with whom), done, or didn't make it; a step with a quest goes
+// to that quest's block when clicked, and steps nobody was sent on are the Quartermaster's own.
+// As a trail, the same steps are waypoints with a line from each to the steps that wait for it
+// (trail/Ground.tsx), drawn here in the card. List or trail is yours to pick, and is remembered.
+// "Full screen" opens the trail map over the page, on this plan (trail/Trail.tsx): the other plans,
+// the whole map and the replay are there.
+export { STEP_MARK, STEP_SAYS, stepPill } from "./steps.ts";
+// The run a plan card is in: what "Full screen" opens the map on, and where the quests that are on
+// none of the plan's steps are found.
+const RunOf = createContext<ExpNode | null>(null);
+type PlanView = "list" | "trail";
+const PLAN_VIEW = "camp-plan-view";
+const goToQuest = (id: string) => document.getElementById(`quest-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+const crewId = (who: string) => crewNow().find((c) => c.name === who)?.id;
+const openQuest = (_expId: string, node: string) => goToQuest(node);
 function PlanList({ plan }: { plan: PlanNode }) {
+  const run = useContext(RunOf);
+  const [view, setView] = useState<PlanView>(() => (storeGet(PLAN_VIEW) === "trail" ? "trail" : "list"));
+  const show = (v: PlanView) => { setView(v); storeSet(PLAN_VIEW, v); };
   const states = plan.steps.map((s) => stepState(s, plan.ended));
-  const count = (st: StepState) => states.filter((x) => x === st).length;
-  const goTo = (id: string) => document.getElementById(`quest-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  // Quests sent without a step are listed under the trail of the run's newest plan (an earlier one didn't know of them).
+  const loose = useMemo(() => (run && view === "trail" && run.nodes.findLast((n) => n.kind === "plan")?.id === plan.id ? looseOf(run.nodes, plan) : []), [run, view, plan]);
   return (
     <div className="plan-list" role="group" aria-label="The plan, step by step">
-      <div className="plan-head"><b>Plan</b><span>{count("done")} of {plan.steps.length} done{count("out") ? ` · ${count("out")} out` : ""}{count("failed") ? ` · ${count("failed")} didn't finish` : ""}</span></div>
-      <ol>
-        {plan.steps.map((s, i) => {
-          const state = states[i];
-          const who = [...new Map(s.quests.map((q) => [q.who, q])).values()];
-          const target = s.quests.find((q) => q.status === null) ?? s.quests.at(-1);
-          const row = (
-            <>
-              <span className="plan-mark" aria-hidden="true">{STEP_MARK[state]}</span>
-              <span className="plan-n">{s.n}</span>
-              <span className="plan-text">{s.text}</span>
-              {who.length > 0 && <span className="plan-who">{who.map((q) => `${q.emoji} ${q.who}${s.quests.filter((x) => x.who === q.who).length > 1 ? ` ×${s.quests.filter((x) => x.who === q.who).length}` : ""}`).join(", ")}</span>}
-              <span className={stepPill(state)}>{STEP_SAYS[state]}</span>
-            </>
-          );
-          return (
-            <li key={s.n} className={cx("plan-step", state)}>
-              {target
-                ? <button type="button" title={`Go to this step's ${w("quest")}`} onClick={() => goTo(target.node)}>{row}</button>
-                : <div title={state === "todo" ? `Nobody has been sent on this yet: it may be the ${leadName()}'s own to do` : undefined}>{row}</div>}
-            </li>
-          );
-        })}
-      </ol>
+      <div className="plan-head">
+        <b>Plan</b><span>{tally(states)}</span>
+        <span className="plan-views" role="group" aria-label="How the plan is shown">
+          <button type="button" className="plan-view" aria-pressed={view === "list"} title="The steps as a list" onClick={() => show("list")}>List</button>
+          <button type="button" className="plan-view" aria-pressed={view === "trail"} title="The steps as a trail: what waits for what" onClick={() => show("trail")}>Trail</button>
+        </span>
+        <button type="button" className="plan-view plan-full" aria-label="Open the trail map, full screen" title="The trail map, over the whole page: this plan, the others, the whole map and the replay"
+          onClick={() => say({ do: "command", name: "trail", arg: run?.expId })}><Icon name="focus" /><span>Full screen</span></button>
+      </div>
+      {view === "trail" ? (
+        <>
+          <div className="plan-trail" role="group" aria-label="The plan as a trail" tabIndex={0}>
+            <TrailGround plan={plan} expId={run?.expId ?? ""} crewId={crewId} onOpen={openQuest} label="The plan's steps, as a trail" inBox />
+          </div>
+          <Loose at={{ expId: run?.expId ?? "", plan, loose }} crewId={crewId} onOpen={openQuest} />
+        </>
+      ) : (
+        <ol>
+          {plan.steps.map((s, i) => {
+            const state = states[i];
+            const who = [...new Map(s.quests.map((q) => [q.who, q])).values()];
+            const target = s.quests.find((q) => q.status === null) ?? s.quests.at(-1);
+            const row = (
+              <>
+                <span className="plan-mark" aria-hidden="true">{STEP_MARK[state]}</span>
+                <span className="plan-n">{s.n}</span>
+                <span className="plan-text">{s.text}</span>
+                {who.length > 0 && <span className="plan-who">{who.map((q) => `${q.emoji} ${q.who}${s.quests.filter((x) => x.who === q.who).length > 1 ? ` ×${s.quests.filter((x) => x.who === q.who).length}` : ""}`).join(", ")}</span>}
+                <span className={stepPill(state)}>{STEP_SAYS[state]}</span>
+              </>
+            );
+            return (
+              <li key={s.n} className={cx("plan-step", state)}>
+                {target
+                  ? <button type="button" title={`Go to this step's ${w("quest")}`} onClick={() => goToQuest(target.node)}>{row}</button>
+                  : <div title={state === "todo" ? `Nobody has been sent on this yet: it may be the ${leadName()}'s own to do` : undefined}>{row}</div>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }
@@ -279,7 +310,7 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
       <div className="exp-reply">
         <div className="exp-body">
           {/* Nothing back yet: say so, so the answer's place isn't an empty box. */}
-          {!end && exp.nodes.length === 0 ? <div className="exp-wait" role="status">{exp.source === "job" ? "Starting…" : "Reading your message…"}</div> : <Nodes nodes={exp.nodes} onReply={onReply} live={!end} />}
+          {!end && exp.nodes.length === 0 ? <div className="exp-wait" role="status">{exp.source === "job" ? "Starting…" : "Reading your message…"}</div> : <RunOf.Provider value={exp}><Nodes nodes={exp.nodes} onReply={onReply} live={!end} /></RunOf.Provider>}
         </div>
         {end && showChanges && <Changes expId={exp.expId} />}
         {end && end.workspaces.length > 0 && <WorkspaceBox workspaces={end.workspaces} task={exp.task} expId={exp.expId} />}
