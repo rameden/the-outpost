@@ -26,6 +26,7 @@ import { DraftTicketsDialog, MaeTicketDialog, TicketsPage } from "./components/T
 import { closeDrafting, closeTicket as closeMaeTicket, loadTickets, showTicket, useTickets } from "./tickets.ts";
 import { TicketWizard } from "./components/TicketWizard.tsx";
 import { WikiHome } from "./components/Wiki.tsx";
+import { ReleaseNotes } from "./components/ReleaseNotes.tsx";
 import { treeQuery } from "./api.ts";
 import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
@@ -143,7 +144,7 @@ export function App({ store }: { store: FeedStore }) {
   // (From Today, what you send starts in the project you last worked in.)
   const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : view.kind === "home" ? homeProject(S?.history) : view.kind === "project" ? view.id : conversation?.project));
   // A project's page, or the list of them (also where a deleted project's page lands).
-  const page = view.kind === "wiki" ? "wiki" : view.kind === "tickets" ? "tickets"
+  const page = view.kind === "wiki" ? "wiki" : view.kind === "tickets" ? "tickets" : view.kind === "releases" ? "releases"
     : view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
   // The ticket kickoff stepper: open, and on which ticket if one was already picked.
   const [wizard, setWizard] = useState<{ ticket?: TicketStart } | null>(null);
@@ -551,6 +552,8 @@ export function App({ store }: { store: FeedStore }) {
                     <TicketsPage S={S} onAttach={attachTicket} onFilter={() => openSettings("connectors")} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
                   ) : page === "wiki" && S ? (
                     <WikiHome S={S} open={view.kind === "wiki" ? view.page : undefined} onOpen={(path) => setView(path ? { kind: "wiki", page: path } : { kind: "wiki" })} refresh={refresh} />
+                  ) : page === "releases" ? (
+                    <ReleaseNotes />
                   ) : page === "projects" && S ? (
                     <ProjectsOverview S={S} setView={setView} onNew={() => setDialog({ project: null })} />
                   ) : view.kind === "home" && !S ? (

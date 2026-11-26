@@ -305,6 +305,10 @@ export const History = memo(function History({ S, store, view, setView, patch, o
             <Icon name="book" />Wiki
           </button>
         )}
+        <button type="button" className={cx("hist-nav-item", view.kind === "releases" && "selected")} aria-current={view.kind === "releases" ? "page" : undefined}
+          title="What's changed in Mae: the merged pull requests, summed up every 48 hours" onClick={() => setView({ kind: "releases" })}>
+          <Icon name="bookmark" />Release notes
+        </button>
         {/* Search turns into its own box, in place: nothing under it moves, and it isn't lit like the page you're on. */}
         {searching ? (
           <div className="hist-search-row">
