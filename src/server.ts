@@ -88,7 +88,7 @@ import { routingReport } from "./autoroute.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./reports.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
-import { CALLBACK_PATH as GCAL_CALLBACK, CalendarError, calendarStatus, finishCalendarLink, redirectFor, startCalendarLink, unlinkCalendar } from "./gcal.js";
+import { CALLBACK_PATH as GCAL_CALLBACK, CalendarError, calendarStatus, finishCalendarLink, redirectFor, startCalendarLink, unlinkCalendar, weekEvents } from "./gcal.js";
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
 import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
@@ -1031,6 +1031,11 @@ const server = http.createServer(async (req, res) => {
     // What a project's reviews, second opinions, fix-ups and pull requests came to lately, and what they used.
     // The entry page (?project= for one project's numbers), and one day's brief (?day=).
     if (req.method === "GET" && url.pathname === "/api/home") return send(res, 200, homePage(url.searchParams.get("project") ?? undefined));
+    // Your Google Calendar's week, for Home (?from= the week's first day, as the page counts it).
+    if (req.method === "GET" && url.pathname === "/api/gcal/week") {
+      try { return send(res, 200, await weekEvents({ from: url.searchParams.get("from") ?? undefined })); }
+      catch (e: any) { return send(res, e instanceof CalendarError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
     if (req.method === "GET" && url.pathname === "/api/brief") {
       const b = readBrief(String(url.searchParams.get("day") ?? ""));
       return b ? send(res, 200, b) : send(res, 404, { error: "There's no brief for that day." });

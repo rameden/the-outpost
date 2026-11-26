@@ -287,6 +287,35 @@ export async function listEvents(input: { from?: unknown; to?: unknown; calendar
     shown.map((e) => eventText(e, r.timeZone)).join("\n") + (items.length > MAX_EVENTS ? "\n(more: ask for a shorter span)" : "");
 }
 
+// The page's week on Home: the primary calendar's events for the seven days from `from`, as data
+// (not the crew's text). Titles and places are whoever made the event's words: the page shows them
+// as plain text, and an event's link is kept only when it's Google Calendar's own.
+export type WeekEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string | null; url: string | null; answer: string | null };
+export type CalendarWeek = { from: string; to: string; timeZone: string | null; events: WeekEvent[]; more: boolean };
+const WEEK_MAX = 250;
+const googleLink = (u?: string) => {
+  try { const x = new URL(String(u ?? "")); return x.protocol === "https:" && (x.hostname === "calendar.google.com" || x.hostname === "www.google.com") ? x.href : null; } catch { return null; }
+};
+export async function weekEvents(input: { from?: unknown }): Promise<CalendarWeek> {
+  const from = input.from ? parseTime(input.from, "from") : new Date(new Date().setHours(0, 0, 0, 0));
+  const to = new Date(from.getTime() + 7 * DAY);
+  const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: String(WEEK_MAX + 1) });
+  const r = await apiCall<{ items?: GEvent[]; timeZone?: string }>("GET", `/calendars/primary/events?${q}`);
+  const items = (r.items ?? []).filter((e) => e.status !== "cancelled" && (e.start?.date || e.start?.dateTime));
+  const events = items.slice(0, WEEK_MAX).map((e, i): WeekEvent => {
+    const allDay = !!e.start?.date;
+    const me = e.attendees?.find((a) => a.self)?.responseStatus;
+    return {
+      id: e.id ?? `e${i}`, title: oneLine(e.summary || "(no title)", 200), allDay,
+      start: allDay ? e.start!.date! : e.start!.dateTime!,
+      end: allDay ? (e.end?.date ?? e.start!.date!) : (e.end?.dateTime ?? e.start!.dateTime!),
+      location: e.location ? oneLine(e.location, 120) : null, url: googleLink(e.htmlLink),
+      answer: me && me !== "accepted" ? me : null,
+    };
+  });
+  return { from: from.toISOString(), to: to.toISOString(), timeZone: r.timeZone ?? saved()?.timeZone ?? null, events, more: items.length > WEEK_MAX };
+}
+
 export async function busyTimes(input: { from?: unknown; to?: unknown }): Promise<string> {
   const from = input.from ? parseTime(input.from, "from") : new Date();
   const to = input.to ? new Date(parseTime(input.to, "to").getTime() + (isDate(input.to) ? DAY : 0)) : new Date(from.getTime() + DAY);
