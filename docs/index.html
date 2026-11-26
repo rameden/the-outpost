@@ -1079,7 +1079,7 @@ footer .outpost-sub { font-size: 10px; }
         <span class="tag">Tickets &amp; debriefs</span>
         <h3>Tickets of its own, and a look back when one's done</h3>
         <p>No Jira? Outpost keeps its own tickets, keyed MAE-1, MAE-2 and on, on a Tickets page. Turn a note or a plan into tickets with one button, or let the <span data-crew="0">Quartermaster</span> make them.</p>
-        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the <span data-word="crew">crew</span> did on it: the plan, each <span data-word="quest">quest</span>, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Settings → What your outpost does unasked</li></ul>
+        <ul><li>A ticket moves to In progress when work starts, and to Done when its pull request merges</li><li>When a ticket is done, one of its own or a Jira one, the smallest model reads how the <span data-word="crew">crew</span> did on it: the plan, each <span data-word="quest">quest</span>, what reviews and checks caught, what you had to ask for twice</li><li>It proposes lessons, and nothing is kept until you approve it. Switch it on under Activity → Unasked</li></ul>
       </div>
     </div>
     <div class="kit" id="kit-away" role="tabpanel" aria-labelledby="kit-tab-away" hidden>
@@ -3984,8 +3984,8 @@ tx(gToday, JX + 110, TY + TH - 41, 'b t13 f-muted', 'It only drafted and reporte
 CLICKS.push({ t: T.on, x: IX + 22, y: swY + 2 }, { t: T.look, x: bLook.cx, y: bLook.cy + 2 });
 
 const gTitle = titleCard('NEW AT THE OUTPOST · NIGHT SHIFT', 'The quiet hours, ', 'put to use.', 'It drafts and reports while the outpost is idle. Nothing changes until you approve it.');
-const gEnd = endCard('Switch it on under', 'Settings → What your outpost does unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
-caption('Off until you switch it on.', 'Under Settings → What your outpost does unasked. You choose the hours.', 3.0, T.dusk - .3);
+const gEnd = endCard('Switch it on under', 'Activity → Unasked → Night shift', 'At most once a night, and it waits while your usage limit is used up.');
+caption('Off until you switch it on.', 'Under Activity → Unasked. You choose the hours.', 3.0, T.dusk - .3);
 caption('The outpost goes quiet.', 'Nothing running, and nothing asked for half an hour, inside the hours you chose.', T.dusk + .1, T.shift - .3);
 caption('The night shift drafts and reports.', 'At most three small model calls a night. Nothing is applied, deleted or changed.', T.shift, T.dawn - .2);
 caption("In the morning, it's on your Today page.", 'The drafts wait for you there. Nothing changes until you approve it.', T.dawn + .1, END - .3);
@@ -4818,7 +4818,7 @@ CLICKS.push({ t: T.pick, x: A.x, y: A.y }, { t: T.pin, x: pA.pin.cx, y: pA.pin.c
   { t: T.pickF, x: F.x, y: F.y }, { t: T.forget, x: pF.forget.cx, y: pF.forget.cy + 2 }, { t: T.sure, x: 640 - 36, y: 400 + 60 });
 
 const gTitle = titleCard('NEW AT THE OUTPOST · CONSTELLATION', `The ${TP.w('crew')}'s memory, `, 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
-const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the map from Settings → Memory.');
+const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the Memory page and pick Map.');
 caption('Every line it remembers is a star.', `Grouped by where it lives: ${TP.a('crew')} member's memory, or the note about you.`, 3.0, T.used - .3);
 caption("A star grows each time it's used.", "Whenever a line bears on a request, or comes back from recall, it's written down.", T.used + .2, T.pick - .5);
 caption('Click a star to read it, and pin it.', 'A pinned line always goes in the prompt, however full that memory gets.', T.pick - .2, T.merge - .5);

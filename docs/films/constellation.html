@@ -493,7 +493,7 @@ CLICKS.push({ t: T.pick, x: A.x, y: A.y }, { t: T.pin, x: pA.pin.cx, y: pA.pin.c
   { t: T.pickF, x: F.x, y: F.y }, { t: T.forget, x: pF.forget.cx, y: pF.forget.cy + 2 }, { t: T.sure, x: 640 - 36, y: 400 + 60 });
 
 const gTitle = titleCard('NEW AT THE OUTPOST · CONSTELLATION', "The crew's memory, ", 'as a map of stars.', 'Every line it remembers, sized by how often it gets used.');
-const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the map from Settings → Memory.');
+const gEnd = endCard('See it full screen: type', '/constellation', 'Or open the Memory page and pick Map.');
 caption('Every line it remembers is a star.', "Grouped by where it lives: a crew member's memory, or the note about you.", 3.0, T.used - .3);
 caption("A star grows each time it's used.", "Whenever a line bears on a request, or comes back from recall, it's written down.", T.used + .2, T.pick - .5);
 caption('Click a star to read it, and pin it.', 'A pinned line always goes in the prompt, however full that memory gets.', T.pick - .2, T.merge - .5);

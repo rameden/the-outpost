@@ -659,6 +659,14 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
     <div className="settings" role="dialog" aria-modal="true" aria-label="Settings">
       <nav className="set-nav" aria-label="Settings sections">
         <div className="set-nav-head">Settings</div>
+        {/* Under ~640px the list becomes one select: every section is one pick away, none scrolled out of sight. */}
+        <select className="set-nav-select" aria-label="Settings section" value={section} onChange={(ev) => setSection(ev.target.value as SettingsSection)}>
+          {GROUPS.map((g) => (
+            <optgroup key={g.title} label={g.title}>
+              {g.items.map(([id, label]) => <option key={id} value={id}>{label}{counts[id] ? ` (${counts[id]})` : ""}</option>)}
+            </optgroup>
+          ))}
+        </select>
         {GROUPS.map((g) => (
           <div key={g.title} className="set-group">
             <div className="set-group-title">{g.title}</div>

@@ -319,3 +319,12 @@ test("the nav is grouped as Camp, Look & sound, Safety, Access, Knowledge, in th
   const titles = [...nav.querySelectorAll(".set-group-title")].map((e) => e.textContent);
   expect(titles).toEqual(["Camp", "Look & sound", "Safety", "Access", "Knowledge"]);
 });
+
+test("on a narrow screen the nav is one select: every section is in it, and picking one goes there", () => {
+  const { setSection } = show("general");
+  const pick = screen.getByRole("combobox", { name: "Settings section" }) as HTMLSelectElement;
+  expect(pick.value).toBe("general");
+  expect([...pick.options].map((o) => o.value).sort()).toEqual([...SETTINGS_SECTIONS].sort());
+  fireEvent.change(pick, { target: { value: "limits" } });
+  expect(setSection).toHaveBeenCalledWith("limits");
+});

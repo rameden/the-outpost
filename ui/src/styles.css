@@ -1906,6 +1906,7 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .settings-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 28px; background: var(--scrim); }
 .settings { width: min(1040px, 100%); height: min(780px, 100%); display: grid; grid-template-columns: 220px minmax(0, 1fr); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-dialog); }
 .set-nav { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 10px; overflow: auto; }
+.set-nav-select { display: none; }
 .set-nav-head { font: 600 18px/1.2 var(--serif); padding: 4px 10px 14px; }
 .set-group + .set-group { margin-top: 14px; }
 .set-group-title { padding: 0 10px 6px; }
@@ -1975,6 +1976,11 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
   .set-head, .set-body { padding-left: 16px; padding-right: 16px; }
   .set-row { grid-template-columns: 1fr; }
   .set-control { justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+  .set-nav { display: block; }
+  .set-nav-select { display: block; width: 100%; font: 600 15px var(--sans); color: var(--text); padding: 9px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--bg); }
+  .set-nav .set-group { display: none; }
 }
 
 /* The GitHub account chip in the header */
