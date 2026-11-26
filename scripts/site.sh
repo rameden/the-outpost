@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# The public landing page (docs/index.html) at https://outpostmae.app, from your own AWS account.
+# The public site at https://outpostmae.app, from your own AWS account: the landing page
+# (docs/landing.html) at /, and the Tour (docs/index.html) at /about.
 #
-#   visitor ──HTTPS──▶ CloudFront (ACM certificate) ──▶ private S3 bucket (index.html)
+#   visitor ──HTTPS──▶ CloudFront (ACM certificate) ──▶ private S3 bucket (index.html, about.html, …)
 #                ▲
 #   Route 53: outpostmae.app and www.outpostmae.app → CloudFront (www redirects to the bare domain)
 #
@@ -10,7 +11,7 @@
 # relay), outposts' subdomains and anything else in the zone are left as they are.
 #
 #   scripts/site.sh setup    make (or update) the stack, then put the page up; first run ~5–15 minutes
-#   scripts/site.sh deploy   put the current docs/index.html up and clear CloudFront's cache
+#   scripts/site.sh deploy   put the current pages up and clear CloudFront's cache
 #   scripts/site.sh status   the stack, the DNS answers, and whether the page answers over HTTPS
 #
 # Needs the AWS CLI signed in to the account that holds the hosted zone (aws login, or
@@ -24,7 +25,7 @@ STACK="${SITE_STACK:-outpostmae-site}"
 REGION=us-east-1
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATE="$ROOT/infra/site.yaml"
-PAGE="$ROOT/docs/index.html"
+DOCS="$ROOT/docs"
 
 say() { printf '\033[1m%s\033[0m\n' "$*"; }
 die() { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
@@ -75,26 +76,34 @@ cmd_setup() {
 
 cmd_deploy() {
   signed_in
-  [[ -f "$PAGE" ]] || die "No page at $PAGE"
+  local f; for f in landing.html index.html films/ground-to-sky.html; do [[ -f "$DOCS/$f" ]] || die "No page at $DOCS/$f"; done
   stack_exists || die "No stack $STACK yet. Run: scripts/site.sh setup"
   local bucket dist
   bucket="$(output BucketName)"; dist="$(output DistributionId)"
   out="$(mktemp -d)"; trap 'rm -rf "$out"' EXIT   # global: the trap runs after this function returns
-  # The page as it is: served by no camp, it wears the Guild pack (or the one a visitor picks) and
-  # its logo goes to the top of the page, not to mission control.
-  cp "$PAGE" "$out/index.html"
+  # The landing page is the home page; its links to the Tour go to /about.
+  sed 's|href="index.html"|href="/about"|g' "$DOCS/landing.html" > "$out/index.html"
+  # The Tour as it is: served by no camp, it wears the Guild pack (or the one a visitor picks) and
+  # its logo goes to the top of the page, not to mission control. Its own address is /about.
+  sed 's|"https://outpostmae.app/"|"https://outpostmae.app/about"|g' "$DOCS/index.html" > "$out/about.html"
+  # The film the landing page plays (and links to), its favicon, the screenshots it shows, and
+  # the picture a link preview shows (og:image: the mark and the name, 1200x630).
+  mkdir -p "$out/films" "$out/brand" "$out/shots"
+  cp "$DOCS/films/ground-to-sky.html" "$out/films/"
+  cp "$DOCS/brand/favicon.svg" "$out/brand/"
+  local s; for s in plan run today; do cp "$DOCS/shots/$s-dark.webp" "$DOCS/shots/$s-light.webp" "$out/shots/"; done
+  [[ -f "$DOCS/og.png" ]] && cp "$DOCS/og.png" "$out/og.png"
   printf 'User-agent: *\nAllow: /\n' > "$out/robots.txt"
-  # The picture a link preview shows (og:image): the mark and the name, 1200x630.
-  [[ -f "$ROOT/docs/og.png" ]] && cp "$ROOT/docs/og.png" "$out/og.png"
   say "Uploading to s3://$bucket …"
-  aws s3 cp "$out/index.html" "s3://$bucket/index.html" --region "$REGION" \
-    --content-type "text/html; charset=utf-8" --cache-control "public, max-age=300" --only-show-errors
-  aws s3 cp "$out/robots.txt" "s3://$bucket/robots.txt" --region "$REGION" \
-    --content-type "text/plain; charset=utf-8" --cache-control "public, max-age=86400" --only-show-errors
-  if [[ -f "$out/og.png" ]]; then
-    aws s3 cp "$out/og.png" "s3://$bucket/og.png" --region "$REGION" \
-      --content-type "image/png" --cache-control "public, max-age=86400" --only-show-errors
-  fi
+  put() { aws s3 cp "$out/$1" "s3://$bucket/$1" --region "$REGION" --content-type "$2" --cache-control "$3" --only-show-errors; }
+  local html="text/html; charset=utf-8" short="public, max-age=300" long="public, max-age=86400"
+  put index.html "$html" "$short"
+  put about.html "$html" "$short"
+  put films/ground-to-sky.html "$html" "$short"
+  put brand/favicon.svg "image/svg+xml" "$long"
+  for f in "$out"/shots/*.webp; do put "shots/${f##*/}" "image/webp" "$long"; done
+  put robots.txt "text/plain; charset=utf-8" "$long"
+  [[ -f "$out/og.png" ]] && put og.png "image/png" "$long"
   say "Clearing CloudFront's cache…"
   aws cloudfront create-invalidation --distribution-id "$dist" --paths "/*" \
     --query Invalidation.Id --output text >/dev/null
@@ -113,6 +122,7 @@ cmd_status() {
   echo "DNS $DOMAIN: $(dig +short "$DOMAIN" A | head -3 | tr '\n' ' ')"
   echo "DNS www.$DOMAIN: $(dig +short "www.$DOMAIN" A | head -3 | tr '\n' ' ')"
   echo "https://$DOMAIN/ → $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN/" || echo 'no answer')"
+  echo "https://$DOMAIN/about → $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN/about" || echo 'no answer')"
   echo "https://www.$DOMAIN/ → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 "https://www.$DOMAIN/" || echo 'no answer')"
 }
 
@@ -120,5 +130,5 @@ case "${1:-}" in
   setup) cmd_setup ;;
   deploy) cmd_deploy ;;
   status) cmd_status ;;
-  *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

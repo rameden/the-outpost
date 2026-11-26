@@ -251,14 +251,20 @@ test("the connection only shows when it's lost or not made yet", () => {
   expect(screen.getByText("Connecting…")).toBeTruthy();
 });
 
-test("Tour, in the ··· menu, opens the splash page in a new tab", () => {
+test("About, in the ··· menu, opens the splash page in a new tab, and Promo the landing page under it", () => {
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
   expect(screen.queryByRole("link")).toBeNull(); // nothing beside the name
   fireEvent.click(screen.getByRole("button", { name: "More" }));
-  const link = screen.getByRole("menuitem", { name: "Tour" });
+  const link = screen.getByRole("menuitem", { name: "About" });
   expect(link.getAttribute("href")).toBe("/splash");
   expect(link.getAttribute("target")).toBe("_blank");
   expect(link.getAttribute("rel")).toContain("noopener");
+  expect(screen.queryByRole("menuitem", { name: "Tour" })).toBeNull();
+  const promo = screen.getByRole("menuitem", { name: "Promo" });
+  expect(promo.getAttribute("href")).toBe("https://outpostmae.app/");
+  expect(promo.getAttribute("target")).toBe("_blank");
+  const items = screen.getAllByRole("menuitem");
+  expect(items.indexOf(promo)).toBe(items.indexOf(link) + 1);
 });
 
 test("the connection chip: quiet while live, and after a long outage it says the camp isn't running and what to do", () => {

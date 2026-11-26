@@ -122,13 +122,13 @@ describe("the star chart's first words: what The Outpost is, and what to do next
     await screen.findByRole("button", { name: "Outpost Mae, stopped" });
     expect(about().getByText(/^The Outpost is a team of AI agents that works on your own machine: you ask, a lead plans the work and hands it to the team, and anything that matters waits for your OK\./)).toBeTruthy();
     const tour = about().getByRole("link", { name: "Take the Tour" });
-    expect(tour.getAttribute("href")).toBe("https://outpostmae.app"); // nothing is running to serve it, so the public one
+    expect(tour.getAttribute("href")).toBe("https://outpostmae.app/about"); // nothing is running to serve it, so the public one
     expect(tour.getAttribute("target")).toBe("_blank");
   });
 
   it("the Tour is the running outpost's own page when one is running, and the public one otherwise", async () => {
     const stopped = outpost({}), running = outpost({ id: "work", name: "Work", port: 4748, here: false, running: true });
-    expect(TOUR).toBe("https://outpostmae.app");
+    expect(TOUR).toBe("https://outpostmae.app/about");
     expect(tourOf(null)).toBe(TOUR);
     expect(tourOf([])).toBe(TOUR);
     expect(tourOf([stopped])).toBe(TOUR);

@@ -74,6 +74,9 @@ body { background: var(--page); color: var(--text); font-family: var(--body); fo
 'use strict';
 const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
 const W = 1280, H = 720, PI = Math.PI, TAU = PI * 2, DUR = 76.2;
+// With ?embed in its address (the landing page, docs/landing.html, frames it so) the film fills its window, has no controls,
+// captions or title of its own, and plays only to the time the page sends it: see the end of this script.
+const EMBED = /[?&]embed(?:[&=]|$)/.test(location.search);
 
 // ---- small maths ----
 const clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;
@@ -843,6 +846,7 @@ function mark(t) {
 }
 
 function vignette() {
+  if (EMBED) return;   // embedded, the page darkens its own edges
   const g = ctx.createRadialGradient(640, 360, 400, 640, 360, 860);
   g.addColorStop(0, col('deep', 0)); g.addColorStop(1, col('deep', DARK ? .72 : .5));
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -882,7 +886,7 @@ function spark(p, a) {
 const POINTER = [[0, 0], [0, 16.5], [4.4, 12.7], [7.3, 19], [9.9, 17.8], [7, 11.6], [12.6, 11.6]];
 function captions(t, px) {
   for (const c of CAPS) {
-    if (t < c.a || t > c.b) continue;
+    if (EMBED || t < c.a || t > c.b) continue;   // embedded, the page sets the captions in its own type
     const out = smooth(prog(t, c.b - .5, c.b));
     const row = (i, comes = true, goes = true) => { const u = comes ? prog(t, c.a + i * .13, c.a + i * .13 + .7) : 1, o = goes ? out : 0; return [smooth(u) * (1 - o), (1 - outCubic(u)) * 14 - o * 6]; };
     let [a, dy] = row(0, c.ebIn !== false, c.ebOut !== false);
@@ -918,13 +922,13 @@ function captions(t, px) {
 
 function hud(t) {
   // the kit's small mark and the name beside it, and the film's name; they step aside while the big mark is on
-  const ca = 1 - win(t, T.mark + 2.2, T.dive + 3.6, .9, 1);
+  const ca = EMBED ? 0 : 1 - win(t, T.mark + 2.2, T.dive + 3.6, .9, 1);
   if (ca > 0) {
     ctx.save(); ctx.translate(56, 36); ctx.scale(.19, .19); ctx.globalAlpha = ca;
     ctx.fillStyle = col('ink'); ctx.fill(SMALL_SOLID); ctx.strokeStyle = col('ink'); ctx.lineWidth = 8; ctx.stroke(SMALL_ARCS);
     ctx.fillStyle = col('dot'); disc(100, 100, 20); disc(160.81, 39.19, 13); ctx.fillStyle = col('ink'); wordmark(158, 156); ctx.restore();
   }
-  setFont('m', 12, 500); ctx.globalAlpha = 1; label('GROUND TO SKY', 1226, 61, { align: 'right', sp: 1.7, fill: col('faint'), halo: 4 });
+  setFont('m', 12, 500); ctx.globalAlpha = 1; if (!EMBED) label('GROUND TO SKY', 1226, 61, { align: 'right', sp: 1.7, fill: col('faint'), halo: 4 });
   // the altimeter: how high the camera has climbed, on a scale that runs from metres to light years
   const x = 1226, y0 = 592, y1 = 196, a = track(ALT, t)[0], ya = lerp(y0, y1, a / 3);
   ctx.strokeStyle = col('line'); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1);
@@ -953,12 +957,13 @@ function render(t) {
 // ---- transport ----
 const playB = document.getElementById('play'), scrub = document.getElementById('scrub'), clock = document.getElementById('clock');
 let t = 0, last = null, tick = 0, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-if (!playing) t = T.mark + 8.4;   // with motion reduced it waits on the last card, which says the most standing still
+if (!playing && !EMBED) t = T.mark + 8.4;
+if (EMBED) playing = false;   // with motion reduced it waits on the last card, which says the most standing still
 const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
 function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
 function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
 function fit() {
-  const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2), w = Math.max(320, Math.round(r.width * dpr)), h = Math.round(w * H / W);
+  const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2), cw = EMBED ? Math.min(r.width, r.height * W / H) : r.width, w = Math.max(320, Math.round(cw * dpr)), h = Math.round(w * H / W);
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
 }
 function redraw() { readTheme(); fit(); render(t); }
@@ -977,6 +982,23 @@ new MutationObserver(redraw).observe(document.documentElement, { attributes: tru
 setPlaying(playing); redraw(); sync();
 if (document.fonts && document.fonts.load) Promise.all(['400 36px "Young Serif"', '500 16px Figtree', '600 13px Figtree', '400 11px "JetBrains Mono"', '500 11px "JetBrains Mono"'].map(f => document.fonts.load(f))).then(() => { WIDTHS.clear(); render(t); }, () => {});
 requestAnimationFrame(frame);
+// ---- embedded ----
+// The page that frames it sends { film: 'seek', t } to set the time, and { film: 'theme', theme } to follow its light or dark mode.
+// The film answers { film: 'ready' } with its length, its beats and its captions, so the page can set them in its own type.
+if (EMBED) {
+  const st = document.createElement('style');
+  st.textContent = 'html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); } .wrap { max-width: none; height: 100%; padding: 0; display: block; } .stage { aspect-ratio: auto; height: 100%; border: 0; border-radius: 0; box-shadow: none; cursor: default; } .stage canvas { object-fit: contain; } .controls, .note { display: none; }';
+  document.head.appendChild(st);
+  const hello = () => parent.postMessage({ film: 'ready', dur: DUR, beats: T, caps: CAPS.map(c => ({ a: c.a, b: c.b, eb: c.eb, l: c.l })) }, '*');
+  addEventListener('message', e => {
+    const m = e.data;
+    if (e.source !== parent || !m || typeof m !== 'object') return;
+    if (m.film === 'hello') hello();
+    else if (m.film === 'seek' && Number.isFinite(m.t)) { t = clamp(m.t, 0, DUR - .001); render(t); sync(); }
+    else if (m.film === 'theme') { if (m.theme === 'light' || m.theme === 'dark') document.documentElement.dataset.theme = m.theme; else delete document.documentElement.dataset.theme; }
+  });
+  redraw(); hello();
+}
 })();
 </script>
 </body>
