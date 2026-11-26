@@ -43,6 +43,7 @@ type Settings = {
   jiraFilter?: string;    // which Jira tickets are pulled in (JQL); see jira.ts
   fixAttempts?: number;   // how many times a quest is sent back to fix its own failing checks (0 = never)
   reviewChanges?: boolean; // have the Warden review what changed before the Quartermaster reports
+  runFoundChecks?: boolean; // in a folder with no checks of its own, run the ones the camp finds there (verify.ts); off unless true
   prWatch?: boolean;       // look at the pull requests of recent worktrees now and then (prs.ts); on unless false
   jiraWrite?: JiraWrite;   // what the camp may write to Jira (jira.ts); nothing unless "on"
   providersApproved?: string[];             // other providers you've said may be sent confidential projects' work (approved where you work, say)
@@ -201,6 +202,15 @@ export const reviewChangesOn = () => read().reviewChanges === true;
 export function setReviewChanges(on: boolean) {
   const s = load();
   if (on) s.reviewChanges = true; else delete s.reviewChanges;
+  save(s);
+}
+// A linked folder with no checks set up: the camp looks for likely ones there (its package.json
+// scripts and the like) and says what it found. Running them is off unless you turn it on: unlike
+// your own checks, these commands come from the folder's files, which a quest may just have changed.
+export const runFoundChecksOn = () => read().runFoundChecks === true;
+export function setRunFoundChecks(on: boolean) {
+  const s = load();
+  if (on) s.runFoundChecks = true; else delete s.runFoundChecks;
   save(s);
 }
 
