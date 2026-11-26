@@ -296,7 +296,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
           <button type="button" className="hist-icon" aria-label="Create project" title="Create project" onClick={onNewProject}>+</button>
         </div>
         <button type="button" className={cx("hist-nav-item", view.kind === "tickets" && "selected")} aria-current={view.kind === "tickets" ? "page" : undefined}
-          title={S?.jira?.connected ? "Mae's own tickets, and Jira's" : "Mae's own tickets: work to do, being done, and done"} onClick={() => setView({ kind: "tickets" })}>
+          title={S?.jira?.connected ? "Your own tickets, and Jira's" : "Your own tickets: work to do, being done, and done"} onClick={() => setView({ kind: "tickets" })}>
           <Icon name="check" />Tickets
         </button>
         {onOpenWiki && (

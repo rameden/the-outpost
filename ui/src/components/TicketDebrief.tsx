@@ -43,7 +43,7 @@ export function TicketDebrief({ ticketKey, stamp, jira }: { ticketKey: string; s
     <section className="ticket-debrief" aria-label={`How the ${w("crew")} did`}>
       <h3>How the {w("crew")} did</h3>
       {error && <div className="form-error" role="alert">{error}</div>}
-      {!d ? <div className="meta">Not debriefed yet. The {w("camp")} does it within a couple of minutes of {jira ? "the ticket's pull request merging" : "a ticket being done"}, if debriefs are on (Settings, What Mae does unasked).</div> : (
+      {!d ? <div className="meta">Not debriefed yet. The {w("camp")} does it within a couple of minutes of {jira ? "the ticket's pull request merging" : "a ticket being done"}, if debriefs are on (Settings).</div> : (
         <>
           <div className="meta">{n(d.runs, w("expedition"))} ({d.asks} typed by you) and {n(d.quests, w("quest"))}, costing ${d.cost.toFixed(2)}. Read {when(d.written)}.</div>
           {d.well.length > 0 && <><h4>Went well</h4><ul className="jira-criteria">{d.well.map((x, i) => <li key={i}>{x}</li>)}</ul></>}

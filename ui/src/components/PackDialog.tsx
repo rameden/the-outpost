@@ -14,6 +14,7 @@ export { phrasesFor };
 import type { CampState } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 import { Dialog } from "./Dialog.tsx";
+import { outpostName } from "../outpost.ts";
 
 export type PackLine = NonNullable<CampState["packs"]>[number];
 type Named = { name: string; emoji: string };
@@ -184,9 +185,9 @@ export function PackDialog({ pack, packs, on = false, onClose, onSaved }: {
         </details>
 
         <label className="field">Where the {w("crew")} works
-          <input value={place} maxLength={60} placeholder={`the Mae ${words.camp.trim() || "camp"}`} onChange={(ev) => setPlace(ev.target.value)} />
+          <input value={place} maxLength={60} placeholder={`the ${outpostName()} ${words.camp.trim() || "camp"}`} onChange={(ev) => setPlace(ev.target.value)} />
         </label>
-        <div className="field-hint dialog-under">The {w("crew")} reads this: "You are the {names.scout?.name.trim() || "Scout"} of {place.trim() || `the Mae ${words.camp.trim() || "camp"}`}."</div>
+        <div className="field-hint dialog-under">The {w("crew")} reads this: "You are the {names.scout?.name.trim() || "Scout"} of {place.trim() || `the ${outpostName()} ${words.camp.trim() || "camp"}`}."</div>
 
         <div className="field" role="group" aria-label="Colours it suggests">Colours it suggests
           <div className="looks">
