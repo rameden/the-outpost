@@ -26,7 +26,7 @@ import {
 } from "../tickets.ts";
 import { Icon } from "./bits.tsx";
 import { ask } from "./Confirm.tsx";
-import { filterName } from "./Jira.tsx";
+import { JiraFilter, filterName } from "./Jira.tsx";
 import { JiraTicket, pillOf, type TicketStart } from "./JiraPage.tsx";
 import { MaeMark } from "./MaeLogo.tsx";
 import { TicketDebrief } from "./TicketDebrief.tsx";
@@ -52,18 +52,20 @@ type Card =
   | { source: "jira"; key: string; title: string; group: TicketStatus; labels: string[]; text: string; jira: JiraCard };
 type Source = "" | "mae" | "jira";
 
-// onAttach: put a ticket on the message being written. onFilter: go and change which Jira tickets
-// are pulled in (Settings → Connectors). onStart: pick a ticket up (the kickoff stepper, on that
+// onAttach: put a ticket on the message being written. refresh: re-read the camp's state after the
+// Jira filter is kept (the filter is set here; the connection itself is Settings → Connectors). onStart: pick a ticket up (the kickoff stepper, on that
 // ticket). onKickoff: the stepper from its first step.
 type PageProps = {
   S: CampState;
   onAttach: (issue: Pick<JiraRef, "key" | "summary">) => void;
-  onFilter: () => void;
+  refresh: () => void;
+  openKey?: string | null; // a Jira ticket to open on arriving (picked in the command palette)
+  onOpened?: () => void;
   onStart: (start: TicketStart) => void;
   onKickoff?: () => void;
 };
 
-export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageProps) {
+export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, onKickoff }: PageProps) {
   const jiraOn = !!S.jira?.connected;
   const { tickets: mae, loaded, error: maeError } = useTickets();
   useEffect(() => { if (!loaded) void loadTickets(); }, [loaded]);
@@ -89,7 +91,10 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
   const [project, setProject] = useState("");    // the camp's projects: Jira tickets are in none
   const [byEpic, setByEpic] = useState(() => storeGet(EPIC_KEY) === "1");
   const [allDone, setAllDone] = useState(false);
+  const [editFilter, setEditFilter] = useState(false);
+  const [moved, setMoved] = useState(""); // said aloud to a screen reader after a card is moved
   const [open, setOpen] = useState<string | null>(null); // the Jira ticket open over the page
+  useEffect(() => { if (openKey) { setOpen(openKey); onOpened?.(); } }, [openKey, onOpened]);
   const projects = S.history.projects.filter((p) => p.id !== "general");
   const nameOf = (id?: string) => (id ? projects.find((p) => p.id === id)?.name ?? id : undefined);
 
@@ -137,6 +142,37 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
     sections = epics.map((e) => ({ epic: e, list: drawn.filter((c) => c.source === "jira" && c.jira.epic?.key === e.key), titled: true })).filter((x) => x.list.length);
     if (loose.length) sections.push({ epic: null, list: loose, titled: true });
   }
+  // Keyboard on the board: the arrows walk the cards (up and down to the nearest card in the next row),
+  // and Shift+Left / Shift+Right move a Mae ticket back or on a state. Enter opens a card (it's a button).
+  const WORKFLOW: TicketStatus[] = ["todo", "doing", "done"];
+  const onBoardKey = (ev: React.KeyboardEvent<HTMLElement>) => {
+    const k = ev.key;
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(k)) return;
+    const el = (ev.target as HTMLElement).closest<HTMLElement>(".jira-card");
+    if (!el) return;
+    if (ev.shiftKey && (k === "ArrowLeft" || k === "ArrowRight")) {
+      const card = drawn.find((c) => c.key === el.dataset.key);
+      if (card?.source !== "mae") return;
+      ev.preventDefault();
+      const to = WORKFLOW[WORKFLOW.indexOf(card.group) + (k === "ArrowRight" ? 1 : -1)];
+      if (!to) { setMoved(`${card.key} is already ${k === "ArrowRight" ? "at the last state" : "at the first state"}`); return; }
+      updateTicket(card.key, { status: to }).then(() => setMoved(`${card.key} moved to ${STATUS_NAMES[to]}`), (e) => setMoved(errorText(e)));
+      return;
+    }
+    const cardsNow = [...(ev.currentTarget.closest(".tickets-page") ?? document).querySelectorAll<HTMLElement>(".jira-card")];
+    const at = cardsNow.indexOf(el);
+    let next: HTMLElement | undefined;
+    if (k === "ArrowRight") next = cardsNow[at + 1];
+    else if (k === "ArrowLeft") next = cardsNow[at - 1];
+    else {
+      const me = el.getBoundingClientRect();
+      const rows = cardsNow.map((c) => ({ c, r: c.getBoundingClientRect() })).filter(({ r }) => (k === "ArrowDown" ? r.top > me.top + 4 : r.top < me.top - 4));
+      if (k === "ArrowUp") rows.reverse();
+      const row = rows[0]?.r.top;
+      next = rows.filter(({ r }) => Math.abs(r.top - row) < 4).sort((a, b) => Math.abs(a.r.left - me.left) - Math.abs(b.r.left - me.left))[0]?.c;
+    }
+    if (next) { ev.preventDefault(); next.focus(); }
+  };
   const clear = () => { setWords(""); setGroup(""); setType(""); setEpic(""); setProject(""); setSource(""); };
 
   const maeCount = all.filter((c) => c.source === "mae").length;
@@ -161,9 +197,10 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
       {jiraShown && (
         <div className="proj-about jira-using">
           <span><span className="section-label">Jira shows</span> {filterName(filter) ?? <code>{filter}</code>}</span>
-          <button type="button" className="linkish" title={`Which tickets are pulled in is a setting for the whole ${w("camp")}, kept with the Jira account`} onClick={onFilter}>Change the filter in Settings</button>
+          <button type="button" className="linkish" aria-expanded={editFilter} aria-controls="jira-filter-box" title={`Which tickets are pulled in is a setting for the whole ${w("camp")}, kept with the Jira account`} onClick={() => setEditFilter((on) => !on)}>{editFilter ? "Hide the filter" : "Change the filter"}</button>
         </div>
       )}
+      {jiraShown && editFilter && <div id="jira-filter-box" className="proj-about"><JiraFilter kept={filter} refresh={refresh} /></div>}
       {maeError && <div className="form-error" role="alert">{maeError}</div>}
       {jiraShown && jiraError && <div className="form-error" role="alert">{jiraError}</div>}
 
@@ -227,16 +264,16 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
               <span className="jira-key">{sec.epic.key}</span><b>{sec.epic.summary || sec.epic.type || "Epic"}</b><span className="meta">{sec.list.length} {sec.list.length === 1 ? "ticket" : "tickets"} here</span>
             </button>
           ) : <div className="jira-epic-head loose"><b>In no epic</b><span className="meta">{sec.list.length} {sec.list.length === 1 ? "ticket" : "tickets"}</span></div>)}
-          <div className="proj-grid jira-grid">
+          <div className="proj-grid jira-grid" onKeyDown={onBoardKey}>
             {sec.list.map((c) => c.source === "mae" ? (
-              <button key={c.key} type="button" className="proj-card jira-card ticket-card" aria-label={`${c.key}: ${c.title}`} onClick={() => showTicket(c.key)}>
+              <button key={c.key} type="button" className="proj-card jira-card ticket-card" data-key={c.key} aria-keyshortcuts="Shift+ArrowLeft Shift+ArrowRight" aria-label={`${c.key}: ${c.title}`} title="Enter opens it. Shift and the left or right arrow move it back or on a state" onClick={() => showTicket(c.key)}>
                 <span className="jira-card-top"><MaeMark title="Mae ticket" /><span className="jira-key">{c.key}</span>{c.mae.priority && <span className={cx("ticket-priority", c.mae.priority)}>{c.mae.priority}</span>}<span className={pillOf(c.group)}>{STATUS_NAMES[c.group]}</span></span>
                 <b>{c.title}</b>
                 <Labels list={c.labels} />
                 <span className="meta">{[nameOf(c.mae.project), c.mae.criteria.length ? `${c.mae.criteria.length} ${c.mae.criteria.length === 1 ? "criterion" : "criteria"}` : "", `changed ${when(c.mae.updated)}`].filter(Boolean).join(" · ")}</span>
               </button>
             ) : (
-              <button key={c.key} type="button" className="proj-card jira-card" aria-label={`${c.key}: ${c.title}`} onClick={() => setOpen(c.key)}>
+              <button key={c.key} type="button" className="proj-card jira-card" data-key={c.key} aria-label={`${c.key}: ${c.title}`} onClick={() => setOpen(c.key)}>
                 <span className="jira-card-top"><span className="jira-key">{c.key}</span>{c.jira.type && <span className="meta">{c.jira.type}</span>}<span className={pillOf(c.group)}>{c.jira.status ?? STATUS_NAMES[c.group]}</span></span>
                 <b>{c.title}</b>
                 {c.jira.epic && !sec.titled && <span className="jira-epic" title={`In ${c.jira.epic.type ?? "its parent"} ${c.jira.epic.key}`}><Icon name="bookmark" />{c.jira.epic.key}{c.jira.epic.summary ? ` · ${c.jira.epic.summary}` : ""}</span>}
@@ -247,6 +284,7 @@ export function TicketsPage({ S, onAttach, onFilter, onStart, onKickoff }: PageP
           </div>
         </section>
       ))}
+      <div className="sr-only" role="status" aria-live="polite">{moved}</div>
       {cut && <button type="button" className="linkish tickets-more" onClick={() => setAllDone(true)}>Show all {doneMae.length} done Mae tickets</button>}
       <Presence>{open && <JiraTicket key={open} id={open} summary={jira.find((t) => t.key === open)?.summary ?? epics.find((e) => e.key === open)?.summary ?? ""}
         onClose={() => setOpen(null)} onOpen={setOpen} onAttach={(i) => { onAttach(i); setOpen(null); }} onStart={(st) => { setOpen(null); onStart(st); }} />}</Presence>

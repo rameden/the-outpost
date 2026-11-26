@@ -40,7 +40,7 @@ const state = (filter = MINE) => ({ jira: { connected: true, siteUrl: "https://t
   history: { projects: [{ id: "general", name: "General" }, { id: "p1", name: "Web app", links: ["web"] }, { id: "p2", name: "Docs", links: ["docs"] }], conversations: [] },
   links: [{ name: "web", path: "/code/web", access: "write" }, { name: "docs", path: "/code/docs", access: "read" }] }) as unknown as CampState;
 const S = state();
-const show = () => { const onAttach = vi.fn(), onFilter = vi.fn(), onStart = vi.fn(); const r = render(<JiraPage S={S} onAttach={onAttach} onFilter={onFilter} onStart={onStart} />); return { onAttach, onFilter, onStart, ...r }; };
+const show = () => { const onAttach = vi.fn(), refresh = vi.fn(), onStart = vi.fn(); const r = render(<JiraPage S={S} onAttach={onAttach} refresh={refresh} onStart={onStart} />); return { onAttach, refresh, onStart, ...r }; };
 const cards = () => [...document.querySelectorAll(".jira-card")].map((c) => c.querySelector(".jira-key")!.textContent);
 
 test("the tickets the filter pulls in are cards, each with what you need at a glance", async () => {
@@ -79,18 +79,20 @@ test("what's on the page can be narrowed by words, status and type, without aski
   expect(calls.length).toBe(asked);
 });
 
-test("which tickets are pulled in is the camp's one filter: the page says which, links to Settings, and follows a change", async () => {
-  const { onFilter, rerender } = show();
+test("which tickets are pulled in is the camp's one filter: the page says which, changes it in place, and follows a change", async () => {
+  const { refresh, rerender } = show();
   await waitFor(() => expect(cards().length).toBe(3));
   expect(document.querySelector(".jira-using")!.textContent).toContain("Jira shows Assigned to me, not done");
-  expect(screen.queryByLabelText("Filter (JQL)")).toBeNull(); // no filter of its own here
-  fireEvent.click(screen.getByRole("button", { name: "Change the filter in Settings" }));
-  expect(onFilter).toHaveBeenCalled();
+  expect(screen.queryByLabelText("Filter (JQL)")).toBeNull(); // folded away until asked for
+  fireEvent.click(screen.getByRole("button", { name: "Change the filter" }));
+  expect((screen.getByLabelText("Filter (JQL)") as HTMLInputElement).value).toBe(state(saved).jira!.filter);
+  fireEvent.click(screen.getByRole("button", { name: "Hide the filter" }));
+  expect(screen.queryByLabelText("Filter (JQL)")).toBeNull();
 
   // Changed in Settings: the page asks Jira again, and shows a filter of your own as it's written.
   saved = 'summary ~ "nav"';
   const asked = calls.length;
-  rerender(<JiraPage S={state(saved)} onAttach={() => {}} onFilter={onFilter} onStart={() => {}} />);
+  rerender(<JiraPage S={state(saved)} onAttach={() => {}} refresh={refresh} onStart={() => {}} />);
   await waitFor(() => expect(cards()).toEqual(["MP-601"]));
   expect(calls.length).toBe(asked + 1);
   expect(document.querySelector(".jira-using code")!.textContent).toBe('summary ~ "nav"');
@@ -159,7 +161,7 @@ test("an epic opens like any ticket, listing what's in it; a ticket leads to its
 
 test("Start work hands the ticket to the kickoff stepper; the page's own button opens it from the first step", async () => {
   const onKickoff = vi.fn(), onStart = vi.fn();
-  render(<JiraPage S={S} onAttach={() => {}} onFilter={() => {}} onStart={onStart} onKickoff={onKickoff} />);
+  render(<JiraPage S={S} onAttach={() => {}} refresh={() => {}} onStart={onStart} onKickoff={onKickoff} />);
   await waitFor(() => expect(cards().length).toBe(3));
   fireEvent.click(screen.getByRole("button", { name: "Start a ticket…" }));
   expect(onKickoff).toHaveBeenCalledTimes(1);

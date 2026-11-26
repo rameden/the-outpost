@@ -7,6 +7,7 @@ import { memo, useEffect, useState } from "react";
 import { api, errorText, storeSet } from "../api.ts";
 import { toggleMode } from "../themes.ts";
 import type { Connection } from "../camp.ts";
+import type { ActivityTab } from "../feed/conversation.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cash, cx, money, resetIn } from "../format.ts";
@@ -94,8 +95,8 @@ function GithubButton({ gh }: { gh: ReturnType<typeof useGithub> }) {
 // How busy the camp is, as the one status chip in the bar; open, it holds what's set once and
 // seldom looked at: what runs the crew, the GitHub account, and today's spend, each with its switch.
 // (A problem with any of them shows in the bar by itself: see the Header.)
-function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued }: {
-  S: CampState | null; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
+function StatusMenu({ S, refresh, onOpenSettings, onOpenActivity, gh, running, questsOut, queued }: {
+  S: CampState | null; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void; onOpenActivity?: (tab: ActivityTab) => void;
   gh: ReturnType<typeof useGithub>; running: number; questsOut: number; queued: number;
 }) {
   const { open, setOpen, box } = usePopover();
@@ -125,9 +126,9 @@ function StatusMenu({ S, refresh, onOpenSettings, gh, running, questsOut, queued
             </div>
           ))}
           {costShown && (
-            <button type="button" role="menuitem" className="top-item" onClick={shut(() => onOpenSettings?.("usage"))}
+            <button type="button" role="menuitem" className="top-item" onClick={shut(() => onOpenActivity?.("usage"))}
               title={rt.sub ? "Today's usage at API prices: an estimate, not a charge (you're on your Claude subscription)" : `Spend today on the API (the whole ${w("crew")})`}>
-              <Icon name="gauge" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the {w("log")}</small></span>
+              <Icon name="chart" /><span><b>{money(S?.spend?.today ?? 0)} today{rt.sub ? " (est.)" : ""}</b><small>Usage and the {w("log")}</small></span>
             </button>
           )}
           <div className="top-menu-foot">Up to {S?.parallel ?? 3} {w("expeditions")} run at once; the rest wait their turn. Change it in Settings.</div>
@@ -205,10 +206,10 @@ function NeedsChip({ list, onGo, onSeenAll }: { list: Need[]; onGo: (n: Need) =>
 
 // needs / onNeed: everything waiting on you and how to get to one.
 // stale: the panels' last reload failed (camp.ts), so what they show may be behind.
-export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail, constellation, onConstellation }: {
+export const Header = memo(function Header({ S, store, conn, stale, refresh, onOpenSettings, onOpenActivity, focused, onToggleFocus, onOpenLayout, needs, onNeed, onSeenAll, barnstorm = "off", onBarnstorm, onHome, orbit, onOrbit, trail, onTrail, constellation, onConstellation }: {
   onHome?: () => void; // the logo takes you to Today
   needs: Need[]; onNeed: (n: Need) => void; onSeenAll?: () => void;
-  S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void;
+  S: CampState | null; store: FeedStore; conn: Connection; stale?: boolean; refresh: () => void; onOpenSettings?: (section?: SettingsSection) => void; onOpenActivity?: (tab: ActivityTab) => void;
   // Focus: closes every open panel (history, files, the terminal) to its tab, leaving the
   // conversation; again brings back the ones it closed.
   focused?: boolean; onToggleFocus?: () => void;
@@ -252,12 +253,12 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         <div className="top-chips">
         <NeedsChip list={needs} onGo={onNeed} onSeenAll={onSeenAll} />
         {S?.pausedUntil && (
-          <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={() => onOpenSettings?.("usage")}>
+          <button className="chip paused" type="button" title={`${S.pauseMessage} Click for details.`} onClick={() => onOpenActivity?.("usage")}>
             ⏸ Plan limit · resets in {resetIn(S.pausedUntil)}
           </button>
         )}
         {S?.credit?.inUse && !S.pausedUntil && (
-          <button className="chip credit" type="button" title={`Your plan's usage limit is used up, so the ${w("crew")} is running on extra-usage credit, which is charged. Click for details.`} onClick={() => onOpenSettings?.("usage")}>
+          <button className="chip credit" type="button" title={`Your plan's usage limit is used up, so the ${w("crew")} is running on extra-usage credit, which is charged. Click for details.`} onClick={() => onOpenActivity?.("usage")}>
             💳 On credit{S.credit.left != null ? ` · ${cash(S.credit.left, S.credit.currency)} left` : ""}
           </button>
         )}
@@ -288,7 +289,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
         {/* Whatever is being read aloud, wherever it was started: its controls sit here while it reads. */}
         <ReadingPlayer />
         {/* With the icons, so it sits as close to them as they do to each other. */}
-        <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} gh={gh} running={running} questsOut={questsOut} queued={queued} />
+        <StatusMenu S={S} refresh={refresh} onOpenSettings={onOpenSettings} onOpenActivity={onOpenActivity} gh={gh} running={running} questsOut={questsOut} queued={queued} />
         {/* The full-screen views are in Views; the page's occasional switches, and the game, are behind ···. */}
         <ToolMenu name="Views" icon="views"
           title="Views: Orbit, the trail map and the constellation, each full screen"
@@ -298,12 +299,12 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
                 title: `Orbit: watch the ${w("crew")} at work as a solar system, full screen` },
               onTrail && { label: trail ? "Leave the trail map" : "Trail map", icon: "trail", checked: !!trail, onClick: onTrail, says: "The plan, step by step",
                 title: "Trail map: the plan step by step, and who's on each, full screen" },
-              onConstellation && { label: constellation ? "Leave the constellation" : "Constellation", icon: "spark", checked: !!constellation, onClick: onConstellation, says: "The memory, as a map of stars",
+              onConstellation && { label: constellation ? "Leave the constellation" : "Constellation", icon: "constellation", checked: !!constellation, onClick: onConstellation, says: "The memory, as a map of stars",
                 title: `Constellation: every line the ${w("crew")} remembers as a star, to pin, forget or merge, full screen` },
             ],
           ]} />
         <ToolMenu name="More" icon="more" className="top-more" waiting={barnstorm === "paused"}
-          title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : "More: focus, layout, light or dark, notifications, the other outposts, the tour and Barnstorm"} groups={[
+          title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : "More: focus, layout, light or dark, notifications, Outposts, the tour and Barnstorm"} groups={[
           [
             onToggleFocus && { label: "Focus mode", icon: "focus", checked: !!focused, wide: true, onClick: onToggleFocus,
               title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the workspace, files, notes and terminal, leaving the conversation" },
@@ -315,7 +316,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
           ],
           // The ways out of this page: the star chart, and the tour (docs/index.html, served at /splash) in its own tab so nothing here is interrupted.
           [
-            !!chart && { label: "Outposts", icon: "orbit", href: chart, says: "Back to the star chart", title: "Back to the star chart, to pick another outpost. This one keeps running." },
+            !!chart && { label: "Outposts", icon: "hub", href: chart, says: "Back to the star chart", title: "Outposts: back to the star chart, to pick another outpost. This one keeps running." },
             { label: "Tour", icon: "book", href: "/splash", newTab: true, says: "A one-page tour, in a new tab", title: "A one-page tour of Outpost (opens in a new tab)" },
           ],
           [

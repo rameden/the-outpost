@@ -61,7 +61,7 @@ function Triggers({ S, refresh }: Panel) {
         <ul className="list">
           {list.map((t) => (
             <li className="card" key={t.name}>
-              <div className="card-top"><span className="who"><Icon name="spark" /> {t.name}</span>
+              <div className="card-top"><span className="who"><Icon name="flag" /> {t.name}</span>
                 <span className="pill">{t.kind === "jira" ? `Jira${t.jql ? `: ${t.jql}` : ": your filter"}` : t.kind === "github-pr" ? `links/${t.link} · your pull requests${t.describe ? " · descriptions kept current" : ""}` : `links/${t.link} · label “${t.label}”`}</span></div>
               <div className="meta">{t.lastPoll ? `Checked ${when(t.lastPoll)}` : "Not checked yet"} · {t.seen} seen{t.worktree ? " · new worktree each time" : ""}{t.project ? ` · project ${t.project}` : ""}</div>
               {t.lastError && <div className="meta bad">Last check failed: {t.lastError}</div>}
@@ -152,7 +152,7 @@ export function Skills({ S, refresh }: Panel) {
         <ul className="list">
           {S.skills.map((s) => (
             <li className="card" key={`${s.owner}/${s.name}`}>
-              <div className="card-top"><span className="who"><Icon name="spark" /> {s.owner}/{s.name}</span><span className={cx("pill", s.current && "live")}>{s.current ? "Replaces current" : "New"}</span></div>
+              <div className="card-top"><span className="who"><Icon name="bolt" /> {s.owner}/{s.name}</span><span className={cx("pill", s.current && "live")}>{s.current ? "Replaces current" : "New"}</span></div>
               <div className="clamp open"><b>Why</b> {s.reason || "No reason given."}</div>
               <pre className="raw">{stripFrontmatter(s.proposed)}</pre>
               {s.current && <details><summary>Current version</summary><pre className="raw">{stripFrontmatter(s.current)}</pre></details>}

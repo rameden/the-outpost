@@ -7,8 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { About } from "../components/AgentDrawer.tsx";
 import { AUTO_CHOICES, useModelList } from "../components/ModelPicker.tsx";
-import { Quests } from "../panels/Quests.tsx";
-import { Connectors, Inbox, Jobs, Skills } from "../panels/Records.tsx";
+import { Connectors, Skills } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
@@ -28,23 +27,11 @@ import { Presence } from "../motion.tsx";
 import { SkillImport } from "./SkillImport.tsx";
 import { SkillEditor } from "./SkillEditor.tsx";
 import { TerminalActions } from "./TerminalActions.tsx";
-import { StatsPage, UnaskedPage } from "./DrivePage.tsx";
 
-import type { SettingsSection } from "./sections.ts";
+import { settingsGroups as groups, type SettingsSection } from "./sections.ts";
 import { complain, StatusLine } from "../components/StatusLine.tsx";
 import { switchRuntime } from "../runtime.ts";
 export { isSettingsSection, type SettingsSection } from "./sections.ts";
-type NavItem = [SettingsSection, string, IconName];
-// The navigation, in groups. A label is a function where it names the outpost or a theme-pack noun.
-const groups = (): { title: string; items: NavItem[] }[] => [
-  { title: w("Camp"), items: [["general", "General", "gear"], ["models", "Models", "spark"], ["crew", `${w("Crew")}`, "users"], ["connectors", "Connectors", "plug"]] },
-  { title: "Look & sound", items: [["appearance", "Appearance", "theme"], ["notifications", "Notifications", "bell"], ["voice", "Voice", "speaker"]] },
-  { title: "Safety", items: [["approvals", "Approvals", "shield"], ["limits", "Limits & budget", "gauge"]] },
-  { title: "Access", items: [["devices", "Devices & uploads", "link"], ["phone", "Phone", "phone"], ["terminal", "Terminal", "terminal"]] },
-  { title: "Activity", items: [["unasked", `What ${outpostName()} does unasked`, "spark"], ["stats", "Stats", "gauge"], ["usage", `Usage & ${w("log")}`, "chart"], ["jobs", "Scheduled jobs", "clock"], ["inbox", "Inbox", "inbox"]] },
-  { title: "Knowledge", items: [["memory", "Memory", "bookmark"], ["skills", "Skills", "spark"]] },
-];
-
 const PACK_CREW = ["quartermaster", "scout", "artificer", "scribe", "warden", "wizard"] as const; // in the order the crew is listed
 const tryIt = async (work: () => Promise<unknown>, then: () => void) => {
   try { await work(); then(); } catch (e) { complain(errorText(e)); }
@@ -632,7 +619,7 @@ function InstalledSkills({ S, refresh }: { S: CampState; refresh: () => void }) 
           <div className="set-sub">{label(o)}</div>
           <ul className="list">
             {S.installedSkills.filter((s) => s.owner === o).map((s) => (
-              <li key={s.path} className="card"><div className="card-top"><span className="who"><Icon name="spark" /> {s.name}</span>
+              <li key={s.path} className="card"><div className="card-top"><span className="who"><Icon name="bolt" /> {s.name}</span>
                   <span className="skill-actions">
                     <button type="button" className="linkish" title="Change this skill's instructions, or the files beside them" onClick={() => setEditing({ owner: s.owner, name: s.name })}>Edit</button>
                     <button type="button" className="linkish" title="Take this skill off the disk" onClick={() => setAsking({ owner: s.owner, name: s.name })}>Remove</button>
@@ -663,7 +650,7 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
   }, [onClose]);
   const GROUPS = groups();
   const title = GROUPS.flatMap((g) => g.items).find(([id]) => id === section)?.[1] ?? "";
-  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, inbox: S?.inboxCount ?? S?.inbox?.filter((m) => !m.seen).length, memory: S?.memoryProposals?.length };
+  const counts: Partial<Record<SettingsSection, number>> = { skills: S?.skills.length, memory: S?.memoryProposals?.length };
   return (
     // A press that starts and ends on the dimmed backdrop closes it; a drag that began inside
     // (selecting text in a field, say) doesn't.
@@ -672,6 +659,14 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
     <div className="settings" role="dialog" aria-modal="true" aria-label="Settings">
       <nav className="set-nav" aria-label="Settings sections">
         <div className="set-nav-head">Settings</div>
+        {/* Under ~640px the list becomes one select: every section is one pick away, none scrolled out of sight. */}
+        <select className="set-nav-select" aria-label="Settings section" value={section} onChange={(ev) => setSection(ev.target.value as SettingsSection)}>
+          {GROUPS.map((g) => (
+            <optgroup key={g.title} label={g.title}>
+              {g.items.map(([id, label]) => <option key={id} value={id}>{label}{counts[id] ? ` (${counts[id]})` : ""}</option>)}
+            </optgroup>
+          ))}
+        </select>
         {GROUPS.map((g) => (
           <div key={g.title} className="set-group">
             <div className="set-group-title">{g.title}</div>
@@ -703,11 +698,6 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "models" ? <ModelsPage S={S} refresh={refresh} />
             : section === "voice" ? <VoicePage S={S} refresh={refresh} />
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
-            : section === "stats" ? <StatsPage S={S} />
-            : section === "unasked" ? <UnaskedPage S={S} refresh={refresh} onOpenSection={setSection} />
-            : section === "usage" ? <Quests S={S} refresh={refresh} onOpenSettings={() => setSection("limits")} />
-            : section === "jobs" ? <Jobs S={S} refresh={refresh} />
-            : section === "inbox" ? <Inbox S={S} refresh={refresh} />
             : section === "memory" ? <MemoryPage S={S} refresh={refresh} />
             : section === "skills" ? <><Skills S={S} refresh={refresh} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>
             : <Connectors S={S} refresh={refresh} onAttachLink={(l) => { onAttachLink(l); onClose(); }} />}

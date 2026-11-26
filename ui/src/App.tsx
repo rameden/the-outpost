@@ -12,7 +12,7 @@ import { History, HistoryRail } from "./components/History.tsx";
 import { TerminalRail } from "./components/TerminalRail.tsx";
 import { CAMP_FILES, FilesPanel, FilesRail, type FileRoot } from "./components/Files.tsx";
 import { NotesPanel, NotesRail, PickToNote } from "./components/Notes.tsx";
-import { appendToNote, newNote, noteFile, notesNow, openNote, titleOf } from "./notes.ts";
+import { appendToNote, loadNotes, newNote, noteFile, notesNow, openNote, titleOf, useNotes } from "./notes.ts";
 import { LayoutFrame, type ZoneState } from "./components/Zones.tsx";
 import { LayoutEditor } from "./components/LayoutEditor.tsx";
 import { focusPlan, loadLayout, PANELS, placed, saveLayout, type Layout, type Panel, type Part } from "./layout.ts";
@@ -25,7 +25,8 @@ import { JiraTicket, type TicketStart } from "./components/JiraPage.tsx";
 import { DraftTicketsDialog, MaeTicketDialog, TicketsPage } from "./components/TicketsPage.tsx";
 import { closeDrafting, closeTicket as closeMaeTicket, loadTickets, showTicket, useTickets } from "./tickets.ts";
 import { TicketWizard } from "./components/TicketWizard.tsx";
-import { WikiHome } from "./components/Wiki.tsx";
+import { MemoryHome } from "./components/MemoryHome.tsx";
+import { ActivityPage, activityTabs } from "./components/ActivityPage.tsx";
 import { ReleaseNotes } from "./components/ReleaseNotes.tsx";
 import { treeQuery } from "./api.ts";
 import { runningCount } from "./feed/reducer.ts";
@@ -38,7 +39,7 @@ import { ProjectPage, ProjectsOverview } from "./components/Projects.tsx";
 import { Home } from "./components/Home.tsx";
 import { api, errorText } from "./api.ts";
 import type { History as HistoryData, Project, SendResult } from "./types.ts";
-import { homeProject, latestLiveRun, parseView, usePast, type View } from "./feed/conversation.ts";
+import { homeProject, latestLiveRun, parseView, usePast, type ActivityTab, type View } from "./feed/conversation.ts";
 import { useFeed } from "./feed/store.ts";
 import { Crew } from "./components/Crew.tsx";
 import { Header } from "./components/Header.tsx";
@@ -51,7 +52,7 @@ import { NextStep, WorkStrip, type Place } from "./feed/NextStep.tsx";
 import { Waiting } from "./components/Waiting.tsx";
 import { loadSeen, markSeen, needsOf, seenAll, type Need } from "./needs.ts";
 import { activityOf } from "./feed/conversation.ts";
-import { isSettingsSection, type SettingsSection } from "./settings/sections.ts";
+import { isSettingsSection, settingsGroups, type SettingsSection } from "./settings/sections.ts";
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link, Note } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
@@ -85,7 +86,9 @@ export function App({ store }: { store: FeedStore }) {
   // Which conversation (or page) the middle of the screen shows (remembered across reloads).
   const [view, setViewState] = useState<View>(() => parseView(storeGet("camp-view")));
   // The camp's records (memories, the wiki, the quest log…) come along while something that shows them is open.
-  const { S, refresh, patch, stale } = useCampState(!!settings || view.kind === "wiki");
+  const [palette, setPalette] = useState<{ start: string } | null>(null); // the command palette (below)
+  const [jiraKey, setJiraKey] = useState<string | null>(null); // a Jira ticket picked in the palette, for the Tickets page to open
+  const { S, refresh, patch, stale } = useCampState(!!settings || !!palette || view.kind === "memory" || view.kind === "activity");
   const conn = useCampEvents(store, refresh);
   const composer = useRef<ComposerHandle>(null);
 
@@ -126,7 +129,9 @@ export function App({ store }: { store: FeedStore }) {
   const closeOrbit = useCallback(() => setOrbit(false), []);
   const toggleTrail = useCallback(() => { setOrbit(false); setConstellation(false); setTrail((on) => !on); }, []);
   const closeTrail = useCallback(() => setTrail(false), []);
-  const toggleConstellation = useCallback(() => { setOrbit(false); setTrail(false); setConstellation((on) => !on); }, []);
+  // The map is a view of Memory: opening it lands you on Memory → Map, so closing it leaves you there.
+  const toggleConstellation = useCallback(() => { setOrbit(false); setTrail(false); setConstellation((on) => !on); setSettings(null); setViewState((v) => (v.kind === "memory" && v.tab === "map" ? v : { kind: "memory", tab: "map" })); }, []);
+  const openMap = useCallback(() => { setSettings(null); setOrbit(false); setTrail(false); setViewState({ kind: "memory", tab: "map" }); storeSet("camp-view", JSON.stringify({ kind: "memory", tab: "map" })); setConstellation(true); }, []);
   const closeConstellation = useCallback(() => setConstellation(false), []);
 
   const setView = useCallback((v: View) => {
@@ -135,7 +140,7 @@ export function App({ store }: { store: FeedStore }) {
     setConstellation(false);
     setViewState(v);
     storeSet("camp-view", JSON.stringify(v));
-    composer.current?.focus();
+    if (v.kind !== "memory" && v.kind !== "activity") composer.current?.focus(); // (their tabs keep the focus they were given)
   }, []);
   const thread = view.kind === "conversation" ? view.id : null;
   const past = usePast(thread);
@@ -144,7 +149,7 @@ export function App({ store }: { store: FeedStore }) {
   // (From Today, what you send starts in the project you last worked in.)
   const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : view.kind === "home" ? homeProject(S?.history) : view.kind === "project" ? view.id : conversation?.project));
   // A project's page, or the list of them (also where a deleted project's page lands).
-  const page = view.kind === "wiki" ? "wiki" : view.kind === "tickets" ? "tickets" : view.kind === "releases" ? "releases"
+  const page = view.kind === "memory" ? "memory" : view.kind === "activity" ? "activity" : view.kind === "tickets" ? "tickets" : view.kind === "releases" ? "releases"
     : view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
   // The ticket kickoff stepper: open, and on which ticket if one was already picked.
   const [wizard, setWizard] = useState<{ ticket?: TicketStart } | null>(null);
@@ -276,7 +281,6 @@ export function App({ store }: { store: FeedStore }) {
 
   // ---------- Getting about from the keyboard ----------
   // The command palette (⌘P / Ctrl+P), and a file opened over the page from it or from a path in an answer.
-  const [palette, setPalette] = useState<{ start: string } | null>(null);
   const closePalette = useCallback(() => setPalette(null), []);
   const [opened, setOpened] = useState<{ root: FileRoot; rel: string; line?: number } | null>(null);
   const closeOpened = useCallback(() => setOpened(null), []);
@@ -402,8 +406,9 @@ export function App({ store }: { store: FeedStore }) {
     else if (name === "layout") setLayoutEditor({});
     else if (name === "settings") openSettings();
     else if (name === "connectors") openSettings("connectors");
-    else if (name === "wiki") setView({ kind: "wiki" });
-    else if (name === "constellation") { setSettings(null); setOrbit(false); setTrail(false); setConstellation(true); }
+    else if (name === "tickets") { setSettings(null); setView({ kind: "tickets" }); }
+    else if (name === "memory" || name === "wiki") { setSettings(null); setView(arg?.trim() ? { kind: "memory", tab: "member", member: arg.trim() } : { kind: "memory" }); }
+    else if (name === "constellation") openMap();
     else if (name === "ticket") setWizard({});
   };
   // The newest of each, for the listeners and the handlers below that are set up once.
@@ -427,9 +432,11 @@ export function App({ store }: { store: FeedStore }) {
     addEventListener("keydown", onKey, true);
     return () => removeEventListener("keydown", onKey, true);
   }, []);
+  useEffect(() => { if (palette) { void loadNotes(); void loadTickets(); } }, [!!palette]); // eslint-disable-line react-hooks/exhaustive-deps
+  const notes = useNotes();
   const paletteItems = useMemo<PaletteItem[]>(() => !palette || !S ? [] : [
     ...COMMANDS.filter((c) => c.name !== "find" && c.name !== "good" && c.name !== "bad").map((c): PaletteItem => ({
-      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "trail" ? "trail" : c.name === "constellation" ? "spark" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
+      id: `do:${c.name}`, group: "Do", icon: c.name === "new" ? "plus" : c.name === "orbit" ? "orbit" : c.name === "trail" ? "trail" : c.name === "constellation" ? "constellation" : c.name === "memory" ? "layers" : c.name === "settings" ? "gear" : c.name === "layout" ? "layout" : c.name === "next" ? "check" : c.name === "terminal" ? "terminal" : c.name === "files" ? "panelRight" : c.name === "history" ? "list" : c.name === "notes" || c.name === "note" ? "note" : "focus",
       label: c.does, hint: `/${c.name}`, run: () => act.current.command(c.name),
     })),
     ...S.history.conversations.map((c): PaletteItem => ({
@@ -439,7 +446,15 @@ export function App({ store }: { store: FeedStore }) {
       id: `p:${p.id}`, group: "Projects", icon: "folder", label: p.name, hint: (p.links ?? []).map((l) => `links/${l}`).join(", "), run: () => setView({ kind: "project", id: p.id }),
     })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [palette, S?.history]);
+    ...activityTabs(S).map((t): PaletteItem => ({ id: `a:${t.id}`, group: "Activity", icon: "activity", label: `Activity: ${t.label}`, hint: typeof t.title === "string" ? t.title : undefined, run: () => setView({ kind: "activity", tab: t.id }) })),
+    ...settingsGroups().flatMap((g) => g.items.map(([id, label, icon]): PaletteItem => ({ id: `s:${id}`, group: "Settings", icon, label: `Settings: ${label}`, hint: g.title, run: () => openSettings(id) }))),
+    ...tickets.tickets.map((t): PaletteItem => ({ id: `t:${t.key}`, group: "Tickets", icon: "flag", label: `${t.key}: ${t.title}`, hint: "Mae", run: () => { setSettings(null); setView({ kind: "tickets" }); showTicket(t.key); } })),
+    ...notes.notes.map((n): PaletteItem => ({ id: `n:${n.id}`, group: "Notes", icon: "note", label: titleOf(n), hint: "Note", run: () => showNote(n.id) })),
+    ...(S.memory ?? []).flatMap((p) => p.lines.map((l, i): PaletteItem => ({
+      id: `m:${p.where}:${i}`, group: "Memory", icon: "layers", label: l.text.length > 80 ? `${l.text.slice(0, 80).trimEnd()}…` : l.text, hint: p.name,
+      run: () => { setSettings(null); setView(p.kind === "agent" ? { kind: "memory", tab: "member", member: p.where.slice(6) } : { kind: "memory", tab: "list" }); },
+    }))),
+  ], [palette, S?.history, S?.memory, tickets.tickets, notes.notes]);
   // Where you are, for the draft kept in the message box.
   const draftKey = view.kind === "conversation" ? `c:${view.id}` : view.kind === "new" ? `new:${view.project ?? ""}` : view.kind === "home" ? "home" : view.kind === "project" ? `p:${view.id}` : view.kind;
 
@@ -510,7 +525,7 @@ export function App({ store }: { store: FeedStore }) {
   const onNeed = useCallback((n: Need) => act.current.goToNeed(n), []);
   const onSeenAll = useCallback(() => setSeen(seenAll()), []);
   const openLayout = useCallback(() => setLayoutEditor({}), []);
-  const openWiki = useCallback(() => setView({ kind: "wiki" }), [setView]);
+  const openActivity = useCallback((tab: ActivityTab) => { setSettings(null); setView({ kind: "activity", tab }); }, [setView]);
   const startTicket = useCallback(() => setWizard({}), []);
   const newProject = useCallback(() => setDialog({ project: null }), []);
   const editProject = useCallback((p: Project) => setDialog({ project: p }), []);
@@ -522,7 +537,7 @@ export function App({ store }: { store: FeedStore }) {
     <VoiceOn.Provider value={!!S?.voice?.connected}>
       <div className="app">
         <ZoneBoundary name="The top bar">
-          <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} focused={focused} onToggleFocus={onToggleFocus}
+          <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} onOpenActivity={openActivity} focused={focused} onToggleFocus={onToggleFocus}
             onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={constellation} onConstellation={toggleConstellation} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
@@ -539,7 +554,7 @@ export function App({ store }: { store: FeedStore }) {
               case "history": return state === "collapsed" ? <HistoryRail onShow={toggleHistory} /> : (
                 <ZoneBoundary name="Workspace">
                   <History S={S} store={store} view={view} setView={setView} patch={patch} onHide={toggleHistory} needs={needs}
-                    onOpenWiki={openWiki} onStartTicket={startTicket} onNewProject={newProject} onEditProject={editProject} />
+                    onStartTicket={startTicket} onNewProject={newProject} onEditProject={editProject} />
                 </ZoneBoundary>
               );
               case "chat": return (
@@ -549,9 +564,11 @@ export function App({ store }: { store: FeedStore }) {
                   {page === "project" && S && project ? (
                     <ProjectPage key={project.id} S={S} store={store} project={project} setView={setView} refresh={refresh} patch={patch} onEdit={(p) => setDialog({ project: p })} onDelete={deleteProject} />
                   ) : page === "tickets" && S ? (
-                    <TicketsPage S={S} onAttach={attachTicket} onFilter={() => openSettings("connectors")} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
-                  ) : page === "wiki" && S ? (
-                    <WikiHome S={S} open={view.kind === "wiki" ? view.page : undefined} onOpen={(path) => setView(path ? { kind: "wiki", page: path } : { kind: "wiki" })} refresh={refresh} />
+                    <TicketsPage S={S} onAttach={attachTicket} refresh={refresh} openKey={jiraKey} onOpened={() => setJiraKey(null)} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
+                  ) : page === "memory" && S && view.kind === "memory" ? (
+                    <MemoryHome S={S} tab={view.tab ?? "list"} member={view.member} page={view.page} setView={setView} refresh={refresh} onOpenMap={openMap} onOpenSettings={() => openSettings("memory")} />
+                  ) : page === "activity" && S && view.kind === "activity" ? (
+                    <ActivityPage S={S} tab={view.tab ?? "usage"} setTab={(tab) => setView({ kind: "activity", tab })} refresh={refresh} onOpenSettings={openSettings} onOpenMemory={() => setView({ kind: "memory" })} />
                   ) : page === "releases" ? (
                     <ReleaseNotes />
                   ) : page === "projects" && S ? (
@@ -560,7 +577,7 @@ export function App({ store }: { store: FeedStore }) {
                     // Today's page, before the camp has answered: its heading, and nothing to mislead under it.
                     <><div className="conv-head"><h2>Today</h2></div><div className="feed" /></>
                   ) : view.kind === "home" && S ? (
-                    <Home S={S} setView={setView} onStartTicket={(t) => setWizard({ ticket: t })} onOpenNote={showNote} onOpenMemory={() => openSettings("memory")} />
+                    <Home S={S} setView={setView} onStartTicket={(t) => setWizard({ ticket: t })} onOpenNote={showNote} onOpenMemory={() => setView({ kind: "memory" })} />
                   ) : (
                     <>
                       <div className="conv-head">
@@ -654,7 +671,7 @@ export function App({ store }: { store: FeedStore }) {
       <Presence>{constellation && (
         <OverlayBoundary name="The memory map" onClose={closeConstellation}>
           <Suspense fallback={<LazyWait />}><Constellation onClose={closeConstellation} onOpenConversation={openConversation}
-            onOpenMemory={() => { setConstellation(false); openSettings("memory"); }} /></Suspense>
+            onOpenMemory={() => { setConstellation(false); setView({ kind: "memory", tab: "list" }); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}
@@ -710,7 +727,7 @@ export function App({ store }: { store: FeedStore }) {
       )}</Presence>
       <Presence>{palette && (
         <OverlayBoundary name="The command palette" onClose={closePalette}>
-          <Palette items={paletteItems} roots={fileRoots} start={palette.start} onOpenFile={openFile} onClose={closePalette} />
+          <Palette items={paletteItems} roots={fileRoots} start={palette.start} jira={!!S?.jira?.connected} onOpenJira={(k) => { setSettings(null); setView({ kind: "tickets" }); setJiraKey(k); }} onOpenFile={openFile} onClose={closePalette} />
         </OverlayBoundary>
       )}</Presence>
       <Presence>{opened && (

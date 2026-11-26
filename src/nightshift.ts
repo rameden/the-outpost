@@ -1,7 +1,7 @@
 // The night shift: a few safe chores done while the camp is idle overnight, and a short report
 // for the morning.
 //
-// It's off unless you turn it on (Settings → What Mae does unasked). When it's on, once a night,
+// It's off unless you turn it on (Activity → Unasked). When it's on, once a night,
 // inside the hours you set and only after the camp has sat idle for half an hour, it does three
 // things:
 //

@@ -1,8 +1,8 @@
-// Settings → Memory: what's waiting for you, the note about you, and each memory line by line.
+// The Memory page's lines (and Settings → Memory's switches): what's waiting for you, the note about you, and each memory line by line.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { CampState, MemoryPlace, Proposal } from "../types.ts";
-import { MemoryPage } from "./MemoryPage.tsx";
+import { MemoryLines, MemoryPage } from "./MemoryPage.tsx";
 
 const posts: { path: string; body: any }[] = [];
 let answer: (path: string) => Response = () => new Response(JSON.stringify({ ok: true }));
@@ -29,7 +29,7 @@ const state = (memoryProposals: Proposal[] = [], care = { tidy: true, suggest: f
 
 test("each memory: how full it is, what no longer fits, where a line came from, and forgetting one", async () => {
   const refresh = vi.fn();
-  render(<MemoryPage S={state()} refresh={refresh} />);
+  render(<MemoryLines S={state()} refresh={refresh} />);
   expect(screen.queryByRole("region", { name: "Waiting for you" })).toBeNull();
   const place = within(screen.getByRole("region", { name: "Scribe's memory" }));
   expect(place.getByText("5,600 of 5,000 characters")).toBeTruthy();
@@ -65,7 +65,7 @@ test("each memory: how full it is, what no longer fits, where a line came from, 
 test("a tidy of a memory that had outgrown its room says it was cut to fit, and which lines were left out", () => {
   const before = Array.from({ length: 6 }, (_, i) => `- 2026-01-0${i + 1} Lesson ${i + 1}`).join("\n");
   const cut: Proposal = { ...tidy, before, after: "- 2026-01-05 Lesson 5\n- 2026-01-06 Lesson 6", limit: 60, leftOut: ["- 2026-01-01 Lesson 1", "- 2026-01-02 Lesson 2"] } as Proposal;
-  render(<MemoryPage S={state([cut])} refresh={vi.fn()} />);
+  render(<MemoryLines S={state([cut])} refresh={vi.fn()} />);
   const t = within(screen.getByRole("listitem", { name: "A shorter version of Scribe's memory" }));
   expect(t.getByText(/^6 lines to 2 · 131 characters to 43 · a prompt loads 60$/)).toBeTruthy();
   expect(t.getByText(/^This had outgrown what a prompt loads, so the smallest model drafted it to fit: .* More goes than usual, so read it before you approve/)).toBeTruthy();
@@ -75,9 +75,9 @@ test("a tidy of a memory that had outgrown its room says it was cut to fit, and 
   expect(t.getAllByRole("status")[1].textContent).toMatch(/^As edited, this is 71 characters over what a prompt loads/);
 });
 
-test("about you is yours to write, whole; and the two switches say what each costs", async () => {
+test("about you is yours to write, whole", async () => {
   const refresh = vi.fn();
-  render(<MemoryPage S={state()} refresh={refresh} />);
+  render(<MemoryLines S={state()} refresh={refresh} />);
   const box = screen.getByLabelText("About you", { selector: "textarea" }) as HTMLTextAreaElement;
   expect(box.value).toBe("Call it Mira.\n- 2026-03-01 Eastern time"); // as written, the free-form line too
   const save = within(screen.getByRole("region", { name: "About you" })).getByRole("button", { name: "Save" }) as HTMLButtonElement;
@@ -86,7 +86,12 @@ test("about you is yours to write, whole; and the two switches say what each cos
   fireEvent.click(save);
   expect((await screen.findByText("Saved. The crew starts with it from their next run.")).getAttribute("role")).toBe("status");
   expect(posts.at(-1)).toEqual({ path: "/api/memory/about", body: { text: "Call it Mira.\n- 2026-03-01 Eastern time\n- Lead with the answer" } });
+});
 
+test("the two switches say what each costs, and the page for the lines is one click away", async () => {
+  render(<MemoryPage S={state()} refresh={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Memory page" }));
+  expect(asked.at(-1)).toEqual({ do: "command", name: "memory" });
   expect((screen.getByRole("checkbox", { name: /Offer a shorter version when a memory is nearly full/ }) as HTMLInputElement).checked).toBe(true);
   const suggest = screen.getByRole("checkbox", { name: /After each run, suggest what's worth keeping/ }) as HTMLInputElement;
   expect(suggest.checked).toBe(false);
@@ -97,7 +102,7 @@ test("about you is yours to write, whole; and the two switches say what each cos
 
 test("what's waiting: a tidy you can read, edit and approve; a suggestion you can reword, keep or drop", async () => {
   const refresh = vi.fn();
-  render(<MemoryPage S={state([tidy, keep])} refresh={refresh} />);
+  render(<MemoryLines S={state([tidy, keep])} refresh={refresh} />);
   const waiting = within(screen.getByRole("region", { name: "Waiting for you" }));
   expect(waiting.getAllByRole("listitem").map((li) => li.getAttribute("aria-label"))).toEqual(["A shorter version of Scribe's memory", "Suggested for About you"]);
   const t = within(waiting.getByRole("listitem", { name: "A shorter version of Scribe's memory" }));
@@ -127,9 +132,9 @@ test("what's waiting: a tidy you can read, edit and approve; a suggestion you ca
   expect((await t.findByRole("alert")).textContent).toMatch(/has changed since this was drafted/);
 });
 
-test("a merge asked for on the map waits here: both lines, the one drafted for them, and the way to the map", async () => {
+test("a merge asked for on the map waits here: both lines, the one drafted for them, and the way to review it", async () => {
   const merge: Proposal = { id: "p3", kind: "merge", where: "agent:scribe", name: "Scribe's memory", created: "2026-03-02T12:00:00Z", lines: ["Use British spelling", "Use British spelling in docs"], text: "Use British spelling, in docs too" };
-  render(<MemoryPage S={state([merge])} refresh={() => {}} />);
+  render(<MemoryLines S={state([merge])} refresh={() => {}} />);
   const m = within(screen.getByRole("listitem", { name: "A merge in Scribe's memory" }));
   expect(m.getByText("Use British spelling in docs")).toBeTruthy();
   expect((m.getByLabelText("The merged line") as HTMLTextAreaElement).value).toBe("Use British spelling, in docs too");
@@ -140,6 +145,14 @@ test("a merge asked for on the map waits here: both lines, the one drafted for t
   await waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/memory/proposal", body: { id: "p3", action: "dismiss" } }));
   // A merge waiting doesn't stop a tidy being asked for.
   expect((within(screen.getByRole("region", { name: "Scribe's memory" })).getByRole("button", { name: "Tidy…" }) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "Open the map" }));
-  expect(asked.at(-1)).toEqual({ do: "command", name: "constellation" });
+});
+
+test("by member: only that member's memory and what's waiting for it, and none of the project or about lines", () => {
+  render(<MemoryLines S={state([tidy, keep])} refresh={vi.fn()} member="scribe" />);
+  expect(screen.getByRole("region", { name: "Scribe's memory" })).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "About you" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Scout's memory" })).toBeNull();
+  cleanup();
+  render(<MemoryLines S={state()} refresh={vi.fn()} member="scout" />);
+  expect(screen.getByRole("region", { name: "Scout's memory" })).toBeTruthy();
 });

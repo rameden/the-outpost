@@ -2,6 +2,7 @@
 // memory (editable), the files they've made, and what they are (tools, skills, stats).
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { say } from "../bus.ts";
 import { api, errorText, outputUrl } from "../api.ts";
 import { liveKey, type CrewStatus } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
@@ -165,7 +166,7 @@ function Run({ a, q }: { a: AgentDetail; q: AgentDetail["runs"][number] }) {
 }
 
 // ---------- Memory ----------
-function Memory({ a }: { a: AgentDetail }) {
+function Memory({ a, onOpenMemory }: { a: AgentDetail; onOpenMemory: () => void }) {
   const [text, setText] = useState(a.memory);
   const [saved, setSaved] = useState("");
   async function save() {
@@ -176,7 +177,7 @@ function Memory({ a }: { a: AgentDetail }) {
     <>
       <p className="panel-note">What the {a.name} remembers between sessions, loaded into every run. They add to it with their remember tool; edit here to correct or remove things. Their name, role, and personality aren't stored here and can't change.</p>
       <textarea className="memory-edit" aria-label={`${a.name}'s memory`} value={text} onChange={(ev) => { setText(ev.target.value); setSaved(""); }} />
-      <div className="card-actions"><button type="button" className="btn small primary" onClick={save}>Save memory</button><span className="meta">{saved}</span></div>
+      <div className="card-actions"><button type="button" className="btn small primary" onClick={save}>Save memory</button><span className="meta">{saved}</span> <button type="button" className="linkish" title={`Their lines, one by one, on the Memory page`} onClick={onOpenMemory}>Open in Memory</button></div>
     </>
   );
 }
@@ -376,7 +377,7 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, onOpenPicker, onCl
             : tab === "runs" ? (a.runs.length
               ? <ul className="list">{a.runs.map((q, i) => <Run key={`${q.time}-${i}`} a={a} q={q} />)}</ul>
               : <Empty title="No runs yet">Every time the {a.name} works, the run shows up here with its cost, time, and steps.</Empty>)
-            : tab === "memory" ? <Memory key={a.id} a={a} />
+            : tab === "memory" ? <Memory key={a.id} a={a} onOpenMemory={() => { onClose(); say({ do: "command", name: "memory", arg: a.id }); }} />
             : tab === "outputs" ? <Outputs a={a} />
             : <About a={a} />}
         </div>

@@ -1,9 +1,9 @@
-// The header chips and the Quests card, on a Claude subscription with a plan limit used up
+// The header chips and the Usage card, on a Claude subscription with a plan limit used up
 // (the parts a fake-API run can't show), plus the busy chip with several expeditions.
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createFeedStore } from "../feed/store.ts";
-import { Quests } from "../panels/Quests.tsx";
+import { Usage } from "../panels/Usage.tsx";
 import type { CampEvent, CampState } from "../types.ts";
 import { hear } from "../bus.ts";
 import { ConfirmHost } from "./Confirm.tsx";
@@ -97,10 +97,10 @@ test("a sign-in problem is shown instead of switching", () => {
   expect(screen.getByText("Reconnecting…")).toBeTruthy();
 });
 
-test("Quests shows plan usage and the pause, and sends you to Settings for the budget", async () => {
+test("Usage shows plan usage and the pause, and sends you to Settings for the budget", async () => {
   const refresh = vi.fn();
   const openSettings = vi.fn();
-  const { container } = render(<Quests S={onSubscription()} refresh={refresh} onOpenSettings={openSettings} />);
+  const { container } = render(<Usage S={onSubscription()} refresh={refresh} onOpenSettings={openSettings} />);
   expect(screen.getByText("5-hour window")).toBeTruthy();
   expect(screen.getByText("used up · resets in 30 min")).toBeTruthy();
   expect(screen.getByText("42% used")).toBeTruthy();
@@ -285,7 +285,7 @@ test("the logo is the way home: it opens Today", () => {
   expect(onHome).toHaveBeenCalled();
 });
 
-test("on extra-usage credit: the header says so with what's left, and Quests shows the credit row", () => {
+test("on extra-usage credit: the header says so with what's left, and Usage shows the credit row", () => {
   const until = Date.now() + 2 * 3_600_000;
   const S = camp({
     runtime: "claude-code",
@@ -295,11 +295,11 @@ test("on extra-usage credit: the header says so with what's left, and Quests sho
     credit: { inUse: true, until, out: false, limit: 50, used: 12.4, left: 37.6, currency: "USD", measured: Date.now() },
   } as Partial<CampState>);
   const opened: string[] = [];
-  render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onOpenSettings={(s) => opened.push(String(s))} />);
+  render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onOpenActivity={(t) => opened.push(t)} />);
   fireEvent.click(screen.getByRole("button", { name: "💳 On credit · $37.60 left" }));
   expect(opened).toEqual(["usage"]);
   cleanup();
-  render(<Quests S={S} refresh={() => {}} />);
+  render(<Usage S={S} refresh={() => {}} />);
   expect(screen.getByText("Extra usage (credit)")).toBeTruthy();
   expect(screen.getByText("$37.60 left of $50.00")).toBeTruthy();
   expect(screen.getByText(/carrying on with credit until it resets in/)).toBeTruthy();

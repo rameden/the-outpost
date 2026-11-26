@@ -8,6 +8,7 @@ import type { CampState, JiraPull, JiraRef, JiraStatus } from "../types.ts";
 import { Icon } from "./bits.tsx";
 import { useJiraSearch } from "./useJiraSearch.ts";
 import { ask } from "./Confirm.tsx";
+import { say } from "../bus.ts";
 
 import { w as word } from "../words.ts";
 // The usual filters. The first is where the camp starts.
@@ -23,7 +24,7 @@ export const filterName = (jql: string) => JIRA_PRESETS.find((p) => p.jql === jq
 // Which tickets are pulled in, for the whole camp: the Jira page shows what this matches, and so
 // does the + menu's Jira tickets before you type. It's Jira's own query language (JQL): pick a
 // usual one or write your own, try it to see what it matches, and keep it.
-function JiraFilter({ kept, refresh }: { kept: string; refresh: () => void }) {
+export function JiraFilter({ kept, refresh }: { kept: string; refresh: () => void }) {
   const [jql, setJql] = useState(kept);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -148,7 +149,7 @@ export function JiraConnection({ S, refresh }: { S: CampState; refresh: () => vo
             ? <div className="meta">Set with JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN where the {word("camp")} was started. Remove them there to unlink.</div>
             : <div className="card-actions"><button type="button" className="btn small danger" onClick={disconnect}>Unlink</button></div>}
           {error && <div className="form-error" role="alert">{error}</div>}
-          <JiraFilter kept={j.filter} refresh={refresh} />
+          <div className="meta">Which tickets are pulled in is set on the Tickets page. <button type="button" className="linkish" onClick={() => say({ do: "command", name: "tickets" })}>Open Tickets</button></div>
           <JiraWriteBack S={S} refresh={refresh} />
         </div>
       ) : (

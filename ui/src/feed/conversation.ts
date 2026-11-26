@@ -13,7 +13,13 @@ import { applyEvent, emptyFeed, type ExpNode, type FeedNode, type FeedState } fr
 // blank page for a new conversation (optionally filed under a project), one conversation, one
 // project's page, or all your projects.
 export type View = { kind: "home" } | { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string }
-  | { kind: "project"; id: string } | { kind: "projects" } | { kind: "tickets" } | { kind: "releases" } | { kind: "wiki"; page?: string }; // wiki: every page, or one being read
+  | { kind: "project"; id: string } | { kind: "projects" } | { kind: "tickets" } | { kind: "releases" }
+  | { kind: "memory"; tab?: MemoryTab; member?: string; page?: string } // Memory: the list, the map, or one member's; a wiki page being read
+  | { kind: "activity"; tab?: ActivityTab }; // Activity: usage, stats, scheduled jobs, inbox
+export const MEMORY_TABS = ["list", "map", "member"] as const;
+export type MemoryTab = (typeof MEMORY_TABS)[number];
+export const ACTIVITY_TABS = ["usage", "stats", "unasked", "jobs", "inbox"] as const;
+export type ActivityTab = (typeof ACTIVITY_TABS)[number];
 
 // Where a message sent from Today starts: the project you last worked in (the latest
 // conversation's), or outside any project if that was General or there's nothing yet.
@@ -31,7 +37,11 @@ export function parseView(saved: string | null): View {
     if (v?.kind === "projects") return { kind: "projects" };
     if (v?.kind === "releases") return { kind: "releases" };
     if (v?.kind === "tickets" || (v?.kind as string) === "jira") return { kind: "tickets" }; // "jira": the page before it held Mae's tickets too
-    if (v?.kind === "wiki") return { kind: "wiki", ...(typeof v.page === "string" ? { page: v.page } : {}) };
+    if ((v?.kind as string) === "wiki" || v?.kind === "memory") { // "wiki": the page before Memory held the wiki alone
+      const m = v as { tab?: unknown; member?: unknown; page?: unknown };
+      return { kind: "memory", ...(MEMORY_TABS.includes(m.tab as MemoryTab) ? { tab: m.tab as MemoryTab } : {}), ...(typeof m.member === "string" ? { member: m.member } : {}), ...(typeof m.page === "string" ? { page: m.page } : {}) };
+    }
+    if (v?.kind === "activity") return { kind: "activity", ...(ACTIVITY_TABS.includes(v.tab as ActivityTab) ? { tab: v.tab as ActivityTab } : {}) };
     if ((v?.kind === "conversation" || v?.kind === "project") && typeof v.id === "string") return { kind: v.kind, id: v.id };
   } catch { /* nothing saved */ }
   return { kind: "home" }; // the page the camp opens on
