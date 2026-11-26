@@ -89,7 +89,7 @@ export const proposeSkill: Tool = {
 export type SkillDraft = { owner: string; name: string; description: string; instructions: string; reason: string };
 
 // Put a skill in the waiting pile. The Quartermaster does it through propose_skill; the weekly
-// retro does it when the same kind of work keeps being asked for (retro.ts). Either way it waits
+// retro does it when the same kind of work keeps being asked for (reports.ts). Either way it waits
 // for you.
 export function draftSkill({ owner, name, description, instructions, reason }: SkillDraft): { ok: true; replaces: boolean } | { ok: false; error: string } {
   if (!owners().includes(owner)) return { ok: false, error: `Unknown owner '${owner}'. Use one of: ${owners().join(", ")}.` };

@@ -24,7 +24,7 @@ const { withExpedition } = await import("../src/context.ts");
 const { snapshotBeforeShell, sealSnapshots, leftAt } = await import("../src/checkpoints.ts");
 const { recordTurn } = await import("../src/threads.ts");
 const { handEdits, notesAfterEdits } = await import("../src/handedits.ts");
-const prs = await import("../src/prs.ts");
+const prs = await import("../src/pulls.ts");
 const { rl } = await import("../src/tools.ts");
 rl.close();
 

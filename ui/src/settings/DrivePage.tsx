@@ -1,6 +1,6 @@
 // Two pages of Settings about the camp's own initiative.
 //
-// Stats: the scoreboard (scoreboard.ts). How much of what you typed in a week was deciding
+// Stats: the scoreboard (src/reports.ts). How much of what you typed in a week was deciding
 // something and how much was operating the pipeline, what the camp started by itself, how the
 // pull requests went, and who on the crew did the work. It follows the chart rules the rest of
 // the page keeps: figures wear text ink, one hue carries magnitude, a bar is thin, square at the
