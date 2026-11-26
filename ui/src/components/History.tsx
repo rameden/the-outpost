@@ -15,6 +15,7 @@ import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, when } from "../format.ts";
 import { Drawer, Icon } from "./bits.tsx";
+import { unreadCount } from "../unread.ts";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 import { usePopover } from "./usePopover.ts";
@@ -46,14 +47,16 @@ export function HistoryRail({ onShow }: { onShow: () => void }) {
 }
 
 // needs: what's waiting on you (needs.ts), for the marks beside a conversation's title.
-// onOpenWiki: go to the wiki's page. onStartTicket: open the ticket kickoff stepper.
-export const History = memo(function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide, needs, onOpenWiki, onStartTicket }: {
-  needs?: Need[]; onOpenWiki?: () => void; onStartTicket?: () => void;
+// onStartTicket: open the ticket kickoff stepper.
+export const History = memo(function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide, needs, onStartTicket }: {
+  needs?: Need[]; onStartTicket?: () => void;
   S: CampState | null; store: FeedStore; view: View; setView: (v: View) => void; patch: (fn: (s: CampState) => CampState) => void;
   onNewProject: () => void; onEditProject: (p: Project) => void;
   onHide?: () => void; // clicking History's rail closes it
 }) {
   const activity = useFeed(store, activityOf);
+  const unread = unreadCount(S); // the inbox's new ones, on Activity
+  const waiting = S?.memoryProposals?.length ?? 0; // memory suggestions waiting on you, on Memory
   const running = useFeed(store, runningCount);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -286,7 +289,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
         </div>
         {onStartTicket && (
           <button type="button" className="hist-nav-item hist-ticket" title="Pick up a ticket: choose it, check its details, say where and who, and start" onClick={onStartTicket}>
-            <Icon name="spark" />Start a ticket
+            <Icon name="flag" />Start a ticket
           </button>
         )}
         <div className={cx("hist-nav-row", view.kind === "projects" && "selected")}>
@@ -299,12 +302,14 @@ export const History = memo(function History({ S, store, view, setView, patch, o
           title={S?.jira?.connected ? "Mae's own tickets, and Jira's" : "Mae's own tickets: work to do, being done, and done"} onClick={() => setView({ kind: "tickets" })}>
           <Icon name="check" />Tickets
         </button>
-        {onOpenWiki && (
-          <button type="button" className={cx("hist-nav-item", view.kind === "wiki" && "selected")} aria-current={view.kind === "wiki" ? "page" : undefined}
-            title={`The ${w("camp")}'s wiki: facts you've told the ${w("crew")}, and notes it brought back`} onClick={onOpenWiki}>
-            <Icon name="book" />Wiki
-          </button>
-        )}
+        <button type="button" className={cx("hist-nav-item", view.kind === "activity" && "selected")} aria-current={view.kind === "activity" ? "page" : undefined}
+          title={`What the ${w("camp")} has spent and been doing: usage, stats, scheduled jobs and the inbox`} onClick={() => setView({ kind: "activity" })}>
+          <Icon name="activity" />Activity{unread > 0 && <span className="count needs" aria-label={`${unread} unread in the inbox`}>{unread}</span>}
+        </button>
+        <button type="button" className={cx("hist-nav-item", view.kind === "memory" && "selected")} aria-current={view.kind === "memory" ? "page" : undefined}
+          title={`What the ${w("crew")} remembers, and the ${w("camp")}'s wiki`} onClick={() => setView({ kind: "memory" })}>
+          <Icon name="layers" />Memory{waiting > 0 && <span className="count needs" aria-label={`${waiting} waiting for you`}>{waiting}</span>}
+        </button>
         <button type="button" className={cx("hist-nav-item", view.kind === "releases" && "selected")} aria-current={view.kind === "releases" ? "page" : undefined}
           title="What's changed in Mae: the merged pull requests, summed up every 48 hours" onClick={() => setView({ kind: "releases" })}>
           <Icon name="bookmark" />Release notes

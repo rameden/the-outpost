@@ -62,6 +62,15 @@ const ICONS = {
   orbit: "M12 8.500a3.500 3.500 0 100 7 3.500 3.500 0 000-7zM8.600 13.100c-3.400 1.300-5.700 2.700-5.400 3.600.400 1.100 4.600.500 9.500-1.300s8.500-4.100 8.100-5.200c-.300-.900-3-.700-6.500.300", // a planet with its ring
   trail: "M6 14a2 2 0 100 4 2 2 0 000-4zM18 4a2 2 0 100 4 2 2 0 000-4zM8 16h6.500a2.500 2.500 0 000-5h-5a2.500 2.500 0 010-5H16", // two waypoints and the path between them
   views: "M4 5.500h16v13H4zM4 10h16M9.500 10v8.500", // a window with panes: the Views menu
+  layers: "M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4", // stacked sheets: Memory
+  constellation: "M6 15.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM10 8.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM15 12.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM18 4.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM7 15.500l2.200-4M11.300 11l2.500 2M15.800 12.800l1.600-4.800", // stars joined by lines: the memory map
+  activity: "M3 12h4l3-7 4 14 3-7h4", // a pulse: what the camp has been doing
+  cpu: "M8 8h8v8H8zM10 4v4M14 4v4M10 16v4M14 16v4M4 10h4M4 14h4M16 10h4M16 14h4", // a chip: Models
+  bolt: "M13 3L5 13.500h6L10 21l8-10.500h-6z", // done without being asked
+  flag: "M6 20V4M6 5h11l-2.500 4 2.500 4H6", // start a ticket
+  trend: "M4 17l5-5 4 4 7-8M15 8h5v5", // Stats: how it's going
+  map: "M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14M15 6v14", // the star chart of outposts
+  hub: "M12 10.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM5 5.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM19 5.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM12 18.500a1.500 1.500 0 110 3 1.500 1.500 0 010-3zM6.200 8l4.600 3M17.800 8l-4.600 3M12 13.500v5",
   at: "M15.500 12a3.500 3.500 0 11-7 0 3.500 3.500 0 017 0zM15.500 8.500V13c0 1.400 1 2.500 2.300 2.500S20 14.400 20 12.500V12a8 8 0 10-3.200 6.400",
 } as const;
 export type IconName = keyof typeof ICONS;

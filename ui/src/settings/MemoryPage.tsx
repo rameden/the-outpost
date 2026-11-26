@@ -1,4 +1,4 @@
-// Settings → Memory: what the crew remembers, and your say over it.
+// The Memory page's lines (and Settings → Memory's switches): what the crew remembers, and your say over it.
 //
 // At the top, whatever is waiting for you: a tidied version of a memory that's filling up, or
 // something from a run that might be worth keeping. Nothing there has been applied. Then the
@@ -179,30 +179,41 @@ function AboutYou({ m, refresh }: { m: MemoryPlace; refresh: () => void }) {
   );
 }
 
-export function MemoryPage({ S, refresh }: { S: CampState; refresh: () => void }) {
+// The lines themselves, for the Memory page: what's waiting, you, each crew member's own memory
+// and each project's notes. member: only that crew member's (their id).
+export function MemoryLines({ S, refresh, member }: { S: CampState; refresh: () => void; member?: string }) {
   const places = S.memory ?? [];
-  const waiting = S.memoryProposals ?? [];
-  const care = S.settings.memoryCare ?? { tidy: true, suggest: false };
-  const about = places.find((p) => p.kind === "about");
-  const setCare = (change: { tidy?: boolean; suggest?: boolean }) => api("/api/memory/care", change).then(refresh, (e) => complain(errorText(e)));
+  const waiting = (S.memoryProposals ?? []).filter((p) => !member || (p.where ?? "") === `agent:${member}`);
+  const about = member ? undefined : places.find((p) => p.kind === "about");
+  const shown = places.filter((p) => p.kind !== "about" && (!member || p.where === `agent:${member}`));
   return (
     <>
-      <p className="set-note">What the {w("crew")} starts each run knowing. Only the newest part of each memory fits in a prompt; the rest is still on disk, and the {w("crew")} can search it with <code>recall</code> (along with past sessions, this project's earlier conversations and the wiki).</p>
-      <p className="set-note"><button type="button" className="btn small" onClick={() => say({ do: "command", name: "constellation" })}>Open the map</button> Every line as a star, grouped by where it lives: see what's alike, what gets used, and pin, forget or merge from there.</p>
       {waiting.length > 0 && (
         <section aria-label="Waiting for you">
           <h4 className="set-sub">Waiting for you <span className="count needs">{waiting.length}</span></h4>
           <ul className="mem-waiting">{waiting.map((p) => <Waiting key={p.id} p={p} refresh={refresh} />)}</ul>
         </section>
       )}
+      {about && <AboutYou m={about} refresh={refresh} />}
+      {shown.map((m) => <Place key={m.where} m={m} refresh={refresh} waiting={(S.memoryProposals ?? []).some((p) => p.kind === "tidy" && p.where === m.where)} />)}
+      {!shown.length && !about && <div className="hist-empty">Nothing is remembered here yet.</div>}
+    </>
+  );
+}
+
+// Settings → Memory: the two switches for how the crew looks after its memory. The lines are on the Memory page.
+export function MemoryPage({ S, refresh }: { S: CampState; refresh: () => void }) {
+  const care = S.settings.memoryCare ?? { tidy: true, suggest: false };
+  const setCare = (change: { tidy?: boolean; suggest?: boolean }) => api("/api/memory/care", change).then(refresh, (e) => complain(errorText(e)));
+  return (
+    <>
+      <p className="set-note">What the {w("crew")} remembers, and what's in it, is on the <button type="button" className="linkish" onClick={() => say({ do: "command", name: "memory" })}>Memory page</button>. These two say how it's looked after.</p>
       <div className="mem-care">
         <label className="switch"><input type="checkbox" checked={care.tidy} onChange={(ev) => setCare({ tidy: ev.target.checked })} /> Offer a shorter version when a memory is nearly full</label>
-        <span className="field-hint">The smallest model drafts it, and it waits here for you. It runs rarely: only when a memory passes four fifths of what a prompt loads.</span>
+        <span className="field-hint">The smallest model drafts it, and it waits on the Memory page for you. It runs rarely: only when a memory passes four fifths of what a prompt loads.</span>
         <label className="switch"><input type="checkbox" checked={care.suggest} onChange={(ev) => setCare({ suggest: ev.target.checked })} /> After each run, suggest what's worth keeping</label>
-        <span className="field-hint">Up to three suggestions a run, waiting here for you; most runs have none. It's one small call per run, so it uses a little of your plan each time.</span>
+        <span className="field-hint">Up to three suggestions a run, waiting on the Memory page for you; most runs have none. It's one small call per run, so it uses a little of your plan each time.</span>
       </div>
-      {about && <AboutYou m={about} refresh={refresh} />}
-      {places.filter((p) => p.kind !== "about").map((m) => <Place key={m.where} m={m} refresh={refresh} waiting={waiting.some((p) => p.kind === "tidy" && p.where === m.where)} />)}
     </>
   );
 }

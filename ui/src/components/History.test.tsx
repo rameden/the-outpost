@@ -193,7 +193,7 @@ test("projects can be dragged into a new order, or moved a step from their menu,
 test("Projects sits under New conversation and opens the projects page; its + opens the dialog; a project's name opens its page", () => {
   const { setView, onNewProject, onEditProject } = setup();
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Tickets", "Release notes", "Search", "All activity"]);
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "Search", "All activity"]);
   fireEvent.click(within(nav).getByRole("button", { name: /Projects$/ }));
   expect(setView).toHaveBeenLastCalledWith({ kind: "projects" });
   expect(onNewProject).not.toHaveBeenCalled();
@@ -377,21 +377,23 @@ test("chats with a crew member are kept together under the project, behind their
   expect(screen.getByRole("button", { name: /@scout/ }).getAttribute("aria-expanded")).toBe("false");
 });
 
-test("the sidebar offers Start a ticket, then Tickets and the Wiki under Projects, with Jira linked or not", () => {
-  const setView = vi.fn(), onOpenWiki = vi.fn(), onStartTicket = vi.fn();
+test("the sidebar offers Start a ticket, then Tickets, Activity and Memory under Projects, with Jira linked or not", () => {
+  const setView = vi.fn(), onStartTicket = vi.fn();
   const linked = { ...S, jira: { connected: true } } as CampState;
-  const { rerender } = render(<History S={linked} store={createFeedStore()} view={{ kind: "wiki" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}}
-    onOpenWiki={onOpenWiki} onStartTicket={onStartTicket} />);
+  const { rerender } = render(<History S={linked} store={createFeedStore()} view={{ kind: "memory" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}}
+    onStartTicket={onStartTicket} />);
   const nav = screen.getByRole("navigation");
-  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Wiki", "Release notes", "Search", "All activity"]);
-  expect(within(nav).getByRole("button", { name: "Wiki" }).getAttribute("aria-current")).toBe("page"); // you're on it
-  fireEvent.click(within(nav).getByRole("button", { name: "Wiki" }));
-  expect(onOpenWiki).toHaveBeenCalledTimes(1);
+  expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "Search", "All activity"]);
+  expect(within(nav).getByRole("button", { name: "Memory" }).getAttribute("aria-current")).toBe("page"); // you're on it
+  fireEvent.click(within(nav).getByRole("button", { name: "Activity" }));
+  expect(setView).toHaveBeenLastCalledWith({ kind: "activity" });
+  fireEvent.click(within(nav).getByRole("button", { name: "Memory" }));
+  expect(setView).toHaveBeenLastCalledWith({ kind: "memory" });
   fireEvent.click(within(nav).getByRole("button", { name: "Start a ticket" }));
   expect(onStartTicket).toHaveBeenCalledTimes(1);
   // Without Jira there are still Mae's own tickets to start.
-  rerender(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onOpenWiki={onOpenWiki} onStartTicket={onStartTicket} />);
-  expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Wiki", "Release notes", "Search", "All activity"]);
+  rerender(<History S={S} store={createFeedStore()} view={{ kind: "new" }} setView={setView} patch={() => {}} onNewProject={() => {}} onEditProject={() => {}} onStartTicket={onStartTicket} />);
+  expect(within(screen.getByRole("navigation")).getAllByRole("button").map((b) => b.textContent)).toEqual(["New conversation", "Start a ticket", "Projects", "+", "Tickets", "Activity", "Memory", "Release notes", "Search", "All activity"]);
 });
 
 test("words arriving in a reply don't redraw History: only a run starting, ending or asking does", () => {

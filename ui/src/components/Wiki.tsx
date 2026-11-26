@@ -26,7 +26,8 @@ type Page = CampState["wiki"][number];
 
 // open: the page being read (its path), if any. onOpen: read another, or go back to them all (null).
 // refresh: the list has changed (a page was added, changed or removed).
-export function WikiHome({ S, open, onOpen: setOpen, refresh }: { S: CampState; open?: string; onOpen: (path: string | null) => void; refresh?: () => void }) {
+// embedded: shown inside the Memory page, which has the heading.
+export function WikiHome({ S, open, onOpen: setOpen, refresh, embedded }: { S: CampState; open?: string; onOpen: (path: string | null) => void; refresh?: () => void; embedded?: boolean }) {
   const [words, setWords] = useState("");
   // Writing: a new page, or the one being read.
   const [writing, setWriting] = useState<"new" | "edit" | null>(null);
@@ -41,10 +42,10 @@ export function WikiHome({ S, open, onOpen: setOpen, refresh }: { S: CampState; 
   if (open && writing === "edit") return <WikiEditor page={pages.find((p) => p.path === open) ?? { path: open, section: open.includes("/facts/") ? "facts" : "notes", summary: "", updated: "" }} onCancel={() => setWriting(null)} onSaved={saved} />;
   if (open) return <WikiRead path={open} known={pages.find((p) => p.path === open)} onBack={() => setOpen(null)} onEdit={() => setWriting("edit")} onRemoved={() => { refresh?.(); setOpen(null); }} />;
   return (
-    <div className="feed proj-page wiki-page">
+    <div className={embedded ? "wiki-page wiki-embedded" : "feed proj-page wiki-page"}>
       <header className="proj-head">
         <div>
-          <h2>Wiki</h2>
+          {!embedded && <h2>Wiki</h2>}
           <div className="meta">{pages.length} {plural(pages.length, "page")} · what the {w("camp")} knows between conversations. The {w("crew")} reads the list of these at the start of every run, and opens the ones that bear on the work.</div>
         </div>
         <div className="proj-actions"><button type="button" className="btn small primary" title={`Write a page yourself: something the ${w("crew")} should know from now on`} onClick={() => setWriting("new")}><span aria-hidden="true">＋ </span>New page</button></div>

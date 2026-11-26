@@ -52,10 +52,13 @@ test("an empty wiki says what it's for; a page that can't be read says why", asy
   await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("No such page"));
 });
 
-test("the wiki is somewhere you can be, and come back to after a reload", () => {
-  expect(parseView(JSON.stringify({ kind: "wiki" }))).toEqual({ kind: "wiki" });
-  expect(parseView(JSON.stringify({ kind: "wiki", page: "camp/wiki/facts/x.md" }))).toEqual({ kind: "wiki", page: "camp/wiki/facts/x.md" });
-  expect(parseView(JSON.stringify({ kind: "wiki", page: 7 }))).toEqual({ kind: "wiki" });
+test("Memory and Activity are somewhere you can be, and come back to after a reload; the old wiki page lands in Memory", () => {
+  expect(parseView(JSON.stringify({ kind: "wiki" }))).toEqual({ kind: "memory" });
+  expect(parseView(JSON.stringify({ kind: "wiki", page: "camp/wiki/facts/x.md" }))).toEqual({ kind: "memory", page: "camp/wiki/facts/x.md" });
+  expect(parseView(JSON.stringify({ kind: "memory", tab: "member", member: "scout" }))).toEqual({ kind: "memory", tab: "member", member: "scout" });
+  expect(parseView(JSON.stringify({ kind: "memory", tab: "bogus", page: 7 }))).toEqual({ kind: "memory" });
+  expect(parseView(JSON.stringify({ kind: "activity", tab: "jobs" }))).toEqual({ kind: "activity", tab: "jobs" });
+  expect(parseView(JSON.stringify({ kind: "activity", tab: "nope" }))).toEqual({ kind: "activity" });
 });
 
 test("a new page: its title, whether it's a fact or a note, a summary, and the page itself", async () => {

@@ -7,6 +7,7 @@ import { Settings, type SettingsSection } from "./Settings.tsx";
 import { SETTINGS_SECTIONS } from "./sections.ts";
 import { Header } from "../components/Header.tsx";
 import { createFeedStore } from "../feed/store.ts";
+import { hear } from "../bus.ts";
 
 const posts: { path: string; body: unknown }[] = [];
 beforeEach(() => {
@@ -118,34 +119,22 @@ test("it's a modal over the camp: clicking outside closes it, clicking or draggi
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
-test("the camp's records that used to be in the side panel are sections here", () => {
-  const { setSection } = show("usage", { ...camp(), quests: [], spend: { today: 0, week: 0, total: 0 }, limits: [], inbox: [{ heading: "2026-11-10 · Digest", body: "Hi" }] } as unknown as CampState);
-  expect(screen.getByText("No budget · up to 3 at once")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Change limits" }));
-  expect(setSection).toHaveBeenCalledWith("limits");
-  for (const name of ["Scheduled jobs", "Memory", "Skills", "Connectors"]) expect(screen.getByRole("button", { name: new RegExp(name) })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /^Wiki/ })).toBeNull(); // the wiki has a page of its own now, in the sidebar
-  expect(screen.getByRole("button", { name: /Inbox/ }).textContent).toContain("1");
+test("what moved to the Activity page, and the wiki's page, aren't sections here; Memory, Skills and Connectors still are", () => {
+  show("limits");
+  const nav = screen.getByRole("navigation", { name: "Settings sections" });
+  for (const name of ["Memory", "Skills", "Connectors", "Limits & budget"]) expect(within(nav).getByRole("button", { name: new RegExp(name) })).toBeTruthy();
+  for (const name of [/^Wiki/, /Scheduled jobs/, /^Inbox/, /^Stats/, /Usage/, /unasked/]) expect(within(nav).queryByRole("button", { name })).toBeNull();
 });
 
-test("inbox entries can be marked as read, one at a time or all at once, and only unread ones count on the badge", async () => {
-  const inbox = [
-    { heading: "2026-11-16 08:00 · morning-brief", body: "Where things stand.", seen: false },
-    { heading: "2026-11-15 09:00 · digest", body: "Two new pages.", seen: false },
-    { heading: "2026-11-14 09:00 · digest", body: "Old news.", seen: true },
-  ];
-  const { refresh } = show("inbox", { ...camp(), inbox } as unknown as CampState);
-  expect(screen.getByRole("button", { name: /Inbox/ }).textContent).toContain("2");
-  expect(screen.getByText("2 unread")).toBeTruthy();
-  const buttons = screen.getAllByRole("button", { name: "Mark as read" });
-  expect(buttons).toHaveLength(2); // the read one has none
-  await act(async () => { fireEvent.click(buttons[0]); });
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Mark all as read" })); });
-  expect(posts).toEqual([
-    { path: "/api/inbox/seen", body: { heading: "2026-11-16 08:00 · morning-brief" } },
-    { path: "/api/inbox/seen", body: { all: true } },
-  ]);
-  expect(refresh).toHaveBeenCalledTimes(2);
+test("Settings → Memory keeps the two switches and links to the Memory page for the lines", async () => {
+  const asked: unknown[] = [];
+  const off = hear((a) => asked.push(a));
+  show("memory", { ...camp(), memory: [], memoryProposals: [{ id: "p1" }] } as unknown as CampState);
+  expect(screen.getByRole("checkbox", { name: /Offer a shorter version/ })).toBeTruthy();
+  expect(screen.getByRole("checkbox", { name: /suggest what's worth keeping/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Memory page" }));
+  expect(asked).toEqual([{ do: "command", name: "memory" }]);
+  off();
 });
 
 test("General keeps to the camp's basics: looks, notifications and other devices each have a page of their own", () => {
@@ -324,11 +313,9 @@ test("the notification sound row shows once notifications are on: a switch kept 
   localStorage.clear();
 });
 
-test("the nav is grouped as Camp, Look & sound, Safety, Access, Activity, Knowledge, in that order", () => {
+test("the nav is grouped as Camp, Look & sound, Safety, Access, Knowledge, in that order", () => {
   show("general");
   const nav = screen.getByRole("navigation", { name: "Settings sections" });
   const titles = [...nav.querySelectorAll(".set-group-title")].map((e) => e.textContent);
-  expect(titles).toEqual(["Camp", "Look & sound", "Safety", "Access", "Activity", "Knowledge"]);
-  expect(within(nav).getByRole("button", { name: /What Home does unasked|What Mae does unasked/ })).toBeTruthy();
-  expect(within(nav).getByRole("button", { name: /Usage & quest log/ })).toBeTruthy();
+  expect(titles).toEqual(["Camp", "Look & sound", "Safety", "Access", "Knowledge"]);
 });

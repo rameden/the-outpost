@@ -228,7 +228,7 @@ export function UnaskedPage({ S, refresh, onOpenSection }: { S: CampState; refre
             <ul className="list">
               {watching.map((t) => (
                 <li className="card" key={t.name}>
-                  <div className="card-top"><span className="who"><Icon name="spark" /> {t.name}</span><span className="pill">links/{t.link}{t.describe ? " · descriptions kept current" : ""}</span></div>
+                  <div className="card-top"><span className="who"><Icon name="flag" /> {t.name}</span><span className="pill">links/{t.link}{t.describe ? " · descriptions kept current" : ""}</span></div>
                   <div className="meta">{t.lastPoll ? `Checked ${when(t.lastPoll)}` : "Not checked yet"}{t.lastError ? ` · last check failed: ${t.lastError}` : ""}</div>
                   <div className="card-actions">
                     <label className="switch"><input type="checkbox" checked={t.enabled} disabled={busy === t.name} onChange={(ev) => doing(t.name, () => api("/api/triggers", { name: t.name, action: ev.target.checked ? "enable" : "disable" }))} /> {t.enabled ? "On" : "Off"}</label>

@@ -31,7 +31,7 @@ export function ChatModel({ S, picked, standing, onPick }: {
     <span className="model-pick" ref={box}>
       <button type="button" className={now ? "work-btn changed" : "work-btn"} aria-haspopup="dialog" aria-expanded={open} aria-label={`Model for this conversation: ${name}`}
         title={now ? `This conversation is answered by ${name}${changed ? ", from this message on" : ""}. Click to change.` : `A message with no @ goes straight to the ${w("camp")}'s default model (Claude Sonnet). Click to pick another for this conversation.`}
-        onClick={() => setOpen((o) => !o)}><Icon name="spark" /><b>{name}</b></button>
+        onClick={() => setOpen((o) => !o)}><Icon name="cpu" /><b>{name}</b></button>
       {open && (
         <div className="popover model-menu" role="dialog" aria-label="Model for this conversation">
           <label className="field">Model for this conversation

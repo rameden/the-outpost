@@ -1,4 +1,4 @@
-// Quests: what the camp has spent and your plan's limits (the budget and how many run at once
+// Usage: what the camp has spent and your plan's limits (the budget and how many run at once
 // are changed in Settings), then the log of every expedition and job run.
 
 import { useState } from "react";
@@ -101,7 +101,7 @@ function SpendCard({ S, refresh, onOpenSettings }: { S: CampState; refresh: () =
   );
 }
 
-export function Quests({ S, refresh, onOpenSettings }: { S: CampState; refresh: () => void; onOpenSettings?: () => void }) {
+export function Usage({ S, refresh, onOpenSettings }: { S: CampState; refresh: () => void; onOpenSettings?: () => void }) {
   // By who they are, not what they were called then: the log keeps the name each had at the time.
   const emojiFor = (name: string) => { const now = nameNow(name); return S.characters.find((c) => c.name === now)?.emoji ?? "✦"; };
   return (
