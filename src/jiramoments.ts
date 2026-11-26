@@ -5,7 +5,7 @@
 //     cleanly and changed files. Said once per conversation: the fixes that follow don't each
 //     leave a comment.
 //   - merged: the pull request of a worktree that conversation worked in has been merged (the
-//     pull-request watch in prs.ts sees it happen).
+//     pull-request watch in pulls.ts sees it happen).
 //
 // Both write only when write-back is on, in the camp's own fixed words. What has been said is
 // kept in camp/jira-moments.json, so a restart (or the same merge seen twice) doesn't say it again.

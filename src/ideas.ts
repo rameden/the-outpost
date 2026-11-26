@@ -17,7 +17,7 @@
 
 import { randomBytes } from "node:crypto";
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
-import { weekFacts, weekOf } from "./chronicle.js";
+import { weekFacts, weekOf } from "./reports.js";
 import type { Project } from "./conversations.js";
 import { addNotes, loadNotes, removeNote, type Note } from "./notes.js";
 import { projectBrief, projectNotes } from "./projects.js";

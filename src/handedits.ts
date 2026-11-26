@@ -3,7 +3,7 @@
 // A pull request's description is drafted from the record, and the record stops where the run
 // did. If you then open the worktree and change things by hand, the crew's report no longer
 // says what the branch does. This finds those changes, so the description can list them and the
-// notes can be rewritten to match (prs.ts).
+// notes can be rewritten to match (pulls.ts).
 //
 // It's exact, not a guess: when a run that ran commands in a repository ends, the camp records
 // the working tree as it was left (checkpoints.ts). What's committed on the branch now, compared

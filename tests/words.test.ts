@@ -10,7 +10,7 @@ enterSandbox("words");
 const crew = await import("../src/crew.ts");
 const { ROSTER } = await import("../src/roster.ts");
 const { quartermasterSpec, fixBrief, REVIEW_RULE } = await import("../src/quartermaster.ts");
-const { spentOn } = await import("../src/payoff.ts");
+const { spentOn } = await import("../src/reports.ts");
 const { say, w, a } = await import("../src/words.ts");
 const { wrapUpNote, steerNote, rl } = await import("../src/tools.ts");
 
