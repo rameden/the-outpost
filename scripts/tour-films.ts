@@ -1,5 +1,5 @@
 // Put the films into the tour: the motion graphics in docs/films/ → the Films section of
-// docs/index.html (three films, a tab each) and two films shown on their own beside what they show
+// docs/index.html (four films, a tab each) and two films shown on their own beside what they show
 // (the trail map in Orbit, the constellation in the kit's memory tab), all drawn live in the page.
 //   npm run tour:films            write them into docs/index.html
 //   tsx scripts/tour-films.ts --check   say whether docs/index.html is in step, and change nothing
@@ -23,14 +23,25 @@ const FILMS_DIR = join(ROOT, "docs", "films");
 // section: the films section, where each film has a tab. into: a film shown on its own, inside the
 // part of the tour that describes what it shows, between <!-- film-<key>:start --> and its end marker
 // (those markers are written by hand in docs/index.html; this fills in what's between them).
-const FILMS: { key: string; file: string; note: string; tab?: string; length?: string; section?: string; into?: string }[] = [
+const FILMS: { key: string; file: string; note: string; tab?: string; length?: string; section?: string; into?: string; hidden?: boolean }[] = [
   {
     key: "sky", section: "films", file: "ground-to-sky.html", tab: "Ground to sky", length: "1:16",
     note: "Outpost in one shot, from the ground to the sky. You claim your ground, your outpost lifts into orbit, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark.",
   },
   {
+    // Hidden: kept here, in docs/films/ and in the tour's code, but with no tab or panel in the Films section.
+    // To show it again: take `hidden` off, put it in the section's lede below (the lede counts the
+    // films and describes them), and run `npm run tour:films`.
+    key: "whole", section: "films", file: "whole-sky.html", tab: "The whole sky", length: "1:26", hidden: true,
+    note: "All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own <span data-word='crew'>crew</span>, memory and keys. Then a request comes in and goes round the <span data-word='crew'>crew</span> as comets, the <span data-crew='5'>Test Pilot</span> flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle.",
+  },
+  {
     key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket", length: "0:54",
     note: "One example Jira ticket, from kicking off <span data-word='a quest'>a mission</span> to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review.",
+  },
+  {
+    key: "audit", section: "films", file: "three-audit-findings.html", tab: "Three audit findings", length: "1:03",
+    note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review. You kick off <span data-word='a quest'>a mission</span> from the first, and it goes from ticket to reviewed pull request step by step; the other two follow the same route.",
   },
   {
     key: "night", section: "films", file: "night-shift.html", tab: "Night shift", length: "0:35",
@@ -49,7 +60,7 @@ const FILMS: { key: string; file: string; note: string; tab?: string; length?: s
 const SECTIONS = [
   {
     id: "films", name: "Films", label: "Films", title: "Watch the work go round the crew.",
-    lede: "Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the second the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as a ticket reaches it. The third is the night shift, at work while you sleep.",
+    lede: "Four short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.",
     before: '<section id="orbit">', linkBefore: '        <a href="#kit">The kit</a>', // just ahead of the kit
   },
 ];
@@ -248,7 +259,9 @@ export function withFilms(tour: string, read: (file: string) => string = (file) 
 :root[data-theme="dark"] { ${declare(EXTRA.dark)} }
 /* films:end */
 `;
-  const shownIn = (id: string) => parts.filter((f) => f.section === id);
+  // A hidden film has no tab and no panel, and its section's code never asks for it. Its stage and the
+  // code that draws it are still written in below, so it stays in step with its page in docs/films/.
+  const shownIn = (id: string) => parts.filter((f) => f.section === id && !f.hidden);
   const sections = SECTIONS.map((s) => {
     const shown = shownIn(s.id);
     return `<!-- ${s.id}:start -->

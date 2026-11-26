@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Outpost Whole Sky</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<!--
+  THE WHOLE SKY: Outpost's master film. One continuous camera, 86 seconds, looping without a seam.
+
+  Storyboard
+   0:00  The star chart  The Outpost lockup gives way to the star chart: Work, Home and a new one, planets round a sun
+                       being named, each on a line of its own. A card lists what every outpost has of its own
+                       (crew, memory, keys). Work is picked and its mark becomes the lockup. Everything after this runs on its
+                       own clock, 9 seconds behind the film's (PRE).
+   0:09  The mark      The Outpost lockup sits on topographic ground. The name fades, the mark slides to centre,
+                       and its nested arcs open out into contour-line orbits. The amber dot is the sun.
+   0:05  The crew      Four topographic planets come up on their orbits: Scout, Scribe, Artificer, Warden.
+   0:13  A request     A falling star carries a request into the sun. A ping runs out across the ground,
+                       lighting each contour line as it passes, and the plan appears, one quest per crew member,
+                       with the Test Pilot on call for the hard part.
+   0:20  The work      Quests leave as comets and the camera follows each one down to its planet:
+                         Scout reads the ground (a radar sweep over a small hill, a route, three pins)
+                         Scribe writes the spec along contour lines (text set on curved arcs, a quill at the tip)
+                         Artificer builds terraces (contour layers dropped and struck into a hill)
+   0:35  The Test Pilot    Pull back. The hard part goes to the Test Pilot, on the strongest model by default. It flies in
+                       from beyond the outer orbit, takes a fifth orbit, and its plane takes a knot of crossed
+                       contour lines apart into clean rings.
+   0:44  Warden        A shield drawn round the planet, three ticks, "ready for review".
+   0:49  The trail     Pull back. The five steps join into a dashed trail with waypoints and the reports come
+                       home as comets. The push pings your phone and you approve it there. Only then does the
+                       sun ping again.
+   0:59  Memory        What the crew learned rises as motes and settles as stars, joined into a constellation
+                       beside the faint stars it already knew.
+   1:07  Night shift   The sky turns to night. A grey comet laps the sun, leaving two drafts and changing nothing.
+   1:11  Home          Dawn. The planets set, the orbits fold back into the mark, the name returns, and the
+                       film is back where it began.
+-->
+<style>
+:root {
+  --page: #f0e8da; --bg: #f5efe4; --surface: #fffcf6; --surface-2: #f0e8da; --border: #e2d7c5; --border-strong: #cdbfa8;
+  --text: #2a231c; --muted: #5d5247; --faint: #8a7e70;
+  --accent: #9e5c0c; --accent-ink: #fffaf2; --good: #397034;
+  --c-scout: #3f7d3a; --c-scribe: #6a55c9; --c-art: #b4572a; --c-warden: #3d5f9e; --c-night: #6f6a78; --c-wiz: #9b4ea3;
+  --logo-ink: #14233F; --logo-dot: #B97A12;
+  --dusk: #1b2135; --dusk-a: .64; --star-night: #f4ecdc;
+  --shade: rgba(60, 40, 20, .13);
+  --display: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
+  --body: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+    --text: #efe7da; --muted: #ab9f93; --faint: #7d7368;
+    --accent: #f0a640; --accent-ink: #1b1308; --good: #93c47d;
+    --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-night: #a59fb3; --c-wiz: #d79be0;
+    --logo-ink: #F3EDE0; --logo-dot: #D9982B;
+    --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc;
+    --shade: rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0d0b0a; --bg: #13110f; --surface: #1b1815; --surface-2: #24201b; --border: #312b25; --border-strong: #453d34;
+  --text: #efe7da; --muted: #ab9f93; --faint: #7d7368;
+  --accent: #f0a640; --accent-ink: #1b1308; --good: #93c47d;
+  --c-scout: #93c47d; --c-scribe: #ada2f2; --c-art: #e8935f; --c-warden: #8fb0ea; --c-night: #a59fb3; --c-wiz: #d79be0;
+  --logo-ink: #F3EDE0; --logo-dot: #D9982B;
+  --dusk: #04060d; --dusk-a: .7; --star-night: #f4ecdc;
+  --shade: rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+.head { display: grid; gap: 4px; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
+.lede { margin: 0; color: var(--muted); max-width: 68ch; }
+.stage { aspect-ratio: 16 / 9; max-width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 16px 40px var(--shade); }
+.stage svg { display: block; width: 100%; height: 100%; }
+.controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.controls button { font: 600 13px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 14px; cursor: pointer; min-width: 68px; }
+.controls button:hover { border-color: var(--accent); }
+.controls input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.controls output { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chapters { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; list-style: none; }
+.chapters button { font: 500 13px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 4px 0; cursor: pointer; }
+.chapters button span { font: 400 11px var(--mono); color: var(--faint); margin-right: 6px; }
+.chapters button:hover { color: var(--text); }
+.chapters button[aria-current="true"] { color: var(--text); border-bottom-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { margin: 0; color: var(--muted); font-size: 14px; max-width: 72ch; }
+
+/* Stage drawing */
+#stage text { user-select: none; -webkit-user-select: none; pointer-events: none; white-space: pre; }
+.d { font-family: var(--display); } .b { font-family: var(--body); } .m { font-family: var(--mono); }
+.f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); } .f-accent { fill: var(--accent); }
+.f-tone { fill: var(--tone); } .f-ink { fill: var(--accent-ink); } .f-good { fill: var(--good); }
+.c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); }
+.c-night { --tone: var(--c-night); } .c-qm { --tone: var(--accent); } .c-wiz { --tone: var(--c-wiz); }
+.bgfill { fill: var(--bg); } .dusk { fill: var(--dusk); }
+.star { fill: var(--faint); } .star.n { fill: var(--star-night); }
+.halo { paint-order: stroke; stroke: var(--bg); stroke-linejoin: round; }
+.contour { fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: .55; vector-effect: non-scaling-stroke; }
+.contour.idx { stroke-width: 1.7; opacity: .7; }
+.contour.lit { stroke: var(--accent); stroke-width: 1.8; opacity: 0; }
+.ping { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.sorbit { fill: none; stroke: var(--border-strong); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.ptrail { fill: none; stroke: var(--tone); stroke-width: 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ring-t { fill: none; stroke: var(--tone); vector-effect: non-scaling-stroke; }
+.tail { fill: none; stroke: var(--tone); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.tone-f { fill: var(--tone); }
+.tone-s { fill: none; stroke: var(--tone); stroke-linecap: round; stroke-linejoin: round; }
+.logo-f { fill: var(--logo-ink); } .logo-s { fill: none; stroke: var(--logo-ink); } .dot-f { fill: var(--logo-dot); }
+.glyph * { fill: none; stroke: var(--accent-ink); stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.glyph.toned * { stroke: var(--tone); }
+.card { fill: var(--surface); stroke: var(--border); }
+.btn { fill: var(--accent); } .btn.ok { fill: var(--good); } .btn-o { fill: none; stroke: var(--border-strong); }
+.trail { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 7; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.join { fill: none; stroke: var(--accent); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.screen { fill: var(--surface-2); } .notch { fill: var(--text); opacity: .85; } .track { fill: var(--border); }
+.touch { fill: var(--text); fill-opacity: .2; stroke: var(--text); stroke-opacity: .65; stroke-width: 1.5; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="head">
+    <div class="eyebrow">Outpost · on film</div>
+    <h1>The whole sky</h1>
+    <p class="lede">Pick an outpost on the star chart, then follow one request all the way round it: from the mark to the crew, through the work, into memory and out the other side of the night.</p>
+  </header>
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, planets going round a sun, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail, and you approve the push from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="86" step="0.01" value="0" aria-label="Scrub through the film">
+    <output id="clock" for="scrub">0:00 / 1:26</output>
+  </div>
+  <ol class="chapters" id="chapters" aria-label="Chapters"></ol>
+  <p class="note">Drawn live in this page, in Outpost's own colours. It loops, follows your light or dark theme, and stays still if you've asked your system to reduce motion. Click the stage to pause, or jump to a chapter.</p>
+</main>
+
+<script>
+(() => {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('stage');
+const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+const put = (n, a) => { for (const k in a) n.setAttribute(k, a[k]); };
+const O = (n, o) => { o = o <= .002 ? 0 : o >= .998 ? 1 : o; const v = o === 0 ? 'none' : ''; if (n._d !== v) { n.style.display = v; n._d = v; } if (n._o !== o) { n.style.opacity = o; n._o = o; } };
+const txt = (n, s) => { if (n._t !== s) { n.textContent = s; n._t = s; } };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, u) => a + (b - a) * u;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const win = (t, a, b, fi = .6, fo = .6) => Math.min(prog(t, a, a + fi), 1 - prog(t, b - fo, b));
+const ease = {
+  inOut: u => u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2,
+  out: u => 1 - Math.pow(1 - u, 3),
+  in: u => u * u * u,
+  back: u => { const c = 1.7; return 1 + (c + 1) * Math.pow(u - 1, 3) + c * Math.pow(u - 1, 2); },
+};
+const TAU = Math.PI * 2, DEG = Math.PI / 180;
+const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
+const rng = (seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; })(7);
+
+const PRE = 9, MAIN = 77, DUR = PRE + MAIN;   // the star chart, then the film proper (its times are its own, from 0)
+const SUN = { x: 640, y: 360 };
+const K = 1.1;                                   // lockup scale
+const LOCK = { x: 640 - 342.5 * K, y: 360 - 100 * K };
+const DOT0 = { x: LOCK.x + 100 * K, y: 360 };     // where the dot sits in the lockup
+const GLYPH = {
+  scout: '<path d="M7 3.5 C16.5 6.5 16.5 17.5 7 20.5"/><path d="M7 3.5 V20.5"/><path d="M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15"/>',
+  art: '<g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5"/><path d="M12 10 V21.5"/></g>',
+  scribe: '<path d="M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z"/><path d="M3.8 20.2 L13 11"/>',
+  wiz: '<path d="M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z"/><path d="M10.5 13.5 L20.5 3.5"/>',
+  warden: '<path d="M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z"/><path d="M8.8 11.9 L11.2 14.3 L15.4 9.9"/>',
+};
+
+// ---- the crew and their contour orbits ----
+const CREW = [
+  { id: 'scout', name: 'Scout', cls: 'c-scout', R: 112, start: 200, period: 150, ph: .6, r0: 42 },
+  { id: 'scribe', name: 'Scribe', cls: 'c-scribe', R: 172, start: -30, period: 200, ph: 2.1, r0: 57 },
+  { id: 'art', name: 'Artificer', cls: 'c-art', R: 236, start: 70, period: 260, ph: 3.7, r0: 81 },
+  { id: 'warden', name: 'Warden', cls: 'c-warden', R: 300, start: 160, period: 330, ph: 5.0, r0: 95 },
+  // The Test Pilot: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
+  { id: 'wiz', name: 'Test Pilot', cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
+];
+const WZ = 4;
+const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Test Pilot, Warden
+const OW = .045;
+const KNOTS = [[0, 0], [112, .6], [172, 2.1], [236, 3.7], [300, 5.0], [480, 7.4]];
+const phaseAt = R => { for (let k = 1; k < KNOTS.length; k++) if (R <= KNOTS[k][0]) { const [r0, p0] = KNOTS[k - 1], [r1, p1] = KNOTS[k]; return lerp(p0, p1, (R - r0) / (r1 - r0)); } return KNOTS[KNOTS.length - 1][1]; };
+const shapeR = (R, ph, a) => R * (1 + OW * (.6 * Math.sin(3 * a + ph) + .4 * Math.sin(5 * a + ph * 1.3)));
+const angleOf = (c, t) => (c.start + 360 * t / c.period) * DEG;
+const ppos = (i, t) => { const c = CREW[i], a = angleOf(c, t), r = shapeR(c.R, c.ph, a); return { x: SUN.x + r * Math.cos(a), y: SUN.y + r * Math.sin(a) }; };
+const ringPts = (cx, cy, R, ph, n = 160) => { const p = []; for (let k = 0; k < n; k++) { const a = k / n * TAU, r = shapeR(R, ph, a); p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return p; };
+// A free wobbly loop, for hills and terraces.
+const blob = (cx, cy, R, w, ph, sy = 1, n = 90) => { const p = []; for (let k = 0; k < n; k++) { const a = k / n * TAU, r = R * (1 + w * (.55 * Math.sin(3 * a + ph) + .3 * Math.sin(5 * a + ph * 1.7) + .15 * Math.sin(2 * a - ph))); p.push([cx + r * Math.cos(a), cy + r * Math.sin(a) * sy]); } return p; };
+const dOf = (p, close, fx = f1) => 'M' + p.map(q => fx(q[0]) + ' ' + fx(q[1])).join('L') + (close ? 'Z' : '');
+function catmull(P, n = 14) {
+  const out = [];
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || P[i + 1];
+    for (let s = 0; s < n; s++) {
+      const u = s / n, u2 = u * u, u3 = u2 * u;
+      out.push([0, 1].map(j => .5 * (2 * p1[j] + (-p0[j] + p2[j]) * u + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * u2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * u3)));
+    }
+  }
+  out.push(P[P.length - 1].slice());
+  return out;
+}
+const measure = p => { const c = [0]; for (let k = 1; k < p.length; k++) c.push(c[k - 1] + Math.hypot(p[k][0] - p[k - 1][0], p[k][1] - p[k - 1][1])); return c; };
+function partial(p, cum, u, fx = f1) {
+  if (u <= 0) return 'M0 0';
+  const L = cum[cum.length - 1] * Math.min(1, u);
+  let d = 'M' + fx(p[0][0]) + ' ' + fx(p[0][1]);
+  for (let k = 1; k < p.length; k++) {
+    if (cum[k] >= L) { const a = (L - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1); return d + 'L' + fx(lerp(p[k - 1][0], p[k][0], a)) + ' ' + fx(lerp(p[k - 1][1], p[k][1], a)); }
+    d += 'L' + fx(p[k][0]) + ' ' + fx(p[k][1]);
+  }
+  return d;
+}
+const drawable = n => { put(n, { pathLength: 1, 'stroke-dasharray': '1 1' }); return n; };
+const drawTo = (n, u) => { const v = f2(1 - clamp(u)); if (n._dash !== v) { n.setAttribute('stroke-dashoffset', v); n._dash = v; } };
+function bez(a, b, bend, v) { const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, cx = mx - dy * bend, cy = my + dx * bend, A = (1 - v) * (1 - v), B = 2 * (1 - v) * v, C = v * v; return [A * a.x + B * cx + C * b.x, A * a.y + B * cy + C * b.y]; }
+
+// ---- layers ----
+const defs = el('defs', {}, svg);
+const gl = el('radialGradient', { id: 'glow' }, defs);
+el('stop', { offset: '0', style: 'stop-color:var(--logo-dot);stop-opacity:.55' }, gl);
+el('stop', { offset: '.45', style: 'stop-color:var(--logo-dot);stop-opacity:.16' }, gl);
+el('stop', { offset: '1', style: 'stop-color:var(--logo-dot);stop-opacity:0' }, gl);
+const gt = el('radialGradient', { id: 'toneGlow' }, defs);
+el('stop', { offset: '0', style: 'stop-color:var(--tone);stop-opacity:.5' }, gt);
+el('stop', { offset: '1', style: 'stop-color:var(--tone);stop-opacity:0' }, gt);
+
+el('rect', { class: 'bgfill', x: 0, y: 0, width: 1280, height: 720 }, svg);
+const dusk = el('rect', { class: 'dusk', x: 0, y: 0, width: 1280, height: 720 }, svg);
+const gStars = el('g', {}, svg);
+const gWorld = el('g', {}, svg);
+const gHud = el('g', {}, svg);
+
+// Starfield: day and night copies of the same stars.
+const starsDay = el('g', {}, gStars), starsNight = el('g', {}, gStars);
+const STARS = [];
+for (let k = 0; k < 170; k++) {
+  const x = -260 + rng() * 1800, y = -200 + rng() * 1120, r = .45 + rng() * rng() * 1.5, ph = rng() * TAU, sp = .6 + rng() * 1.6;
+  STARS.push({ a: el('circle', { class: 'star', cx: f1(x), cy: f1(y), r: f2(r) }, starsDay), b: el('circle', { class: 'star n', cx: f1(x), cy: f1(y), r: f2(r * 1.15) }, starsNight), ph, sp });
+}
+
+// Topographic ground: one massif round the sun, sharing the orbits' shape so no line crosses another, and four hills in the corners.
+const gGround = el('g', {}, gWorld);
+const CONTOURS = [];
+let ci = 0;
+for (let R = 40; R <= 470; R += 22) {
+  if (CREW.some(c => Math.abs(c.R - R) < 10)) continue;
+  const d = dOf(ringPts(SUN.x, SUN.y, R, phaseAt(R)), true), idx = ci++ % 5 === 2;
+  CONTOURS.push({ base: el('path', { class: 'contour' + (idx ? ' idx' : ''), d }, gGround), lit: el('path', { class: 'contour lit', d }, gGround), R });
+}
+for (const [cx, cy, n, ph] of [[120, 116, 6, 1.2], [1172, 606, 6, 3.1], [1150, 104, 4, 4.4], [104, 624, 5, 5.6]]) {
+  const dist = Math.hypot(cx - SUN.x, cy - SUN.y);
+  for (let k = 0; k < n; k++) {
+    const r = 14 + k * 16, d = dOf(blob(cx, cy, r, .16 + k * .015, ph + k * .25, .82), true);
+    CONTOURS.push({ base: el('path', { class: 'contour' + (k === 2 ? ' idx' : ''), d }, gGround), lit: el('path', { class: 'contour lit', d }, gGround), R: dist - r * .6 });
+  }
+}
+const pingEl = el('circle', { class: 'ping', cx: 640, cy: 360, r: 0 }, gWorld);
+
+// Faint stars the outpost already remembers (they stay all film).
+const OLD = [[560, 54], [1110, 70], [86, 250], [1206, 430], [168, 690], [1010, 668], [330, 40]];
+const gMem = el('g', {}, gWorld);
+const oldEls = OLD.map(([x, y]) => el('circle', { class: 'star', cx: x, cy: y, r: 2.1 }, gMem));
+
+// Orbits: drawn full size, scaled down to the mark's radii while the mark opens.
+const gOrbits = el('g', {}, gWorld);
+const orbitEls = CREW.map(c => el('path', { class: 'sorbit', d: dOf(ringPts(SUN.x, SUN.y, c.R, c.ph, 220), true) }, gOrbits));
+// The Test Pilot's orbit draws itself from where it arrives.
+orbitEls[WZ].setAttribute('d', (() => { const c = CREW[WZ], a0 = 20 * DEG, p = []; for (let k = 0; k <= 240; k++) { const a = a0 + k / 240 * TAU, r = shapeR(c.R, c.ph, a); p.push([SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]); } return dOf(p, false); })());
+drawable(orbitEls[WZ]);
+const ptrails = CREW.map(c => el('path', { class: 'ptrail ' + c.cls, d: 'M0 0' }, gOrbits));
+
+// The trail (waypoints) and memory joins sit under the planets.
+const trailEl = el('path', { class: 'trail', d: 'M0 0' }, gWorld);
+const WAY = CREW.map((c, i) => {
+  const g = el('g', { class: c.cls }, gWorld);
+  const ring = el('circle', { class: 'ring-t', r: 15, 'stroke-width': 2 }, g);
+  const badge = el('g', { transform: 'translate(13 -13)' }, g);
+  el('circle', { class: 'tone-f', r: 7 }, badge);
+  const num = el('text', { class: 'm f-ink', 'font-size': 9, 'text-anchor': 'middle', y: 3.2 }, badge); num.textContent = String(ORDER.indexOf(i) + 1);
+  const tick = el('path', { class: 'glyph', d: 'M-3 0 L-1 2.2 L3.2 -2.2', style: 'fill:none;stroke:var(--accent-ink);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round' }, badge);
+  return { g, ring, num, tick };
+});
+
+// What the crew learns: eight new stars, joined to each other and to the old ones.
+const MEM = [
+  { x: 330, y: 150, from: 0, label: 'search.ts feeds three pages' },
+  { x: 470, y: 98, from: 0 },
+  { x: 650, y: 120, from: 1, label: 'you like small pull requests' },
+  { x: 812, y: 76, from: 1 },
+  { x: 968, y: 164, from: 2, label: 'the flag is search_v2' },
+  { x: 1052, y: 300, from: WZ, label: 'two searches can race' },
+  { x: 250, y: 330, from: 3 },
+  { x: 198, y: 486, from: 3, label: 'empty states need words' },
+];
+const JOINS = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [0, 6], [6, 7], ['o0', 1], ['o0', 2], ['o1', 4], ['o2', 6], ['o3', 5], ['o6', 0]];
+const P = k => typeof k === 'string' ? { x: OLD[+k.slice(1)][0], y: OLD[+k.slice(1)][1] } : MEM[k];
+const joinEls = JOINS.map(() => el('path', { class: 'join', d: 'M0 0' }, gMem));
+const memEls = MEM.map(m => {
+  const c = CREW[m.from], g = el('g', { class: c.cls }, gMem);
+  const glow = el('circle', { cx: m.x, cy: m.y, r: 14, fill: 'url(#toneGlow)' }, g);
+  const core = el('circle', { class: 'tone-f', cx: m.x, cy: m.y, r: 3 }, g);
+  const mote = el('g', {}, g);
+  const tail = el('path', { class: 'tail', 'stroke-width': 2, opacity: .6, d: 'M0 0' }, mote);
+  const head = el('circle', { class: 'tone-f', r: 2.4 }, mote);
+  let label = null;
+  if (m.label) { label = el('text', { class: 'b f-muted halo', 'font-size': 13, 'stroke-width': 5, x: m.x + 10, y: m.y + 4.5 }, gMem); label.textContent = m.label; }
+  return { g, glow, core, mote: { g: mote, tail, head }, label };
+});
+
+// The night shift's comet and its two drafts.
+const gNight = el('g', { class: 'c-night' }, gWorld);
+const nTail = el('path', { class: 'tail', 'stroke-width': 2.4, opacity: .7, d: 'M0 0' }, gNight);
+const nHead = el('circle', { class: 'tone-f', r: 4 }, gNight);
+const drafts = [.38, .74].map(() => { const g = el('g', {}, gNight); el('rect', { class: 'tone-f', x: -4.5, y: -4.5, width: 9, height: 9, rx: 1.5, transform: 'rotate(45)' }, g); return g; });
+
+// Comets: four out, four home, and the falling request.
+const mkComet = (cls, w = 2.6) => { const g = el('g', { class: cls }, gWorld); return { g, tail: el('path', { class: 'tail', 'stroke-width': w, opacity: .75, d: 'M0 0' }, g), head: el('circle', { class: 'tone-f', r: 3.4 }, g) }; };
+const outC = CREW.map(c => mkComet(c.cls)), homeC = CREW.map(c => mkComet(c.cls)), reqC = mkComet('c-qm', 2.2);
+
+// The sun.
+const sunGlow = el('circle', { cx: 640, cy: 360, r: 120, fill: 'url(#glow)' }, gWorld);
+const sunCore = el('circle', { class: 'dot-f', cx: 640, cy: 360, r: 22 }, gWorld);
+
+// Planets: topographic little worlds, each with its mark and two contour halos.
+const PL = CREW.map((c, i) => {
+  const g = el('g', { class: c.cls }, gWorld);
+  const pulse = el('circle', { class: 'ring-t', r: 10, 'stroke-width': 1.5 }, g);
+  const body = el('g', {}, g);
+  el('path', { class: 'tone-s', d: dOf(blob(0, 0, 15.5, .08, c.ph), true, f2), 'stroke-width': .5, opacity: .35 }, body);
+  el('path', { class: 'tone-s', d: dOf(blob(0, 0, 12, .07, c.ph + 1), true, f2), 'stroke-width': .6, opacity: .55 }, body);
+  el('circle', { class: 'tone-f', r: 8 }, body);
+  const gl = el('g', { class: 'glyph', transform: 'scale(.42) translate(-12 -12)' }, body); gl.innerHTML = GLYPH[c.id];
+  const label = el('text', { class: 'b f-tone halo', 'font-size': 13, 'font-weight': 600, 'stroke-width': 4, x: 20, y: 4.5 }, g); label.textContent = c.name;
+  return { g, pulse, body, label };
+});
+
+// ---- vignettes: what each crew member does, drawn round its planet ----
+const VIG = [];
+// Scout: a hill, a radar sweep, a route and three pins.
+(() => {
+  const g = el('g', { class: 'c-scout' }, gWorld), hill = [];
+  const wedge = el('path', { class: 'tone-f', 'fill-opacity': .1, d: 'M0 0' }, g);
+  const beam = el('path', { class: 'tone-s', 'stroke-width': .35, opacity: .7, d: 'M0 0' }, g);
+  for (let k = 0; k < 5; k++) hill.push(drawable(el('path', { class: 'tone-s', 'stroke-width': k === 2 ? .55 : .35, opacity: .75, d: dOf(blob(42, -2, 5 + k * 5.6, .14, 1.4 + k * .3, .8), true, f2) }, g)));
+  const ctrl = [[9, 3], [18, 14], [30, 15], [38, 8], [36, -4], [44, -14], [58, -12], [64, 2], [56, 14]];
+  const route = catmull(ctrl, 10), rc = measure(route);
+  const routeEl = el('path', { class: 'tone-s', 'stroke-width': .7, 'stroke-dasharray': '2 1.6', d: 'M0 0' }, g);
+  const pins = [[3, 'search.ts'], [5, '3 callers'], [8, 'no tests yet']].map(([ix, s]) => {
+    const [x, y] = ctrl[ix], pg = el('g', { transform: `translate(${x} ${y})` }, g);
+    const ring = el('circle', { class: 'tone-s', r: 2, 'stroke-width': .4 }, pg);
+    const dot = el('circle', { class: 'tone-f', r: 1.7 }, pg);
+    const t = el('text', { class: 'm f-text halo', 'font-size': 3.4, 'stroke-width': 1.1, x: 3.6, y: 1.2 }, pg); t.textContent = s;
+    return { pg, ring, dot, t, at: rc[ix * 10] / rc[rc.length - 1] };
+  });
+  VIG.push({ i: 0, a: 20.8, b: 25.4, g, update(t) {
+    hill.forEach((h, k) => drawTo(h, ease.out(prog(t, 21 + k * .14, 22.1 + k * .14))));
+    const ang = (t - 21) * 150 * DEG, r = 66, a0 = ang - 38 * DEG;
+    wedge.setAttribute('d', `M0 0L${f2(r * Math.cos(a0))} ${f2(r * Math.sin(a0))}A${r} ${r} 0 0 1 ${f2(r * Math.cos(ang))} ${f2(r * Math.sin(ang))}Z`);
+    beam.setAttribute('d', `M0 0L${f2(r * Math.cos(ang))} ${f2(r * Math.sin(ang))}`);
+    const u = ease.inOut(prog(t, 21.7, 24.1));
+    routeEl.setAttribute('d', partial(route, rc, u, f2));
+    pins.forEach(p => { const v = clamp((u - p.at) / .05 + .001), lt = v > 0 ? (t - (21.7 + p.at * 2.4)) : 0; O(p.pg, v); const s = ease.back(clamp(v)); p.dot.setAttribute('r', f2(1.7 * s)); const rr = (lt % 1.6) / 1.6; put(p.ring, { r: f2(2 + rr * 6) }); p.ring.style.opacity = (1 - rr) * .8; O(p.t, prog(t, 21.9 + p.at * 2.4, 22.3 + p.at * 2.4)); });
+  } });
+})();
+// Scribe: the spec written along contour arcs above the planet, a quill at the tip.
+(() => {
+  const g = el('g', { class: 'c-scribe' }, gWorld);
+  const LINES = [[44, '1 · search.ts feeds three pages'], [36, '2 · results load as you type'], [28, '3 · empty states explained'], [20, '4 · the API stays put']];
+  const FS = 3.6, ADV = FS * .6, A0 = 205, A1 = 335;
+  let at = 26.3;
+  const rows = LINES.map(([r, s], k) => {
+    const p0 = [r * Math.cos(A0 * DEG), r * Math.sin(A0 * DEG)], p1 = [r * Math.cos(A1 * DEG), r * Math.sin(A1 * DEG)];
+    const id = 'scr' + k;
+    el('path', { id, d: `M${f2(p0[0])} ${f2(p0[1])}A${r} ${r} 0 0 1 ${f2(p1[0])} ${f2(p1[1])}`, fill: 'none' }, defs);
+    const rg = r - .9, g0 = [rg * Math.cos((A0 - 6) * DEG), rg * Math.sin((A0 - 6) * DEG)], g1 = [rg * Math.cos((A1 + 6) * DEG), rg * Math.sin((A1 + 6) * DEG)];
+    const guide = drawable(el('path', { class: 'tone-s', 'stroke-width': .3, opacity: .55, d: `M${f2(g0[0])} ${f2(g0[1])}A${rg} ${rg} 0 0 1 ${f2(g1[0])} ${f2(g1[1])}` }, g));
+    const arcLen = r * (A1 - A0) * DEG, off = Math.max(0, (arcLen - s.length * ADV) / 2);
+    const text = el('text', { class: 'm f-text', 'font-size': FS }, g);
+    const tp = el('textPath', { href: '#' + id, startOffset: f2(off) }, text);
+    const t0 = at, t1 = at + s.length / 30; at = t1 + .12;
+    return { r, s, guide, tp, off, t0, t1 };
+  });
+  const quill = el('g', { class: 'glyph toned' }, g); quill.innerHTML = GLYPH.scribe;
+  VIG.push({ i: 1, a: 25.8, b: 30.4, g, update(t) {
+    let tip = null;
+    rows.forEach((row, k) => {
+      drawTo(row.guide, ease.out(prog(t, 26 + k * .1, 26.9 + k * .1)));
+      const n = Math.round(row.s.length * prog(t, row.t0, row.t1));
+      txt(row.tp, row.s.slice(0, n));
+      if (t >= row.t0 - .05 && (t <= row.t1 + .1 || k === rows.length - 1)) { const th = (A0 * DEG) + (row.off + n * ADV) / row.r; tip = [(row.r + .6) * Math.cos(th), (row.r + .6) * Math.sin(th)]; }
+    });
+    if (tip) { quill.setAttribute('transform', `translate(${f2(tip[0] - 1.6)} ${f2(tip[1] - 8.4)}) scale(.42)`); O(quill, 1 - prog(t, rows[3].t1 + .2, rows[3].t1 + .6)); } else O(quill, 0);
+  } });
+})();
+// Artificer: terraces dropped one on another and struck into a hill.
+(() => {
+  const g = el('g', { class: 'c-art' }, gWorld), CX = 34, CY = 10;
+  const layers = [0, 1, 2, 3].map(k => {
+    const R = 25 - k * 5.6, y = CY - k * 5.4, lg = el('g', {}, g);
+    el('path', { class: 'tone-f', 'fill-opacity': .16 + k * .1, d: dOf(blob(CX, y, R, .1, 2 + k * .7, .5), true, f2) }, lg);
+    el('path', { class: 'tone-s', 'stroke-width': .55, d: dOf(blob(CX, y, R, .1, 2 + k * .7, .5), true, f2) }, lg);
+    const a = 31.2 + k * .82;
+    return { lg, y, R, a, L: a + .5 };
+  });
+  const sparks = el('g', {}, g), SP = [];
+  for (let k = 0; k < 8; k++) SP.push({ n: el('path', { class: 'tone-s', 'stroke-width': .45, d: 'M0 0' }, sparks), a: (-165 + k * 21) * DEG });
+  const hammer = el('g', { class: 'glyph toned' }, g); hammer.innerHTML = GLYPH.art;
+  hammer.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.4'; });
+  const diff = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY + 20, 'text-anchor': 'middle' }, g); diff.textContent = '+182 −40 · 6 files';
+  VIG.push({ i: 2, a: 30.8, b: 35.4, g, update(t) {
+    let cur = layers[0];
+    layers.forEach(l => { const u = prog(t, l.a, l.L); if (t >= l.a - .3) cur = l; l.lg.setAttribute('transform', `translate(0 ${f2(-(1 - ease.back(u)) * 26)})`); O(l.lg, clamp(u * 3)); });
+    const sp = layers.map(l => prog(t, l.L, l.L + .45)).find(v => v > 0 && v < 1);
+    const last = layers.slice().reverse().find(l => t >= l.L) || layers[0];
+    if (sp !== undefined) { O(sparks, 1 - sp); SP.forEach(s => { const r0 = 3 + sp * 7, r1 = 5 + sp * 12; s.n.setAttribute('d', `M${f2(CX + r0 * Math.cos(s.a))} ${f2(last.y - 3 + r0 * Math.sin(s.a) * .7)}L${f2(CX + r1 * Math.cos(s.a))} ${f2(last.y - 3 + r1 * Math.sin(s.a) * .7)}`); }); } else O(sparks, 0);
+    const near = Math.min(...layers.map(l => Math.abs(t - l.L))), rot = -46 + 46 * clamp(1 - near / .3);
+    hammer.setAttribute('transform', `translate(${f2(CX + 9)} ${f2(cur.y - 3)}) rotate(${f1(rot)}) scale(.62) translate(-12 -21.5)`);
+    O(hammer, win(t, 31, 34.6, .3, .4)); O(diff, prog(t, 34.4, 34.8));
+  } });
+})();
+// Warden: a shield drawn round the planet, a scan, three ticks and a stamp.
+(() => {
+  const g = el('g', { class: 'c-warden' }, gWorld);
+  const shield = el('g', { class: 'glyph toned', transform: 'scale(2.7) translate(-12 -12.3)', opacity: .4 }, g); shield.innerHTML = GLYPH.warden;
+  const sp = [...shield.querySelectorAll('path')].map(p => { p.style.strokeWidth = '.32'; return drawable(p); });
+  const scan = el('path', { class: 'tone-s', 'stroke-width': .9, d: 'M0 0' }, g);
+  const ITEMS = ['tests pass', 'no secrets in the diff', 'matches the plan'];
+  const rows = ITEMS.map((s, k) => {
+    const y = -11 + k * 10, rg = el('g', { transform: `translate(36 ${y})` }, g);
+    el('circle', { class: 'tone-s', r: 2.6, 'stroke-width': .45 }, rg);
+    const tick = drawable(el('path', { class: 'tone-s', 'stroke-width': .7, d: 'M-1.3 .1 L-.3 1.1 L1.4 -1' }, rg));
+    const tx = el('text', { class: 'b f-text halo', 'font-size': 3.8, 'stroke-width': 1.2, x: 5, y: 1.3 }, rg); tx.textContent = s;
+    return { rg, tick, tx, a: 45.9 + k * .8 };
+  });
+  const stamp = el('g', { transform: 'translate(33.4 20)' }, g);
+  el('rect', { class: 'tone-f', x: 0, y: -4.2, width: 37, height: 8.4, rx: 4.2 }, stamp);
+  const st = el('text', { class: 'm f-ink', 'font-size': 3.4, x: 18.5, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'ready for review';
+  VIG.push({ i: 3, a: 44.8, b: 49.4, g, update(t) {
+    sp.forEach((p, k) => drawTo(p, ease.inOut(prog(t, 45 + k * .5, 46.3 + k * .5))));
+    const a = (t - 45) * 200 * DEG, r = 22.5;
+    scan.setAttribute('d', `M${f2(r * Math.cos(a))} ${f2(r * Math.sin(a))}A${r} ${r} 0 0 1 ${f2(r * Math.cos(a + 1.4))} ${f2(r * Math.sin(a + 1.4))}`);
+    O(scan, win(t, 45, 48.3, .4, .5) * .9);
+    rows.forEach(rw => { O(rw.rg, prog(t, rw.a - .35, rw.a)); drawTo(rw.tick, ease.out(prog(t, rw.a, rw.a + .4))); });
+    const sv = prog(t, 48.1, 48.4); O(stamp, sv); stamp.setAttribute('transform', `translate(33.4 20) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
+  } });
+})();
+
+// Test Pilot: a knot of crossed contour lines, taken apart into clean rings as its plane flies round.
+(() => {
+  const g = el('g', { class: 'c-wiz' }, gWorld), CX = 52, CY = 0, N = 84;
+  const loops = [0, 1, 2, 3, 4].map(k => {
+    const from = blob(CX + [6, -7, 5, -5, 8][k], CY + [-5, 5, 6, -7, 2][k], 8 + k * 3.4, .36, k * 1.9 + .7, .85, N);
+    const to = blob(CX, CY, 5 + k * 4.6, .05, 1.3, .9, N);
+    const path = drawable(el('path', { class: 'tone-s', 'stroke-width': k === 2 ? .6 : .38, d: dOf(from, true, f2) }, g));
+    return { from, to, path, s: 41.3 + k * .34 };
+  });
+  const tailEl = el('path', { class: 'tone-s', 'stroke-width': .55, opacity: .6, d: 'M0 0' }, g);
+  const SPK = [0, 1, 2, 3, 4, 5].map(k => { const n = el('path', { class: 'tone-f', d: 'M0 -2.2 L.5 -.5 L2.2 0 L.5 .5 L0 2.2 L-.5 .5 L-2.2 0 L-.5 -.5 Z' }, g); return { n, u: .1 + k * .15 }; });
+  const plane = el('g', { class: 'glyph toned' }, g); plane.innerHTML = GLYPH.wiz;
+  plane.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.2'; });
+  const before = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); before.textContent = 'two searches racing';
+  const after = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); after.textContent = 'in order, every time';
+  const stamp = el('g', {}, g);
+  el('rect', { class: 'tone-f', x: -23, y: -4.2, width: 46, height: 8.4, rx: 4.2 }, stamp);
+  const st = el('text', { class: 'm f-ink', 'font-size': 3.4, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'untangled · 2 files';
+  const planeAt = u => { const a = lerp(-400, -40, u) * DEG, r = 32; return [CX + r * Math.cos(a), CY + r * Math.sin(a) * .9]; };
+  VIG.push({ i: WZ, a: 39.5, b: 44.4, g, update(t) {
+    loops.forEach((l, k) => {
+      drawTo(l.path, ease.out(prog(t, 39.7 + k * .12, 40.6 + k * .12)));
+      const u = ease.inOut(prog(t, l.s, l.s + .9));
+      l.path.setAttribute('d', u <= 0 ? dOf(l.from, true, f2) : dOf(l.from.map((p, j) => [lerp(p[0], l.to[j][0], u), lerp(p[1], l.to[j][1], u)]), true, f2));
+    });
+    const wu = ease.inOut(prog(t, 40.9, 43.2)), [wx, wy] = planeAt(wu);
+    const [hx, hy] = planeAt(wu + .004), head = Math.atan2(hy - wy, hx - wx) / DEG + 45;   // nose along the way it flies
+    plane.setAttribute('transform', `translate(${f2(wx)} ${f2(wy)}) rotate(${f1(head)}) scale(.62) translate(-12 -12)`);
+    O(plane, win(t, 40.7, 43.6, .3, .4));
+    const pts = []; for (let k = 0; k < 12; k++) { const v = wu - k * .012; if (v < 0) break; pts.push(planeAt(v)); }
+    tailEl.setAttribute('d', pts.length > 1 ? dOf(pts, false, f2) : 'M0 0'); O(tailEl, wu > 0 && wu < 1 ? .6 : 0);
+    SPK.forEach(p => { const v = (wu - p.u) / .16; if (v > 0 && v < 1) { const [x, y] = planeAt(p.u); p.n.setAttribute('transform', `translate(${f2(x)} ${f2(y)}) scale(${f2(Math.sin(Math.PI * v) * 1.2)})`); O(p.n, 1 - v * .5); } else O(p.n, 0); });
+    O(before, win(t, 40.1, 42.0, .4, .4)); O(after, prog(t, 42.9, 43.3));
+    const sv = prog(t, 43.2, 43.5); O(stamp, sv); stamp.setAttribute('transform', `translate(${CX} ${CY + 34}) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
+  } });
+})();
+
+// The logo, in world space so the dot can become the sun.
+const gLock = el('g', { transform: `translate(${f2(LOCK.x)} ${f2(LOCK.y)}) scale(${K})` }, gWorld);
+const gMark = el('g', {}, gLock);
+el('path', { class: 'logo-f', d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z' }, gMark);
+el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, gMark);
+el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, gMark);
+el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, gMark);   // an outpost, in a gap in the outer ring
+// the app's name beside the mark, set a little smaller than the kit's letters were so mark and name fit the stage: an outline first, then filled
+const word = cls => { const n = el('text', { class: 'b ' + cls, x: 247, y: 142, 'font-size': 120, 'font-weight': 700 }, gLock); n.textContent = 'Outpost'; return n; };
+const letters = word('logo-s'); letters.setAttribute('stroke-width', 1.3);
+const lettersFill = word('logo-f');
+const tagline = el('text', { class: 'b f-muted', 'font-size': 19, x: 640, y: 528, 'text-anchor': 'middle' }, gWorld);
+tagline.textContent = 'One sun. A crew. A sky that remembers.';
+
+// ---- HUD (screen space) ----
+const chapG = el('g', { transform: 'translate(44 50)' }, gHud);
+const chapNo = el('text', { class: 'm f-accent', 'font-size': 11.5, 'letter-spacing': '2' }, chapG);
+const chapName = el('text', { class: 'd f-text halo', 'font-size': 20, 'stroke-width': 6, y: 26 }, chapG);
+const capG = el('g', {}, gHud);
+const capT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, capG);
+const capS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, capG);
+const reqTag = el('text', { class: 'b f-text halo', 'font-size': 16, 'font-style': 'italic', 'stroke-width': 6 }, gHud);
+reqTag.textContent = '“Get the new search page ready to ship.”';
+const moon = el('g', { transform: 'translate(1192 636)' }, gHud);
+el('path', { d: 'M8 -19 A20 20 0 1 0 8 19 A15 15 0 1 1 8 -19 Z', style: 'fill:var(--star-night)' }, moon);
+
+function card(x, y, w, h) { const g = el('g', { transform: `translate(${x} ${y})` }, gHud); el('rect', { class: 'card', width: w, height: h, rx: 14 }, g); return g; }
+const T = (g, cls, size, x, y, s, extra = {}) => { const n = el('text', Object.assign({ class: cls, 'font-size': size, x, y }, extra), g); n.textContent = s; return n; };
+// Plan card
+const plan = card(868, 96, 352, 244);
+T(plan, 'm f-accent', 11, 24, 32, 'THE QUARTERMASTER · PLAN', { 'letter-spacing': '1.5' });
+T(plan, 'd f-text', 22, 24, 62, 'Four quests');
+const planRows = [['Scout', 'map the code'], ['Scribe', 'write the spec'], ['Artificer', 'build it'], ['Warden', 'check it'], ['Test Pilot', 'on call for the hard part']].map(([n, s], k) => {
+  const c = CREW[k], g = el('g', { class: c.cls, transform: `translate(24 ${98 + k * 28})` }, plan);
+  el('circle', { class: 'tone-f', cx: 7, cy: -5, r: 7 }, g);
+  const gl = el('g', { class: 'glyph', transform: 'translate(2.2 -9.8) scale(.4)' }, g); gl.innerHTML = GLYPH[c.id];
+  T(g, 'b f-tone', 14.5, 24, 0, n, { 'font-weight': 600 }); T(g, k === 4 ? 'b f-muted' : 'b f-text', 14.5, 104, 0, s);
+  return g;
+});
+// Auto, the router, sizing up the hard part
+const router = card(868, 96, 352, 222);
+T(router, 'm f-accent', 11, 24, 32, 'AUTO · THE ROUTER', { 'letter-spacing': '1.5' });
+T(router, 'd f-text', 22, 24, 62, 'A hard one');
+const bars = [['How hard', .94], ['What’s at stake', .8], ['How big', .52]].map(([n, v], k) => {
+  const g = el('g', { transform: `translate(24 ${98 + k * 26})` }, router);
+  T(g, 'b f-muted', 13.5, 0, 0, n);
+  el('rect', { class: 'track', x: 128, y: -8, width: 176, height: 6, rx: 3 }, g);
+  const fill = el('rect', { class: 'tone-f c-wiz', x: 128, y: -8, width: 0, height: 6, rx: 3 }, g);
+  return { fill, v };
+});
+const pick = el('g', { class: 'c-wiz', transform: 'translate(24 164)' }, router);
+el('rect', { class: 'tone-f', width: 304, height: 36, rx: 18 }, pick);
+const pgl = el('g', { class: 'glyph', transform: 'translate(12 6) scale(1)' }, pick); pgl.innerHTML = GLYPH.wiz;
+T(pick, 'b f-ink', 14, 44, 23, 'Test Pilot · the strongest model', { 'font-weight': 600 });
+// Approvals from your phone
+const phone = el('g', { transform: 'translate(944 126)' }, gHud);
+el('rect', { class: 'card', width: 216, height: 392, rx: 32, style: 'stroke:var(--border-strong);stroke-width:1.5' }, phone);
+el('rect', { class: 'screen', x: 8, y: 8, width: 200, height: 376, rx: 25 }, phone);
+el('rect', { class: 'notch', x: 80, y: 18, width: 56, height: 16, rx: 8 }, phone);
+T(phone, 'd f-text', 46, 108, 100, '9:41', { 'text-anchor': 'middle' });
+T(phone, 'b f-muted', 13, 108, 124, 'Friday 20 November', { 'text-anchor': 'middle' });
+const banner = el('g', {}, phone);
+el('rect', { class: 'card', x: 18, y: 146, width: 180, height: 152, rx: 16 }, banner);
+el('circle', { class: 'dot-f', cx: 36, cy: 167, r: 6 }, banner);
+T(banner, 'm f-muted', 10, 48, 170.5, 'OUTPOST · now', { 'letter-spacing': '1' });
+T(banner, 'b f-text', 13.5, 32, 196, 'Shell command waiting', { 'font-weight': 600 });
+T(banner, 'b f-muted', 12, 32, 215, 'The new search page');
+T(banner, 'm f-muted', 11, 32, 232, 'git push origin search');
+const okBtn = el('g', { transform: 'translate(32 248)' }, banner);
+const okRect = el('rect', { class: 'btn', width: 76, height: 34, rx: 9 }, okBtn);
+const okText = T(okBtn, 'b f-ink', 12.5, 38, 21.5, 'Approve', { 'font-weight': 600, 'text-anchor': 'middle' });
+const noBtn = el('g', { transform: 'translate(114 248)' }, banner);
+el('rect', { class: 'btn-o', width: 70, height: 34, rx: 9 }, noBtn);
+T(noBtn, 'b f-text', 12.5, 35, 21.5, 'Decline', { 'font-weight': 500, 'text-anchor': 'middle' });
+const touch = el('circle', { class: 'touch', r: 15 }, gHud);
+const tapRing = el('circle', { class: 'ring-t c-qm', r: 10, 'stroke-width': 2 }, gHud);
+// Night card
+const night = card(868, 118, 352, 150);
+T(night, 'm f-muted', 11, 24, 32, 'NIGHT SHIFT · 2:14 AM', { 'letter-spacing': '1.5' });
+T(night, 'd f-text', 21, 24, 62, 'Two drafts, ready by morning.');
+T(night, 'b f-muted', 14, 24, 90, 'Nothing applied, nothing deleted.');
+T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
+
+// ---- the star chart: the opening, before the film proper ----
+// A sun, and each outpost a planet on a contour line of its own, going slowly round it. A new one takes the next line out.
+// One is picked, and its planet becomes the lockup's mark.
+const gIntro = el('g', {}, gHud);
+const MARK_D = 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z';
+const smallMark = parent => {
+  const g = el('g', {}, parent);
+  el('path', { class: 'logo-f', d: MARK_D }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, g);
+  el('circle', { class: 'dot-f', cx: 100, cy: 100, r: 20 }, g);
+  el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, g);
+  return g;
+};
+const CH = { x: 600, y: 322, pr: 18 };
+const chartR = (R, k, a) => R * (1 + .025 * Math.sin(3 * a + k * 1.7) + .018 * Math.sin(5 * a - k));
+const chartLine = (R, k) => { let d = ''; for (let q = 0; q < 120; q++) { const a = q / 120 * 2 * Math.PI, r = chartR(R, k, a); d += (q ? 'L' : 'M') + f1(CH.x + r * Math.cos(a)) + ' ' + f1(CH.y + r * Math.sin(a)); } return d + 'Z'; };
+const LINE_S = 'fill:none;stroke:var(--border-strong);stroke-width:1.5';
+const chartLines = el('g', {}, gIntro);
+const chartSun = el('g', { transform: `translate(${CH.x} ${CH.y})` }, gIntro);
+el('circle', { class: 'dot-f', r: 54, style: 'opacity:.12' }, chartSun);
+el('circle', { r: 25, style: LINE_S }, chartSun);
+el('circle', { class: 'dot-f', r: 16 }, chartSun);
+// each outpost: its name, its colour, the line it's on, and where on that line it starts
+const outs = [['Work', 'c-scout', 112, 200], ['Home', 'c-scribe', 178, -42], ['Side project', 'c-art', 244, 150]].map(([name, tone, R, a0], k) => {
+  const line = el('path', { d: chartLine(R, k), style: LINE_S }, chartLines);
+  const dash = k === 2 ? el('path', { d: chartLine(R, k), style: LINE_S + ';stroke-dasharray:5 8;stroke-linecap:round' }, chartLines) : null;
+  const g = el('g', { class: tone }, gIntro);
+  const slot = k === 2 ? el('g', {}, g) : null;
+  if (slot) { el('circle', { r: CH.pr, style: LINE_S + ';stroke-dasharray:4 5' }, slot); el('path', { d: 'M0 -7 V7 M-7 0 H7', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, slot); }
+  const body = el('g', {}, g);
+  el('circle', { class: 'tone-f', r: CH.pr * 2.3, style: 'opacity:.14' }, body);
+  el('circle', { class: 'tone-f', r: CH.pr }, body);
+  T(body, 'b f-ink', 17, 0, 6, name[0], { 'text-anchor': 'middle', 'font-weight': 600 });
+  const sel = el('circle', { r: CH.pr + 6, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
+  const ghost = k === 2 ? T(g, 'b f-faint', 15, 0, 46, 'New outpost', { 'text-anchor': 'middle' }) : null;
+  const label = T(g, 'd f-text', 19, 0, 47, name, { 'text-anchor': 'middle' });
+  return { name, R, a0, line, dash, g, slot, body, sel, ghost, label };
+});
+// what every outpost has of its own
+const ownCard = card(908, 214, 312, 190);
+T(ownCard, 'm f-muted', 11, 24, 32, 'EVERY OUTPOST', { 'letter-spacing': '1.5' });
+T(ownCard, 'd f-text', 22, 24, 62, 'A camp of its own');
+const ownRows = ['Its own crew', 'Its own memory', 'Its own keys and settings'].map((s, r) => { const rg = el('g', { transform: `translate(24 ${100 + r * 28})` }, ownCard); el('circle', { class: 'dot-f', cx: 5, cy: -5, r: 4 }, rg); T(rg, 'b f-text', 14.5, 20, 0, s); return rg; });
+gIntro.appendChild(ownCard);
+// the picked outpost's mark, drawn over its planet, so it can leave the chart and become the lockup
+const pickMark = smallMark(gIntro);
+const icG = el('g', {}, gIntro);
+const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, icG);
+const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
+const ICAPS = [
+  [1.7, 4.9, 'It starts on the star chart.', 'An outpost for each part of your life: work, home, a side project.'],
+  [5.1, 7.9, 'Each outpost keeps to itself.', 'Its own crew, memory, settings and keys. Work never reads home.'],
+];
+function intro(tt) {
+  if (tt >= PRE) { O(gIntro, 0); O(gLock, 1); O(sunCore, 1); return; }
+  O(gIntro, 1);
+  // the lockup steps aside for the chart, and comes back as the picked outpost
+  const lockA = Math.max(1 - prog(tt, 1.0, 1.7), prog(tt, 8.3, 8.9));
+  O(gLock, lockA); O(tagline, lockA); O(sunCore, lockA); sunGlow.style.opacity = .25 * lockA;
+  const leave = prog(tt, 7.6, 8.1), fly = ease.inOut(prog(tt, 7.8, 8.45));
+  O(chartSun, prog(tt, 1.3, 1.9) * (1 - leave));
+  outs.forEach((c, k) => {
+    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), made = k < 2 ? 1 : prog(tt, 4.2, 4.7);
+    const a = (c.a0 + 4 * tt) * Math.PI / 180, r = chartR(c.R, k, a) + (1 - ease.out(inn)) * 14;
+    c.x = CH.x + r * Math.cos(a); c.y = CH.y + r * Math.sin(a);
+    c.g.setAttribute('transform', `translate(${f1(c.x)} ${f1(c.y)})`);
+    O(c.g, inn * (1 - leave));
+    O(c.line, inn * made * (1 - leave) * .85);
+    O(c.body, k === 0 ? made * (1 - prog(tt, 7.6, 7.8)) : made);
+    if (c.slot) { O(c.dash, inn * (1 - made) * (1 - leave)); O(c.slot, 1 - made); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
+    O(c.sel, k === 0 ? prog(tt, 7.3, 7.5) : 0);
+  });
+  ownRows.forEach((r, j) => O(r, prog(tt, 5.6 + j * .45, 6.0 + j * .45)));
+  const ov = prog(tt, 5.0, 5.5);
+  O(ownCard, ov * (1 - leave)); ownCard.setAttribute('transform', `translate(908 ${f1(214 + (1 - ease.out(ov)) * 12)})`);
+  // Work's planet turns into the mark, and crosses to where the lockup's mark sits
+  const w = outs[0], sc = lerp(2 * CH.pr / 180, K, fly);
+  pickMark.setAttribute('transform', `translate(${f2(lerp(w.x, DOT0.x, fly))} ${f2(lerp(w.y, 360, fly))}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+  O(pickMark, prog(tt, 7.6, 7.8) * (1 - prog(tt, 8.6, 8.95)));
+  let ci = -1, cv = 0;
+  ICAPS.forEach((c, k) => { const v = win(tt, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv = v; } });
+  if (ci >= 0) { txt(icT, ICAPS[ci][2]); txt(icS, ICAPS[ci][3]); }
+  O(icG, cv); icG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv))) * 8)})`);
+}
+
+// ---- timeline ----
+const CAPS = [
+  [6.0, 13.3, 'Meet the crew.', 'Scout, Scribe, Artificer and Warden, with the Test Pilot on call.'],
+  [13.9, 19.9, 'You ask. The Quartermaster makes a plan.', 'From the sun at the centre, one request becomes four quests.'],
+  [20.7, 25.3, 'Scout reads the ground.', 'It maps the code before anyone touches it.'],
+  [25.7, 30.3, 'Scribe writes it down.', 'The spec, line by line, along the contours.'],
+  [30.7, 35.3, 'Artificer builds it.', 'Each layer set down and struck into the one below.'],
+  [35.5, 39.4, 'For the hardest part, the Test Pilot.', 'It runs on the strongest model by default, and lists every shortcut it took.'],
+  [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
+  [44.7, 49.3, 'Warden checks the work.', 'Tests, secrets, and the plan it was asked to follow.'],
+  [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
+  [54.1, 58.9, 'Say yes from anywhere.', 'The push pings your phone. Nothing ships until you approve.'],
+  [59.6, 66.7, 'What the crew learns becomes a star.', 'Next time, it already knows the way.'],
+  [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
+];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'Scout'], [24.9, 'Scribe'], [29.9, 'Artificer'], [34.9, 'The Test Pilot'], [43.9, 'Warden'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, 'The crew'], [13.6, 'A request'], [19.9, 'The work'], [34.9, 'The Test Pilot'], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
+const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
+const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
+const ZOOM = 5.2;
+const planetCam = i => t => { const p = ppos(i, t); return { x: p.x + OFFS[i][0], y: p.y + OFFS[i][1], z: ZOOM }; };
+const fixed = (x, y, z) => () => ({ x, y, z });
+const SHOTS = [
+  { t: 0, tr: 0, f: fixed(640, 360, 1) },
+  { t: 13.4, tr: 2.8, f: fixed(640, 360, 1.16) },
+  { t: 19.9, tr: 1.8, f: planetCam(0) },
+  { t: 24.9, tr: 1.7, f: planetCam(1) },
+  { t: 29.9, tr: 1.7, f: planetCam(2) },
+  { t: 34.9, tr: 2.4, f: fixed(640, 360, 1) },
+  { t: 38.6, tr: 1.9, f: planetCam(WZ) },
+  { t: 43.9, tr: 1.7, f: planetCam(3) },
+  { t: 49.2, tr: 2.5, f: fixed(640, 360, 1) },
+  { t: 58.8, tr: 3.2, f: fixed(640, 330, .95) },
+  { t: 67.4, tr: 3.6, f: fixed(640, 360, 1) },
+];
+function camera(t) {
+  let i = 0; while (i + 1 < SHOTS.length && SHOTS[i + 1].t <= t) i++;
+  const S = SHOTS[i], cur = S.f(t);
+  if (i === 0 || t - S.t >= S.tr) return cur;
+  const prev = SHOTS[i - 1].f(t), u = ease.inOut((t - S.t) / S.tr);
+  let z = Math.exp(lerp(Math.log(prev.z), Math.log(cur.z), u));
+  if (prev.z > 2 && cur.z > 2) z *= 1 - .52 * Math.sin(Math.PI * u);
+  return { x: lerp(prev.x, cur.x, u), y: lerp(prev.y, cur.y, u), z };
+}
+const logoM = t => t < 2.2 ? 0 : t < 5.6 ? ease.inOut(prog(t, 2.2, 5.6)) : t < 72.2 ? 1 : 1 - ease.inOut(prog(t, 72.2, 76.4));
+const comet = (c, a, b, from, to, bend, t, step = .032, n = 13) => {
+  const raw = (t - a) / (b - a);
+  if (raw <= 0 || raw >= 1) { O(c.g, 0); return false; }
+  const u = ease.inOut(raw), pts = [];
+  for (let k = 0; k < n; k++) { const v = u - k * step; if (v < 0) break; pts.push(bez(from, to, bend, v)); }
+  O(c.g, Math.min(1, raw * 8));
+  c.tail.setAttribute('d', dOf(pts, false));
+  put(c.head, { cx: f1(pts[0][0]), cy: f1(pts[0][1]) });
+  return true;
+};
+
+let lastCap = -1, lastChap = -1, duskA = .64, filmT = 0, pingT = 0;
+const readDusk = () => { duskA = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dusk-a')) || .64; };
+readDusk(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readDusk(); render(t); });
+function renderMain(t) {
+  const m = logoM(t), s = clamp(m / .4), e = clamp((m - .32) / .68), lp = 1 - clamp(m / .3);
+  const cam = camera(t), z = cam.z;
+  gWorld.setAttribute('transform', `translate(640 360) scale(${z.toFixed(4)}) translate(${f2(-cam.x)} ${f2(-cam.y)})`);
+  const zs = 1 + (z - 1) * .18;
+  gStars.setAttribute('transform', `translate(640 360) scale(${zs.toFixed(4)}) translate(${f2(-(640 + (cam.x - 640) * .22))} ${f2(-(360 + (cam.y - 360) * .22))})`);
+  const toScreen = (x, y) => [640 + (x - cam.x) * z, 360 + (y - cam.y) * z];
+
+  // night
+  const nightA = ease.inOut(win(t, 66.9, 72, 1.1, 1.3));
+  dusk.style.opacity = nightA * duskA;
+  O(starsNight, nightA); starsDay.style.opacity = 1 - nightA * .7;
+  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(filmT * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
+  O(moon, nightA);
+
+  // sun and logo
+  const sp = { x: lerp(DOT0.x, SUN.x, ease.inOut(s)), y: 360 };
+  const flare = Math.exp(-Math.pow((t - 16.3) / .3, 2)) + .6 * Math.exp(-Math.pow((t - 57.5) / .3, 2));
+  put(sunCore, { cx: f1(sp.x), r: f2(22 * (1 + .3 * flare + .03 * Math.sin(t * 2.2) * e)) });
+  put(sunGlow, { cx: f1(sp.x), r: f1(120 * (1 + .5 * flare)) });
+  sunGlow.style.opacity = (.25 + .75 * e) * (1 - nightA * .3);
+  const sc = lerp(1, 1.55, ease.out(e));
+  gMark.setAttribute('transform', `translate(${f2((SUN.x - DOT0.x) / K * ease.inOut(s))} 0) translate(100 100) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+  O(gMark, 1 - clamp((e - .08) / .5));
+  O(letters, clamp(lp * 4)); O(lettersFill, clamp((lp - .55) / .45));
+  O(tagline, 1 - clamp(m / .18));
+
+  // orbits
+  const dim = 1 - .5 * win(t, 59.2, 72, 1, 1);
+  CREW.forEach((c, i) => {
+    const k = lerp(c.r0 / c.R, 1, ease.out(e));
+    orbitEls[i].setAttribute('transform', `translate(640 360) scale(${k.toFixed(4)}) translate(-640 -360)`);
+  });
+  O(gOrbits, clamp(e * 3) * dim);
+  drawTo(orbitEls[WZ], ease.inOut(prog(t, 37.7, 39.4))); O(orbitEls[WZ], 1 - prog(t, 71.0, 72.0));
+
+  // pings light the ground as they pass
+  let pr = null;
+  for (const p of PINGS) { const dt = pingT - p.t; if (dt >= 0 && dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
+  if (pr) { put(pingEl, { cx: f1(sp.x), r: f1(pr.r) }); O(pingEl, pr.a * .85); } else O(pingEl, 0);
+  for (const c of CONTOURS) { const v = pr ? pr.a * Math.exp(-Math.pow((pr.r - c.R) / 24, 2)) : 0; O(c.lit, v * .95); }
+
+  // planets
+  const pos = CREW.map((c, i) => ppos(i, t));
+  const labelA = clamp((1.8 - z) / .5);
+  CREW.forEach((c, i) => {
+    const appear = i === WZ ? ease.back(prog(t, 38.1, 38.9)) : ease.back(prog(t, 5.6 + i * .6, 6.4 + i * .6)), gone = prog(t, 71.6 + i * .2, 72.4 + i * .2);
+    const pa = Math.max(0, appear) * (1 - ease.inOut(gone));
+    const P = PL[i];
+    O(P.g, Math.min(1, pa * 1.5) * lerp(1, .75, 1 - dim));
+    P.g.setAttribute('transform', `translate(${f2(pos[i].x)} ${f2(pos[i].y)})`);
+    P.body.setAttribute('transform', `scale(${Math.max(0, pa).toFixed(3)})`);
+    O(P.label, labelA * clamp(pa) * (1 - nightA * .4));
+    // tail along the orbit
+    const a = angleOf(c, t), pts = [];
+    for (let k = 0; k <= 18; k++) { const aa = a - k * .028 / Math.max(1, z * .9); const r = shapeR(c.R, c.ph, aa); pts.push([SUN.x + r * Math.cos(aa), SUN.y + r * Math.sin(aa)]); }
+    ptrails[i].setAttribute('d', dOf(pts, false)); O(ptrails[i], clamp(pa) * .7);
+    // pulse: on arrival, and while working
+    const V = VIG[i], arr = V.a + .2, work = win(t, V.a, V.b, .4, .6);
+    const fl = prog(t, arr, arr + .9), rr = ((t - V.a) * .9) % 1;
+    if (fl > 0 && fl < 1) { put(P.pulse, { r: f2(10 + fl * 22) }); O(P.pulse, (1 - fl) * .9); }
+    else if (work > 0) { put(P.pulse, { r: f2(10 + rr * 12) }); O(P.pulse, (1 - rr) * .5 * work); }
+    else O(P.pulse, 0);
+  });
+
+  // the request falls; quests go out; reports come home
+  const req = comet(reqC, 13.8, 16.3, { x: 40, y: -40 }, sp, -.28, t, .03, 16);
+  if (req || win(t, 13.8, 16.7, .4, .5) > 0) {
+    const raw = clamp((t - 13.8) / 2.5), [hx, hy] = bez({ x: 40, y: -40 }, sp, -.28, ease.inOut(raw)), [sx, sy] = toScreen(hx, hy);
+    put(reqTag, { x: f1(sx + 18), y: f1(sy - 12) }); O(reqTag, win(t, 13.8, 16.6, .4, .5));
+  } else O(reqTag, 0);
+  CREW.forEach((c, i) => {
+    const a = i === 3 ? 43.5 : 19.5 + i * 5, o = ORDER.indexOf(i);
+    if (i === WZ) comet(outC[i], 36.6, 38.3, { x: 1380, y: 860 }, pos[i], -.18, t, .03, 15);   // the Test Pilot arrives from outside
+    else comet(outC[i], a, a + 1.5, sp, pos[i], .22, t);
+    comet(homeC[i], 49.7 + o * .3, 51.4 + o * .3, pos[i], sp, -.2, t);
+  });
+
+  // vignettes
+  VIG.forEach(V => {
+    const v = win(t, V.a, V.b, .5, .6);
+    O(V.g, v);
+    if (v > 0) { V.g.setAttribute('transform', `translate(${f2(pos[V.i].x)} ${f2(pos[V.i].y)})`); V.update(t); }
+  });
+
+  // the trail and its waypoints
+  const tA = win(t, 50.4, 59.6, .4, .9);
+  if (tA > 0) {
+    const knots = [[sp.x, sp.y], ...ORDER.map(i => [pos[i].x, pos[i].y]), [sp.x, sp.y]], pts = catmull(knots, 16), cum = measure(pts);
+    const u = ease.inOut(prog(t, 50.7, 53.5));
+    put(trailEl, { d: partial(pts, cum, u), 'stroke-dashoffset': f1(-t * 22) }); O(trailEl, tA * .9);
+    WAY.forEach((w, i) => {
+      const o = ORDER.indexOf(i), at = cum[16 * (o + 1)] / cum[cum.length - 1], pop = clamp((u - at) / .06 + .001);
+      O(w.g, pop * tA); w.g.setAttribute('transform', `translate(${f2(pos[i].x)} ${f2(pos[i].y)}) scale(${f2(ease.back(clamp(pop)))})`);
+      const done = prog(t, 53.7 + o * .25, 53.95 + o * .25);
+      O(w.num, 1 - done); O(w.tick, done);
+    });
+  } else { O(trailEl, 0); WAY.forEach(w => O(w.g, 0)); }
+
+  // the push pings your phone, and you approve it there
+  const pv = win(t, 53.5, 59.3, .5, .6);
+  O(phone, pv); phone.setAttribute('transform', `translate(944 ${f1(126 + (1 - ease.out(prog(t, 53.5, 54.2))) * 30)})`);
+  const bv = prog(t, 54.1, 54.5); O(banner, bv); banner.setAttribute('transform', `translate(0 ${f1(-(1 - ease.out(bv)) * 12)})`);
+  const clicked = t >= 57.15;
+  okRect.setAttribute('class', clicked ? 'btn ok' : 'btn'); txt(okText, clicked ? 'Approved' : 'Approve');
+  const press = Math.exp(-Math.pow((t - 57.1) / .07, 2));
+  okBtn.setAttribute('transform', `translate(${f2(32 + 38 * press * .05)} ${f2(248 + 17 * press * .05)}) scale(${f2(1 - press * .05)})`);
+  const TX = 944 + 32 + 38, TY = 126 + 248 + 17, tv = win(t, 56.2, 57.6, .3, .4);
+  if (tv > 0) { const u = ease.inOut(prog(t, 56.2, 57.0)); put(touch, { cx: f1(lerp(TX + 40, TX, u)), cy: f1(lerp(TY + 190, TY, u)), r: f2(15 * (1 - press * .15)) }); O(touch, tv); } else O(touch, 0);
+  const rg = prog(t, 57.12, 57.8); if (rg > 0 && rg < 1) { put(tapRing, { cx: TX, cy: TY, r: f1(10 + rg * 34) }); O(tapRing, (1 - rg) * .9); } else O(tapRing, 0);
+
+  // The hard part is sized up
+  O(router, win(t, 35.2, 38.8, .5, .6)); router.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 35.2, 35.8))) * 14)})`);
+  bars.forEach((b, k) => b.fill.setAttribute('width', f1(176 * b.v * ease.out(prog(t, 35.8 + k * .3, 36.5 + k * .3)))));
+  const pk = prog(t, 36.9, 37.3); O(pick, pk); pick.setAttribute('transform', `translate(24 164) translate(152 18) scale(${f2(lerp(.9, 1, ease.back(pk)))}) translate(-152 -18)`);
+
+  // memory: motes rise and settle as stars
+  const memA = 1 - prog(t, 71.6, 72.8);
+  oldEls.forEach((o, k) => { o.style.opacity = (.45 + .45 * win(t, 62.4, 72.4, .8, 1) + .1 * Math.sin(t * 1.3 + k)).toFixed(2); });
+  MEM.forEach((mm, k) => {
+    const E = memEls[k], L = 59.6 + k * .28, src = ppos(mm.from, L);
+    comet(E.mote, L, L + 1.6, src, mm, -.35, t, .03, 10);
+    const born = prog(t, L + 1.5, L + 1.9) * memA;
+    O(E.core, born); O(E.glow, born * (.7 + .3 * Math.sin(t * 2 + k)));
+    E.core.setAttribute('r', f2(3 * (1 + .6 * Math.exp(-Math.pow((t - L - 1.6) / .18, 2)))));
+    O(E.g, 1);
+    if (E.label) { const j = [0, 2, 4, 5, 7].indexOf(k); O(E.label, win(t, 63.4 + j * .45, 67.4, .45, .7)); }
+  });
+  JOINS.forEach((j, k) => {
+    const a = P(j[0]), b = P(j[1]), u = ease.inOut(prog(t, 62.3 + k * .14, 62.9 + k * .14));
+    joinEls[k].setAttribute('d', `M${f1(a.x)} ${f1(a.y)}L${f1(lerp(a.x, b.x, u))} ${f1(lerp(a.y, b.y, u))}`);
+    O(joinEls[k], (u > 0 ? .55 : 0) * memA);
+  });
+
+  // the night shift's lap
+  const nl = prog(t, 67.9, 71.2);
+  if (nl > 0 && nl < 1 || win(t, 68, 71.9, .3, .5) > 0) {
+    O(gNight, win(t, 67.9, 71.9, .3, .6));
+    const u = ease.inOut(nl), R = 204, at = v => { const a = (-90 + 360 * v) * DEG, r = shapeR(R, phaseAt(R), a); return [SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]; };
+    const pts = []; for (let k = 0; k < 22; k++) { const v = u - k * .012; if (v < 0) break; pts.push(at(v)); }
+    nTail.setAttribute('d', dOf(pts, false)); put(nHead, { cx: f1(pts[0][0]), cy: f1(pts[0][1]) }); O(nHead, nl < 1 ? 1 : 0); O(nTail, nl < 1 ? .7 : 0);
+    drafts.forEach((d, k) => { const p = at([.38, .74][k]), v = prog(u, [.38, .74][k], [.38, .74][k] + .04); d.setAttribute('transform', `translate(${f1(p[0])} ${f1(p[1])}) scale(${f2(ease.back(v))})`); O(d, v); });
+  } else O(gNight, 0);
+
+  // cards
+  O(plan, win(t, 16.6, 20.3, .5, .6)); plan.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 16.6, 17.2))) * 14)})`);
+  planRows.forEach((r, k) => O(r, prog(t, 17.0 + k * .35, 17.35 + k * .35)));
+  O(night, win(t, 68.4, 71.7, .5, .6)); night.setAttribute('transform', `translate(868 ${f1(118 + (1 - ease.out(prog(t, 68.4, 69))) * 14)})`);
+
+  // captions and chapter
+  let ci = -1, cv2 = 0;
+  CAPS.forEach((c, k) => { const v = win(t, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv2 = v; } });
+  if (ci !== lastCap && ci >= 0) { txt(capT, CAPS[ci][2]); txt(capS, CAPS[ci][3]); }
+  if (ci >= 0) lastCap = ci;
+  O(capG, cv2); capG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv2))) * 8)})`);
+  let ch = 0; CHAPS.forEach((c, k) => { if (filmT >= c[0]) ch = k; });
+  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(filmT); }
+}
+
+// The film's clock: the star chart first, then the film proper on its own clock. The last ping of the loop runs on into the chart.
+function render(tt) {
+  filmT = tt;
+  const t = Math.max(0, tt - PRE);
+  pingT = tt < PRE ? MAIN + tt : t;
+  renderMain(t); intro(tt);
+}
+
+// ---- transport ----
+const playB = document.getElementById('play'), scrub = document.getElementById('scrub'), clock = document.getElementById('clock'), chipsOl = document.getElementById('chapters');
+// The chapter list is this page's own; in the Tour the film has only its transport bar.
+const chipEls = !chipsOl ? [] : CHIPS.map(([at, name], k) => { const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span>${String(k + 1).padStart(2, '0')}</span>${name}`; b.addEventListener('click', () => { t = at + .001; render(t); sync(); }); li.appendChild(b); chipsOl.appendChild(li); return b; });
+function chipSync(tt) { let a = 0; CHIPS.forEach((c, k) => { if (tt >= c[0]) a = k; }); chipEls.forEach((b, k) => b.setAttribute('aria-current', k === a ? 'true' : 'false')); }
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); chipSync(t); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+document.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  requestAnimationFrame(frame);
+}
+setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render(t));
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
