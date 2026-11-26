@@ -218,7 +218,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
   orbit?: boolean; onOrbit?: () => void; // the crew at work as a solar system, full screen (orbit/Orbit.tsx)
   trail?: boolean; onTrail?: () => void; // the plan as a trail of steps, full screen (trail/Trail.tsx)
   constellation?: boolean; onConstellation?: () => void; // the memory as a map of stars, full screen (constellation/Constellation.tsx)
-  // The game (the Barnstorm plugin, plugins/barnstorm): fly a plane over the page. Its row starts it, then is play and pause.
+  // The game (egg/Barnstorm.tsx): fly a plane over the page. Its row starts it, then is play and pause.
   barnstorm?: "off" | "on" | "paused"; onBarnstorm?: () => void;
 }) {
   const asks = useFeed(store, (s) => s.asks);
@@ -304,7 +304,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
             ],
           ]} />
         <ToolMenu name="More" icon="more" className="top-more" waiting={barnstorm === "paused"}
-          title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : `More: focus, layout, light or dark, notifications, Outposts${onBarnstorm ? ", the tour and Barnstorm" : " and the tour"}`} groups={[
+          title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : "More: focus, layout, light or dark, notifications, Outposts, the tour and Barnstorm"} groups={[
           [
             onToggleFocus && { label: "Focus mode", icon: "focus", checked: !!focused, wide: true, onClick: onToggleFocus,
               title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the workspace, files, notes and terminal, leaving the conversation" },

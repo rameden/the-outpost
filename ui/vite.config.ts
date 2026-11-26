@@ -11,15 +11,12 @@ const CAMP = `http://127.0.0.1:${process.env.CAMP_PORT ?? 4747}`;
 export default defineConfig({
   root: import.meta.dirname,
   plugins: [react()],
-  // What a plugin (plugins/*) imports from the Outpost itself: see ui/src/plugins/sdk.ts.
-  resolve: { alias: { "@outpost/sdk": join(import.meta.dirname, "src", "plugins", "sdk.ts") } },
-  // The plugins sit outside ui/, so the dev server may serve their files too.
   build: {
     outDir: "dist",
     emptyOutDir: true,
     // One stylesheet and no inline code: the page's Content-Security-Policy allows only files the
     // camp server itself serves. The script is the page's main one plus a few loaded when first
-    // opened (the terminal, Orbit, Settings, each plugin: see App.tsx and plugins/registry.ts); those are fetched by the
+    // opened (the terminal, Orbit, Settings, the game: see App.tsx); those are fetched by the
     // script itself, as built files that need no key, so the policy allows them as it is.
     // No module preload: Vite's preload helper would add an inline script.
     // Two pages: mission control, and the star chart of outposts (`npm start`, src/hub.ts).
@@ -35,7 +32,6 @@ export default defineConfig({
     host: "127.0.0.1",
     port: Number(process.env.CAMP_UI_PORT ?? 5173),
     strictPort: true,
-    fs: { allow: [join(import.meta.dirname, "..")] },
     // changeOrigin: the camp server checks the Host header. The token isn't added here: the page
     // sends it, as it does in production, so the dev server can't be used to drive the camp without it.
     proxy: {
@@ -46,6 +42,6 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}", "../plugins/*/src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

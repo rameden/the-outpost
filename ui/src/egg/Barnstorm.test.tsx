@@ -2,12 +2,10 @@
 // the keys (the code that starts it, the ones the plane takes while it's up).
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { createFeedStore } from "../../../ui/src/feed/store.ts";
-import { Header } from "../../../ui/src/components/Header.tsx";
-import type { CampState } from "../../../ui/src/types.ts";
-import { useEffect } from "react";
-import { Barnstorm } from "./Barnstorm.tsx";
-import { onKonami } from "./konami.ts";
+import { createFeedStore } from "../feed/store.ts";
+import { Header } from "../components/Header.tsx";
+import type { CampState } from "../types.ts";
+import { Barnstorm, useKonami } from "./Barnstorm.tsx";
 import { KONAMI } from "./flight.ts";
 import { EDGE, GONE, HIGHLIGHT, Wreckage } from "./targets.ts";
 
@@ -159,7 +157,7 @@ test("where the browser can paint over a word, words go one at a time before wha
   expect((globalThis.CSS as unknown as { highlights: Map<string, unknown> }).highlights.has(HIGHLIGHT)).toBe(false);
 });
 
-function Code({ start }: { start: () => void }) { useEffect(() => onKonami(start), [start]); return <textarea aria-label="draft" />; }
+function Code({ start }: { start: () => void }) { useKonami(start); return <textarea aria-label="draft" />; }
 const press = (key: string, type: "keyDown" | "keyUp" = "keyDown") => fireEvent[type](document.activeElement ?? document.body, { key });
 
 test("typing the Konami code starts it, wherever the keyboard is", () => {

@@ -22,12 +22,12 @@
 // every aircraft where it was) and nothing moves until you resume.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { storeGet, storeSet } from "@outpost/sdk";
-import { cx } from "@outpost/sdk";
+import { storeGet, storeSet } from "../api.ts";
+import { cx } from "../format.ts";
 import { EggBar, PausedPill, usePause, type GameProps } from "./Bar.tsx";
 import { PAINT, PIXEL, SPRITE, UP, scoreText } from "./flight.ts";
 import { bareOf, quiet, skinFor } from "./skins.ts";
-import { packNow } from "@outpost/sdk";
+import { packNow } from "../themes.ts";
 import {
   CABLE, CHASE_WARN, ENEMY, FLAK_FUSE, FLAK_RADIUS, INTRO, LEVELS, LEVEL_ORDER, LOOP_LASTS, PERKS, SHIPS, TWISTS,
   chainTimes, dailySeed, liningUp, loopPose, newGame, shielded, step, wingAt,

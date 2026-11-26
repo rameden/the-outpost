@@ -3,16 +3,15 @@
 // card; here it's stood in for by something that keeps what it was handed.)
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { createFeedStore } from "../../../ui/src/feed/store.ts";
-import type { CampEvent, CampState } from "../../../ui/src/types.ts";
-import type { HdFrame } from "./renderer.ts";
+import { createFeedStore } from "../feed/store.ts";
+import type { CampEvent, CampState } from "../types.ts";
+import type { HdFrame } from "./hd/renderer.ts";
 
 const drawn: HdFrame[] = [];
 const fake = { resize: vi.fn(), setLines: vi.fn(), dispose: vi.fn(), draw: vi.fn((f: HdFrame) => { drawn.push(f); }) };
 const createHd = vi.fn<() => typeof fake | null>(() => fake);
-vi.mock("./renderer.ts", () => ({ createHd: () => createHd() }));
-const { Orbit } = await import("../../../ui/src/orbit/Orbit.tsx");
-const { orbitLens } = await import("./index.tsx");
+vi.mock("./hd/renderer.ts", () => ({ createHd: () => createHd() }));
+const { Orbit } = await import("./Orbit.tsx");
 
 const characters = [
   { id: "quartermaster", name: "Quartermaster", emoji: "🧭", role: "Plans and dispatches", model: "claude-sonnet-5-5", effort: "high" },
@@ -29,7 +28,7 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const pass = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 let seq = 0;
 function show(store = createFeedStore()) {
-  const r = render(<Orbit S={S} store={store} lens={orbitLens} onClose={() => {}} />);
+  const r = render(<Orbit S={S} store={store} onClose={() => {}} />);
   const send = (...bodies: object[]) => act(() => { for (const b of bodies) store.apply({ ...b, seq: ++seq, time: new Date().toISOString() } as CampEvent); vi.advanceTimersByTime(40); });
   return { ...r, send, view: screen.getByRole("dialog") };
 }

@@ -329,7 +329,7 @@ test("it sits over the page and under what opens over the page, and never bends 
   const z = (rule: string) => Number(css.match(new RegExp(`${rule} \\{[^}]*z-index: (\\d+)`))![1]);
   expect(Number(css.match(/\.orbit \{[\s\S]*?z-index: (\d+)/)![1])).toBeLessThan(z("\\.drawer-backdrop"));
   expect(Number(css.match(/\.orbit \{[\s\S]*?z-index: (\d+)/)![1])).toBeGreaterThan(40); // (a narrow screen's panels)
-  const own = css.slice(css.indexOf("/* ---------- Orbit:"), css.indexOf("/* ---------- Today"));
+  const own = css.slice(css.indexOf("/* ---------- Orbit:"), css.indexOf("/* ---------- Barnstorm"));
   expect(own).not.toMatch(/border-radius: (?!0\b)/);
   expect(own).not.toMatch(/box-shadow/);
   // Each of the crew's colour is their class's (--c), set earlier in the sheet: a rule here that set --c would take it from them.

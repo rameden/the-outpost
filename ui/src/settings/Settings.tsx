@@ -11,7 +11,6 @@ import { Connectors, Skills } from "../panels/Records.tsx";
 import { MemoryPage } from "./MemoryPage.tsx";
 import { ModelsPage } from "./ModelsPage.tsx";
 import { VoicePage } from "./VoicePage.tsx";
-import { PluginsPage } from "./PluginsPage.tsx";
 import { canNotify, notificationsOn, toggleNotifications } from "../notifications.ts";
 import { chimeOn, playChime, setChime } from "../chime.ts";
 import { showCost } from "../prefs.ts";
@@ -698,7 +697,6 @@ export function Settings({ S, section, setSection, refresh, onAttachLink, onClos
             : section === "terminal" ? <TerminalActions S={S} refresh={refresh} />
             : section === "models" ? <ModelsPage S={S} refresh={refresh} />
             : section === "voice" ? <VoicePage S={S} refresh={refresh} />
-            : section === "plugins" ? <PluginsPage S={S} refresh={refresh} />
             : section === "phone" ? <Phone key={S.settings.phone.topic} S={S} refresh={refresh} />
             : section === "memory" ? <MemoryPage S={S} refresh={refresh} />
             : section === "skills" ? <><Skills S={S} refresh={refresh} /><SkillImport S={S} refresh={refresh} /><InstalledSkills S={S} refresh={refresh} /></>
