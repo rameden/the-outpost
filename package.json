@@ -20,6 +20,8 @@
     "test": "tsx --test --test-reporter=spec tests/*.test.ts && vitest run --config ui/vite.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ui && tsc --noEmit -p extension",
     "eval": "tsx --import ./scripts/env.mjs evals/run.ts",
+    "eval:routing": "tsx evals/routing.ts",
+    "routing:report": "tsx scripts/routing-report.ts",
     "extension:build": "tsx scripts/extension-build.ts",
     "extension:pack": "tsx scripts/extension-build.ts --zip",
     "tour:films": "tsx scripts/tour-films.ts",

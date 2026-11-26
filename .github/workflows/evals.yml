@@ -3,6 +3,13 @@
 # skips cleanly when it hasn't. Each case is capped at EVAL_CASE_BUDGET dollars (see evals/case.ts).
 # The cases themselves are checked on every pull request without a key: tests/evals.test.ts runs
 # `evals/run.ts --dry` as part of npm test.
+#
+# The run is compared with the committed baseline (evals/baseline.json) and the comparison is put
+# in the job summary. Only a clear regression fails the job: a case whose pass rate is down by
+# half or more over at least two failed trials (a case that fails once is run twice more first).
+# Until a baseline is committed, a failed case fails the job, as it always did.
+# To record a baseline: run this by hand with "baseline" ticked, download evals/baseline.json from
+# the run's artifact, and commit it. See evals/README.md.
 name: Evals
 
 on:
@@ -16,6 +23,15 @@ on:
         description: "Model overrides, e.g. --set scout=auto:economy (empty: the defaults)"
         required: false
         default: ""
+      trials:
+        description: "Times to run each case (empty: once, or 3 when recording a baseline)"
+        required: false
+        default: ""
+      baseline:
+        description: "Record a new baseline from this run (then commit evals/baseline.json from the artifact)"
+        type: boolean
+        required: false
+        default: false
   schedule:
     - cron: "17 6 * * 1" # Mondays, 06:17 UTC
 
@@ -69,22 +85,36 @@ jobs:
         if: steps.key.outputs.present == 'true'
         run: npx tsx evals/run.ts --dry
 
-      # The runner prints each case and saves the whole run to evals/results/<time>.json.
-      - name: Run the evals
+      # The runner prints each case, saves the whole run to evals/results/<time>.json, compares it
+      # with evals/baseline.json, and writes the comparison to the job summary. It exits 1 only on
+      # a clear regression (or, with no baseline yet, on a failed case).
+      - name: Run the evals and compare with the baseline
         if: steps.key.outputs.present == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CAMP_RUNTIME: api
           CASES: ${{ github.event.inputs.cases }}
           SET: ${{ github.event.inputs.set }}
+          TRIALS: ${{ github.event.inputs.trials }}
+          BASELINE: ${{ github.event.inputs.baseline }}
         # Word-split on purpose: CASES is ids, SET is --set flags.
-        run: npx tsx evals/run.ts $SET $CASES
+        run: |
+          FLAGS="--compare"
+          if [ "$BASELINE" = "true" ]; then
+            FLAGS="$FLAGS --write-baseline"
+            TRIALS="${TRIALS:-3}"
+          fi
+          if [ -n "$TRIALS" ]; then FLAGS="$FLAGS --trials $TRIALS"; fi
+          npx tsx evals/run.ts $FLAGS $SET $CASES
 
       - name: Keep the results
         if: always() && steps.key.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: eval-results-${{ github.run_number }}
-          path: evals/results/
+          # The runs, and the baseline as this run left it (new, when "baseline" was ticked).
+          path: |
+            evals/results/
+            evals/baseline.json
           if-no-files-found: warn
           retention-days: 90

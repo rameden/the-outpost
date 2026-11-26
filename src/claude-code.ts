@@ -301,7 +301,10 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
   } catch (err: any) {
     finished();
     if (abort.signal.aborted) return stopped();
-    throw failure(err, soFar());
+    // Claude Code exits with an error after a result that isn't a success ("Claude Code returned an
+    // error result: Reached maximum budget"). The result already says what happened, and it's read
+    // below, so reaching a budget or running out of turns ends the run cleanly, not as a failure.
+    if (!resultMsg) throw failure(err, soFar());
   } finally {
     finished();
     r.signal?.removeEventListener("abort", onAbort);

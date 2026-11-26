@@ -1,0 +1,27 @@
+{
+  "accuracy": 0.87,
+  "byKind": {
+    "search": 0.8,
+    "explanation": 0.83,
+    "summary": 0.71,
+    "editing": 0.9,
+    "debugging": 1,
+    "review": 1,
+    "planning": 0.83,
+    "chat": 0.8
+  },
+  "maxUnder": 2,
+  "maxRiskyUnder": 1,
+  "savedPct": 0.3,
+  "accepted": [
+    "search-credentials-use",
+    "search-research",
+    "explain-concept",
+    "summary-meeting",
+    "summary-email-thread",
+    "edit-typo",
+    "edit-dedupe-totals",
+    "plan-split-billing",
+    "chat-thanks-to-scribe"
+  ]
+}
