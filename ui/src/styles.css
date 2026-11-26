@@ -1285,8 +1285,19 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 @media (max-width: 760px) { .crew-area, .crew-area:is(.fold-crew, .fold-out) { grid-template-columns: minmax(0, 1fr); } .crew-line, .half-hide { display: none; } .zone-rail.half-rail { flex-direction: row; width: 100%; border: 0; } .crew-out { flex-direction: column; padding: 2px 16px 8px; } .co-row { grid-template-columns: var(--co-who, 11ch) minmax(0, 1fr) 8ch; } .co-doing { display: none; } }
 /* The approved plan as a live list. */
 .plan-list { border: 1px solid var(--border); border-radius: 10px; background: var(--bg); padding: 8px 6px 6px; }
-.plan-head { display: flex; gap: 8px; align-items: baseline; padding: 0 8px 4px; font-size: 13px; color: var(--muted); }
+.plan-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; padding: 0 8px 4px; font-size: 13px; color: var(--muted); }
 .plan-head b { color: var(--text); font: 600 14px var(--serif); }
+/* The plan is a list or a trail (the trail map's own ground, drawn in the card), and the map opens full screen from here. */
+.plan-views { display: inline-flex; gap: 4px; margin-left: auto; }
+.plan-view { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: 600 12px var(--sans); cursor: pointer; }
+.plan-view:hover { background: var(--surface-2); }
+.plan-view[aria-pressed="true"] { padding: 2px 9px; border: 2px solid var(--accent); color: var(--accent-deep); }
+.plan-view .icon { width: 13px; height: 13px; }
+/* A trail bigger than the card scrolls inside it, both ways; a smaller one sits in the middle. */
+.plan-trail { max-height: min(62vh, 540px); overflow: auto; margin-top: 2px; border-top: 1px solid var(--border); }
+.plan-trail .trail-ground { margin: 0 auto; }
+.plan-list i { font-style: normal; }
+.plan-list > .trail-loose { position: static; padding: 8px 10px 2px; background: none; }
 .plan-list ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
 .plan-step > * { display: grid; grid-template-columns: 16px 18px minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; width: 100%; padding: 5px 8px; border: 0; border-radius: 8px; background: none; text-align: left; font: inherit; font-size: 14px; color: var(--text); }
 .plan-step > button { cursor: pointer; }
@@ -2390,8 +2401,11 @@ button.chip.news { border-color: var(--border); color: var(--text); margin-right
    for the replay's timeline, which is Orbit's own (orbit/Timeline.tsx) and is drawn in them. */
 .trail {
   --o-panel: var(--surface); --o-line-2: var(--border-strong); --o-warn: var(--accent); --o-dim: var(--faint); --o-ink: var(--text);
-  position: fixed; inset: 0; z-index: 44; display: flex; flex-direction: column; outline: none; background: var(--bg); color: var(--text);
+  position: absolute; inset: 0; display: flex; flex-direction: column; outline: none; background: var(--bg); color: var(--text);
 }
+/* The trail map and the memory map, full screen, are dialogs that cover the page (components/Dialog.tsx): the box they're drawn in. */
+.whole-page { position: fixed; inset: 0; z-index: 44; outline: none; }
+.drawer-backdrop.no-veil { display: none; } /* nothing shows round it to dim */
 .trail i { font-style: normal; }
 .trail-top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .trail.replaying .trail-top { border-bottom: 2px solid var(--accent); padding-bottom: 9px; }
@@ -2570,8 +2584,8 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
      (the day wound back) fades where it stood: Trail.tsx keeps it drawn for these 260ms, and glides
      the plans already there to make room. How a step stands changes colour rather than snapping.
      Changing how you look at the map plays none of it: Trail.tsx skips a new view to its end. */
-  .trail :is(.trail-step, .trail-n, .trail-way, .trail-chip i, .trail-moon i) { transition: background-color 260ms ease-out, border-color 260ms ease-out, color 260ms ease-out; }
-  .trail :is(.trail-orbit, .trail-edge path, .trail-knot) { transition: stroke 260ms ease-out, fill 260ms ease-out; }
+  :is(.trail, .plan-trail) :is(.trail-step, .trail-n, .trail-way, .trail-chip i, .trail-moon i) { transition: background-color 260ms ease-out, border-color 260ms ease-out, color 260ms ease-out; }
+  :is(.trail, .plan-trail) :is(.trail-orbit, .trail-edge path, .trail-knot) { transition: stroke 260ms ease-out, fill 260ms ease-out; }
   /* The tree: a bough grows from the trunk, then its steps come out along it, nearest the trunk first. */
   .trail .trail-branch-head { animation: fade-in 320ms ease-out; }
   .trail .trail-bough { animation: trail-grow 420ms var(--ease) backwards; }
@@ -2608,9 +2622,14 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 @keyframes trail-run-in { from { opacity: 0; transform: translateY(-8px); } }
 
 /* ---------- The memory map (ui/src/constellation) ---------- */
-/* Every remembered line a star, over the whole page. It wears the page's own colours, so it follows
-   light, dark and the palettes. What's picked or focused gets a solid 2px ring; nothing here moves
-   on its own. */
+/* Every remembered line a star. It's the Map view of the Memory page, drawn in that page (.inset), and
+   it goes over the whole page (.full, in a .whole-page dialog) and back: the same box, moved, never
+   drawn again. What's picked or focused gets a solid 2px ring; nothing here moves on its own. */
+.con-stand, .con-host { display: contents; }
+/* On the Map view the page is as tall as the window and the map takes what's left of it, wider than the words above. */
+.memory-page.on-map > .page-panel { flex: 1 0 auto; display: flex; flex-direction: column; max-width: 1100px; }
+.memory-map { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.memory-map > :not(.con-stand) { box-sizing: border-box; width: 100%; max-width: 860px; margin-inline: auto; }
 /* It stands on Orbit's night sky whatever the theme: the page's colours are set here to that sky's, and the crew's to the ones Orbit gives them.
    The stars are Orbit's own three sheets (.orb-stars), which reach past the screen: that's why this clips what's outside it rather than hiding it. */
 .constellation {
@@ -2621,9 +2640,10 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
   --shadow-lg: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 2px 4px rgba(0, 0, 0, .35), 0 16px 40px rgba(0, 0, 0, .4);
   --o-sun: #e6a53a; /* Orbit's sun, for the Quartermaster's place (the orb-sun-* rules read it) */
-  position: fixed; inset: 0; z-index: 44; overflow: clip; color: var(--text); outline: none; color-scheme: dark;
+  position: absolute; inset: 0; isolation: isolate; overflow: clip; color: var(--text); outline: none; color-scheme: dark;
   background: radial-gradient(120% 95% at 50% 42%, #101627 0%, #090c15 48%, var(--bg) 100%);
 }
+.constellation.inset { position: relative; inset: auto; flex: 1 0 auto; min-height: 360px; border: 1px solid var(--border-strong); border-radius: 12px; }
 .con-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .con-sky:active { cursor: grabbing; }
 /* A place: one open contour line, as Orbit's orbits are, and on the line (at the top) whoever it belongs to, drawn with Orbit's own
@@ -2675,9 +2695,9 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 .con-top > * { pointer-events: auto; }
 .con-title h2 { margin: 0; font: 600 20px/1.2 var(--serif); }
 .con-title p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
-.con-tools { display: flex; gap: 6px; }
+.con-tools { flex: none; display: flex; gap: 6px; }
 .con-tool { flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 17px; line-height: 1; cursor: pointer; }
-.con-tool.worded { width: auto; padding: 0 11px; font-size: 13px; font-weight: 600; }
+.con-tool.worded { grid-auto-flow: column; gap: 6px; width: auto; padding: 0 11px; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .con-tool:hover { background: var(--surface-2); border-color: var(--muted); }
 .con-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 40px)); margin: 0; display: grid; gap: 8px; justify-items: center; text-align: center; font-size: 14px; color: var(--muted); }
 .con-empty b { font: 600 18px/1.3 var(--serif); color: var(--text); }
@@ -2745,9 +2765,21 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
   .constellation.runs-open .con-foot { left: 16px; }
   .con-hint { display: none; }
 }
+/* The same on a wide window when the map's own box is narrow (.narrow is set from the box, not the window). */
+.constellation.narrow .con-panel { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-width: none; height: 56%; }
+.constellation.narrow .con-runs { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-width: none; height: 44%; }
+.constellation.narrow.runs-open .con-foot { left: 16px; }
+/* In the page the box is short as well as narrow: the line you picked takes it all, under the tools (Full screen has the map beside it). */
+.constellation.inset.narrow .con-panel { top: 56px; height: auto; }
+/* There's no room for words beside the other tools there: Full screen keeps its mark (and its name, for a screen reader), and the count goes under the tools on a line of its own. */
+.constellation.narrow .con-go-full { width: 32px; padding: 0; }
+.constellation.narrow .con-go-full span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.constellation.inset.narrow .con-top { flex-direction: column-reverse; align-items: flex-start; gap: 6px; }
+.constellation.inset.narrow .con-tools { align-self: flex-end; }
+.constellation.narrow .con-hint { display: none; }
+/* It fades in where it lands: on the page, and again each time it goes full screen or comes back. */
 @media (prefers-reduced-motion: no-preference) {
   .constellation { animation: fade-in 240ms ease-out; }
-  .presence.leaving .constellation { animation: fade-out var(--leave) ease-in forwards; }
 }
 
 /* ---------- Orbit: the crew at work, full screen (ui/src/orbit) ----------

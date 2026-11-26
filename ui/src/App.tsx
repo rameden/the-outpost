@@ -67,7 +67,6 @@ const Orbit = lazy(() => import("./orbit/Orbit.tsx").then((m) => ({ default: m.O
 const Trail = lazy(() => import("./trail/Trail.tsx").then((m) => ({ default: m.Trail })));
 const Settings = lazy(() => import("./settings/Settings.tsx").then((m) => ({ default: m.Settings })));
 const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ default: m.Barnstorm })));
-const Constellation = lazy(() => import("./constellation/Constellation.tsx").then((m) => ({ default: m.Constellation })));
 // Decorations (Settings → General): only for looks, and loaded only while one is on. If one ever
 // fails to draw, the page simply goes without it.
 // What shows while one of those arrives: a quiet word, in the middle of the page (or of its panel).
@@ -123,22 +122,22 @@ export function App({ store }: { store: FeedStore }) {
   // The trail map (trail/Trail.tsx): the Quartermaster's plan as a trail, over the whole page. It and Orbit take the same
   // place, so opening one closes the other.
   const [trail, setTrail] = useState(false);
-  // The memory map (constellation/Constellation.tsx): every remembered line a star, over the whole page. /constellation opens it.
-  const [constellation, setConstellation] = useState(false);
-  // All three are in the Views menu in the top bar, and one is open at a time.
-  const toggleOrbit = useCallback(() => { setTrail(false); setConstellation(false); setOrbit((on) => (on ? false : "live")); }, []);
+  const [trailPick, setTrailPick] = useState<string | undefined>(); // the run whose plan it opens on: a plan card's "Full screen" names its own
+  // The memory map (constellation/Constellation.tsx) is Memory's Map view, drawn in that page. This is whether it's
+  // over the whole page: its own "Full screen" does that, and /constellation opens it that way.
+  const [mapFull, setMapFull] = useState(false);
+  // One of the three is over the page at a time. Orbit is in the Views menu in the top bar; the trail map opens from a
+  // plan card (or /trail), the memory map from Memory → Map (or /constellation).
+  const toggleOrbit = useCallback(() => { setTrail(false); setMapFull(false); setOrbit((on) => (on ? false : "live")); }, []);
   const closeOrbit = useCallback(() => setOrbit(false), []);
-  const toggleTrail = useCallback(() => { setOrbit(false); setConstellation(false); setTrail((on) => !on); }, []);
   const closeTrail = useCallback(() => setTrail(false), []);
-  // The map is a view of Memory: opening it lands you on Memory → Map, so closing it leaves you there.
-  const toggleConstellation = useCallback(() => { setOrbit(false); setTrail(false); setConstellation((on) => !on); setSettings(null); setViewState((v) => (v.kind === "memory" && v.tab === "map" ? v : { kind: "memory", tab: "map" })); }, []);
-  const openMap = useCallback(() => { setSettings(null); setOrbit(false); setTrail(false); setViewState({ kind: "memory", tab: "map" }); storeSet("camp-view", JSON.stringify({ kind: "memory", tab: "map" })); setConstellation(true); }, []);
-  const closeConstellation = useCallback(() => setConstellation(false), []);
+  // Leaving full screen leaves you on Memory → Map, with the map as you left it.
+  const openMap = useCallback(() => { setSettings(null); setOrbit(false); setTrail(false); setViewState({ kind: "memory", tab: "map" }); storeSet("camp-view", JSON.stringify({ kind: "memory", tab: "map" })); setMapFull(true); }, []);
 
   const setView = useCallback((v: View) => {
     setOrbit(false);
     setTrail(false);
-    setConstellation(false);
+    setMapFull(false);
     setViewState(v);
     storeSet("camp-view", JSON.stringify(v));
     if (v.kind !== "memory" && v.kind !== "activity") composer.current?.focus(); // (their tabs keep the focus they were given)
@@ -393,8 +392,8 @@ export function App({ store }: { store: FeedStore }) {
   // One place for everything a typed /command, the palette, or a shortcut can ask for.
   const command = (name: string, arg?: string) => {
     if (name === "today") goHome();
-    else if (name === "orbit") { setTrail(false); setConstellation(false); setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live"); }
-    else if (name === "trail") { setOrbit(false); setConstellation(false); setTrail(true); }
+    else if (name === "orbit") { setTrail(false); setMapFull(false); setOrbit(arg?.trim().toLowerCase() === "demo" ? "demo" : "live"); }
+    else if (name === "trail") { setOrbit(false); setMapFull(false); setTrailPick(arg?.trim() || undefined); setTrail(true); }
     else if (name === "new") setView(project && project.id !== "general" ? { kind: "new", project: project.id } : { kind: "new" });
     else if (name === "focus") toggleFocus();
     else if (name === "files") { if (hasFiles) toggleFiles(); else tell(store, "No folder is attached here, so there are no files to show."); }
@@ -541,7 +540,7 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} onOpenActivity={openActivity} focused={focused} onToggleFocus={onToggleFocus}
-            onOpenLayout={openLayout} inbox={inbox} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={constellation} onConstellation={toggleConstellation} />
+            onOpenLayout={openLayout} inbox={inbox} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -569,7 +568,7 @@ export function App({ store }: { store: FeedStore }) {
                   ) : page === "tickets" && S ? (
                     <TicketsPage S={S} onAttach={attachTicket} refresh={refresh} openKey={jiraKey} onOpened={() => setJiraKey(null)} onStart={(t) => setWizard({ ticket: t })} onKickoff={() => setWizard({})} />
                   ) : page === "memory" && S && view.kind === "memory" ? (
-                    <MemoryHome S={S} tab={view.tab ?? "list"} member={view.member} page={view.page} setView={setView} refresh={refresh} onOpenMap={openMap} onOpenSettings={() => openSettings("memory")} onOpenInbox={openInbox} />
+                    <MemoryHome S={S} tab={view.tab ?? "list"} member={view.member} page={view.page} setView={setView} refresh={refresh} mapFull={mapFull} onMapFull={setMapFull} onOpenConversation={openConversation} onOpenSettings={() => openSettings("memory")} onOpenInbox={openInbox} />
                   ) : page === "activity" && S && view.kind === "activity" ? (
                     <ActivityPage S={S} store={store} tab={view.tab ?? "usage"} setTab={(tab) => setView({ kind: "activity", tab })} refresh={refresh} onOpenSettings={openSettings} setView={setView}
                       needs={needs} inbox={inbox} onSeenAll={onSeenAll} onStartTicket={(t) => setWizard({ ticket: t })} />
@@ -669,14 +668,7 @@ export function App({ store }: { store: FeedStore }) {
       )}</Presence>
       <Presence>{trail && (
         <OverlayBoundary name="The trail map" onClose={closeTrail}>
-          <Suspense fallback={<LazyWait />}><Trail S={S} store={store} onClose={closeTrail} onOpenQuest={(q) => { setTrail(false); openQuest(q); }} /></Suspense>
-        </OverlayBoundary>
-      )}</Presence>
-      {/* The memory map takes the whole page too. A conversation it opens closes it; a merge it drafts is reviewed on the Memory page. */}
-      <Presence>{constellation && (
-        <OverlayBoundary name="The memory map" onClose={closeConstellation}>
-          <Suspense fallback={<LazyWait />}><Constellation onClose={closeConstellation} onOpenConversation={openConversation}
-            onOpenMemory={() => { setConstellation(false); setView({ kind: "memory", tab: "list" }); }} /></Suspense>
+          <Suspense fallback={<LazyWait />}><Trail S={S} store={store} pick={trailPick} onClose={closeTrail} onOpenQuest={(q) => { setTrail(false); openQuest(q); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>
       {/* What opens over the page. One that can't be drawn leaves a small dialog to close, not a blank page. */}

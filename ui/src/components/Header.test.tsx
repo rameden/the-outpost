@@ -133,28 +133,24 @@ test("focus mode: one button closes the panels, and shows when they're closed", 
   expect(screen.getByRole("menuitemcheckbox", { name: "Focus mode" }).getAttribute("aria-checked")).toBe("true");
 });
 
-test("the Views menu holds Orbit, the trail map and the constellation, and is lit while one is open", () => {
-  const onOrbit = vi.fn(), onTrail = vi.fn(), onConstellation = vi.fn(), onBarnstorm = vi.fn();
-  const on = { onOrbit, onTrail, onConstellation, onBarnstorm };
+test("the Views menu holds Orbit, and is lit while it's open; the trail map and the constellation aren't in the top bar any more", () => {
+  const onOrbit = vi.fn(), onBarnstorm = vi.fn();
+  const on = { onOrbit, onBarnstorm };
   const { rerender } = render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} />);
   const views = screen.getByRole("button", { name: "Views" });
   expect(views.classList.contains("on")).toBe(false);
-  expect(screen.queryByRole("button", { name: "Orbit" })).toBeNull(); // none of them has a button of its own in the bar
+  expect(screen.queryByRole("button", { name: "Orbit" })).toBeNull(); // it has no button of its own in the bar
   fireEvent.click(views);
   const menu = screen.getByRole("menu", { name: "Views" });
-  expect(within(menu).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit", "Trail map", "Constellation"]);
-  fireEvent.click(within(menu).getByRole("menuitemcheckbox", { name: "Constellation" }));
-  expect(onConstellation).toHaveBeenCalledTimes(1);
+  // The trail map is opened from a plan's card, and the constellation is Memory's Map (feed/Feed.tsx, MemoryHome.tsx).
+  expect(within(menu).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit"]);
+  fireEvent.click(within(menu).getByRole("menuitemcheckbox", { name: "Orbit" }));
   expect(screen.queryByRole("menu", { name: "Views" })).toBeNull(); // picking shuts the menu
-  fireEvent.click(views);
-  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Trail map" }));
-  fireEvent.click(views);
-  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Orbit" }));
-  expect([onOrbit, onTrail, onBarnstorm].map((f) => f.mock.calls.length)).toEqual([1, 1, 0]);
-  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} constellation />);
+  expect([onOrbit, onBarnstorm].map((f) => f.mock.calls.length)).toEqual([1, 0]);
+  rerender(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} {...on} orbit />);
   expect(views.classList.contains("on")).toBe(true);
   fireEvent.click(views);
-  expect(screen.getByRole("menuitemcheckbox", { name: "Leave the constellation" }).getAttribute("aria-checked")).toBe("true");
+  expect(screen.getByRole("menuitemcheckbox", { name: "Leave Orbit" }).getAttribute("aria-checked")).toBe("true");
 });
 
 test("Barnstorm is the last row of the ··· menu, not in Views", () => {
