@@ -68,7 +68,7 @@ import { loadNotes, saveNote, removeNote, patchNote } from "./notes.js";
 import { noteName, parseTicket, ticketRequest } from "./ticket.js";
 import { advanceTicket, createTicket, createTickets, draftTickets, getTicket, loadTickets, MAE_KEY, MAE_NOTE, maeTicketMarkdown, removeTicket, updateTicket } from "./tickets.js";
 import { passIdea, suggestIdeas } from "./ideas.js";
-import { loadLinks, addLink, removeLink, setLinkVerify, setLinkSetup } from "./links.js";
+import { loadLinks, addLink, removeLink } from "./links.js";
 import { githubStatus, switchGithub } from "./github.js";
 import { history, conversationEvents, addProject, updateProject, renameProject, removeProject, orderProjects, renameConversation, moveConversation, removeConversation, fileConversation, projectOf, getProject, searchConversations, forkConversation, historyVersion, GENERAL } from "./conversations.js";
 import { projectPage, setProjectNotes, setProjectBrief, surveyRequest } from "./projects.js";
@@ -1333,19 +1333,6 @@ const server = http.createServer(async (req, res) => {
         return send(res, 500, { error: `The folder dialog didn't open: ${e.message}` });
       }
     }
-    // Commands to run by themselves after a quest changes files in a linked folder ({ name, commands: [...] }).
-    if (url.pathname === "/api/links/verify") {
-      const ok = setLinkVerify(String(body.name), Array.isArray(body.commands) ? body.commands : []);
-      if (ok) emit({ type: "changed", what: "links" });
-      return send(res, ok ? 200 : 404, { ok });
-    }
-    // Commands to run once in each new worktree the camp creates for a linked repository ({ name, commands: [...] }).
-    if (url.pathname === "/api/links/setup") {
-      const ok = setLinkSetup(String(body.name), Array.isArray(body.commands) ? body.commands : []);
-      if (ok) emit({ type: "changed", what: "links" });
-      return send(res, ok ? 200 : 404, { ok });
-    }
-
     // Say something to a running expedition ({ id, text }). The agents working in it see it on their next step.
     if (url.pathname === "/api/steer") {
       const w = running.get(String(body.id));
