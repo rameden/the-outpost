@@ -151,7 +151,7 @@ test("end to end: the general route inspects, two distinct patches reproduce the
   const log = auto.routingLog().filter((x) => x.run.includes("dup1"));
   const decisions = log.filter((x): x is any => x.kind === "decision");
   assert.deepEqual(decisions.map((d) => [d.trigger, d.selected, !!d.kept]), [["new_task", "claude-sonnet-5-5@medium", false], ["scope_change", "claude-sonnet-5-5@medium", true], ["repeated_failure", "claude-opus-5-5@high", false]]);
-  assert.ok(decisions.every((d) => d.policyVersion === "auto-2026-11-16.2" && d.candidates.length === ROUTES.length && d.estimates.length));
+  assert.ok(decisions.every((d) => d.policyVersion === "auto-2026-11-26.1" && d.candidates.length === ROUTES.length && d.estimates.length));
   // The risk was found by the failing check (its own failure line), not by reading the file that mentions retries.
   assert.ok(!decisions[0].profile.signals.some((s: string) => s.startsWith("consequence:")));
   assert.ok(decisions[1].profile.signals.includes("consequence:high (found while working)"));

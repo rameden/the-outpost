@@ -376,3 +376,34 @@ test("a request is sized by its string values: an image or a document counts as 
   assert.deepEqual(measurePart({ role: "user", content: [{ type: "text", text: "abcd" }, { type: "image", source: { data: "x".repeat(9_999) } }] }), { chars: 4 + 4 + 4, images: 1 });
   assert.deepEqual(measurePart([{ type: "document" }, "hi", 42, null]), { chars: 2, images: 1 });
 });
+
+test("Claude wins a close call in every preference, and says so; a clear win elsewhere still goes elsewhere", () => {
+  const p = task("Explain how the cache works");
+  const haiku = claude("claude-haiku-5-5", "haiku", undefined, { input: 1, output: 5 });
+  const luna = open("openai:gpt-6-luna", {}, { input: 0.1, output: 0.5 });
+  const est = (claudeUsd: number, otherUsd: number, otherSuccess = 0.9) => ({
+    [haiku.id]: { attemptSuccess: 0.9, attemptUsd: claudeUsd, attemptSeconds: 10, fallbackProbability: 0, recoverySuccess: 0 },
+    [luna.id]: { attemptSuccess: otherSuccess, attemptUsd: otherUsd, attemptSeconds: 10, fallbackProbability: 0, recoverySuccess: 0 },
+  });
+  const pick = (mode: "economy" | "balanced" | "quality", e: ReturnType<typeof est>, policy = POLICY) => {
+    const d = selectRoute(p, fresh, snap([haiku, luna], { estimates: e, credentials: { anthropic: true, openai: true } }), policy, mode);
+    assert.equal(d.kind, "selected");
+    return d.kind === "selected" ? { id: d.primary.id, reason: d.reason } : { id: "", reason: "" };
+  };
+  // Economy: up to a quarter dearer is a close call; ten times dearer isn't.
+  const close = pick("economy", est(0.012, 0.01));
+  assert.equal(close.id, haiku.id);
+  assert.match(close.reason, /Claude is preferred on a close call/);
+  assert.equal(pick("economy", est(0.1, 0.01)).id, luna.id);
+  // Balanced: a few points of utility.
+  assert.equal(pick("balanced", est(0.05, 0.01)).id, haiku.id, "$0.04 cheaper elsewhere is 0.024 of utility, under the lean");
+  assert.equal(pick("balanced", est(0.2, 0.01)).id, luna.id);
+  // Quality: among the tied strongest, Claude first; a clearly stronger route still wins.
+  assert.equal(pick("quality", est(0.01, 0.01, 0.905)).id, haiku.id);
+  assert.equal(pick("quality", est(0.01, 0.01, 0.95)).id, luna.id);
+  // Turned off, the cheaper route wins the close call, and nothing is said about Claude.
+  const off = pick("economy", est(0.012, 0.01), { ...POLICY, preferClaude: { economy: 0, balanced: 0, quality: false } });
+  assert.equal(off.id, luna.id);
+  assert.doesNotMatch(off.reason, /preferred/);
+  assert.doesNotMatch(pick("economy", est(0.009, 0.01)).reason, /preferred/, "Claude winning outright isn't put down to the lean");
+});

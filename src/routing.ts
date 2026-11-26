@@ -161,6 +161,11 @@ export type Policy = {
   deadlineMs: number;             // a task's default deadline for waiting on a provider
   maxFallbacks: number;
   unknownRate: Rate;              // assumed for a route whose price isn't known (and marked as assumed)
+  // A lean towards Claude on a close call, in ranking only (the estimates shown are untouched).
+  // economy: a Claude route may cost this share more and still count as the cheaper; balanced: this
+  // much utility (about percentage points of finishing) is added to a Claude route; quality: among
+  // the tied strongest, Claude goes first. 0 turns it off.
+  preferClaude: { economy: number; balanced: number; quality: boolean };
   effortsByTier: Partial<Record<Tier, (Effort | undefined)[]>>;
   effort: Record<Effort, { success: number; cost: number; time: number }>;
   turns: Record<TaskFamily, number>;            // typical turns at difficulty 0 (doubles by difficulty 1)
@@ -177,7 +182,7 @@ export type Policy = {
 // difficulty 0 (cap) and how fast it falls as tasks get harder (slope). Observed outcomes
 // (camp/routing-evidence.json) are blended in as they accumulate. Change the numbers, change the version.
 export const POLICY: Policy = {
-  version: "auto-2026-11-16.2",
+  version: "auto-2026-11-26.1",
   modes: {
     economy: { costWeight: 4, timeWeight: 0.0001, switchMargin: 0.03 },
     balanced: { costWeight: 0.6, timeWeight: 0.0004, switchMargin: 0.04 },
@@ -194,6 +199,7 @@ export const POLICY: Policy = {
   deadlineMs: 10 * 60_000,
   maxFallbacks: 2,
   unknownRate: { input: 3, output: 15 },
+  preferClaude: { economy: 0.25, balanced: 0.03, quality: true },
   effortsByTier: { frontier: ["high"], opus: ["medium", "high"], sonnet: ["low", "medium", "high"], haiku: [undefined] },
   effort: {
     low: { success: -0.08, cost: 0.6, time: 0.6 },
@@ -405,13 +411,17 @@ export function estimateRoutes(eligible: Route[], p: TaskProfile, sess: SessionS
 // ---------- Choosing ----------
 // The quality floor is the route's own odds: a weak route doesn't clear it by standing next to a
 // strong one that would rescue it (the rescue is counted in its cost, time and utility instead).
-function order(mode: AutoPreference, ests: Estimate[], floor: number, policy: Policy): Estimate[] {
+// claude: the ids of Claude's routes, which policy.preferClaude leans towards on a close call.
+function order(mode: AutoPreference, ests: Estimate[], floor: number, policy: Policy, claude: Set<string> = new Set()): Estimate[] {
   const byId = (a: Estimate, b: Estimate) => a.routeId.localeCompare(b.routeId);
   const meets = (e: Estimate) => e.attemptSuccess >= floor;
+  const lean = policy.preferClaude;
+  const mine = (e: Estimate) => claude.has(e.routeId);
   if (mode === "economy") {
     // Known prices first: an unknown price can't be shown to be the cheapest.
+    const usd = (e: Estimate) => (mine(e) ? e.expectedUsd / (1 + lean.economy) : e.expectedUsd);
     return [...ests].sort((a, b) => Number(meets(b)) - Number(meets(a)) || Number(b.priceKnown) - Number(a.priceKnown) ||
-      a.expectedUsd - b.expectedUsd || b.completion - a.completion || a.expectedSeconds - b.expectedSeconds || byId(a, b));
+      usd(a) - usd(b) || b.completion - a.completion || a.expectedSeconds - b.expectedSeconds || byId(a, b));
   }
   if (mode === "quality") {
     // Strongest on its own first. Everything within the threshold of the strongest is one tie,
@@ -420,9 +430,10 @@ function order(mode: AutoPreference, ests: Estimate[], floor: number, policy: Po
     const top = Math.max(...ests.map((e) => e.attemptSuccess));
     const tied = (e: Estimate) => top - e.attemptSuccess <= policy.tieThreshold;
     return [...ests].sort((a, b) => Number(tied(b)) - Number(tied(a)) ||
-      (tied(a) ? 0 : b.attemptSuccess - a.attemptSuccess) || a.expectedSeconds - b.expectedSeconds || a.expectedUsd - b.expectedUsd || byId(a, b));
+      (tied(a) ? (lean.quality ? Number(mine(b)) - Number(mine(a)) : 0) : b.attemptSuccess - a.attemptSuccess) || a.expectedSeconds - b.expectedSeconds || a.expectedUsd - b.expectedUsd || byId(a, b));
   }
-  return [...ests].sort((a, b) => Number(meets(b)) - Number(meets(a)) || b.utility - a.utility || byId(a, b));
+  const utility = (e: Estimate) => e.utility + (mine(e) ? lean.balanced : 0);
+  return [...ests].sort((a, b) => Number(meets(b)) - Number(meets(a)) || utility(b) - utility(a) || byId(a, b));
 }
 
 const NUM = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
@@ -476,7 +487,10 @@ export function selectRoute(profile: TaskProfile, session: SessionState, snapsho
     ests = ests.filter((e) => !over.includes(e));
   }
   const floor = policy.qualityFloor[profile.consequence];
-  const ranked = order(mode, ests, floor, policy);
+  const claude = new Set(eligible.filter((r) => r.provider === "anthropic").map((r) => r.id));
+  const ranked = order(mode, ests, floor, policy, claude);
+  // Whether the lean towards Claude decided it: without it, another provider's route would be first.
+  const leaned = claude.has(ranked[0]?.routeId) && !claude.has(order(mode, ests, floor, policy)[0]?.routeId) ? ranked[0].routeId : undefined;
   const route = (id: string) => eligible.find((r) => r.id === id)!;
   let best = ranked[0];
   let shortfall: number | undefined;
@@ -503,7 +517,7 @@ export function selectRoute(profile: TaskProfile, session: SessionState, snapsho
   }
   const primary = route(best.routeId);
   return { kind: "selected", primary, fallbacks: fallbacksOf(ranked, best.routeId, policy).map((e) => route(e.routeId)),
-    reason: chooseReason(mode, profile, session, best, ests, primary, inc, shortfall), estimates: ests, ...base, ...(shortfall != null ? { shortfall } : {}) };
+    reason: chooseReason(mode, profile, session, best, ests, primary, inc, shortfall, leaned === best.routeId), estimates: ests, ...base, ...(shortfall != null ? { shortfall } : {}) };
 }
 
 const fallbacksOf = (ranked: Estimate[], primary: string, policy: Policy) => ranked.filter((e) => e.routeId !== primary).slice(0, policy.maxFallbacks);
@@ -515,7 +529,7 @@ function keepReason(sess: SessionState, inc: Estimate, best = false): string {
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const money = (n: number) => (n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`);
 
-function chooseReason(mode: AutoPreference, p: TaskProfile, sess: SessionState, best: Estimate, ests: Estimate[], primary: Route, inc: Estimate | undefined, shortfall?: number): string {
+function chooseReason(mode: AutoPreference, p: TaskProfile, sess: SessionState, best: Estimate, ests: Estimate[], primary: Route, inc: Estimate | undefined, shortfall?: number, leaned = false): string {
   if (sess.incumbent && inc && sess.evidence) return `Switched: ${sess.evidence}.`;
   if (sess.incumbent && !inc && sess.evidence) return `Switched: ${sess.evidence}.`;
   const what = `${p.family}${p.consequence === "normal" ? "" : `, ${p.consequence === "high" ? "high-stakes" : p.consequence}`}${p.scope === "unknown" ? "" : `, ${p.scope === "multi" ? "multi-service" : p.scope} scope`}`;
@@ -524,7 +538,8 @@ function chooseReason(mode: AutoPreference, p: TaskProfile, sess: SessionState, 
     : mode === "quality" ? `most likely to finish (${pct(best.attemptSuccess)} on its own)`
     : `best balance of odds (${pct(best.completion)}), cost (${money(best.expectedUsd)}${best.priceKnown ? "" : ", price assumed"}) and time`);
   const short = shortfall != null ? `; no model reaches the ${pct(best.attemptSuccess + shortfall)} bar for this task, so the strongest was taken` : "";
-  return `${routeName(primary)} for a ${what} task: ${why}${short}.`;
+  const lean = leaned ? "; another provider's model came out about even, and Claude is preferred on a close call" : "";
+  return `${routeName(primary)} for a ${what} task: ${why}${short}${lean}.`;
 }
 
 // ---------- Counting attempts ----------
