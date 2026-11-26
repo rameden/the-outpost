@@ -35,6 +35,7 @@ The `loop-*` cases (`evals/loop.ts`) are about the orchestration loop, not one a
 | `loop-review-after-change` | After files change in a linked folder, the Warden reviews, and changes nothing |
 | `loop-ask-before-plan` | A request missing one fact gets a question before a plan or a dispatch |
 | `loop-resume-no-repeat` | A task picked up after being cut off doesn't send its notification twice (`src/oplog.ts`) |
+| `loop-resume-restored` | A task picked up from its saved transcript (`src/runstore.ts`) goes on from where it was, without doing the finished part over |
 | `loop-fix-after-check` | A failing check in the folder sends the work back, and the run ends with the checks passing |
 | `loop-budget-stop` | A budget stops the run, the answer says so, and the remaining steps never start |
 

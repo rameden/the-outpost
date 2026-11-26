@@ -32,6 +32,7 @@ type Settings = {
   shell?: ShellSettings;  // which shell commands run without asking (see shell.ts)
   runtime?: "claude-code" | "api";
   uploads?: { keepDays?: number }; // delete uploads nothing uses once they're this many days old (uploads.ts); never, unless set
+  compactAt?: number;      // the share of a model's context (0.3 to 0.95) at which a long run's transcript is compacted (compaction.ts); 0.7 unless set, 0 for never
   refusalFallback?: boolean; // on the API: a request a model declines is carried on by another Claude model (on unless false)
   parallel?: number;      // how many expeditions mission control runs at once (the rest wait)
   questsAtOnce?: number;  // how many dispatched quests run at once, across every expedition
@@ -138,6 +139,14 @@ export function setUploadKeepDays(days: number | null) {
 // When a model declines a request (its safety checks, not an error), let another Claude model
 // carry on instead of ending the run (agent.ts). On unless you set "refusalFallback": false.
 export const refusalFallbackOn = () => read().refusalFallback !== false;
+// The share of the model's context a run may fill before its transcript is compacted
+// (compaction.ts). "compactAt": 0 turns it off; anything else is held between 0.3 and 0.95.
+export const DEFAULT_COMPACT_AT = 0.7;
+export function compactAt(): number {
+  const v = read().compactAt;
+  if (v === 0) return 0;
+  return typeof v === "number" && Number.isFinite(v) ? Math.min(0.95, Math.max(0.3, v)) : DEFAULT_COMPACT_AT;
+}
 
 // The theme pack (packs.ts). Anything unknown, or nothing, is the Guild. crew.ts puts it on the
 // crew (setPack there is what the page calls): this only keeps the choice.
