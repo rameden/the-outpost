@@ -3,7 +3,7 @@
 // way) where each body lands on the screen, so its name can be put by it and a click can find it.
 // Pure: nothing of WebGL in it, so it can be checked by itself. The drawing is renderer.ts.
 
-import { ease, orbitOf, type Spot } from "@outpost/sdk";
+import { ease, orbitOf, type Spot } from "../scene.ts";
 import { camera3, distFor, project, type Vec3 } from "./math.ts";
 import type { HdFrame, HdPlanet, HdPoint } from "./renderer.ts";
 import { NO_TURN, TABLE_FADE, onOrbit, orbitTurn, sunWake, worldWake } from "./spiral.ts";

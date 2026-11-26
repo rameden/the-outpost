@@ -1,6 +1,6 @@
 // What the HD view draws in a frame, worked out from what Orbit knows.
 import { expect, test } from "vitest";
-import { orbitOf } from "@outpost/sdk";
+import { orbitOf } from "../scene.ts";
 import { HD_PLANET, HD_SUN, hdFrame, type HdBody, type HdInput } from "./frame.ts";
 import { DRIFT, orbitUp } from "./spiral.ts";
 import { MINE, STATION, WORLD, asKind, worldsFor } from "./worlds.ts";

@@ -56,7 +56,7 @@ import { isSettingsSection, settingsGroups, type SettingsSection } from "./setti
 import type { FeedStore } from "./feed/store.ts";
 import type { Character, Link, Note } from "./types.ts";
 import { ask, ConfirmHost } from "./components/Confirm.tsx";
-import { gameOf, manifestOf, pluginOn, usePlugin } from "./plugins/registry.ts";
+import { useKonami } from "./egg/konami.ts";
 
 // The big pieces that not every visit opens load when they're first opened, each its own script:
 // the terminal (xterm.js is a quarter of the page's code), Orbit, Settings, and the game. Until
@@ -65,7 +65,7 @@ const TerminalPanel = lazy(() => import("./components/Terminal.tsx").then((m) =>
 const Orbit = lazy(() => import("./orbit/Orbit.tsx").then((m) => ({ default: m.Orbit })));
 const Trail = lazy(() => import("./trail/Trail.tsx").then((m) => ({ default: m.Trail })));
 const Settings = lazy(() => import("./settings/Settings.tsx").then((m) => ({ default: m.Settings })));
-const Barnstorm = gameOf("barnstorm"); // (a plugin: plugins/barnstorm)
+const Barnstorm = lazy(() => import("./egg/Barnstorm.tsx").then((m) => ({ default: m.Barnstorm })));
 const Constellation = lazy(() => import("./constellation/Constellation.tsx").then((m) => ({ default: m.Constellation })));
 // Decorations (Settings → General): only for looks, and loaded only while one is on. If one ever
 // fails to draw, the page simply goes without it.
@@ -498,7 +498,7 @@ export function App({ store }: { store: FeedStore }) {
     setView(talking.current.kind === "all" ? { kind: "new" } : talking.current);
   };
 
-  // Barnstorm (a plugin, while it's on): a plane to fly over the page, from its row in the ··· menu or the Konami code.
+  // The easter egg: a plane to fly over the page, from its button in the top bar or the Konami code.
   // It can be paused and picked up again later: the plane in the top bar is play and pause, and a
   // paused game keeps everything about itself until it's resumed (or landed, from its pill).
   const [barnstorm, setBarnstorm] = useState<"off" | "on" | "paused">("off");
@@ -506,11 +506,7 @@ export function App({ store }: { store: FeedStore }) {
   const pauseBarnstorm = useCallback(() => setBarnstorm("paused"), []);
   const resumeBarnstorm = useCallback(() => setBarnstorm("on"), []);
   const endBarnstorm = useCallback(() => setBarnstorm("off"), []);
-  const barnstormOn = pluginOn(S, "barnstorm");
-  useEffect(() => (barnstormOn ? manifestOf("barnstorm").summon?.(resumeBarnstorm) : undefined), [barnstormOn, resumeBarnstorm]); // (the code starts it, and resumes it if it's paused)
-  useEffect(() => { if (!barnstormOn) setBarnstorm("off"); }, [barnstormOn]); // (turned off mid-flight, it lands)
-  // HD Orbit (a plugin, while it's on): fetched the first time Orbit opens with it on.
-  const orbitHd = usePlugin("orbit-hd", pluginOn(S, "orbit-hd") && !!orbit);
+  useKonami(resumeBarnstorm); // (the code starts it, and resumes it if it's paused)
 
   const onReply = useCallback((expId: string, task: string) => composer.current?.setReply(expId, task), []);
   const onExample = useCallback((text: string) => composer.current?.setText(text), []);
@@ -542,7 +538,7 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} onOpenActivity={openActivity} focused={focused} onToggleFocus={onToggleFocus}
-            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={barnstormOn ? toggleBarnstorm : undefined} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={constellation} onConstellation={toggleConstellation} />
+            onOpenLayout={openLayout} needs={needs} onNeed={onNeed} onSeenAll={onSeenAll} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={constellation} onConstellation={toggleConstellation} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {
@@ -662,7 +658,7 @@ export function App({ store }: { store: FeedStore }) {
       {/* Orbit takes the whole page, and sits under what opens over the page: an agent's page opens over it, and it stays. */}
       <Presence>{orbit && (
         <OverlayBoundary name="Orbit" onClose={closeOrbit}>
-          <Suspense fallback={<LazyWait />}><Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} lens={orbitHd?.orbitLens} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
+          <Suspense fallback={<LazyWait />}><Orbit key={orbit} S={S} store={store} demo={orbit === "demo"} onClose={closeOrbit} onOpenAgent={setAgentId} onOpenConversation={openConversation}
             onOpenQuest={(q) => { setOrbit(false); openQuest(q); }} /></Suspense>
         </OverlayBoundary>
       )}</Presence>

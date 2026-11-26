@@ -1958,8 +1958,6 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .set-control .switch { margin-right: 0; }
 .set-actions { display: flex; align-items: center; gap: 8px; padding: 14px 0; flex-wrap: wrap; }
 .set-note { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
-.set-plugin-adds { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
-.set-plugin-adds li + li { margin-top: 2px; }
 .set-sub { font: 600 15px var(--serif); margin: 24px 0 2px; }
 .set-applies { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; font-size: 13px; color: var(--muted); }
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -2751,11 +2749,11 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 .orb-stars.s1 { inset: -640px 0 0 -640px; background-size: 640px 640px; opacity: .8; background-image: radial-gradient(1.5px 1.5px at 467px 577px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 524px 605px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 528px 491px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 461px 314px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 555px 46px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 634px 165px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 64px 40px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 618px 34px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 455px 609px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 305px 515px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 472px 288px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 264px 326px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 34px 75px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 114px 301px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 21px 4px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 57px 485px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 433px 78px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 348px 93px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 19px 423px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 256px 107px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 480px 502px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 462px 525px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 433px 396px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 434px 221px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 610px 315px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 195px 407px, rgba(233, 228, 216, .5) 55%, transparent 60%); }
 .orb-stars.s2 { inset: -820px 0 0 -820px; background-size: 820px 820px; background-image: radial-gradient(1px 1px at 802px 300px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 610px 318px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 546px 370px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 277px 459px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 639px 469px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 91px 731px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 24px 528px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 793px 62px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 607px 381px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 756px 375px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 680px 325px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 185px 739px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 695px 661px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 186px 550px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 600px 121px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 440px 43px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1px 1px at 608px 342px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 299px 559px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 566px 227px, rgba(233, 228, 216, .5) 55%, transparent 60%), radial-gradient(1px 1px at 113px 638px, rgba(240, 190, 110, .8) 55%, transparent 60%); }
 .orb-stars.s3 { inset: -1040px 0 0 -1040px; background-size: 1040px 1040px; background-image: radial-gradient(2px 2px at 191px 76px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 224px 939px, rgba(240, 190, 110, .8) 55%, transparent 60%), radial-gradient(2px 2px at 870px 913px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 190px 850px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(2px 2px at 743px 889px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 440px 857px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 19px 743px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 52px 667px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(2px 2px at 48px 31px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 469px 621px, rgba(160, 190, 240, .8) 55%, transparent 60%), radial-gradient(2.5px 2.5px at 562px 420px, rgba(233, 228, 216, .9) 55%, transparent 60%), radial-gradient(1.5px 1.5px at 440px 549px, rgba(240, 190, 110, .8) 55%, transparent 60%); }
-.orb-sky, .orb-over, .orb-lens { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* A lens (a plugin, such as HD Orbit) draws the sky on a canvas instead. The flat drawing stays where it is, unseen, to take the pointer. */
-.orb-lens { display: block; }
-.orbit.lensed :is(.orb-stars, .orb-sky > g) { display: none; }
-.orbit.lensed .orb-label:not(.st-active, .st-waiting) { background: rgba(5, 7, 12, .45); }
+.orb-sky, .orb-over, .orb-hd { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* HD (orbit/hd): the sky is drawn on a canvas instead. The flat drawing stays where it is, unseen, to take the pointer. */
+.orb-hd { display: block; }
+.orbit.hd :is(.orb-stars, .orb-sky > g) { display: none; }
+.orbit.hd .orb-label:not(.st-active, .st-waiting) { background: rgba(5, 7, 12, .45); }
 .orb-tool:disabled { opacity: .4; cursor: default; }
 .orb-sky { touch-action: none; cursor: grab; } .orb-sky:active { cursor: grabbing; } .orb-sky.over { cursor: pointer; }
 .orb-over { pointer-events: none; }
@@ -2875,6 +2873,15 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 .orb-log :is(.orb-l-tool, .orb-l-file) span { font: 11px/1.5 var(--mono); }
 .orb-log li:last-child span { color: var(--o-ink); } .orb-log .orb-l-ask span { color: var(--o-warn); }
 .orb-caret { display: inline-block; width: 6px; height: 12px; margin-left: 3px; vertical-align: -1px; background: var(--c, var(--c-other)); animation: orb-blink .9s steps(2, jump-none) infinite; }
+/* The world maker (orbit/hd/Maker.tsx), in the panel while HD is on: folded away until it's wanted. Each setting is a row: its
+   name, then what's slid, counted or switched. */
+.orb-make { margin: 10px 0 2px; border: 1px solid var(--o-line); }
+.orb-make > summary { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 7px 10px; cursor: pointer; list-style: none; font: 600 10px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--o-dim); }
+.orb-make > summary::-webkit-details-marker { display: none; }
+.orb-make > summary::before { content: "+"; color: var(--c, var(--c-other)); } .orb-make[open] > summary::before { content: "−"; }
+.orb-make > summary small { margin-left: auto; font: 11px/1.4 var(--sans); letter-spacing: 0; text-transform: none; color: var(--o-faint); }
+.orb-make[open] > summary { border-bottom: 1px solid var(--o-line); color: var(--o-ink); }
+.orb-make-acts { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 10px 4px; }
 .orb-set { display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 26px; padding: 0 10px; font: 11px/1.3 var(--mono); color: var(--o-dim); }
 .orb-set:last-child { padding-bottom: 8px; }
 .orb-set > span:first-child { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--o-faint); }
@@ -2887,6 +2894,13 @@ button.trail-moon:hover { border-color: var(--c, var(--c-other)); background: co
 .orb-dimmer { margin: 10px 0 2px; border: 1px solid var(--o-line); }
 .orb-dimmer input[type="range"]::-webkit-slider-thumb { background: var(--o-sun); } .orb-dimmer input[type="range"]::-moz-range-thumb { background: var(--o-sun); }
 .orb-dimmer .orb-set { grid-template-columns: auto minmax(0, 1fr) 4ch; padding: 4px 10px; } .orb-dimmer small { text-align: right; }
+.orb-count { display: inline-flex; align-items: center; gap: 8px; } .orb-count b { min-width: 14px; text-align: center; font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
+.orb-step-btn { min-width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0 6px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 12px/1 var(--mono); justify-self: start; }
+.orb-step-btn.worded { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--o-dim); }
+.orb-step-btn:hover:not(:disabled) { border-color: var(--c, var(--c-other)); color: var(--c, var(--c-other)); }
+.orb-step-btn:disabled { opacity: .35; cursor: default; }
+.orb-step-btn:is([aria-pressed="true"], [aria-checked="true"]) { border: 2px solid var(--c, var(--c-other)); color: var(--c, var(--c-other)); padding: 0 5px; }
+.orb-sorts { grid-template-columns: 1fr; padding-top: 4px; padding-bottom: 4px; } .orb-sorts { display: flex; flex-wrap: wrap; gap: 4px; }
 .orb-quiet { margin: 14px 0 0; font: 13px/1.5 var(--sans); color: var(--o-dim); }
 .orb-btn { justify-self: start; padding: 5px 10px; border: 1px solid var(--o-line-2); border-radius: 0; background: none; color: var(--o-ink); font: 11px/1.3 var(--mono); letter-spacing: .04em; }
 .orb-btn:hover { border-color: var(--c, var(--c-other)); color: var(--c, var(--c-other)); }
@@ -2936,6 +2950,7 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 :is(.orb-kit-about, .orb-holding-about) { display: grid; gap: 6px; justify-items: start; padding: 2px 6px 8px 22px; font: 12px/1.45 var(--sans); color: var(--o-dim); }
 :is(.orb-kit-about, .orb-holding-about) p { margin: 0; overflow-wrap: anywhere; } .orb-kit-about .bad { color: var(--o-bad); }
 .orb-kit-tools { font: 11px/1.5 var(--mono); color: var(--o-faint); }
+.orb-make-told { margin: 0; padding: 0 10px 9px; font: 11px/1.4 var(--sans); color: var(--o-faint); }
 .orb-holding { position: absolute; top: 76px; left: 30px; width: 264px; max-height: 42%; overflow-y: auto; padding: 2px 8px 8px; background: rgba(10, 13, 21, .84); border: 1px solid var(--o-line); scrollbar-width: thin; scrollbar-color: var(--o-line-2) transparent; }
 .orb-holding h4 { margin: 9px 6px 6px; font: 600 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--o-faint); }
 
@@ -3000,6 +3015,52 @@ a.orb-btn { display: inline-block; text-decoration: none; }
 }
 @keyframes orb-panel-in { from { opacity: 0; transform: translateX(18px); } }
 @media (prefers-reduced-motion: reduce) { .orbit, .orbit * { animation: none !important; } }
+
+/* ---------- Barnstorm, the easter egg (ui/src/egg) ---------- */
+/* What the plane has shot is hidden, not removed: an attribute on a part of the page, another
+   naming the sides of a border, and a highlight in no colour over a word. Taking them off puts
+   it all back (egg/targets.ts). */
+[data-barnstormed] { visibility: hidden !important; }
+[data-barnstorm-edge~="top"] { border-top-color: transparent !important; }
+[data-barnstorm-edge~="right"] { border-right-color: transparent !important; }
+[data-barnstorm-edge~="bottom"] { border-bottom-color: transparent !important; }
+[data-barnstorm-edge~="left"] { border-left-color: transparent !important; }
+::highlight(barnstorm) { color: transparent; -webkit-text-fill-color: transparent; text-shadow: none; text-decoration-color: transparent; }
+/* The sky over the page: clicks go through it to the page below, except on the score card. */
+.barnstorm { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.barnstorm-sky { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The bar (egg/Bar.tsx): one slim strip along the bottom with the numbers, the keys, and the
+   buttons. Square and plain, like the plane. Whatever doesn't fit is let go from the right:
+   the keys first, on a window too narrow for them. */
+.barnstorm-bar { position: absolute; inset: auto 0 0 0; height: 34px; display: flex; align-items: center; gap: 14px; padding: 0 10px 0 14px; pointer-events: auto; overflow: hidden; white-space: nowrap; background: var(--surface); color: var(--text); border-top: 2px solid var(--text); font: 12px/1 var(--mono); }
+.barnstorm-bar h2 { margin: 0; flex: none; font: 700 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-bar dl { margin: 0; flex: none; display: flex; gap: 14px; }
+.barnstorm-bar dl > div { display: flex; align-items: baseline; gap: 6px; }
+.barnstorm-bar dt { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.barnstorm-bar dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.barnstorm-status { margin: 0; flex: none; padding: 3px 6px; border: 2px solid var(--text); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.barnstorm-status.loud { background: var(--text); color: var(--surface); }
+.barnstorm-keys { margin: 0 0 0 auto; flex: 0 1 auto; min-width: 0; overflow: hidden; display: flex; gap: 10px; color: var(--muted); font-size: 11px; }
+.barnstorm-keys span { flex: none; }
+.barnstorm-keys kbd { border-radius: 0; font-size: 11px; padding: 0 3px; }
+/* Which game, and Reset / Land: small square buttons. The game you're in is filled. */
+.barnstorm-modes, .barnstorm-actions { flex: none; display: flex; }
+.barnstorm-actions { gap: 6px; }
+.barnstorm-keys + .barnstorm-actions { margin-left: 0; }
+.barnstorm-bar button { padding: 3px 8px; background: var(--surface); color: var(--text); border: 2px solid var(--text); border-radius: 0; font: 700 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-modes button + button { margin-left: -2px; }
+.barnstorm-bar button:hover, .barnstorm-modes button.on { background: var(--text); color: var(--surface); }
+.barnstorm-bar button:focus-visible { border-radius: 0; }
+@media (max-width: 1080px) { .barnstorm-keys { display: none; } .barnstorm-actions { margin-left: auto; } }
+/* Paused: no sky and no bar, so the page is all yours; just a pill in the corner to come back by. */
+.barnstorm.paused .barnstorm-sky { display: none; }
+.barnstorm-paused { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 10px; pointer-events: auto; white-space: nowrap; background: var(--surface); color: var(--text); border: 2px solid var(--text); box-shadow: 3px 3px 0 var(--text); font: 12px/1 var(--mono); }
+.barnstorm-paused h2 { margin: 0; font: 700 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.barnstorm-paused p { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.barnstorm-paused button { padding: 3px 8px; background: var(--surface); color: var(--text); border: 2px solid var(--text); border-radius: 0; font: 700 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.barnstorm-paused button:hover { background: var(--text); color: var(--surface); }
+.barnstorm-paused button:focus-visible { border-radius: 0; }
+/* The plane in the top bar, while its game is paused: lit, but not pressed. */
 
 /* ---------- Today: the page the camp opens on (components/Home.tsx) ----------
    A greeting and a few sentences on where things stand, then the brief as plain rows (a title,

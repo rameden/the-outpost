@@ -5,7 +5,7 @@
 // little more and turned a little further round than the one inside it, so they nest like a twisting stack.
 // Pure, like frame.ts, which uses it.
 
-import { lapOf, orbitOf } from "@outpost/sdk";
+import { lapOf, orbitOf } from "../scene.ts";
 import type { Vec3 } from "./math.ts";
 import type { HdPoint } from "./renderer.ts";
 
