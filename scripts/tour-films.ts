@@ -33,11 +33,11 @@ const FILMS: { key: string; section: string; file: string; tab: string; length: 
   },
   {
     key: "ticket", section: "films", file: "one-ticket.html", tab: "One ticket, start to finish", length: "0:54",
-    note: "One example Jira ticket, from picking it up to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review.",
+    note: "One example Jira ticket, from kicking off <span data-word='a quest'>a mission</span> to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review.",
   },
   {
     key: "audit", section: "films", file: "three-audit-findings.html", tab: "Three audit findings", length: "1:03",
-    note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review. The first goes from ticket to reviewed pull request step by step; the other two follow the same route.",
+    note: "Three findings from a SOC 2 Type I and ISO 27001 readiness review. You kick off <span data-word='a quest'>a mission</span> from the first, and it goes from ticket to reviewed pull request step by step; the other two follow the same route.",
   },
   {
     key: "trail", section: "videos", file: "trail-map.html", tab: "The trail map", length: "0:36",
