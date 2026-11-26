@@ -107,7 +107,7 @@ export function ProjectDialog({ S, project, onClose, onSaved }: {
     <Dialog as="form" className="dialog" labelledBy="project-dialog-title" onClose={onClose} onSubmit={save}>
         <h2 id="project-dialog-title">{project ? `Edit ${project.name}` : "New project"}</h2>
         <label className="field">Name
-          <input ref={nameInput} value={name} maxLength={60} placeholder="e.g. mi-web-app, Home network, Mae" onChange={(ev) => setName(ev.target.value)} />
+          <input ref={nameInput} value={name} maxLength={60} placeholder="e.g. mi-web-app, Home network" onChange={(ev) => setName(ev.target.value)} />
         </label>
         <label className="field">Description
           <textarea value={description} rows={5} maxLength={4000}

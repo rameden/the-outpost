@@ -9,7 +9,8 @@ import { DEFAULT_PACK, PACKS, RETIRED, customPacks, isPack, packAliases, packByI
 import { packId, setPackId } from "./settings.js";
 import { fill } from "./wordfill.js";
 
-export const BUILT_IN = ["quartermaster", "scout", "scribe", "artificer", "warden", "wizard"] as const;
+import { BUILT_IN } from "./builtin.js";
+export { BUILT_IN };
 export type CrewId = string; // a built-in id, or the handle of a crew member you added
 
 // What a crew member you added is able to do, beyond reading and searching files (everyone can).

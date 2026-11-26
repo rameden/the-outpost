@@ -31,7 +31,7 @@ export const PALETTES = [
   { id: "harbor", name: "Harbor", about: "Cool paper and deep blue." },
   { id: "moss", name: "Moss", about: "Pale lichen and green." },
   { id: "heather", name: "Heather", about: "Soft lilac and plum." },
-  { id: "ochre", name: "Ochre", about: "Cream, navy and ochre. The Mae app's own." },
+  { id: "ochre", name: "Ochre", about: "Cream, navy and ochre. The app's own." },
 ] as const;
 export type PaletteId = (typeof PALETTES)[number]["id"];
 

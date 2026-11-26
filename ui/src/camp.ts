@@ -12,6 +12,7 @@ import { notify } from "./notifications.ts";
 import type { CampEvent, CampState } from "./types.ts";
 
 import { w } from "./words.ts";
+import { outpostName } from "./outpost.ts";
 // "offline": the stream has been down long enough that the camp has most likely been stopped.
 // The page keeps trying quietly; the header says what to do meanwhile.
 export type Connection = "connecting" | "live" | "reconnecting" | "offline";
@@ -65,10 +66,10 @@ export function useCampState(records = false) {
 export function handleEvent(store: FeedStore, e: CampEvent, opts: { replaying: boolean; refresh: () => void }) {
   const before = store.getState();
   if (!store.apply(e)) return;
-  if (e.type === "ask" && !opts.replaying) notify(`Mae: ${ASK_NOTIFY_TITLES[e.kind] ?? "Decision needed"}`, e.body);
+  if (e.type === "ask" && !opts.replaying) notify(`${outpostName()}: ${ASK_NOTIFY_TITLES[e.kind] ?? "Decision needed"}`, e.body);
   if (e.type === "expedition_end") {
     const started = before.open[e.id]?.started;
-    if (started && Date.now() - started > 60_000 && !opts.replaying) notify(`Mae: ${w("expedition")} ${e.status === "done" ? "finished" : spaced(e.status)}`, e.text, e.status === "done" ? "done" : "fail");
+    if (started && Date.now() - started > 60_000 && !opts.replaying) notify(`${outpostName()}: ${w("expedition")} ${e.status === "done" ? "finished" : spaced(e.status)}`, e.text, e.status === "done" ? "done" : "fail");
     if (e.status === "done" && !opts.replaying) window.dispatchEvent(new Event(RUN_DONE));
   }
   // "changed" includes the queue: something started, finished, or was stopped.

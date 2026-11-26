@@ -243,7 +243,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
         <div className="note-actions">
           <button type="button" className="btn small primary" disabled={!onInsert || !onAttach} title={onInsert ? "Put the brief in your message, with the ticket attached. Nothing is sent until you send it." : noBox} onClick={start}>Start work</button>
           <button type="button" className="btn small" disabled={writing || blank} title="Have it written again from the note as it stands now" onClick={write}>Write it again</button>
-          <button type="button" className="btn small" disabled={filing} title="File this as a Mae ticket, to track on the Tickets page" onClick={addTicket}>{filing ? "Adding…" : "Add to tickets"}</button>
+          <button type="button" className="btn small" disabled={filing} title="File this as a ticket, to track on the Tickets page" onClick={addTicket}>{filing ? "Adding…" : "Add to tickets"}</button>
           {ticket!.conversation && onOpenConversation && <button type="button" className="linkish" title={`The conversation in which the ${nameNow("Scout")} read the code and wrote this`} onClick={() => onOpenConversation(ticket!.conversation!)}>How it was written</button>}
         </div>
       ) : (
@@ -255,7 +255,7 @@ function NoteEditor({ note, unsaved, failed, onInsert, onAttach, onOpenConversat
           {!ticket && <button type="button" className="btn small" disabled={blank || writing || unsaved && failed}
             title={project ? `Have the ${nameNow("Scout")} read ${project.name}'s code and write this up as a ticket the ${w("crew")} can work from: a title, acceptance criteria, and where it goes` : `Have the ${nameNow("Scout")} write this up as a ticket the ${w("crew")} can work from. Outside a project it can't read any code, so its technical notes will be guesses: open a project first for a grounded one.`}
             onClick={write}>Write up as a ticket</button>}
-          <button type="button" className="btn small" disabled={empty} title="Split this note into Mae tickets, one per piece of work: you choose which to file" onClick={turn}>Turn into tickets</button>
+          <button type="button" className="btn small" disabled={empty} title="Split this note into tickets, one per piece of work: you choose which to file" onClick={turn}>Turn into tickets</button>
         </div>
       )}
     </div>

@@ -76,7 +76,7 @@ export const AskCard = memo(function AskCard({ ask }: { ask: AskNode }) {
       {/* A plan's steps can be tracked as Mae tickets, approved or not (the app files them under this conversation). */}
       {kind === "plan" && ask.body.trim() && (
         <div className="ask-tickets">
-          <button type="button" className="linkish" title="Split this plan into Mae tickets, one per piece of work: you choose which to file"
+          <button type="button" className="linkish" title="Split this plan into tickets, one per piece of work: you choose which to file"
             onClick={() => turnIntoTickets({ text: ask.body, kind: "plan" })}>Turn into tickets</button>
         </div>
       )}
