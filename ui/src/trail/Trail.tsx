@@ -271,7 +271,8 @@ export function Trail({ S, store, onClose, onOpenQuest, pick }: {
   const [draw, setDraw] = useState<Draw>(() => (storeGet(DRAW_KEY) === "tree" ? "tree" : "rings")); // how the whole map is drawn
   const root = useRef<HTMLDivElement>(null), all = useRef<HTMLOListElement>(null), sky = useRef<HTMLDivElement>(null);
   const byHand = useRef(false), fitted = useRef(""), grew = useRef(false); // the size: yours? fitted for which view? just refitted as a plan joined?
-  // It's a dialog over the whole page (Dialog.tsx keeps Tab inside it and gives the keyboard back as it closes).
+  // It's a dialog over the whole page: Dialog.tsx (useModal, as every overlay) keeps Tab inside it and gives the
+  // keyboard back as it closes. Escape is answered below first; what's left of it closes the map.
   // The keyboard rests on the dialog's own box: the one the map is drawn in.
   const rest = () => root.current?.parentElement?.focus({ preventScroll: true });
   useEffect(rest, []);

@@ -85,3 +85,45 @@ describe("code blocks", () => {
     expect(el.querySelector("pre > code")?.textContent).toBe("const a = 1;");
   });
 });
+
+describe("tables", () => {
+  const rows = (el: Element) => [...el.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent).join(" / "));
+
+  it("draws a table in its own box, a cell for each column", () => {
+    const el = md("| # | Line | RIGHT |\n|---|:---|--:|\n| 1 | First | yes |\n| 2 | Second | no |");
+    expect(el.querySelector(".md-table > table")).toBeTruthy();
+    expect([...el.querySelectorAll("th")].map((th) => th.textContent)).toEqual(["#", "Line", "RIGHT"]);
+    expect(rows(el)).toEqual(["1 / First / yes", "2 / Second / no"]);
+    expect(el.querySelectorAll(".md-row-cut")).toHaveLength(0);
+  });
+
+  it("keeps a row cut off with … in the table, marked as cut, instead of showing its pipes", () => {
+    const el = md("| # | Step | Who |\n|---|---|---|\n| 3 | Write the notes | Scribe |\n| 4 | Trackin…");
+    expect(el.textContent).not.toContain("|");
+    expect(rows(el)).toEqual(["3 / Write the notes / Scribe", "4 / Trackin… / "]);
+    expect(el.querySelectorAll("tbody tr.md-row-cut")).toHaveLength(1);
+    expect(el.querySelector("tbody tr:last-child")!.classList.contains("md-row-cut")).toBe(true);
+  });
+
+  it("draws a table that is still coming in: a half-written row, and a head whose dashes are still arriving", () => {
+    const partRow = md("Here's the plan:\n\n| # | Step |\n|---|---|\n| 1 | Scout reads | \n| 2 | Artif");
+    expect(partRow.querySelector("p")!.textContent).toBe("Here's the plan:");
+    expect(rows(partRow)).toEqual(["1 / Scout reads", "2 / Artif"]);
+    expect(partRow.textContent).not.toContain("|");
+    const partHead = md("| # | Step |\n|---|--");
+    expect([...partHead.querySelectorAll("th")].map((th) => th.textContent)).toEqual(["#", "Step"]);
+    expect(partHead.textContent).not.toContain("|");
+  });
+
+  it("a half row of dashes only counts at the very end, and a line of pipes on its own is just text", () => {
+    const el = md("| a | b |\n|---|--\nmore");
+    expect(el.querySelector("table")).toBeNull();
+    expect(md("| not | a table |").querySelector("table")).toBeNull();
+  });
+
+  it("ends a table at the first line that isn't one of its rows", () => {
+    const el = md("| a | b |\n|---|---|\n| 1 | 2 |\nAfter the table.");
+    expect(rows(el)).toEqual(["1 / 2"]);
+    expect(el.querySelector(":scope > p")?.textContent).toBe("After the table.");
+  });
+});

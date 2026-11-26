@@ -128,6 +128,7 @@ export function Constellation({ full, onFull, onOpenConversation, onOpenMemory }
   const [merge, setMerge] = useState<Merge>(null);
   const [runsOpen, setRunsOpen] = useState<boolean | null>(null); // null: open when there are runs to list and room for them
   const [runsPicked, setRunsPicked] = useState<string[]>([]);
+  // (No useModal here: in place the map is a region Tab passes through. Full screen it stands in a Dialog, which is one.)
   const root = useRef<HTMLDivElement>(null), fullButton = useRef<HTMLButtonElement>(null);
   const sky = useRef<SVGSVGElement>(null);
   const [host] = useState(() => Object.assign(document.createElement("div"), { className: "con-host" }));

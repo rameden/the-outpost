@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ConfirmHost } from "../components/Confirm.tsx";
+import { Opener, expectTabWraps } from "../components/modalkit.tsx";
 import type { GraphNode, MemoryGraph, Why } from "../types.ts";
 import { Constellation, labelAngle, placeClass, placeSays } from "./Constellation.tsx";
 import { BULB, CLEFT, fibre } from "./Synapse.tsx";
@@ -490,4 +491,21 @@ test("over the whole page it's a dialog, and Tab stays inside it", async () => {
   expect(document.activeElement).toBe(first);
   expect(fireEvent.keyDown(first, { key: "Tab", shiftKey: true })).toBe(false);
   expect(document.activeElement).toBe(stops().at(-1));
+});
+
+// (From main's Tab-trap work, moved with the map: over the page it's opened from somewhere else, as /constellation does.)
+test("opened over the page from elsewhere: Tab stays inside the map, and focus goes back to what opened it when it closes", async () => {
+  render(<><Opener>{(close) => <Constellation full onFull={(to) => { if (!to) close(); }} onOpenConversation={vi.fn()} onOpenMemory={vi.fn()} />}</Opener><ConfirmHost /></>);
+  const opener = screen.getByRole("button", { name: "Open it" });
+  opener.focus();
+  fireEvent.click(opener);
+  await star(/^Use British spelling Scribe's memory/);
+  const map = overPage();
+  expect(map.contains(document.activeElement)).toBe(true);
+  expectTabWraps(map); // (focusing the first star opens its panel, so then the last control is the panel's)
+  fireEvent.keyDown(map, { key: "Escape" }); // puts the star down
+  expect(screen.queryByRole("dialog")).toBeTruthy();
+  fireEvent.keyDown(map, { key: "Escape" }); // and leaves
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
 });
