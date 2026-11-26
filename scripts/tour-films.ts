@@ -50,7 +50,7 @@ const SECTIONS = [
   {
     id: "films", name: "Films", label: "Films", title: "Watch the work go round the crew.",
     lede: "Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the second the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as a ticket reaches it. The third is the night shift, at work while you sleep.",
-    before: '<section id="orbit">', linkBefore: '        <a href="#orbit">Orbit</a>', // just ahead of Orbit, the same sky live
+    before: '<section id="orbit">', linkBefore: '        <a href="#kit">The kit</a>', // just ahead of the kit
   },
 ];
 // The film whose styles the others share. What a film has beyond them goes in with that film alone.

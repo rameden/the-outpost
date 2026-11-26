@@ -639,6 +639,34 @@ footer .outpost-sub { font-size: 10px; }
   .feature { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .item.solo { grid-column: 1 / -1; } /* a lone small card on two columns takes the row, so no gap is left beside it */
 }
+/* Short of room for the section links beside the buttons, they drop to a row of their own under the logo, and scroll sideways. */
+@media (max-width: 1080px) {
+  .top { flex-wrap: wrap; row-gap: 12px; }
+  .top-end { display: contents; }
+  .top nav { order: 3; flex: 1 0 100%; flex-wrap: nowrap; gap: 18px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; padding-bottom: 4px; }
+  .top nav::-webkit-scrollbar { display: none; }
+}
+.menu-btn, .drawer-only, .drawer-shade { display: none; }
+.menu-btn { padding: 6px 9px; line-height: 0; }
+/* On a phone the section links live in a drawer from the right, opened by the menu button. */
+@media (max-width: 600px) {
+  .top { flex-wrap: nowrap; }
+  .top-end { display: flex; gap: 8px; }
+  .looks .theme:not(#theme):not(.menu-btn), #palette { display: none; }
+  .menu-btn { display: inline-flex; }
+  .top nav { position: fixed; inset: 0 0 0 auto; width: min(78vw, 300px); z-index: 60; order: 0; flex-direction: column; flex-wrap: nowrap; gap: 0; overflow-y: auto; white-space: normal;
+    padding: 72px 24px 24px; background: var(--surface); border-left: 1px solid var(--border-strong); box-shadow: -12px 0 32px rgba(0,0,0,.18);
+    transform: translateX(100%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s; font-size: 17px; }
+  .top nav a { padding: 14px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+  .top nav a:hover { border-bottom-color: var(--border); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .top nav .drawer-only { display: block; }
+  body.drawer-open .top nav { transform: none; visibility: visible; transition: transform .22s ease; }
+  .drawer-shade { position: fixed; inset: 0; z-index: 59; background: rgba(0,0,0,.35); }
+  body.drawer-open .drawer-shade { display: block; }
+  body.drawer-open { overflow: hidden; }
+  .menu-btn[aria-expanded="true"] { position: relative; z-index: 61; }
+}
+@media (max-width: 600px) and (prefers-reduced-motion: reduce) { .top nav, body.drawer-open .top nav { transition: none; } }
 @media (max-width: 600px) {
   section { padding-block: 64px 0; }
   .crew, .kit, .rules, .route, .words { grid-template-columns: minmax(0, 1fr); }
@@ -646,11 +674,6 @@ footer .outpost-sub { font-size: 10px; }
   .phone { grid-template-columns: minmax(0, 1fr); }
   .quests { grid-template-columns: minmax(0, 1fr); }
   .stop .pin::after { border-top-color: transparent; }
-  /* On a phone the section links drop to a row of their own under the logo, and scroll sideways. */
-  .top { flex-wrap: wrap; row-gap: 12px; }
-  .top-end { display: contents; }
-  .top nav { order: 3; flex: 1 0 100%; flex-wrap: nowrap; gap: 18px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; padding-bottom: 4px; }
-  .top nav::-webkit-scrollbar { display: none; }
   .costs { grid-template-columns: minmax(0, 1fr); }
   .needs dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .needs dd + dt { margin-top: 8px; }
@@ -700,16 +723,14 @@ footer .outpost-sub { font-size: 10px; }
   <header class="top">
     <a class="brand" href="/" title="Back to mission control" aria-label="Outpost" data-t-title="Back to {hq}"><svg class="mae-mark" viewBox="0 0 200 200" aria-hidden="true"><use href="#mae-mark"/></svg><span class="outpost-words" aria-hidden="true"><span class="outpost-title">Outpost</span><span class="outpost-sub"></span></span></a>
     <div class="top-end">
-      <nav aria-label="Sections">
+      <nav aria-label="Sections" id="sections">
         <a href="#crew">The <span data-word="crew">crew</span></a>
         <a href="#route">How it runs</a>
         <a href="#films">Films</a>
-        <a href="#orbit">Orbit</a>
         <a href="#kit">The kit</a>
-        <a href="#rules">Outpost rules</a>
         <a href="#pitch">Get started</a>
-        <a href="#costs">Costs</a>
         <a href="#faq">FAQ</a>
+        <a class="drawer-only" href="https://github.com/rameden/the-outpost">GitHub</a>
       </nav>
       <div class="looks">
         <a class="theme" href="https://github.com/rameden/the-outpost">GitHub</a>
@@ -721,6 +742,7 @@ footer .outpost-sub { font-size: 10px; }
           <option value="ochre">Ochre</option>
         </select>
         <button class="theme" id="theme" type="button">Dark mode</button>
+        <button class="theme menu-btn" id="menu-btn" type="button" aria-controls="sections" aria-expanded="false" aria-label="Sections"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       </div>
     </div>
   </header>
@@ -1229,6 +1251,21 @@ footer .outpost-sub { font-size: 10px; }
   // change made there shows here at once.
   var root = document.documentElement;
   var themeBtn = document.getElementById('theme');
+  // The menu button opens the section links as a drawer on a phone; a link, the shade or Esc closes it.
+  var menuBtn = document.getElementById('menu-btn');
+  var sections = document.getElementById('sections');
+  var shade = document.createElement('div');
+  shade.className = 'drawer-shade';
+  sections.parentNode.insertBefore(shade, sections); // in the header, so it sits under the drawer and not over it
+  var setDrawer = function (open) {
+    document.body.classList.toggle('drawer-open', open);
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { var first = sections.querySelector('a'); if (first) first.focus(); }
+  };
+  menuBtn.addEventListener('click', function () { setDrawer(!document.body.classList.contains('drawer-open')); });
+  shade.addEventListener('click', function () { setDrawer(false); });
+  sections.addEventListener('click', function (e) { if (e.target.closest('a')) setDrawer(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && document.body.classList.contains('drawer-open')) { setDrawer(false); menuBtn.focus(); } });
   var paletteSel = document.getElementById('palette');
   var palettes = ['harbor', 'moss', 'heather', 'ochre'];
   // Mark the one picked in a list under "Make it yours" (solid border, aria-pressed).
