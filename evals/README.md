@@ -69,7 +69,10 @@ With no baseline recorded, `--compare` has nothing to compare with and a failed 
 
 ### The recorded baseline
 
-The committed baseline was recorded on 2026-11-26: two trials of each of the 19 cases, on the subscription runtime (`claude-code`) with the default models. Every case passed both times, and the run cost about $1.22.
+The committed baseline was recorded on 2026-11-26: five trials of each of the 19 cases, on the subscription runtime (`claude-code`) with the default models. The run cost about $2.92. Seventeen cases passed all five times. Two did not:
+
+- `scribe-summary` passed 2 of 5. The judge failed summaries that added things the notes don't say ("report back", and that Nov 25 "is today": the run happened on the date in the notes). At 0.4 this case can't drop by half, so the comparison can't call a clear regression on it until the case is steadier.
+- `loop-plan-order` passed 4 of 5. In the failed trial the stand-in for the user declined a command the Artificer asked to run (only the exact command in `approveShell` is approved), and the run stopped there.
 
 The baseline says which runtime and models it was recorded with. If CI is given an `ANTHROPIC_API_KEY`, record it again the way CI runs (the API, default models), or the weekly comparison is against a different setup:
 
