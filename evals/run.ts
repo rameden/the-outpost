@@ -154,6 +154,8 @@ async function trial(id: string, n: number, label = n === 1 ? id : `  (${n})`) {
   const passed = r.checks.filter((x: any) => x.pass).length;
   console.log(`${r.pass ? "PASS" : "FAIL"}  ${String(passed).padStart(1)}/${r.checks.length} checks  ${money(r.cost).padStart(6)}  ${r.seconds}s`);
   for (const x of r.checks) if (!x.pass) console.log(`      ${x.required ? "✗" : "·"} ${x.name}${x.detail ? `: ${x.detail}` : ""}`);
+  // What the stand-in for the user said no to: often why a run that should have passed stopped short.
+  if (!r.pass) for (const d of r.declined ?? []) console.log(`      said no to (${d.kind}): ${(d.kind === "shell" ? d.body : d.title).split("\n")[0].slice(0, 160)}`);
   if (r.status === "crashed" || r.status === "error") console.log(`      ${r.reply.split("\n").slice(-3).join("\n      ")}`);
 }
 for (const c of cases) {

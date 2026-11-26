@@ -13,7 +13,7 @@ import { startFakeApi, isFirstTurn, lastToolResults, systemText, whoAsks, type R
 
 const TSX = join(REPO, "node_modules", "tsx", "dist", "cli.mjs");
 type Check = { name: string; required: boolean; pass: boolean; detail: string };
-type Result = { id: string; pass: boolean; status: string; cost: number; tokens: { in: number; out: number }; models: string[]; checks: Check[]; reply: string };
+type Result = { id: string; pass: boolean; status: string; cost: number; tokens: { in: number; out: number }; models: string[]; checks: Check[]; reply: string; declined: { kind: string; title: string; body: string }[] };
 
 async function runCase(id: string, script: (body: any) => Reply): Promise<{ r: Result; seen: Seen[] }> {
   const api = await startFakeApi(script);
@@ -45,7 +45,7 @@ const write = (path: string, content: string) => ({ name: "write_file", input: {
 const firstMessage = (b: any): string => { const c = b.messages[0].content; return typeof c === "string" ? c : c.map((x: any) => x.text ?? "").join("\n"); };
 
 test("plan order: a plan that marks what waits passes; a flat list is turned down", async () => {
-  const run = (plan: string) => {
+  const run = (plan: string, command = "node tools/count-teams.mjs") => {
     const qm = turns(
       { tools: [{ name: "submit_plan", input: { plan } }] },
       { tools: [dispatch("scout", 1), dispatch("artificer", 2)] },
@@ -56,13 +56,15 @@ test("plan order: a plan that marks what waits passes; a flat list is turned dow
       if (who === "Quartermaster") return qm();
       if (!isFirstTurn(b)) return { text: `${who}: done.` };
       if (who === "Scout") return { tools: [{ name: "read_file", input: { path: "docs/costs.md" } }] };
-      if (who === "Artificer") return { tools: [{ name: "bash", input: { command: "node tools/count-teams.mjs" } }] };
+      if (who === "Artificer") return { tools: [{ name: "bash", input: { command } }] };
       return { tools: [write("camp/agents/scribe/outputs/cost-per-team.md", "Hosting cost per active team last month: $40.\n")] };
     });
   };
-  const [good, flat] = await Promise.all([
-    run("1. Scout: find last month's hosting bill\n2. Artificer: count the active teams\n3. Scribe: save the sentence (after 1, 2)"),
-    run("1. Scout: find last month's hosting bill\n2. Artificer: count the active teams\n3. Scribe: save the sentence"),
+  const ordered = "1. Scout: find last month's hosting bill\n2. Artificer: count the active teams\n3. Scribe: save the sentence (after 1, 2)";
+  const [good, flat, more] = await Promise.all([
+    run(ordered),
+    run("1. Scout: find last month's hosting bill\n2. Artificer: count the active teams\n3. Scribe: save the sentence", "node ./tools/count-teams.mjs 2>&1"),
+    run(ordered, "node tools/count-teams.mjs && git push"),
   ]);
   passes(good.r);
   assert.ok(check(good.r, "the two lookups were out at the same time").pass);
@@ -70,6 +72,11 @@ test("plan order: a plan that marks what waits passes; a flat list is turned dow
   assert.ok(good.seen.some((s) => s.who === "Quartermaster" && /approved the plan/.test(lastToolResults(s.body))));
   assert.ok(good.seen.some((s) => s.who === "Artificer" && /46 active teams/.test(lastToolResults(s.body))), "the approved command ran");
   assert.deepEqual(failed(flat.r), ["the plan makes the writing wait for both lookups"]);
+  // The same command said another way is approved too; one with something added is not, and the result says what was refused.
+  assert.ok(flat.seen.some((s) => s.who === "Artificer" && /46 active teams/.test(lastToolResults(s.body))), "the command with ./ and 2>&1 ran");
+  assert.deepEqual(good.r.declined, []);
+  assert.deepEqual(more.r.declined.map((d) => [d.kind, d.body]), [["shell", "node tools/count-teams.mjs && git push"]]);
+  assert.ok(more.seen.some((s) => s.who === "Artificer" && /declined to run/.test(lastToolResults(s.body))));
 });
 
 test("ask before a plan: the question is answered with the case's answer; guessing is turned down", async () => {

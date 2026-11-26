@@ -9,7 +9,7 @@ import { enterSandbox, REPO } from "../tests/helpers/sandbox.ts";
 import type { CaseContext, Moment } from "./cases.ts";
 
 const id = process.argv[2];
-const { CASES } = await import("./cases.ts");
+const { CASES, approvesShell } = await import("./cases.ts");
 const c = CASES.find((x) => x.id === id);
 if (!c) throw new Error(`No eval case "${id}"`);
 
@@ -83,18 +83,18 @@ if (c.resume && c.agent) {
 
 // Everything that happens, in order: what the loop cases' rules read.
 const trail: Moment[] = [];
-// Approve only the shell commands this case expects, and the tool calls whose approval card names
-// one of the things it expects (approveTools); answer a question with the case's answer; decline
-// everything else. Every one is noted. (A command's card can carry the folder it runs in and a
-// note on why you're being asked; nothing else may follow the command itself.)
-const AFTER_COMMAND = /^(\n\(in [^\n]*\))?(\n\nReviewer: [\s\S]*|\n\nYour rule [^\n]*)?$/;
+// Approve only the shell commands this case expects (see approvesShell), and the tool calls whose
+// approval card names one of the things it expects (approveTools); answer a question with the
+// case's answer; say no to everything else. Every one is noted, and the ones told no go in the
+// result, so a run that stopped because something was refused shows what it was.
 const asked: { kind: string; title: string; answer: string }[] = [];
+const declined: { kind: string; title: string; body: string }[] = [];
 setAsker(async (q) => {
-  const body = q.body.trim();
-  const yes = (q.kind === "shell" && c.approveShell?.some((cmd) => body.startsWith(cmd) && AFTER_COMMAND.test(body.slice(cmd.length))))
+  const yes = (q.kind === "shell" && approvesShell(q.body, c.approveShell, process.cwd()))
     || (q.kind === "tool" && c.approveTools?.some((part) => q.title.includes(part)));
   const answer = q.kind === "question" && c.answer ? c.answer : yes || (q.kind === "plan" && c.plans) ? "y" : "n";
   asked.push({ kind: q.kind, title: q.title, answer });
+  if (answer === "n") declined.push({ kind: q.kind, title: q.title.slice(0, 160), body: q.body.trim().slice(0, 400) });
   trail.push({ type: "ask", kind: q.kind, title: q.title, body: q.body, answer });
   return answer;
 });
@@ -154,6 +154,6 @@ const models = [...new Set(quests.map((q) => `${q.character}: ${q.model.replace(
 rl.close();
 console.log("@@RESULT@@" + JSON.stringify({
   id, about: c.about, pass: checks.every((x) => x.pass || !x.required), status: result.status,
-  seconds, cost, tokens, models, checks, reply: result.text.slice(0, 600),
+  seconds, cost, tokens, models, checks, reply: result.text.slice(0, 600), declined,
 }));
 process.exit(0);

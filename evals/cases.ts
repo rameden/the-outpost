@@ -211,8 +211,9 @@ export const CASES: EvalCase[] = [
     about: "Summarizes notes accurately, under a word limit, into its own outputs folder",
     agent: "scribe",
     request: "Summarize notes/meeting.md for the team in under 120 words. Save it to camp/agents/scribe/outputs/summary.md.",
+    // The notes count in sprints, not dates: a run made on a date in the notes had the Scribe add "which is today".
     files: {
-      "notes/meeting.md": "# Planning meeting, Nov 4\n\nAttendees: Priya, Marco, Lee.\n\n- Decision: we move the launch from Nov 20 to Dec 2 because the payment provider's sandbox is down.\n- Priya owns the launch checklist.\n- Marco will draft the customer email by Nov 25.\n- Open question: whether to keep the beta waitlist open (Lee to check numbers).\n",
+      "notes/meeting.md": "# Planning meeting, sprint 14\n\nAttendees: Priya, Marco, Lee.\n\n- Decision: we move the launch from the end of sprint 15 to the end of sprint 17 because the payment provider's sandbox is down.\n- Priya owns the launch checklist.\n- Marco will draft the customer email by the end of sprint 16.\n- Open question: whether to keep the beta waitlist open (Lee to check numbers).\n",
     },
     checks: [
       { name: "saved the file", required: true, run: () => existsSync("camp/agents/scribe/outputs/summary.md") },
@@ -220,14 +221,16 @@ export const CASES: EvalCase[] = [
         const n = existsSync("camp/agents/scribe/outputs/summary.md") ? words(readFileSync("camp/agents/scribe/outputs/summary.md", "utf8")) : 999;
         return n < 120 || `${n} words`;
       } },
-      { name: "has the key facts (Dec 2, Priya, Marco)", required: true, run: () => {
+      { name: "has the key facts (sprint 17, Priya, Marco)", required: true, run: () => {
         const t = existsSync("camp/agents/scribe/outputs/summary.md") ? readFileSync("camp/agents/scribe/outputs/summary.md", "utf8") : "";
-        return (/dec(ember)?\.? 2/i.test(t) && /priya/i.test(t) && /marco/i.test(t)) || "missing a key fact";
+        return (/sprint 17/i.test(t) && /priya/i.test(t) && /marco/i.test(t)) || "missing a key fact";
       } },
       { name: "judge: no invented facts", required: true, run: async (c) => {
         const summary = existsSync("camp/agents/scribe/outputs/summary.md") ? readFileSync("camp/agents/scribe/outputs/summary.md", "utf8") : "(missing)";
         const v = await c.judge(
-          "PASS if every claim in the SUMMARY is supported by the NOTES (no invented names, dates, reasons, or decisions). FAIL otherwise.",
+          // (Spelled out, so a small addition like "and report back" gets the same verdict every time.)
+          "PASS if every claim in the SUMMARY is supported by the NOTES. Saying it in other words, shortening it, leaving things out, and restating who owns what are all fine. " +
+          "FAIL if the SUMMARY adds anything the NOTES don't say: a name, a date, a number, a reason, a decision, what day it is today, or a task or promise nobody in the NOTES took on (for example that someone will report back or follow up).",
           `NOTES:\n${readFileSync("notes/meeting.md", "utf8")}\n\nSUMMARY:\n${summary}`
         );
         return v.pass || v.reason;
@@ -304,6 +307,43 @@ export const CASES: EvalCase[] = [
 // rather than on a paid run. Returns the problems found (none: the set is good).
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const outside = (path: string) => isAbsolute(path) || normalize(path).startsWith("..");
+
+// Whether the stand-in for the user says yes to a shell command: only when it is one of the case's
+// approved commands, said exactly or in one of the usual other ways that run the same thing:
+// "./" before a path, quotes round a plain word, the sandbox's own folder spelled out, " 2>&1" on
+// the end, or stepping into a folder first (cd tools && node count.mjs, or the tool's own folder,
+// for an approved node tools/count.mjs). Anything added to the command is still a no. The card
+// may carry the folder it runs in and a note on why you're being asked; nothing else may follow.
+const AFTER_COMMAND = /^(\n\(in ([^\n]*)\))?(\n\nReviewer: [\s\S]*|\n\nYour rule [^\n]*)?$/;
+const PLAIN = "[\\w./@+-]+";
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const folder = (path: string) => { const p = normalize(path).split("\\").join("/").replace(/\/+$/, ""); return p === "." ? "" : p; };
+export function approvesShell(body: string, approved: string[] = [], root = ""): boolean {
+  const [line = "", ...more] = body.trim().split("\n");
+  const after = AFTER_COMMAND.exec(more.length ? `\n${more.join("\n")}` : "");
+  if (!after) return false;
+  const here = root ? new RegExp(`(^| )${escaped(root.replace(/[\\/]+$/, ""))}(?:/|(?= |$))`, "g") : null;
+  const tidy = (cmd: string) => {
+    let out = cmd.trim().replace(/\s+/g, " ").replace(/ 2>&1$/, "").replace(new RegExp(`(^| )(["'])(${PLAIN})\\2(?= |$)`, "g"), "$1$3");
+    if (here) out = out.replace(here, (_m, lead: string) => `${lead}./`);
+    return out.replace(/(^| )(?:\.\/)+(?=\S)/g, "$1").replace(/(^| )\.\/?(?= |$)/g, "$1.");
+  };
+  let asked = tidy(line);
+  let dir = folder(tidy(after[2] ?? "") || ".");
+  const cd = new RegExp(`^cd (${PLAIN}) && (.+)$`).exec(asked);
+  if (cd) { dir = folder(`${dir || "."}/${cd[1]}`); asked = cd[2]; }
+  const placed = !isAbsolute(dir) && !dir.startsWith("..");   // a folder inside the sandbox, so paths can be read from it
+  if (cd && !placed) return false;
+  return approved.some((cmd) => {
+    const want = tidy(cmd);
+    // The same words: fine wherever the card says it runs, but not after a cd, where they'd mean another file.
+    if (asked === want) return !cd || !dir;
+    // Stepped into a folder first: the approved command with that folder taken off its paths.
+    if (!dir || !placed) return false;
+    const stepped = want.replace(new RegExp(`(^| )${escaped(dir)}/`, "g"), "$1");
+    return stepped !== want && asked === stepped;
+  });
+}
 export function caseProblems(cases: EvalCase[] = CASES): string[] {
   const out: string[] = [];
   const seen = new Set<string>();

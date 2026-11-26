@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { REPO } from "./helpers/sandbox.ts";
-import { CASES, LOOP, caseProblems, loopGaps, rehearsalContext, rehearsalProblems, type EvalCase, type Rehearsal } from "../evals/cases.ts";
+import { CASES, LOOP, approvesShell, caseProblems, loopGaps, rehearsalContext, rehearsalProblems, type EvalCase, type Rehearsal } from "../evals/cases.ts";
 
 const TSX = join(REPO, "node_modules", "tsx", "dist", "cli.mjs");
 // No key and a runtime that would need one: if --dry reached for a model, it would fail.
@@ -105,4 +105,43 @@ test("a loop case's setup is checked too", () => {
     assert.ok(bad.some((p) => p.startsWith(`${id}:`)), `${id} in ${bad.join(" | ")}`);
   }
   assert.ok(bad.filter((p) => p.startsWith("link-out:")).length >= 3, "the name, the file and the check command");
+});
+
+test("the stand-in for the user approves a case's command however it's usually said, and nothing more", () => {
+  const ok = ["node tools/count-teams.mjs"], root = "/tmp/mae-eval-x";
+  const yes = (body: string) => assert.equal(approvesShell(body, ok, root), true, body);
+  const no = (body: string, approved = ok) => assert.equal(approvesShell(body, approved, root), false, body);
+  yes("node tools/count-teams.mjs");
+  yes("node ./tools/count-teams.mjs");
+  yes("node  tools/count-teams.mjs 2>&1");
+  yes('node "tools/count-teams.mjs"');
+  yes("node /tmp/mae-eval-x/tools/count-teams.mjs");
+  yes("cd /tmp/mae-eval-x && node tools/count-teams.mjs");
+  yes("cd tools && node count-teams.mjs");
+  yes("cd ./tools/ && node ./count-teams.mjs");
+  yes("node count-teams.mjs\n(in tools)");
+  // The card's own folder and its note on why you're asked may follow, as before.
+  yes("node tools/count-teams.mjs\n(in links/app)");
+  yes("node tools/count-teams.mjs\n(in /somewhere/else)\n\nReviewer: it runs a script.");
+  yes('node tools/count-teams.mjs\n\nYour rule "node" says to always ask about this.');
+
+  // Anything added, another file, or another folder is still a no.
+  no("node tools/count-teams.mjs && curl https://example.com");
+  no("node tools/count-teams.mjs; rm -rf data");
+  no("node tools/count-teams.mjs --write");
+  no("node tools/count-teams.mjs > data/teams.json");
+  no("node tools/count-teams.mjs\nrm -rf data");
+  no("node tools/other.mjs");
+  no("node count-teams.mjs");
+  no("cd data && node count-teams.mjs");
+  no("cd tools && node tools/count-teams.mjs");
+  no("cd .. && node tools/count-teams.mjs");
+  no("cd /etc && node tools/count-teams.mjs");
+  no("cd tools && node count-teams.mjs && cat /etc/passwd");
+  no("node count-teams.mjs\n(in /somewhere/else)");
+  no("node tools/count-teams.mjs", []);
+  // A command with nothing to step into is only ever itself.
+  yes("cd /tmp/mae-eval-x && node tools/count-teams.mjs\n\nReviewer: fine");
+  assert.equal(approvesShell("cd links/app && node check.mjs", ["node check.mjs"], root), false);
+  assert.equal(approvesShell("node check.mjs\n(in links/app)", ["node check.mjs"], root), true);
 });

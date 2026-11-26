@@ -71,8 +71,20 @@ With no baseline recorded, `--compare` has nothing to compare with and a failed 
 
 The committed baseline was recorded on 2026-11-26: five trials of each of the 19 cases, on the subscription runtime (`claude-code`) with the default models. The run cost about $2.92. Seventeen cases passed all five times. Two did not:
 
-- `scribe-summary` passed 2 of 5. The judge failed summaries that added things the notes don't say ("report back", and that Nov 25 "is today": the run happened on the date in the notes). At 0.4 this case can't drop by half, so the comparison can't call a clear regression on it until the case is steadier.
-- `loop-plan-order` passed 4 of 5. In the failed trial the stand-in for the user declined a command the Artificer asked to run (only the exact command in `approveShell` is approved), and the run stopped there.
+- `scribe-summary` passed 2 of 5. The judge failed summaries that added things the notes don't say ("report back", and that Nov 25 "is today": the run happened on a date in the notes).
+- `loop-plan-order` passed 4 of 5. In the failed trial the stand-in for the user said no to a command the Artificer asked to run, and the run stopped there.
+
+Both cases were changed after that run, so their two lines in the baseline are for the old versions until they are recorded again:
+
+```bash
+npm run eval -- --trials 5 --write-baseline scribe-summary loop-plan-order
+```
+
+That runs only those two (about $0.40) and leaves the other 17 lines as they are. What changed:
+
+- The summary's notes now count in sprints, so no date in them can be the day of the run. The judge's rule is spelled out: other words and shorter are fine, anything added is not (a name, a date, a reason, what day it is, a task nobody took on). If the Scribe still adds "and report back", the case still fails, and that is the Scribe, not the case. At a pass rate under 0.5 the comparison can't call a clear regression on a case, so it is worth knowing which it is.
+- The stand-in for the user now says yes to an approved command said another of the usual ways: `./` before a path, quotes round a plain word, ` 2>&1` on the end, the sandbox's own folder spelled out, or stepping into a folder first (`cd tools && node count-teams.mjs` for `node tools/count-teams.mjs`). Anything added to the command is still a no (`approvesShell` in `cases.ts`).
+- A failed trial now lists what the stand-in said no to (`said no to (shell): …`), and the results file keeps it under `declined`, so a run that stopped because something was refused shows what it was.
 
 The baseline says which runtime and models it was recorded with. If CI is given an `ANTHROPIC_API_KEY`, record it again the way CI runs (the API, default models), or the weekly comparison is against a different setup:
 
