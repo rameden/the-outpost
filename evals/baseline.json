@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "at": "2026-11-26T04:29:30.782Z",
-  "commit": "6ebe880",
+  "at": "2026-11-26T04:33:31.335Z",
+  "commit": "fbe63f2",
   "runtime": "claude-code",
   "cases": {
     "artificer-bugfix": {
@@ -240,11 +240,11 @@
     },
     "scribe-summary": {
       "trials": 5,
-      "passRate": 0.4,
-      "cost": 0.0253,
+      "passRate": 1,
+      "cost": 0.0247,
       "tokens": {
-        "in": 24350,
-        "out": 596
+        "in": 24494,
+        "out": 555
       },
       "models": [
         "Scribe: sonnet-5-5 · medium"
