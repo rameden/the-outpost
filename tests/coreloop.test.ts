@@ -294,7 +294,7 @@ test("talking to a crew member directly waits for the folder too, and is told wh
   let asked!: () => void;
   const artificerAsked = new Promise<void>((ok) => (asked = ok));
   script = (b) => { if (whoAsks(b) === "Artificer") asked(); return { text: "Artificer back." }; };
-  const waitingNotice = new Promise<void>((ok) => onEvent((e: any) => { if (e.type === "notice" && /Waiting for Scribe's quest to finish in links\//.test(e.text)) ok(); }));
+  const waitingNotice = new Promise<void>((ok) => onEvent((e: any) => { if (e.type === "notice" && /Waiting for Scribe's \{quest\} to finish in links\//.test(e.text)) ok(); }));
   const run = runDirect("artificer", "Change something");
   await waitingNotice;
   assert.equal(went("Artificer"), 0, "nothing was asked of the model while the folder was taken");
