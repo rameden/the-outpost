@@ -71,7 +71,7 @@ With no baseline recorded, `--compare` has nothing to compare with and a failed 
 
 The committed baseline was recorded on 2026-11-26, on the subscription runtime (`claude-code`) with the default models: five trials of each of the 19 cases (about $2.92), then five more of `scribe-summary` and `loop-plan-order` after those two cases were changed (about $0.41). Eighteen cases pass all five times.
 
-`scribe-summary` passes 2 of 5, and that is the Scribe, not the case. In the three failed trials the summary ended with a "Next steps" line saying Lee will "report back" on the waitlist numbers; the notes only say "Lee to check numbers". The line comes from the Scribe's house style (`skills/scribe/house-style/SKILL.md`: end with "Next steps" only if there genuinely are next steps). Until the Scribe stops adding to it, this case stays under 0.5, where the comparison can't call a clear regression on it.
+`scribe-summary` passed 2 of 5, and that was the Scribe, not the case. In the three failed trials the summary ended with a "Next steps" line saying Lee will "report back" on the waitlist numbers; the notes only say "Lee to check numbers". The line comes from the Scribe's house style (`skills/scribe/house-style/SKILL.md`: end with "Next steps" only if there genuinely are next steps). The house style now says that line states only what the source says. That change has not been run yet, so the baseline line (0.4) is from before it: record it again with `npm run eval -- --trials 5 --write-baseline scribe-summary`. Under 0.5 the comparison can't call a clear regression on a case.
 
 What the first five-trial run found, and what was changed for it:
 
