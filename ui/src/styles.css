@@ -35,6 +35,9 @@
   color-scheme: dark;
 }
 
+/* Switching light/dark or palette cross-fades the page (themes.ts starts the view transition). */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 320ms; animation-timing-function: ease-in-out; }
+
 /* ---------- Other palettes ----------
    The colours above are the camp's own. Each palette below swaps the paper, the ink and the accent,
    on its light side and its dark side; light or dark is still chosen by data-theme (or the system),

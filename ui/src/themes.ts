@@ -74,13 +74,23 @@ function show(mode: unknown, palette: unknown) {
   window.dispatchEvent(new Event(SEASON_CHANGED));
 }
 
+// A change you make yourself cross-fades the whole page from the old colours to the new, rather
+// than snapping. The browser's view transition does it (a snapshot of before, faded into after;
+// the timing is in styles.css under ::view-transition). Where there's no view transition, or you
+// asked the system for less motion, or the tab is hidden, it just changes.
+function fade(change: () => void) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  if (!doc.startViewTransition || document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches) return change();
+  doc.startViewTransition(change);
+}
+
 export function setMode(mode: Mode) {
   storeSet(MODE_KEY, mode === "system" ? "" : mode);
-  show(mode, paletteNow());
+  fade(() => show(mode, paletteNow()));
 }
 export function setPalette(palette: PaletteId) {
   storeSet(PALETTE_KEY, palette === "camp" ? "" : palette);
-  show(modeNow(), palette);
+  fade(() => show(modeNow(), palette));
 }
 export function setSeason(choice: SeasonChoice) {
   storeSet(SEASON_KEY, choice);
