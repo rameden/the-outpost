@@ -38,7 +38,7 @@ describe("the star chart page", () => {
     expect(screen.getByRole("heading", { name: "Outpost Work" })).toBeTruthy();
     expect(screen.getByText("3 members")).toBeTruthy();
     expect(screen.getByText("3 hours ago")).toBeTruthy();
-    expect(screen.getByText("127.0.0.1:4748")).toBeTruthy();
+    expect(screen.getByText("localhost:4748")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Launch" }));
     await waitFor(() => expect(go).toHaveBeenCalledWith("http://127.0.0.1:4748/#k=abc"));
     expect(calls.find((c) => c.path === "/api/launch")?.body).toEqual({ id: "work" });

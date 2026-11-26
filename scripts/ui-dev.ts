@@ -29,7 +29,7 @@ let starting = false;
 let pending = "";
 let held: string[] | null = null; // what the camp says between its link and ours, kept so ours comes first
 // The camp's links name its own port, where the last build is served: ours name Vite's.
-const ours = (line: string) => (vite ? line.replace(/http:\/\/127\.0\.0\.1:\d+\//g, `http://127.0.0.1:${vite.config.server.port}/`) : line);
+const ours = (line: string) => (vite ? line.replace(/http:\/\/(?:127\.0\.0\.1|localhost):\d+\//g, `http://localhost:${vite.config.server.port}/`) : line);
 
 // Pass the camp's output through a line at a time, except its own link: that one serves the
 // last build, and two links are one too many. The live link is printed in its place.
@@ -54,7 +54,7 @@ async function startVite(code: string, sign: string) {
       plugins: [{ name: "outpost-name", transformIndexHtml: (html) => withOutpost(html, readOutpost().name) }],
     });
     await vite.listen();
-    console.log(`${sign}  Outpost ${OUTPOST.name} is up: http://127.0.0.1:${vite.config.server.port}/#k=${code}`);
+    console.log(`${sign}  Outpost ${OUTPOST.name} is up: http://localhost:${vite.config.server.port}/#k=${code}`);
     console.log("   The page reloads as you edit ui/src.");
     for (const line of held ?? []) console.log(ours(line));
     held = null;

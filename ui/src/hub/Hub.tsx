@@ -273,7 +273,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
               {sel.crew !== null && <><dt>Team</dt><dd>{sel.crew} {plural(sel.crew, "member")}</dd></>}
               <dt>Last active</dt><dd>{sel.lastActive ? ago(sel.lastActive) : "Not yet"}</dd>
               {sel.since && <><dt>Made</dt><dd>{day(sel.since)}</dd></>}
-              <dt>Address</dt><dd className="hub-mono">127.0.0.1:{sel.port}</dd>
+              <dt>Address</dt><dd className="hub-mono">localhost:{sel.port}</dd>
               <dt>Folder</dt><dd className="hub-mono">{sel.dir}</dd>
             </dl>
             {sel.running && !sel.ours && <p className="con-quiet">Started outside the chart, so it's stopped where it was started.</p>}

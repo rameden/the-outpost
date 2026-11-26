@@ -50,7 +50,7 @@ export function startHub({ port = HUB_PORT, dev = false, log = (s: string) => co
 
   function run(o: Place): Kid {
     const id = idOf(o);
-    const child = spawnOutpost(o, dev, ["pipe", "pipe", "pipe"], { CAMP_CHART: `http://127.0.0.1:${port}/` });
+    const child = spawnOutpost(o, dev, ["pipe", "pipe", "pipe"], { CAMP_CHART: `http://localhost:${port}/` });
     const kid: Kid = { child, base: "", waiting: [], tail: [] };
     kids.set(id, kid);
     const read = (stream: NodeJS.ReadableStream | null) => {
@@ -85,7 +85,7 @@ export function startHub({ port = HUB_PORT, dev = false, log = (s: string) => co
   // ask, else its plain address (a browser that has been there before opens it by itself).
   async function launch(o: Place): Promise<string> {
     const id = idOf(o);
-    const plain = `http://127.0.0.1:${o.port}/`;
+    const plain = `http://localhost:${o.port}/`;
     const ours = kids.get(id);
     if (ours && ours.base) {
       // Enter in an outpost's terminal prints a new link: press it for them.
@@ -185,7 +185,7 @@ export function startHub({ port = HUB_PORT, dev = false, log = (s: string) => co
   };
   const listen = () => new Promise<string>((done, fail) => {
     server.once("error", fail);
-    server.listen(port, "127.0.0.1", () => done(`http://127.0.0.1:${port}/`));
+    server.listen(port, "127.0.0.1", () => done(`http://localhost:${port}/`));
   });
   return { listen, close, token };
 }
@@ -206,7 +206,7 @@ async function main(args: string[]) {
   let url: string;
   try { url = await hub.listen(); }
   catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "EADDRINUSE") throw new Error(`Port ${port} is taken: the star chart may already be up at http://127.0.0.1:${port}/. Or set HUB_PORT to another.`);
+    if ((e as NodeJS.ErrnoException).code === "EADDRINUSE") throw new Error(`Port ${port} is taken: the star chart may already be up at http://localhost:${port}/. Or set HUB_PORT to another.`);
     throw e;
   }
   console.log(`🔭 The star chart is up: ${url}`);

@@ -23,13 +23,13 @@ export function hubHostOk(host: string | undefined, port: number): boolean {
 // An outpost the chart starts is told where the chart is (CAMP_CHART), so its header can offer the
 // way back. Only the chart's own shape of address is taken: this machine, a port, nothing after.
 export function chartAddress(said: string | undefined): string | null {
-  const m = (said ?? "").match(/^http:\/\/127\.0\.0\.1:(\d{4,5})\/$/);
+  const m = (said ?? "").match(/^http:\/\/(?:127\.0\.0\.1|localhost):(\d{4,5})\/$/);
   return m && Number(m[1]) >= 1024 && Number(m[1]) <= 65535 ? m[0] : null;
 }
 
-// The sign-in link in a line an outpost printed ("…is up: http://127.0.0.1:4748/#k=…"), if any.
+// The sign-in link in a line an outpost printed ("…is up: http://localhost:4748/#k=…"), if any.
 export function signInLinkIn(line: string): string | null {
-  return line.match(/http:\/\/127\.0\.0\.1:\d+\/#k=[0-9a-f]+/)?.[0] ?? null;
+  return line.match(/http:\/\/(?:127\.0\.0\.1|localhost):\d+\/#k=[0-9a-f]+/)?.[0] ?? null;
 }
 
 export type OutpostFacts = { crew: number | null; lastActive: number | null; since: number | null };
