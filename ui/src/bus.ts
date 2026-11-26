@@ -12,7 +12,7 @@ export type Ask =
   | { do: "open-conversation"; id: string }                 // go to a conversation (a memory line's origin, say)
   | { do: "command"; name: string; arg?: string }           // /new, /focus, /good…
   | { do: "note"; text: string; fresh?: boolean }           // keep this in a note: the one that's open, or (fresh) a new one
-  | { do: "tell"; text: string; error?: boolean; inFeed?: boolean };          // a line back to you, shown by the message box (StatusLine); inFeed: All activity shows it too
+  | { do: "tell"; text: string; error?: boolean; inFeed?: boolean };          // a line back to you, shown by the message box (StatusLine); inFeed: All runs shows it too
 
 // How a message sent for you went: "now" told the working run (the crew reads it on their next step),
 // "sent" went as a new request (no run was working), null didn't go (the message box says why).

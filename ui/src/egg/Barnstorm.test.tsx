@@ -175,15 +175,15 @@ test("the plane at the end of the top bar's ··· menu starts it, then is its p
   const toggle = vi.fn();
   const more = () => screen.getByRole("button", { name: "More" });
   const row = (name: string) => { fireEvent.click(more()); return screen.getByRole("menuitemcheckbox", { name }); };
-  const { rerender } = render(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} />);
+  const { rerender } = render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} />);
   fireEvent.click(row("Barnstorm"));
   expect(toggle).toHaveBeenCalledTimes(1);
-  rerender(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="on" />);
+  rerender(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="on" />);
   expect(more().classList.contains("on")).toBe(true); // lit while the game is up
   const pause = row("Pause Barnstorm");
   expect(pause.getAttribute("aria-checked")).toBe("true");
   fireEvent.click(pause);
-  rerender(<Header needs={[]} onNeed={() => {}} S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="paused" />);
+  rerender(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onBarnstorm={toggle} barnstorm="paused" />);
   expect([...more().classList]).toEqual(["icon-btn", "egg-paused"]); // not running, but there to come back to
   const resume = row("Resume Barnstorm");
   expect(resume.getAttribute("aria-checked")).toBe("false");

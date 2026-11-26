@@ -15,7 +15,8 @@ import { a as an } from "../words.ts";
 export type Night = NonNullable<HomePage["night"]>;
 const names = (list: { name: string }[]) => list.map((x) => x.name).join(", ");
 
-export function NightCard({ night, onOpenMemory, onDone }: { night: Night; onOpenMemory: () => void; onDone: () => void }) {
+// onOpenInbox: where the drafts wait for your say (Activity → Inbox). onOpenMemory: the lines themselves.
+export function NightCard({ night, onOpenMemory, onOpenInbox = onOpenMemory, onDone }: { night: Night; onOpenMemory: () => void; onOpenInbox?: () => void; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   async function dismiss() {
@@ -31,7 +32,7 @@ export function NightCard({ night, onOpenMemory, onDone }: { night: Night; onOpe
         {tidied.length > 0 && (
           <li>
             <span>Drafted {plural(tidied.length, "a shorter version of 1 memory", `shorter versions of ${tidied.length} memories`)} <span className="meta">({names(tidied)})</span></span>
-            <button type="button" className="linkish" onClick={onOpenMemory}>Look {tidied.length === 1 ? "it" : "them"} over</button>
+            <button type="button" className="linkish" onClick={onOpenInbox}>Look {tidied.length === 1 ? "it" : "them"} over</button>
           </li>
         )}
         {stale.length > 0 && (

@@ -1816,7 +1816,7 @@ details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-
   .top-right { flex: 1; gap: 6px; }
   .top-chips { flex: 1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
   .top-chips > .chip-status { order: -1; }
-  .top-chips > :is(.chip.needs, .chip.paused, .chip.credit, .chip.offline, .needs-pick) { order: -2; }
+  .top-chips > :is(.chip.needs, .chip.news, .chip.paused, .chip.credit, .chip.offline) { order: -2; }
   /* The crew is one line that scrolls sideways, and "No agents running" is left to the header's "Idle". */
   .crew { padding: 8px 12px; }
   .crew-half > .crew.slim { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 200px; overflow-x: auto; scrollbar-width: none; }
@@ -2145,17 +2145,43 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 @media (max-width: 720px) { .skill-editor-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } .skill-editor-files { border-right: 0; border-bottom: 1px solid var(--border); max-height: 120px; } }
 
 /* ---------- What needs you ---------- */
-.needs-pick { position: relative; display: inline-flex; }
-.popover.needs-menu { position: absolute; top: calc(100% + 8px); right: 0; left: auto; bottom: auto; width: min(380px, 86vw); max-height: 60dvh; overflow-y: auto; padding: 6px; z-index: 45; display: grid; gap: 1px; }
-.needs-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 9px; border: 0; border-radius: 8px; background: none; color: var(--text); text-align: left; }
-.needs-item:hover, .needs-item:focus-visible { background: var(--surface-2); }
-.needs-item > .icon { width: 15px; height: 15px; margin-top: 2px; color: var(--muted); }
-.needs-item.decision > .icon, .needs-item.pr > .icon { color: var(--accent); }
-.needs-item.failed > .icon, .needs-item.held > .icon { color: var(--bad); }
-.needs-item span { display: grid; min-width: 0; }
-.needs-item b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.needs-item small { color: var(--muted); font-size: 12px; }
-.needs-item.needs-clear { grid-template-columns: 1fr; border-top: 1px solid var(--border); border-radius: 0 0 8px 8px; margin-top: 4px; }
+/* The header's chip for it: the Inbox's count (inbox.ts), and the way into Activity → Inbox. */
+.chip.needs > .icon, button.chip.news > .icon { width: 14px; height: 14px; flex: none; }
+
+/* ---------- The Inbox (Activity → Inbox): everything waiting on you, in sections ---------- */
+.inbox-page { display: grid; gap: 22px; }
+.inbox-page > .panel-note { margin: 0; }
+.inbox-page section { display: grid; gap: 8px; min-width: 0; }
+.inbox-page section > .set-note, .inbox-page section > .panel-note { margin: 0; }
+.inbox-head { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 14px/1.4 var(--sans); color: var(--text); }
+.inbox-head .btn { margin-left: auto; }
+.inbox-asks { display: grid; gap: 14px; }
+.inbox-asks > li { display: grid; gap: 6px; min-width: 0; }
+.inbox-ask-from { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.inbox-ask-from .meta { margin: 0; }
+.inbox-page .mem-waiting { margin: 0; }
+.inbox-page .waiting-list { padding: 0; }
+.inbox-lines .home-line { flex-wrap: wrap; }
+.inbox-lines .home-line-text { flex: 1 1 200px; }
+/* Today's short preview of it, and the way in. */
+.home-inbox-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.home-inbox-foot .meta { margin: 0; }
+/* Today, when the crew has nothing to run on: said plainly, with the action that fixes it. */
+.home-setup { padding: 14px 16px; border: 2px solid var(--bad); border-radius: 10px; background: var(--surface); font-size: 14px; }
+.home-setup b { color: var(--text); }
+.home-setup p { margin: 0; color: var(--muted); max-width: 70ch; overflow-wrap: anywhere; }
+.home-setup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.home-examples { margin-top: 0; }
+.home .example { background: color-mix(in srgb, var(--surface) 84%, transparent); }
+/* Automatic work: each switch is one line, with how it works behind a disclosure; Activity shows which are on. */
+.set-more > summary { margin-top: 4px; }
+.set-more > p { margin: 6px 0 0; }
+.auto-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.auto-list li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; font-size: 14px; }
+.auto-list li + li { border-top: 1px solid var(--border); }
+.auto-list b { font-weight: 600; }
+.auto-list .meta { margin: 0; }
+.auto-on { color: var(--text); font-size: 13px; }
 /* The status chip's menu and the ··· menu: rows with an icon, a name and what clicking does. */
 .top-pick { position: relative; display: inline-flex; flex: none; }
 .chip-status > .icon { width: 13px; height: 13px; margin-left: -2px; color: var(--faint); }
@@ -3229,6 +3255,16 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .hub-new input::placeholder { color: var(--faint); }
 .hub :is(button, [tabindex]):focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .hub .hub-body:focus-visible { outline: none; } /* its ring says so */
+/* Under the title: what The Outpost is, the Tour, and what to do next. */
+.hub-about { position: absolute; left: 16px; top: 62px; width: min(430px, calc(100% - 32px)); display: grid; gap: 10px; justify-items: start; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.hub-about { pointer-events: none; } /* an outpost drawn under it can still be clicked */
+.hub-about :is(a, button) { pointer-events: auto; }
+.hub-about p { margin: 0; }
+.hub-about a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.hub-next { display: grid; gap: 4px; justify-items: start; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: color-mix(in srgb, var(--surface) 86%, transparent); }
+.hub-next b { color: var(--text); font-weight: 600; }
+.hub-next .btn { margin-top: 4px; }
+@media (max-width: 760px) { .hub.has-panel .hub-about > p:first-child { display: none; } }
 @media (min-width: 761px) { .hub.has-panel .con-foot { right: 400px; } }
 @media (max-width: 760px) { .hub .con-panel { height: 50%; } .hub.has-panel .con-foot { display: none; } }
 

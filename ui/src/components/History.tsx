@@ -3,7 +3,7 @@
 // "New conversation" gives you a clean page, so unrelated work stays out of each other's
 // context; picking a conversation shows just that one, and what you send there continues it.
 // "Projects" opens the page that lists your projects (that page's "New project" button, or the
-// + on this row, opens the project dialog). "All activity" is everything at once, scheduled jobs
+// + on this row, opens the project dialog). "All runs" is everything at once, scheduled jobs
 // included. Clicking a project's name opens that project's page.
 // A dot marks a conversation with something running; a number, decisions waiting on you.
 
@@ -11,11 +11,11 @@ import { memo, useEffect, useMemo, useRef, useState, type DragEvent, type ReactN
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { activityOf, type View } from "../feed/conversation.ts";
 import type { Need } from "../needs.ts";
+import { inboxLabel, NO_INBOX, type InboxCount } from "../inbox.ts";
 import { runningCount } from "../feed/reducer.ts";
 import { useFeed, type FeedStore } from "../feed/store.ts";
 import { cClass, cx, when } from "../format.ts";
 import { Drawer, Icon } from "./bits.tsx";
-import { unreadCount } from "../unread.ts";
 import type { CampState, Conversation, History as HistoryData, Project } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 import { usePopover } from "./usePopover.ts";
@@ -48,15 +48,14 @@ export function HistoryRail({ onShow }: { onShow: () => void }) {
 
 // needs: what's waiting on you (needs.ts), for the marks beside a conversation's title.
 // onStartTicket: open the ticket kickoff stepper.
-export const History = memo(function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide, needs, onStartTicket }: {
+export const History = memo(function History({ S, store, view, setView, patch, onNewProject, onEditProject, onHide, needs, inbox = NO_INBOX, onStartTicket }: {
   needs?: Need[]; onStartTicket?: () => void;
+  inbox?: InboxCount; // everything waiting on you (inbox.ts): the count on Activity, which then opens on its Inbox
   S: CampState | null; store: FeedStore; view: View; setView: (v: View) => void; patch: (fn: (s: CampState) => CampState) => void;
   onNewProject: () => void; onEditProject: (p: Project) => void;
   onHide?: () => void; // clicking History's rail closes it
 }) {
   const activity = useFeed(store, activityOf);
-  const unread = unreadCount(S); // the inbox's new ones, on Activity
-  const waiting = S?.memoryProposals?.length ?? 0; // memory suggestions waiting on you, on Memory
   const running = useFeed(store, runningCount);
   const [query, setQuery] = useState("");
   // On a narrow window the history is a drawer behind a Menu bar (styles.css): shut until asked,
@@ -320,19 +319,20 @@ export const History = memo(function History({ S, store, view, setView, patch, o
           <Icon name="check" />Tickets
         </button>
         <button type="button" className={cx("hist-nav-item", view.kind === "activity" && "selected")} aria-current={view.kind === "activity" ? "page" : undefined}
-          title={`What the ${w("camp")} has spent and been doing: usage, stats, scheduled jobs and the inbox`} onClick={() => setView({ kind: "activity" })}>
-          <Icon name="activity" />Activity{unread > 0 && <span className="count needs" aria-label={`${unread} unread in the inbox`}>{unread}</span>}
+          title={inbox.total ? `${inboxLabel(inbox)}: open the Inbox` : `What the ${w("camp")} has spent and been doing: usage, stats, automatic work, scheduled jobs and the inbox`}
+          onClick={() => setView(inbox.total ? { kind: "activity", tab: "inbox" } : { kind: "activity" })}>
+          <Icon name="activity" />Activity{inbox.total > 0 && <span className="count needs" aria-label={`${inbox.total} in the inbox`}>{inbox.total}</span>}
         </button>
         <button type="button" className={cx("hist-nav-item", view.kind === "memory" && "selected")} aria-current={view.kind === "memory" ? "page" : undefined}
           title={`What the ${w("crew")} remembers, and the ${w("camp")}'s wiki`} onClick={() => setView({ kind: "memory" })}>
-          <Icon name="layers" />Memory{waiting > 0 && <span className="count needs" aria-label={`${waiting} waiting for you`}>{waiting}</span>}
+          <Icon name="layers" />Memory
         </button>
         <button type="button" className={cx("hist-nav-item", view.kind === "releases" && "selected")} aria-current={view.kind === "releases" ? "page" : undefined}
           title="What's changed in Mae: the merged pull requests, summed up every 48 hours" onClick={() => setView({ kind: "releases" })}>
           <Icon name="bookmark" />Release notes
         </button>
-        <button type="button" className={cx("hist-nav-item", view.kind === "all" && "selected")} title="Everything at once, scheduled jobs included" onClick={() => setView({ kind: "all" })}>
-          <Icon name="list" />All activity
+        <button type="button" className={cx("hist-nav-item", view.kind === "all" && "selected")} title="Every run in one feed as it happens, scheduled jobs included" onClick={() => setView({ kind: "all" })}>
+          <Icon name="list" />All runs
           {running > 0 && <span className="hist-count">{running} running</span>}
         </button>
       </nav>

@@ -5,11 +5,16 @@
 // (brief.ts) to start the day from:
 //   - where you left off, to step straight back in;
 //   - plans you approved to start later, as cards under it, each with its Start button;
-//   - what's waiting on you, each line with its one next step as a button;
+//   - what's waiting on you: the Inbox's count (inbox.ts) and its first few lines, which open the
+//     Inbox (Activity → Inbox), where each is answered and has its next step;
 //   - your Jira tickets under way, and what's upcoming;
 //   - your latest notes;
 //   - what happened since last time.
 // The message box sits under it, so a new conversation starts from here too.
+//
+// On a first run it also says what a newcomer needs: if the crew has nothing to run on (no Claude
+// sign-in, no API key) it says so with the way to fix it, and with no brief and nothing waiting it
+// offers a few requests to try, which go into the message box.
 //
 // The week's numbers and the switches for what the camp does unasked live in Settings
 // (settings/DrivePage.tsx: Stats, and What Mae does unasked). Nothing here starts by itself: a button brings feedback to the crew,
@@ -17,7 +22,12 @@
 
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { api, errorText } from "../api.ts";
+import { examples } from "../feed/Feed.tsx";
 import { cx, money, plural, when } from "../format.ts";
+import { briefOnly, inboxLabel, inboxPreview, NO_INBOX, type InboxCount } from "../inbox.ts";
+import type { Need } from "../needs.ts";
+import { switchRuntime } from "../runtime.ts";
+import type { SettingsSection } from "../settings/sections.ts";
 import { outpostName } from "../outpost.ts";
 import { w } from "../words.ts";
 import type { View } from "../feed/conversation.ts";
@@ -28,7 +38,7 @@ import { Confirm } from "./Confirm.tsx";
 import { HomeSky, type HomeSkyHandle } from "./HomeSky.tsx";
 import { NightCard } from "./NightCard.tsx";
 
-const ACT: Record<NonNullable<BriefLine["act"]>["do"], string> = { address: "Address it", resume: "Resume", start: "Start…" };
+import { ACT } from "../inbox.ts";
 const said = (status: string) => { const s = status.replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); }; // "Stopped", "Over budget"
 const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
 const count = (n: number, one: string, many = `${one}s`) => `${WORDS[n] ?? n} ${n === 1 ? one : many}`;
@@ -41,10 +51,13 @@ export function greeting(now: Date, name?: string): string {
 }
 // Where things stand, in a few plain sentences: what the brief says, the way you'd say it.
 // held: how many plans you approved to start later are still waiting (they're live, not in the brief).
-export function kickoff(b: Brief, held = 0): string {
+// live: today, what's waiting on you is the Inbox's count, the same number the header shows; the
+// brief's own list (an earlier day's, or what only the brief found) is said only without it.
+export function kickoff(b: Brief, held = 0, live?: InboxCount): string {
   const out: string[] = [];
-  const first = b.needs[0];
-  if (first) out.push(`${count(b.needs.length, "thing")} ${b.needs.length === 1 ? "is" : "are"} waiting on you${b.needs.length === 1 ? ":" : ", starting with"} ${first.title} (${lower(first.says)}).`);
+  const first = live?.waiting ? undefined : b.needs[0];
+  if (live?.waiting) out.push(waitingLine(live));
+  else if (first) out.push(`${live ? `The brief found ${lower(count(b.needs.length, "thing"))}` : `${count(b.needs.length, "thing")} ${b.needs.length === 1 ? "is" : "are"}`} waiting on you${b.needs.length === 1 ? ":" : ", starting with"} ${first.title} (${lower(first.says)}).`);
   else if (!held) out.push("Nothing is waiting on you.");
   if (held) out.push(heldLine(held));
   if (b.moving.length) out.push(`${count(b.moving.length, "pull request")} ${b.moving.length === 1 ? "is" : "are"} with reviewers.`);
@@ -55,16 +68,61 @@ export function kickoff(b: Brief, held = 0): string {
   if (d.finished.length || d.merged.length) {
     out.push(`Since last time, ${[d.finished.length ? `${lower(count(d.finished.length, "conversation"))} had work finish` : "", d.merged.length ? `${lower(count(d.merged.length, "pull request"))} merged` : ""].filter(Boolean).join(" and ")}.`);
   }
-  if (!first && !held && !b.moving.length && !b.tickets.length && !next) out.push("A good day to start something.");
+  if (!first && !live?.waiting && !held && !b.moving.length && !b.tickets.length && !next) out.push("A good day to start something.");
   return out.join(" ");
 }
 
+// "Three things are waiting on you in the Inbox."
+export const waitingLine = (c: InboxCount) => `${count(c.waiting, "thing")} ${c.waiting === 1 ? "is" : "are"} waiting on you in the Inbox.`;
+const NO_NEEDS: Need[] = [];
 const heldLine = (n: number) => `${count(n, "plan")} you approved ${n === 1 ? "is" : "are"} ready to start when you are.`;
 
-export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
+// What the crew runs on is missing: said plainly, with the action that fixes it. The header's chip
+// says the same in a word. Nothing shows when the crew can run.
+export function RunsOn({ S, refresh, onOpenSettings }: { S: CampState; refresh?: () => void; onOpenSettings?: (s: SettingsSection) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const sub = S.runtime === "claude-code";
+  const signIn = sub && S.login && !S.login.ok ? S.login.problem || "Claude Code isn't signed in." : "";
+  const noKey = !sub && !S.anthropic?.connected && !(S.providers ?? []).some((p) => p.connected);
+  if (!signIn && !noKey) return null;
+  // Ask the camp to look at Claude Code's sign-in again (it's read when the camp is told what to run on).
+  const again = async () => {
+    setBusy(true); setNote("");
+    try { await api("/api/runtime", { runtime: "claude-code" }); refresh?.(); } catch (e) { setNote(errorText(e)); }
+    setBusy(false);
+  };
+  return (
+    <section className="home-setup" role="alert" aria-label={`What the ${w("crew")} runs on`}>
+      <b>{signIn ? `The ${w("crew")} can't work yet: the Claude sign-in is missing.` : `The ${w("crew")} can't work yet: there's no API key.`}</b>
+      <p>{signIn
+        ? <>{signIn} When you've signed in, press Check again.</>
+        : <>The {w("camp")} is set to run on the API, and no key is saved for Anthropic or any other provider. Add one, or run the {w("crew")} on your Claude subscription instead.</>}</p>
+      <div className="home-setup-actions">
+        {signIn
+          ? <>
+            <button type="button" className="btn small primary" disabled={busy} onClick={() => void again()}>{busy ? "Checking…" : "Check again"}</button>
+            <button type="button" className="btn small" onClick={() => onOpenSettings?.("models")}>Use an API key instead</button>
+          </>
+          : <>
+            <button type="button" className="btn small primary" onClick={() => onOpenSettings?.("models")}>Add an API key</button>
+            <button type="button" className="btn small" onClick={() => void switchRuntime("claude-code", refresh ?? (() => {}))}>Use my Claude subscription</button>
+          </>}
+      </div>
+      {note && <div className="form-error" role="alert">{note}</div>}
+    </section>
+  );
+}
+
+export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory, refresh, needs = NO_NEEDS, inbox = NO_INBOX, asks = 0, onOpenInbox = onOpenMemory, onOpenSettings, onExample }: {
   S: CampState; setView: (v: View) => void;
   onStartTicket: (t: { key: string; summary: string }) => void;
-  onOpenNote: (id: string) => void; onOpenMemory: () => void; // onOpenMemory: where the crew's suggestions wait for your say
+  onOpenNote: (id: string) => void; onOpenMemory: () => void;
+  refresh?: () => void;
+  // What's waiting on you is the Inbox's (inbox.ts): its count, the live list it's counted from, and the way there.
+  needs?: Need[]; inbox?: InboxCount; asks?: number; onOpenInbox?: () => void;
+  onOpenSettings?: (s: SettingsSection) => void;
+  onExample?: (text: string) => void; // a request to try, put in the message box
 }) {
   const [home, setHome] = useState<HomePage | null>(null);
   const [day, setDay] = useState<string | null>(null);     // an earlier day's brief, picked from the list
@@ -117,7 +175,13 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
   const [last, ...recent] = S.history.conversations.slice(0, 5);
   const nameOf = (id: string) => S.history.projects.find((p) => p.id === id)?.name;
   const now = new Date();
-  const waiting = brief ? brief.waiting.memory + brief.waiting.skills : 0;
+  // Today: the first few things in the Inbox, then what only the brief found. Each opens the Inbox.
+  const preview = day ? [] : inboxPreview(S, needs, asks, 3);
+  const found = day || !home?.brief ? [] : briefOnly(home.brief.needs, needs);
+  const more = day ? 0 : inboxPreview(S, needs, asks, Infinity).length - preview.length; // lines the preview left out
+  // A newcomer's page, so it offers something to try: nothing is waiting, and there's no brief yet
+  // or nothing has ever been asked (the morning brief writes itself, so a brief alone isn't a sign of use).
+  const blank = !!home && !day && !held.length && !inbox.waiting && !found.length && (!home.brief || !S.history.conversations.length);
   const status = (c: { status: string }) => <span className={cx("pill", c.status === "done" ? "done" : c.status === "running" ? "live" : "bad")}>{c.status === "done" ? "Finished" : c.status === "running" ? "Running" : said(c.status)}</span>;
 
   const section = (title: string, lines: BriefLine[], hint?: string) => !!lines.length && (
@@ -184,7 +248,7 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
         <div className="home-date">{now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</div>
         <h2>{greeting(now, home?.name)}</h2>
         <p className="home-kickoff" role="status">
-          {!home ? "One moment: reading where things stand…" : brief ? kickoff(brief, day ? 0 : held.length) : held.length ? `${heldLine(held.length)} There's no brief yet.` : "There's no brief yet. Write one, and this is where your day starts: what's waiting on you, your tickets, what's upcoming and your notes."}
+          {!home ? "One moment: reading where things stand…" : brief ? kickoff(brief, day ? 0 : held.length, day ? undefined : inbox) : inbox.waiting ? `${waitingLine(inbox)} There's no brief yet.` : held.length ? `${heldLine(held.length)} There's no brief yet.` : "There's no brief yet. Write one, and this is where your day starts: what's waiting on you, your tickets, what's upcoming and your notes."}
         </p>
         <div className="home-hero-foot">
           <span className="meta">{brief ? (day ? `The brief for ${day}.` : fresh ? `Written ${when(brief.written)}.` : `This is the brief from ${brief.day}.`) : ""}</span>
@@ -198,6 +262,17 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
         </div>
       </header>
       {note && <div className="meta bad" role="alert">{note}</div>}
+      {!day && <RunsOn S={S} refresh={refresh} onOpenSettings={onOpenSettings} />}
+
+      {blank && onExample && (
+        <section aria-label="Requests to try">
+          <div className="section-label">New here? Try one of these</div>
+          <div className="examples home-examples">
+            {examples().map((text) => <button key={text} type="button" className="example" title="Put this in the message box" onClick={() => onExample(text)}>{text}</button>)}
+          </div>
+          <div className="meta">Pressing one puts it in the message box below: change it as you like, then send.</div>
+        </section>
+      )}
 
       {last && !day && (
         <section>
@@ -241,11 +316,41 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
       )}
 
       {!day && home?.offers.map((o) => <OfferCard key={o.key} offer={o} onDone={() => void load()} />)}
-      {!day && home?.night && <NightCard night={home.night} onOpenMemory={onOpenMemory} onDone={() => void load()} />}
+      {!day && home?.night && <NightCard night={home.night} onOpenMemory={onOpenMemory} onOpenInbox={onOpenInbox} onDone={() => void load()} />}
+
+      {!day && (inbox.total > 0 || found.length > 0) && (
+        <section aria-label={inbox.waiting || found.length ? "Waiting on you" : "New in the inbox"}>
+          <div className="section-label">{inbox.waiting ? `Waiting on you · ${inbox.waiting}` : found.length ? "Waiting on you" : "New in the inbox"}</div>
+          {(preview.length > 0 || found.length > 0) && (
+            <ul className="list home-lines">
+              {preview.map((l) => (
+                <li className="home-line" key={l.key}>
+                  <span className="home-line-text">
+                    <button type="button" className="home-line-title" title="Open the Inbox, where this is answered" onClick={onOpenInbox}>{l.title}</button>
+                    <span className="meta">{l.says}</span>
+                  </span>
+                </li>
+              ))}
+              {found.slice(0, Math.max(0, 4 - preview.length)).map((l) => (
+                <li className="home-line" key={`${l.kind}:${l.title}`}>
+                  <span className="home-line-text">
+                    <button type="button" className="home-line-title" title="Open the Inbox, where its next step is" onClick={onOpenInbox}>{l.title}</button>
+                    <span className="meta">{l.says} · from the brief</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="home-inbox-foot">
+            <button type="button" className="btn small primary" onClick={onOpenInbox}>Open the inbox</button>
+            <span className="meta">{[inboxLabel(inbox), more > 0 ? `${more} more in the Inbox` : ""].filter(Boolean).join(" · ") || "Each has its next step in the Inbox."}</span>
+          </div>
+        </section>
+      )}
 
       {brief && (
         <>
-          {section("Waiting on you", brief.needs)}
+          {day && section("Waiting on you", brief.needs)}
           {section("In motion", brief.moving)}
           {cards("Your tickets", brief.tickets.map((l) => ticketCard(l, true)))}
           {cards("Upcoming", brief.next.map((l) => l.kind === "job" ? jobCard(l) : ticketCard(l, false)))}
@@ -288,9 +393,6 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory }: {
                 ))}
               </ul>
             </section>
-          )}
-          {waiting > 0 && !day && (
-            <div className="meta">{waiting} {plural(waiting, "suggestion")} from the {w("crew")} {waiting === 1 ? "is" : "are"} waiting for your say. <button type="button" className="linkish" onClick={onOpenMemory}>Look them over</button></div>
           )}
           {brief.notes.map((n) => <div className="meta bad" key={n}>{n}</div>)}
         </>

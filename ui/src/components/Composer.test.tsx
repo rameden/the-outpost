@@ -1,5 +1,5 @@
 // Sending from the message box: one send at a time, a Reply that doesn't follow you into another
-// conversation, and what the page says back ("Queued…") shown by the box, not only in All activity.
+// conversation, and what the page says back ("Queued…") shown by the box, not only in All runs.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -111,7 +111,7 @@ test("a Reply pressed here still goes to the run it names", async () => {
   await waitFor(() => expect(screen.queryByText("Following up on")).toBeNull());
 });
 
-test("a queued message says so by the message box, and in the feed for All activity", async () => {
+test("a queued message says so by the message box, and in the feed for All runs", async () => {
   position = 2;
   const { store, write, submit } = setup();
   write("One more");

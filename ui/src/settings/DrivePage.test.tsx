@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { CampState, HomePage, WeekScore } from "../types.ts";
-import { StatsPage, UnaskedPage, shownWeek } from "./DrivePage.tsx";
+import { AutomaticPage, AutomaticSummary, StatsPage, shownWeek } from "./DrivePage.tsx";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -64,11 +64,11 @@ test("Stats: the week in headline numbers, ranked bars, and every week as a tabl
   expect(await screen.findByText(/there's nothing to count yet/)).toBeTruthy();
 });
 
-test("What Mae does unasked: the brief and its time, the retro, the watch on your pull requests, and the trigger that turns feedback into work", async () => {
+test("Automatic work: the brief and its time, the retro, the watch on your pull requests, and the trigger that turns feedback into work", async () => {
   const asked = camp({ "/api/home": page(), "/api/drive": { ok: true }, "/api/brief": {}, "/api/retro": {}, "/api/pr-watch": { ok: true }, "/api/triggers": { ok: true } });
   const refresh = vi.fn(), onOpenSection = vi.fn();
   const trigger = { name: "my-prs", kind: "github-pr", link: "web", describe: true, enabled: true, task: "x", created: "", seen: 2 };
-  render(<UnaskedPage S={S({ triggers: [trigger, { ...trigger, name: "issues", kind: "github-issue" }] })} refresh={refresh} onOpenSection={onOpenSection} />);
+  render(<AutomaticPage S={S({ triggers: [trigger, { ...trigger, name: "issues", kind: "github-issue" }] })} refresh={refresh} onOpenSection={onOpenSection} />);
   const row = async (name: string) => (await screen.findByText(name)).closest(".set-row") as HTMLElement;
 
   const brief = await row("Morning brief");
@@ -114,7 +114,7 @@ test("What Mae does unasked: the brief and its time, the retro, the watch on you
 
 test("Night shift: off until you switch it on, with its hours, a run on request and a line on the last night", async () => {
   const asked = camp({ "/api/home": page(), "/api/drive": { ok: true }, "/api/night": { ok: true } });
-  render(<UnaskedPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
+  render(<AutomaticPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
   const row = (await screen.findByText("Night shift")).closest(".set-row") as HTMLElement;
   // It says plainly what it will and won't do.
   expect(row.textContent).toMatch(/It only drafts and reports: nothing is applied, deleted or changed until you approve it\./);
@@ -134,7 +134,7 @@ test("Night shift: off until you switch it on, with its hours, a run on request 
 test("Night shift, switched on: its two times can be changed, and the last night is summed up in a line", async () => {
   const on = page();
   const asked = camp({ "/api/home": { ...on, drive: { ...on.drive, night: true, nightFrom: "23:00", nightTo: "05:30" }, lastNight: { day: "2026-11-12", finished: "2026-11-13T02:10:00.000Z", line: "Drafted shorter versions of 2 memories, listed 5 old lines worth a look." } }, "/api/drive": { ok: true } });
-  render(<UnaskedPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
+  render(<AutomaticPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
   const row = (await screen.findByText("Night shift")).closest(".set-row") as HTMLElement;
   expect((within(row).getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
   const from = within(row).getByLabelText("When the night shift may start") as HTMLInputElement, to = within(row).getByLabelText("When the night shift stops") as HTMLInputElement;
@@ -144,4 +144,51 @@ test("Night shift, switched on: its two times can be changed, and the last night
   fireEvent.change(to, { target: { value: "04:00" } });
   await waitFor(() => expect(asked).toContain('POST /api/drive {"nightTo":"04:00"}'));
   expect(row.textContent).toMatch(/Last night shift, .+: Drafted shorter versions of 2 memories, listed 5 old lines worth a look\./);
+});
+
+test("Automatic work: each row says what it does in one line, and keeps the rest under How it works, closed until asked for", async () => {
+  camp({ "/api/home": page() });
+  render(<AutomaticPage S={S()} refresh={vi.fn()} onOpenSection={vi.fn()} />);
+  const brief = (await screen.findByText("Morning brief")).closest(".set-row") as HTMLElement;
+  expect(within(brief).getByText("Each weekday, where your work stands: what's waiting on you, your tickets and your latest notes.")).toBeTruthy();
+  const more = brief.querySelector("details.set-more") as HTMLDetailsElement;
+  expect(more.open).toBe(false);
+  expect(more.querySelector("summary")!.textContent).toBe("How it works");
+  expect(more.textContent).toMatch(/no model is called/);
+  // Every row has both: the line, and the longer account.
+  const rows = [...document.querySelectorAll(".unasked-page .set-row")];
+  expect(rows.map((r) => r.querySelector(".set-label > b")!.textContent)).toEqual(["Morning brief", "AI news in the brief", "Weekly retro", "Ticket debrief", "Night shift", "Your pull requests", "Feedback on a pull request starts work"]);
+  for (const r of rows) {
+    expect(r.querySelector(".set-label > p")!.textContent!.length).toBeGreaterThan(20);
+    expect(r.querySelectorAll("details.set-more > summary")).toHaveLength(1);
+    expect((r.querySelector("details.set-more") as HTMLDetailsElement).open).toBe(false);
+  }
+  expect(screen.getByText(/^What the camp does before you ask/).textContent).toMatch(/nothing is kept or sent until you approve it\.$/);
+});
+
+test("Activity's Automatic work: what's on and what's off, read-only, with the way to its switches in Settings", async () => {
+  const on = page();
+  on.drive = { ...on.drive, night: true, nightFrom: "02:00", nightTo: "04:30" };
+  const asked = camp({ "/api/home": on });
+  const onOpen = vi.fn();
+  const trigger = { name: "my-prs", kind: "github-pr", link: "web", describe: true, enabled: true, task: "x", created: "", seen: 2 };
+  const { unmount } = render(<AutomaticSummary S={S({ triggers: [trigger, { ...trigger, name: "off", enabled: false }, { ...trigger, name: "issues", kind: "github-issue" }] })} onOpen={onOpen} />);
+  const list = await screen.findByRole("list", { name: "Automatic work" });
+  expect(within(list).getAllByRole("listitem").map((l) => l.textContent)).toEqual([
+    "Morning briefOn, at 08:00", "AI news in the briefOff", "Weekly retroOff", "Ticket debriefOff", "Night shiftOn, from 02:00 to 04:30", "Your pull requestsWatching",
+    "Feedback on a pull request starts workOn for 1 repository"]);
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Open Settings, Automatic work" }));
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  expect(asked.filter((a) => a.startsWith("POST"))).toEqual([]);
+  unmount();
+
+  // With the brief off, its news has no line; nothing watched and no trigger say so.
+  const off = page();
+  off.drive = { ...off.drive, brief: false };
+  camp({ "/api/home": off });
+  render(<AutomaticSummary S={S({ settings: { prWatch: false } })} onOpen={onOpen} />);
+  const quiet = await screen.findByRole("list", { name: "Automatic work" });
+  expect(within(quiet).getAllByRole("listitem").map((l) => l.textContent)).toEqual([
+    "Morning briefOff", "Weekly retroOff", "Ticket debriefOff", "Night shiftOff", "Your pull requestsNot watching", "Feedback on a pull request starts workOff"]);
 });

@@ -1,17 +1,23 @@
 // Chained requests that haven't started: each is waiting for another piece of work to finish.
-// Shown above the message box wherever you are, so one you queued an hour ago isn't forgotten.
 // If the work it waited on was stopped or failed, it's held rather than started on the back of
 // something that didn't land: start it anyway, or take it off.
+//
+// Chained is the list itself, with its buttons: it lives in the Inbox (Inbox.tsx), with everything
+// else that waits on you. Waiting is the one line above the message box wherever you are, so a
+// request you queued an hour ago isn't forgotten: how many there are, and the way to the Inbox.
 
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
+import { plural } from "../format.ts";
 import type { CampState } from "../types.ts";
 import { Icon } from "./bits.tsx";
 
-export function Waiting({ S, onOpen, refresh }: { S: CampState; onOpen: (id: string) => void; refresh: () => void }) {
+export const chainedOf = (S: CampState) => (S.queued ?? []).filter((q) => q.after);
+
+export function Chained({ S, onOpen, refresh }: { S: CampState; onOpen: (id: string) => void; refresh: () => void }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const chained = (S.queued ?? []).filter((q) => q.after);
+  const chained = chainedOf(S);
   if (!chained.length) return null;
   const all = [...S.running, ...S.queued];
   const act = async (path: string, id: string) => {
@@ -36,6 +42,28 @@ export function Waiting({ S, onOpen, refresh }: { S: CampState; onOpen: (id: str
         );
       })}
       {error && <div className="form-error" role="alert">{error}</div>}
+    </div>
+  );
+}
+
+// The line above the message box: what's chained, in a sentence, and the Inbox to start one or take it off.
+export function Waiting({ S, onOpenInbox }: { S: CampState; onOpenInbox: () => void }) {
+  const chained = chainedOf(S);
+  if (!chained.length) return null;
+  const held = chained.filter((q) => q.held).length;
+  const one = chained.length === 1 ? chained[0] : null;
+  return (
+    <div className="waiting-list" role="group" aria-label="Waiting to start">
+      <div className={held ? "waiting-row held" : "waiting-row"}>
+        <Icon name="clock" />
+        <span className="waiting-what">
+          <span>{one ? one.task || one.label : `${chained.length} chained requests are waiting to start`}</span>
+          <small>{held
+            ? `${one ? "Held" : `${held} held`}: the work ${held === 1 ? "it was" : "they were"} waiting on didn't finish cleanly. Start ${held === 1 ? "it" : "them"} anyway or take ${held === 1 ? "it" : "them"} off in the Inbox.`
+            : `${one ? "Starts" : "Each starts"} when the work before it has finished. Start ${plural(chained.length, "it", "one")} now or take ${plural(chained.length, "it", "one")} off in the Inbox.`}</small>
+        </span>
+        <button type="button" className="btn small" title="Activity, Inbox: everything waiting on you" onClick={onOpenInbox}>Open the inbox</button>
+      </div>
     </div>
   );
 }

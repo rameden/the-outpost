@@ -7,7 +7,7 @@ import { SkillEditor } from "../settings/SkillEditor.tsx";
 import { SkillImport } from "../settings/SkillImport.tsx";
 import { ChronicleSection, plainTerms } from "./Chronicle.tsx";
 import { JiraWriteBack } from "./Jira.tsx";
-import { Waiting } from "./Waiting.tsx";
+import { Chained, Waiting } from "./Waiting.tsx";
 
 const calls: { url: string; body?: any }[] = [];
 let answer: (url: string, body?: any) => { status?: number; json: unknown } = () => ({ json: {} });
@@ -28,9 +28,9 @@ const queue = (queued: object[]) => ({ running: [{ id: "a", label: "expedition",
 test("chained requests are listed with what each waits for; one can be started now or taken off", async () => {
   const refresh = vi.fn(), onOpen = vi.fn();
   answer = () => ({ json: { ok: true } });
-  const { rerender } = render(<Waiting S={queue([{ id: "plain", label: "expedition", task: "Just queued", after: null, held: null }])} refresh={refresh} onOpen={onOpen} />);
+  const { rerender } = render(<Chained S={queue([{ id: "plain", label: "expedition", task: "Just queued", after: null, held: null }])} refresh={refresh} onOpen={onOpen} />);
   expect(screen.queryByRole("group")).toBeNull(); // only chained ones are listed here
-  rerender(<Waiting S={queue([{ id: "b", label: "@scribe", task: "Write the release notes", after: "a", held: null }, { id: "c", label: "expedition", task: "Deploy it", after: "gone", held: "stopped" }])} refresh={refresh} onOpen={onOpen} />);
+  rerender(<Chained S={queue([{ id: "b", label: "@scribe", task: "Write the release notes", after: "a", held: null }, { id: "c", label: "expedition", task: "Deploy it", after: "gone", held: "stopped" }])} refresh={refresh} onOpen={onOpen} />);
   const box = screen.getByRole("group", { name: "Waiting to start" });
   expect(within(box).getByText('Starts when "Build the Open button" has finished.')).toBeTruthy();
   expect(within(box).getByText("The work it was waiting on ended as stopped, so it hasn't started.")).toBeTruthy();
@@ -44,6 +44,26 @@ test("chained requests are listed with what each waits for; one can be started n
   expect(calls[1]).toEqual({ url: "/api/stop", body: { id: "b" } });
   fireEvent.click(within(box).getByRole("button", { name: "Start now" }));
   await waitFor(() => expect(calls[2]).toEqual({ url: "/api/queue/release", body: { id: "b" } }));
+});
+
+test("above the message box, what's chained is one line that opens the Inbox, where it's started or taken off", () => {
+  const onOpenInbox = vi.fn();
+  const { rerender } = render(<Waiting S={queue([{ id: "plain", label: "expedition", task: "Just queued", after: null, held: null }])} onOpenInbox={onOpenInbox} />);
+  expect(screen.queryByRole("group")).toBeNull(); // nothing chained: no line
+  // One, not held: its own words, and when it starts.
+  rerender(<Waiting S={queue([{ id: "b", label: "@scribe", task: "Write the release notes", after: "a", held: null }])} onOpenInbox={onOpenInbox} />);
+  let box = screen.getByRole("group", { name: "Waiting to start" });
+  expect(within(box).getByText("Write the release notes")).toBeTruthy();
+  expect(within(box).getByText("Starts when the work before it has finished. Start it now or take it off in the Inbox.")).toBeTruthy();
+  expect(within(box).getAllByRole("button").map((b) => b.textContent)).toEqual(["Open the inbox"]); // no buttons of its own
+  // Several, one of them held: a count, and what to do about the held one.
+  rerender(<Waiting S={queue([{ id: "b", label: "@scribe", task: "Write the release notes", after: "a", held: null }, { id: "c", label: "expedition", task: "Deploy it", after: "gone", held: "stopped" }])} onOpenInbox={onOpenInbox} />);
+  box = screen.getByRole("group", { name: "Waiting to start" });
+  expect(within(box).getByText("2 chained requests are waiting to start")).toBeTruthy();
+  expect(within(box).getByText("1 held: the work it was waiting on didn't finish cleanly. Start it anyway or take it off in the Inbox.")).toBeTruthy();
+  expect(calls).toEqual([]);
+  fireEvent.click(within(box).getByRole("button", { name: "Open the inbox" }));
+  expect(onOpenInbox).toHaveBeenCalledTimes(1);
 });
 
 // ---------- The chronicle ----------
