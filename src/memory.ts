@@ -19,6 +19,7 @@ export { clipEntry };
 import { norm } from "./memlog.js";
 import { logRelevant } from "./recalllog.js";
 import { flat as clip, today } from "./helpers.js";
+import { noteWritten } from "./searchindex.js";
 
 // Paths inside the camp are written with forward slashes on every system (Windows takes them too),
 // so what the crew and the page are shown reads the same everywhere.
@@ -144,6 +145,7 @@ export function rememberTool(id: CrewId): Tool {
         }
         if (prior) writeAtomic(ws.memory + ".bak", prior);
         writeAtomic(ws.memory, `# ${me.name}'s memory\n\n${next}\n`); // a rewrite replaces everything: never leave it half done
+        noteWritten();
       } else {
         const line = clipEntry(String(entry).trim().replace(new RegExp(`^${PIN}\\s*`, "u"), ""));
         if (!line) return "Nothing to remember.";
@@ -160,7 +162,7 @@ export function rememberTool(id: CrewId): Tool {
         const near = already ? [] : rows.flatMap((r) => { const e = parseEntry(r); const score = e ? alike(e.text, line) : 0; return e && score >= 0.5 ? [{ text: e.text, score }] : []; })
           .sort((a, b) => b.score - a.score).slice(0, 2);
         if (!already) rows.push(`- ${today()} ${pin === true || wasPinned ? `${PIN} ` : ""}${line}`);
-        if (!already || replaced) writeAtomic(ws.memory, rows.join("\n") + "\n");
+        if (!already || replaced) { writeAtomic(ws.memory, rows.join("\n") + "\n"); noteWritten(); }
         if (!already) logKept(`agent:${id}`, line, "remember", currentExpeditionId());
         said = already ? (replaced ? "The old line is gone; the new one was already in your memory." : "That's already in your memory, word for word: nothing was added.")
           : replaced ? "Remembered, in place of the old line."
@@ -187,6 +189,7 @@ export function appendMemory(id: CrewId, entry: string, how: KeptHow = "feedback
   const rows = existsSync(path) ? readFileSync(path, "utf8").replace(/\n+$/, "").split("\n") : [`# ${CREW[id].name}'s memory`, ""];
   rows.push(`- ${today()} ${line}`);
   writeAtomic(path, rows.join("\n") + "\n");
+  noteWritten();
   logKept(`agent:${id}`, line, how, run ?? currentExpeditionId());
   emit({ type: "changed", what: "memory" });
 }
@@ -221,6 +224,7 @@ export function recordSession(
   const line: SessionLine = { time, source: s.source, task: clip(s.task, 600), result: clipLines(s.result, 1500), status: s.status, file, ...(project ? { project } : {}) };
   appendLine(ws.index, JSON.stringify(line));
   trimSessionIndex(ws.index);
+  noteWritten(); // the search index takes the new session in
   return file;
 }
 
@@ -290,6 +294,7 @@ export function readSession(id: CrewId, file: string) {
 export function writeMemory(id: CrewId, text: string) {
   ensureWorkspace(id);
   writeAtomic(workspace(id).memory, `# ${CREW[id].name}'s memory\n\n${text.trim()}\n`);
+  noteWritten();
   emit({ type: "changed", what: "memory" });
 }
 

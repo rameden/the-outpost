@@ -8,6 +8,7 @@ import type { Workspace } from "./context.js";
 import { expeditionDigest } from "./feed.js";
 import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { w } from "./words.js";
+import { noteWritten } from "./searchindex.js";
 
 export const THREADS_PATH = "camp/threads.jsonl";
 const MAX_HISTORY_CHARS = 40_000;
@@ -73,6 +74,7 @@ function all(): Turn[] {
 function append(turns: Turn[]) {
   const before = cache && cache.key === stampKey() ? cache : null;
   appendLine(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n"));
+  noteWritten(); // the search index takes the new lines in
   const key = stampKey();
   if (!before || !key) { cache = null; return; }
   const by = new Map(before.byExpedition);
@@ -101,6 +103,7 @@ export function compactThreads(): number {
   if (raw.length <= turns.length) return 0;
   writeAtomic(THREADS_PATH, turns.map((t) => JSON.stringify(t)).join("\n") + "\n");
   cache = null;
+  noteWritten();
   return raw.length - turns.length;
 }
 
