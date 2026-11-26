@@ -933,10 +933,11 @@ footer .outpost-sub { font-size: 10px; }
     <div class="sec-head">
       <div class="eyebrow">Films</div>
       <h2>Watch the work go round the crew.</h2>
-      <p class="lede">Four short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.</p>
+      <p class="lede">Five short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky, and the second all of it in one loop, from the star chart to the night shift. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Films">
       <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">Ground to sky <span>1:16</span></button>
+      <button type="button" role="tab" id="film-tab-whole" aria-controls="film-whole" aria-selected="false" data-film="whole">The whole sky <span>1:26</span></button>
       <button type="button" role="tab" id="film-tab-ticket" aria-controls="film-ticket" aria-selected="false" data-film="ticket">One ticket <span>0:54</span></button>
       <button type="button" role="tab" id="film-tab-audit" aria-controls="film-audit" aria-selected="false" data-film="audit">Three audit findings <span>1:03</span></button>
       <button type="button" role="tab" id="film-tab-night" aria-controls="film-night" aria-selected="false" data-film="night">Night shift <span>0:35</span></button>
@@ -944,6 +945,10 @@ footer .outpost-sub { font-size: 10px; }
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
       <p class="film-note">Outpost in one shot, from the ground to the sky. You claim your ground, your outpost lifts into orbit, you kick off <span data-word='a quest'>a mission</span>, the <span data-word='crew'>crew</span>'s <span data-word='quests'>missions</span> go round, what they learn becomes stars that link up, a router fits a model to each task, and the stars settle into the mark. It loops. Click the stage to pause.</p>
+    </div>
+    <div class="film" id="film-whole" role="tabpanel" aria-labelledby="film-tab-whole" hidden>
+      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+      <p class="film-note">All of Outpost in one loop. It opens on the star chart, where each outpost keeps its own <span data-word='crew'>crew</span>, memory and keys. Then a request comes in and goes round the <span data-word='crew'>crew</span> as comets, the <span data-crew='5'>Test Pilot</span> flies in for the hardest part, the work becomes a trail you approve from your phone, what was learned settles as stars, and the night shift drafts while the outpost is idle. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -6671,7 +6676,7 @@ return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimation
   }
   // The films section has tabs, and its films move only while it is on screen. A film shown on its
   // own is a group of one, with no tab, that moves only while it is itself on screen (not while its tab is hidden).
-  [{ id: 'films', keys: ['sky', 'ticket', 'audit', 'night'] }, { id: 'film-trail', keys: ['trail'] }, { id: 'film-stars', keys: ['stars'] }].forEach(function (sec) {
+  [{ id: 'films', keys: ['sky', 'whole', 'ticket', 'audit', 'night'] }, { id: 'film-trail', keys: ['trail'] }, { id: 'film-stars', keys: ['stars'] }].forEach(function (sec) {
     var keys = sec.keys, active = keys[0], inView = false;
     function update() {
       keys.forEach(function (key) {
