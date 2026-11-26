@@ -1707,6 +1707,8 @@ a.att-name { color: var(--accent); }
 .sign-in .outpost-sub { font-size: 12px; }
 .sign-in .mae-orb { --orb: 72px; margin: 0 0 14px 6px; }
 .sign-in p { margin: 0; }
+.sign-in-ways { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.sign-in code { font: 12px var(--mono); overflow-wrap: anywhere; }
 .sign-in kbd { font: 600 12px var(--mono); padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; }
 .mem-out { color: var(--bad); }
 .mem-pinned { color: var(--accent); }
