@@ -103,7 +103,9 @@ test("the index is only an index: deleted, damaged or thrown away, it's built ag
   const find = () => inKiln(async () => recallFor("artificer", "elements resistance").length);
   assert.equal(await find(), 1);
 
-  // Deleted while the camp runs.
+  // Deleted while the camp runs. (Windows won't delete a file that's open, so there it can only
+  // go missing between runs.)
+  if (process.platform === "win32") ix.closeIndex();
   for (const tail of ["", "-wal", "-shm"]) rmSync(ix.INDEX_PATH + tail, { force: true });
   assert.equal(await find(), 1);
   assert.deepEqual(ix.indexStats(), before);
