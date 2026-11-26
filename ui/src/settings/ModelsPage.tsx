@@ -17,7 +17,9 @@ import type { CampState, ModelList, ProviderState } from "../types.ts";
 import { w, a as an, cap } from "../words.ts";
 type ModelProvider = Omit<ProviderState, "id"> & { id: ProviderState["id"] | "anthropic"; environment?: boolean };
 
-function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
+// away: this browser isn't on the camp's own machine. The Anthropic key is set only there (the
+// camp refuses it from anywhere else); the saved one can still be forgotten from here.
+function Provider({ p, refresh, away }: { p: ModelProvider; refresh: () => void; away?: boolean }) {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -64,10 +66,12 @@ function Provider({ p, refresh }: { p: ModelProvider; refresh: () => void }) {
           {p.from === "env"
             ? <>
               <span className="meta">Its key comes from where the {w("camp")} was started, so it's changed there.</span>
-              {anthropic && <button type="button" className="btn small" disabled={busy} onClick={() => connect(true)}>{busy ? "Checking…" : "Import environment key"}</button>}
+              {anthropic && !away && <button type="button" className="btn small" disabled={busy} onClick={() => connect(true)}>{busy ? "Checking…" : "Import environment key"}</button>}
             </>
             : <button type="button" className="btn small danger" disabled={busy} onClick={disconnect}>Disconnect and forget the key</button>}
         </div>
+      ) : anthropic && away ? (
+        <p className="set-note" role="note">An Anthropic key is set only on the {w("camp")}'s own machine: open Settings → Models in a browser there.</p>
       ) : (
         <form className="prov-key" onSubmit={(ev) => { ev.preventDefault(); if (key.trim()) void connect(); }}>
           <input type="password" value={key} autoComplete="off" spellCheck={false} aria-label={`${p.name} API key`} placeholder={`Paste your ${p.name} API key`} onChange={(ev) => { setKey(ev.target.value); setError(""); }} />
@@ -190,7 +194,7 @@ export function ModelsPage({ S, refresh }: { S: CampState; refresh: () => void }
   return (
     <>
       <p className="set-note">Keys are kept on this machine in <code>camp/providers.json</code>, which only you can read and no {w("crew")} member can open, and are never shown again.</p>
-      <Provider p={{ id: "anthropic", name: "Anthropic", connected: S.anthropic?.connected ?? false, from: S.anthropic?.from ?? undefined, environment: S.anthropic?.environment, keysAt: "https://console.anthropic.com/settings/keys", privacy: "Claude API usage is billed separately from your Claude subscription and has its own limits.", models: 0, free: 0, approved: true }} refresh={refresh} />
+      <Provider p={{ id: "anthropic", name: "Anthropic", connected: S.anthropic?.connected ?? false, from: S.anthropic?.from ?? undefined, environment: S.anthropic?.environment, keysAt: "https://console.anthropic.com/settings/keys", privacy: "Claude API usage is billed separately from your Claude subscription and has its own limits.", models: 0, free: 0, approved: true }} refresh={refresh} away={S.here === false} />
       {providers.map((p) => <Provider key={p.id} p={p} refresh={refresh} />)}
 
       <AutoInfo models={list?.models.length} subscription={S.runtime === "claude-code"} />

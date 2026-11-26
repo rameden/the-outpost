@@ -90,6 +90,45 @@ test("god mode is a level of its own, there with or without a sandbox", async ()
   expect(posts).toEqual([{ path: "/api/approvals", body: { level: "god" } }]);
 });
 
+test("from another machine: what would loosen approvals says it's changed on the camp's own machine; stricter still saves", async () => {
+  const S = { ...camp({ deny: ["git push*"], allow: ["npm run build"], exact: [] }), here: false } as CampState;
+  show("approvals", S);
+  expect(screen.getByText(/You're on another machine/)).toBeTruthy();
+  // The level goes down, not up.
+  expect((screen.getByRole("radio", { name: /Ask every time/ }) as HTMLInputElement).disabled).toBe(false);
+  for (const up of [/Sandbox the rest/, /God mode/]) expect((screen.getByRole("radio", { name: up }) as HTMLInputElement).disabled).toBe(true);
+  expect(screen.getAllByText("Raised only on the camp's own machine.").length).toBe(2);
+  // The reviewer and editing the camp's own code are off, and can't be turned on from here.
+  const switches = screen.getAllByRole("checkbox") as HTMLInputElement[];
+  expect(switches.filter((b) => b.disabled).length).toBe(2);
+  expect(screen.getAllByText("Turned on only on the camp's own machine.").length).toBe(2);
+  // A new allowed prefix isn't saved from here, and says why; taking one out is.
+  const allow = screen.getByLabelText("Allowed command prefixes");
+  const saveAllow = screen.getByRole("button", { name: "Save allowed command prefixes" }) as HTMLButtonElement;
+  fireEvent.change(allow, { target: { value: "npm run build\npytest" } });
+  expect(saveAllow.disabled).toBe(true);
+  expect(screen.getByText(/Lines are added only on the camp's own machine/)).toBeTruthy();
+  fireEvent.change(allow, { target: { value: "" } });
+  expect(saveAllow.disabled).toBe(false);
+  await act(async () => { fireEvent.click(saveAllow); });
+  // "Never run" the other way round: a line more is saved, a line gone isn't.
+  const deny = screen.getByLabelText("Commands that never run");
+  const saveDeny = screen.getByRole("button", { name: "Save commands that never run" }) as HTMLButtonElement;
+  fireEvent.change(deny, { target: { value: "" } });
+  expect(saveDeny.disabled).toBe(true);
+  expect(screen.getByText(/Lines are changed or taken out only on the camp's own machine/)).toBeTruthy();
+  fireEvent.change(deny, { target: { value: "git push*\nrm -rf *" } });
+  await act(async () => { fireEvent.click(saveDeny); });
+  expect(posts).toEqual([{ path: "/api/shell", body: { allow: [""] } }, { path: "/api/shell", body: { deny: ["git push*", "rm -rf *"] } }]);
+});
+
+test("on the camp's own machine nothing on Approvals is held back", () => {
+  show("approvals", { ...camp(), here: true } as CampState);
+  expect(screen.queryByText(/You're on another machine/)).toBeNull();
+  expect((screen.getByRole("radio", { name: /God mode/ }) as HTMLInputElement).disabled).toBe(false);
+  expect((screen.getAllByRole("checkbox") as HTMLInputElement[]).some((b) => b.disabled)).toBe(false);
+});
+
 test("limits: budget, expeditions at once, and quests at once", async () => {
   const { container } = render(<Settings S={camp()} section="limits" setSection={() => {}} refresh={() => {}} onAttachLink={() => {}} onClose={() => {}} />);
   fireEvent.change(screen.getByLabelText("Budget per expedition"), { target: { value: "2.5" } });

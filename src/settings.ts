@@ -427,19 +427,41 @@ export function setPlainApprovals(on: boolean) {
   if (!on) delete s.shell.explain;
   save(s);
 }
-export function setShellLists(patch: { allow?: string[]; exact?: string[]; deny?: string[]; ask?: string[]; allowHosts?: string[] }) {
-  const s = load();
-  // Prefixes are matched against the command with spaces collapsed; exact commands as typed (trimmed).
+type ShellLists = { allow?: string[]; exact?: string[]; deny?: string[]; ask?: string[]; allowHosts?: string[] };
+// The lists as they'd be kept. Prefixes are matched against the command with spaces collapsed;
+// exact commands as typed (trimmed).
+function cleanShellLists(patch: ShellLists): ShellLists {
   const clean = (l: string[], collapse: boolean) =>
     [...new Set(l.map((x) => { const t = String(x).trim(); return collapse ? t.replace(/\s+/g, " ") : t; }).filter(Boolean))].slice(0, 200);
-  const sh: ShellSettings = { ...(s.shell ?? {}) };
-  if (patch.allow) sh.allow = clean(patch.allow, true);
-  if (patch.exact) sh.exact = clean(patch.exact, false);
-  if (patch.deny) sh.deny = clean(patch.deny, true);
-  if (patch.ask) sh.ask = clean(patch.ask, true);
-  if (patch.allowHosts) sh.allowHosts = clean(patch.allowHosts, true).map((h) => h.toLowerCase()).filter((h) => /^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h));
-  s.shell = sh;
+  return {
+    ...(patch.allow ? { allow: clean(patch.allow, true) } : {}),
+    ...(patch.exact ? { exact: clean(patch.exact, false) } : {}),
+    ...(patch.deny ? { deny: clean(patch.deny, true) } : {}),
+    ...(patch.ask ? { ask: clean(patch.ask, true) } : {}),
+    ...(patch.allowHosts ? { allowHosts: clean(patch.allowHosts, true).map((h) => h.toLowerCase()).filter((h) => /^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h)) } : {}),
+  };
+}
+export function setShellLists(patch: ShellLists) {
+  const s = load();
+  s.shell = { ...(s.shell ?? {}), ...cleanShellLists(patch) };
   save(s);
+}
+
+// Would a change let the crew's shell do more than it may now? Asked of a request from another
+// machine (server.ts): it may make the rules stricter, never looser.
+//   levels: ask < safe < sandbox < god, each running more without your OK than the one before.
+//   lists:  a new line in the allow-list, the "Always allowed" commands or the sandbox's hosts
+//           loosens; so does a line gone from "Never run" or "Always ask". A line changed is one
+//           gone and one new, so rewording a rule counts as loosening too.
+const LEVELS: ApprovalLevel[] = ["ask", "safe", "sandbox", "god"];
+export const loosensApproval = (to: ApprovalLevel, from: ApprovalLevel = approvalLevel()) => LEVELS.indexOf(to) > LEVELS.indexOf(from);
+export function loosensShell(patch: ShellLists): boolean {
+  const now = shellSettings();
+  const next = cleanShellLists(patch);
+  const adds = (to: string[] | undefined, from: string[] = []) => !!to && to.some((x) => !from.includes(x));
+  const drops = (to: string[] | undefined, from: string[] = []) => !!to && from.some((x) => !to.includes(x));
+  return adds(next.allow, now.allow) || adds(next.exact, now.exact) || adds(next.allowHosts, now.allowHosts)
+    || drops(next.deny, now.deny) || drops(next.ask, now.ask);
 }
 
 // What runs the crew: your Claude subscription through Claude Code (the default), or the API
