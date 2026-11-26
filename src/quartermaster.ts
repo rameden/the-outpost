@@ -17,8 +17,9 @@ import { requestDisplay, viewFileFor, type Attachment, type RequestContent } fro
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { randomUUID } from "node:crypto";
-import { currentSignal, currentWorkspaces, withExpedition, withQuest, type Steering, type Workspace } from "./context.js";
-import { runChecks } from "./verify.js";
+import { currentExpeditionId, currentSignal, currentWorkspaces, withExpedition, withQuest, type Steering, type Workspace } from "./context.js";
+import { checkChanges, isDoc, noChecksNote, type ChecksReport } from "./verify.js";
+import { foldersToLock, lockFolders } from "./folderlock.js";
 import { setUpWorkspaces } from "./setup.js";
 import { FINDINGS_FORMAT, REVIEW_SCOPE } from "./review.js";
 import { workspaceStatus } from "./repos.js";
@@ -44,7 +45,31 @@ export const rosterLines = () => Object.entries(ROSTER)
 // parked: a plan you approved to start later (its text and its card). The run ends without
 // dispatching anyone, and the plan is kept with the conversation until you start it.
 // thread: the conversation this run is in (a plan card asks about one already waiting there).
-type Expedition = { planApproved: boolean; job?: string; parked?: { text: string; ask: string }; thread?: string; project?: string; shown?: string };
+// board: the plan that stands, and where each of its steps is (see PlanBoard).
+// reviewed: the Warden has reviewed this run's changes. unchecked: the linked folders a quest
+// changed that had no checks to run, each with the likely ones found there.
+type Expedition = { planApproved: boolean; job?: string; parked?: { text: string; ask: string }; thread?: string; project?: string; shown?: string;
+  board?: PlanBoard; reviewed?: boolean; unchecked?: Map<string, string[]> };
+
+// The plan that stands for a run, and where each of its steps is: how many quests are out for it
+// now, whether one has come back done, and how the last one that didn't ended. This is what makes
+// a step's "(after 1, 2)" hold: dispatch refuses a step while a step it waits for hasn't finished.
+type PlanBoard = { steps: PlanStepLine[]; out: Map<number, number>; done: Set<number>; ended: Map<number, string> };
+// A plan stands (approved now, or held earlier and started now). A revised plan keeps as done the
+// steps that are in it unchanged (same number, same words) and had finished under the last one.
+function standPlan(exp: Expedition, steps: PlanStepLine[]) {
+  const was = exp.board;
+  const unchanged = (s: PlanStepLine) => was?.steps.find((o) => o.n === s.n)?.text === s.text;
+  exp.board = { steps, out: new Map(), done: new Set(steps.filter((s) => was?.done.has(s.n) && unchanged(s)).map((s) => s.n)), ended: new Map() };
+}
+// The steps this one waits for that haven't finished, each with where it stands.
+export function waitsOn(board: PlanBoard | undefined, n: number): { n: number; state: string }[] {
+  const step = board?.steps.find((s) => s.n === n);
+  if (!board || !step?.after) return [];
+  return step.after.filter((p) => board.out.get(p) || !board.done.has(p)).map((p) => ({
+    n: p, state: board.out.get(p) ? "still out" : board.ended.has(p) ? `came back without finishing: ${board.ended.get(p)}` : "not sent yet" }));
+}
+const stepList = (held: { n: number; state: string }[]) => held.map((h) => `step ${h.n} (${h.state})`).join(held.length > 2 ? ", " : " and ");
 
 // The answer that approves a plan but holds it for later (the plan card's "Approve, start later").
 export const START_LATER = "later";
@@ -72,7 +97,7 @@ function makeSubmitPlan(exp: Expedition): Tool {
     run: async ({ plan }) => {
       const steps = planSteps(String(plan));
       // Once it stands, the plan goes out as its steps: the page keeps them as a list that fills in.
-      const stands = () => { if (steps.length >= 2) emit({ type: "plan", steps }); };
+      const stands = () => { standPlan(exp, steps); if (steps.length >= 2) emit({ type: "plan", steps }); };
       if (exp.planApproved && (campMode.unattended || !APPROVE_PLANS)) { stands(); return "Approved. Go ahead."; }
       let askId = "";
       // A plan from this conversation already waiting to start: the card asks if this one replaces it.
@@ -91,7 +116,8 @@ function makeSubmitPlan(exp: Expedition): Tool {
       if (answer === "" || answer.toLowerCase() === "y") {
         exp.planApproved = true;
         stands();
-        return "The user approved the plan. Go ahead and dispatch." + (steps.length >= 2 ? " Give each dispatch the number of the plan step it carries out (step), so the user can see the plan fill in." : "");
+        return "The user approved the plan. Go ahead and dispatch." + (steps.length >= 2 ? " Give each dispatch the number of the plan step it carries out (step), so the user can see the plan fill in." : "") +
+          (steps.some((s) => s.after) ? " A step marked (after …) is held until those steps' reports are back: a dispatch for it sent sooner is refused." : "");
       }
       exp.planApproved = false;
       if (answer.toLowerCase() === "n") return "The user stopped this plan. Don't dispatch; ask what they want instead.";
@@ -181,35 +207,81 @@ function makeDispatch(exp: Expedition): Tool {
       if (!spec) return `No ${w("member")} named ${adventurer}.`;
       if (exp.parked) return "Blocked: the user approved the plan to start later, not now. Don't start any work; end your turn.";
       if (!exp.planApproved) return "Blocked: submit your plan with submit_plan and get the user's approval first.";
-      if (questsRunning >= questLimit()) {
-        emit({ type: "notice", who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0, text: `⏳ ${spec.name}'s ${w("quest")} is waiting for a free slot (${questLimit()} ${w("quests")} run at once).` });
-      }
-      if (!(await questSlot(currentSignal()))) return `Not sent: the ${w("expedition")} was stopped.`;
-      // Each quest gets its own id, so parallel quests keep their events and approvals apart.
-      const questId = randomUUID();
       const n = Number(step);
-      emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, brief: briefLine(brief), ...(Number.isInteger(n) && n > 0 && n < 100 ? { step: n } : {}) });
-      const started = new Date();
+      const shownStep = Number.isInteger(n) && n > 0 && n < 100 ? n : undefined;
+      // A step of the plan that stands: it doesn't start while a step it waits for hasn't finished.
+      const board = exp.board;
+      const onPlan = shownStep !== undefined && board?.steps.some((s) => s.n === shownStep) ? shownStep : undefined;
+      if (board && onPlan !== undefined) {
+        const held = waitsOn(board, onPlan);
+        if (held.length) {
+          emit({ type: "notice", who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0, text: `⏸ Step ${onPlan} isn't sent yet: it starts after ${stepList(held)}.` });
+          return `Not sent: step ${onPlan} of the plan starts after ${stepList(held)}, and ${held.length > 1 ? "those haven't" : "that hasn't"} finished. ` +
+            `Send what's missing first (each dispatch with its step number), wait for the reports, then dispatch step ${onPlan} again, with what they found in its brief. ` +
+            "If the plan no longer holds, submit the new one with submit_plan.";
+        }
+        board.out.set(onPlan, (board.out.get(onPlan) ?? 0) + 1); // out from here on, so a step sent in the same turn sees it
+      }
+      const ended = (how: string) => { if (board && onPlan !== undefined) { if (how === "done") board.done.add(onPlan); else board.ended.set(onPlan, how.replace(/_/g, " ")); } };
       try {
-        const { result, checks, text } = await withQuest(questId, () => questWithChecks(spec, questId,
-          (task) => runAgent(spec, task ?? brief, { depth: 1, source: "brief" }),
-          (r, task, from) => logQuest("quest", spec.name, task ?? brief, from, r, exp.job)));
-        emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId });
+        const back = await sendQuest(exp, spec, String(brief), shownStep);
+        if (!back) { ended("stopped"); return `Not sent: the ${w("expedition")} was stopped.`; }
+        ended(back.result.status);
+        const { checks, text } = back;
         // Cap what stays in the Quartermaster's context: full transcripts are in sessions/ and the quest log.
         const REPORT_KEEP = 12_000;
         const body = text.length > REPORT_KEEP
           ? text.slice(0, Math.floor(REPORT_KEEP * 0.7)).trimEnd() + `\n[… ${text.length - REPORT_KEEP} characters of this report left out; the full text is in ${spec.name}'s session …]\n` + text.slice(-(REPORT_KEEP - Math.floor(REPORT_KEEP * 0.7))).trimStart()
           : text;
         return `${spec.name}'s report:\n${body}` + (checks ? `\n\n${checks}` : "");
-      } catch (err: any) {
-        logFailure("quest", spec.name, brief, started, err, exp.job);
-        emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });
+      } catch (err) {
+        ended("error");
         throw err;
       } finally {
-        releaseQuestSlot();
+        if (board && onPlan !== undefined) board.out.set(onPlan, (board.out.get(onPlan) ?? 1) - 1);
       }
     },
   };
+}
+
+// One quest, from waiting its turn to its report. A quest that can change files in a linked folder
+// first waits for that folder (one writer at a time there: see folderlock.ts), then every quest
+// waits for a free slot. It holds the folder until it is back, its checks and any fix included.
+// null: the run was stopped while it waited, and nobody went.
+async function sendQuest(exp: Expedition, spec: AgentSpec, brief: string, step?: number): Promise<{ result: AgentResult; checks: string; text: string } | null> {
+  const lead = { who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0 };
+  const folders = foldersToLock(spec);
+  const free = await lockFolders(folders.map((f) => f.root), spec.name, currentSignal(), (holder, root) =>
+    emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s ${w("quest")} is waiting for ${holder}'s to finish in links/${folders.find((f) => f.root === root)?.name}: one ${w("quest")} at a time changes files in a folder.` }));
+  if (!free) return null;
+  try {
+    if (questsRunning >= questLimit()) {
+      emit({ type: "notice", ...lead, text: `⏳ ${spec.name}'s ${w("quest")} is waiting for a free slot (${questLimit()} ${w("quests")} run at once).` });
+    }
+    if (!(await questSlot(currentSignal()))) return null;
+    // Each quest gets its own id, so parallel quests keep their events and approvals apart.
+    const questId = randomUUID();
+    emit({ type: "dispatch", who: spec.name, emoji: spec.emoji, questId, brief: briefLine(brief), ...(step !== undefined ? { step } : {}) });
+    const started = new Date();
+    try {
+      const back = await withQuest(questId, () => questWithChecks(spec, questId,
+        (task) => runAgent(spec, task ?? brief, { depth: 1, source: "brief" }),
+        (r, task, from) => logQuest("quest", spec.name, task ?? brief, from, r, exp.job)));
+      emit({ type: "return", who: spec.name, emoji: spec.emoji, status: back.result.status, questId });
+      for (const u of back.unchecked) (exp.unchecked ??= new Map()).set(u.link, u.found);
+      // A review counts when there was a change to review: the Warden, back with its report, after files changed.
+      if (spec.id === "warden" && back.result.status === "done" && codeChanged().length) exp.reviewed = true;
+      return back;
+    } catch (err: any) {
+      logFailure("quest", spec.name, brief, started, err, exp.job);
+      emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId });
+      throw err;
+    } finally {
+      releaseQuestSlot();
+    }
+  } finally {
+    free();
+  }
 }
 
 // Whether changes are reviewed before the report in this project: its own default if it set one, else the camp's.
@@ -227,7 +299,37 @@ export const REVIEW_RULE =
   "- If it finds a blocker or something that should be fixed, send one fix {quest} for those, then report. Don't review a second time.\n" +
   "- In your summary, say the change was reviewed and what came of it. If any finding was left unfixed (you judged it wrong, out of scope, or small), end your summary with those in the same ```findings block, so the user can decide.\n" +
   "- If it finds nothing, say in your summary that the change was reviewed and nothing was found.\n" +
-  "- Skip the review when nothing in a linked folder changed, or when the change is only docs or notes.";
+  "- Skip the review when nothing in a linked folder changed, or when the change is only docs or notes.\n" +
+  "- The {camp} holds you to this: if you finish and the change hasn't been reviewed, it sends the Warden itself and puts that report under your summary, with no chance for a fix.";
+
+// The same rule, kept by the camp. With review on, a run that changed code in a linked folder
+// doesn't report before a review ran: if the Quartermaster finished without one, the camp sends
+// the Warden itself (this brief, written here rather than by a model) and the report goes under
+// the summary. Nothing is fixed on this path: the findings go to the user to decide.
+const codeChanged = () => changedFiles(currentExpeditionId() ?? "").filter((f) => f.path.startsWith("links/") && !isDoc(f.path));
+export function campReviewBrief(asked: string, changed: { path: string; change: string }[]): string {
+  const files = changed.slice(0, 60).map((f) => `- ${f.path} (${f.change})`).join("\n") + (changed.length > 60 ? `\n- … and ${changed.length - 60} more` : "");
+  return `Review a change the ${w("crew")} just made, before the user is told it's done. Don't change any files.\n\n` +
+    `What the user asked for:\n${(asked.trim() || "(not given)").split("\n").map((l) => `> ${l}`).join("\n")}\n\n` +
+    `Files changed:\n${files}\n\n${REVIEW_SCOPE}\n\n${FINDINGS_FORMAT}`;
+}
+async function reviewBeforeReport(exp: Expedition, result: AgentResult, asked: string): Promise<string> {
+  const warden = ROSTER.warden;
+  if (result.status !== "done" || exp.parked || exp.reviewed || !warden) return "";
+  const changed = codeChanged();
+  if (!changed.length) return "";
+  emit({ type: "notice", who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0, text: `🔎 Review is on and this change hasn't been reviewed: sending ${warden.name} before the summary goes out.` });
+  let how = "stopped", report = "";
+  try {
+    const back = await sendQuest(exp, warden, campReviewBrief(asked, changed));
+    if (back) { how = back.result.status; report = back.text; }
+  } catch (err: any) {
+    how = `error: ${err?.message ?? err}`;
+  }
+  return how === "done"
+    ? `## Review\n(Review is on and this change hadn't been reviewed, so the ${w("camp")} sent ${warden.name} before this summary went out. Nothing below has been fixed.)\n\n${report}`
+    : `## Review\nReview is on, so the ${w("camp")} sent ${warden.name} to review this change before the summary went out, but the review didn't finish (${how.replace(/_/g, " ")}). The change has not been reviewed.`;
+}
 
 // A quest, then your checks for any linked folder it changed. If a check fails, the same
 // adventurer is sent back with the failing output to fix what it broke, and the checks run again:
@@ -239,12 +341,13 @@ async function questWithChecks(
   spec: { name: string; emoji: string }, questId: string,
   run: (fixTask?: string) => Promise<AgentResult>,
   log: (result: AgentResult, fixTask: string | undefined, started: Date) => void,
-): Promise<{ result: AgentResult; checks: string; text: string }> {
+): Promise<{ result: AgentResult; checks: string; text: string; unchecked: ChecksReport["unchecked"] }> {
   const who = { who: spec.name, emoji: spec.emoji, questId };
+  const check = async (r: AgentResult): Promise<ChecksReport> => (r.status === "stopped" ? { text: "", unchecked: [] } : checkChanges(questId, who));
   let started = new Date();
   let result = await run();
   log(result, undefined, started);
-  let checks = result.status === "stopped" ? "" : await runChecks(questId, who);
+  let { text: checks, unchecked } = await check(result);
   let text = result.text;
   for (let n = 1; n <= fixAttempts() && checksFailed(checks) && result.status === "done" && !currentSignal()?.aborted; n++) {
     emit({ type: "notice", ...who, depth: 1, text: `🔁 A check failed: sending ${spec.name} back to fix it (${n} of ${fixAttempts()}).` });
@@ -253,9 +356,9 @@ async function questWithChecks(
     result = await run(fixTask);
     log(result, fixTask, started);
     text += `\n\n(The ${w("camp")}'s checks failed after that, so ${spec.name} was sent back to fix them, and reported:)\n${result.text}`;
-    checks = result.status === "stopped" ? "" : await runChecks(questId, who);
+    ({ text: checks, unchecked } = await check(result));
   }
-  return { result, checks, text };
+  return { result, checks, text, unchecked };
 }
 export function fixBrief(checks: string): string {
   return `The ${w("camp")} ran the project's own checks after your changes, and at least one failed. Fix what your changes broke, and nothing else.\n` +
@@ -365,8 +468,10 @@ How you work:
    (e.g. Scout researches before the Scribe writes about it; the Warden reviews a pull request or a finished change). Show the plan with submit_plan
    before your first dispatch, and follow the user's changes if they ask for any.
    When a step can only start once others have finished, begin it with "(after 1, 2)" naming them (e.g. "3. (after 1, 2) Scribe writes the summary"); a step that can start right away has no marker.
+   The {camp} holds you to those markers: a dispatch for a step is refused until the steps it comes after have reported back, so send those first.
 4. Dispatch with excellent briefs. {Members} know nothing except what you write.
    Independent {quests} (research while the Artificer builds) go out together in one turn.
+   {Members} who change files take turns in a linked folder (the {camp} sees to it): sent together, the second starts when the first is back.
    Give each dispatch the number of the plan step it carries out (step): the user watches the plan fill in.
    Pass along findings from earlier reports and point them at relevant wiki pages.
    When someone writes about code changes (release notes, a PR description, docs), the brief
@@ -376,6 +481,8 @@ How you work:
 5. Review every report. If it's incomplete or wrong, dispatch again with a sharper brief.
    A report may end with "Automatic checks": the user's own commands, run by the {camp} after the
    changes. A ✗ there means the work isn't done: send the {member} back with the output.
+   A report may say instead that no automatic checks ran in a folder: the {camp} tells the user
+   so under your summary itself, so don't repeat it, and don't call that work checked.
    A report that says it used all its turns ends with a handoff (files changed, last steps):
    put that in the next brief so the work continues instead of starting over.
 6. Do trivial things yourself (reading one file, a quick web lookup) rather than dispatching for them.
@@ -512,17 +619,25 @@ export async function runExpedition(
       const setup = await setUpWorkspaces(workspaces, { who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji });
       // A held plan being started: its steps go out as the list to fill in, as on approval.
       const held = opts.approvedPlan ? planSteps(opts.approvedPlan.text) : [];
+      if (opts.approvedPlan) standPlan(exp, held);
       if (held.length >= 2) emit({ type: "plan", steps: held });
-      return runAgent(buildQuartermaster(exp, cost, forRun), task, {
+      const reviewOn = (opts.review ?? reviewsHere(where.project)) && !opts.job;
+      const result = await runAgent(buildQuartermaster(exp, cost, forRun), task, {
         source: opts.source ?? (opts.job ? "job" : "user"),
         extraSystem:
           `## Skill catalog (every live skill in the ${w("camp")}, by owner)\n${skillCatalog()}` +
-          ((opts.review ?? reviewsHere(where.project)) && !opts.job ? `\n\n${say(REVIEW_RULE)}` : "") +
+          (reviewOn ? `\n\n${say(REVIEW_RULE)}` : "") +
           (setup ? `\n\n${setup}\nMention a failed setup in your briefs: the ${w("crew")}'s checks and tests may fail because of it.` : "") +
           (opts.extraSystem ? `\n\n${opts.extraSystem}` : "") +
-          (opts.approvedPlan ? `\n\n${heldPlanNote(opts.approvedPlan.text, held.length >= 2)}` : "") +
+          (opts.approvedPlan ? `\n\n${heldPlanNote(opts.approvedPlan.text, held.length >= 2, held.some((s) => s.after?.length))}` : "") +
           (thread ? `\n\n${thread.history}` : ""),
       });
+      // What the camp adds under the summary itself, whatever the Quartermaster wrote: the review
+      // that had to run before this could go out, and the folders whose changes nothing checked.
+      const added = [reviewOn ? await reviewBeforeReport(exp, result, shown) : "", uncheckedNote(exp, result)].filter(Boolean).join("\n\n");
+      if (!added) return result;
+      emit({ type: "text", who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0, text: added });
+      return { ...result, text: result.text ? `${result.text}\n\n${added}` : added };
     });
     logQuest(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, result, opts.job, where.project);
     if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status, ...(exp.parked ? { parked: exp.parked } : {}) });
@@ -539,12 +654,20 @@ export async function runExpedition(
 }
 
 // What the Quartermaster is told when you start a plan you approved earlier and held.
-function heldPlanNote(plan: string, numbered: boolean): string {
+function heldPlanNote(plan: string, numbered: boolean, waits = false): string {
   return `## The approved plan, starting now\nThe user approved this plan earlier and held it to start later. They've now started it, so ` +
     `carry it out: dispatch its steps without submitting it again. Check first whether anything has changed since ` +
     `(files, branches, what's already done); only if a step no longer makes sense, submit a revised plan.` +
     (numbered ? " Give each dispatch the number of the plan step it carries out (step), so the user can see the plan fill in." : "") +
+    (numbered && waits ? " A step marked (after …) is held until those steps' reports are back: a dispatch for it sent sooner is refused." : "") +
     `\n\n${plan}`;
+}
+
+// Folders where this run changed files and nothing checked them, said under the summary by the
+// camp (not left to the Quartermaster to pass on).
+function uncheckedNote(exp: Expedition, result: AgentResult): string {
+  if (result.status === "stopped" || !exp.unchecked?.size) return "";
+  return [...exp.unchecked].map(([link, found]) => say(noChecksNote(link, found))).join("\n");
 }
 
 // Where each of an expedition's worktrees stands when it ends: its branch, uncommitted files, new commits.
@@ -633,13 +756,22 @@ export async function runDirect(
     : task.map((b, i) => (b.type === "text" && i === task.length - 1 ? { ...b, text: note + b.text } : b));
   try {
     const result = await withExpedition({ id, budget: where.budget, signal, workspaces, steering: more.steering, project: where.project, scope: where.scope, without: more.without, model: more.model, thread: turn.thread, replyTo: thread ? replyTo : undefined }, () => withQuest(questId, async () => {
-      const setup = await setUpWorkspaces(workspaces, { who: spec.name, emoji: spec.emoji });
-      const extraSystem = [setup, more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;
-      const { result: r, checks, text } = await questWithChecks(spec, questId,
-        (task) => runAgent(spec, task ?? content, { depth: 1, source, extraSystem }),
-        (run, task, from) => logQuest("quest", spec.name, task ?? shown, from, run, undefined, where.project));
-      if (checks) emit({ type: "text", who: spec.name, emoji: spec.emoji, depth: 1, questId, text: checks });
-      return { ...r, text: checks ? `${text}\n\n${checks}` : text };
+      // One writer at a time in a linked folder, here too: another conversation may be working in it.
+      // Stopped while waiting: carry on without it, the run ends at once without touching anything.
+      const folders = foldersToLock(spec);
+      const free = await lockFolders(folders.map((f) => f.root), spec.name, currentSignal(), (holder, root) =>
+        emit({ type: "notice", who: spec.name, emoji: spec.emoji, depth: 1, questId, text: `⏳ Waiting for ${holder}'s ${w("quest")} to finish in links/${folders.find((f) => f.root === root)?.name}: one ${w("quest")} at a time changes files in a folder.` }));
+      try {
+        const setup = await setUpWorkspaces(workspaces, { who: spec.name, emoji: spec.emoji });
+        const extraSystem = [setup, more.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined;
+        const { result: r, checks, text } = await questWithChecks(spec, questId,
+          (task) => runAgent(spec, task ?? content, { depth: 1, source, extraSystem }),
+          (run, task, from) => logQuest("quest", spec.name, task ?? shown, from, run, undefined, where.project));
+        if (checks) emit({ type: "text", who: spec.name, emoji: spec.emoji, depth: 1, questId, text: checks });
+        return { ...r, text: checks ? `${text}\n\n${checks}` : text };
+      } finally {
+        free?.();
+      }
     }, true)); // you're talking to them yourself: the conversation's model is theirs
     recordTurn({ ...turn, reply: result.text, status: result.status });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId, expeditionId: id });

@@ -12,7 +12,7 @@ The limits below are kept by Outpost's own code, not by asking the crew nicely.
 - **Untrusted content** (web pages, files, connector results, tickets, review comments) is treated as information, never as instructions.
 - **Connectors** are read-only unless you allow writes, and then every write asks you first.
 - **Budgets** cap each expedition across the Quartermaster and all its quests.
-- **The page's server** listens only on `127.0.0.1` unless you turn on LAN mode (`CAMP_LAN=1`, which listens on your home network over plain HTTP). The relay and Tailscale leave it on `127.0.0.1` and put a proxy on the same machine in front of it. Either way it checks the `Host` header, needs the outpost's key for everything, and runs under a Content-Security-Policy with no inline code. [Remote access](remote-access.md) has the details.
+- **The page's server** listens only on `127.0.0.1` unless you turn on LAN mode (`CAMP_LAN=1`, which listens on your home network over plain HTTP). The relay and Tailscale leave it on `127.0.0.1` and put a proxy on the same machine in front of it. Either way it checks the `Host` header, needs the outpost's key for everything, and runs under a Content-Security-Policy with no inline code. From another machine you can make the crew's limits stricter but not looser: raising the approval level, loosening the shell rules, turning on the approval reviewer or self-editing, and setting the Anthropic key are done only on the outpost's own machine. [Remote access](remote-access.md) has the details.
 
 ## Approvals from your phone
 
