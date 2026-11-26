@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ConfirmHost } from "../components/Confirm.tsx";
+import { Opener, expectTabWraps } from "../components/modalkit.tsx";
 import type { GraphNode, MemoryGraph, Why } from "../types.ts";
 import { Constellation, labelAngle, placeClass, placeSays } from "./Constellation.tsx";
 import { BULB, CLEFT, fibre } from "./Synapse.tsx";
@@ -395,4 +396,20 @@ test("on the map, a place's line starts where its owner sits, and a name below t
   // Four alike, clockwise from the top: two above the middle (their names over them), two below (their names under them, their lines turned to start at the bottom).
   expect(all.map((p) => Math.sign(p.name - p.y))).toEqual([-1, 1, 1, -1]);
   expect(all.map((p) => p.turn === 90)).toEqual([false, true, true, false]);
+});
+
+test("Tab stays inside the map, and focus goes back to what opened it when it closes", async () => {
+  render(<><Opener>{(close) => <Constellation onClose={close} onOpenConversation={vi.fn()} onOpenMemory={vi.fn()} />}</Opener><ConfirmHost /></>);
+  const opener = screen.getByRole("button", { name: "Open it" });
+  opener.focus();
+  fireEvent.click(opener);
+  await star(/^Use British spelling Scribe's memory/);
+  const map = screen.getByRole("dialog", { name: /^Memory constellation/ });
+  expect(map.contains(document.activeElement)).toBe(true);
+  expectTabWraps(map); // (focusing the first star opens its panel, so then the last control is the panel's)
+  fireEvent.keyDown(map, { key: "Escape" }); // puts the star down
+  expect(screen.queryByRole("dialog")).toBeTruthy();
+  fireEvent.keyDown(map, { key: "Escape" }); // and leaves
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
 });

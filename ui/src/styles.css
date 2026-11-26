@@ -994,6 +994,10 @@ button.jira-epic-head:hover b { text-decoration: underline; text-underline-offse
 .md table { border-collapse: collapse; font-size: .94em; }
 .md th, .md td { border: 1px solid var(--border-strong); padding: 5px 10px; text-align: left; vertical-align: top; }
 .md th { background: var(--surface-2); font-weight: 600; }
+/* A cell breaks between words, never inside one ("Lin e"): a column is as wide as its longest word,
+   and a table wider than the space it's in scrolls sideways in its own box (.md-table). */
+.md :is(th, td) { overflow-wrap: break-word; word-break: normal; }
+.md tr.md-row-cut td { color: var(--muted); border-bottom-style: dashed; } /* a row still coming in, or cut off */
 .md li.md-task { list-style: none; margin-left: -1.3em; }
 .md li.md-task input { margin: 0 4px 0 0; vertical-align: -1px; accent-color: var(--accent); }
 @media (max-width: 760px) { .drawer.file-view { width: 100vw; } .file-page { padding: 20px 16px 40px; } }
@@ -1346,7 +1350,9 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .md.streaming { white-space: pre-wrap; }
 .md.streaming::after { content: "▍"; color: var(--faint); animation: caret 1s steps(1) infinite; }
 @keyframes caret { 50% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .md.streaming::after { animation: none; } }
+/* A reply drawn as it comes in (the crew drawer): the same as a finished one, with the caret after its last block. */
+.md.live > :last-child::after, .md.live:empty::after { content: "▍"; color: var(--faint); animation: caret 1s steps(1) infinite; }
+@media (prefers-reduced-motion: reduce) { .md.streaming::after, .md.live > :last-child::after, .md.live:empty::after { animation: none; } }
 .spend-card { border: 1px solid var(--border); border-radius: 10px; background: var(--bg); padding: 12px; margin-bottom: 14px; }
 .spend-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .spend-row div { display: flex; flex-direction: column; }

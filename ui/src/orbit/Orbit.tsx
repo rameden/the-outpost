@@ -50,6 +50,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { api, errorText, storeGet, storeSet } from "../api.ts";
 import { contour, contourPoints, LAP, MARKS, stretch, TAIL } from "../components/MaeSystem.tsx";
 import { Icon } from "../components/bits.tsx";
+import { useModal } from "../components/Dialog.tsx";
 import { runningCount, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
 import { calledEver, cClass, cx, leadName, money, nameNow } from "../format.ts";
@@ -258,6 +259,7 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const colours = useRef(new Map<string, Vec3>()), worlds = useRef(new Map<string, World>()), glows = useRef<Record<string, number>>({}).current;
   const turned = useRef<Record<string, number>>({}).current; // how far each world has turned on its axis (kept, so changing how fast it spins doesn't fling it round)
   const root = useRef<HTMLDivElement>(null);
+  useModal(root, { focus: "box" }); // Tab stays inside, focus goes back on close; Escape is answered below
   const world = useRef<SVGGElement>(null);
   type Part = { orbit?: SVGGElement | null; upright?: SVGGElement | null; label?: HTMLElement | null; busy?: SVGGElement | null; comet?: SVGGElement | null; land?: SVGCircleElement | null; blip?: SVGCircleElement | null; gauge?: SVGGElement | null; moons: (SVGGElement | null)[] };
   const parts = useRef<Record<string, Part>>({}).current;

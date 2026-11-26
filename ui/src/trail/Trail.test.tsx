@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../api.ts";
+import { Opener, expectTabWraps } from "../components/modalkit.tsx";
 import { createFeedStore, type FeedStore } from "../feed/store.ts";
 import type { CampEvent, CampState } from "../types.ts";
 import { layoutOf, STEP_H, STEP_W, waitsOf } from "./layout.ts";
@@ -615,4 +616,19 @@ describe("the whole map as rings", () => {
       vi.unstubAllGlobals();
     }
   });
+});
+
+test("Tab stays inside the trail map, and focus goes back to what opened it when it closes", () => {
+  const store = createFeedStore();
+  for (const e of [begin(), planned(diamond)]) store.apply(e);
+  render(<Opener>{(close) => <Trail S={S} store={store} onClose={close} onOpenQuest={vi.fn()} />}</Opener>);
+  const opener = screen.getByRole("button", { name: "Open it" });
+  opener.focus();
+  fireEvent.click(opener);
+  const map = screen.getByRole("dialog", { name: /Trail map/ });
+  expect(map.contains(document.activeElement)).toBe(true);
+  expectTabWraps(map);
+  fireEvent.keyDown(map, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
 });
