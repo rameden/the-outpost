@@ -88,9 +88,10 @@ test("the terminal's style rules get a per-launch nonce, and nothing else is loo
 test("the tour is the repo's docs page, under a policy that reaches nothing of the camp", () => {
   const page = splashPage()!;
   assert.ok(page, `${SPLASH_FILE} exists`);
-  assert.match(page, /<title>Outpost Mae<\/title>/);
-  // The server fills in its own outpost's name (withOutpost), which the logo reads from this meta.
-  assert.match(page, /<meta name="outpost" content="Mae">/);
+  // As published (the public site) it names no outpost; the server fills in its own (withOutpost),
+  // which the logo reads from this meta.
+  assert.match(page, /<title>Outpost<\/title>/);
+  assert.match(page, /<meta name="outpost" content="">/);
   assert.match(withOutpost(page, "Work"), /<title>Outpost Work<\/title>[\s\S]*<meta name="outpost" content="Work">/);
   // It wears the theme picked in mission control (the same saved choice), set before anything is drawn,
   // and carries both of mission control's palettes.

@@ -70,5 +70,6 @@ test("the packs' places follow a rename without a restart", () => {
     OUTPOST.name = "Home";
     assert.equal(packById("starship").place, "the starship Home");
     assert.equal(withOutpost('<meta name="outpost" content="Mae"><title>Outpost Mae</title>'), '<meta name="outpost" content="Home"><title>Outpost Home</title>');
+    assert.equal(withOutpost('<meta name="outpost" content=""><title>Outpost</title>'), '<meta name="outpost" content="Home"><title>Outpost Home</title>');
   } finally { OUTPOST.name = was; }
 });
