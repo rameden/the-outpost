@@ -68,7 +68,9 @@ export function plainNotes(pulls: Merged[]): { frontend: Note[]; backend: Note[]
   }
   return { frontend: majorFirst(out.frontend), backend: majorFirst(out.backend) };
 }
-const majorFirst = (notes: Note[]) => [...notes].sort((a, b) => Number(b.major) - Number(a.major));
+// New features first, then the rest; newest pull request first within each.
+const newest = (n: Note) => Math.max(0, ...n.prs);
+export const majorFirst = (notes: Note[]) => [...notes].sort((a, b) => Number(b.major) - Number(a.major) || newest(b) - newest(a));
 
 // ---------- The write-up ----------
 const SYSTEM = `You write release notes for Mae, a multi-agent app: a Node/TypeScript back end (src/, scripts/, tests/) and a React front end (ui/), plus an in-app tour (docs/) and a browser extension (extension/), which count as front end.

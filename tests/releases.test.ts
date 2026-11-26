@@ -4,7 +4,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 import type { Merged } from "../src/releases.ts";
 
 enterSandbox("releases");
-const { plainNotes, readNotes, releaseNotesDue, releases, sideOf, writeReleaseNotes, EVERY_MS } = await import("../src/releases.ts");
+const { majorFirst, plainNotes, readNotes, releaseNotesDue, releases, sideOf, writeReleaseNotes, EVERY_MS } = await import("../src/releases.ts");
 const { rl } = await import("../src/tools.ts");
 after(() => rl.close());
 
@@ -31,7 +31,7 @@ test("the model's notes are checked: unknown numbers dropped, majors first, miss
   const n = readNotes(reply, pulls)!;
   assert.deepEqual(n.frontend.map((x) => x.title), ["Big page", "Polish"]);
   assert.deepEqual(n.frontend[0].prs, [1]);
-  assert.deepEqual(n.backend.map((x) => x.prs), [[2], [3]]);
+  assert.deepEqual(n.backend.map((x) => x.prs), [[3], [2]]);
   assert.equal(readNotes("not json", pulls), null);
 });
 
@@ -64,4 +64,10 @@ test("a write-up covers what was merged since the last one, and nothing new writ
   assert.equal(failed.releases.length, 2);
   assert.match(failed.error!, /not logged in/);
   assert.equal(failed.checked, plain.checked); // tried again next hour
+});
+
+test("notes list new features first, then the rest, newest pull request first within each", () => {
+  const n = (prs: number[], major: boolean) => ({ title: `t${prs[0]}`, detail: "", major, prs });
+  const order = majorFirst([n([110], false), n([111], true), n([119], true), n([112, 118], false), n([113], true)]).map((x) => x.prs[0]);
+  assert.deepEqual(order, [119, 113, 111, 112, 110]);
 });
