@@ -39,8 +39,8 @@ function Menu({ label, children }: { label: string; children: (close: () => void
 // The slim tab History leaves behind while it's closed.
 export function HistoryRail({ onShow }: { onShow: () => void }) {
   return (
-    <button type="button" className="zone-rail" aria-label="Show history" title="Show your conversations and projects" onClick={onShow}>
-      <Icon name="list" /><span>History</span>
+    <button type="button" className="zone-rail" aria-label="Show the workspace" title="Show your conversations, projects, tickets and wiki" onClick={onShow}>
+      <Icon name="list" /><span>Workspace</span>
     </button>
   );
 }
@@ -288,7 +288,7 @@ export const History = memo(function History({ S, store, view, setView, patch, o
   };
 
   const panel = (
-    <aside className={cx("history", navOpen && "nav-open")} id="history-panel" aria-label="History">
+    <aside className={cx("history", navOpen && "nav-open")} id="history-panel" aria-label="Workspace">
       <nav className="hist-nav">
         <div className="hist-top">
           <button type="button" className={cx("hist-nav-item", "hist-new", view.kind === "new" && !view.project && "selected")} onClick={() => setView({ kind: "new" })}>
@@ -371,6 +371,6 @@ export const History = memo(function History({ S, store, view, setView, patch, o
     </>
   );
   return onHide
-    ? <Drawer icon="list" label="History" onHide={onHide} hideLabel="Hide the history" hideTitle="Hide the history. Its tab brings it back.">{body}</Drawer>
+    ? <Drawer icon="list" label="Workspace" onHide={onHide} hideLabel="Hide the workspace" hideTitle="Hide the workspace. Its tab brings it back.">{body}</Drawer>
     : body;
 });

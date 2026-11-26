@@ -306,7 +306,7 @@ export const Header = memo(function Header({ S, store, conn, stale, refresh, onO
           title={barnstorm === "paused" ? "More: Barnstorm is paused, and here to come back to" : "More: focus, layout, light or dark, notifications, the other outposts, the tour and Barnstorm"} groups={[
           [
             onToggleFocus && { label: "Focus mode", icon: "focus", checked: !!focused, wide: true, onClick: onToggleFocus,
-              title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the history, files, notes and terminal, leaving the conversation" },
+              title: focused ? "Leave focus: bring back the panels it closed" : "Focus: close the workspace, files, notes and terminal, leaving the conversation" },
             onOpenLayout && { label: "Arrange the layout", icon: "layout", wide: true, onClick: onOpenLayout, title: "Layout: arrange the page's zones and what each shows" },
             { label: "Light or dark", icon: "theme", onClick: toggleMode, title: "Switch between the light and dark theme" },
             canNotify() && { label: "Notifications", icon: "bell", checked: notificationsOn(), quiet: true, onClick: () => void toggleNotifications(),

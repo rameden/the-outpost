@@ -13,7 +13,7 @@ import { w, cap } from "./words.ts";
 export type Part = "roster" | "history" | "chat" | "files" | "notes" | "terminal";
 export const PARTS: { id: Part; name: string; about: string }[] = [
   { id: "chat", name: "Chat", about: "The conversation and the message box" },
-  { id: "history", name: "History", about: "Your conversations and projects" },
+  { id: "history", name: "Workspace", about: "Your conversations, projects, tickets and wiki" },
   { id: "roster", get name() { return `${cap(w("crew"))} roster`; }, get about() { return `The ${w("crew")}, and what each is doing`; } },
   { id: "files", name: "Files", about: "The attached folder, as a tree" },
   { id: "notes", name: "Notes", about: "Your own notes, beside the conversation" },
