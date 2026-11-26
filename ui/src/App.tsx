@@ -126,13 +126,18 @@ export function App({ store }: { store: FeedStore }) {
   // The memory map (constellation/Constellation.tsx) is Memory's Map view, drawn in that page. This is whether it's
   // over the whole page: its own "Full screen" does that, and /constellation opens it that way.
   const [mapFull, setMapFull] = useState(false);
-  // One of the three is over the page at a time. Orbit is in the Views menu in the top bar; the trail map opens from a
-  // plan card (or /trail), the memory map from Memory → Map (or /constellation).
+  // One of the three is over the page at a time, and all three are in the Views menu in the top bar. The trail map
+  // also opens from a plan card (or /trail), the memory map from Memory → Map (or /constellation).
   const toggleOrbit = useCallback(() => { setTrail(false); setMapFull(false); setOrbit((on) => (on ? false : "live")); }, []);
   const closeOrbit = useCallback(() => setOrbit(false), []);
+  // From the Views menu it opens on the latest plan, not on the one a card last named.
+  const toggleTrail = useCallback(() => { setOrbit(false); setMapFull(false); setTrailPick(undefined); setTrail((on) => !on); }, []);
   const closeTrail = useCallback(() => setTrail(false), []);
   // Leaving full screen leaves you on Memory → Map, with the map as you left it.
   const openMap = useCallback(() => { setSettings(null); setOrbit(false); setTrail(false); setViewState({ kind: "memory", tab: "map" }); storeSet("camp-view", JSON.stringify({ kind: "memory", tab: "map" })); setMapFull(true); }, []);
+  // The Views menu's row: over the page it's on only while Memory → Map is what's under it.
+  const mapOpen = mapFull && view.kind === "memory" && view.tab === "map";
+  const toggleMap = useCallback(() => { if (mapOpen) setMapFull(false); else openMap(); }, [mapOpen, openMap]);
 
   const setView = useCallback((v: View) => {
     setOrbit(false);
@@ -540,7 +545,7 @@ export function App({ store }: { store: FeedStore }) {
       <div className="app">
         <ZoneBoundary name="The top bar">
           <Header S={S} store={store} conn={conn} stale={stale} refresh={refresh} onOpenSettings={openSettings} onOpenActivity={openActivity} focused={focused} onToggleFocus={onToggleFocus}
-            onOpenLayout={openLayout} inbox={inbox} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} />
+            onOpenLayout={openLayout} inbox={inbox} barnstorm={barnstorm} onBarnstorm={toggleBarnstorm} onHome={goHome} orbit={!!orbit} onOrbit={toggleOrbit} trail={trail} onTrail={toggleTrail} constellation={mapOpen} onConstellation={toggleMap} />
         </ZoneBoundary>
         <LayoutFrame layout={layout} onChange={setLayout} className="zones" stateOf={(z) => stateOf(z.part)} animate>
           {(zone, state) => {

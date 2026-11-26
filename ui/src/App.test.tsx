@@ -64,7 +64,7 @@ test("Orbit takes the whole page from the Views menu in the top bar or /orbit, a
   expect(within(screen.getByRole("dialog", { name: "Orbit: the crew at work" })).getByRole("status").textContent).toMatch(/^Demo: a pretend camp/);
 });
 
-test("the trail map and the constellation aren't in the top bar: /trail opens the map over the page, /constellation opens Memory's Map over the page", async () => {
+test("the trail map and the constellation are in the Views menu too: it or /trail opens the map over the page, it or /constellation opens Memory's Map over the page", async () => {
   // The Memory page is drawn from what the camp holds, so here the camp answers (with next to nothing in it).
   const camp = { characters: [], quests: [], queued: [], parallel: 3, limits: [], pausedUntil: null, pauseMessage: null, spend: { today: 0, week: 0, total: 0 }, budgetUsd: null, runtime: "api", login: null,
     history: { conversations: [], projects: [] }, prs: [], packs: [], links: [], memory: [], memoryProposals: [], wiki: [], settings: { memoryCare: { tidy: false, suggest: false } } };
@@ -75,8 +75,19 @@ test("the trail map and the constellation aren't in the top bar: /trail opens th
   render(<App store={createFeedStore()} />);
   await waitFor(() => expect(screen.queryByText("Connecting…")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Views" }));
-  expect(within(screen.getByRole("menu", { name: "Views" })).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit"]);
-  fireEvent.keyDown(screen.getByRole("menu", { name: "Views" }), { key: "Escape" });
+  expect(within(screen.getByRole("menu", { name: "Views" })).getAllByRole("menuitemcheckbox").map((i) => i.getAttribute("aria-label"))).toEqual(["Orbit", "Trail map", "Constellation"]);
+  // From the menu: each takes the whole page, one at a time, and its row leaves it again.
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Trail map" }));
+  expect(await screen.findByRole("dialog", { name: /^Trail map/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Views", hidden: true }));
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Constellation", hidden: true }));
+  expect(screen.queryByRole("dialog", { name: /^Trail map/ })).toBeNull();
+  expect(await screen.findByRole("dialog", { name: /^Memory constellation/ })).toBeTruthy();
+  expect(screen.getByRole("tab", { name: "Map", hidden: true }).getAttribute("aria-selected")).toBe("true"); // Memory → Map is under it
+  fireEvent.click(screen.getByRole("button", { name: "Views", hidden: true }));
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Leave the constellation", hidden: true }));
+  expect(screen.queryByRole("dialog", { name: /^Memory constellation/ })).toBeNull();
+  expect(screen.getByRole("region", { name: /^Memory constellation/ })).toBeTruthy(); // the same map, in the page
 
   act(() => say({ do: "command", name: "trail" })); // what typing /trail does, and a plan card's "Full screen"
   const trail = await screen.findByRole("dialog", { name: /^Trail map/ });
