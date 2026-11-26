@@ -933,11 +933,12 @@ footer .outpost-sub { font-size: 10px; }
     <div class="sec-head">
       <div class="eyebrow">Films</div>
       <h2>Watch the work go round the crew.</h2>
-      <p class="lede">Three short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the second the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as a ticket reaches it. The third is the night shift, at work while you sleep.</p>
+      <p class="lede">Four short films, drawn live in this page. The first shows all of Outpost in a single shot, from the ground to the sky. In the next two the <span data-crew='0'>Quartermaster</span> is the sun, the <span data-word='crew'>crew</span> are its planets, and the view goes close on each one as the work reaches it. The last is the night shift, at work while you sleep.</p>
     </div>
     <div class="film-tabs" role="tablist" aria-label="Films">
       <button type="button" role="tab" id="film-tab-sky" aria-controls="film-sky" aria-selected="true" data-film="sky">Ground to sky <span>1:16</span></button>
       <button type="button" role="tab" id="film-tab-ticket" aria-controls="film-ticket" aria-selected="false" data-film="ticket">One ticket <span>0:54</span></button>
+      <button type="button" role="tab" id="film-tab-audit" aria-controls="film-audit" aria-selected="false" data-film="audit">Three audit findings <span>1:03</span></button>
       <button type="button" role="tab" id="film-tab-night" aria-controls="film-night" aria-selected="false" data-film="night">Night shift <span>0:35</span></button>
     </div>
     <div class="film" id="film-sky" role="tabpanel" aria-labelledby="film-tab-sky">
@@ -947,6 +948,10 @@ footer .outpost-sub { font-size: 10px; }
     <div class="film" id="film-ticket" role="tabpanel" aria-labelledby="film-tab-ticket" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
       <p class="film-note">One example Jira ticket, from kicking off <span data-word='a quest'>a mission</span> to a reviewed pull request. Every click in it is yours: starting the work, approving the plan, the commit, opening the pull request and posting the review. It loops. Click the stage to pause.</p>
+    </div>
+    <div class="film" id="film-audit" role="tabpanel" aria-labelledby="film-tab-audit" hidden>
+      <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
+      <p class="film-note">Three findings from a SOC 2 Type I and ISO 27001 readiness review. You kick off <span data-word='a quest'>a mission</span> from the first, and it goes from ticket to reviewed pull request step by step; the other two follow the same route. It loops. Click the stage to pause.</p>
     </div>
     <div class="film" id="film-night" role="tabpanel" aria-labelledby="film-tab-night" hidden>
       <div class="film-stage">This film is drawn by the page itself, and needs a newer browser than this one.</div>
@@ -1742,6 +1747,51 @@ footer .outpost-sub { font-size: 10px; }
     <output id="clock" for="scrub">0:00 / 1:15</output>
   </div>
 </template>
+<template id="film-whole-css"><style>
+.head { display: grid; gap: 4px; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font: 400 clamp(28px, 4vw, 40px)/1.1 var(--display); }
+.lede { margin: 0; color: var(--muted); max-width: 68ch; }
+.chapters { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; list-style: none; }
+.chapters button { font: 500 13px var(--body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 4px 0; cursor: pointer; }
+.chapters button span { font: 400 11px var(--mono); color: var(--faint); margin-right: 6px; }
+.chapters button:hover { color: var(--text); }
+.chapters button[aria-current="true"] { color: var(--text); border-bottom-color: var(--accent); }
+.f-text { fill: var(--text); } .f-muted { fill: var(--muted); } .f-faint { fill: var(--faint); } .f-accent { fill: var(--accent); }
+.f-tone { fill: var(--tone); } .f-ink { fill: var(--accent-ink); } .f-good { fill: var(--good); }
+.c-scout { --tone: var(--c-scout); } .c-scribe { --tone: var(--c-scribe); } .c-art { --tone: var(--c-art); } .c-warden { --tone: var(--c-warden); }
+.c-night { --tone: var(--c-night); } .c-qm { --tone: var(--accent); } .c-wiz { --tone: var(--c-wiz); }
+.bgfill { fill: var(--bg); } .dusk { fill: var(--dusk); }
+.star { fill: var(--faint); } .star.n { fill: var(--star-night); }
+.halo { paint-order: stroke; stroke: var(--bg); stroke-linejoin: round; }
+.contour { fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: .55; vector-effect: non-scaling-stroke; }
+.contour.idx { stroke-width: 1.7; opacity: .7; }
+.sorbit { fill: none; stroke: var(--border-strong); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.ptrail { fill: none; stroke: var(--tone); stroke-width: 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ring-t { fill: none; stroke: var(--tone); vector-effect: non-scaling-stroke; }
+.tail { fill: none; stroke: var(--tone); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.tone-f { fill: var(--tone); }
+.tone-s { fill: none; stroke: var(--tone); stroke-linecap: round; stroke-linejoin: round; }
+.logo-f { fill: var(--logo-ink); } .logo-s { fill: none; stroke: var(--logo-ink); } .dot-f { fill: var(--logo-dot); }
+.glyph * { fill: none; stroke: var(--accent-ink); stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.glyph.toned * { stroke: var(--tone); }
+.card { fill: var(--surface); stroke: var(--border); }
+.btn { fill: var(--accent); } .btn.ok { fill: var(--good); } .btn-o { fill: none; stroke: var(--border-strong); }
+.trail { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 7 7; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.join { fill: none; stroke: var(--accent); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.screen { fill: var(--surface-2); } .notch { fill: var(--text); opacity: .85; } .track { fill: var(--border); }
+.touch { fill: var(--text); fill-opacity: .2; stroke: var(--text); stroke-opacity: .65; stroke-width: 1.5; }
+</style></template>
+<template id="film-whole-stage">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated film about Outpost. It opens on the star chart: three outposts, Work, Home and a new one, planets going round a sun, each with its own crew, memory and keys. One is picked. The Quartermaster is a sun on topographic ground, and the crew are planets on contour-line orbits. A request becomes four quests; each crew member does its part, and the Test Pilot takes the hardest; the steps join into a trail, and you approve the push from your phone; what was learned becomes stars; and the night shift drafts while the outpost sleeps."></svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="86" step="0.01" value="0" aria-label="Scrub through the film">
+    <output id="clock" for="scrub">0:00 / 1:26</output>
+  </div>
+</template>
 <template id="film-ticket-stage">
   <div class="stage" id="frame">
     <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system. The title card reads Your outpost, on localhost. The logo opens into orbits, with the Commander as the sun and the crew as planets. The view goes close on each in turn as one Jira ticket becomes a reviewed pull request: you kick off a mission from the ticket, the plan waits for your OK, the Navigator finds the bug, the Engineer changes the code and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. Last, the orbits close back into the mark, over the line Your outpost. Your crew. Your call. and the crew's names, each in its own colour.">
@@ -1766,6 +1816,42 @@ footer .outpost-sub { font-size: 10px; }
     <button type="button" id="play">Pause</button>
     <input type="range" id="scrub" min="0" max="54.7" step="0.01" value="0" aria-label="Scrub through the animation">
     <output id="clock" for="scrub">0:00 / 0:54</output>
+  </div>
+</template>
+<template id="film-audit-css"><style>
+/* The findings list in a wide view, and the captions beside the system. The row being worked has a solid 2px border. */
+.fbox { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.frow.on .fbox { stroke: var(--accent); stroke-width: 2; }
+.ctl { font-size: 11.5px; fill: var(--muted); }
+.lhead { font-size: 11px; letter-spacing: .12em; fill: var(--accent); }
+.wcap { font-size: 36px; fill: var(--ink); }
+.code-s { font-size: 11.5px; }
+.pill-a { fill: var(--surface-2); stroke: var(--accent); stroke-width: 1; }
+</style></template>
+<template id="film-audit-stage">
+  <div class="stage" id="frame">
+    <svg id="stage" viewBox="0 0 1280 720" role="img" aria-label="An animated example of Outpost, drawn as a solar system, working through three findings from a SOC 2 Type I and ISO 27001 readiness review. The Commander is the sun and the crew are planets. The title card reads Your outpost, on localhost. The view goes close on each in turn as the first finding, an account with no role that can void invoices, becomes a reviewed pull request: you kick off a mission from the finding, the plan waits for your OK, the Navigator finds the gap, the Engineer changes one line and runs the tests, you commit, the Comms Officer drafts the pull request and you open it, and the Security Chief reviews it. The other two findings then go round the same crew. Last, the orbits close back into the mark, over the line Your outpost. Your crew. Your call. and the crew's names, each in its own colour.">
+      <defs>
+        <radialGradient id="glow">
+          <stop offset="0" style="stop-color: var(--accent); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--accent); stop-opacity: 0"></stop>
+        </radialGradient>
+        <radialGradient id="dotGlow">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: .55"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </radialGradient>
+        <linearGradient id="shine">
+          <stop offset="0" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+          <stop offset=".5" style="stop-color: var(--logo-dot); stop-opacity: .95"></stop>
+          <stop offset="1" style="stop-color: var(--logo-dot); stop-opacity: 0"></stop>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="controls">
+    <button type="button" id="play">Pause</button>
+    <input type="range" id="scrub" min="0" max="63.9" step="0.01" value="0" aria-label="Scrub through the animation">
+    <output id="clock" for="scrub">0:00 / 1:03</output>
   </div>
 </template>
 <template id="film-night-css"><style>
@@ -2860,6 +2946,776 @@ if (document.fonts && document.fonts.load) Promise.all(['400 36px "Young Serif"'
 // the page says when this film can be seen: it only runs then; stop() ends it for good
 return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
 },
+whole: function (root) {
+let dead = false, raf = 0; const cleanups = [];
+const NS = 'http://www.w3.org/2000/svg';
+const svg = root.getElementById('stage');
+const el = (tag, attrs = {}, parent) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+const put = (n, a) => { for (const k in a) n.setAttribute(k, a[k]); };
+const O = (n, o) => { o = o <= .002 ? 0 : o >= .998 ? 1 : o; const v = o === 0 ? 'none' : ''; if (n._d !== v) { n.style.display = v; n._d = v; } if (n._o !== o) { n.style.opacity = o; n._o = o; } };
+const txt = (n, s) => { if (n._t !== s) { n.textContent = s; n._t = s; } };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, u) => a + (b - a) * u;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const win = (t, a, b, fi = .6, fo = .6) => Math.min(prog(t, a, a + fi), 1 - prog(t, b - fo, b));
+const ease = {
+  inOut: u => u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2,
+  out: u => 1 - Math.pow(1 - u, 3),
+  in: u => u * u * u,
+  back: u => { const c = 1.7; return 1 + (c + 1) * Math.pow(u - 1, 3) + c * Math.pow(u - 1, 2); },
+};
+const TAU = Math.PI * 2, DEG = Math.PI / 180;
+const f1 = v => v.toFixed(1), f2 = v => v.toFixed(2);
+const rng = (seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; })(7);
+
+const PRE = 9, MAIN = 77, DUR = PRE + MAIN;   // the star chart, then the film proper (its times are its own, from 0)
+const SUN = { x: 640, y: 360 };
+const K = 1.1;                                   // lockup scale
+const LOCK = { x: 640 - 342.5 * K, y: 360 - 100 * K };
+const DOT0 = { x: LOCK.x + 100 * K, y: 360 };     // where the dot sits in the lockup
+const GLYPH = {
+  scout: '<path d="M7 3.5 C16.5 6.5 16.5 17.5 7 20.5"/><path d="M7 3.5 V20.5"/><path d="M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15"/>',
+  art: '<g transform="rotate(40 12 12)"><rect x="5.5" y="3.5" width="13" height="6.5" rx="1.5"/><path d="M12 10 V21.5"/></g>',
+  scribe: '<path d="M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z"/><path d="M3.8 20.2 L13 11"/>',
+  wiz: '<path d="M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z"/><path d="M10.5 13.5 L20.5 3.5"/>',
+  warden: '<path d="M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z"/><path d="M8.8 11.9 L11.2 14.3 L15.4 9.9"/>',
+};
+
+// ---- the crew and their contour orbits ----
+const CREW = [
+  { id: 'scout', name: `${TP.name('scout')}`, cls: 'c-scout', R: 112, start: 200, period: 150, ph: .6, r0: 42 },
+  { id: 'scribe', name: `${TP.name('scribe')}`, cls: 'c-scribe', R: 172, start: -30, period: 200, ph: 2.1, r0: 57 },
+  { id: 'art', name: `${TP.name('art')}`, cls: 'c-art', R: 236, start: 70, period: 260, ph: 3.7, r0: 81 },
+  { id: 'warden', name: `${TP.name('warden')}`, cls: 'c-warden', R: 300, start: 160, period: 330, ph: 5.0, r0: 95 },
+  // The Test Pilot: on call for the hardest part. It arrives mid-film from beyond the outer orbit.
+  { id: 'wiz', name: `${TP.name('pilot')}`, cls: 'c-wiz', R: 350, start: -12.6, period: 420, ph: 5.667, r0: 110 },
+];
+const WZ = 4;
+const ORDER = [0, 1, 2, WZ, 3];                  // the order the steps happen in: Scout, Scribe, Artificer, Test Pilot, Warden
+const OW = .045;
+const KNOTS = [[0, 0], [112, .6], [172, 2.1], [236, 3.7], [300, 5.0], [480, 7.4]];
+const phaseAt = R => { for (let k = 1; k < KNOTS.length; k++) if (R <= KNOTS[k][0]) { const [r0, p0] = KNOTS[k - 1], [r1, p1] = KNOTS[k]; return lerp(p0, p1, (R - r0) / (r1 - r0)); } return KNOTS[KNOTS.length - 1][1]; };
+const shapeR = (R, ph, a) => R * (1 + OW * (.6 * Math.sin(3 * a + ph) + .4 * Math.sin(5 * a + ph * 1.3)));
+const angleOf = (c, t) => (c.start + 360 * t / c.period) * DEG;
+const ppos = (i, t) => { const c = CREW[i], a = angleOf(c, t), r = shapeR(c.R, c.ph, a); return { x: SUN.x + r * Math.cos(a), y: SUN.y + r * Math.sin(a) }; };
+const ringPts = (cx, cy, R, ph, n = 160) => { const p = []; for (let k = 0; k < n; k++) { const a = k / n * TAU, r = shapeR(R, ph, a); p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return p; };
+// A free wobbly loop, for hills and terraces.
+const blob = (cx, cy, R, w, ph, sy = 1, n = 90) => { const p = []; for (let k = 0; k < n; k++) { const a = k / n * TAU, r = R * (1 + w * (.55 * Math.sin(3 * a + ph) + .3 * Math.sin(5 * a + ph * 1.7) + .15 * Math.sin(2 * a - ph))); p.push([cx + r * Math.cos(a), cy + r * Math.sin(a) * sy]); } return p; };
+const dOf = (p, close, fx = f1) => 'M' + p.map(q => fx(q[0]) + ' ' + fx(q[1])).join('L') + (close ? 'Z' : '');
+function catmull(P, n = 14) {
+  const out = [];
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || P[i + 1];
+    for (let s = 0; s < n; s++) {
+      const u = s / n, u2 = u * u, u3 = u2 * u;
+      out.push([0, 1].map(j => .5 * (2 * p1[j] + (-p0[j] + p2[j]) * u + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * u2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * u3)));
+    }
+  }
+  out.push(P[P.length - 1].slice());
+  return out;
+}
+const measure = p => { const c = [0]; for (let k = 1; k < p.length; k++) c.push(c[k - 1] + Math.hypot(p[k][0] - p[k - 1][0], p[k][1] - p[k - 1][1])); return c; };
+function partial(p, cum, u, fx = f1) {
+  if (u <= 0) return 'M0 0';
+  const L = cum[cum.length - 1] * Math.min(1, u);
+  let d = 'M' + fx(p[0][0]) + ' ' + fx(p[0][1]);
+  for (let k = 1; k < p.length; k++) {
+    if (cum[k] >= L) { const a = (L - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1); return d + 'L' + fx(lerp(p[k - 1][0], p[k][0], a)) + ' ' + fx(lerp(p[k - 1][1], p[k][1], a)); }
+    d += 'L' + fx(p[k][0]) + ' ' + fx(p[k][1]);
+  }
+  return d;
+}
+const drawable = n => { put(n, { pathLength: 1, 'stroke-dasharray': '1 1' }); return n; };
+const drawTo = (n, u) => { const v = f2(1 - clamp(u)); if (n._dash !== v) { n.setAttribute('stroke-dashoffset', v); n._dash = v; } };
+function bez(a, b, bend, v) { const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, cx = mx - dy * bend, cy = my + dx * bend, A = (1 - v) * (1 - v), B = 2 * (1 - v) * v, C = v * v; return [A * a.x + B * cx + C * b.x, A * a.y + B * cy + C * b.y]; }
+
+// ---- layers ----
+const defs = el('defs', {}, svg);
+const gl = el('radialGradient', { id: 'glow' }, defs);
+el('stop', { offset: '0', style: 'stop-color:var(--logo-dot);stop-opacity:.55' }, gl);
+el('stop', { offset: '.45', style: 'stop-color:var(--logo-dot);stop-opacity:.16' }, gl);
+el('stop', { offset: '1', style: 'stop-color:var(--logo-dot);stop-opacity:0' }, gl);
+const gt = el('radialGradient', { id: 'toneGlow' }, defs);
+el('stop', { offset: '0', style: 'stop-color:var(--tone);stop-opacity:.5' }, gt);
+el('stop', { offset: '1', style: 'stop-color:var(--tone);stop-opacity:0' }, gt);
+
+el('rect', { class: 'bgfill', x: 0, y: 0, width: 1280, height: 720 }, svg);
+const dusk = el('rect', { class: 'dusk', x: 0, y: 0, width: 1280, height: 720 }, svg);
+const gStars = el('g', {}, svg);
+const gWorld = el('g', {}, svg);
+const gHud = el('g', {}, svg);
+
+// Starfield: day and night copies of the same stars.
+const starsDay = el('g', {}, gStars), starsNight = el('g', {}, gStars);
+const STARS = [];
+for (let k = 0; k < 170; k++) {
+  const x = -260 + rng() * 1800, y = -200 + rng() * 1120, r = .45 + rng() * rng() * 1.5, ph = rng() * TAU, sp = .6 + rng() * 1.6;
+  STARS.push({ a: el('circle', { class: 'star', cx: f1(x), cy: f1(y), r: f2(r) }, starsDay), b: el('circle', { class: 'star n', cx: f1(x), cy: f1(y), r: f2(r * 1.15) }, starsNight), ph, sp });
+}
+
+// Topographic ground: one massif round the sun, sharing the orbits' shape so no line crosses another, and four hills in the corners.
+const gGround = el('g', {}, gWorld);
+const CONTOURS = [];
+let ci = 0;
+for (let R = 40; R <= 470; R += 22) {
+  if (CREW.some(c => Math.abs(c.R - R) < 10)) continue;
+  const d = dOf(ringPts(SUN.x, SUN.y, R, phaseAt(R)), true), idx = ci++ % 5 === 2;
+  CONTOURS.push({ base: el('path', { class: 'contour' + (idx ? ' idx' : ''), d }, gGround), lit: el('path', { class: 'contour lit', d }, gGround), R });
+}
+for (const [cx, cy, n, ph] of [[120, 116, 6, 1.2], [1172, 606, 6, 3.1], [1150, 104, 4, 4.4], [104, 624, 5, 5.6]]) {
+  const dist = Math.hypot(cx - SUN.x, cy - SUN.y);
+  for (let k = 0; k < n; k++) {
+    const r = 14 + k * 16, d = dOf(blob(cx, cy, r, .16 + k * .015, ph + k * .25, .82), true);
+    CONTOURS.push({ base: el('path', { class: 'contour' + (k === 2 ? ' idx' : ''), d }, gGround), lit: el('path', { class: 'contour lit', d }, gGround), R: dist - r * .6 });
+  }
+}
+const pingEl = el('circle', { class: 'ping', cx: 640, cy: 360, r: 0 }, gWorld);
+
+// Faint stars the outpost already remembers (they stay all film).
+const OLD = [[560, 54], [1110, 70], [86, 250], [1206, 430], [168, 690], [1010, 668], [330, 40]];
+const gMem = el('g', {}, gWorld);
+const oldEls = OLD.map(([x, y]) => el('circle', { class: 'star', cx: x, cy: y, r: 2.1 }, gMem));
+
+// Orbits: drawn full size, scaled down to the mark's radii while the mark opens.
+const gOrbits = el('g', {}, gWorld);
+const orbitEls = CREW.map(c => el('path', { class: 'sorbit', d: dOf(ringPts(SUN.x, SUN.y, c.R, c.ph, 220), true) }, gOrbits));
+// The Test Pilot's orbit draws itself from where it arrives.
+orbitEls[WZ].setAttribute('d', (() => { const c = CREW[WZ], a0 = 20 * DEG, p = []; for (let k = 0; k <= 240; k++) { const a = a0 + k / 240 * TAU, r = shapeR(c.R, c.ph, a); p.push([SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]); } return dOf(p, false); })());
+drawable(orbitEls[WZ]);
+const ptrails = CREW.map(c => el('path', { class: 'ptrail ' + c.cls, d: 'M0 0' }, gOrbits));
+
+// The trail (waypoints) and memory joins sit under the planets.
+const trailEl = el('path', { class: 'trail', d: 'M0 0' }, gWorld);
+const WAY = CREW.map((c, i) => {
+  const g = el('g', { class: c.cls }, gWorld);
+  const ring = el('circle', { class: 'ring-t', r: 15, 'stroke-width': 2 }, g);
+  const badge = el('g', { transform: 'translate(13 -13)' }, g);
+  el('circle', { class: 'tone-f', r: 7 }, badge);
+  const num = el('text', { class: 'm f-ink', 'font-size': 9, 'text-anchor': 'middle', y: 3.2 }, badge); num.textContent = String(ORDER.indexOf(i) + 1);
+  const tick = el('path', { class: 'glyph', d: 'M-3 0 L-1 2.2 L3.2 -2.2', style: 'fill:none;stroke:var(--accent-ink);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round' }, badge);
+  return { g, ring, num, tick };
+});
+
+// What the crew learns: eight new stars, joined to each other and to the old ones.
+const MEM = [
+  { x: 330, y: 150, from: 0, label: 'search.ts feeds three pages' },
+  { x: 470, y: 98, from: 0 },
+  { x: 650, y: 120, from: 1, label: 'you like small pull requests' },
+  { x: 812, y: 76, from: 1 },
+  { x: 968, y: 164, from: 2, label: 'the flag is search_v2' },
+  { x: 1052, y: 300, from: WZ, label: 'two searches can race' },
+  { x: 250, y: 330, from: 3 },
+  { x: 198, y: 486, from: 3, label: 'empty states need words' },
+];
+const JOINS = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [0, 6], [6, 7], ['o0', 1], ['o0', 2], ['o1', 4], ['o2', 6], ['o3', 5], ['o6', 0]];
+const P = k => typeof k === 'string' ? { x: OLD[+k.slice(1)][0], y: OLD[+k.slice(1)][1] } : MEM[k];
+const joinEls = JOINS.map(() => el('path', { class: 'join', d: 'M0 0' }, gMem));
+const memEls = MEM.map(m => {
+  const c = CREW[m.from], g = el('g', { class: c.cls }, gMem);
+  const glow = el('circle', { cx: m.x, cy: m.y, r: 14, fill: 'url(#toneGlow)' }, g);
+  const core = el('circle', { class: 'tone-f', cx: m.x, cy: m.y, r: 3 }, g);
+  const mote = el('g', {}, g);
+  const tail = el('path', { class: 'tail', 'stroke-width': 2, opacity: .6, d: 'M0 0' }, mote);
+  const head = el('circle', { class: 'tone-f', r: 2.4 }, mote);
+  let label = null;
+  if (m.label) { label = el('text', { class: 'b f-muted halo', 'font-size': 13, 'stroke-width': 5, x: m.x + 10, y: m.y + 4.5 }, gMem); label.textContent = m.label; }
+  return { g, glow, core, mote: { g: mote, tail, head }, label };
+});
+
+// The night shift's comet and its two drafts.
+const gNight = el('g', { class: 'c-night' }, gWorld);
+const nTail = el('path', { class: 'tail', 'stroke-width': 2.4, opacity: .7, d: 'M0 0' }, gNight);
+const nHead = el('circle', { class: 'tone-f', r: 4 }, gNight);
+const drafts = [.38, .74].map(() => { const g = el('g', {}, gNight); el('rect', { class: 'tone-f', x: -4.5, y: -4.5, width: 9, height: 9, rx: 1.5, transform: 'rotate(45)' }, g); return g; });
+
+// Comets: four out, four home, and the falling request.
+const mkComet = (cls, w = 2.6) => { const g = el('g', { class: cls }, gWorld); return { g, tail: el('path', { class: 'tail', 'stroke-width': w, opacity: .75, d: 'M0 0' }, g), head: el('circle', { class: 'tone-f', r: 3.4 }, g) }; };
+const outC = CREW.map(c => mkComet(c.cls)), homeC = CREW.map(c => mkComet(c.cls)), reqC = mkComet('c-qm', 2.2);
+
+// The sun.
+const sunGlow = el('circle', { cx: 640, cy: 360, r: 120, fill: 'url(#glow)' }, gWorld);
+const sunCore = el('circle', { class: 'dot-f', cx: 640, cy: 360, r: 22 }, gWorld);
+
+// Planets: topographic little worlds, each with its mark and two contour halos.
+const PL = CREW.map((c, i) => {
+  const g = el('g', { class: c.cls }, gWorld);
+  const pulse = el('circle', { class: 'ring-t', r: 10, 'stroke-width': 1.5 }, g);
+  const body = el('g', {}, g);
+  el('path', { class: 'tone-s', d: dOf(blob(0, 0, 15.5, .08, c.ph), true, f2), 'stroke-width': .5, opacity: .35 }, body);
+  el('path', { class: 'tone-s', d: dOf(blob(0, 0, 12, .07, c.ph + 1), true, f2), 'stroke-width': .6, opacity: .55 }, body);
+  el('circle', { class: 'tone-f', r: 8 }, body);
+  const gl = el('g', { class: 'glyph', transform: 'scale(.42) translate(-12 -12)' }, body); gl.innerHTML = GLYPH[c.id];
+  const label = el('text', { class: 'b f-tone halo', 'font-size': 13, 'font-weight': 600, 'stroke-width': 4, x: 20, y: 4.5 }, g); label.textContent = c.name;
+  return { g, pulse, body, label };
+});
+
+// ---- vignettes: what each crew member does, drawn round its planet ----
+const VIG = [];
+// Scout: a hill, a radar sweep, a route and three pins.
+(() => {
+  const g = el('g', { class: 'c-scout' }, gWorld), hill = [];
+  const wedge = el('path', { class: 'tone-f', 'fill-opacity': .1, d: 'M0 0' }, g);
+  const beam = el('path', { class: 'tone-s', 'stroke-width': .35, opacity: .7, d: 'M0 0' }, g);
+  for (let k = 0; k < 5; k++) hill.push(drawable(el('path', { class: 'tone-s', 'stroke-width': k === 2 ? .55 : .35, opacity: .75, d: dOf(blob(42, -2, 5 + k * 5.6, .14, 1.4 + k * .3, .8), true, f2) }, g)));
+  const ctrl = [[9, 3], [18, 14], [30, 15], [38, 8], [36, -4], [44, -14], [58, -12], [64, 2], [56, 14]];
+  const route = catmull(ctrl, 10), rc = measure(route);
+  const routeEl = el('path', { class: 'tone-s', 'stroke-width': .7, 'stroke-dasharray': '2 1.6', d: 'M0 0' }, g);
+  const pins = [[3, 'search.ts'], [5, '3 callers'], [8, 'no tests yet']].map(([ix, s]) => {
+    const [x, y] = ctrl[ix], pg = el('g', { transform: `translate(${x} ${y})` }, g);
+    const ring = el('circle', { class: 'tone-s', r: 2, 'stroke-width': .4 }, pg);
+    const dot = el('circle', { class: 'tone-f', r: 1.7 }, pg);
+    const t = el('text', { class: 'm f-text halo', 'font-size': 3.4, 'stroke-width': 1.1, x: 3.6, y: 1.2 }, pg); t.textContent = s;
+    return { pg, ring, dot, t, at: rc[ix * 10] / rc[rc.length - 1] };
+  });
+  VIG.push({ i: 0, a: 20.8, b: 25.4, g, update(t) {
+    hill.forEach((h, k) => drawTo(h, ease.out(prog(t, 21 + k * .14, 22.1 + k * .14))));
+    const ang = (t - 21) * 150 * DEG, r = 66, a0 = ang - 38 * DEG;
+    wedge.setAttribute('d', `M0 0L${f2(r * Math.cos(a0))} ${f2(r * Math.sin(a0))}A${r} ${r} 0 0 1 ${f2(r * Math.cos(ang))} ${f2(r * Math.sin(ang))}Z`);
+    beam.setAttribute('d', `M0 0L${f2(r * Math.cos(ang))} ${f2(r * Math.sin(ang))}`);
+    const u = ease.inOut(prog(t, 21.7, 24.1));
+    routeEl.setAttribute('d', partial(route, rc, u, f2));
+    pins.forEach(p => { const v = clamp((u - p.at) / .05 + .001), lt = v > 0 ? (t - (21.7 + p.at * 2.4)) : 0; O(p.pg, v); const s = ease.back(clamp(v)); p.dot.setAttribute('r', f2(1.7 * s)); const rr = (lt % 1.6) / 1.6; put(p.ring, { r: f2(2 + rr * 6) }); p.ring.style.opacity = (1 - rr) * .8; O(p.t, prog(t, 21.9 + p.at * 2.4, 22.3 + p.at * 2.4)); });
+  } });
+})();
+// Scribe: the spec written along contour arcs above the planet, a quill at the tip.
+(() => {
+  const g = el('g', { class: 'c-scribe' }, gWorld);
+  const LINES = [[44, '1 · search.ts feeds three pages'], [36, '2 · results load as you type'], [28, '3 · empty states explained'], [20, '4 · the API stays put']];
+  const FS = 3.6, ADV = FS * .6, A0 = 205, A1 = 335;
+  let at = 26.3;
+  const rows = LINES.map(([r, s], k) => {
+    const p0 = [r * Math.cos(A0 * DEG), r * Math.sin(A0 * DEG)], p1 = [r * Math.cos(A1 * DEG), r * Math.sin(A1 * DEG)];
+    const id = 'scr' + k;
+    el('path', { id, d: `M${f2(p0[0])} ${f2(p0[1])}A${r} ${r} 0 0 1 ${f2(p1[0])} ${f2(p1[1])}`, fill: 'none' }, defs);
+    const rg = r - .9, g0 = [rg * Math.cos((A0 - 6) * DEG), rg * Math.sin((A0 - 6) * DEG)], g1 = [rg * Math.cos((A1 + 6) * DEG), rg * Math.sin((A1 + 6) * DEG)];
+    const guide = drawable(el('path', { class: 'tone-s', 'stroke-width': .3, opacity: .55, d: `M${f2(g0[0])} ${f2(g0[1])}A${rg} ${rg} 0 0 1 ${f2(g1[0])} ${f2(g1[1])}` }, g));
+    const arcLen = r * (A1 - A0) * DEG, off = Math.max(0, (arcLen - s.length * ADV) / 2);
+    const text = el('text', { class: 'm f-text', 'font-size': FS }, g);
+    const tp = el('textPath', { href: '#' + id, startOffset: f2(off) }, text);
+    const t0 = at, t1 = at + s.length / 30; at = t1 + .12;
+    return { r, s, guide, tp, off, t0, t1 };
+  });
+  const quill = el('g', { class: 'glyph toned' }, g); quill.innerHTML = GLYPH.scribe;
+  VIG.push({ i: 1, a: 25.8, b: 30.4, g, update(t) {
+    let tip = null;
+    rows.forEach((row, k) => {
+      drawTo(row.guide, ease.out(prog(t, 26 + k * .1, 26.9 + k * .1)));
+      const n = Math.round(row.s.length * prog(t, row.t0, row.t1));
+      txt(row.tp, row.s.slice(0, n));
+      if (t >= row.t0 - .05 && (t <= row.t1 + .1 || k === rows.length - 1)) { const th = (A0 * DEG) + (row.off + n * ADV) / row.r; tip = [(row.r + .6) * Math.cos(th), (row.r + .6) * Math.sin(th)]; }
+    });
+    if (tip) { quill.setAttribute('transform', `translate(${f2(tip[0] - 1.6)} ${f2(tip[1] - 8.4)}) scale(.42)`); O(quill, 1 - prog(t, rows[3].t1 + .2, rows[3].t1 + .6)); } else O(quill, 0);
+  } });
+})();
+// Artificer: terraces dropped one on another and struck into a hill.
+(() => {
+  const g = el('g', { class: 'c-art' }, gWorld), CX = 34, CY = 10;
+  const layers = [0, 1, 2, 3].map(k => {
+    const R = 25 - k * 5.6, y = CY - k * 5.4, lg = el('g', {}, g);
+    el('path', { class: 'tone-f', 'fill-opacity': .16 + k * .1, d: dOf(blob(CX, y, R, .1, 2 + k * .7, .5), true, f2) }, lg);
+    el('path', { class: 'tone-s', 'stroke-width': .55, d: dOf(blob(CX, y, R, .1, 2 + k * .7, .5), true, f2) }, lg);
+    const a = 31.2 + k * .82;
+    return { lg, y, R, a, L: a + .5 };
+  });
+  const sparks = el('g', {}, g), SP = [];
+  for (let k = 0; k < 8; k++) SP.push({ n: el('path', { class: 'tone-s', 'stroke-width': .45, d: 'M0 0' }, sparks), a: (-165 + k * 21) * DEG });
+  const hammer = el('g', { class: 'glyph toned' }, g); hammer.innerHTML = GLYPH.art;
+  hammer.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.4'; });
+  const diff = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY + 20, 'text-anchor': 'middle' }, g); diff.textContent = '+182 −40 · 6 files';
+  VIG.push({ i: 2, a: 30.8, b: 35.4, g, update(t) {
+    let cur = layers[0];
+    layers.forEach(l => { const u = prog(t, l.a, l.L); if (t >= l.a - .3) cur = l; l.lg.setAttribute('transform', `translate(0 ${f2(-(1 - ease.back(u)) * 26)})`); O(l.lg, clamp(u * 3)); });
+    const sp = layers.map(l => prog(t, l.L, l.L + .45)).find(v => v > 0 && v < 1);
+    const last = layers.slice().reverse().find(l => t >= l.L) || layers[0];
+    if (sp !== undefined) { O(sparks, 1 - sp); SP.forEach(s => { const r0 = 3 + sp * 7, r1 = 5 + sp * 12; s.n.setAttribute('d', `M${f2(CX + r0 * Math.cos(s.a))} ${f2(last.y - 3 + r0 * Math.sin(s.a) * .7)}L${f2(CX + r1 * Math.cos(s.a))} ${f2(last.y - 3 + r1 * Math.sin(s.a) * .7)}`); }); } else O(sparks, 0);
+    const near = Math.min(...layers.map(l => Math.abs(t - l.L))), rot = -46 + 46 * clamp(1 - near / .3);
+    hammer.setAttribute('transform', `translate(${f2(CX + 9)} ${f2(cur.y - 3)}) rotate(${f1(rot)}) scale(.62) translate(-12 -21.5)`);
+    O(hammer, win(t, 31, 34.6, .3, .4)); O(diff, prog(t, 34.4, 34.8));
+  } });
+})();
+// Warden: a shield drawn round the planet, a scan, three ticks and a stamp.
+(() => {
+  const g = el('g', { class: 'c-warden' }, gWorld);
+  const shield = el('g', { class: 'glyph toned', transform: 'scale(2.7) translate(-12 -12.3)', opacity: .4 }, g); shield.innerHTML = GLYPH.warden;
+  const sp = [...shield.querySelectorAll('path')].map(p => { p.style.strokeWidth = '.32'; return drawable(p); });
+  const scan = el('path', { class: 'tone-s', 'stroke-width': .9, d: 'M0 0' }, g);
+  const ITEMS = ['tests pass', 'no secrets in the diff', 'matches the plan'];
+  const rows = ITEMS.map((s, k) => {
+    const y = -11 + k * 10, rg = el('g', { transform: `translate(36 ${y})` }, g);
+    el('circle', { class: 'tone-s', r: 2.6, 'stroke-width': .45 }, rg);
+    const tick = drawable(el('path', { class: 'tone-s', 'stroke-width': .7, d: 'M-1.3 .1 L-.3 1.1 L1.4 -1' }, rg));
+    const tx = el('text', { class: 'b f-text halo', 'font-size': 3.8, 'stroke-width': 1.2, x: 5, y: 1.3 }, rg); tx.textContent = s;
+    return { rg, tick, tx, a: 45.9 + k * .8 };
+  });
+  const stamp = el('g', { transform: 'translate(33.4 20)' }, g);
+  el('rect', { class: 'tone-f', x: 0, y: -4.2, width: 37, height: 8.4, rx: 4.2 }, stamp);
+  const st = el('text', { class: 'm f-ink', 'font-size': 3.4, x: 18.5, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'ready for review';
+  VIG.push({ i: 3, a: 44.8, b: 49.4, g, update(t) {
+    sp.forEach((p, k) => drawTo(p, ease.inOut(prog(t, 45 + k * .5, 46.3 + k * .5))));
+    const a = (t - 45) * 200 * DEG, r = 22.5;
+    scan.setAttribute('d', `M${f2(r * Math.cos(a))} ${f2(r * Math.sin(a))}A${r} ${r} 0 0 1 ${f2(r * Math.cos(a + 1.4))} ${f2(r * Math.sin(a + 1.4))}`);
+    O(scan, win(t, 45, 48.3, .4, .5) * .9);
+    rows.forEach(rw => { O(rw.rg, prog(t, rw.a - .35, rw.a)); drawTo(rw.tick, ease.out(prog(t, rw.a, rw.a + .4))); });
+    const sv = prog(t, 48.1, 48.4); O(stamp, sv); stamp.setAttribute('transform', `translate(33.4 20) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
+  } });
+})();
+
+// Test Pilot: a knot of crossed contour lines, taken apart into clean rings as its plane flies round.
+(() => {
+  const g = el('g', { class: 'c-wiz' }, gWorld), CX = 52, CY = 0, N = 84;
+  const loops = [0, 1, 2, 3, 4].map(k => {
+    const from = blob(CX + [6, -7, 5, -5, 8][k], CY + [-5, 5, 6, -7, 2][k], 8 + k * 3.4, .36, k * 1.9 + .7, .85, N);
+    const to = blob(CX, CY, 5 + k * 4.6, .05, 1.3, .9, N);
+    const path = drawable(el('path', { class: 'tone-s', 'stroke-width': k === 2 ? .6 : .38, d: dOf(from, true, f2) }, g));
+    return { from, to, path, s: 41.3 + k * .34 };
+  });
+  const tailEl = el('path', { class: 'tone-s', 'stroke-width': .55, opacity: .6, d: 'M0 0' }, g);
+  const SPK = [0, 1, 2, 3, 4, 5].map(k => { const n = el('path', { class: 'tone-f', d: 'M0 -2.2 L.5 -.5 L2.2 0 L.5 .5 L0 2.2 L-.5 .5 L-2.2 0 L-.5 -.5 Z' }, g); return { n, u: .1 + k * .15 }; });
+  const plane = el('g', { class: 'glyph toned' }, g); plane.innerHTML = GLYPH.wiz;
+  plane.querySelectorAll('*').forEach(n => { n.style.strokeWidth = '2.2'; });
+  const before = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); before.textContent = 'two searches racing';
+  const after = el('text', { class: 'm f-text halo', 'font-size': 3.6, 'stroke-width': 1.1, x: CX, y: CY - 32, 'text-anchor': 'middle' }, g); after.textContent = 'in order, every time';
+  const stamp = el('g', {}, g);
+  el('rect', { class: 'tone-f', x: -23, y: -4.2, width: 46, height: 8.4, rx: 4.2 }, stamp);
+  const st = el('text', { class: 'm f-ink', 'font-size': 3.4, y: 1.2, 'text-anchor': 'middle' }, stamp); st.textContent = 'untangled · 2 files';
+  const planeAt = u => { const a = lerp(-400, -40, u) * DEG, r = 32; return [CX + r * Math.cos(a), CY + r * Math.sin(a) * .9]; };
+  VIG.push({ i: WZ, a: 39.5, b: 44.4, g, update(t) {
+    loops.forEach((l, k) => {
+      drawTo(l.path, ease.out(prog(t, 39.7 + k * .12, 40.6 + k * .12)));
+      const u = ease.inOut(prog(t, l.s, l.s + .9));
+      l.path.setAttribute('d', u <= 0 ? dOf(l.from, true, f2) : dOf(l.from.map((p, j) => [lerp(p[0], l.to[j][0], u), lerp(p[1], l.to[j][1], u)]), true, f2));
+    });
+    const wu = ease.inOut(prog(t, 40.9, 43.2)), [wx, wy] = planeAt(wu);
+    const [hx, hy] = planeAt(wu + .004), head = Math.atan2(hy - wy, hx - wx) / DEG + 45;   // nose along the way it flies
+    plane.setAttribute('transform', `translate(${f2(wx)} ${f2(wy)}) rotate(${f1(head)}) scale(.62) translate(-12 -12)`);
+    O(plane, win(t, 40.7, 43.6, .3, .4));
+    const pts = []; for (let k = 0; k < 12; k++) { const v = wu - k * .012; if (v < 0) break; pts.push(planeAt(v)); }
+    tailEl.setAttribute('d', pts.length > 1 ? dOf(pts, false, f2) : 'M0 0'); O(tailEl, wu > 0 && wu < 1 ? .6 : 0);
+    SPK.forEach(p => { const v = (wu - p.u) / .16; if (v > 0 && v < 1) { const [x, y] = planeAt(p.u); p.n.setAttribute('transform', `translate(${f2(x)} ${f2(y)}) scale(${f2(Math.sin(Math.PI * v) * 1.2)})`); O(p.n, 1 - v * .5); } else O(p.n, 0); });
+    O(before, win(t, 40.1, 42.0, .4, .4)); O(after, prog(t, 42.9, 43.3));
+    const sv = prog(t, 43.2, 43.5); O(stamp, sv); stamp.setAttribute('transform', `translate(${CX} ${CY + 34}) scale(${f2(lerp(1.25, 1, ease.out(sv)))})`);
+  } });
+})();
+
+// The logo, in world space so the dot can become the sun.
+const gLock = el('g', { transform: `translate(${f2(LOCK.x)} ${f2(LOCK.y)}) scale(${K})` }, gWorld);
+const gMark = el('g', {}, gLock);
+el('path', { class: 'logo-f', d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z' }, gMark);
+el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, gMark);
+el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, gMark);
+el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, gMark);   // an outpost, in a gap in the outer ring
+// the app's name beside the mark, set a little smaller than the kit's letters were so mark and name fit the stage: an outline first, then filled
+const word = cls => { const n = el('text', { class: 'b ' + cls, x: 247, y: 142, 'font-size': 120, 'font-weight': 700 }, gLock); n.textContent = 'Outpost'; return n; };
+const letters = word('logo-s'); letters.setAttribute('stroke-width', 1.3);
+const lettersFill = word('logo-f');
+const tagline = el('text', { class: 'b f-muted', 'font-size': 19, x: 640, y: 528, 'text-anchor': 'middle' }, gWorld);
+tagline.textContent = `One sun. ${TP.A('crew')}. A sky that remembers.`;
+
+// ---- HUD (screen space) ----
+const chapG = el('g', { transform: 'translate(44 50)' }, gHud);
+const chapNo = el('text', { class: 'm f-accent', 'font-size': 11.5, 'letter-spacing': '2' }, chapG);
+const chapName = el('text', { class: 'd f-text halo', 'font-size': 20, 'stroke-width': 6, y: 26 }, chapG);
+const capG = el('g', {}, gHud);
+const capT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, capG);
+const capS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, capG);
+const reqTag = el('text', { class: 'b f-text halo', 'font-size': 16, 'font-style': 'italic', 'stroke-width': 6 }, gHud);
+reqTag.textContent = '“Get the new search page ready to ship.”';
+const moon = el('g', { transform: 'translate(1192 636)' }, gHud);
+el('path', { d: 'M8 -19 A20 20 0 1 0 8 19 A15 15 0 1 1 8 -19 Z', style: 'fill:var(--star-night)' }, moon);
+
+function card(x, y, w, h) { const g = el('g', { transform: `translate(${x} ${y})` }, gHud); el('rect', { class: 'card', width: w, height: h, rx: 14 }, g); return g; }
+const T = (g, cls, size, x, y, s, extra = {}) => { const n = el('text', Object.assign({ class: cls, 'font-size': size, x, y }, extra), g); n.textContent = s; return n; };
+// Plan card
+const plan = card(868, 96, 352, 244);
+T(plan, 'm f-accent', 11, 24, 32, `THE ${TP.name('qm').toUpperCase()} · PLAN`, { 'letter-spacing': '1.5' });
+T(plan, 'd f-text', 22, 24, 62, `Four ${TP.w('quests')}`);
+const planRows = [[`${TP.name('scout')}`, 'map the code'], [`${TP.name('scribe')}`, 'write the spec'], [`${TP.name('art')}`, 'build it'], [`${TP.name('warden')}`, 'check it'], [`${TP.name('pilot')}`, 'on call for the hard part']].map(([n, s], k) => {
+  const c = CREW[k], g = el('g', { class: c.cls, transform: `translate(24 ${98 + k * 28})` }, plan);
+  el('circle', { class: 'tone-f', cx: 7, cy: -5, r: 7 }, g);
+  const gl = el('g', { class: 'glyph', transform: 'translate(2.2 -9.8) scale(.4)' }, g); gl.innerHTML = GLYPH[c.id];
+  T(g, 'b f-tone', 14.5, 24, 0, n, { 'font-weight': 600 }); T(g, k === 4 ? 'b f-muted' : 'b f-text', 14.5, 104, 0, s);
+  return g;
+});
+// Auto, the router, sizing up the hard part
+const router = card(868, 96, 352, 222);
+T(router, 'm f-accent', 11, 24, 32, 'AUTO · THE ROUTER', { 'letter-spacing': '1.5' });
+T(router, 'd f-text', 22, 24, 62, 'A hard one');
+const bars = [['How hard', .94], ['What’s at stake', .8], ['How big', .52]].map(([n, v], k) => {
+  const g = el('g', { transform: `translate(24 ${98 + k * 26})` }, router);
+  T(g, 'b f-muted', 13.5, 0, 0, n);
+  el('rect', { class: 'track', x: 128, y: -8, width: 176, height: 6, rx: 3 }, g);
+  const fill = el('rect', { class: 'tone-f c-wiz', x: 128, y: -8, width: 0, height: 6, rx: 3 }, g);
+  return { fill, v };
+});
+const pick = el('g', { class: 'c-wiz', transform: 'translate(24 164)' }, router);
+el('rect', { class: 'tone-f', width: 304, height: 36, rx: 18 }, pick);
+const pgl = el('g', { class: 'glyph', transform: 'translate(12 6) scale(1)' }, pick); pgl.innerHTML = GLYPH.wiz;
+T(pick, 'b f-ink', 14, 44, 23, `${TP.name('pilot')} · the strongest model`, { 'font-weight': 600 });
+// Approvals from your phone
+const phone = el('g', { transform: 'translate(944 126)' }, gHud);
+el('rect', { class: 'card', width: 216, height: 392, rx: 32, style: 'stroke:var(--border-strong);stroke-width:1.5' }, phone);
+el('rect', { class: 'screen', x: 8, y: 8, width: 200, height: 376, rx: 25 }, phone);
+el('rect', { class: 'notch', x: 80, y: 18, width: 56, height: 16, rx: 8 }, phone);
+T(phone, 'd f-text', 46, 108, 100, '9:41', { 'text-anchor': 'middle' });
+T(phone, 'b f-muted', 13, 108, 124, 'Friday 20 November', { 'text-anchor': 'middle' });
+const banner = el('g', {}, phone);
+el('rect', { class: 'card', x: 18, y: 146, width: 180, height: 152, rx: 16 }, banner);
+el('circle', { class: 'dot-f', cx: 36, cy: 167, r: 6 }, banner);
+T(banner, 'm f-muted', 10, 48, 170.5, 'OUTPOST · now', { 'letter-spacing': '1' });
+T(banner, 'b f-text', 13.5, 32, 196, 'Shell command waiting', { 'font-weight': 600 });
+T(banner, 'b f-muted', 12, 32, 215, 'The new search page');
+T(banner, 'm f-muted', 11, 32, 232, 'git push origin search');
+const okBtn = el('g', { transform: 'translate(32 248)' }, banner);
+const okRect = el('rect', { class: 'btn', width: 76, height: 34, rx: 9 }, okBtn);
+const okText = T(okBtn, 'b f-ink', 12.5, 38, 21.5, 'Approve', { 'font-weight': 600, 'text-anchor': 'middle' });
+const noBtn = el('g', { transform: 'translate(114 248)' }, banner);
+el('rect', { class: 'btn-o', width: 70, height: 34, rx: 9 }, noBtn);
+T(noBtn, 'b f-text', 12.5, 35, 21.5, 'Decline', { 'font-weight': 500, 'text-anchor': 'middle' });
+const touch = el('circle', { class: 'touch', r: 15 }, gHud);
+const tapRing = el('circle', { class: 'ring-t c-qm', r: 10, 'stroke-width': 2 }, gHud);
+// Night card
+const night = card(868, 118, 352, 150);
+T(night, 'm f-muted', 11, 24, 32, 'NIGHT SHIFT · 2:14 AM', { 'letter-spacing': '1.5' });
+T(night, 'd f-text', 21, 24, 62, 'Two drafts, ready by morning.');
+T(night, 'b f-muted', 14, 24, 90, 'Nothing applied, nothing deleted.');
+T(night, 'b f-muted', 14, 24, 112, 'Each one waits for your yes.');
+
+// ---- the star chart: the opening, before the film proper ----
+// A sun, and each outpost a planet on a contour line of its own, going slowly round it. A new one takes the next line out.
+// One is picked, and its planet becomes the lockup's mark.
+const gIntro = el('g', {}, gHud);
+const MARK_D = 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z';
+const smallMark = parent => {
+  const g = el('g', {}, parent);
+  el('path', { class: 'logo-f', d: MARK_D }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 48 A52 52 0 0 1 100 152' }, g);
+  el('path', { class: 'logo-s', 'stroke-width': 8, d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186' }, g);
+  el('circle', { class: 'dot-f', cx: 100, cy: 100, r: 20 }, g);
+  el('circle', { class: 'dot-f', cx: 160.81, cy: 39.19, r: 13 }, g);
+  return g;
+};
+const CH = { x: 600, y: 322, pr: 18 };
+const chartR = (R, k, a) => R * (1 + .025 * Math.sin(3 * a + k * 1.7) + .018 * Math.sin(5 * a - k));
+const chartLine = (R, k) => { let d = ''; for (let q = 0; q < 120; q++) { const a = q / 120 * 2 * Math.PI, r = chartR(R, k, a); d += (q ? 'L' : 'M') + f1(CH.x + r * Math.cos(a)) + ' ' + f1(CH.y + r * Math.sin(a)); } return d + 'Z'; };
+const LINE_S = 'fill:none;stroke:var(--border-strong);stroke-width:1.5';
+const chartLines = el('g', {}, gIntro);
+const chartSun = el('g', { transform: `translate(${CH.x} ${CH.y})` }, gIntro);
+el('circle', { class: 'dot-f', r: 54, style: 'opacity:.12' }, chartSun);
+el('circle', { r: 25, style: LINE_S }, chartSun);
+el('circle', { class: 'dot-f', r: 16 }, chartSun);
+// each outpost: its name, its colour, the line it's on, and where on that line it starts
+const outs = [['Work', 'c-scout', 112, 200], ['Home', 'c-scribe', 178, -42], ['Side project', 'c-art', 244, 150]].map(([name, tone, R, a0], k) => {
+  const line = el('path', { d: chartLine(R, k), style: LINE_S }, chartLines);
+  const dash = k === 2 ? el('path', { d: chartLine(R, k), style: LINE_S + ';stroke-dasharray:5 8;stroke-linecap:round' }, chartLines) : null;
+  const g = el('g', { class: tone }, gIntro);
+  const slot = k === 2 ? el('g', {}, g) : null;
+  if (slot) { el('circle', { r: CH.pr, style: LINE_S + ';stroke-dasharray:4 5' }, slot); el('path', { d: 'M0 -7 V7 M-7 0 H7', style: 'fill:none;stroke:var(--faint);stroke-width:2;stroke-linecap:round' }, slot); }
+  const body = el('g', {}, g);
+  el('circle', { class: 'tone-f', r: CH.pr * 2.3, style: 'opacity:.14' }, body);
+  el('circle', { class: 'tone-f', r: CH.pr }, body);
+  T(body, 'b f-ink', 17, 0, 6, name[0], { 'text-anchor': 'middle', 'font-weight': 600 });
+  const sel = el('circle', { r: CH.pr + 6, style: 'fill:none;stroke:var(--accent);stroke-width:2' }, g);
+  const ghost = k === 2 ? T(g, 'b f-faint', 15, 0, 46, 'New outpost', { 'text-anchor': 'middle' }) : null;
+  const label = T(g, 'd f-text', 19, 0, 47, name, { 'text-anchor': 'middle' });
+  return { name, R, a0, line, dash, g, slot, body, sel, ghost, label };
+});
+// what every outpost has of its own
+const ownCard = card(908, 214, 312, 190);
+T(ownCard, 'm f-muted', 11, 24, 32, 'EVERY OUTPOST', { 'letter-spacing': '1.5' });
+T(ownCard, 'd f-text', 22, 24, 62, `${TP.A('camp')} of its own`);
+const ownRows = [`Its own ${TP.w('crew')}`, 'Its own memory', 'Its own keys and settings'].map((s, r) => { const rg = el('g', { transform: `translate(24 ${100 + r * 28})` }, ownCard); el('circle', { class: 'dot-f', cx: 5, cy: -5, r: 4 }, rg); T(rg, 'b f-text', 14.5, 20, 0, s); return rg; });
+gIntro.appendChild(ownCard);
+// the picked outpost's mark, drawn over its planet, so it can leave the chart and become the lockup
+const pickMark = smallMark(gIntro);
+const icG = el('g', {}, gIntro);
+const icT = el('text', { class: 'd f-text halo', 'font-size': 32, 'stroke-width': 8, x: 56, y: 640 }, icG);
+const icS = el('text', { class: 'b f-muted halo', 'font-size': 17, 'stroke-width': 6, x: 57, y: 672 }, icG);
+const ICAPS = [
+  [1.7, 4.9, 'It starts on the star chart.', 'An outpost for each part of your life: work, home, a side project.'],
+  [5.1, 7.9, 'Each outpost keeps to itself.', `Its own ${TP.w('crew')}, memory, settings and keys. Work never reads home.`],
+];
+function intro(tt) {
+  if (tt >= PRE) { O(gIntro, 0); O(gLock, 1); O(sunCore, 1); return; }
+  O(gIntro, 1);
+  // the lockup steps aside for the chart, and comes back as the picked outpost
+  const lockA = Math.max(1 - prog(tt, 1.0, 1.7), prog(tt, 8.3, 8.9));
+  O(gLock, lockA); O(tagline, lockA); O(sunCore, lockA); sunGlow.style.opacity = .25 * lockA;
+  const leave = prog(tt, 7.6, 8.1), fly = ease.inOut(prog(tt, 7.8, 8.45));
+  O(chartSun, prog(tt, 1.3, 1.9) * (1 - leave));
+  outs.forEach((c, k) => {
+    const inn = prog(tt, 1.5 + k * .3, 2.1 + k * .3), made = k < 2 ? 1 : prog(tt, 4.2, 4.7);
+    const a = (c.a0 + 4 * tt) * Math.PI / 180, r = chartR(c.R, k, a) + (1 - ease.out(inn)) * 14;
+    c.x = CH.x + r * Math.cos(a); c.y = CH.y + r * Math.sin(a);
+    c.g.setAttribute('transform', `translate(${f1(c.x)} ${f1(c.y)})`);
+    O(c.g, inn * (1 - leave));
+    O(c.line, inn * made * (1 - leave) * .85);
+    O(c.body, k === 0 ? made * (1 - prog(tt, 7.6, 7.8)) : made);
+    if (c.slot) { O(c.dash, inn * (1 - made) * (1 - leave)); O(c.slot, 1 - made); O(c.ghost, tt < 3.0 ? 1 : 0); txt(c.label, c.name.slice(0, Math.floor(prog(tt, 3.0, 4.1) * c.name.length + .001))); }
+    O(c.sel, k === 0 ? prog(tt, 7.3, 7.5) : 0);
+  });
+  ownRows.forEach((r, j) => O(r, prog(tt, 5.6 + j * .45, 6.0 + j * .45)));
+  const ov = prog(tt, 5.0, 5.5);
+  O(ownCard, ov * (1 - leave)); ownCard.setAttribute('transform', `translate(908 ${f1(214 + (1 - ease.out(ov)) * 12)})`);
+  // Work's planet turns into the mark, and crosses to where the lockup's mark sits
+  const w = outs[0], sc = lerp(2 * CH.pr / 180, K, fly);
+  pickMark.setAttribute('transform', `translate(${f2(lerp(w.x, DOT0.x, fly))} ${f2(lerp(w.y, 360, fly))}) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+  O(pickMark, prog(tt, 7.6, 7.8) * (1 - prog(tt, 8.6, 8.95)));
+  let ci = -1, cv = 0;
+  ICAPS.forEach((c, k) => { const v = win(tt, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv = v; } });
+  if (ci >= 0) { txt(icT, ICAPS[ci][2]); txt(icS, ICAPS[ci][3]); }
+  O(icG, cv); icG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv))) * 8)})`);
+}
+
+// ---- timeline ----
+const CAPS = [
+  [6.0, 13.3, `Meet the ${TP.w('crew')}.`, `${TP.name('scout')}, ${TP.name('scribe')}, ${TP.name('art')} and ${TP.name('warden')}, with the ${TP.name('pilot')} on call.`],
+  [13.9, 19.9, `You ask. The ${TP.name('qm')} makes a plan.`, `From the sun at the centre, one request becomes four ${TP.w('quests')}.`],
+  [20.7, 25.3, `${TP.name('scout')} reads the ground.`, 'It maps the code before anyone touches it.'],
+  [25.7, 30.3, `${TP.name('scribe')} writes it down.`, 'The spec, line by line, along the contours.'],
+  [30.7, 35.3, `${TP.name('art')} builds it.`, 'Each layer set down and struck into the one below.'],
+  [35.5, 39.4, `For the hardest part, the ${TP.name('pilot')}.`, 'It runs on the strongest model by default, and lists every shortcut it took.'],
+  [39.9, 44.3, 'It takes the knot apart.', 'Two searches were racing. Now results land in order, every time.'],
+  [44.7, 49.3, `${TP.name('warden')} checks the work.`, 'Tests, secrets, and the plan it was asked to follow.'],
+  [50.0, 53.7, 'Every step is a waypoint.', 'Five steps, one trail, each one checked.'],
+  [54.1, 58.9, 'Say yes from anywhere.', 'The push pings your phone. Nothing ships until you approve.'],
+  [59.6, 66.7, `What the ${TP.w('crew')} learns becomes a star.`, 'Next time, it already knows the way.'],
+  [67.5, 71.5, 'At night, the night shift.', 'It drafts while the outpost is idle, and changes nothing without you.'],
+];
+const CHAPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, `The ${TP.w('crew')}`], [13.6, 'A request'], [19.9, `${TP.name('scout')}`], [24.9, `${TP.name('scribe')}`], [29.9, `${TP.name('art')}`], [34.9, `The ${TP.name('pilot')}`], [43.9, `${TP.name('warden')}`], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+const CHIPS = [[-PRE, 'The star chart'], [0, 'The mark'], [5.4, `The ${TP.w('crew')}`], [13.6, 'A request'], [19.9, 'The work'], [34.9, `The ${TP.name('pilot')}`], [49.2, 'The trail'], [59, 'Memory'], [67, 'Night shift'], [71.6, 'Home']];
+CHAPS.forEach(c => { c[0] += PRE; }); CHIPS.forEach(c => { c[0] += PRE; });   // chapters are in film time
+const PINGS = [{ t: 16.25, d: 3.4 }, { t: 57.5, d: 3.0 }, { t: 76.0, d: 3.0 }];
+const OFFS = [[34, 0], [0, -26], [30, -6], [32, 0], [46, 0]];
+const ZOOM = 5.2;
+const planetCam = i => t => { const p = ppos(i, t); return { x: p.x + OFFS[i][0], y: p.y + OFFS[i][1], z: ZOOM }; };
+const fixed = (x, y, z) => () => ({ x, y, z });
+const SHOTS = [
+  { t: 0, tr: 0, f: fixed(640, 360, 1) },
+  { t: 13.4, tr: 2.8, f: fixed(640, 360, 1.16) },
+  { t: 19.9, tr: 1.8, f: planetCam(0) },
+  { t: 24.9, tr: 1.7, f: planetCam(1) },
+  { t: 29.9, tr: 1.7, f: planetCam(2) },
+  { t: 34.9, tr: 2.4, f: fixed(640, 360, 1) },
+  { t: 38.6, tr: 1.9, f: planetCam(WZ) },
+  { t: 43.9, tr: 1.7, f: planetCam(3) },
+  { t: 49.2, tr: 2.5, f: fixed(640, 360, 1) },
+  { t: 58.8, tr: 3.2, f: fixed(640, 330, .95) },
+  { t: 67.4, tr: 3.6, f: fixed(640, 360, 1) },
+];
+function camera(t) {
+  let i = 0; while (i + 1 < SHOTS.length && SHOTS[i + 1].t <= t) i++;
+  const S = SHOTS[i], cur = S.f(t);
+  if (i === 0 || t - S.t >= S.tr) return cur;
+  const prev = SHOTS[i - 1].f(t), u = ease.inOut((t - S.t) / S.tr);
+  let z = Math.exp(lerp(Math.log(prev.z), Math.log(cur.z), u));
+  if (prev.z > 2 && cur.z > 2) z *= 1 - .52 * Math.sin(Math.PI * u);
+  return { x: lerp(prev.x, cur.x, u), y: lerp(prev.y, cur.y, u), z };
+}
+const logoM = t => t < 2.2 ? 0 : t < 5.6 ? ease.inOut(prog(t, 2.2, 5.6)) : t < 72.2 ? 1 : 1 - ease.inOut(prog(t, 72.2, 76.4));
+const comet = (c, a, b, from, to, bend, t, step = .032, n = 13) => {
+  const raw = (t - a) / (b - a);
+  if (raw <= 0 || raw >= 1) { O(c.g, 0); return false; }
+  const u = ease.inOut(raw), pts = [];
+  for (let k = 0; k < n; k++) { const v = u - k * step; if (v < 0) break; pts.push(bez(from, to, bend, v)); }
+  O(c.g, Math.min(1, raw * 8));
+  c.tail.setAttribute('d', dOf(pts, false));
+  put(c.head, { cx: f1(pts[0][0]), cy: f1(pts[0][1]) });
+  return true;
+};
+
+let lastCap = -1, lastChap = -1, duskA = .64, filmT = 0, pingT = 0;
+const readDusk = () => { duskA = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dusk-a')) || .64; };
+readDusk(); { const mq = matchMedia('(prefers-color-scheme: dark)'), onScheme = () => { readDusk(); render(t); }; mq.addEventListener('change', onScheme); cleanups.push(() => mq.removeEventListener('change', onScheme)); }
+function renderMain(t) {
+  const m = logoM(t), s = clamp(m / .4), e = clamp((m - .32) / .68), lp = 1 - clamp(m / .3);
+  const cam = camera(t), z = cam.z;
+  gWorld.setAttribute('transform', `translate(640 360) scale(${z.toFixed(4)}) translate(${f2(-cam.x)} ${f2(-cam.y)})`);
+  const zs = 1 + (z - 1) * .18;
+  gStars.setAttribute('transform', `translate(640 360) scale(${zs.toFixed(4)}) translate(${f2(-(640 + (cam.x - 640) * .22))} ${f2(-(360 + (cam.y - 360) * .22))})`);
+  const toScreen = (x, y) => [640 + (x - cam.x) * z, 360 + (y - cam.y) * z];
+
+  // night
+  const nightA = ease.inOut(win(t, 66.9, 72, 1.1, 1.3));
+  dusk.style.opacity = nightA * duskA;
+  O(starsNight, nightA); starsDay.style.opacity = 1 - nightA * .7;
+  for (let k = 0; k < STARS.length; k += 1) { const S = STARS[k], tw = .55 + .45 * Math.sin(filmT * S.sp + S.ph); S.a.style.opacity = tw.toFixed(2); S.b.style.opacity = tw.toFixed(2); }
+  O(moon, nightA);
+
+  // sun and logo
+  const sp = { x: lerp(DOT0.x, SUN.x, ease.inOut(s)), y: 360 };
+  const flare = Math.exp(-Math.pow((t - 16.3) / .3, 2)) + .6 * Math.exp(-Math.pow((t - 57.5) / .3, 2));
+  put(sunCore, { cx: f1(sp.x), r: f2(22 * (1 + .3 * flare + .03 * Math.sin(t * 2.2) * e)) });
+  put(sunGlow, { cx: f1(sp.x), r: f1(120 * (1 + .5 * flare)) });
+  sunGlow.style.opacity = (.25 + .75 * e) * (1 - nightA * .3);
+  const sc = lerp(1, 1.55, ease.out(e));
+  gMark.setAttribute('transform', `translate(${f2((SUN.x - DOT0.x) / K * ease.inOut(s))} 0) translate(100 100) scale(${sc.toFixed(3)}) translate(-100 -100)`);
+  O(gMark, 1 - clamp((e - .08) / .5));
+  O(letters, clamp(lp * 4)); O(lettersFill, clamp((lp - .55) / .45));
+  O(tagline, 1 - clamp(m / .18));
+
+  // orbits
+  const dim = 1 - .5 * win(t, 59.2, 72, 1, 1);
+  CREW.forEach((c, i) => {
+    const k = lerp(c.r0 / c.R, 1, ease.out(e));
+    orbitEls[i].setAttribute('transform', `translate(640 360) scale(${k.toFixed(4)}) translate(-640 -360)`);
+  });
+  O(gOrbits, clamp(e * 3) * dim);
+  drawTo(orbitEls[WZ], ease.inOut(prog(t, 37.7, 39.4))); O(orbitEls[WZ], 1 - prog(t, 71.0, 72.0));
+
+  // pings light the ground as they pass
+  let pr = null;
+  for (const p of PINGS) { const dt = pingT - p.t; if (dt >= 0 && dt <= p.d) { const u = dt / p.d; pr = { r: ease.out(u) * 760, a: 1 - u }; } }
+  if (pr) { put(pingEl, { cx: f1(sp.x), r: f1(pr.r) }); O(pingEl, pr.a * .85); } else O(pingEl, 0);
+  for (const c of CONTOURS) { const v = pr ? pr.a * Math.exp(-Math.pow((pr.r - c.R) / 24, 2)) : 0; O(c.lit, v * .95); }
+
+  // planets
+  const pos = CREW.map((c, i) => ppos(i, t));
+  const labelA = clamp((1.8 - z) / .5);
+  CREW.forEach((c, i) => {
+    const appear = i === WZ ? ease.back(prog(t, 38.1, 38.9)) : ease.back(prog(t, 5.6 + i * .6, 6.4 + i * .6)), gone = prog(t, 71.6 + i * .2, 72.4 + i * .2);
+    const pa = Math.max(0, appear) * (1 - ease.inOut(gone));
+    const P = PL[i];
+    O(P.g, Math.min(1, pa * 1.5) * lerp(1, .75, 1 - dim));
+    P.g.setAttribute('transform', `translate(${f2(pos[i].x)} ${f2(pos[i].y)})`);
+    P.body.setAttribute('transform', `scale(${Math.max(0, pa).toFixed(3)})`);
+    O(P.label, labelA * clamp(pa) * (1 - nightA * .4));
+    // tail along the orbit
+    const a = angleOf(c, t), pts = [];
+    for (let k = 0; k <= 18; k++) { const aa = a - k * .028 / Math.max(1, z * .9); const r = shapeR(c.R, c.ph, aa); pts.push([SUN.x + r * Math.cos(aa), SUN.y + r * Math.sin(aa)]); }
+    ptrails[i].setAttribute('d', dOf(pts, false)); O(ptrails[i], clamp(pa) * .7);
+    // pulse: on arrival, and while working
+    const V = VIG[i], arr = V.a + .2, work = win(t, V.a, V.b, .4, .6);
+    const fl = prog(t, arr, arr + .9), rr = ((t - V.a) * .9) % 1;
+    if (fl > 0 && fl < 1) { put(P.pulse, { r: f2(10 + fl * 22) }); O(P.pulse, (1 - fl) * .9); }
+    else if (work > 0) { put(P.pulse, { r: f2(10 + rr * 12) }); O(P.pulse, (1 - rr) * .5 * work); }
+    else O(P.pulse, 0);
+  });
+
+  // the request falls; quests go out; reports come home
+  const req = comet(reqC, 13.8, 16.3, { x: 40, y: -40 }, sp, -.28, t, .03, 16);
+  if (req || win(t, 13.8, 16.7, .4, .5) > 0) {
+    const raw = clamp((t - 13.8) / 2.5), [hx, hy] = bez({ x: 40, y: -40 }, sp, -.28, ease.inOut(raw)), [sx, sy] = toScreen(hx, hy);
+    put(reqTag, { x: f1(sx + 18), y: f1(sy - 12) }); O(reqTag, win(t, 13.8, 16.6, .4, .5));
+  } else O(reqTag, 0);
+  CREW.forEach((c, i) => {
+    const a = i === 3 ? 43.5 : 19.5 + i * 5, o = ORDER.indexOf(i);
+    if (i === WZ) comet(outC[i], 36.6, 38.3, { x: 1380, y: 860 }, pos[i], -.18, t, .03, 15);   // the Test Pilot arrives from outside
+    else comet(outC[i], a, a + 1.5, sp, pos[i], .22, t);
+    comet(homeC[i], 49.7 + o * .3, 51.4 + o * .3, pos[i], sp, -.2, t);
+  });
+
+  // vignettes
+  VIG.forEach(V => {
+    const v = win(t, V.a, V.b, .5, .6);
+    O(V.g, v);
+    if (v > 0) { V.g.setAttribute('transform', `translate(${f2(pos[V.i].x)} ${f2(pos[V.i].y)})`); V.update(t); }
+  });
+
+  // the trail and its waypoints
+  const tA = win(t, 50.4, 59.6, .4, .9);
+  if (tA > 0) {
+    const knots = [[sp.x, sp.y], ...ORDER.map(i => [pos[i].x, pos[i].y]), [sp.x, sp.y]], pts = catmull(knots, 16), cum = measure(pts);
+    const u = ease.inOut(prog(t, 50.7, 53.5));
+    put(trailEl, { d: partial(pts, cum, u), 'stroke-dashoffset': f1(-t * 22) }); O(trailEl, tA * .9);
+    WAY.forEach((w, i) => {
+      const o = ORDER.indexOf(i), at = cum[16 * (o + 1)] / cum[cum.length - 1], pop = clamp((u - at) / .06 + .001);
+      O(w.g, pop * tA); w.g.setAttribute('transform', `translate(${f2(pos[i].x)} ${f2(pos[i].y)}) scale(${f2(ease.back(clamp(pop)))})`);
+      const done = prog(t, 53.7 + o * .25, 53.95 + o * .25);
+      O(w.num, 1 - done); O(w.tick, done);
+    });
+  } else { O(trailEl, 0); WAY.forEach(w => O(w.g, 0)); }
+
+  // the push pings your phone, and you approve it there
+  const pv = win(t, 53.5, 59.3, .5, .6);
+  O(phone, pv); phone.setAttribute('transform', `translate(944 ${f1(126 + (1 - ease.out(prog(t, 53.5, 54.2))) * 30)})`);
+  const bv = prog(t, 54.1, 54.5); O(banner, bv); banner.setAttribute('transform', `translate(0 ${f1(-(1 - ease.out(bv)) * 12)})`);
+  const clicked = t >= 57.15;
+  okRect.setAttribute('class', clicked ? 'btn ok' : 'btn'); txt(okText, clicked ? 'Approved' : 'Approve');
+  const press = Math.exp(-Math.pow((t - 57.1) / .07, 2));
+  okBtn.setAttribute('transform', `translate(${f2(32 + 38 * press * .05)} ${f2(248 + 17 * press * .05)}) scale(${f2(1 - press * .05)})`);
+  const TX = 944 + 32 + 38, TY = 126 + 248 + 17, tv = win(t, 56.2, 57.6, .3, .4);
+  if (tv > 0) { const u = ease.inOut(prog(t, 56.2, 57.0)); put(touch, { cx: f1(lerp(TX + 40, TX, u)), cy: f1(lerp(TY + 190, TY, u)), r: f2(15 * (1 - press * .15)) }); O(touch, tv); } else O(touch, 0);
+  const rg = prog(t, 57.12, 57.8); if (rg > 0 && rg < 1) { put(tapRing, { cx: TX, cy: TY, r: f1(10 + rg * 34) }); O(tapRing, (1 - rg) * .9); } else O(tapRing, 0);
+
+  // The hard part is sized up
+  O(router, win(t, 35.2, 38.8, .5, .6)); router.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 35.2, 35.8))) * 14)})`);
+  bars.forEach((b, k) => b.fill.setAttribute('width', f1(176 * b.v * ease.out(prog(t, 35.8 + k * .3, 36.5 + k * .3)))));
+  const pk = prog(t, 36.9, 37.3); O(pick, pk); pick.setAttribute('transform', `translate(24 164) translate(152 18) scale(${f2(lerp(.9, 1, ease.back(pk)))}) translate(-152 -18)`);
+
+  // memory: motes rise and settle as stars
+  const memA = 1 - prog(t, 71.6, 72.8);
+  oldEls.forEach((o, k) => { o.style.opacity = (.45 + .45 * win(t, 62.4, 72.4, .8, 1) + .1 * Math.sin(t * 1.3 + k)).toFixed(2); });
+  MEM.forEach((mm, k) => {
+    const E = memEls[k], L = 59.6 + k * .28, src = ppos(mm.from, L);
+    comet(E.mote, L, L + 1.6, src, mm, -.35, t, .03, 10);
+    const born = prog(t, L + 1.5, L + 1.9) * memA;
+    O(E.core, born); O(E.glow, born * (.7 + .3 * Math.sin(t * 2 + k)));
+    E.core.setAttribute('r', f2(3 * (1 + .6 * Math.exp(-Math.pow((t - L - 1.6) / .18, 2)))));
+    O(E.g, 1);
+    if (E.label) { const j = [0, 2, 4, 5, 7].indexOf(k); O(E.label, win(t, 63.4 + j * .45, 67.4, .45, .7)); }
+  });
+  JOINS.forEach((j, k) => {
+    const a = P(j[0]), b = P(j[1]), u = ease.inOut(prog(t, 62.3 + k * .14, 62.9 + k * .14));
+    joinEls[k].setAttribute('d', `M${f1(a.x)} ${f1(a.y)}L${f1(lerp(a.x, b.x, u))} ${f1(lerp(a.y, b.y, u))}`);
+    O(joinEls[k], (u > 0 ? .55 : 0) * memA);
+  });
+
+  // the night shift's lap
+  const nl = prog(t, 67.9, 71.2);
+  if (nl > 0 && nl < 1 || win(t, 68, 71.9, .3, .5) > 0) {
+    O(gNight, win(t, 67.9, 71.9, .3, .6));
+    const u = ease.inOut(nl), R = 204, at = v => { const a = (-90 + 360 * v) * DEG, r = shapeR(R, phaseAt(R), a); return [SUN.x + r * Math.cos(a), SUN.y + r * Math.sin(a)]; };
+    const pts = []; for (let k = 0; k < 22; k++) { const v = u - k * .012; if (v < 0) break; pts.push(at(v)); }
+    nTail.setAttribute('d', dOf(pts, false)); put(nHead, { cx: f1(pts[0][0]), cy: f1(pts[0][1]) }); O(nHead, nl < 1 ? 1 : 0); O(nTail, nl < 1 ? .7 : 0);
+    drafts.forEach((d, k) => { const p = at([.38, .74][k]), v = prog(u, [.38, .74][k], [.38, .74][k] + .04); d.setAttribute('transform', `translate(${f1(p[0])} ${f1(p[1])}) scale(${f2(ease.back(v))})`); O(d, v); });
+  } else O(gNight, 0);
+
+  // cards
+  O(plan, win(t, 16.6, 20.3, .5, .6)); plan.setAttribute('transform', `translate(868 ${f1(96 + (1 - ease.out(prog(t, 16.6, 17.2))) * 14)})`);
+  planRows.forEach((r, k) => O(r, prog(t, 17.0 + k * .35, 17.35 + k * .35)));
+  O(night, win(t, 68.4, 71.7, .5, .6)); night.setAttribute('transform', `translate(868 ${f1(118 + (1 - ease.out(prog(t, 68.4, 69))) * 14)})`);
+
+  // captions and chapter
+  let ci = -1, cv2 = 0;
+  CAPS.forEach((c, k) => { const v = win(t, c[0], c[1], .55, .55); if (v > 0) { ci = k; cv2 = v; } });
+  if (ci !== lastCap && ci >= 0) { txt(capT, CAPS[ci][2]); txt(capS, CAPS[ci][3]); }
+  if (ci >= 0) lastCap = ci;
+  O(capG, cv2); capG.setAttribute('transform', `translate(0 ${f1((1 - ease.out(clamp(cv2))) * 8)})`);
+  let ch = 0; CHAPS.forEach((c, k) => { if (filmT >= c[0]) ch = k; });
+  if (ch !== lastChap) { lastChap = ch; txt(chapNo, 'OUTPOST · ' + String(ch + 1).padStart(2, '0') + ' / ' + CHAPS.length); txt(chapName, CHAPS[ch][1]); chipSync(filmT); }
+}
+
+// The film's clock: the star chart first, then the film proper on its own clock. The last ping of the loop runs on into the chart.
+function render(tt) {
+  filmT = tt;
+  const t = Math.max(0, tt - PRE);
+  pingT = tt < PRE ? MAIN + tt : t;
+  renderMain(t); intro(tt);
+}
+
+// ---- transport ----
+const playB = root.getElementById('play'), scrub = root.getElementById('scrub'), clock = root.getElementById('clock'), chipsOl = root.getElementById('chapters');
+// The chapter list is this page's own; in the Tour the film has only its transport bar.
+const chipEls = !chipsOl ? [] : CHIPS.map(([at, name], k) => { const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button'; b.innerHTML = `<span>${String(k + 1).padStart(2, '0')}</span>${name}`; b.addEventListener('click', () => { t = at + .001; render(t); sync(); }); li.appendChild(b); chipsOl.appendChild(li); return b; });
+function chipSync(tt) { let a = 0; CHIPS.forEach((c, k) => { if (tt >= c[0]) a = k; }); chipEls.forEach((b, k) => b.setAttribute('aria-current', k === a ? 'true' : 'false')); }
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); chipSync(t); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+root.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  (dead || (raf = requestAnimationFrame(frame)));
+}
+setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render(t));
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
+},
 ticket: function (root) {
 let dead = false, raf = 0; const cleanups = [];
 const NS = 'http://www.w3.org/2000/svg';
@@ -3598,6 +4454,863 @@ function render(t) {
     const pv = clamp((t - c.a + .6) / .7);
     c.ring.setAttribute('r', lerp(24, 42, ease.out(pv)).toFixed(2)); O(c.ring, pv > 0 && pv < 1 ? (1 - pv) * .9 : 0);
     const tick = seg(t, c.b + 1.0, c.b + 1.4, ease.back) * (1 - seg(t, FIN - .3, FIN));
+    TR(c.checkIn, 0, 0, tick); O(c.check, tick * 3);
+    c.label.setAttribute('x', s.x.toFixed(1)); c.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1));
+    O(c.label, inSys * wide);
+  });
+  { const s = tokState(PILOT, t, cam);
+    TR(PILOT.tok, s.x, s.y, s.s); PILOT.tok.style.setProperty('--sw', (2 / s.s).toFixed(3)); O(PILOT.halo, inSys * .6);
+    PILOT.label.setAttribute('x', s.x.toFixed(1)); PILOT.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1)); O(PILOT.label, inSys * wide); }
+  sunL.setAttribute('x', c0[0].toFixed(1)); sunL.setAttribute('y', (c0[1] + RS * z + 23).toFixed(1));
+  O(sunL, inSys * wide);
+  const q = qmState(t, c0); TR(qm, q.x, q.y, q.s); O(qm, q.o);
+
+  // up close: who this is, and a moon that circles a planet while it works
+  const b = cam.body, near = clamp((cam.f - .75) / .25);
+  if (b && b.key !== bodyKey) {
+    bodyKey = b.key; gBody.setAttribute('class', 'c-' + b.key); gMoon.setAttribute('class', 'c-' + b.key);
+    bodyName.textContent = b.name; bodySub.textContent = b.sub;
+  }
+  O(gBody, near);
+  const planet = b && b !== QM;
+  O(gMoon, planet ? near : 0);
+  if (planet) {
+    const ma = t * 2.4, mr = RBIG + 18;
+    moon.setAttribute('cx', (FOCUS[0] + mr * Math.cos(ma)).toFixed(1)); moon.setAttribute('cy', (FOCUS[1] + mr * Math.sin(ma)).toFixed(1));
+    O(moon, seg(t, b.a, b.a + .3) * (1 - seg(t, b.done, b.done + .3)));
+    moonRing.setAttribute('stroke-dashoffset', (-t * 8).toFixed(1));
+  }
+
+  // your pointer
+  let cur = null;
+  for (const c of CLICKS) if (t >= c.t - 1 && t < c.t + .6) cur = c;
+  if (cur) {
+    const px = cur.b.sx + 10, py = cur.b.sy + 5, m = seg(t, cur.t - 1, cur.t - .12);
+    TR(pointer, lerp(px + 330, px, m), lerp(py + 140, py, m) - Math.sin(m * PI) * 24, 1.5 - .18 * Math.sin(clamp((t - cur.t + .1) / .25) * PI));
+    O(pointer, seg(t, cur.t - 1, cur.t - .8) * (1 - seg(t, cur.t + .35, cur.t + .6)));
+    const rp = clamp((t - cur.t) / .6);
+    ripple.setAttribute('cx', cur.b.sx); ripple.setAttribute('cy', cur.b.sy);
+    ripple.setAttribute('r', lerp(12, 62, ease.out(rp)).toFixed(1)); O(ripple, rp > 0 && rp < 1 ? (1 - rp) * .75 : 0);
+    const rp2 = clamp((t - cur.t - .1) / .55);
+    ripple2.setAttribute('cx', cur.b.sx); ripple2.setAttribute('cy', cur.b.sy);
+    ripple2.setAttribute('r', lerp(12, 104, ease.out(rp2)).toFixed(1)); O(ripple2, rp2 > 0 && rp2 < 1 ? (1 - rp2) * .5 : 0);
+  } else { O(pointer, 0); O(ripple, 0); O(ripple2, 0); }
+}
+
+// ---- transport ----
+const playB = root.getElementById('play'), scrub = root.getElementById('scrub'), clock = root.getElementById('clock');
+let t = 0, last = null, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, shown = false;
+const two = n => String(n).padStart(2, '0'), mmss = s => Math.floor(s / 60) + ':' + two(Math.floor(s % 60));
+function sync() { scrub.value = t.toFixed(2); clock.textContent = mmss(t) + ' / ' + mmss(DUR); }
+function setPlaying(p) { playing = p; playB.textContent = p ? 'Pause' : 'Play'; }
+playB.addEventListener('click', () => setPlaying(!playing));
+root.getElementById('frame').addEventListener('click', () => setPlaying(!playing));
+scrub.addEventListener('input', () => { t = clamp(parseFloat(scrub.value), 0, DUR - .001); render(t); sync(); });
+function frame(now) {
+  if (playing && shown && last != null) { t = (t + Math.min(.1, (now - last) / 1000)) % DUR; render(t); sync(); }
+  last = now;
+  (dead || (raf = requestAnimationFrame(frame)));
+}
+layoutRoute(); layoutName(); layoutCaps(); setPlaying(playing); render(0); sync();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutRoute(); layoutName(); layoutCaps(); TYPERS.forEach(o => { o.last = -1; }); render(t); });
+(dead || (raf = requestAnimationFrame(frame)));
+// the page says when this film can be seen: it only runs then; stop() ends it for good
+return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimationFrame(raf); cleanups.forEach(c => c()); } };
+},
+audit: function (root) {
+let dead = false, raf = 0; const cleanups = [];
+const NS = 'http://www.w3.org/2000/svg';
+const svg = root.getElementById('stage');
+const DUR = 63.9, PI = Math.PI;
+const BRANCH = 'LED-105-an-account-with-no-role-can-void-invoice';
+
+// ---- helpers ----
+const el = (tag, attrs, parent, text) => {
+  const n = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  (parent || svg).appendChild(n);
+  return n;
+};
+const tx = (parent, x, y, cls, s, extra) => el('text', Object.assign({ x, y, class: cls }, extra || {}), parent, s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = {
+  io: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  out: k => 1 - Math.pow(1 - k, 3),
+  in: k => k * k * k,
+  back: k => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2),
+  lin: k => k,
+};
+const seg = (t, a, b, e = ease.io) => e(clamp((t - a) / (b - a)));
+const O = (n, o) => { const v = clamp(o); n.style.opacity = v.toFixed(3); n.style.visibility = v < .002 ? 'hidden' : 'visible'; };
+const TR = (n, x, y, s = 1) => n.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${Math.max(0, s).toFixed(4)})`);
+// fade a thing in at time a, rising a little
+const show = (n, t, a, dy = 8, d = .35) => { const p = seg(t, a, a + d, ease.out); O(n, p); n.setAttribute('transform', `translate(0 ${((1 - p) * dy).toFixed(2)})`); return p; };
+// text that types itself
+const TYPERS = [];
+const typer = (parent, x, y, cls, s) => { const o = { n: tx(parent, x, y, cls, ''), s, x, y, last: -1, w: 0 }; TYPERS.push(o); return o; };
+const typeTo = (o, k) => {
+  const n = Math.floor(o.s.length * clamp(k) + 1e-6);
+  if (n !== o.last) { o.last = n; o.n.textContent = o.s.slice(0, n); o.w = n ? o.n.getComputedTextLength() : 0; }
+  return o;
+};
+const caretAt = (c, o, h) => { c.setAttribute('x', (o.x + o.w + 2).toFixed(1)); c.setAttribute('y', o.y - h + 5); c.setAttribute('height', h); };
+const blink = t => (t * 2) % 1 < .55 ? 1 : 0;
+// buttons: drawn about their own centre so a press can squeeze them
+function button(parent, cx, cy, w, label, kind) {
+  const g = el('g', null, parent);
+  el('rect', { x: -w / 2, y: -18, width: w, height: 36, rx: 8, class: kind === 'ghost' ? 'btn-ghost' : 'btn-accent' }, g);
+  const tn = tx(g, 0, 5, 'b btn-t ' + (kind === 'ghost' ? 'f-text' : 'f-accent-ink'), label, { 'text-anchor': 'middle' });
+  return { g, tn, cx, cy, label, state: null };
+}
+function press(b, t, tc, after) {
+  TR(b.g, b.cx, b.cy, 1 - .08 * Math.sin(clamp((t - tc + .1) / .3) * PI));
+  const done = t >= tc;
+  if (done !== b.state) { b.state = done; b.tn.textContent = done && after ? after : b.label; }
+}
+function chip(parent, x, cy, s) {
+  const g = el('g', null, parent);
+  el('circle', { cx: x + 9, cy, r: 9, class: 'ok-disc' }, g);
+  el('path', { d: `M${x + 4.8} ${cy + .3} L${x + 7.9} ${cy + 3.3} L${x + 13.4} ${cy - 3.2}`, class: 'ok-check' }, g);
+  tx(g, x + 27, cy + 5, 'b t15 w6 f-text', s);
+  return g;
+}
+
+// ---- the system: the sun is the Commander, the planets are the crew, and the camera moves between them ----
+const FIN = 57.3;                                    // when the system folds back into the logo
+const SUN = [640, 372], FOCUS = [210, 400], DOCK = [508, 234];
+const SLOT = [460, 532, 604, 676, 748, 820], ROWY = 526;
+const TITLE_ORB = [446.5, 295, 111.6], BUG_ORB = [75, 55, 34], BEAT_ORB = [640, 250, 120];
+const KR = [40, 64, 88, 88], ORB = [100, 150, 200, 250];     // the logo's ring radii, and the orbits they open into
+const D_SUN = 279, RS = 15.5 * D_SUN / 180, RP = 20, RBIG = 140;
+// a: its panel opens, b: its panel closes and the camera pulls back, done: its own work is finished
+const CREW = [
+  { key: 'scout', name: `${TP.name('scout')}`, sub: 'READS THE CODE', slot: 1, w: 40, ang: -25, a: 17.0, b: 20.4, done: 19.6, want: [60, null, null, 150, 230, 300] },
+  { key: 'art', name: `${TP.name('art')}`, sub: 'CHANGES THE CODE', slot: 3, w: 26, ang: -25, a: 23.3, b: 31.8, done: 28.1, want: [140, 200, null, null, 120, 200] },
+  { key: 'scribe', name: `${TP.name('scribe')}`, sub: 'WRITES IT UP', slot: 2, w: 17, ang: -28, a: 34.7, b: 39.3, done: 37.3, want: [215, 240, 265, null, null, 80] },
+  { key: 'warden', name: `${TP.name('warden')}`, sub: 'REVIEWS IT', slot: 4, w: 11, ang: -40, a: 42.2, b: 46.5, done: 44.4, want: [330, 100, 150, 250, null, null] },
+];
+const QM = { key: 'qm', name: `${TP.name('qm')}`, sub: 'PLANS THE WORK', zi: 4.1, zo: 14.7, Z: RBIG / RS };
+CREW.forEach((c, i) => { c.i = i; c.zi = c.a - .8; c.zo = c.b; c.Z = RBIG / RP; });
+const BODIES = [QM, ...CREW];
+// The Test Pilot has no mission on this ticket: it keeps to an orbit of its own outside the others, on the far side from the captions.
+const PILOT = { key: 'pilot', name: `${TP.name('pilot')}`, slot: 5, i: 4, R: 292 };
+// after the first finding, the next two go round the crew quickly: T is when a finding's tag leaves the list
+const LAPS = [48.2, 51.7].map(T => ({ T }));
+const lapOut = (L, j) => L.T + .7 + .3 * j, lapBack = (L, j) => L.T + 1.8 + .3 * j;   // a mission leaves the sun; its report sets off home
+// how close the camera is on a body: 0 is the whole system, 1 is the close-up
+const focusOf = (b, t) => seg(t, b.zi, b.zi + 1) * (1 - seg(t, b.zo, b.zo + 1));
+const anyFocus = t => BODIES.reduce((m, b) => Math.max(m, focusOf(b, t)), 0);
+// the orbits nearly stop while the camera is close, so the planet in view holds still
+const WT = [0];
+for (let i = 1; i <= Math.round(DUR * 20); i++) WT.push(WT[i - 1] + (1 - .94 * anyFocus((i - .5) / 20)) / 20);
+const wt = t => { const f = clamp(t, 0, DUR) * 20, i = Math.min(WT.length - 2, Math.floor(f)); return WT[i] + (WT[i + 1] - WT[i]) * (f - i); };
+// Each wide view wants the planets spread out, and each close-up wants its planet just right of the sun.
+// A planet keeps its own speed whenever it can be seen; while the camera is close on someone else it moves on to its next place.
+const WIDE_T = [3.3, 15.95, 22.2, 33.6, 41.1, 47.6];
+CREW.forEach(c => {
+  const own = c.ang - c.w * wt((c.zi + 1 + c.zo) / 2), k0 = c.i + 1;
+  c.off = c.want.map((d, k) => d == null ? own : d - c.w * wt(WIDE_T[k]));
+  // take the short way round, forwards: and never backwards
+  for (let k = k0 + 2; k < c.off.length; k++) { while (c.off[k] < c.off[k - 1] - 90) c.off[k] += 360; while (c.off[k] >= c.off[k - 1] + 270) c.off[k] -= 360; c.off[k] = Math.max(c.off[k], c.off[k - 1]); }
+  for (let k = k0 - 1; k >= 0; k--) { while (c.off[k] > c.off[k + 1] + 90) c.off[k] -= 360; while (c.off[k] <= c.off[k + 1] - 270) c.off[k] += 360; c.off[k] = Math.min(c.off[k], c.off[k + 1]); }
+});
+function angleOf(c, t) {
+  let off = c.off[0];
+  BODIES.forEach((b, k) => { off += (c.off[k + 1] - c.off[k]) * seg(t, b.zi + 1, b.zo); });
+  return (c.w * wt(t) + off) * PI / 180;
+}
+// the logo's rings open into the orbits after the title card, and close again at the end
+const expand = (t, j) => seg(t, 1.5 + .1 * (3 - j), 2.5 + .1 * (3 - j)) * (1 - seg(t, FIN + .1 * j, FIN + .9 + .1 * j));
+const expandAll = t => seg(t, 1.5, 2.7) * (1 - seg(t, FIN, FIN + 1));
+const baseD = t => lerp(lerp(TITLE_ORB[2], BEAT_ORB[2], seg(t, FIN, FIN + 1)), TITLE_ORB[2], seg(t, FIN + 2.3, FIN + 3.1));
+const orbR = (t, j) => lerp(KR[j] * baseD(t) / 180, ORB[j], expand(t, j));
+const pilotR = t => lerp(KR[3] * baseD(t) / 180, PILOT.R, expand(t, 3));
+const worldPos = (c, t) => { const a = c === PILOT ? (150 + 60 * wt(t) / wt(DUR)) * PI / 180 : angleOf(c, t), r = c === PILOT ? pilotR(t) : orbR(t, c.i); return [r * Math.cos(a), r * Math.sin(a)]; };
+// where the sun sits on the stage in a wide view: in the logo, then the middle, then the name beat, then the logo again
+function sunAt(t) {
+  const k = seg(t, 1.5, 2.6), f = seg(t, FIN, FIN + 1), m2 = seg(t, FIN + 2.3, FIN + 3.1);
+  return [0, 1].map(i => lerp(lerp(lerp(TITLE_ORB[i], SUN[i], k), BEAT_ORB[i], f), TITLE_ORB[i], m2));
+}
+// the camera: world point F is drawn at stage point S, magnified z times
+function camera(t) {
+  const S0 = sunAt(t); let body = null, f = 0;
+  for (const b of BODIES) { const v = focusOf(b, t); if (v > f) { f = v; body = b; } }
+  if (!body) return { S: S0, F: [0, 0], z: 1, f: 0, body: null };
+  const P = body === QM ? [0, 0] : worldPos(body, t);
+  return { S: [lerp(S0[0], FOCUS[0], f), lerp(S0[1], FOCUS[1], f)], F: [P[0] * f, P[1] * f], z: Math.pow(body.Z, f), f, body };
+}
+const proj = (cam, p) => [cam.S[0] + (p[0] - cam.F[0]) * cam.z, cam.S[1] + (p[1] - cam.F[1]) * cam.z];
+
+// the sun's dot breathes; while a mission is out it breathes quicker and sends a ring out
+const act = t => seg(t, 13.6, 14.2) * (1 - seg(t, FIN - .2, FIN + .4));
+const PH = [0];
+for (let i = 1; i <= Math.round(DUR * 20); i++) PH.push(PH[i - 1] + (1 + .43 * act((i - .5) / 20)) / 20);
+const warp = t => { const f = clamp(t, 0, DUR) * 20, i = Math.min(PH.length - 2, Math.floor(f)); return (PH[i] + (PH[i + 1] - PH[i]) * (f - i)) / PH[PH.length - 1]; };
+
+// ---- crew badges ----
+const GLYPH = {
+  qm: g => { el('circle', { cx: 12, cy: 12, r: 9 }, g); el('path', { d: 'M15.8 8.2 L13.5 13.5 L8.2 15.8 L10.5 10.5 Z' }, g); },
+  scout: g => { el('path', { d: 'M7 3.5 C16.5 6.5 16.5 17.5 7 20.5' }, g); el('path', { d: 'M7 3.5 V20.5' }, g); el('path', { d: 'M2.5 12 H20.5 M17.5 9 L20.5 12 L17.5 15' }, g); },
+  scribe: g => { el('path', { d: 'M20 4 C12 4.5 7 9 6 17 C13.5 16.5 19 12 20 4 Z' }, g); el('path', { d: 'M3.8 20.2 L13 11' }, g); },
+  art: g => { const r = el('g', { transform: 'rotate(40 12 12)' }, g); el('rect', { x: 5.5, y: 3.5, width: 13, height: 6.5, rx: 1.5 }, r); el('path', { d: 'M12 10 V21.5' }, r); },
+  warden: g => { el('path', { d: 'M12 3 L19.5 6 V11.5 C19.5 16.2 16.4 19.4 12 21 C7.6 19.4 4.5 16.2 4.5 11.5 V6 Z' }, g); el('path', { d: 'M8.8 11.9 L11.2 14.3 L15.4 9.9' }, g); },
+  pilot: g => { el('path', { d: 'M20.5 3.5 L3.5 10.5 L10.5 13.5 L13.5 20.5 Z' }, g); el('path', { d: 'M10.5 13.5 L20.5 3.5' }, g); },
+  you: g => { el('circle', { cx: 12, cy: 8.6, r: 3.8 }, g); el('path', { d: 'M5 20 C5 14.4 19 14.4 19 20' }, g); },
+};
+const defs = svg.querySelector('defs');
+[...CREW, PILOT].forEach(c => {
+  const g = el('radialGradient', { id: 'halo-' + c.key, class: 'c-' + c.key }, defs);
+  el('stop', { offset: '.5', style: 'stop-color: var(--tone); stop-opacity: .4' }, g);
+  el('stop', { offset: '1', style: 'stop-color: var(--tone); stop-opacity: 0' }, g);
+});
+function badge(key, parent, halo) {
+  const g = el('g', { class: 'c-' + key }, parent);
+  if (halo) el('circle', { r: 46, fill: 'url(#halo-' + key + ')' }, g);
+  el('circle', { r: 24, class: 'disc' }, g);
+  GLYPH[key](el('g', { class: 'glyph', transform: 'translate(-14.4 -14.4) scale(1.2)' }, g));
+  return g;
+}
+
+// ---- the world: everything in this group is moved and magnified by the camera ----
+el('rect', { width: 1280, height: 720, class: 'bgfill' });
+const gWorld = el('g');
+// map contours ring the sun; they are pushed outwards as the logo's rings open into orbits
+const NRING = 13, ringR = (i, e) => lerp(104, 318, e) + i * 84;
+const rings = Array.from({ length: NRING }, () => ({ base: el('path', { class: 'contour' }, gWorld), lit: el('path', { class: 'contour lit' }, gWorld) }));
+const pingRings = [0, 1, 2].map(() => el('circle', { class: 'ping' }, gWorld));
+function contour(i, ph, R) {
+  const n = 180, w = Math.min(1, .2 + i * .2); let d = '';
+  for (let k = 0; k <= n; k++) {
+    const a = k / n * 2 * PI;
+    const r = R * (1 + w * (.06 * Math.sin(3 * a + i * 1.3 + ph) + .04 * Math.sin(5 * a - i * .7 - 2 * ph)));
+    d += (k ? 'L' : 'M') + (r * Math.cos(a)).toFixed(2) + ' ' + (r * Math.sin(a)).toFixed(2);
+  }
+  return d + 'Z';
+}
+// a ping goes out from the sun when the system opens, when the ticket lands, each time a mission leaves or a report comes home, and for the logo
+const PINGS = [1.35, 2.8, 4.15, ...CREW.flatMap(c => [c.a - 1.4, c.b + 1.4]), ...LAPS.flatMap(L => [L.T + .7, L.T + 3.3]), FIN + 1.05, FIN + 3.1].sort((a, b) => a - b);
+// orbits, the tail each planet leaves along its own, the comet that carries a mission out and a report home
+CREW.forEach(c => {
+  c.orbit = el('circle', { class: 'sorbit' }, gWorld);
+  c.orbitTone = el('circle', { class: 'sorbit tone c-' + c.key }, gWorld);
+});
+PILOT.orbit = el('circle', { class: 'sorbit' }, gWorld);
+CREW.forEach(c => {
+  c.trail = [1, .62, .3].map(k => ({ k, n: el('path', { class: 'ptrail c-' + c.key }, gWorld) }));
+  c.comet = Array.from({ length: 7 }, (_, j) => el('circle', { r: (7 - j * .8).toFixed(1), class: 'comet c-' + c.key }, gWorld));
+  c.pulse = el('circle', { class: 'pulse c-' + c.key }, gWorld);
+});
+
+// ---- the mark, from the logo kit (docs/brand), in the kit's own coordinates (centre 100,100, radius 90) ----
+// the full mark a ring at a time from the centre out (the solid half on the left, the fine arc on the right), and the kit's small mark
+const RING_ART = [
+  ['M100 62.5 A37.5 37.5 0 0 0 100 137.5 L100 120.5 A20.5 20.5 0 0 1 100 79.5 Z', ['M100 60 A40 40 0 0 1 100 140']],
+  ['M100 38.5 A61.5 61.5 0 0 0 100 161.5 L100 142.5 A42.5 42.5 0 0 1 100 57.5 Z', ['M100 36 A64 64 0 0 1 100 164']],
+  ['M100 10 A90 90 0 0 0 100 190 L100 166.5 A66.5 66.5 0 0 1 100 33.5 Z', ['M100 12 A88 88 0 0 1 151.73 28.81 M171.19 48.27 A88 88 0 0 1 100 188', 'M100 11.5 A88.5 88.5 0 0 1 152.02 28.4 M171.6 47.98 A88.5 88.5 0 0 1 100 188.5'], [162.4, 37.6, 9]],
+];
+function makeMark(parent) {
+  const g = el('g', null, parent);
+  const halo = el('circle', { cx: 100, cy: 100, r: 46, fill: 'url(#dotGlow)' }, g);
+  const ripple = el('circle', { cx: 100, cy: 100, class: 'mk-ripple' }, g);
+  const full = el('g', null, g);
+  const rings = RING_ART.map(([solid, arcs, post]) => {
+    const r = el('g', null, full);
+    el('path', { d: solid, class: 'mk-solid' }, r);
+    arcs.forEach((d, i) => el('path', { d, class: 'mk-arc' + (arcs.length > 1 ? (i ? ' on-dark' : ' on-light') : '') }, r));
+    if (post) el('circle', { cx: post[0], cy: post[1], r: post[2], class: 'mk-dot' }, r);   // an outpost, in a gap in the outer ring
+    return r;
+  });
+  const small = el('g', null, g);
+  el('path', { d: 'M100 10 A90 90 0 0 0 100 190 L100 157 A57 57 0 0 1 100 43 Z M100 53 A47 47 0 0 0 100 147 L100 130 A30 30 0 0 1 100 70 Z', class: 'mk-solid' }, small);
+  el('path', { d: 'M100 48 A52 52 0 0 1 100 152', class: 'mk-arc small' }, small);
+  el('path', { d: 'M100 14 A86 86 0 0 1 146.21 27.47 M172.53 53.79 A86 86 0 0 1 100 186', class: 'mk-arc small' }, small);
+  el('circle', { cx: 160.81, cy: 39.19, r: 13, class: 'mk-dot' }, small);
+  const dotG = el('g', null, g);
+  return { g, halo, ripple, full, rings, small, dotG, dot: el('circle', { class: 'mk-dot' }, dotG) };
+}
+// the system's own mark: its rings become the orbits and its dot is the sun, with the Commander's compass on it up close
+const sys = makeMark(gWorld);
+sys.small.remove(); sys.dot.setAttribute('r', 15.5);
+sys.glyph = el('g', { class: 'sun-glyph', transform: 'scale(.82) translate(-12 -12)' }, sys.dotG);
+GLYPH.qm(sys.glyph);
+function drawSys(t, z) {
+  const g = warp(t), a = act(t), k = lerp(baseD(t), D_SUN, expandAll(t)) / 180;
+  sys.g.setAttribute('transform', 'scale(' + k.toFixed(4) + ') translate(-100 -100)');
+  sys.rings.forEach((r, j) => {
+    r.setAttribute('transform', 'translate(100 100) scale(' + (orbR(t, j) / (KR[j] * k)).toFixed(4) + ') translate(-100 -100)');
+    O(r, 1 - clamp(expand(t, j) / .4));
+  });
+  const b = .5 - .5 * Math.cos(2 * PI * 20 * g);
+  TR(sys.dotG, 100, 100, 1 + (.05 + .05 * a) * b / z);
+  O(sys.halo, .3 + .2 * b + .2 * a);
+  const p = (23 * g) % 1;
+  sys.ripple.setAttribute('r', lerp(15.5, 60, ease.out(p)).toFixed(2)); O(sys.ripple, .6 * (1 - p) * a);
+  O(sys.glyph, clamp((z - 1.6) / 2));
+}
+
+// ---- route bar: the stages a ticket goes through ----
+const gRoute = el('g');
+const STOPS = [['Ticket', 4.9], ['Plan', 10.1], ['Work', 17.0], ['Commit', 29.3], ['Pull request', 34.7], ['Review', 42.2]].map(([label, at]) => ({ label, at }));
+STOPS.forEach((s, i) => {
+  if (i < STOPS.length - 1) {
+    s.base = el('line', { class: 'dash base', y1: 664, y2: 664 }, gRoute);
+    s.fill = el('line', { class: 'dash fill', y1: 664, y2: 664 }, gRoute);
+  }
+  s.g = el('g', { class: 'stop' }, gRoute);
+  el('circle', { cx: 0, cy: 664, r: 13, class: 'pin' }, s.g);
+  tx(s.g, 0, 668.3, 'm pin-n', String(i + 1), { 'text-anchor': 'middle' });
+  s.txt = tx(s.g, 24, 668.3, 'm stop-l', s.label.toUpperCase());
+});
+function layoutRoute() {
+  const w = STOPS.map(s => s.txt.getComputedTextLength());
+  const gap = (1184 - 96 - w.reduce((a, x) => a + x + 24, 0)) / (STOPS.length - 1);
+  let x = 96;
+  STOPS.forEach((s, i) => {
+    s.g.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+    if (s.base) {
+      s.x1 = x + 24 + w[i] + 14; s.x2 = x + 24 + w[i] + gap - 24;
+      for (const l of [s.base, s.fill]) { l.setAttribute('x1', s.x1.toFixed(1)); l.setAttribute('x2', s.x2.toFixed(1)); }
+    }
+    x += 24 + w[i] + gap;
+  });
+}
+
+// ---- captions: one for each close-up, over the panel ----
+const CAPX = 470;
+// each has an eyebrow over it in the accent, as the captions in Ground to sky do
+const CAPS = [
+  ['THE FINDING', `Kick off ${TP.a('quest')} from a finding.`, 4.9, 9.3],
+  ['THE PLAN', 'The plan waits for your OK.', 10.1, 14.4],
+  ['THE WORK', `The ${TP.name('scout')} finds the gap.`, 17.0, 20.3],
+  ['THE WORK', `The ${TP.name('art')} closes it, and proves it.`, 23.3, 28.9],
+  ['YOUR CLICK', 'You make the commit.', 29.3, 31.7],
+  ['YOUR CLICK', 'Nothing leaves without your click.', 34.7, 39.2],
+  ['THE REVIEW', `The ${TP.name('warden')} reviews it.`, 42.2, 46.4],
+].map(([eb, s, a, b]) => ({ a, b, eb: tx(svg, CAPX + 2, 104, 'm cap-eb', eb), words: s.split(' ').map(w => ({ n: tx(svg, CAPX, 158, 'd cap', w) })) }));
+const capProbe = [tx(svg, 0, -200, 'd cap', 'xx'), tx(svg, 0, -200, 'd cap', 'x x')];
+function layoutCaps() {
+  const sp = capProbe[1].getComputedTextLength() - capProbe[0].getComputedTextLength();
+  for (const c of CAPS) { let x = CAPX; for (const w of c.words) { w.n.setAttribute('x', x.toFixed(1)); x += w.n.getComputedTextLength() + sp; } }
+}
+
+// ---- the bodies on the stage: planets are drawn where the camera puts them, at the size it gives them ----
+const orbitRing = el('circle', { class: 'orbit' });            // the one ring the crew shares round the logo at the end
+const gMoon = el('g');                                         // up close, a moon circles a planet while it works
+const moonRing = el('circle', { cx: FOCUS[0], cy: FOCUS[1], r: RBIG + 18, class: 'orbit' }, gMoon);
+const moon = el('circle', { r: 7, class: 'moon' }, gMoon);
+CREW.forEach(c => {
+  c.tok = badge(c.key, null, true);
+  c.halo = c.tok.firstChild;
+  c.ring = el('circle', { class: 'pulse' }, c.tok);
+  c.check = el('g', { transform: 'translate(17 -17)' }, c.tok);
+  c.checkIn = el('g', null, c.check);
+  el('circle', { r: 8, class: 'ok-disc' }, c.checkIn);
+  el('path', { d: 'M-3.8 .3 L-1 3 L4 -2.9', class: 'ok-check' }, c.checkIn);
+  c.label = tx(svg, 0, 0, 'm camp-l', c.name.toUpperCase(), { 'text-anchor': 'middle' });
+});
+PILOT.tok = badge('pilot', null, true); PILOT.halo = PILOT.tok.firstChild;
+PILOT.label = tx(svg, 0, 0, 'm camp-l', `${TP.name('pilot').toUpperCase()}`, { 'text-anchor': 'middle' });
+const qm = badge('qm');
+const sunL = tx(svg, 0, 0, 'm camp-l', `${TP.name('qm').toUpperCase()}`, { 'text-anchor': 'middle' });
+const gBody = el('g');                                         // who you are looking at, under the close-up
+const bodyName = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 66, 'd body-name', '', { 'text-anchor': 'middle' });
+const bodySub = tx(gBody, FOCUS[0], FOCUS[1] + RBIG + 88, 'm camp-l', '', { 'text-anchor': 'middle' });
+let bodyKey = null;
+// ---- the findings: what the readiness review handed over. They wait on the right of a wide view. ----
+const LX = 952, LW = 288, LY = 152, LH = 102, LGAP = 10;
+const FIND = [
+  { key: 'LED-105', l: ['An account with no role', 'can void invoices'], ctl: 'SOC 2 CC6.3 · ISO A 5.15, A 8.3', go: 3.3, land: 4.15, start: 8.8, pr: 38.4, ok: 47.9, verdict: 'GOOD TO MERGE' },
+  { key: 'LED-106', l: ['Voiding an invoice leaves', 'no entry in the audit trail'], ctl: 'SOC 2 CC7.2 · ISO A 8.15', lap: 0, verdict: 'GOOD TO MERGE' },
+  { key: 'LED-107', l: ['Bank account numbers', 'are shown in full'], ctl: 'SOC 2 C1.1 · ISO A 8.11', lap: 1, verdict: 'FIX ASKED AND MADE' },
+];
+const gList = el('g');
+tx(gList, LX, 116, 'm lbl', 'READINESS REVIEW');
+tx(gList, LX, 135, 'm lhead', 'SOC 2 TYPE I  ·  ISO 27001');
+FIND.forEach((f, i) => {
+  if (f.lap != null) { const T = LAPS[f.lap].T; Object.assign(f, { go: T, land: T + .7, start: T + .7, pr: T + 3.0, ok: T + 3.3 }); }
+  const y = f.y = LY + i * (LH + LGAP), g = f.g = el('g', { class: 'frow' }, gList);
+  el('rect', { x: LX, y, width: LW, height: LH, rx: 10, class: 'fbox' }, g);
+  el('rect', { x: LX + 12, y: y + 11, width: 76, height: 24, rx: 6, class: 'inset' }, g);
+  tx(g, LX + 50, y + 27.5, 'm key-t', f.key, { 'text-anchor': 'middle' });
+  f.st = tx(g, LX + LW - 14, y + 27, 'm q-st', 'TO DO', { 'text-anchor': 'end' });
+  f.l.forEach((line, k) => tx(g, LX + 14, y + 56 + k * 19, 'b t15 f-text', line));
+  tx(g, LX + 14, y + 91, 'm ctl', f.ctl);
+  f.okG = el('g', { transform: 'translate(' + (LX + LW - 3) + ' ' + (y + 3) + ')' }, g);
+  f.okIn = el('g', null, f.okG);
+  el('circle', { r: 9, class: 'ok-disc' }, f.okIn);
+  el('path', { d: 'M-4.2 .3 L-1.1 3.3 L4.4 -3.2', class: 'ok-check' }, f.okIn);
+});
+// each finding leaves the list as a small tag and drops into the sun
+FIND.forEach(f => {
+  f.chip = el('g', { class: 'shadow' });
+  el('rect', { x: -42, y: -13, width: 84, height: 26, rx: 6, class: 'card' }, f.chip);
+  tx(f.chip, 0, 4.5, 'm key-t', f.key, { 'text-anchor': 'middle' });
+});
+// beside the system while the last two go round, and the tally at the end
+const WCAPS = [
+  { eb: 'THE NEXT FINDING', lines: ['Then the next', 'finding.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[0].T + .1, b: LAPS[1].T - .1 },
+  { eb: 'THE NEXT FINDING', lines: ['And the', 'next.'], sub: `Same ${TP.w('crew')}. Same clicks from you.`, a: LAPS[1].T + .1, b: LAPS[1].T + 3.5 },
+  { eb: 'THREE FOR THREE', lines: ['Three findings,', 'three reviewed', 'pull requests.'], sub: null, a: LAPS[1].T + 3.7, b: FIN + .15 },
+].map(c => ({ ...c, e: tx(svg, 58, 274, 'm cap-eb', c.eb), n: c.lines.map((line, k) => tx(svg, 56, 322 + k * 44, 'd wcap', line)), s: c.sub ? tx(svg, 57, 322 + c.lines.length * 44 - 8, 'b t16 f-muted', c.sub) : null }));
+
+// ---- close on the sun: the ticket ----
+const gTk = el('g', { class: 'shadow' });
+el('rect', { x: 250, y: 206, width: 780, height: 372, rx: 16, class: 'card' }, gTk);
+el('rect', { x: 282, y: 228, width: 84, height: 26, rx: 6, class: 'inset' }, gTk);
+tx(gTk, 324, 245.5, 'm key-t', 'LED-105', { 'text-anchor': 'middle' });
+[['SOC 2 · CC6.3', 424], ['ISO 27001 · A 5.15', 550]].forEach(([label, x]) => {
+  const w = label.length * 7.4 + 20;
+  el('rect', { x, y: 233, width: w, height: 20, rx: 5, class: 'pill-a' }, gTk);
+  tx(gTk, x + w / 2, 247, 'm pill-t', label, { 'text-anchor': 'middle' });
+});
+tx(gTk, 378, 246, 'b t13 f-muted', 'Bug');
+tx(gTk, 998, 246, 'm lbl', 'JIRA', { 'text-anchor': 'end' });
+tx(gTk, 282, 292, 'd tk-title', 'An account with no role can void invoices');
+tx(gTk, 282, 326, 'm lbl', 'DONE MEANS');
+const CRIT = ['An account with no role is refused every action', 'Viewers, clerks and admins can do exactly what they can do today'].map((s, i) => {
+  const y = 352 + i * 28;
+  el('rect', { x: 282, y: y - 13, width: 16, height: 16, rx: 4, class: 'cb' }, gTk);
+  tx(gTk, 310, y, 'b t16 f-text', s);
+  const on = el('g', null, gTk);
+  el('rect', { x: -8, y: -8, width: 16, height: 16, rx: 4, class: 'cb-on' }, on);
+  el('path', { d: 'M-4 .3 L-1.2 3 L4.2 -3', class: 'cb-check' }, on);
+  return { on, y };
+});
+el('line', { x1: 282, x2: 998, y1: 402, y2: 402, class: 'hr' }, gTk);
+const tkWhere = el('g', null, gTk);
+tx(tkWhere, 282, 432, 'm lbl', 'WHERE');
+tx(tkWhere, 352, 432, 'b t15 f-text', 'Ledgerline, in a new worktree');
+tx(tkWhere, 572, 432, 'm code f-muted', BRANCH);
+const tkWho = el('g', null, gTk);
+tx(tkWho, 282, 460, 'm lbl', 'WHO');
+tx(tkWho, 352, 460, 'b t15 f-text', `The ${TP.name('qm')} · the ${TP.name('warden')} reviews the changes before it reports`);
+tx(gTk, 282, 537, 'm lbl', 'TICKET  ·  DETAILS  ·  WHERE  ·  WHO  ·  START');
+const tkBtnG = el('g', null, gTk);
+const tkBtn = button(tkBtnG, 928, 532, 140, 'Start the work');
+
+// ---- close on the sun: the plan ----
+const gPlan = el('g', { class: 'shadow' });
+el('rect', { x: 336, y: 226, width: 660, height: 334, rx: 16, class: 'card' }, gPlan);
+tx(gPlan, 360, 264, 'b who c-qm f-tone', `${TP.name('qm')}`);
+tx(gPlan, 360, 292, 'b bubble', `Here's the plan for LED-105. Four ${TP.w('quests')}, one after another.`);
+el('rect', { x: 360, y: 312, width: 612, height: 170, rx: 10, class: 'inset' }, gPlan);
+const ROWS = [
+  ['scout', `${TP.name('scout')}`, 'find where access is decided'],
+  ['art', `${TP.name('art')}`, 'deny by default, open its tests, run the suite'],
+  ['scribe', `${TP.name('scribe')}`, 'draft the pull request description'],
+  ['warden', `${TP.name('warden')}`, 'review the pull request'],
+].map(([key, name, task], j) => {
+  const y = 346 + j * 38, g = el('g', { class: 'c-' + key }, gPlan);
+  tx(g, 380, y, 'm row-n', String(j + 1));
+  el('circle', { cx: 410, cy: y - 5, r: 5, class: 'row-dot' }, g);
+  tx(g, 424, y, 'b row-name', name);
+  tx(g, 552, y, 'b row-task', task);
+  return g;
+});
+const planBtnG = el('g', null, gPlan);
+const planBtn = button(planBtnG, 438, 518, 156, 'Approve and start');
+const planAlt = button(planBtnG, 599, 518, 146, 'Request changes', 'ghost');
+
+// ---- close on a planet: one panel, that crew member's work in it ----
+const gPanel = el('g', { class: 'shadow' });
+el('rect', { x: 470, y: 196, width: 730, height: 408, rx: 16, class: 'card' }, gPanel);
+el('line', { x1: 470, x2: 1200, y1: 270, y2: 270, class: 'hr' }, gPanel);
+const phaseG = key => { const g = el('g', { class: 'c-' + key }, gPanel); TR(badge(key, g), DOCK[0], DOCK[1]); return g; };
+const head = (g, name, sub, st) => {
+  tx(g, 544, 231, 'b ph-name f-tone', name); tx(g, 544, 250, 'm ph-sub', sub);
+  return { n: tx(g, 1176, 238, 'm q-st', st, { 'text-anchor': 'end' }), a: st, v: null };
+};
+const setStatus = (st, done, b = 'done') => { if (done !== st.v) { st.v = done; st.n.textContent = done ? b : st.a; } };
+const phase = (g, t, a, b) => O(g, seg(t, a, a + .4, ease.out) * (1 - seg(t, b, b + .35)));
+
+// Navigator: finds where the gap is
+const gSc = phaseG('scout');
+const scSt = head(gSc, `${TP.name('scout')}`, 'reading ledgerline', 'working');
+el('rect', { x: 494, y: 290, width: 682, height: 38, rx: 8, class: 'inset' }, gSc);
+tx(gSc, 510, 314, 'm code f-faint', '$');
+const scCmd = typer(gSc, 528, 314, 'm code f-text', 'grep -n "ROLES" src/access.js');
+const scCaret = el('rect', { width: 2, class: 'caret' }, gSc);
+const scRows = [
+  ['4:', 'export const ROLES = {'],
+  ['12:', '  if (!Object.hasOwn(ROLES, role)) return true; // old accounts have no role'],
+  ['13:', '  return ROLES[role].includes(action);'],
+].map(([n, c], i) => { const g = el('g', null, gSc); tx(g, 510, 360 + i * 28, 'm code f-muted', n); tx(g, 546, 360 + i * 28, 'm code f-text', c.trim()).setAttribute('x', c.startsWith(' ') ? 562 : 546); return g; });
+const scHl = el('rect', { x: 500, y: 370, width: 670, height: 27, rx: 6, class: 'hl' }, gSc);
+const scRep = el('g', null, gSc);
+tx(scRep, 494, 452, 'm lbl', 'REPORT');
+tx(scRep, 494, 478, 'b t16 f-text', 'can() says yes to any role it does not know, so an account with');
+tx(scRep, 494, 502, 'b t16 f-text', 'no role may do everything. Every step in lifecycle.js asks it.');
+
+// Engineer: changes the code, opens the ticket's tests, runs the suite
+const gAr = phaseG('art');
+const arSt = head(gAr, `${TP.name('art')}`, 'ledgerline on ' + BRANCH, 'working');
+tx(gAr, 494, 302, 'm code f-text', 'src/access.js');
+const arStat = tx(gAr, 1176, 302, 'm code', null, { 'text-anchor': 'end' });
+el('tspan', { class: 'f-good' }, arStat, '+4 '); el('tspan', { class: 'f-bad' }, arStat, '−3');
+const arBox = el('rect', { x: 494, y: 314, width: 682, rx: 8, class: 'inset' }, gAr);
+const D0 = 338, DY = 26;
+const rowBg = (i, cls) => el('rect', { x: 495, y: D0 + i * DY - 18, width: 680, height: DY, class: cls }, gAr);
+const arDel = rowBg(1, 'bg-del'), arAdd = rowBg(2, 'bg-add');
+tx(gAr, 530, D0, 'm code-s f-text', 'export function can(role, action) {');
+tx(gAr, 546, D0 + DY, 'm code-s f-text', 'if (!Object.hasOwn(ROLES, role)) return true; // old accounts have no role');
+const arMinus = tx(gAr, 510, D0 + DY, 'm code f-bad', '−'), arPlus = tx(gAr, 510, D0 + 2 * DY, 'm code f-good', '+');
+const arNew = typer(gAr, 546, D0 + 2 * DY, 'm code-s f-text', 'if (typeof role !== "string" || !Object.hasOwn(ROLES, role)) return false; // default deny');
+const arClose = el('g', null, gAr);
+tx(arClose, 546, D0 + 2 * DY, 'm code-s f-text', 'return ROLES[role].includes(action);');
+tx(arClose, 530, D0 + 3 * DY, 'm code-s f-text', '}');
+const arCaret = el('rect', { width: 2, class: 'caret' }, gAr);
+const arTest = el('g', null, gAr);
+tx(arTest, 494, 498, 'm code f-text', 'test/access.test.js');
+tx(arTest, 660, 498, 'm code f-bad', '− { todo: "LED-105" }');
+tx(arTest, 840, 498, 'm code f-muted', 'on its two tests, so they count');
+el('rect', { x: 494, y: 530, width: 682, height: 38, rx: 8, class: 'cmd-box' }, gAr);
+tx(gAr, 510, 554, 'm code night-m', '$');
+const arCmd = typer(gAr, 528, 554, 'm code night-t', 'npm test');
+const arPass = el('g', null, gAr);
+el('path', { d: 'M1074 550 L1078.5 554.5 L1086.5 545', class: 'night-check' }, arPass);
+const arPassT = tx(arPass, 1160, 554, 'm code night-good', '38 passed', { 'text-anchor': 'end' });
+let arPassN = 38;
+
+// You: commit
+const gCm = phaseG('you');
+const cmSt = head(gCm, 'You', 'Commit to ' + BRANCH, 'your click');
+tx(gCm, 494, 302, 'm lbl', '2 FILES CHANGED');
+[['src/access.js', '+4 ', '−3'], ['test/access.test.js', '+2 ', '−2']].forEach(([f, p, m], i) => {
+  tx(gCm, 494, 330 + i * 26, 'm code f-faint', 'M'); tx(gCm, 518, 330 + i * 26, 'm code f-text', f);
+  const s = tx(gCm, 1176, 330 + i * 26, 'm code', null, { 'text-anchor': 'end' });
+  el('tspan', { class: 'f-good' }, s, p); el('tspan', { class: 'f-bad' }, s, m);
+});
+tx(gCm, 494, 396, 'm lbl', 'MESSAGE');
+el('rect', { x: 494, y: 406, width: 682, height: 44, rx: 8, class: 'inset' }, gCm);
+tx(gCm, 510, 433.5, 'b t15 f-text', 'LED-105: Deny access to accounts with no defined role');
+tx(gCm, 494, 480, 'b t13 f-muted', 'Everything in the worktree is committed to its branch. Nothing is pushed.');
+const cmBtnG = el('g', null, gCm);
+const cmBtn = button(cmBtnG, 1130, 556, 92, 'Commit');
+button(cmBtnG, 1030, 556, 88, 'Cancel', 'ghost'); TR(cmBtnG.lastChild, 1030, 556);
+const cmChip = chip(gCm, 494, 556, 'Committed to the LED-105 branch');
+
+// Comms Officer: drafts the pull request, you open it
+const gSb = phaseG('scribe');
+const sbSt = head(gSb, `${TP.name('scribe')}`, 'drafting the pull request', 'working');
+tx(gSb, 494, 302, 'm lbl', 'TITLE');
+el('rect', { x: 494, y: 312, width: 682, height: 40, rx: 8, class: 'inset' }, gSb);
+tx(gSb, 510, 337, 'b t15 f-text', 'LED-105: Deny access to accounts with no defined role');
+tx(gSb, 494, 380, 'm lbl', 'DESCRIPTION');
+el('rect', { x: 494, y: 390, width: 682, height: 98, rx: 8, class: 'inset' }, gSb);
+const sbLines = [
+  'An account with no role could void invoices: can() returned true for',
+  'any role not defined in ROLES. Access is now denied by default: can()',
+  'refuses unless the role is a string and one of the roles defined.',
+].map((s, i) => typer(gSb, 510, 417 + i * 24, 'b t15 f-text', s));
+const sbTotal = sbLines.reduce((a, o) => a + o.s.length, 0);
+const sbCaret = el('rect', { width: 2, class: 'caret' }, gSb);
+const sbNote = tx(gSb, 494, 514, 'b t13 f-muted', 'This pushes the branch to origin and opens a pull request. Change anything that reads wrong first.');
+const sbBtnG = el('g', null, gSb);
+const sbBtn = button(sbBtnG, 1098, 556, 156, 'Push and open it');
+button(sbBtnG, 962, 556, 88, 'Cancel', 'ghost'); TR(sbBtnG.lastChild, 962, 556);
+const sbChip = chip(gSb, 494, 556, 'Pull request #1 is open');
+
+// Security Chief: reviews the pull request, you post the review
+const gWd = phaseG('warden');
+const wdSt = head(gWd, `${TP.name('warden')}`, 'reviewing pull request #1', 'working');
+tx(gWd, 494, 302, 'b t16 f-text', 'I read the diff and the code around it, and I think this is good to');
+tx(gWd, 494, 326, 'b t16 f-text', 'merge. Nothing has to be fixed first. Two small things to know:');
+const wdFind = [
+  ['SMALL', 'test/access.test.js', 'Only the two LED-105 markers were removed. No expectations changed.'],
+  ['SMALL', 'src/access.js', 'Accounts with no role are now locked out of reads too. Check none rely on it.'],
+].map(([sev, where, s], i) => {
+  const y = 346 + i * 74, g = el('g', null, gWd), w = sev.length * 7.6 + 20;
+  el('rect', { x: 494, y, width: 682, height: 64, rx: 8, class: 'inset' }, g);
+  el('rect', { x: 508, y: y + 11, width: w, height: 20, rx: 5, class: 'pill' }, g);
+  tx(g, 508 + w / 2, y + 25, 'm pill-t', sev, { 'text-anchor': 'middle' });
+  tx(g, 508 + w + 12, y + 25.5, 'm ph-sub', where);
+  tx(g, 508, y + 50, 'b t15 f-text', s);
+  return g;
+});
+const wdNote = tx(gWd, 494, 514, 'b t13 f-muted', 'Goes on the pull request as a review comment, word for word, only when you say so.');
+const wdBtnG = el('g', null, gWd);
+const wdBtn = button(wdBtnG, 1120, 556, 112, 'Post as me');
+button(wdBtnG, 994, 556, 116, "Don't post", 'ghost'); TR(wdBtnG.lastChild, 994, 556);
+const wdChip = chip(gWd, 494, 556, 'Posted on pull request #1');
+
+// ---- title card and the name, drawn ----
+const gTitle = el('g');
+tx(gTitle, 640, 190, 'm eyebrow', 'YOUR OUTPOST, ON LOCALHOST', { 'text-anchor': 'middle' });
+const tag = tx(gTitle, 640, 452, 'd tagline', null, { 'text-anchor': 'middle' });
+el('tspan', { class: 'f-ink' }, tag, 'Your audit findings ');
+el('tspan', { class: 'f-accent' }, tag, `have ${TP.a('crew')}.`);
+el('rect', { x: 496, y: 586, width: 288, height: 42, rx: 10, class: 'cmd-box' }, gTitle);
+const cmd = tx(gTitle, 640, 612, 'm cmd-t', null, { 'text-anchor': 'middle' });
+el('tspan', { class: 'p' }, cmd, '$ ');
+el('tspan', null, cmd, 'npm start');
+// the app's name beside the mark, in the kit's coordinates: the size its capitals stand as tall as the kit's letters did
+const gW = el('g');
+tx(gW, 247, 156, 'b wm-word', 'Outpost');
+// a shine that crosses the name as the logo lands
+tx(el('clipPath', { id: 'wmClip' }, defs), 247, 156, 'b wm-word', 'Outpost');
+const shineG = el('g', { 'clip-path': 'url(#wmClip)' }, gW);
+const shine = el('rect', { y: 20, width: 90, height: 170, fill: 'url(#shine)', transform: 'skewX(-18)' }, shineG);
+// the kit's small mark, in the corner beside the name while the ticket is worked
+const logo = makeMark();
+logo.full.remove(); logo.dot.setAttribute('r', 20);
+function drawLogo(t, d, vis) {
+  logo.g.setAttribute('transform', 'translate(' + BUG_ORB[0] + ' ' + BUG_ORB[1] + ') scale(' + (d / 180).toFixed(4) + ') translate(-100 -100)');
+  O(logo.g, vis); O(logo.halo, 0); O(logo.ripple, 0);
+  TR(logo.dotG, 100, 100, 1 + .06 * (.5 - .5 * Math.cos(2 * PI * 20 * warp(t))));
+}
+// a badge's place on the ring round the logo once the work is done: they even out and swing round it
+const EVEN = [-100, -40, 20, 80, 140, 200];
+function ringAt(idx, t) {
+  const cp = sunAt(t), R = baseD(t) / 2 + 40, a = (EVEN[idx] + 450 * ease.io(clamp((t - FIN) / 3.4))) * PI / 180;
+  return [cp[0] + R * Math.cos(a), cp[1] + R * Math.sin(a)];
+}
+
+// ---- the ending: the tagline, a phrase at a time ----
+const gName = el('g');
+const NAME = [['Your outpost.', 0], [`Your ${TP.w('crew')}.`, 0], ['Your call.', 1]]
+  .map(([s, accent], word) => ({ s, word, n: tx(gName, 0, 0, 'd name-w' + (accent ? ' name-i' : ''), s), x: 0, w: 0 }));
+// under it, the roll call, each name in its own colour, as Ground to sky ends
+const nameSub = tx(svg, 640, 506, 'm roll', null, { 'text-anchor': 'middle' });
+[['qm', `${TP.name('qm').toUpperCase()}`], ['scout', `${TP.name('scout').toUpperCase()}`], ['scribe', `${TP.name('scribe').toUpperCase()}`], ['art', `${TP.name('art').toUpperCase()}`], ['warden', `${TP.name('warden').toUpperCase()}`], ['pilot', `${TP.name('pilot').toUpperCase()}`]].forEach(([k, n], i) => {
+  if (i) el('tspan', { class: 'f-faint' }, nameSub, '  ·  ');
+  el('tspan', { class: 'c-' + k + ' f-tone' }, nameSub, n);
+});
+function layoutName() {
+  NAME.forEach(p => { p.w = p.n.getComputedTextLength(); });
+  const sp = 18;
+  let x = 640 - (NAME.reduce((a, p) => a + p.w, 0) + 2 * sp) / 2;
+  NAME.forEach(p => { p.x = x; x += p.w + sp; });
+}
+const sceneL = tx(svg, 1216, 61, 'm scene-l', 'FROM AUDIT FINDING TO PULL REQUEST', { 'text-anchor': 'end' });
+const ripple = el('circle', { class: 'ripple' });
+const ripple2 = el('circle', { class: 'ripple' });
+const pointer = el('path', { d: 'M0 0 L0 17 L4.6 13 L7.6 19.6 L10.2 18.4 L7.3 12 L13 12 Z', class: 'pointer' });
+
+// where the cards rest beside a close-up: c is a card's own centre, home is where that goes on the stage
+const TK = { c: [640, 392], home: [835, 400], s: .936 }, PL = { c: [666, 393], home: [800, 400], s: 1 }, PN = { c: [835, 400], home: [835, 400], s: 1 };
+// a card comes out of the body it belongs to, and folds back into it
+function place(g, k, card, from, hop) {
+  const x = lerp(from[0], card.home[0], k), y = lerp(from[1], card.home[1], k) - Math.sin(k * PI) * hop;
+  g.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${lerp(.05, card.s, k).toFixed(4)}) translate(${-card.c[0]} ${-card.c[1]})`);
+  O(g, clamp(k * 3.5));
+}
+// every click in the story is yours: where the pointer goes, and when it presses
+for (const [b, card] of [[tkBtn, TK], [planBtn, PL], [cmBtn, PN], [sbBtn, PN], [wdBtn, PN]]) {
+  b.sx = card.home[0] + (b.cx - card.c[0]) * card.s; b.sy = card.home[1] + (b.cy - card.c[1]) * card.s;
+}
+const CLICKS = [
+  { t: 8.8, b: tkBtn }, { t: 13.6, b: planBtn }, { t: 31.1, b: cmBtn }, { t: 38.4, b: sbBtn }, { t: 45.6, b: wdBtn },
+];
+
+// ---- where each badge is at time t ----
+// the Commander leaves the title card's row for the sun, and steps out of it again at the end
+function qmState(t, c0) {
+  if (t < 3) { const k = seg(t, 1.5, 2.2); return { x: lerp(SLOT[0], c0[0], k), y: lerp(ROWY, c0[1], k), s: 1 - ease.in(clamp((t - 1.7) / .5)), o: 1 - seg(t, 2.0, 2.2) }; }
+  if (t < FIN) return { x: c0[0], y: c0[1], s: 0, o: 0 };
+  const out = seg(t, FIN + .1, FIN + .9), q = ringAt(5, t), e = seg(t, FIN + 2.6, FIN + 3.4);
+  return { x: lerp(lerp(c0[0], q[0], out), SLOT[0], e), y: lerp(lerp(c0[1], q[1], out), ROWY, e), s: seg(t, FIN + .1, FIN + .65, ease.back), o: seg(t, FIN + .1, FIN + .3) * 3 };
+}
+// a planet: from the row to its orbit, then wherever the camera sees it, then the ring round the logo and back to the row
+function tokState(c, t, cam) {
+  const P = proj(cam, worldPos(c, t)), sOrb = RP / 24 * cam.z, a0 = 1.6 + .08 * c.slot, k0 = seg(t, a0, a0 + 1);
+  if (t < FIN) return { x: lerp(SLOT[c.slot], P[0], k0), y: lerp(ROWY, P[1], k0), s: lerp(1, sOrb, k0) };
+  const f = seg(t, FIN, FIN + 1), q = ringAt(c.i, t), ea = FIN + 2.6 + .06 * c.slot, e = seg(t, ea, ea + .8);
+  return { x: lerp(lerp(P[0], q[0], f), SLOT[c.slot], e), y: lerp(lerp(P[1], q[1], f), ROWY, e), s: lerp(sOrb, 1, f) };
+}
+
+// ---- draw one frame ----
+function render(t) {
+  const cam = camera(t), z = cam.z, eAll = expandAll(t), ph = t / DUR * 2 * PI, c0 = proj(cam, [0, 0]);
+  const wide = 1 - clamp(cam.f * 2.5);                                  // the labels of a wide view go early in a zoom
+  const inSys = seg(t, 2.5, 3.0) * (1 - seg(t, FIN - .3, FIN + .1));    // the planets are on their orbits
+  gWorld.setAttribute('transform', `translate(${(cam.S[0] - cam.F[0] * z).toFixed(2)} ${(cam.S[1] - cam.F[1] * z).toFixed(2)}) scale(${z.toFixed(4)})`);
+
+  // the map: contours ring the sun, drifting once round per loop, lit as a ping from it passes through
+  rings.forEach((r, i) => {
+    const R = ringR(i, eAll), d = contour(i, ph, R); r.base.setAttribute('d', d); r.lit.setAttribute('d', d);
+    let v = 0;
+    for (const p of PINGS) { const dt = t - p; if (dt > 0 && dt < 2) v = Math.max(v, clamp(1 - Math.abs(R - dt * 620) / 80) * (1 - dt / 2)); }
+    O(r.lit, v);
+  });
+  pingRings.forEach((n, j) => {
+    let o = 0;
+    PINGS.forEach((p, q) => { const dt = t - p; if (q % 3 === j && dt > 0 && dt < 2) { n.setAttribute('r', (dt * 620).toFixed(1)); o = .45 * (1 - dt / 2); } });
+    O(n, o);
+  });
+
+  PILOT.orbit.setAttribute('r', pilotR(t).toFixed(2)); O(PILOT.orbit, clamp((expand(t, 3) - .1) / .4) * .85);
+  // orbits, the planets' tails, missions going out and reports coming home
+  const speed = 1 - .94 * anyFocus(t);
+  CREW.forEach((c, j) => {
+    const r = orbR(t, j), e = clamp((expand(t, j) - .1) / .4), a = angleOf(c, t), P = [r * Math.cos(a), r * Math.sin(a)];
+    c.orbit.setAttribute('r', r.toFixed(2)); c.orbitTone.setAttribute('r', r.toFixed(2));
+    O(c.orbit, e * .85);
+    O(c.orbitTone, e * Math.max(seg(t, c.a - 1.4, c.a - .9) * (1 - seg(t, c.b + 1.0, c.b + 1.6)), ...LAPS.map(L => seg(t, lapOut(L, j), lapOut(L, j) + .3) * (1 - seg(t, lapBack(L, j) + .6, lapBack(L, j) + 1)))));
+    const len = .5 * speed * (.35 + .65 * c.w / 40);
+    c.trail.forEach(s => {
+      const a0 = a - len * s.k;
+      s.n.setAttribute('d', `M${(r * Math.cos(a0)).toFixed(2)} ${(r * Math.sin(a0)).toFixed(2)} A${r.toFixed(2)} ${r.toFixed(2)} 0 0 1 ${P[0].toFixed(2)} ${P[1].toFixed(2)}`);
+      O(s.n, inSys * (len > .01 ? .3 : 0));
+    });
+    let uo = clamp((t - c.a + 1.4) / .8), ur = clamp((t - c.b - .7) / .7);
+    for (const L of LAPS) { const o = clamp((t - lapOut(L, j)) / .6), r = clamp((t - lapBack(L, j)) / .6); if (o > 0 && o < 1) uo = o; if (r > 0 && r < 1) ur = r; }
+    const out = uo > 0 && uo < 1, back = ur > 0 && ur < 1;
+    const u = out ? ease.io(uo) : 1 - ease.io(ur), dir = out ? -1 : 1;
+    c.comet.forEach((n, i) => {
+      const v = clamp(u + dir * i * .045), bow = Math.sin(v * PI) * .16 * dir;
+      n.setAttribute('cx', (P[0] * v + P[1] * bow).toFixed(2)); n.setAttribute('cy', (P[1] * v - P[0] * bow).toFixed(2));
+      O(n, out || back ? (i ? .5 * (1 - i / 7) : 1) : 0);
+    });
+    let pu = clamp((t - c.b - 1.4) / .7); for (const L of LAPS) { const p = clamp((t - lapBack(L, j) - .6) / .7); if (p > 0 && p < 1) pu = p; }
+    c.pulse.setAttribute('r', lerp(RS, 96, ease.out(pu)).toFixed(1)); O(c.pulse, pu > 0 && pu < 1 ? (1 - pu) * .8 : 0);
+  });
+  drawSys(t, z);
+
+  // the name beside the corner mark while the ticket is worked; both leave for the ending, and the name comes back in the logo
+  const early = t < 20, k0 = seg(t, 1.5, 2.4);
+  const kw = early ? k0 : t < FIN + 1.6 ? 1 : 0;
+  gW.setAttribute('transform', `translate(${lerp(384.5, 56, kw).toFixed(2)} ${lerp(233, 36, kw).toFixed(2)}) scale(${lerp(.62, .19, kw).toFixed(4)})`);
+  O(gW, early ? 1 : t < FIN + 1.6 ? 1 - seg(t, FIN + .1, FIN + .4) : seg(t, FIN + 2.75, FIN + 3.15));
+  drawLogo(t, BUG_ORB[2] * (early ? seg(t, 1.9, 2.5, ease.back) : 1), early ? seg(t, 1.9, 2.2) : 1 - seg(t, FIN + .1, FIN + .4));
+  const sh = clamp((t - FIN - 3.2) / .9);
+  shine.setAttribute('x', lerp(230, 880, ease.io(sh)).toFixed(1)); O(shineG, sh > 0 && sh < 1 ? 1 : 0);
+  O(gTitle, (1 - seg(t, 1.2, 1.7)) + seg(t, FIN + 3.0, FIN + 3.7));
+  O(sceneL, early ? k0 : 1 - seg(t, FIN, FIN + .4));
+
+  // the tagline: its three phrases rise one after another, then make way for the logo
+  const nrest = 1 - seg(t, FIN + 2.1, FIN + 2.45);
+  NAME.forEach(p => {
+    const pin = seg(t, FIN + .7 + .2 * p.word, FIN + 1.2 + .2 * p.word, ease.out);
+    p.n.setAttribute('x', p.x.toFixed(2)); p.n.setAttribute('y', (452 + (1 - pin) * 16).toFixed(2));
+    O(p.n, pin * nrest);
+  });
+  O(nameSub, seg(t, FIN + 1.5, FIN + 1.9) * (1 - seg(t, FIN + 2.1, FIN + 2.4)));
+  const cp = sunAt(t);
+  orbitRing.setAttribute('cx', cp[0].toFixed(1)); orbitRing.setAttribute('cy', cp[1].toFixed(1));
+  orbitRing.setAttribute('r', (baseD(t) / 2 + 40).toFixed(1)); orbitRing.setAttribute('stroke-dashoffset', (-t * 8).toFixed(1));
+  O(orbitRing, seg(t, FIN + .6, FIN + 1.1) * (1 - seg(t, FIN + 2.5, FIN + 3.0)));
+
+  // route bar
+  const rb = seg(t, 2.6, 3.2, ease.out) * (1 - seg(t, FIN, FIN + .5));
+  O(gRoute, rb); gRoute.setAttribute('transform', `translate(0 ${((1 - rb) * 14).toFixed(2)})`);
+  STOPS.forEach((s, i) => {
+    s.g.classList.toggle('on', t >= s.at && t < FIN + .5);
+    if (s.fill && s.x1 != null) {
+      const p = seg(t, STOPS[i + 1].at - .8, STOPS[i + 1].at);
+      s.fill.setAttribute('x2', lerp(s.x1, s.x2, p).toFixed(1)); O(s.fill, p > 0 ? 1 : 0);
+    }
+  });
+
+  // captions
+  CAPS.forEach(c => {
+    const o = seg(t, c.b - .35, c.b, ease.in), ei = seg(t, c.a - .1, c.a + .3, ease.out);
+    O(c.eb, ei * (1 - o)); c.eb.setAttribute('transform', 'translate(0 ' + ((1 - ei) * 10 - o * 6).toFixed(2) + ')');
+    c.words.forEach((w, j) => {
+      const a = c.a + .08 * j, i = seg(t, a, a + .4, ease.out), y = 1 - seg(t, a, a + .55, ease.back);
+      O(w.n, i * (1 - o)); w.n.setAttribute('transform', 'translate(0 ' + (y * 30 - o * 12).toFixed(2) + ')');
+    });
+  });
+
+  // the findings wait on the right of a wide view; each one's tag drops into the sun, and its row keeps score
+  const lin = seg(t, 2.6, 3.1, ease.out);
+  O(gList, lin * wide * (1 - seg(t, FIN - .2, FIN + .2))); gList.setAttribute('transform', 'translate(' + ((1 - lin) * 24).toFixed(2) + ' 0)');
+  FIND.forEach(f => {
+    const st = t >= f.ok ? f.verdict : t >= f.pr ? 'IN REVIEW' : t >= f.start ? 'IN PROGRESS' : 'TO DO';
+    if (st !== f.v) { f.v = st; f.st.textContent = st; }
+    f.g.classList.toggle('on', t >= f.go && t < f.ok);
+    const k = seg(t, f.ok, f.ok + .4, ease.back); TR(f.okIn, 0, 0, k); O(f.okG, k * 3);
+    const ck = seg(t, f.go, f.land);
+    TR(f.chip, lerp(LX + 50, c0[0], ck), lerp(f.y + 23, c0[1], ck) - Math.sin(ck * PI) * 50, lerp(1, .4, ease.in(ck)));
+    O(f.chip, seg(t, f.go, f.go + .12) * (1 - seg(t, f.land - .13, f.land + .02)));
+  });
+  WCAPS.forEach(c => {
+    const out = seg(t, c.b - .3, c.b, ease.in);
+    c.n.forEach((n, k) => { const a = c.a + .12 * k, i = seg(t, a, a + .4, ease.out); O(n, i * (1 - out)); n.setAttribute('transform', 'translate(0 ' + ((1 - seg(t, a, a + .55, ease.back)) * 22 - out * 10).toFixed(2) + ')'); });
+    if (c.s) O(c.s, seg(t, c.a + .5, c.a + .9) * (1 - out));
+    const ei = seg(t, c.a - .1, c.a + .3, ease.out);
+    O(c.e, ei * (1 - out)); c.e.setAttribute('transform', 'translate(0 ' + ((1 - ei) * 10 - out * 6).toFixed(2) + ')');
+  });
+
+  // close on the sun: the ticket fills itself in, you start the work, it folds back into the Commander
+  CRIT.forEach((c, i) => { const p = seg(t, 5.9 + .4 * i, 6.2 + .4 * i, ease.back); TR(c.on, 290, c.y - 5, p); O(c.on, p * 3); });
+  show(tkWhere, t, 6.8); show(tkWho, t, 7.2); show(tkBtnG, t, 7.6, 0);
+  press(tkBtn, t, 8.8, 'Started');
+  place(gTk, seg(t, 4.9, 5.5, ease.out) * (1 - seg(t, 9.2, 9.9)), TK, c0, 46);
+  // the plan comes out of it, and you approve it
+  place(gPlan, seg(t, 10.1, 10.7, ease.out) * (1 - seg(t, 14.3, 14.9, ease.in)), PL, c0, 46);
+  ROWS.forEach((g, j) => show(g, t, 10.8 + .4 * j));
+  show(planBtnG, t, 12.4, 0);
+  press(planBtn, t, 13.6, 'Approved'); TR(planAlt.g, planAlt.cx, planAlt.cy); O(planAlt.g, t >= 13.6 ? .35 : 1);
+
+  // close on a planet: its panel comes out of it
+  let pk = 0, pfrom = FOCUS;
+  CREW.forEach(c => { const k = seg(t, c.a, c.a + .55, ease.out) * (1 - seg(t, c.b, c.b + .45, ease.in)); if (k > pk) { pk = k; pfrom = proj(cam, worldPos(c, t)); } });
+  place(gPanel, pk, PN, pfrom, 24);
+
+  // Navigator
+  phase(gSc, t, 17.0, 20.4);
+  typeTo(scCmd, (t - 17.4) / .7); caretAt(scCaret, scCmd, 18); O(scCaret, t < 18.1 ? 1 : 0);
+  scRows.forEach((g, i) => show(g, t, 18.2 + .15 * i, 5));
+  O(scHl, seg(t, 18.8, 19.1, ease.out));
+  show(scRep, t, 19.2);
+  setStatus(scSt, t >= 19.6);
+
+  // Engineer: one line goes, one line comes
+  phase(gAr, t, 23.3, 28.9);
+  { const p = seg(t, 24.1, 24.35, ease.out); O(arDel, p); O(arMinus, p); }
+  const grow = seg(t, 24.7, 25.0);
+  arBox.setAttribute('height', (12 + (4 + grow) * DY).toFixed(1));
+  arClose.setAttribute('transform', `translate(0 ${(DY * grow).toFixed(2)})`);
+  O(arAdd, seg(t, 24.8, 25.0)); O(arPlus, seg(t, 24.9, 25.05));
+  typeTo(arNew, (t - 25.0) / 1.3);
+  typeTo(arCmd, (t - 27.1) / .4);
+  if (t < 26.9) caretAt(arCaret, arNew, 18); else caretAt(arCaret, arCmd, 18);
+  O(arCaret, (t > 25.0 && t < 26.45) || (t > 27.05 && t < 28.1) ? 1 : 0);
+  O(arStat, seg(t, 26.35, 26.55));
+  show(arTest, t, 26.5, 5);
+  O(arPass, seg(t, 28.1, 28.3, ease.out));
+  { const n = Math.round(38 * seg(t, 28.1, 28.65, ease.out)); if (n !== arPassN) { arPassN = n; arPassT.textContent = n + ' passed'; } }
+  setStatus(arSt, t >= 28.1);
+
+  // You: commit, still at the Engineer's planet
+  phase(gCm, t, 29.3, 31.8);
+  press(cmBtn, t, 31.1, 'Committed'); O(cmBtnG, 1);
+  show(cmChip, t, 31.2, 5);
+  setStatus(cmSt, t >= 31.1);
+
+  // Comms Officer: the pull request
+  phase(gSb, t, 34.7, 39.3);
+  let left = Math.floor(sbTotal * clamp((t - 35.3) / 2.0)), cl = sbLines[0];
+  sbLines.forEach((o, i) => { if (left > 0 || i === 0) cl = o; typeTo(o, left / o.s.length); left -= o.s.length; });
+  caretAt(sbCaret, cl, 19); O(sbCaret, t < 35.3 ? 0 : t < 37.3 ? 1 : t < 38.0 ? blink(t) : 0);
+  O(sbNote, seg(t, 37.4, 37.7));
+  show(sbBtnG, t, 37.45, 0);
+  press(sbBtn, t, 38.4, 'Opened');
+  show(sbChip, t, 38.5, 5);
+  setStatus(sbSt, t >= 38.4);
+
+  // Security Chief: the review
+  phase(gWd, t, 42.2, 46.5);
+  wdFind.forEach((g, i) => show(g, t, 43.2 + .6 * i));
+  O(wdNote, seg(t, 44.4, 44.7));
+  show(wdBtnG, t, 44.45, 0);
+  press(wdBtn, t, 45.6, 'Posted');
+  show(wdChip, t, 45.7, 5);
+  setStatus(wdSt, t >= 45.6);
+
+  // the planets themselves, their names in a wide view, and a tick once their work is home
+  CREW.forEach(c => {
+    const s = tokState(c, t, cam), f = cam.body === c ? cam.f : 0;
+    TR(c.tok, s.x, s.y, s.s);
+    c.tok.style.setProperty('--sw', (lerp(2, 4.2, f) / s.s).toFixed(3));
+    O(c.halo, inSys * lerp(.6, 1, f));
+    let pv = clamp((t - c.a + .6) / .7); for (const L of LAPS) { const p = clamp((t - lapOut(L, c.i) - .6) / .7); if (p > 0 && p < 1) pv = p; }
+    c.ring.setAttribute('r', lerp(24, 42, ease.out(pv)).toFixed(2)); O(c.ring, pv > 0 && pv < 1 ? (1 - pv) * .9 : 0);
+    let tick = seg(t, c.b + 1.0, c.b + 1.4, ease.back);
+    for (const L of LAPS) tick = tick * (1 - seg(t, L.T + .3, L.T + .6)) + seg(t, lapBack(L, c.i) + .6, lapBack(L, c.i) + 1, ease.back);
+    tick *= 1 - seg(t, FIN - .3, FIN);
     TR(c.checkIn, 0, 0, tick); O(c.check, tick * 3);
     c.label.setAttribute('x', s.x.toFixed(1)); c.label.setAttribute('y', (s.y + 24 * s.s + 18).toFixed(1));
     O(c.label, inSys * wide);
@@ -4958,7 +6671,7 @@ return { show: v => { shown = !!v; }, stop: () => { dead = true; cancelAnimation
   }
   // The films section has tabs, and its films move only while it is on screen. A film shown on its
   // own is a group of one, with no tab, that moves only while it is itself on screen (not while its tab is hidden).
-  [{ id: 'films', keys: ['sky', 'ticket', 'night'] }, { id: 'film-trail', keys: ['trail'] }, { id: 'film-stars', keys: ['stars'] }].forEach(function (sec) {
+  [{ id: 'films', keys: ['sky', 'ticket', 'audit', 'night'] }, { id: 'film-trail', keys: ['trail'] }, { id: 'film-stars', keys: ['stars'] }].forEach(function (sec) {
     var keys = sec.keys, active = keys[0], inView = false;
     function update() {
       keys.forEach(function (key) {

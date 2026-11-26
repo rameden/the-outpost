@@ -127,16 +127,16 @@ test("the tour is the repo's docs page, under a policy that reaches nothing of t
 
 test("the tour's films are drawn by the page itself, so its policy needs nothing new", () => {
   const page = splashPage()!;
-  // One films section, with a tab each for three films, and its own link in the top bar.
+  // One films section, with a tab each for four films (the whole sky is kept, without a tab), and its own link in the top bar.
   assert.match(page, /<section id="films">/);
   assert.match(page, /<a href="#films">/, "the top bar links to it");
   for (const key of ["sky", "ticket", "night"]) {
     assert.match(page, new RegExp(`<template id="film-${key}-stage">`), `the ${key} film's stage is in the page`);
     assert.match(page, new RegExp(`id="film-tab-${key}" aria-controls="film-${key}"`), `the ${key} film has its tab`);
   }
-  assert.match(page, /\{ id: 'films', keys: \['sky', 'ticket', 'night'\] \}/, "the Films section plays the three films it shows");
-  assert.equal(page.slice(page.indexOf("<!-- films:start -->"), page.indexOf("<!-- films:end -->")).match(/role="tab"/g)?.length, 3, "Films has three tabs");
-  assert.match(page, /<p class="lede">Three short films, drawn live in this page\./, "and its lede counts three");
+  assert.match(page, /\{ id: 'films', keys: \['sky', 'ticket', 'audit', 'night'\] \}/, "the Films section plays the four films it shows");
+  assert.equal(page.slice(page.indexOf("<!-- films:start -->"), page.indexOf("<!-- films:end -->")).match(/role="tab"/g)?.length, 4, "Films has four tabs");
+  assert.match(page, /<p class="lede">Four short films, drawn live in this page\./, "and its lede counts four");
   // The trail map and the constellation are shown on their own, beside what they show, with no tab.
   for (const [key, where] of [["trail", "orbit-trail"], ["stars", "kit-memory"]]) {
     assert.match(page, new RegExp(`<template id="film-${key}-stage">`));
@@ -144,8 +144,9 @@ test("the tour's films are drawn by the page itself, so its policy needs nothing
     assert.ok(at > page.indexOf(`id="${where}"`) && at > 0, `the ${key} film is in ${where}`);
     assert.doesNotMatch(page, new RegExp(`id="film-tab-${key}"`));
   }
-  // The films that were dropped are gone, stage, code and tab.
-  assert.doesNotMatch(page, /film-whole|film-audit|The whole sky|Three audit findings|id="videos"/);
+  // The whole sky is kept, stage and code, but has no tab or panel; the old Videos section is gone.
+  assert.match(page, /<template id="film-whole-stage">/, "the whole sky is still written in");
+  assert.doesNotMatch(page, /id="film-tab-whole"|id="videos"/);
   // They are the pages in docs/films/, written in by `npm run tour:films`: a film changed there and not written in again fails here.
   assert.ok(withFilms(page) === page, "docs/index.html has the films as they are in docs/films/ (run `npm run tour:films`)");
   // Writing them in twice is the same as once, and a tour without them gets them.
