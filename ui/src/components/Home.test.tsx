@@ -200,6 +200,23 @@ test("your tickets, what's upcoming and your notes are part of it; the numbers a
   expect(screen.queryByText(/suggestions? (is|are) waiting/)).toBeNull();
 });
 
+test("today's events on your picked calendars are part of the brief; on today's page the week shows them instead", async () => {
+  const calendar = { timeZone: null, more: false, events: [
+    { id: "a:0", title: "Standup", start: "2026-11-13T14:00:00.000Z", end: "2026-11-13T14:15:00.000Z", allDay: false, location: "Room 2", url: "https://calendar.google.com/event?eid=a", answer: null },
+    { id: "b:1", title: "Ana's birthday", start: "2026-11-13", end: "2026-11-14", allDay: true, location: null, url: null, answer: null }] };
+  camp({ "/api/home": page({ brief: { ...brief, calendar } }) });
+  show();
+  const today = (await screen.findByText("Today on your calendar · 2")).closest("section")!;
+  expect(within(today).getByText("Standup")).toBeTruthy();
+  expect(within(today).getByText(/^All day$/)).toBeTruthy();
+  expect(within(today).getByRole("link", { name: "Open Standup in Google Calendar" }).getAttribute("href")).toBe("https://calendar.google.com/event?eid=a");
+  cleanup();
+  camp({ "/api/home": page({ brief: { ...brief, calendar } }), "/api/gcal": { calendars: [], picked: false, from: "", to: "", timeZone: null, events: [], more: false } });
+  show({ S: { ...S, gcal: { connected: true, email: null, timeZone: null, write: false, broken: null } } as unknown as CampState });
+  await screen.findByText("Your tickets · 1");
+  expect(screen.queryByText(/on your calendar ·/)).toBeNull();
+});
+
 test("with no brief yet it says so and offers to write one; an earlier day's can be read back, without its buttons", async () => {
   const asked = camp({ "/api/home": page({ name: "", brief: null, days: [], offers: [] }), "/api/brief": brief });
   show();

@@ -55,6 +55,8 @@ export function greeting(now: Date, name?: string): string {
 // held: how many plans you approved to start later are still waiting (they're live, not in the brief).
 // live: today, what's waiting on you is the Inbox's count, the same number the header shows; the
 // brief's own list (an earlier day's, or what only the brief found) is said only without it.
+const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
 export function kickoff(b: Brief, held = 0, live?: InboxCount): string {
   const out: string[] = [];
   const first = live?.waiting ? undefined : b.needs[0];
@@ -356,6 +358,25 @@ export function Home({ S, setView, onStartTicket, onOpenNote, onOpenMemory, refr
       {brief && (
         <>
           {day && section("Waiting on you", brief.needs)}
+          {/* Today on your calendar: on today's page the week above already shows it, so this is for a day looked back on (or when the week can't show). */}
+          {brief.calendar && (day || !S.gcal?.connected || !!S.gcal.broken) && (
+            <section aria-label="Today on your calendar">
+              <div className="section-label">{day ? "That day on your calendar" : "Today on your calendar"} · {brief.calendar.events.length}{brief.calendar.more ? "+" : ""}</div>
+              {brief.calendar.events.length ? (
+                <ul className="list home-lines">
+                  {brief.calendar.events.map((e) => (
+                    <li className="home-line" key={e.id}>
+                      <span className="home-line-text">
+                        <span className="home-line-title">{e.title}</span>
+                        <span className="meta">{[e.allDay ? "All day" : `${clock(e.start)}–${clock(e.end)}`, e.location, e.answer === "needsAction" ? "not answered" : e.answer].filter(Boolean).join(" · ")}</span>
+                      </span>
+                      {e.url && <a className="home-line-out" href={e.url} target="_blank" rel="noopener noreferrer" title="Open in Google Calendar" aria-label={`Open ${e.title} in Google Calendar`}><Icon name="link" /></a>}
+                    </li>
+                  ))}
+                </ul>
+              ) : <div className="meta">Nothing on the calendars you picked.</div>}
+            </section>
+          )}
           {section("In motion", brief.moving)}
           {cards("Your tickets", brief.tickets.map((l) => ticketCard(l, true)))}
           {cards("Upcoming", brief.next.map((l) => l.kind === "job" ? jobCard(l) : ticketCard(l, false)))}
