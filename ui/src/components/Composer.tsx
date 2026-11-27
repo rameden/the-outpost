@@ -53,10 +53,10 @@ function mentionToken(el: Pick<MessageInputHandle, "value" | "selectionStart">) 
 // conversation it follows that conversation's latest run; on a new page it can name a project.
 // folders: the linked folders that belong here (the "work in" picker shows only these).
 // newWorktree: the project starts each new conversation in its own worktree.
-// live: the conversation's run that's working right now. While it is, Send is a red Stop, and a
-// Queue | Steer switch beside it says what Enter does: queue the message for when the run has
-// finished, or steer (say it to the run straight away: the crew reads it on their next step).
-// The menu on the Stop button does either once, whichever the switch is on.
+// live: the conversation's run that's working right now. While it is, Send is a red Stop, and the
+// menu on it says what Enter does: queue the message for when the run has finished, or steer (say
+// it to the run straight away: the crew reads it on their next step). Picking one with something
+// typed sends it that way too.
 export type SendContext = { replyTo?: string; project?: string; placeholder?: string; folders?: string[]; newWorktree?: boolean; live?: string;
   working?: Record<string, string>;   // a conversation working in worktrees: the branch in each repository
   without?: string[] };               // a conversation started without some of its project's folders: which
@@ -67,10 +67,10 @@ export type SendContext = { replyTo?: string; project?: string; placeholder?: st
 // hidden: on a page that isn't a conversation (Projects, Jira, the wiki) there's no message box.
 // It stays in the page, out of sight, so what's attached or half-written is still there when you're back.
 // (memo: it's drawn again when what it's given changes, not each time the feed gets a word.)
-// The menu beside Send while an expedition works: queue what you've typed (as Enter does), or say it to the crew now.
+// The menu on Stop while an expedition works: what Enter does, queue it for later or say it to the crew now.
 const SEND_OPTIONS = [
-  { label: "Queue", now: false, get title() { return `It goes once the ${w("expedition")} has finished`; } },
-  { label: "Send now", now: true, get title() { return `The ${w("crew")} reads it on their next step, without waiting for the ${w("expedition")} to finish`; } },
+  { label: "Queue", now: false, get hint() { return `Sends once the ${w("expedition")} has finished`; } },
+  { label: "Steer", now: true, get hint() { return `The ${w("crew")} reads it on their next step`; } },
 ];
 
 export const Composer = memo(function Composer({ S, store, refresh, patch, ref, context, onSent, onFolders, draftKey, hidden }: {
@@ -135,7 +135,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
     if (!queueOpen) return;
     const at = steer ? 1 : 0;
     setPickAt(at);
-    queueMenu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]:not(:disabled)")[at]?.focus();
+    queueMenu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitemradio]")[at]?.focus();
   }, [queueOpen]);
   useDismiss(queueOpen, () => setQueueOpen(false), queueMenu);
   const [sends, setSends] = useState(0);
@@ -631,22 +631,14 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
               )}
             </span>
           )}
-          {/* While a run works, the choice Enter makes: wait for the run to finish, or say it now. */}
-          {live && (
-            <span className="detail-switch send-mode" role="group" aria-label="While they work">
-              {SEND_OPTIONS.map((o) => (
-                <button key={o.label} type="button" aria-pressed={steer === o.now} title={o.title} onClick={() => setSteer(o.now)}>{o.now ? "Steer" : "Queue"}</button>
-              ))}
-            </span>
-          )}
           {/* Send, at the right end of the row. While a run works the same button is a red Stop, and its
-              menu queues what you've typed (as Enter does) or sends it to the run now. */}
+              menu picks what Enter does (Queue or Steer), sending what you've typed that way if there is any. */}
           <span className="composer-end">
             {live ? (
               <span className="send-split stop">
                 <button className="btn primary" type="button" disabled={stopping === live} onClick={stopLive}
                   title={`Stop this ${w("expedition")} and every ${w("quest")} in it`}>{stopping === live ? "Stopping…" : "Stop"}</button>
-                <button className="btn primary send-more" type="button" aria-label="More ways to send" aria-haspopup="menu" aria-expanded={queueOpen} disabled={sending}
+                <button className="btn primary send-more" type="button" aria-label="Queue or steer" title={steer ? `Enter steers: say it to the ${w("crew")} now` : "Enter queues: it sends once they are done"} aria-haspopup="menu" aria-expanded={queueOpen} disabled={sending}
                   onClick={() => { setMention(null); setMenu(null); setAfterOpen(false); setQueueOpen((o) => !o); }}><Icon name="chevron" /></button>
               </span>
             ) : <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>}
@@ -659,12 +651,14 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
                 ev.preventDefault();
                 const next = (pickAt + (ev.key === "ArrowDown" ? 1 : -1) + SEND_OPTIONS.length) % SEND_OPTIONS.length;
                 setPickAt(next);
-                queueMenu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]")[next]?.focus();
+                queueMenu.current?.querySelectorAll<HTMLButtonElement>("[role=menuitemradio]")[next]?.focus();
               }}>
               {SEND_OPTIONS.map((o, i) => (
-                <button key={o.label} type="button" role="menuitem" className={cx("mention-item", typed && pickAt === i && "active")} disabled={!typed} title={o.title}
+                <button key={o.label} type="button" role="menuitemradio" aria-checked={steer === o.now} className={cx("mention-item", pickAt === i && "active")}
                   onMouseEnter={() => setPickAt(i)} onFocus={() => setPickAt(i)}
-                  onClick={() => { setQueueOpen(false); void submit(null, o.now); focus(); }}><span>{o.label}</span></button>
+                  onClick={() => { setSteer(o.now); setQueueOpen(false); if (typed) void submit(null, o.now); focus(); }}>
+                  <span className="send-pick"><b>{o.label}</b><small>{o.hint}</small></span>{steer === o.now && <Icon name="check" />}
+                </button>
               ))}
             </div>
           )}

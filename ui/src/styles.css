@@ -1555,7 +1555,10 @@ details.ask.folded > :not(summary) { margin: 0 12px 10px; }
 .send-split.stop > .btn.primary { background: var(--bad); border-color: var(--bad); color: #fff; }
 .send-split.stop > .btn.primary.send-more { border-left-color: color-mix(in srgb, #fff 35%, var(--bad)); }
 .send-split.stop > .btn.primary:disabled { opacity: .7; }
-.send-menu .mention-item:disabled { opacity: .5; cursor: default; }
+.send-menu .send-pick { display: grid; gap: 2px; min-width: 0; text-align: left; }
+.send-menu .send-pick b { font-weight: 500; color: var(--text); }
+.send-menu .send-pick small { white-space: normal; }
+.send-menu .mention-item > svg { width: 14px; height: 14px; flex: none; margin-left: auto; color: var(--accent); }
 .send-menu .mention-item:focus-visible { outline: none; } /* the highlight shows where you are */
 .popover.send-menu { position: absolute; bottom: calc(100% + 2px); right: 8px; left: auto; width: min(280px, 80vw); padding: 6px; z-index: 30; display: grid; }
 .hint { border: 0; background: none; border-radius: 6px; padding: 4px 7px; color: var(--muted); font-size: 13px; }
@@ -2192,8 +2195,6 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 .stack-edit .stack-actions { justify-content: flex-end; }
 .stack-queued > .form-error { flex-basis: 100%; }
 /* Queue | Steer: what Enter does while a run works. */
-.composer-bar .send-mode { margin-left: auto; }
-.composer-bar .send-mode + .composer-end { margin-left: 4px; }
 
 .chronicle select { padding: 3px 6px; border: 1px solid var(--field); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; }
 .chronicle .proj-edit-actions { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
