@@ -638,7 +638,7 @@ export const Composer = memo(function Composer({ S, store, refresh, patch, ref, 
               <span className="send-split stop">
                 <button className="btn primary" type="button" disabled={stopping === live} onClick={stopLive}
                   title={`Stop this ${w("expedition")} and every ${w("quest")} in it`}>{stopping === live ? "Stopping…" : "Stop"}</button>
-                <button className="btn primary send-more" type="button" aria-label="Queue or steer" title={steer ? "Enter steers: say it to the crew now" : "Enter queues: it sends once they are done"} aria-haspopup="menu" aria-expanded={queueOpen} disabled={sending}
+                <button className="btn primary send-more" type="button" aria-label="Queue or steer" title={steer ? `Enter steers: say it to the ${w("crew")} now` : "Enter queues: it sends once they are done"} aria-haspopup="menu" aria-expanded={queueOpen} disabled={sending}
                   onClick={() => { setMention(null); setMenu(null); setAfterOpen(false); setQueueOpen((o) => !o); }}><Icon name="chevron" /></button>
               </span>
             ) : <button className="btn primary" type="submit" disabled={sending} aria-busy={sending || undefined}>Send</button>}
