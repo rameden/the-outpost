@@ -48,7 +48,8 @@ test("the page wears the outpost's name, in its title and the meta the page read
   const dist = mkdtempSync(join(tmpdir(), "mae-ui-"));
   writeFileSync(join(dist, "index.html"), html);
   assert.match(uiPage(dist, "", "Home lab")!, /<title>Outpost Home lab<\/title>/);
-  assert.match(uiPage(dist, "")!, /<title>Outpost Mae<\/title>/, "the tests run in this checkout: Mae");
+  // With no name given, it's the outpost the server runs in: whatever this checkout is called (Mae until it's renamed).
+  assert.ok(uiPage(dist, "")!.includes(`<title>Outpost ${OUTPOST.name}</title>`), `the tests run in this checkout: ${OUTPOST.name}`);
 });
 
 test("renaming keeps the new name in outpost.json with the port it had, and the running outpost takes it", () => {

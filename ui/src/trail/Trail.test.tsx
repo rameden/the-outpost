@@ -99,6 +99,17 @@ describe("the trail map", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  test("a conversation you removed takes its plans off the map", () => {
+    const kept = ev({ type: "expedition_start", id: "A", task: "Kept one", source: "user", thread: "t-kept" });
+    const gone = ev({ type: "expedition_start", id: "B", task: "Removed one", source: "user", thread: "t-gone" });
+    const camp = { ...S, history: { projects: [], conversations: [], removed: ["t-gone"] } } as unknown as CampState;
+    const { container } = mount([kept, planned(diamond), gone, planned(diamond, "B")], camp);
+    expect(screen.queryByLabelText("Which plan")).toBeNull(); // only one plan left to pick from
+    expect(screen.getByText("Kept one")).toBeTruthy();
+    expect(screen.queryByText("Removed one")).toBeNull();
+    expect(container.querySelectorAll(".trail-step").length).toBe(4);
+  });
+
   test("each step is a waypoint in its column, with a line from what it waits for", () => {
     const { container } = mount([begin(), planned(diamond)]);
     expect([...container.querySelectorAll<HTMLElement>(".trail-step")].map((el) => `${el.dataset.n}@${el.dataset.col}.${el.dataset.row}`)).toEqual(["1@1.1", "2@2.1", "3@2.2", "4@3.1"]);

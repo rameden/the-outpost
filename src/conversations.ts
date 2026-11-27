@@ -73,7 +73,8 @@ export type Conversation = {
   // The worktrees its latest run worked in, by linked folder. base: the commit the work started from. created: the camp made it.
   workspaces?: Record<string, { path: string; branch: string; base?: string; created?: boolean }>;
 };
-export type History = { projects: Project[]; conversations: Conversation[] };
+// removed: the conversations you took off the list, so views drawn from the feed (the trail map) leave them out too.
+export type History = { projects: Project[]; conversations: Conversation[]; removed?: string[] };
 
 let conversationsCache: { stamp: string; s: Saved } | null = null;
 function load(): Saved {
@@ -161,7 +162,8 @@ export function history(): History {
   conversations.sort((a, b) => b.updated.localeCompare(a.updated));
   // General and the ones you pinned on top, then the rest; each in the order you dragged them into
   // (or made them, until you have).
-  return { projects: [...s.projects].sort((a, b) => projectTier(a) - projectTier(b)), conversations };
+  const removed = Object.keys(s.meta).filter((id) => s.meta[id]?.removed);
+  return { projects: [...s.projects].sort((a, b) => projectTier(a) - projectTier(b)), conversations, ...(removed.length ? { removed } : {}) };
 }
 
 // ---------- Your changes ----------
