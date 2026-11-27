@@ -67,3 +67,18 @@ test("the Calendars menu ticks which calendars the week shows, saves each tick, 
   fireEvent.click(screen.getByRole("button", { name: "Show what Google Calendar shows" }));
   await waitFor(() => expect(fetch.mock.calls.some(([, i]) => i?.method === "POST" && JSON.parse(String(i.body)).ids === null)).toBe(true));
 });
+
+test("clicking a day opens it large, with each event in full, and Escape closes it", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(week), { status: 200 })));
+  render(<WeekCalendar now={now} />);
+  await screen.findByText("Standup");
+  fireEvent.click(screen.getByRole("button", { name: /Open Thursday, November 26/ }));
+  const dialog = screen.getByRole("dialog", { name: /Thursday/ });
+  expect(dialog.textContent).toContain("Standup");
+  expect(dialog.textContent).toMatch(/9:00\s?AM – 9:15\s?AM/);
+  expect(dialog.querySelector("a")!.getAttribute("href")).toBe("https://calendar.google.com/event?eid=a");
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Open Monday, November 23/ }));
+  expect(screen.getByRole("dialog").textContent).toContain("A free day");
+});

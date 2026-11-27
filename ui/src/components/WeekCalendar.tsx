@@ -1,7 +1,7 @@
 // Your week on Home: when Google Calendar is linked (Settings → Connectors), seven days, Monday to
 // Sunday, at the top of the page, from the calendars ticked in its Calendars menu (until you tick
 // any, the ones ticked in Google Calendar). It only reads: an event with a Google Calendar link
-// opens there, and ‹ › step a week either way.
+// opens there, ‹ › step a week either way, and clicking a day opens it large, every event in full.
 //
 // What an event says was written by whoever made it, so it's shown as plain text and nothing else.
 
@@ -9,6 +9,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api, errorText } from "../api.ts";
 import { cx } from "../format.ts";
 import type { CalendarWeek, WeekCalendars, WeekEvent } from "../types.ts";
+import { Icon } from "./bits.tsx";
+import { Dialog } from "./Dialog.tsx";
 import { usePopover } from "./usePopover.ts";
 
 const DAY = 86_400_000;
@@ -21,6 +23,7 @@ export function weekStart(d: Date): Date {
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const answerText = (a: string | null) => a === "needsAction" ? "Not answered yet" : a === "tentative" ? "Maybe" : a === "declined" ? "Declined" : "";
 
 // Which of the week's days an event shows on: an all-day one on each day it covers (Google's end
 // date is the day after), a timed one on each day it reaches into.
@@ -78,6 +81,7 @@ export function WeekCalendar({ now = new Date() }: { now?: Date }) {
   const [week, setWeek] = useState<CalendarWeek | null>(null);
   const [error, setError] = useState("");
   const [picks, setPicks] = useState(0); // bumped when the Calendars menu changes, to fetch again
+  const [opened, setOpened] = useState<string | null>(null); // the day shown large, by its key
   const today = dayKey(now); // so a new Date each render doesn't fetch again; a new day does
   const start = useMemo(() => addDays(weekStart(new Date(`${today}T00:00:00`)), offset * 7), [today, offset]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
@@ -117,12 +121,16 @@ export function WeekCalendar({ now = new Date() }: { now?: Date }) {
             const k = dayKey(d), list = byDay.get(k) ?? [];
             return (
               <li key={k} className={cx("home-week-day", k === today && "today", k < today && "past")} aria-current={k === today ? "date" : undefined}>
-                <div className="home-week-date"><span>{d.toLocaleDateString([], { weekday: "short" })}</span><b>{d.getDate()}</b></div>
+                {/* The date is the button; it stretches over the whole card, under the event links. */}
+                <button type="button" className="home-week-date" aria-label={`Open ${d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}`}
+                  aria-haspopup="dialog" onClick={() => setOpened(k)}>
+                  <span>{d.toLocaleDateString([], { weekday: "short" })}</span><b>{d.getDate()}</b>
+                </button>
                 {!week ? <span className="meta">…</span> : list.length === 0 ? <span className="meta home-week-free">Free</span> : (
                   <ul className="home-week-events">
                     {list.map((e) => {
                       const label = <>{!e.allDay && <span className="home-week-time">{time(e.start)}</span>}<span className="home-week-title">{e.title}</span></>;
-                      const title = [e.title, e.allDay ? "All day" : `${time(e.start)}–${time(e.end)}`, e.location, e.answer === "needsAction" ? "Not answered yet" : e.answer === "tentative" ? "Maybe" : e.answer === "declined" ? "Declined" : ""].filter(Boolean).join(" · ");
+                      const title = [e.title, e.allDay ? "All day" : `${time(e.start)}–${time(e.end)}`, e.location, answerText(e.answer)].filter(Boolean).join(" · ");
                       return (
                         <li key={`${e.id}:${k}`} className={cx("home-week-event", e.allDay && "all-day", e.answer && `answer-${e.answer}`)} title={title}>
                           {e.url ? <a href={e.url} target="_blank" rel="noopener noreferrer">{label}</a> : <span>{label}</span>}
@@ -137,6 +145,48 @@ export function WeekCalendar({ now = new Date() }: { now?: Date }) {
         </ol>
       )}
       {week?.more && <div className="meta">There's more this week than fits here: open Google Calendar for the rest.</div>}
+      {opened && <DayDialog day={days.find((d) => dayKey(d) === opened) ?? new Date(`${opened}T00:00:00`)} today={today}
+        events={week ? byDay.get(opened) ?? [] : null} onClose={() => setOpened(null)} />}
     </section>
+  );
+}
+
+// One day, large: each event with its whole title, its times, where, and whether you've answered.
+function DayDialog({ day, today, events, onClose }: { day: Date; today: string; events: WeekEvent[] | null; onClose: () => void }) {
+  const k = dayKey(day);
+  const span = (e: WeekEvent) => {
+    if (e.allDay) return "All day";
+    const s = new Date(e.start), end = new Date(e.end);
+    // A timed event that began before this day or runs past it says so, rather than a bare time.
+    const from = dayKey(s) < k ? "Before" : time(e.start), to = dayKey(end) > k && end.getTime() !== addDays(day, 1).getTime() ? "after" : time(e.end);
+    return `${from} – ${to}`;
+  };
+  return (
+    <Dialog className="dialog home-day" labelledBy="home-day-title" onClose={onClose}>
+      <div className="home-day-head">
+        <h2 id="home-day-title" className={cx(k === today && "today")}>
+          <span>{day.toLocaleDateString([], { weekday: "long" })}</span>
+          <b>{day.toLocaleDateString([], { month: "long", day: "numeric" })}</b>
+        </h2>
+        <button type="button" className="btn small" data-autofocus onClick={onClose} aria-label="Close">✕</button>
+      </div>
+      {!events ? <span className="meta">…</span> : events.length === 0 ? <p className="meta home-day-free">Nothing on. A free day.</p> : (
+        <ul className="home-day-events">
+          {events.map((e) => {
+            const answer = answerText(e.answer);
+            return (
+              <li key={e.id} className={cx("home-day-event", e.allDay && "all-day", e.answer && `answer-${e.answer}`)}>
+                <span className="home-day-time">{span(e)}</span>
+                <div className="home-day-body">
+                  <div className="home-day-title">{e.title}</div>
+                  {(e.location || answer) && <div className="meta">{[e.location, answer].filter(Boolean).join(" · ")}</div>}
+                </div>
+                {e.url && <a className="home-day-out" href={e.url} target="_blank" rel="noopener noreferrer" title="Open in Google Calendar" aria-label={`Open ${e.title} in Google Calendar`}><Icon name="link" /></a>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Dialog>
   );
 }
