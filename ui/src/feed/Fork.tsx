@@ -6,7 +6,8 @@ import { useState } from "react";
 import { api, errorText } from "../api.ts";
 import { say } from "../bus.ts";
 import { Confirm } from "../components/Confirm.tsx";
-import { plural } from "../format.ts";
+import { cx, plural } from "../format.ts";
+import { Icon } from "../components/bits.tsx";
 import { usePopover } from "../components/usePopover.ts";
 import { complain } from "../components/StatusLine.tsx";
 
@@ -33,9 +34,9 @@ export function ForkButton({ expId }: { expId: string }) {
 
   return (
     <span className="aside-pick" ref={box}>
-      <button type="button" className="btn small" aria-haspopup="menu" aria-expanded={open}
+      <button type="button" className={cx("icon-btn", open && "on")} aria-haspopup="menu" aria-expanded={open} aria-label="Fork…"
         title="Carry on from this point in a new conversation, keeping this one as it is"
-        onClick={() => setOpen((o) => !o)}>Fork…</button>
+        onClick={() => setOpen((o) => !o)}><Icon name="branch" /></button>
       {open && (
         <span className="popover aside-menu" role="menu" aria-label="Fork">
           <button type="button" role="menuitem" className="mention-item" disabled={busy} onClick={() => fork(false)}>

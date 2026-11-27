@@ -217,9 +217,9 @@ test("feedback: a thumb is saved at once, a note on Save, and it shows where the
   const apply = (...bodies: object[]) => act(() => { for (const b of bodies) store.apply({ ...b, seq: ++seq, time: new Date().toISOString() } as CampEvent); });
   apply({ type: "expedition_start", id: "f1", task: "Plan the release", source: "user", expeditionId: "f1" });
   await vi.waitFor(() => expect(screen.getByRole("heading", { name: "Plan the release" })).toBeTruthy());
-  expect(screen.queryByText("How was this?")).toBeNull(); // not while it's running
+  expect(screen.queryByRole("group", { name: "How was this?" })).toBeNull(); // not while it's running
   apply({ type: "expedition_end", id: "f1", status: "done", text: "Planned.", expeditionId: "f1" });
-  await vi.waitFor(() => expect(screen.getByText("How was this?")).toBeTruthy());
+  await vi.waitFor(() => expect(screen.getByRole("group", { name: "How was this?" })).toBeTruthy());
 
   fireEvent.click(screen.getByRole("button", { name: "Not what I wanted" }));
   await vi.waitFor(() => expect(posts.at(-1)).toEqual({ path: "/api/feedback", body: { id: "f1", rating: "down", note: "" } }));
@@ -246,7 +246,7 @@ test("feedback given earlier comes back with the feed, and jobs aren't rated", a
       { type: "expedition_end", id: "j1", status: "done", text: "ok", expeditionId: "j1" },
     ]) store.apply({ ...b, seq: ++seq, time: new Date().toISOString() } as CampEvent);
   });
-  await vi.waitFor(() => expect(screen.getByText("Your feedback")).toBeTruthy());
+  await vi.waitFor(() => expect(screen.getByRole("group", { name: "Your feedback" })).toBeTruthy());
   const rated = card("Summarize the wiki");
   expect(within(rated).getByRole("button", { name: "Good answer" }).getAttribute("aria-pressed")).toBe("true");
   expect(within(rated).getByText("“Right length.”")).toBeTruthy();
