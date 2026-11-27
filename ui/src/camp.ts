@@ -78,8 +78,6 @@ export function handleEvent(store: FeedStore, e: CampEvent, opts: { replaying: b
   if (e.type === "changed" && e.what === "notes") void loadNotes();
   // Outpost tickets changed (filed by the crew, or moved along as their work started or merged).
   if (e.type === "changed" && e.what === "tickets") void loadTickets();
-  // New release notes were written (releases.ts): the page reads them again, if it's open.
-  if (e.type === "changed" && e.what === "releases") window.dispatchEvent(new Event("camp:releases-changed"));
 }
 
 // How long to wait before opening the stream again once the browser has given up on it: a

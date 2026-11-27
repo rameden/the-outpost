@@ -2,7 +2,7 @@
 // repository. Every 48 hours (while mission control is open) the camp reads the pull requests
 // merged since the last write-up, asks the small model to sum them up in two halves, front end
 // and back end, with the big features first, and keeps the result in camp/releases.json. The
-// Release notes page shows them, newest first. A window with nothing merged writes nothing.
+// star chart's Release notes drawer shows them, newest first. A window with nothing merged writes nothing.
 //
 // If the model can't be reached, each pull request becomes one line on its own, placed by the
 // files it touched (ui/, docs/, extension/ are the front end; the rest is the back end), so a

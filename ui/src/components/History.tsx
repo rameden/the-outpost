@@ -327,10 +327,6 @@ export const History = memo(function History({ S, store, view, setView, patch, o
           title={`What the ${w("crew")} remembers, and the ${w("camp")}'s wiki`} onClick={() => setView({ kind: "memory" })}>
           <Icon name="layers" />Memory
         </button>
-        <button type="button" className={cx("hist-nav-item", view.kind === "releases" && "selected")} aria-current={view.kind === "releases" ? "page" : undefined}
-          title="What's changed in Outpost: the merged pull requests, summed up every 48 hours" onClick={() => setView({ kind: "releases" })}>
-          <Icon name="bookmark" />Release notes
-        </button>
         <button type="button" className={cx("hist-nav-item", view.kind === "all" && "selected")} title="Every run in one feed as it happens, scheduled jobs included" onClick={() => setView({ kind: "all" })}>
           <Icon name="list" />All runs
           {running > 0 && <span className="hist-count">{running} running</span>}

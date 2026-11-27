@@ -13,7 +13,7 @@ import { applyEvent, emptyFeed, type ExpNode, type FeedNode, type FeedState } fr
 // blank page for a new conversation (optionally filed under a project), one conversation, one
 // project's page, or all your projects.
 export type View = { kind: "home" } | { kind: "all" } | { kind: "new"; project?: string } | { kind: "conversation"; id: string }
-  | { kind: "project"; id: string } | { kind: "projects" } | { kind: "tickets" } | { kind: "releases" }
+  | { kind: "project"; id: string } | { kind: "projects" } | { kind: "tickets" }
   | { kind: "memory"; tab?: MemoryTab; member?: string; page?: string } // Memory: the list, the map, or one member's; a wiki page being read
   | { kind: "activity"; tab?: ActivityTab }; // Activity: usage, stats, scheduled jobs, inbox
 export const MEMORY_TABS = ["list", "map", "member"] as const;
@@ -35,7 +35,7 @@ export function parseView(saved: string | null): View {
     if (v?.kind === "new") return { kind: "new" };
     if (v?.kind === "home") return { kind: "home" };
     if (v?.kind === "projects") return { kind: "projects" };
-    if (v?.kind === "releases") return { kind: "releases" };
+    // "releases": the Release notes page, which is the star chart's drawer now (hub/ReleaseNotes.tsx); it lands on Today.
     if (v?.kind === "tickets" || (v?.kind as string) === "jira") return { kind: "tickets" }; // "jira": the page before it held Mae's tickets too
     if ((v?.kind as string) === "wiki" || v?.kind === "memory") { // "wiki": the page before Memory held the wiki alone
       const m = v as { tab?: unknown; member?: unknown; page?: unknown };

@@ -19,12 +19,21 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import http from "node:http";
-import { basename, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HUB_PORT, hubHostOk, hubPage, outpostFacts, signInLinkIn } from "../src/hub.ts";
 import { outpostsHome } from "../src/outpost.ts";
+import { readJsonFile } from "../src/atomic.ts";
+import type { Releases } from "../src/releases.ts";
 import { ASSET_CACHE, UI_CSP, UI_DIST, UI_NOT_BUILT, uiAsset } from "../src/ui-files.ts";
-import { ROOT, buildPage, create, listening, outposts, spawnOutpost, type Place } from "./outpost.ts";
+import { ROOT, buildPage, writeReleaseNotesNow, create, listening, outposts, spawnOutpost, type Place } from "./outpost.ts";
+
+// What src/releases.ts keeps, read as a file: importing that module would hold the terminal open (scripts/release-notes.ts).
+const RELEASES_FILE = join(ROOT, "camp", "releases.json");
+const readReleases = (): Releases => {
+  const r = readJsonFile(RELEASES_FILE, null) as Releases | null;
+  return r && Array.isArray(r.releases) ? r : { checked: "", repo: "", releases: [] };
+};
 
 const HERE_ID = "_here"; // this checkout's outpost; the others go by their folder's name, which never starts with _
 const idOf = (o: Place) => (o.dir === ROOT ? HERE_ID : basename(o.dir));
@@ -154,9 +163,13 @@ export function startHub({ port = HUB_PORT, dev = false, log = (s: string) => co
       }
       if (req.headers["x-hub-token"] !== token) return send(res, 401, { error: "This page is from an earlier launch. Reload it." });
       if (req.method === "GET" && path === "/api/outposts") return send(res, 200, await chart());
+      // Release notes (src/releases.ts): what changed in Outpost itself, kept in this checkout's camp/. The page's
+      // drawer reads them; Check now writes the next ones from the pull requests merged since.
+      if (req.method === "GET" && path === "/api/releases") return send(res, 200, readReleases());
       if (req.method !== "POST") return send(res, 404, { error: "Not found" });
       const body = await readJson(req);
       const pick = () => outposts().find((o) => idOf(o) === String(body.id ?? ""));
+      if (path === "/api/releases/refresh") { await writeReleaseNotesNow(); return send(res, 200, readReleases()); }
       if (path === "/api/launch") {
         const o = pick();
         if (!o) return send(res, 404, { error: "That outpost isn't on the chart any more." });

@@ -5,6 +5,7 @@
   "description": "Outpost: a small multi-agent harness on Claude. A Quartermaster plans and dispatches a crew of specialists, with memory, skills, scheduled jobs, and mission control, a page on your own machine.",
   "scripts": {
     "start": "tsx scripts/launch.ts",
+    "release-notes": "tsx --import ./scripts/env.mjs scripts/release-notes.ts",
     "cli": "tsx --import ./scripts/env.mjs src/camp.ts",
     "headless": "tsx --import ./scripts/env.mjs src/headless.ts",
     "watch": "tsx --import ./scripts/env.mjs src/watch.ts",

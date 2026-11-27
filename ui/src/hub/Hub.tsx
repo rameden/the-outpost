@@ -9,6 +9,9 @@
 // It is also the first page a newcomer sees, so under the title it says what The Outpost is, links
 // the Tour, and says what to do next: make an outpost when there's none, launch one when none is
 // running, or go into one that is.
+//
+// Down its left side is the Release notes drawer (ReleaseNotes.tsx): what's changed in Outpost,
+// open beside the chart or folded to a rail, like the workspace in an outpost.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent } from "react";
 import { Icon } from "../components/bits.tsx";
@@ -16,6 +19,8 @@ import { contour } from "../components/MaeSystem.tsx";
 import { cx, plural } from "../format.ts";
 import { PLANET_R, STARS, SUN_R } from "../orbit/scene.ts";
 import { chart, lapOf, lineAt, toneOf } from "./chart.ts";
+import { MaeMark } from "../components/MaeLogo.tsx";
+import { ReleaseDrawer, keepNotesOpen, notesOpenAtFirst } from "./ReleaseNotes.tsx";
 
 export type HubOutpost = {
   id: string; name: string; port: number; dir: string;
@@ -63,6 +68,7 @@ const day = (t: number) => new Date(t).toLocaleDateString([], { year: "numeric",
 const tone = (line: number) => ({ "--c": `var(--c-${toneOf(line)})` }) as CSSProperties;
 const lap = (line: number) => ({ "--lap": `${lapOf(line)}s` }) as CSSProperties;
 const PANEL = 400, NARROW = 760; // the panel's room beside the chart, and the width under which it sits below instead (as the stylesheet has it)
+const RAIL = 30, NOTES = 380; // the release notes' rail, and their drawer's room beside it when open (.hub-notes; on a narrow page it lies over the chart)
 const DOUBLE_MS = 500, DOUBLE_PX = 10; // how soon and how near a second click counts as a double-click
 const windowSize = () => ({ w: window.innerWidth || 1024, h: window.innerHeight || 768 });
 
@@ -100,6 +106,8 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
   const [newName, setNewName] = useState("");
   const [newAbout, setNewAbout] = useState("");
   const nameField = useRef<HTMLInputElement>(null);
+  const [notes, setNotes] = useState(notesOpenAtFirst);
+  const toggleNotes = () => setNotes((on) => { keepNotesOpen(!on); return !on; });
 
   const load = useCallback(async () => {
     try { setOutposts((await ask<{ outposts: HubOutpost[] }>("/api/outposts")).outposts); setLost(false); }
@@ -168,9 +176,10 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
     return () => window.removeEventListener("resize", fit);
   }, []);
   const narrow = size.w <= NARROW;
-  const room = { w: size.w - (open && !narrow ? PANEL : 0), h: (open && narrow ? size.h * 0.44 : size.h - 70) - 64 };
+  const left = RAIL + (notes && !narrow ? NOTES : 0); // the release notes, down the left
+  const room = { w: size.w - left - (open && !narrow ? PANEL : 0), h: (open && narrow ? size.h * 0.44 : size.h - 70) - 64 };
   const k = Math.min(2.4, Math.max(0.5, Math.min(room.w, room.h) / (2 * map.half)));
-  const mid = { x: room.w / 2, y: 64 + room.h / 2 };
+  const mid = { x: left + room.w / 2, y: 64 + room.h / 2 };
 
   async function launch(o: HubOutpost) {
     setBusy("launch"); setError("");
@@ -195,7 +204,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
   }
 
   return (
-    <main className={cx("constellation", "hub", open && "has-panel")} aria-label="Star chart of your outposts" onClickCapture={onAnyClick}>
+    <main className={cx("constellation", "hub", open && "has-panel", notes && "notes-open")} aria-label="Star chart of your outposts" onClickCapture={onAnyClick}>
       {STARS.map((_, j) => <div key={j} className={`orb-stars s${j + 1}`} aria-hidden="true" />)}
       <svg className="hub-sky">
         <g transform={`translate(${mid.x.toFixed(1)} ${mid.y.toFixed(1)}) scale(${k.toFixed(4)})`} style={{ "--k": k.toFixed(4) } as CSSProperties}>
@@ -231,7 +240,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
 
       <header className="con-top">
         <div className="con-title">
-          <h1>Outposts</h1>
+          <h1><MaeMark />Outposts</h1>
           {outposts && <p>{outposts.length} {plural(outposts.length, "outpost")} · {up} running</p>}
         </div>
         <div className="con-tools">
@@ -280,6 +289,8 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
           <p className="con-hint" aria-hidden="true">Click an outpost to read about it · double-click to launch it · Esc to step back</p>
         </footer>
       )}
+
+      <ReleaseDrawer open={notes} onToggle={toggleNotes} ask={ask} />
 
       {naming ? (
         <aside className="con-panel" aria-label="A new outpost">

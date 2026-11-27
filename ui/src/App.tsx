@@ -30,7 +30,6 @@ import { closeDrafting, closeTicket as closeMaeTicket, loadTickets, showTicket, 
 import { TicketWizard } from "./components/TicketWizard.tsx";
 import { MemoryHome } from "./components/MemoryHome.tsx";
 import { ActivityPage, activityTabs } from "./components/ActivityPage.tsx";
-import { ReleaseNotes } from "./components/ReleaseNotes.tsx";
 import { treeQuery } from "./api.ts";
 import { runningCount } from "./feed/reducer.ts";
 import { ProjectDialog } from "./components/ProjectDialog.tsx";
@@ -91,7 +90,6 @@ const COMMAND_ICONS: Record<string, IconName> = {
 const PAGES: [string, IconName, View][] = [
   ["Today", "hub", { kind: "home" }], ["All runs", "list", { kind: "all" }], ["Projects", "folder", { kind: "projects" }], ["Tickets", "check", { kind: "tickets" }],
   ["Activity", "activity", { kind: "activity" }], ["Memory", "layers", { kind: "memory", tab: "list" }], ["Memory: map", "map", { kind: "memory", tab: "map" }],
-  ["Release notes", "bookmark", { kind: "releases" }],
 ];
 
 export function App({ store }: { store: FeedStore }) {
@@ -169,7 +167,7 @@ export function App({ store }: { store: FeedStore }) {
   // (From Today, what you send starts in the project you last worked in.)
   const project = S?.history.projects.find((p) => p.id === (view.kind === "new" ? view.project : view.kind === "home" ? homeProject(S?.history) : view.kind === "project" ? view.id : conversation?.project));
   // A project's page, or the list of them (also where a deleted project's page lands).
-  const page = view.kind === "memory" ? "memory" : view.kind === "activity" ? "activity" : view.kind === "tickets" ? "tickets" : view.kind === "releases" ? "releases"
+  const page = view.kind === "memory" ? "memory" : view.kind === "activity" ? "activity" : view.kind === "tickets" ? "tickets"
     : view.kind === "project" && project ? "project" : view.kind === "project" || view.kind === "projects" ? "projects" : null;
   // The ticket kickoff stepper: open, and on which ticket if one was already picked.
   const [wizard, setWizard] = useState<{ ticket?: TicketStart } | null>(null);
@@ -619,8 +617,6 @@ export function App({ store }: { store: FeedStore }) {
                   ) : page === "activity" && S && view.kind === "activity" ? (
                     <ActivityPage S={S} store={store} tab={view.tab ?? "usage"} setTab={(tab) => setView({ kind: "activity", tab })} refresh={refresh} onOpenSettings={openSettings} setView={setView}
                       needs={needs} inbox={inbox} onSeenAll={onSeenAll} onStartTicket={(t) => setWizard({ ticket: t })} />
-                  ) : page === "releases" ? (
-                    <ReleaseNotes />
                   ) : page === "projects" && S ? (
                     <ProjectsOverview S={S} setView={setView} onNew={() => setDialog({ project: null })} />
                   ) : view.kind === "home" && !S ? (

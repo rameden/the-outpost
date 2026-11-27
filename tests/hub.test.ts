@@ -67,6 +67,10 @@ test("the chart's server turns away other hosts and requests without its token",
     const { outposts } = await list.json() as { outposts: { id: string; here: boolean }[] };
     assert.equal(outposts[0].id, "_here");
     assert.equal(outposts[0].here, true);
+    assert.equal((await fetch(`${url}api/releases`)).status, 401);
+    const notes = await fetch(`${url}api/releases`, { headers: { "x-hub-token": hub.token } });
+    assert.equal(notes.status, 200); // the release notes drawer's, read from this checkout's camp/
+    assert.ok(Array.isArray(((await notes.json()) as { releases: unknown[] }).releases));
     const gone = await fetch(`${url}api/launch`, { method: "POST", headers: { "x-hub-token": hub.token, "content-type": "application/json" }, body: JSON.stringify({ id: "no-such-outpost" }) });
     assert.equal(gone.status, 404);
     assert.equal((await fetch(`http://localhost:${port + 1}/`).catch(() => ({ status: 0 }))).status, 0);
