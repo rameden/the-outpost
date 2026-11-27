@@ -230,7 +230,7 @@ type GEvent = {
   id?: string; status?: string; summary?: string; description?: string; location?: string; htmlLink?: string;
   start?: GTime; end?: GTime; organizer?: { email?: string; displayName?: string; self?: boolean };
   attendees?: { email?: string; displayName?: string; self?: boolean; responseStatus?: string }[];
-  hangoutLink?: string; eventType?: string;
+  hangoutLink?: string; eventType?: string; iCalUID?: string;
 };
 function when(e: GEvent, tz: string | undefined): string {
   if (e.start?.date) {
@@ -258,7 +258,7 @@ export function eventText(e: GEvent, tz?: string): string {
 }
 
 // ---------- Reading ----------
-type CalList = { items?: { id: string; summary?: string; primary?: boolean; accessRole?: string; timeZone?: string; selected?: boolean }[] };
+type CalList = { items?: { id: string; summary?: string; primary?: boolean; accessRole?: string; timeZone?: string; selected?: boolean; hidden?: boolean }[] };
 export async function listCalendars(): Promise<string> {
   const r = await apiCall<CalList>("GET", "/users/me/calendarList?maxResults=100");
   const items = r.items ?? [];
@@ -287,12 +287,13 @@ export async function listEvents(input: { from?: unknown; to?: unknown; calendar
     shown.map((e) => eventText(e, r.timeZone)).join("\n") + (items.length > MAX_EVENTS ? "\n(more: ask for a shorter span)" : "");
 }
 
-// The page's week on Home: the primary calendar's events for the seven days from `from`, as data
+// The page's week on Home: the events for the seven days from `from` on every calendar you have
+// switched on in Google Calendar (the primary one always), as data
 // (not the crew's text). Titles and places are whoever made the event's words: the page shows them
 // as plain text, and an event's link is kept only when it's Google Calendar's own.
 export type WeekEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string | null; url: string | null; answer: string | null };
 export type CalendarWeek = { from: string; to: string; timeZone: string | null; events: WeekEvent[]; more: boolean };
-const WEEK_MAX = 250;
+const WEEK_MAX = 250, WEEK_CALENDARS = 20;
 const googleLink = (u?: string) => {
   try { const x = new URL(String(u ?? "")); return x.protocol === "https:" && (x.hostname === "calendar.google.com" || x.hostname === "www.google.com") ? x.href : null; } catch { return null; }
 };
@@ -300,20 +301,36 @@ export async function weekEvents(input: { from?: unknown }): Promise<CalendarWee
   const from = input.from ? parseTime(input.from, "from") : new Date(new Date().setHours(0, 0, 0, 0));
   const to = new Date(from.getTime() + 7 * DAY);
   const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: String(WEEK_MAX + 1) });
-  const r = await apiCall<{ items?: GEvent[]; timeZone?: string }>("GET", `/calendars/primary/events?${q}`);
-  const items = (r.items ?? []).filter((e) => e.status !== "cancelled" && (e.start?.date || e.start?.dateTime));
+  // Which calendars: the ones ticked in Google Calendar's own list (a shared family calendar is
+  // often where most events are), never hidden ones, and the primary calendar whatever its tick.
+  const list = await apiCall<CalList>("GET", "/users/me/calendarList?maxResults=100").catch(() => ({ items: [] } as CalList));
+  const ids = ["primary", ...(list.items ?? []).filter((c) => !c.primary && c.selected && !c.hidden).map((c) => c.id)].slice(0, WEEK_CALENDARS);
+  const got = await Promise.allSettled(ids.map((id) => apiCall<{ items?: GEvent[]; timeZone?: string }>("GET", `/calendars/${encodeURIComponent(id)}/events?${q}`)));
+  const ok = got.flatMap((x) => x.status === "fulfilled" ? [x.value] : []);
+  if (!ok.length) throw (got[0] as PromiseRejectedResult).reason; // none could be read: say why the first couldn't
+  const r = got[0].status === "fulfilled" ? got[0].value : ok[0];
+  // An event you're invited to on two of your calendars is one event: keep it once.
+  const seenEvent = new Set<string>();
+  const items = ok.flatMap((c) => c.items ?? [])
+    .filter((e) => e.status !== "cancelled" && (e.start?.date || e.start?.dateTime))
+    .filter((e) => {
+      const k = `${e.iCalUID ?? e.id}|${e.start?.date ?? e.start?.dateTime}`;
+      if (seenEvent.has(k)) return false;
+      seenEvent.add(k); return true;
+    })
+    .sort((a, b) => new Date(a.start?.dateTime ?? `${a.start?.date}T00:00:00`).getTime() - new Date(b.start?.dateTime ?? `${b.start?.date}T00:00:00`).getTime());
   const events = items.slice(0, WEEK_MAX).map((e, i): WeekEvent => {
     const allDay = !!e.start?.date;
     const me = e.attendees?.find((a) => a.self)?.responseStatus;
     return {
-      id: e.id ?? `e${i}`, title: oneLine(e.summary || "(no title)", 200), allDay,
+      id: `${e.id ?? "e"}:${i}`, title: oneLine(e.summary || "(no title)", 200), allDay,
       start: allDay ? e.start!.date! : e.start!.dateTime!,
       end: allDay ? (e.end?.date ?? e.start!.date!) : (e.end?.dateTime ?? e.start!.dateTime!),
       location: e.location ? oneLine(e.location, 120) : null, url: googleLink(e.htmlLink),
       answer: me && me !== "accepted" ? me : null,
     };
   });
-  return { from: from.toISOString(), to: to.toISOString(), timeZone: r.timeZone ?? saved()?.timeZone ?? null, events, more: items.length > WEEK_MAX };
+  return { from: from.toISOString(), to: to.toISOString(), timeZone: r.timeZone ?? saved()?.timeZone ?? null, events, more: items.length > WEEK_MAX || ok.some((c) => (c.items?.length ?? 0) > WEEK_MAX) };
 }
 
 export async function busyTimes(input: { from?: unknown; to?: unknown }): Promise<string> {
