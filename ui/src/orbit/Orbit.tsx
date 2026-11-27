@@ -54,6 +54,7 @@ import { useModal } from "../components/Dialog.tsx";
 import { runningCount, type CrewStatus, type QuestOut } from "../feed/reducer.ts";
 import { createFeedStore, useFeed, type FeedStore } from "../feed/store.ts";
 import { calledEver, cClass, cx, leadName, money, nameNow } from "../format.ts";
+import { showCost } from "../prefs.ts";
 import { w } from "../words.ts";
 import { motionOK } from "../motion.tsx";
 import type { CampEvent, CampState } from "../types.ts";
@@ -209,7 +210,9 @@ export function Orbit({ S, store, onClose, onOpenAgent, onOpenQuest, onOpenConve
   const known = !!pretence || !!(S?.installedSkills || S?.connectors); // (a camp that hasn't said what they carry keeps the world's own satellites)
   const xpOf = (b: Body): number | null => (pretence ? pretence.xp[b.name] ?? 0 : S ? S.xp?.[b.name] ?? 0 : null);
   const kits = useMemo(() => new Map(bodies.map((b) => [b.id, pretence ? pretence.kit[b.id] ?? [] : kitOf(S, b.id)])), [pretence, S?.installedSkills, S?.connectors, cast]); // eslint-disable-line react-hooks/exhaustive-deps
-  const spend = pretence ? pretence.spend : live ? S?.spend ?? null : null;
+  // Today's cost hidden in Settings hides it here too: the readout, the panel's line and each planet's share ring.
+  const costShown = showCost.use();
+  const spend = !costShown ? null : pretence ? pretence.spend : live ? S?.spend ?? null : null;
   const limit = pretence ? pretence.limit : live ? tightest(S?.limits) : null;
   const ships = useMemo(() => (pretence ? pretence.ships : replay ? [] : shipsOf(S)).slice(0, SHIPS), [pretence, replay, S?.queued, S?.jobs, S?.prs]); // eslint-disable-line react-hooks/exhaustive-deps
   const planets = bodies.slice(1);
