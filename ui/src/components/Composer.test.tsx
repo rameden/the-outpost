@@ -155,34 +155,39 @@ test("a second queued message waits behind the first, not beside it", async () =
   await land(0);
 });
 
-test("the menu beside Stop queues what you've typed, or sends it to the run now", async () => {
+const menuBtn = () => screen.getByRole("button", { name: "Queue or steer" });
+const pickOf = (name: string) => screen.getByRole("menuitemradio", { name: new RegExp(`^${name}`) });
+
+test("the menu on Stop picks Queue or Steer, and sends what you've typed that way", async () => {
   const { write } = setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
-  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
-  expect((screen.getByRole("menuitem", { name: "Queue" }) as HTMLButtonElement).disabled).toBe(true); // nothing typed yet
-  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
+  // Nothing typed: picking only sets what Enter does.
+  fireEvent.click(menuBtn());
+  expect(pickOf("Queue").getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(pickOf("Queue"));
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(sends.length).toBe(0);
 
   write("Then write the docs");
-  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
-  fireEvent.click(screen.getByRole("menuitem", { name: "Queue" }));
+  fireEvent.click(menuBtn());
+  fireEvent.click(pickOf("Queue"));
   await waitFor(() => expect(sends.length).toBe(1));
   expect(sends[0]).toMatchObject({ text: "Then write the docs", after: "run-1" });
   await land(0);
 
   write("Focus on the tests");
-  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
-  const now = screen.getByRole("menuitem", { name: "Send now" });
-  expect(now.textContent).toBe("Send now"); // no line under it
-  fireEvent.click(now);
+  fireEvent.click(menuBtn());
+  fireEvent.click(pickOf("Steer"));
   await waitFor(() => expect(steers).toEqual([{ path: "/api/steer", id: "run-1", text: "Focus on the tests" }]));
   expect(sends.length).toBe(1);
+  // …and Enter steers from now on.
+  expect(screen.getByRole("textbox").getAttribute("aria-placeholder")).toContain("Steer");
 });
 
-test("the menu highlights the option you're on: Queue when it opens, then wherever the arrows or the mouse go", () => {
-  const { write } = setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
-  write("Then write the docs");
-  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
-  const queue = screen.getByRole("menuitem", { name: "Queue" });
-  const now = screen.getByRole("menuitem", { name: "Send now" });
+test("the menu highlights the option you're on: the current one when it opens, then wherever the arrows or the mouse go", () => {
+  setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
+  fireEvent.click(menuBtn());
+  const queue = pickOf("Queue");
+  const now = pickOf("Steer");
   expect(queue.className).toContain("active");
   expect(document.activeElement).toBe(queue);
   fireEvent.keyDown(queue, { key: "ArrowDown" });
@@ -195,41 +200,36 @@ test("the menu highlights the option you're on: Queue when it opens, then wherev
   expect(now.className).toContain("active");
 });
 
-test("while a run works, a Queue | Steer switch says what Enter does, and starts on Queue for each run", async () => {
+test("while a run works, Enter does what the menu is on, and starts on Queue for each run", async () => {
   const { write, submit, go } = setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a", working);
-  const queue = screen.getByRole("button", { name: "Queue" });
-  const steer = screen.getByRole("button", { name: "Steer" });
-  expect(queue.getAttribute("aria-pressed")).toBe("true");
-  expect(steer.getAttribute("aria-pressed")).toBe("false");
-  fireEvent.click(steer);
-  expect(steer.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByRole("button", { name: "Steer" })).toBeNull(); // no switch beside the button
+  fireEvent.click(menuBtn());
+  fireEvent.click(pickOf("Steer"));
   expect(screen.getByRole("textbox").getAttribute("aria-placeholder")).toContain("Steer");
-  expect(document.activeElement).not.toBe(screen.getByRole("textbox")); // a click on the switch doesn't move you
   write("Focus on the tests");
   submit();
   await waitFor(() => expect(steers).toEqual([{ path: "/api/steer", id: "run-1", text: "Focus on the tests" }]));
   expect(sends.length).toBe(0);
-  // A message for someone else still starts their own work, whatever the switch says.
+  // A message for someone else still starts their own work, whatever the menu is on.
   write("@scout look at the logs");
   submit();
   await waitFor(() => expect(sends.length).toBe(1));
   expect(sends[0].after).toBeUndefined();
   await land(0);
-  // The menu opens on what the switch is on.
-  write("One more thing");
-  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
-  expect(screen.getByRole("menuitem", { name: "Send now" }).className).toContain("active");
-  fireEvent.click(screen.getByRole("button", { name: "More ways to send" }));
+  // The menu opens on what Enter does.
+  fireEvent.click(menuBtn());
+  expect(pickOf("Steer").className).toContain("active");
+  expect(pickOf("Steer").getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(menuBtn());
   // Once that run is over, the next one starts on Queue again.
   go({ replyTo: "run-1", placeholder: "Reply…" }, "c:a");
-  expect(screen.queryByRole("button", { name: "Steer" })).toBeNull();
   go({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a");
-  expect(screen.getByRole("button", { name: "Queue" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("textbox").getAttribute("aria-placeholder")).toBe("Queue a message for when they're done…");
 });
 
-test("with nothing running there's no switch", () => {
+test("with nothing running there's no Queue or Steer", () => {
   setup({ replyTo: "run-1", placeholder: "Reply…" }, "c:a");
-  expect(screen.queryByRole("button", { name: "Steer" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Queue or steer" })).toBeNull();
 });
 
 test("a message sent for you (a review's \"fix these\") goes to the working run now, and leaves what you've typed alone", async () => {
@@ -268,7 +268,7 @@ test("a message for someone else still starts their own work while a run is goin
 
 test("once the run has finished, Send is a plain reply with no Queue menu", () => {
   setup({ replyTo: "run-1", live: "run-1", placeholder: "Reply…" }, "c:a"); // nothing running
-  expect(screen.queryByRole("button", { name: "More ways to send" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Queue or steer" })).toBeNull();
   expect(screen.queryByText("Enter to send")).toBeNull();
 });
 
