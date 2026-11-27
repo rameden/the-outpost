@@ -50,14 +50,15 @@ export function logQuest(
   started: Date,
   result: AgentResult,
   job?: string,
-  project: string | undefined = currentProjectId()
+  project: string | undefined = currentProjectId(),
+  run: string | undefined = currentExpeditionId() // a lead's own run is logged after it ends, so it says which
 ) {
   const entry: QuestEntry = {
     time: started.toISOString(),
     kind,
     character,
     ...(job ? { job } : {}),
-    ...(currentExpeditionId() ? { expedition: currentExpeditionId() } : {}),
+    ...(run ? { expedition: run } : {}),
     ...(project && project !== "general" ? { project } : {}),
     task: clip(task, 200),
     result: clip(result.text, 300),
@@ -85,7 +86,7 @@ export function logQuest(
 // The whole log, parsed once and reused until the file changes (mission control asks for it on
 // every refresh, and the log only ever grows).
 let cache: { path: string; key: string; entries: QuestEntry[] } | null = null;
-function allQuests(): QuestEntry[] {
+export function allQuests(): QuestEntry[] {
   if (!existsSync(QUEST_LOG_PATH)) return [];
   const st = statSync(QUEST_LOG_PATH);
   const key = `${st.mtimeMs}:${st.size}`;

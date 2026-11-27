@@ -50,6 +50,7 @@ import { StatusLine, tell, complain } from "./components/StatusLine.tsx";
 import { ModelPicker } from "./components/ModelPicker.tsx";
 import { Feed } from "./feed/Feed.tsx";
 import { DETAIL_KEY, parseDetail, type FeedDetail } from "./feed/condense.ts";
+import { ThreadStatus } from "./feed/ThreadStatus.tsx";
 import { NextStep, WorkStrip, type Place } from "./feed/NextStep.tsx";
 import { Waiting } from "./components/Waiting.tsx";
 import { inboxCount } from "./inbox.ts";
@@ -209,7 +210,10 @@ export function App({ store }: { store: FeedStore }) {
   // The terminal pane along the bottom: shown or hidden (remembered), toggled with Ctrl+`.
   // The feed condensed (behind-the-scenes work folded, the default) or detailed (every line).
   const [detail, setDetailState] = useState<FeedDetail>(() => parseDetail(storeGet(DETAIL_KEY)));
-  const setDetail = useCallback((d: FeedDetail) => { setDetailState(d); storeSet(DETAIL_KEY, d); }, []);
+  // Status: the conversation's figures in place of its thread. Not remembered: a conversation opens on its thread.
+  const [statusFor, setStatusFor] = useState<string | null>(null);
+  const setDetail = useCallback((d: FeedDetail) => { setDetailState(d); storeSet(DETAIL_KEY, d); setStatusFor(null); }, []);
+  const showStatus = !!conversation && statusFor === conversation.id;
   const [terminal, setTerminal] = useState(() => storeGet("camp-term-open") === "1");
   const toggleTerminal = useCallback(() => setTerminal((on) => { storeSet("camp-term-open", on ? "0" : "1"); return !on; }), []);
   useEffect(() => {
@@ -640,8 +644,9 @@ export function App({ store }: { store: FeedStore }) {
                         )}
                         {conversation && (
                           <span className="detail-switch" role="group" aria-label="How much of the work to show">
-                            <button type="button" aria-pressed={detail === "condensed"} title="Fold tool calls and answered commands into one line each" onClick={() => setDetail("condensed")}>Condensed</button>
-                            <button type="button" aria-pressed={detail === "detailed"} title="Show every tool call, command and approval" onClick={() => setDetail("detailed")}>Detailed</button>
+                            <button type="button" aria-pressed={!showStatus && detail === "condensed"} title="Fold tool calls and answered commands into one line each" onClick={() => setDetail("condensed")}>Condensed</button>
+                            <button type="button" aria-pressed={!showStatus && detail === "detailed"} title="Show every tool call, command and approval" onClick={() => setDetail("detailed")}>Detailed</button>
+                            <button type="button" aria-pressed={showStatus} title="This conversation's cost, time, tokens and what fills its context" onClick={() => setStatusFor(conversation.id)}>Status</button>
                           </span>
                         )}
                         {conversation?.suggest && suggested && (
@@ -657,8 +662,9 @@ export function App({ store }: { store: FeedStore }) {
                           title={conversation.title} ticket={conversation.jira} lastRun={conversation.expeditions.at(-1)}
                           refresh={stepLooks} onChanged={stepChanged} onShowRepos={showFiles} />
                       )}
+                      {showStatus && conversation ? <ThreadStatus thread={conversation.id} version={`${conversation.expeditions.length}:${conversation.status}`} /> :
                       <Feed key={S?.pack /* its cards are memoised: a new pack draws them again in its words */} store={store} onReply={onReply} onExample={onExample} view={view} past={past} waiting={waiting} plain={plainPage} stopInBox={view.kind === "conversation" ? liveRun : undefined} detail={detail}
-                        project={project && project.id !== "general" ? project.id : undefined} />
+                        project={project && project.id !== "general" ? project.id : undefined} />}
                     </>
                   )}
                   </ZoneBoundary>

@@ -3506,3 +3506,32 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 
 /* ---------- Settings, Automatic work: everything paused ---------- */
 .pause-row.on { border: 2px solid var(--bad); border-radius: 8px; padding: 10px 12px; }
+
+/* A conversation's Status tab (feed/ThreadStatus.tsx): its figures in cards, in place of the thread. */
+.thread-status { gap: 14px; }
+.ts-card { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 14px; max-width: 860px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.ts-card h3 { margin: 0 0 8px; font: 600 14px/1.3 var(--sans); }
+.ts-card .meta { margin: 6px 0 0; }
+.ts-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px 8px; }
+.ts-tiles div { display: flex; flex-direction: column; min-width: 0; }
+.ts-tiles b { font: 600 18px/1.2 var(--serif); }
+.ts-tiles span { font-size: 12px; color: var(--faint); }
+.ts-bar { display: flex; height: 12px; margin: 10px 0 8px; background: var(--surface-2); overflow: hidden; }
+.ts-bar span { min-width: 2px; }
+.ts-legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 16px; font-size: 13px; }
+.ts-legend li { display: flex; align-items: center; gap: 6px; cursor: default; }
+.ts-legend i { width: 10px; height: 10px; flex: none; }
+.ts-legend b { margin-left: auto; font-weight: 600; }
+.ts-legend span { color: var(--faint); width: 3.5em; text-align: right; }
+.ts-note { font-size: 12px; color: var(--faint); }
+.ts-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.ts-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ts-table td { padding: 4px 6px; border-top: 1px solid var(--border); white-space: nowrap; }
+.ts-table tr:first-child td { border-top: 0; }
+.ts-table td:first-child { padding-left: 0; }
+.ts-table td:last-child { text-align: right; padding-right: 0; }
+.ts-runs time { color: var(--faint); }
+.ts-runs .ts-task { white-space: normal; width: 100%; max-width: 0; }
+.ts-runs .ts-task span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.ts-runs td { vertical-align: top; }
+@media (max-width: 640px) { .ts-runs td:nth-child(4), .ts-runs td:nth-child(5) { display: none; } }

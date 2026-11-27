@@ -525,8 +525,8 @@ export function fixBrief(checks: string): string {
 }
 
 // A run that failed still used tokens and left a transcript: log it like any other.
-function logFailure(kind: "expedition" | "quest" | "job", who: string, task: string, started: Date, err: AgentFailure, job?: string, project?: string) {
-  if (err?.partial) logQuest(kind, who, task, started, err.partial, job, project);
+function logFailure(kind: "expedition" | "quest" | "job", who: string, task: string, started: Date, err: AgentFailure, job?: string, project?: string, run?: string) {
+  if (err?.partial) logQuest(kind, who, task, started, err.partial, job, project, run);
 }
 
 // Where a run happens: its project, the linked folders it may use, and its budget.
@@ -796,13 +796,13 @@ export async function runExpedition(
       emit({ type: "text", who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0, text: added });
       return { ...result, text: result.text ? `${result.text}\n\n${added}` : added };
     });
-    logQuest(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, result, opts.job, where.project);
+    logQuest(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, result, opts.job, where.project, id);
     if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status, ...(exp.parked ? { parked: exp.parked } : {}) });
     await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
     return result;
   } catch (err: any) {
-    logFailure(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, err, opts.job, where.project);
+    logFailure(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, err, opts.job, where.project, id);
     if (!opts.job) recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
     await sealSnapshots(id);
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
@@ -868,12 +868,12 @@ export async function runChat(
   try {
     const result = await withExpedition({ id, budget: where.budget, signal: opts.signal, steering: opts.steering, project: where.project, scope: where.scope, without: opts.without, model: opts.model, thread: turn.thread, replyTo: thread ? opts.replyTo : undefined }, () =>
       runAgent(spec, task, { plain: true, source: "direct", extraSystem: [opts.extraSystem, thread?.history].filter(Boolean).join("\n\n") || undefined }));
-    logQuest("expedition", spec.name, shown, started, result, undefined, where.project);
+    logQuest("expedition", spec.name, shown, started, result, undefined, where.project, id);
     recordTurn({ ...turn, reply: result.text, status: result.status });
     emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: 0 });
     return result;
   } catch (err: any) {
-    logFailure("expedition", spec.name, shown, started, err, undefined, where.project);
+    logFailure("expedition", spec.name, shown, started, err, undefined, where.project, id);
     recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
     emit({ type: "expedition_end", id, status: "error", text: err.message, changed: 0 });
     throw err;

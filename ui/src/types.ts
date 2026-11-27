@@ -61,3 +61,4 @@ export type { Payoff } from "../../src/reports.ts";
 export type { Brief, BriefLine } from "../../src/brief.ts";
 export type { Kind, WeekScore, Offer } from "../../src/reports.ts";
 export type { HomePage } from "../../src/server.ts";
+export type { ThreadStats, ContextPart } from "../../src/threadstats.ts";
