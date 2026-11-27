@@ -331,9 +331,11 @@ const WEEK_MAX = 250, WEEK_CALENDARS = 20;
 const googleLink = (u?: string) => {
   try { const x = new URL(String(u ?? "")); return x.protocol === "https:" && (x.hostname === "calendar.google.com" || x.hostname === "www.google.com") ? x.href : null; } catch { return null; }
 };
-export async function weekEvents(input: { from?: unknown }): Promise<CalendarWeek> {
+// days: how many days from `from` (7, the week; the morning brief asks for 1, today).
+export async function weekEvents(input: { from?: unknown; days?: number }): Promise<CalendarWeek> {
   const from = input.from ? parseTime(input.from, "from") : new Date(new Date().setHours(0, 0, 0, 0));
-  const to = new Date(from.getTime() + 7 * DAY);
+  const days = Math.min(7, Math.max(1, Math.floor(Number(input.days) || 7)));
+  const to = new Date(from.getTime() + days * DAY);
   const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: String(WEEK_MAX + 1) });
   const ids = (await weekCalendarChoices()).calendars.filter((c) => c.shown).map((c) => c.primary ? "primary" : c.id);
   if (!ids.length) return { from: from.toISOString(), to: to.toISOString(), timeZone: saved()?.timeZone ?? null, events: [], more: false };

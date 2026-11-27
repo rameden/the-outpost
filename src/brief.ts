@@ -10,6 +10,10 @@
 //   - In motion: pull requests waiting on someone else.
 //   - Your tickets: the Jira tickets you're in the middle of, each with where it stands here (the
 //     conversation working on it, its pull request).
+//   - Today on your calendar (when Google Calendar is linked): today's events on the calendars
+//     you picked for Home's week (gcal.ts). Like your notes, the events are shown on the page
+//     only: an invitation's words are whoever sent it, and the inbox is readable by the crew, so
+//     the inbox and the notification say how many there are, never what they are.
 //   - Upcoming: tickets assigned to you that nothing has picked up yet, and the scheduled jobs
 //     that will run by themselves.
 //   - Your notes: the ones you changed most recently, to pick a thought back up.
@@ -43,6 +47,7 @@ import { dayOf } from "./helpers.js";
 import { gatherNews, type NewsItem } from "./briefnews.js";
 import { pausedUntil } from "./limits.js";
 import { OUTPOST } from "./outpost.js";
+import { calendarConnected, weekEvents, type WeekEvent } from "./gcal.js";
 
 export const BRIEFS_DIR = posix.join("camp", "briefs");
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,6 +72,7 @@ export type Brief = {
   tickets: BriefLine[];   // the tickets you're in the middle of, and where each stands here
   next: BriefLine[];      // upcoming: tickets nothing has picked up, and scheduled jobs
   yourNotes: BriefNote[]; // your latest notes (shown on the page only)
+  calendar?: { events: WeekEvent[]; timeZone: string | null; more: boolean }; // today on your picked calendars (page only; left out when it isn't linked)
   done: { finished: { conversation: string; title: string; runs: number }[]; merged: { title: string; url: string }[]; requests: number; byMae: number; cost: number };
   waiting: { memory: number; skills: number }; // proposals waiting for your say
   news?: NewsItem[];      // AI news that could help the outpost (only when you've turned it on)
@@ -91,7 +97,7 @@ export function briefDays(limit = 14): string[] {
 // tickets: what your Jira filter pulls in (null: Jira isn't linked). running: is that run going right now?
 // jobs: the camp's scheduled jobs. yours: your own notes. notes: what couldn't be read.
 export function gatherBrief(o: { now?: Date; pulls: Pulls; tickets: JiraCard[] | null; running?: (expedition: string) => boolean; waiting?: { memory: number; skills: number };
-  jobs?: Job[]; yours?: Note[]; notes?: string[]; news?: NewsItem[] | null }): Brief {
+  jobs?: Job[]; yours?: Note[]; notes?: string[]; news?: NewsItem[] | null; calendar?: Brief["calendar"] | null }): Brief {
   const now = o.now ?? new Date();
   const day = dayOf(now);
   // "Since last time": since the brief before this one, or a day back when there isn't a recent one.
@@ -153,6 +159,7 @@ export function gatherBrief(o: { now?: Date; pulls: Pulls; tickets: JiraCard[] |
     },
     waiting: o.waiting ?? { memory: 0, skills: 0 },
     ...(o.news ? { news: o.news } : {}),
+    ...(o.calendar ? { calendar: o.calendar } : {}),
     notes: [...(o.notes ?? []), ...(o.pulls.error ? [`Your pull requests couldn't be read: ${o.pulls.error}`] : [])],
   };
 }
@@ -164,6 +171,7 @@ export function briefText(b: Brief): string {
   const parts: string[] = [];
   if (b.needs.length) parts.push(`**Waiting on you (${b.needs.length})**\n${list(b.needs)}`);
   if (b.moving.length) parts.push(`**In motion (${b.moving.length})**\n${list(b.moving)}`);
+  if (b.calendar) parts.push(b.calendar.events.length ? `**Today on your calendar**\n${n(b.calendar.events.length, "event")}${b.calendar.more ? " or more" : ""}: open ${OUTPOST.name} to see them.` : "**Today on your calendar**\nNothing.");
   if (b.tickets.length) parts.push(`**Your tickets (${b.tickets.length})**\n${list(b.tickets)}`);
   if (b.next.length) parts.push(`**Upcoming (${b.next.length})**\n${list(b.next)}`);
   const d = b.done;
@@ -182,7 +190,7 @@ export function briefText(b: Brief): string {
 // A brief in a line, for a notification.
 export function briefLine(b: Brief): string {
   const n = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
-  return [b.needs.length ? `${n(b.needs.length, "thing")} waiting on you` : "Nothing waiting on you", b.moving.length ? `${b.moving.length} in motion` : "", b.tickets.length ? `${n(b.tickets.length, "ticket")} under way` : "", b.next.length ? `${b.next.length} upcoming` : ""].filter(Boolean).join(", ") + ".";
+  return [b.needs.length ? `${n(b.needs.length, "thing")} waiting on you` : "Nothing waiting on you", b.calendar?.events.length ? `${n(b.calendar.events.length, "event")} today` : "", b.moving.length ? `${b.moving.length} in motion` : "", b.tickets.length ? `${n(b.tickets.length, "ticket")} under way` : "", b.next.length ? `${b.next.length} upcoming` : ""].filter(Boolean).join(", ") + ".";
 }
 
 // ---------- Writing today's ----------
@@ -190,7 +198,7 @@ export function briefLine(b: Brief): string {
 // the inbox and send a notification (the morning one does; one you ask for from the page doesn't).
 let writing: Promise<Brief> | null = null;
 export function writeBrief(o: { now?: Date; running?: (expedition: string) => boolean; waiting?: { memory: number; skills: number }; announce?: boolean;
-  read?: { pulls?: () => Promise<Pulls>; tickets?: () => Promise<JiraCard[] | null>; jobs?: () => Job[]; notes?: () => Note[]; news?: (since: string, seen: string[]) => Promise<NewsItem[]> };
+  read?: { pulls?: () => Promise<Pulls>; tickets?: () => Promise<JiraCard[] | null>; jobs?: () => Job[]; notes?: () => Note[]; news?: (since: string, seen: string[]) => Promise<NewsItem[]>; calendar?: (from: Date) => Promise<Brief["calendar"] | null> };
   d?: Drive } = {}): Promise<Brief> {
   return (writing ??= (async () => {
     const notes: string[] = [];
@@ -198,7 +206,9 @@ export function writeBrief(o: { now?: Date; running?: (expedition: string) => bo
     const tickets = await (o.read?.tickets ?? (async () => (jiraConnected() ? (await pulledTickets()).tickets : null)))()
       .catch((e: any) => { notes.push(`Jira couldn't be read: ${String(e?.message ?? e).slice(0, 200)}`); return null; });
     const news = await briefNews(o.now ?? new Date(), o.d ?? drive(), o.read?.news, notes);
-    const b = gatherBrief({ now: o.now, pulls, tickets, running: o.running, waiting: o.waiting, notes, jobs: (o.read?.jobs ?? loadJobs)(), yours: (o.read?.notes ?? loadNotes)(), news });
+    const calendar = await (o.read?.calendar ?? todaysEvents)(new Date(new Date(o.now ?? Date.now()).setHours(0, 0, 0, 0)))
+      .catch((e: any) => { notes.push(`Your calendar couldn't be read: ${String(e?.message ?? e).slice(0, 200)}`); return null; });
+    const b = gatherBrief({ now: o.now, pulls, tickets, running: o.running, waiting: o.waiting, notes, jobs: (o.read?.jobs ?? loadJobs)(), yours: (o.read?.notes ?? loadNotes)(), news, calendar });
     mkdirSync(BRIEFS_DIR, { recursive: true });
     writeJsonAtomic(fileOf(b.day), b);
     for (const old of briefDays(1000).slice(KEEP)) rmSync(fileOf(old), { force: true });
@@ -210,6 +220,13 @@ export function writeBrief(o: { now?: Date; running?: (expedition: string) => bo
     }
     return b;
   })().finally(() => { writing = null; }));
+}
+
+// Today's events on the calendars Home's week shows (null: Google Calendar isn't linked).
+async function todaysEvents(from: Date): Promise<Brief["calendar"] | null> {
+  if (!calendarConnected()) return null;
+  const { events, timeZone, more } = await weekEvents({ from: from.toISOString(), days: 1 });
+  return { events, timeZone, more };
 }
 
 // The day's AI news, when you've turned it on (null: it's off, or couldn't be had). A brief
