@@ -72,6 +72,8 @@ test("the page's policy allows only the camp's own scripts and styles", () => {
   assert.match(UI_CSP, /script-src 'self'/);
   assert.match(UI_CSP, /style-src 'self'/);
   assert.match(UI_CSP, /frame-ancestors 'none'/);
+  // Read aloud plays each part from a blob: URL, which media-src must allow (default-src 'none' would block it).
+  assert.match(UI_CSP, /media-src 'self' blob:/);
 });
 
 test("the terminal's style rules get a per-launch nonce, and nothing else is loosened", () => {
