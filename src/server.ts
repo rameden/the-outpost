@@ -56,6 +56,7 @@ import { learning, setLearning } from "./settings.js";
 import { inspectPack, installPack, removeSkill, skillDetail, readSkillFile, saveSkillFile, alwaysFor, setSkillAlways } from "./skillpacks.js";
 import { skillCommands } from "./settings.js";
 import { dueJobs, runJob, inboxEntries, inboxUnread, markInboxSeen, claimScheduler, schedulerOwner, toInbox } from "./scheduler.js";
+import { threadStats } from "./threadstats.js";
 import { feedEventsOf, feedSince, keepInFeed, loadFeed, saveToFeed, trimFeed } from "./feed.js";
 import { accessFrom, addressOf, hostAllowed, isLocal, relayed } from "./access.js";
 import { hostname, networkInterfaces } from "node:os";
@@ -1065,6 +1066,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/conversation") {
       return send(res, 200, { events: conversationEvents(String(url.searchParams.get("id") ?? ""), feedbackFor) });
     }
+    // A conversation's Status tab: cost, time, who did the work, and what fills its latest run's context.
+    if (req.method === "GET" && url.pathname === "/api/conversation/stats") return send(res, 200, threadStats(String(url.searchParams.get("id") ?? "")));
 
     if (req.method === "GET" && url.pathname === "/api/checkpoint") {
       return send(res, 200, checkpointDiff(String(url.searchParams.get("id") ?? "")));
