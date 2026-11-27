@@ -88,7 +88,7 @@ import { routingReport } from "./autoroute.js";
 import { chroniclePage, chronicleRequest, saveChronicle, weekFacts, weekLabel, weekOf } from "./reports.js";
 import { giveFeedback, feedbackFor } from "./feedback.js";
 import { listTerminals, openTerminal, streamTerminal, writeTerminal, resizeTerminal, closeTerminal, lockTerminal } from "./term.js";
-import { CALLBACK_PATH as GCAL_CALLBACK, CalendarError, calendarStatus, finishCalendarLink, redirectFor, startCalendarLink, unlinkCalendar, weekEvents } from "./gcal.js";
+import { CALLBACK_PATH as GCAL_CALLBACK, CalendarError, calendarStatus, finishCalendarLink, pickWeekCalendars, redirectFor, startCalendarLink, unlinkCalendar, weekCalendarChoices, weekEvents } from "./gcal.js";
 import { connectJira, disconnectJira, findIssues, JIRA_KEY, JIRA_NOTE, JiraError, jiraStatus, pulledTickets, readIssue, saveJiraFilter, ticketDetail, writeBack, writeBackSettings, saveWriteBack } from "./jira.js";
 import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
@@ -1036,6 +1036,11 @@ const server = http.createServer(async (req, res) => {
       try { return send(res, 200, await weekEvents({ from: url.searchParams.get("from") ?? undefined })); }
       catch (e: any) { return send(res, e instanceof CalendarError && e.fixable ? 400 : 502, { error: e.message }); }
     }
+    // Which calendars the week shows, and the others you could tick (names only, never a token).
+    if (req.method === "GET" && url.pathname === "/api/gcal/calendars") {
+      try { return send(res, 200, await weekCalendarChoices()); }
+      catch (e: any) { return send(res, e instanceof CalendarError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
     if (req.method === "GET" && url.pathname === "/api/brief") {
       const b = readBrief(String(url.searchParams.get("day") ?? ""));
       return b ? send(res, 200, b) : send(res, 404, { error: "There's no brief for that day." });
@@ -1585,6 +1590,11 @@ const server = http.createServer(async (req, res) => {
         if (!fromHere(req)) return send(res, 400, { error: `Google sends you back to the ${word("camp")}'s own machine after you sign in, so link Google Calendar from a browser there.` });
         return send(res, 200, startCalendarLink(body, redirectFor(body.origin, PORT)));
       } catch (e: any) { return send(res, e instanceof CalendarError && e.fixable ? 400 : 502, { error: e.message }); }
+    }
+    // Pick the calendars Home's week shows ({ ids }, or { ids: null } to follow Google Calendar's ticks again).
+    if (url.pathname === "/api/gcal/calendars") {
+      try { return send(res, 200, await pickWeekCalendars(body.ids)); }
+      catch (e: any) { return send(res, e instanceof CalendarError && e.fixable ? 400 : 502, { error: e.message }); }
     }
     // Which tickets are pulled in ({ jql }; empty goes back to "assigned to me, not done"). Jira runs it first: a filter it rejects isn't kept.
     if (url.pathname === "/api/jira/filter") {
