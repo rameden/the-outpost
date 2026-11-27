@@ -88,6 +88,13 @@ export function buildPage(): number {
   return spawnSync(process.execPath, ["--import", import.meta.resolve("tsx"), join(ROOT, "scripts", "ui-build.ts"), "--if-stale"], { cwd: ROOT, stdio: "inherit" }).status ?? 1;
 }
 
+// The next release notes, written in this checkout by a process of their own (scripts/release-notes.ts). Resolves when it's done.
+export function writeReleaseNotesNow(): Promise<void> {
+  const env = pathToFileURL(join(ROOT, "scripts", "env.mjs")).href; // Mae's .env, for the small model
+  const child = spawn(process.execPath, ["--import", env, "--import", import.meta.resolve("tsx"), join(ROOT, "scripts", "release-notes.ts")], { cwd: ROOT, stdio: ["ignore", "ignore", "inherit"] });
+  return new Promise((done) => { child.once("exit", () => done()); child.once("error", () => done()); });
+}
+
 // The outpost's own server, running in its own folder: the camp alone, or (dev) with Vite in front.
 // `more`: anything else to tell it (the star chart says where it is, so the outpost can link back).
 export function spawnOutpost(o: Place, dev: boolean, stdio: StdioOptions = "inherit", more: Record<string, string> = {}): ChildProcess {

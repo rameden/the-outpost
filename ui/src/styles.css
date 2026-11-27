@@ -421,6 +421,7 @@ button.chip.needs:hover { background: var(--accent); color: var(--accent-ink); f
 .dot.live { background: var(--good); }
 .dot.warn { background: var(--bad); }
 .icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 0; background: none; border-radius: 8px; color: var(--muted); transition: background .12s, color .12s; }
+a.icon-btn { text-decoration: none; } /* the Outposts link, beside Views: an icon like its neighbours, not a link */
 .icon-btn:hover { color: var(--text); background: var(--surface-2); }
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
 .icon-btn.egg-paused { color: var(--accent); } /* Barnstorm paused: there's a game to come back to */
@@ -3399,7 +3400,8 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
    sun and planets, the top bar, the panel and the key. Only what those don't cover is here.
    --k is how far the chart is scaled, so names stay the same size on the page. */
 .hub-sky { position: absolute; inset: 0; display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
-.hub .con-title h1 { margin: 0; font: 600 20px/1.2 var(--serif); }
+.hub .con-title h1 { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 20px/1.2 var(--sans); }
+.hub .con-title h1 .mae-mark { width: 24px; height: 24px; } /* the logo's mark (MaeLogo.tsx), before the name */
 .hub-far { opacity: .4; }
 /* Every outpost goes slowly round the sun, and its line with it (a line is uneven, so the two turn
    as one); .hub-level turns the planet back as far, so it and its name stay upright. They hold still
@@ -3441,9 +3443,30 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 @media (min-width: 761px) { .hub.has-panel .con-foot { right: 400px; } }
 @media (max-width: 760px) { .hub .con-panel { height: 50%; } .hub.has-panel .con-foot { display: none; } }
 
-/* Release notes (components/ReleaseNotes.tsx): one section per write-up, front end then back end, big features first. */
-.releases-page .release { display: flex; flex-direction: column; gap: 10px; }
-.release-side h3 { margin: 4px 0 6px; font: 600 15px var(--serif); }
+/* Release notes (hub/ReleaseNotes.tsx), in the star chart's drawer down its left side: the rail, as an outpost's
+   workspace has (.zone-rail, Drawer in bits.tsx), and beside it while open, one section per write-up, front end
+   then back end, big features first. The chart's title, words and key move over by what it takes (--notes). */
+.hub { --notes: 30px; }
+@media (min-width: 761px) { .hub.notes-open { --notes: 410px; } }
+.hub .con-top { left: var(--notes); }
+.hub .hub-about, .hub .con-foot { left: calc(var(--notes) + 16px); }
+.hub-notes { position: absolute; left: 0; top: 0; bottom: 0; z-index: 2; display: flex; }
+.hub-notes > .zone-rail { border-right: 1px solid var(--border); cursor: pointer; }
+.hub-notes .side-drawer { height: 100%; flex-direction: row-reverse; } /* the notes against the page's edge, the rail beside them */
+.hub-notes .side-drawer > .zone-rail.open { border-left: 0; border-right: 1px solid var(--border); }
+.hub-notes-panel { width: 380px; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-right: 1px solid var(--border); box-shadow: var(--shadow-lg); }
+.hub-notes-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 14px 16px 20px; font-size: 14px; }
+.hub-notes-body > .meta { margin: 0; font-size: 13px; color: var(--muted); }
+.hub-notes-body a { color: var(--text); }
+@media (max-width: 760px) { .hub-notes-panel { width: calc(100vw - 30px); } }
+.release { display: flex; flex-direction: column; gap: 10px; }
+.release-side h3 { margin: 0 0 8px; font: 600 13px var(--sans); }
+.release-side.folded h3 { margin-bottom: 0; }
+.release-fold { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 0; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.release-fold .icon { width: 14px; height: 14px; color: var(--muted); }
+.release-fold:hover .icon { color: var(--text); }
+.release-count { margin-left: auto; font-weight: 400; font-size: 12px; color: var(--faint); }
+.release-note b { font-weight: 600; }
 .release-side ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .release-note > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .release-note .meta { font-size: 13px; color: var(--muted); margin-top: 2px; max-width: 72ch; }

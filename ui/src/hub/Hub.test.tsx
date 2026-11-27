@@ -11,15 +11,27 @@ function serve(outposts: HubOutpost[], more: Record<string, (body: any) => { sta
   vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     calls.push({ path, body });
-    const answer = path === "/api/outposts" ? { json: { outposts } } : more[path]?.(body) ?? { status: 404, json: { error: "Not found" } };
+    const answer = more[path]?.(body) ?? (path === "/api/outposts" ? { json: { outposts } } : path === "/api/releases" ? { json: { checked: "", repo: "", releases: [] } } : { status: 404, json: { error: "Not found" } });
     return { ok: (answer.status ?? 200) < 400, status: answer.status ?? 200, json: async () => answer.json } as Response;
   }));
   return calls;
 }
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe("the star chart page", () => {
+  it("has the release notes down its left side, open at first, and its rail folds them away", async () => {
+    serve([outpost({})]);
+    render(<Hub />);
+    expect(await screen.findByText(/No release notes yet/)).toBeTruthy();
+    expect(document.querySelector("main.hub")!.classList.contains("notes-open")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Hide the release notes" }));
+    expect(screen.queryByRole("region", { name: "Release notes" })).toBeNull();
+    expect(document.querySelector("main.hub")!.classList.contains("notes-open")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Show the release notes" }));
+    expect(screen.getByRole("region", { name: "Release notes" })).toBeTruthy();
+  });
+
   it("shows a star for each outpost, and says which are running", async () => {
     serve([outpost({}), outpost({ id: "work", name: "Work", port: 4748, here: false, running: true })]);
     render(<Hub />);

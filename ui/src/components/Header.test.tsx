@@ -336,13 +336,15 @@ test("what's being read aloud has its controls in the bar, just before the statu
 
 test("an outpost the star chart started links back to it, from this machine only", () => {
   const S = { ...camp(), settings: { ...camp().settings, chart: "http://127.0.0.1:4700/" } } as CampState;
-  const { unmount } = render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "More" })); // it's in the ··· menu
-  expect(screen.getByRole("menuitem", { name: "Outposts" }).getAttribute("href")).toBe("http://127.0.0.1:4700/");
+  const { unmount } = render(<Header S={S} store={createFeedStore()} conn="live" refresh={() => {}} onOrbit={() => {}} />);
+  const link = screen.getByRole("link", { name: "Outposts" }); // its own button, just before Views
+  expect(link.getAttribute("href")).toBe("http://127.0.0.1:4700/");
+  expect(link.nextElementSibling?.querySelector('[aria-label="Views"]')).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  expect(screen.queryByRole("menuitem", { name: "Outposts" })).toBeNull(); // no longer in the ··· menu
   unmount();
   render(<Header S={camp()} store={createFeedStore()} conn="live" refresh={() => {}} />);
-  fireEvent.click(screen.getByRole("button", { name: "More" }));
-  expect(screen.queryByRole("menuitem", { name: "Outposts" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Outposts" })).toBeNull();
 });
 
 test("everything paused: the bar says so, and the chip resumes", async () => {
