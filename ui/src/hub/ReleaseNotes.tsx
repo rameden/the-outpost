@@ -36,7 +36,7 @@ export function ReleaseDrawer({ open, onToggle, ask }: { open: boolean; onToggle
 function OpenDrawer({ onToggle, ask }: { onToggle: () => void; ask: Ask }) {
   const notes = useReleases(ask);
   const check = (
-    <button type="button" className="hist-icon" aria-label="Check now" aria-busy={notes.checking} disabled={notes.checking}
+    <button type="button" className={notes.checking ? "hist-icon checking" : "hist-icon"} aria-label="Check now" aria-busy={notes.checking} disabled={notes.checking}
       title={notes.checking ? "Checking…" : "Check now: look for pull requests merged since the last write-up, and write them up"} onClick={() => void notes.checkNow()}>
       <Icon name="refresh" />
     </button>
@@ -71,7 +71,7 @@ function useReleases(ask: Ask): Notes {
   return { data, error, checking, checkNow };
 }
 
-export function ReleaseNotes({ data, error, checkNow }: Notes) {
+export function ReleaseNotes({ data, error, checking, checkNow }: Notes) {
   const list = data?.releases ?? [];
   const next = data?.checked ? new Date(new Date(data.checked).getTime() + 2 * DAY) : null;
   return (
@@ -81,6 +81,7 @@ export function ReleaseNotes({ data, error, checkNow }: Notes) {
           What's changed in {data?.repo ? <a href={`https://github.com/${data.repo}`} target="_blank" rel="noreferrer">{data.repo}</a> : "Outpost"}, summed up from its merged pull requests every 48 hours.
           {data?.checked ? ` Last looked ${day(data.checked)}${next ? `; next around ${day(next.toISOString())}` : ""}.` : ""}
         </p>
+        {checking && <div className="hub-notes-checking" role="status"><Icon name="refresh" />Looking for pull requests merged since the last write-up, and writing them up. This can take a minute.</div>}
         {(error || data?.error) && <div className="hist-empty" role="alert">Couldn't read the merged pull requests: {error || data?.error}</div>}
         {data && !list.length && <div className="hist-empty">No release notes yet. A running outpost writes the first a minute after it starts, from the last two weeks of merged pull requests, or <button type="button" className="linkish" onClick={() => void checkNow()}>write them now</button>.</div>}
         {list.map((r) => <ReleaseCard key={r.id} r={r} />)}
