@@ -295,11 +295,15 @@ export function Trail({ S, store, onClose, onOpenQuest, pick }: {
     })();
     return () => { gone = true; };
   }, []);
+  // A conversation you removed takes its plans off the map with it, live and in a replay.
+  const removedList = S?.history?.removed;
   const [plans, old] = useMemo(() => {
-    const here = plansOf(items), have = new Set(here.map((p) => p.expId));
-    const before = replay ? [] : day.filter((p) => !have.has(p.expId));
+    const removed = new Set(removedList ?? []);
+    const kept = (ps: Trailhead[]) => (removed.size ? ps.filter((p) => !p.thread || !removed.has(p.thread)) : ps);
+    const here = kept(plansOf(items)), have = new Set(here.map((p) => p.expId));
+    const before = replay ? [] : kept(day).filter((p) => !have.has(p.expId));
     return [before.length ? [...before, ...here] : here, new Set(before.map((p) => p.expId))] as const;
-  }, [items, day, replay]);
+  }, [items, day, replay, removedList]);
   const shown = plans.find((p) => p.expId === picked) ?? plans.at(-1);
   // On the whole map, a plan that goes (the day wound back, in a replay) is drawn while it fades.
   // Not across the change from today to a replay or back: those are different days' plans.

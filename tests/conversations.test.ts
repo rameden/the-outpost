@@ -80,6 +80,7 @@ test("projects: General, one per linked folder, and your own; filing, moving, re
 
   c.removeConversation("b");
   assert.deepEqual(c.history().conversations.map((x) => x.id), ["a"]);
+  assert.deepEqual(c.history().removed, ["b"], "named, so the trail map can leave its plans out too");
   assert.ok(threadFor("b"), "removing only hides it: the record is still there");
 });
 
