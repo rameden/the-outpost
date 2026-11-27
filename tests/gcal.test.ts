@@ -153,6 +153,28 @@ test("Home's week comes back as data: seven days, cancelled ones left out, only 
   assert.equal(q.get("timeMin"), new Date("2026-11-23T00:00:00").toISOString());
 });
 
+test("you can pick the week's calendars; a pick is kept, unknown ids are dropped, and null follows Google again", async () => {
+  let c = await g.weekCalendarChoices();
+  assert.equal(c.picked, false);
+  assert.deepEqual(c.calendars.map((x) => [x.name, x.shown]), [["Me", true], ["Holidays", false], ["Family", true]], "hidden calendars aren't offered; the primary one comes first");
+  c = await g.pickWeekCalendars(["family@group", "not-mine@group"]);
+  assert.equal(c.picked, true);
+  assert.deepEqual(c.calendars.filter((x) => x.shown).map((x) => x.id), ["family@group"]);
+  assert.deepEqual(JSON.parse(readFileSync(g.GCAL_PATH, "utf8")).week, ["family@group"], "an id that isn't on your list isn't kept");
+  seen.length = 0;
+  const wk = await g.weekEvents({ from: "2026-11-23" });
+  assert.deepEqual(wk.events.map((e) => e.title), ["Standup", "Family dinner"]);
+  assert.ok(!seen.some((r) => r.url.includes("/calendars/primary/events")), "your own calendar, unticked, isn't read");
+  assert.equal(wk.timeZone, "Europe/London", "times are still told in your own time zone");
+  await assert.rejects(g.pickWeekCalendars("family@group"), /list of calendar ids/);
+  c = await g.pickWeekCalendars([]);
+  assert.equal((await g.weekEvents({ from: "2026-11-23" })).events.length, 0, "nothing ticked shows an empty week");
+  c = await g.pickWeekCalendars(null);
+  assert.equal(c.picked, false);
+  assert.equal(JSON.parse(readFileSync(g.GCAL_PATH, "utf8")).week, undefined);
+  assert.equal((await g.weekEvents({ from: "2026-11-23" })).events.length, 4);
+});
+
 test("linked to read only, nothing is added and nobody is asked", async () => {
   let asked = 0;
   setAsker(async () => { asked++; return "y"; });

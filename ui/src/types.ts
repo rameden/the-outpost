@@ -3,7 +3,7 @@
 
 export type { CampEvent, AskKind } from "../../src/events.ts";
 export type { CampState, AgentDetail } from "../../src/server.ts";
-export type { CalendarWeek, WeekEvent } from "../../src/gcal.ts";
+export type { CalendarWeek, WeekEvent, WeekCalendars } from "../../src/gcal.ts";
 export type { ModelInfo } from "../../src/agent.ts";
 export type { Link } from "../../src/links.ts";
 export type { Note } from "../../src/notes.ts";

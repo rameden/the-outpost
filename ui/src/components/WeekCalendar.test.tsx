@@ -38,3 +38,32 @@ test("shows the seven days with today marked, and steps to the next week", async
   expect(String((fetch.mock.calls[1] as unknown[])[0])).toContain(encodeURIComponent(new Date(2026, 10, 30).toISOString()));
   expect(screen.getByText(/Next week/)).toBeTruthy();
 });
+
+test("the Calendars menu ticks which calendars the week shows, saves each tick, and fetches the week again", async () => {
+  let shown = ["me@x", "fam@x"];
+  const list = (picked: boolean) => ({ picked, calendars: [
+    { id: "me@x", name: "Me", primary: true, shown: shown.includes("me@x") },
+    { id: "fam@x", name: "Family", primary: false, shown: shown.includes("fam@x") },
+  ] });
+  const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.includes("/api/gcal/calendars")) {
+      if (init?.method === "POST") shown = JSON.parse(String(init.body)).ids ?? ["me@x", "fam@x"];
+      return new Response(JSON.stringify(list(init?.method === "POST")), { status: 200 });
+    }
+    return new Response(JSON.stringify(week), { status: 200 });
+  });
+  vi.stubGlobal("fetch", fetch);
+  render(<WeekCalendar now={now} />);
+  await screen.findByText("Standup");
+  fireEvent.click(screen.getByRole("button", { name: "Calendars" }));
+  const family = await screen.findByRole("checkbox", { name: /Family/ });
+  expect((family as HTMLInputElement).checked).toBe(true);
+  expect(screen.getByText(/Showing the calendars ticked in Google Calendar/)).toBeTruthy();
+  fireEvent.click(family);
+  await waitFor(() => expect((screen.getByRole("checkbox", { name: /Family/ }) as HTMLInputElement).checked).toBe(false));
+  const post = fetch.mock.calls.find(([u, i]) => String(u).includes("/api/gcal/calendars") && i?.method === "POST")!;
+  expect(JSON.parse(String(post[1]!.body))).toEqual({ ids: ["me@x"] });
+  await waitFor(() => expect(fetch.mock.calls.filter(([u]) => String(u).includes("/api/gcal/week"))).toHaveLength(2));
+  fireEvent.click(screen.getByRole("button", { name: "Show what Google Calendar shows" }));
+  await waitFor(() => expect(fetch.mock.calls.some(([, i]) => i?.method === "POST" && JSON.parse(String(i.body)).ids === null)).toBe(true));
+});

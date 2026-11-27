@@ -50,6 +50,7 @@ const API = () => testBase() ? `${testBase()}/calendar/v3` : "https://www.google
 type Saved = {
   clientId: string; clientSecret: string; refreshToken: string;
   scopes: string[]; email: string | null; timeZone: string | null; connected: string;
+  week?: string[]; // the calendars Home's week shows, as you picked them; left out, the ones ticked in Google Calendar
 };
 // What the page is told: never the secret or a token.
 // write: whether the crew may add events (each one asks you first). broken: Google no longer
@@ -157,7 +158,9 @@ export async function finishCalendarLink(params: URLSearchParams): Promise<Calen
   access = { token: t.access_token, until: Date.now() + (t.expires_in ?? 3600) * 1000 - 60_000 };
   broken = null;
   const me = await apiCall<{ id?: string; timeZone?: string }>("GET", "/calendars/primary", undefined, t.access_token).catch(() => ({} as { id?: string; timeZone?: string }));
-  keep({ clientId: p.clientId, clientSecret: p.clientSecret, refreshToken: t.refresh_token, scopes, email: me.id ?? null, timeZone: me.timeZone ?? null, connected: new Date().toISOString() });
+  const before = saved();
+  const week = before?.week && before.email && before.email === me.id ? { week: before.week } : {}; // the same account linked again keeps your pick
+  keep({ clientId: p.clientId, clientSecret: p.clientSecret, refreshToken: t.refresh_token, scopes, email: me.id ?? null, timeZone: me.timeZone ?? null, connected: new Date().toISOString(), ...week });
   return calendarStatus();
 }
 
@@ -287,8 +290,39 @@ export async function listEvents(input: { from?: unknown; to?: unknown; calendar
     shown.map((e) => eventText(e, r.timeZone)).join("\n") + (items.length > MAX_EVENTS ? "\n(more: ask for a shorter span)" : "");
 }
 
-// The page's week on Home: the events for the seven days from `from` on every calendar you have
-// switched on in Google Calendar (the primary one always), as data
+// Which calendars Home's week shows. Until you pick (in the week's Calendars menu), the ones ticked
+// in Google Calendar's own list, never hidden ones, and the primary one whatever its tick (a shared
+// family calendar is often where most events are). Once you pick, just those.
+export type WeekCalendarChoice = { id: string; name: string; primary: boolean; shown: boolean };
+export type WeekCalendars = { calendars: WeekCalendarChoice[]; picked: boolean };
+export async function weekCalendarChoices(): Promise<WeekCalendars> {
+  const pick = saved()?.week;
+  const list = await apiCall<CalList>("GET", "/users/me/calendarList?maxResults=100").catch(() => ({ items: [] } as CalList));
+  const items = (list.items ?? []).filter((c) => !c.hidden || pick?.includes(c.id));
+  if (!items.some((c) => c.primary)) items.unshift({ id: saved()?.email ?? "primary", summary: saved()?.email ?? "Your calendar", primary: true });
+  items.sort((a, b) => Number(!!b.primary) - Number(!!a.primary));
+  const calendars = items.slice(0, WEEK_CALENDARS).map((c) => ({
+    id: c.id, name: oneLine(c.summary ?? c.id, 120), primary: !!c.primary,
+    shown: pick ? pick.includes(c.id) || (!!c.primary && pick.includes("primary")) : !!c.primary || !!c.selected,
+  }));
+  return { calendars, picked: !!pick };
+}
+
+// Pick the calendars Home's week shows (ids from weekCalendarChoices), or null to go back to
+// following Google Calendar's ticks. Only calendars on your list can be picked.
+export async function pickWeekCalendars(ids: unknown): Promise<WeekCalendars> {
+  const s = saved();
+  if (!s) throw new CalendarError("Google Calendar isn't linked. Link it in Settings → Connectors.", 400, true);
+  if (ids === null) { const { week: _, ...rest } = s; keep(rest); return weekCalendarChoices(); }
+  if (!Array.isArray(ids)) throw new CalendarError("ids is a list of calendar ids, or null.", 400, true);
+  const known = new Set((await weekCalendarChoices()).calendars.map((c) => c.id));
+  const week = [...new Set(ids.map(String))].filter((id) => known.has(id));
+  keep({ ...s, week });
+  return weekCalendarChoices();
+}
+
+// The page's week on Home: the events for the seven days from `from` on the calendars it shows
+// (above), as data
 // (not the crew's text). Titles and places are whoever made the event's words: the page shows them
 // as plain text, and an event's link is kept only when it's Google Calendar's own.
 export type WeekEvent = { id: string; title: string; start: string; end: string; allDay: boolean; location: string | null; url: string | null; answer: string | null };
@@ -301,10 +335,8 @@ export async function weekEvents(input: { from?: unknown }): Promise<CalendarWee
   const from = input.from ? parseTime(input.from, "from") : new Date(new Date().setHours(0, 0, 0, 0));
   const to = new Date(from.getTime() + 7 * DAY);
   const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: String(WEEK_MAX + 1) });
-  // Which calendars: the ones ticked in Google Calendar's own list (a shared family calendar is
-  // often where most events are), never hidden ones, and the primary calendar whatever its tick.
-  const list = await apiCall<CalList>("GET", "/users/me/calendarList?maxResults=100").catch(() => ({ items: [] } as CalList));
-  const ids = ["primary", ...(list.items ?? []).filter((c) => !c.primary && c.selected && !c.hidden).map((c) => c.id)].slice(0, WEEK_CALENDARS);
+  const ids = (await weekCalendarChoices()).calendars.filter((c) => c.shown).map((c) => c.primary ? "primary" : c.id);
+  if (!ids.length) return { from: from.toISOString(), to: to.toISOString(), timeZone: saved()?.timeZone ?? null, events: [], more: false };
   const got = await Promise.allSettled(ids.map((id) => apiCall<{ items?: GEvent[]; timeZone?: string }>("GET", `/calendars/${encodeURIComponent(id)}/events?${q}`)));
   const ok = got.flatMap((x) => x.status === "fulfilled" ? [x.value] : []);
   if (!ok.length) throw (got[0] as PromiseRejectedResult).reason; // none could be read: say why the first couldn't
@@ -330,7 +362,7 @@ export async function weekEvents(input: { from?: unknown }): Promise<CalendarWee
       answer: me && me !== "accepted" ? me : null,
     };
   });
-  return { from: from.toISOString(), to: to.toISOString(), timeZone: r.timeZone ?? saved()?.timeZone ?? null, events, more: items.length > WEEK_MAX || ok.some((c) => (c.items?.length ?? 0) > WEEK_MAX) };
+  return { from: from.toISOString(), to: to.toISOString(), timeZone: saved()?.timeZone ?? r.timeZone ?? null, events, more: items.length > WEEK_MAX || ok.some((c) => (c.items?.length ?? 0) > WEEK_MAX) };
 }
 
 export async function busyTimes(input: { from?: unknown; to?: unknown }): Promise<string> {
