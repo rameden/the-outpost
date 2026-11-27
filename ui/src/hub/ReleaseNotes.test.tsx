@@ -46,6 +46,21 @@ test("each side's header folds its notes away and brings them back", async () =>
   expect(screen.getByText("A new page")).toBeTruthy();
 });
 
+test("while Check now runs, the button turns and is held, and the panel says it's looking", async () => {
+  let finish!: (v: unknown) => void;
+  const ask = vi.fn((path: string) => path === "/api/releases/refresh" ? new Promise((r) => { finish = r; }) : Promise.resolve(DATA)) as unknown as Parameters<typeof ReleaseDrawer>[0]["ask"];
+  render(<ReleaseDrawer open ask={ask} onToggle={() => {}} />);
+  const check = await screen.findByRole("button", { name: "Check now" });
+  fireEvent.click(check);
+  expect(check.getAttribute("aria-busy")).toBe("true");
+  expect((check as HTMLButtonElement).disabled).toBe(true);
+  expect(check.className).toContain("checking");
+  expect(screen.getByRole("status").textContent).toMatch(/Looking for pull requests/);
+  finish(DATA);
+  await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  expect((check as HTMLButtonElement).disabled).toBe(false);
+});
+
 test("nothing written yet says so; the old workspace page lands on Today", async () => {
   render(<ReleaseDrawer open ask={asker({ checked: "", repo: "", releases: [] })} onToggle={() => {}} />);
   expect(await screen.findByText(/No release notes yet/)).toBeTruthy();

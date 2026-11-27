@@ -3456,6 +3456,12 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .hub-notes .side-drawer > .zone-rail.open { border-left: 0; border-right: 1px solid var(--border); }
 .hub-notes-panel { width: 380px; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-right: 1px solid var(--border); box-shadow: var(--shadow-lg); }
 .hub-notes-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 14px 16px 20px; font-size: 14px; }
+.hub-notes .hist-icon.checking { color: var(--text); }
+.hub-notes .hist-icon.checking .icon, .hub-notes-checking .icon { animation: notes-turn 1s linear infinite; }
+.hub-notes-checking { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--muted); }
+.hub-notes-checking .icon { width: 15px; height: 15px; flex: none; }
+@keyframes notes-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .hub-notes .hist-icon.checking .icon, .hub-notes-checking .icon { animation: none; } }
 .hub-notes-body > .meta { margin: 0; font-size: 13px; color: var(--muted); }
 .hub-notes-body a { color: var(--text); }
 @media (max-width: 760px) { .hub-notes-panel { width: calc(100vw - 30px); } }
