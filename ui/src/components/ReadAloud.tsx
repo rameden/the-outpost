@@ -10,12 +10,15 @@ export const useReading = () => useSyncExternalStore(onReading, reading);
 // A button that reads some text aloud in your ElevenLabs voice. The reading itself is run from the
 // player (below), which stays in the top bar wherever you go; this button turns into Stop while its own text
 // is the one being read. what: a few words naming the text, for the player. markdown: the text is
-// Markdown, to be said without its marks.
-export function ReadAloud({ text, what, label = "Read aloud", markdown }: { text: string; what: string; label?: string; markdown?: boolean }) {
+// Markdown, to be said without its marks. icon: a bare icon button (in a row of them, under an answer).
+export function ReadAloud({ text, what, label = "Read aloud", markdown, icon }: { text: string; what: string; label?: string; markdown?: boolean; icon?: boolean }) {
   const id = useId();
   const r = useReading();
   if (!useContext(VoiceOn)) return null;
   const mine = r.from === id && r.state !== "idle";
+  if (icon) return mine
+    ? <button type="button" className="icon-btn on" aria-label="Stop reading" title="Stop reading" onClick={player.stop}><Icon name="stop" /></button>
+    : <button type="button" className="icon-btn" aria-label={label} disabled={!text.trim()} title="Read this aloud. Its text goes to ElevenLabs to be spoken." onClick={() => readAloud(markdown ? spoken(text) : text, { what, from: id })}><Icon name="speaker" /></button>;
   return mine
     ? <button type="button" className="btn small" onClick={player.stop}>Stop reading</button>
     : <button type="button" className="btn small" disabled={!text.trim()} title="Read this aloud. Its text goes to ElevenLabs to be spoken." onClick={() => readAloud(markdown ? spoken(text) : text, { what, from: id })}>{label}</button>;

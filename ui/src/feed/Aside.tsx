@@ -5,9 +5,10 @@
 
 import { useState } from "react";
 import { api, errorText } from "../api.ts";
-import { crewNow } from "../format.ts";
+import { crewNow, cx } from "../format.ts";
 import { usePopover } from "../components/usePopover.ts";
 import { complain } from "../components/StatusLine.tsx";
+import { Icon } from "../components/bits.tsx";
 
 // kind: what's being asked for. answeredBy: the crew member whose answer this is (they aren't offered).
 export function AsideButton({ expId, kind, answeredBy }: { expId: string; kind: "opinion" | "review"; answeredBy?: string }) {
@@ -25,9 +26,9 @@ export function AsideButton({ expId, kind, answeredBy }: { expId: string; kind: 
   const name = kind === "review" ? "Review changes" : "Second opinion";
   return (
     <span className="aside-pick" ref={box}>
-      <button type="button" className="btn small" aria-haspopup="menu" aria-expanded={open}
+      <button type="button" className={cx("icon-btn", open && "on")} aria-haspopup="menu" aria-expanded={open} aria-label={`${name}…`}
         title={kind === "review" ? "Have someone else read the diff and list what's wrong with it" : "Have someone else check this answer against the same code and say where it's wrong"}
-        onClick={() => setOpen((o) => !o)}>{name}…</button>
+        onClick={() => setOpen((o) => !o)}><Icon name={kind === "review" ? "eye" : "users"} /></button>
       {open && (
         <span className="popover aside-menu" role="menu" aria-label={`${name} from`}>
           <span className="menu-label">{name} from</span>

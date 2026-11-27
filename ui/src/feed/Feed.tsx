@@ -232,11 +232,14 @@ function Ask({ exp }: { exp: ExpNode }) {
         {exp.source === "job" && <span title="Sent by a scheduled job, not typed just now">Scheduled job · {exp.job}</span>}
         {exp.followUp && <span title="Carries the earlier conversation"><Icon name="reply" /> Follow-up</span>}
         {edit.button}
-        <time>{clock(exp.time)}</time>
+        {/* How long the answer took lives here, on hover, not under the answer. */}
+        <time title={exp.end ? `Answered in ${took(exp.end.seconds)}` : undefined}>{clock(exp.time)}</time>
       </div>
     </div>
   );
 }
+
+const took = (s: number) => s < 90 ? `${s}s` : `${Math.round(s / 60)} min`;
 
 // While an expedition runs, its Stop is the message box's button. A run whose Stop isn't there (one
 // in All runs, or an earlier run still going beside the newest) gets a small one under its corner.
@@ -247,9 +250,10 @@ function RunFoot({ stop, job }: { stop: ReactNode; job: boolean }) {
 
 // Your say on a finished run: a thumb, and optionally a note. The thumb is saved the moment you
 // click it; a note is saved when you press Save, and (unless you untick it) kept as a standing
-// note so later runs start with it.
+// note so later runs start with it. The thumbs sit in the answer's row of icons; the note's box,
+// and the note once saved, go under that row.
 type Given = NonNullable<ExpNode["feedback"]>;
-function FeedbackBar({ expId, given }: { expId: string; given?: Given }) {
+function useFeedback(expId: string, given?: Given) {
   const [mine, setMine] = useState<Given | undefined>(given);
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState(given?.note ?? "");
@@ -267,36 +271,34 @@ function FeedbackBar({ expId, given }: { expId: string; given?: Given }) {
     } catch (e) { complain(errorText(e)); }
     setBusy(false);
   }
+  // A thumb (again, to change the note) opens the note's box.
   const rate = (rating: "up" | "down") => { setOpen(true); void send(rating, false); };
 
-  return (
-    <div className="exp-feedback">
-      <div className="fb-row">
-        <span className="fb-ask">{mine ? "Your feedback" : "How was this?"}</span>
-        <button type="button" className={cx("fb-thumb", mine?.rating === "up" && "on")} aria-pressed={mine?.rating === "up"} aria-label="Good answer" title="Good: more like this" disabled={busy} onClick={() => rate("up")}><Icon name="up" /></button>
-        <button type="button" className={cx("fb-thumb", mine?.rating === "down" && "on")} aria-pressed={mine?.rating === "down"} aria-label="Not what I wanted" title="Not what I wanted" disabled={busy} onClick={() => rate("down")}><Icon name="down" /></button>
-        {mine && !open && (
-          <>
-            {mine.note && <span className="fb-note" title={mine.note}>“{mine.note}”</span>}
-            {mine.kept && <span className="fb-kept">Kept in {mine.kept}</span>}
-            <button type="button" className="linkish" onClick={() => setOpen(true)}>{mine.note ? "Edit note" : "Add a note"}</button>
-          </>
-        )}
-      </div>
-      {open && mine && (
-        <form className="fb-form" onSubmit={(ev) => { ev.preventDefault(); void send(mine.rating, true); }}>
-          <textarea value={note} rows={2} autoFocus aria-label="Feedback note"
-            placeholder={mine.rating === "up" ? "What worked? (optional)" : "What should it do differently next time? (optional)"}
-            onChange={(ev) => setNote(ev.target.value)} />
-          <div className="fb-form-row">
-            <label className="fb-keep"><input type="checkbox" checked={keep} onChange={(ev) => setKeep(ev.target.checked)} /> Keep this as a standing note for future work</label>
-            <button type="button" className="linkish" onClick={() => setOpen(false)}>Close</button>
-            <button type="submit" className="btn small primary" disabled={busy || !note.trim()}>Save note</button>
-          </div>
-        </form>
-      )}
-    </div>
+  const thumbs = (
+    <span className="fb-row" role="group" aria-label={mine ? "Your feedback" : "How was this?"}>
+      <button type="button" className={cx("icon-btn", mine?.rating === "up" && "on")} aria-pressed={mine?.rating === "up"} aria-label="Good answer" title="Good: more like this" disabled={busy} onClick={() => rate("up")}><Icon name="up" /></button>
+      <button type="button" className={cx("icon-btn", mine?.rating === "down" && "on")} aria-pressed={mine?.rating === "down"} aria-label="Not what I wanted" title="Not what I wanted" disabled={busy} onClick={() => rate("down")}><Icon name="down" /></button>
+    </span>
   );
+  const below = open && mine ? (
+    <form className="fb-form" onSubmit={(ev) => { ev.preventDefault(); void send(mine.rating, true); }}>
+      <textarea value={note} rows={2} autoFocus aria-label="Feedback note"
+        placeholder={mine.rating === "up" ? "What worked? (optional)" : "What should it do differently next time? (optional)"}
+        onChange={(ev) => setNote(ev.target.value)} />
+      <div className="fb-form-row">
+        <label className="fb-keep"><input type="checkbox" checked={keep} onChange={(ev) => setKeep(ev.target.checked)} /> Keep this as a standing note for future work</label>
+        <button type="button" className="linkish" onClick={() => setOpen(false)}>Close</button>
+        <button type="submit" className="btn small primary" disabled={busy || !note.trim()}>Save note</button>
+      </div>
+    </form>
+  ) : mine && (mine.note || mine.kept) ? (
+    <div className="fb-saved">
+      {mine.note && <span className="fb-note" title={mine.note}>“{mine.note}”</span>}
+      {mine.kept && <span className="fb-kept">Kept in {mine.kept}</span>}
+      <button type="button" className="linkish" onClick={() => setOpen(true)}>Edit note</button>
+    </div>
+  ) : null;
+  return { thumbs, below };
 }
 
 export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnReply }) {
@@ -309,6 +311,8 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
   const answeredBy = exp.source === "direct" ? exp.task.match(/^@(\w+)/)?.[1] : undefined; // a direct chat's own crew member
   // The answer itself: the last thing said at the top of the run (after the quests and the tool calls).
   const answer = exp.nodes.findLast((n) => n.kind === "msg");
+  const rated = exp.source !== "job"; // a scheduled job has nobody to rate it
+  const feedback = useFeedback(exp.expId, exp.feedback);
 
   // Stop just this expedition (its id goes along), leaving the others running.
   async function stopIt() {
@@ -332,30 +336,34 @@ export function ExpeditionCard({ exp, onReply }: { exp: ExpNode; onReply: OnRepl
         </div>
         {end && showChanges && <Changes expId={exp.expId} />}
         {end && end.workspaces.length > 0 && <WorkspaceBox workspaces={end.workspaces} task={exp.task} expId={exp.expId} />}
-        {end && exp.source !== "job" && <FeedbackBar expId={exp.expId} given={exp.feedback} />}
         {end && (
           <footer className="exp-foot">
-            <span className={cx("pill", ok ? "done" : "bad")}>{ok ? "Complete" : spaced(end.status)}</span>
-            <span>{end.seconds < 90 ? `${end.seconds}s` : `${Math.round(end.seconds / 60)} min`}</span>
-            {end.changed > 0 && <span>· {end.changed} {plural(end.changed, "file")} changed</span>}
+            {rated && feedback.thumbs}
+            {!ok && <span className={cx("pill", "bad")}>{spaced(end.status)}</span>}
+            {!ok && exp.source !== "job" && (
+              <button type="button" className="btn small primary" title={`Start again from what this ${w("expedition")} had done, without redoing finished work`} disabled={resuming} onClick={resume}>Resume</button>
+            )}
             <span className="foot-actions">
-              {end.changed > 0 && <button type="button" className="btn small" onClick={() => setShowChanges((v) => !v)}>{showChanges ? "Hide changes" : "View changes"}</button>}
-              {!ok && exp.source !== "job" && (
-                <button type="button" className="btn small primary" title={`Start again from what this ${w("expedition")} had done, without redoing finished work`} disabled={resuming} onClick={resume}>Resume</button>
+              {end.changed > 0 && (
+                <button type="button" className={cx("icon-btn", "foot-changes", showChanges && "on")} aria-pressed={showChanges}
+                  aria-label={showChanges ? "Hide changes" : "View changes"} title={`${end.changed} ${plural(end.changed, "file")} changed`} onClick={() => setShowChanges((v) => !v)}>
+                  <Icon name="diff" /><span>{end.changed}</span>
+                </button>
               )}
               {ok && exp.source !== "job" && (end.changed > 0 || end.workspaces.length > 0) && <AsideButton expId={exp.expId} kind="review" answeredBy={answeredBy} />}
               {ok && exp.source !== "job" && <AsideButton expId={exp.expId} kind="opinion" answeredBy={answeredBy} />}
               {answer?.kind === "msg" && answer.text.trim() && (
-                <button type="button" className="btn small" title="Keep this answer in a note: the one you have open, or a new one" onClick={() => say({ do: "note", text: answer.text })}>Note</button>
+                <button type="button" className="icon-btn" aria-label="Note" title="Keep this answer in a note: the one you have open, or a new one" onClick={() => say({ do: "note", text: answer.text })}><Icon name="note" /></button>
               )}
-              {answer?.kind === "msg" && answer.text.trim() && <ReadAloud text={answer.text} markdown what={exp.source === "job" ? `Job report · ${exp.job}` : `${nameNow(answer.who)}'s answer`} />}
+              {answer?.kind === "msg" && answer.text.trim() && <ReadAloud icon text={answer.text} markdown what={exp.source === "job" ? `Job report · ${exp.job}` : `${nameNow(answer.who)}'s answer`} />}
               {exp.source !== "job" && <ForkButton expId={exp.expId} />}
               {exp.source !== "job" && (
-                <button type="button" className="btn small" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}>Reply</button>
+                <button type="button" className="icon-btn" aria-label="Reply" title="Follow up, carrying this whole conversation over" onClick={() => onReply(exp.expId, exp.task)}><Icon name="reply" /></button>
               )}
             </span>
           </footer>
         )}
+        {end && rated && feedback.below}
       </div>
       {!end && !stopInBox && <RunFoot job={exp.source === "job"} stop={stop !== "gone" && (
         <button type="button" className="stop-btn" aria-label={stop === "stopping" ? "Stopping…" : "Stop"}
