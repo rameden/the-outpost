@@ -1,7 +1,8 @@
 // Outposts: make, list and start them (src/outpost.ts says what an outpost is).
 //
 //   npm run outpost                      list them: Mae (this checkout) and those in ~/Outposts
-//   npm run outpost -- new Work          make one, on the next free port (--port 4800 to choose)
+//   npm run outpost -- new Work          make one, on the next free port (--port 4800 to choose;
+//                                        --about "what it's for" to describe it for the crew)
 //   npm run outpost -- start Work        run it, serving the last build of the page (like ui:serve)
 //   npm run outpost -- start Work --dev  run it with the page reloading as you edit (like npm run ui)
 //   npm run outpost -- where Work        name, slug, port, folder and mae|other, tab-separated
@@ -20,7 +21,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync
 import { createConnection } from "node:net";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { DEFAULT_NAME, OUTPOST_FILE, cleanName, outpostSlug, outpostsHome, readOutpost, type Outpost } from "../src/outpost.ts";
+import { DEFAULT_NAME, OUTPOST_FILE, cleanDescription, cleanName, outpostSlug, outpostsHome, readOutpost, type Outpost } from "../src/outpost.ts";
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -63,7 +64,7 @@ function syncSkills(dir: string) {
   }
 }
 
-export function create(rawName: string, port?: number): Place {
+export function create(rawName: string, port?: number, rawDescription?: string): Place {
   const name = cleanName(rawName);
   const slug = outpostSlug(name);
   if (!name || !slug) throw new Error("Give the outpost a name with a letter or digit in it: npm run outpost -- new Work");
@@ -76,9 +77,10 @@ export function create(rawName: string, port?: number): Place {
   let p = port ?? Math.max(...taken) + 1;
   while (taken.has(p)) p++;
   mkdirSync(join(dir, "camp"), { recursive: true });
-  writeFileSync(join(dir, OUTPOST_FILE), JSON.stringify({ name, port: p }, null, 2) + "\n");
+  const description = cleanDescription(rawDescription);
+  writeFileSync(join(dir, OUTPOST_FILE), JSON.stringify({ name, port: p, ...(description ? { description } : {}) }, null, 2) + "\n");
   syncSkills(dir);
-  return { name, port: p, dir };
+  return { name, port: p, ...(description ? { description } : {}), dir };
 }
 
 // Bring the page's build up to date (when it's stale), as `npm run ui:serve` does before it serves.
@@ -118,11 +120,12 @@ async function list() {
 async function main(args: string[]) {
   const [cmd = "list", ...rest] = args;
   const flag = (f: string) => rest.indexOf(f);
-  const words = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--port");
+  const words = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--port" && rest[i - 1] !== "--about");
   if (cmd === "list") return list();
   if (cmd === "new") {
     const at = flag("--port");
-    const o = create(words.join(" "), at >= 0 ? Number(rest[at + 1]) : undefined);
+    const about = flag("--about");
+    const o = create(words.join(" "), at >= 0 ? Number(rest[at + 1]) : undefined, about >= 0 ? rest[about + 1] : undefined);
     console.log(`Made Outpost ${o.name}, at ${o.dir}, on port ${o.port}.`);
     console.log(`It starts empty: its own crew, memory and settings. Start it with: npm run outpost -- start ${o.name.includes(" ") ? `"${o.name}"` : o.name}`);
     return;

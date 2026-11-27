@@ -19,6 +19,7 @@ import { chart, lapOf, lineAt, toneOf } from "./chart.ts";
 
 export type HubOutpost = {
   id: string; name: string; port: number; dir: string;
+  description?: string; // what it's for, in the user's words (camp/outpost.json)
   here: boolean;      // this checkout's own outpost
   running: boolean; starting: boolean;
   ours: boolean;      // started from the chart, so the chart can stop it
@@ -97,6 +98,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
   const [lost, setLost] = useState(false); // the chart's server isn't answering
   const [naming, setNaming] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newAbout, setNewAbout] = useState("");
   const nameField = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -186,8 +188,8 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
     if (!newName.trim()) return;
     setBusy("new"); setError("");
     try {
-      const made = await ask<{ id: string; outposts: HubOutpost[] }>("/api/new", { name: newName });
-      setOutposts(made.outposts); setPicked(made.id); setNaming(false); setNewName("");
+      const made = await ask<{ id: string; outposts: HubOutpost[] }>("/api/new", { name: newName, ...(newAbout.trim() ? { description: newAbout } : {}) });
+      setOutposts(made.outposts); setPicked(made.id); setNaming(false); setNewName(""); setNewAbout("");
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     setBusy(null);
   }
@@ -289,8 +291,11 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
             <form id="hub-new" className="hub-new" onSubmit={(ev) => void make(ev)}>
               <label htmlFor="hub-new-name">Name the new outpost</label>
               <input id="hub-new-name" ref={nameField} value={newName} maxLength={24} placeholder="Work" autoComplete="off" onChange={(ev) => setNewName(ev.target.value)} />
+              <label htmlFor="hub-new-about">What it's for <span className="con-quiet">(optional)</span></label>
+              <textarea id="hub-new-about" rows={3} maxLength={400} value={newAbout} placeholder="The payments team at Acme. Jira project PAY."
+                onChange={(ev) => setNewAbout(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) ev.currentTarget.form?.requestSubmit(); }} />
             </form>
-            <p className="con-quiet">It starts empty, with a team, memory, settings and keys of its own, and takes the next line out on the chart.</p>
+            <p className="con-quiet">It starts empty, with a team, memory, settings and keys of its own, and takes the next line out on the chart. Its team reads what it's for before every request; change it later in the outpost's Settings, General.</p>
             {error && <p className="con-error" role="alert">{error}</p>}
           </div>
           <footer>
@@ -306,6 +311,7 @@ export function Hub({ go = (url: string) => location.assign(url) }: { go?: (url:
             <button type="button" className="con-tool" title="Close (Esc)" aria-label="Close this outpost" onClick={shut}><Icon name="x" /></button>
           </header>
           <div className="con-panel-body" aria-live="polite">
+            {sel.description && <p className="con-text hub-about">{sel.description}</p>}
             <p className="con-text">{sel.crew === null && !sel.lastActive
               ? "A new outpost: it starts empty, with its own team, memory and settings."
               : "Its team, memory, settings and keys are its own. No other outpost can read them."}</p>
