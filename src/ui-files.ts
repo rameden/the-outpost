@@ -14,7 +14,7 @@ import { withOutpost } from "./outpost.js";
 export const UI_DIST = join(fileURLToPath(new URL("..", import.meta.url)), "ui", "dist");
 
 export const UI_CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; media-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 // The same policy, plus one exception for styles: a <style> element carrying this launch's
 // nonce. The terminal pane needs it (xterm.js writes its colours and cell sizes into style
