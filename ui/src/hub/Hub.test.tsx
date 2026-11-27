@@ -99,6 +99,20 @@ describe("the star chart page", () => {
     expect(screen.getByText(/A new outpost: it starts empty/)).toBeTruthy();
   });
 
+  it("can say what a new outpost is for, and shows it on the outpost's card", async () => {
+    const about = "The payments team at Acme.";
+    const work = outpost({ id: "work", name: "Work", port: 4748, here: false, crew: null, lastActive: null, description: about });
+    const calls = serve([outpost({})], { "/api/new": () => ({ json: { id: "work", outposts: [outpost({}), work] } }) });
+    render(<Hub />);
+    fireEvent.click(await screen.findByRole("button", { name: "New outpost" }));
+    fireEvent.change(screen.getByLabelText("Name the new outpost"), { target: { value: "Work" } });
+    fireEvent.change(screen.getByLabelText(/What it's for/), { target: { value: about } });
+    fireEvent.click(screen.getByRole("button", { name: "Make" }));
+    expect(await screen.findByRole("heading", { name: "Outpost Work" })).toBeTruthy();
+    expect(calls.find((c) => c.path === "/api/new")?.body).toEqual({ name: "Work", description: about });
+    expect(screen.getByText(about)).toBeTruthy();
+  });
+
   it("says how long ago in plain words", () => {
     const now = Date.UTC(2026, 10, 23, 12);
     expect(ago(now - 30_000, now)).toBe("just now");

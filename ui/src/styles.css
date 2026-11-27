@@ -1691,7 +1691,8 @@ a.att-name { color: var(--accent); }
 .mem-wait { border: 2px solid var(--accent); border-radius: 10px; background: var(--accent-soft); padding: 12px 14px; display: grid; gap: 8px; }
 .mem-wait-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 13px; }
 .mem-wait-head span, .mem-wait-note { color: var(--muted); font-size: 13px; margin: 0; }
-.mem-wait textarea, .mem-about { width: 100%; font: 13px/1.5 var(--sans); color: var(--text); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--surface); resize: vertical; }
+.outpost-about { display: grid; gap: 6px; width: 100%; }
+.mem-wait textarea, .mem-about, .outpost-about textarea { width: 100%; font: 13px/1.5 var(--sans); color: var(--text); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--field); background: var(--surface); resize: vertical; }
 .mem-wait-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .mem-before { margin: 0; max-height: 220px; overflow: auto; padding: 8px 10px; border-radius: 8px; background: var(--surface); font: 12px/1.5 var(--mono); white-space: pre-wrap; color: var(--muted); }
 .mem-care { display: grid; gap: 4px; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
@@ -3384,9 +3385,12 @@ button.home-line-title:hover { text-decoration: underline; text-underline-offset
 .hub code { font: 12px var(--mono); color: var(--text); }
 .hub-new { display: grid; gap: 6px; }
 .hub-new label { font-size: 13px; font-weight: 600; }
-.hub-new input { min-width: 0; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); font: 15px/1.4 var(--sans); }
-.hub-new input:focus-visible { outline: 2px solid var(--text); outline-offset: 0; }
-.hub-new input::placeholder { color: var(--faint); }
+.hub-new input, .hub-new textarea { min-width: 0; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2); color: var(--text); font: 15px/1.4 var(--sans); }
+.hub-new textarea { resize: vertical; font-size: 14px; }
+.hub-new label:not(:first-child) { margin-top: 8px; }
+.hub-new label .con-quiet { font-weight: 400; }
+.hub-new input:focus-visible, .hub-new textarea:focus-visible { outline: 2px solid var(--text); outline-offset: 0; }
+.hub-new input::placeholder, .hub-new textarea::placeholder { color: var(--faint); }
 .hub :is(button, [tabindex]):focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .hub .hub-body:focus-visible { outline: none; } /* its ring says so */
 /* Under the title: what The Outpost is, the Tour, and what to do next. */

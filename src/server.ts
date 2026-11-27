@@ -94,7 +94,7 @@ import { runFinished } from "./jiramoments.js";
 import { CAMP_FILES, campFile, explorerRoot, listFolder, previewFile, imageFile, changedFiles, findFiles, fileDiff } from "./explorer.js";
 import { pickFolder } from "./picker.js";
 import { uiPage, uiAsset, uiCsp, uiNotBuilt, splashPage, SPLASH_CSP, ASSET_CACHE } from "./ui-files.js";
-import { OUTPOST, renameOutpost, withOutpost } from "./outpost.js";
+import { OUTPOST, describeOutpost, renameOutpost, withOutpost } from "./outpost.js";
 import { chartAddress } from "./hub.js";
 import { releases as knownReleases, startReleaseNotes, writeReleaseNotes } from "./releases.js";
 
@@ -738,6 +738,7 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
       phone: { topic: phoneSettings().topic ?? "", server: phoneSettings().server ?? "", approve: phoneSettings().approve ?? null, on: !!phoneConfig() },
       runtimeLocked: process.env.CAMP_RUNTIME ?? null,
       outpost: OUTPOST.name, // this outpost's name ("Outpost Mae"); Settings, General renames it
+      outpostDescription: OUTPOST.description ?? "", // what it's for, in the user's words; Settings, General edits it
       chart: chartAddress(process.env.CAMP_CHART), // the star chart that started this outpost, if one did: the header links back to it
       // Where it can be reached from: only here, or (LAN mode) your other machines, at these addresses.
       lan: ACCESS.lan ? ACCESS.names.map((n) => addressOf(n, PORT)) : null,
@@ -1753,6 +1754,13 @@ const server = http.createServer(async (req, res) => {
       catch (e) { return send(res, 400, { error: e instanceof Error ? e.message : String(e) }); }
       emit({ type: "changed", what: "settings" });
       return send(res, 200, { ok: true, name: OUTPOST.name });
+    }
+    // Say what this outpost is for ({ description }; empty takes it away). The crew reads it in
+    // every prompt and the star chart shows it. Kept in camp/outpost.json.
+    if (url.pathname === "/api/outpost/description") {
+      describeOutpost(body.description);
+      emit({ type: "changed", what: "settings" });
+      return send(res, 200, { ok: true, description: OUTPOST.description ?? "" });
     }
     if (url.pathname === "/api/auto-titles") {
       setAutoTitles(!!body.on);

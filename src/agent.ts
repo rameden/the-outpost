@@ -12,6 +12,7 @@ import { identityBlock, type CrewId } from "./crew.js";
 import { w } from "./words.js";
 import { continuityBlock, ensureWorkspace, recordSession, type SessionSource } from "./memory.js";
 import { aboutBlock } from "./memlog.js";
+import { outpostBlock } from "./outpost.js";
 import { logAboutRelevant } from "./recalllog.js";
 import { requestText, type RequestContent } from "./attachments.js";
 import { agentSettings, alwaysSkills, campRuntime, compactAt, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
@@ -479,6 +480,7 @@ export async function runAgent(
   // Models block last: an Auto route switch only invalidates that trailing piece, not the whole moving block.
   const movingRest = parts([
     !opts.plain && continuityBlock(spec.id, taskText),
+    outpostBlock(),
     aboutBlock(taskText),
     !opts.plain && wikiIndex(),
     linksBlock(),

@@ -121,7 +121,7 @@ export function startHub({ port = HUB_PORT, dev = false, log = (s: string) => co
       home: outpostsHome(),
       outposts: all.map((o, i) => {
         const id = idOf(o);
-        return { id, name: o.name, port: o.port, dir: o.dir, here: o.dir === ROOT, running: up[i], starting: starting.has(id), ours: kids.has(id), ...outpostFacts(o.dir) };
+        return { id, name: o.name, description: o.description ?? "", port: o.port, dir: o.dir, here: o.dir === ROOT, running: up[i], starting: starting.has(id), ours: kids.has(id), ...outpostFacts(o.dir) };
       }),
     };
   }
@@ -170,7 +170,7 @@ export function startHub({ port = HUB_PORT, dev = false, log = (s: string) => co
         return send(res, 200, await chart());
       }
       if (path === "/api/new") {
-        try { const o = create(String(body.name ?? "")); return send(res, 200, { id: idOf(o), ...(await chart()) }); }
+        try { const o = create(String(body.name ?? ""), undefined, String(body.description ?? "")); return send(res, 200, { id: idOf(o), ...(await chart()) }); }
         catch (e) { return send(res, 400, { error: (e instanceof Error ? e.message : String(e)).replace(/: npm run outpost.*$/, ".") }); }
       }
       return send(res, 404, { error: "Not found" });

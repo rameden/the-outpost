@@ -189,6 +189,40 @@ function OutpostName({ S, refresh }: { S: CampState; refresh: () => void }) {
   );
 }
 
+// What this outpost is for, in a sentence or three: the crew reads it in every prompt, and the star
+// chart shows it on the outpost's card. Kept in camp/outpost.json beside the name.
+const DESCRIPTION_MAX = 400; // src/outpost.ts
+function OutpostDescription({ S, refresh }: { S: CampState; refresh: () => void }) {
+  const now = S.settings.outpostDescription ?? "";
+  const [text, setText] = useState(now);
+  const [note, setNote] = useState("");
+  useEffect(() => { setText(now); }, [now]);
+  const save = async (ev: FormEvent) => {
+    ev.preventDefault();
+    setNote("");
+    try {
+      const r = await api<{ description?: string }>("/api/outpost/description", { description: text });
+      const saved = r.description ?? text.trim();
+      setText(saved);
+      setNote(saved ? "Saved." : "Removed.");
+      refresh();
+    } catch (e) { setNote(errorText(e)); }
+  };
+  return (
+    <Row label="What this outpost is for" wide help={<>A sentence or three the whole {w("crew")} reads before every request, such as who it's for and what's off limits. Anything true of only one project belongs in that project instead. The star chart shows it too. Up to {DESCRIPTION_MAX} characters.</>}>
+      <form className="outpost-about" onSubmit={save}>
+        <textarea aria-label="What this outpost is for" rows={3} maxLength={DESCRIPTION_MAX} value={text} placeholder="Work: the payments team at Acme. Jira project PAY. Never touch personal repos."
+          onChange={(ev) => { setText(ev.target.value); setNote(""); }} />
+        <div className="inline-form">
+          <button className="btn small primary" type="submit" disabled={text.trim() === now}>Save</button>
+          <span className="meta">{text.length}/{DESCRIPTION_MAX}</span>
+          {note && <span className="meta" role="status"> {note}</span>}
+        </div>
+      </form>
+    </Row>
+  );
+}
+
 // Decorations (seasons.ts): off, whatever the calendar says, or one by name.
 const monthDay = (mmdd: string) => { const [m, d] = mmdd.split("-").map(Number); return new Date(2024, m - 1, d).toLocaleDateString([], { month: "short", day: "numeric" }); };
 const decorChoices = (): { id: SeasonChoice; name: string; about: string }[] => [
@@ -210,6 +244,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
   return (
     <>
       <OutpostName S={S} refresh={refresh} />
+      <OutpostDescription S={S} refresh={refresh} />
       <Row label={`What runs the ${w("crew")}`} help={locked ? `CAMP_RUNTIME=${locked} is set for this server, so it can't be changed here.` : "Applies from the next run. Nothing running is interrupted."} wide>
         <Choices name="Runtime" value={S.runtime} onChange={setRuntime} options={[
           { id: "claude-code", label: `Claude subscription${plan ? ` (${plan})` : ""}`, help: S.login && !S.login.ok ? S.login.problem ?? "Not signed in" : "Through Claude Code. Counts against your plan's usage limits.", disabled: locked ? "Set by CAMP_RUNTIME" : undefined },

@@ -278,6 +278,17 @@ test("General renames the outpost: the name is first on the page, and Save sends
   expect(screen.getAllByRole("status").map((s) => s.textContent).join(" ")).toMatch(/Saved/);
 });
 
+test("General says what the outpost is for, right under its name, and Save sends it to the camp", async () => {
+  show("general");
+  const box = screen.getByRole("textbox", { name: "What this outpost is for" });
+  expect(box.closest(".set-row")!.previousElementSibling?.contains(screen.getByRole("textbox", { name: "Outpost name" }))).toBe(true);
+  const save = within(box.closest("form")!).getByRole("button", { name: "Save" });
+  expect((save as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(box, { target: { value: "The payments team at Acme." } });
+  await act(async () => { fireEvent.click(save); });
+  expect(posts).toContainEqual({ path: "/api/outpost/description", body: { description: "The payments team at Acme." } });
+});
+
 test("Appearance has a Decorations row right under the colours: only for looks, kept in this browser, and nothing is sent to the camp", () => {
   localStorage.clear();
   show("appearance");
