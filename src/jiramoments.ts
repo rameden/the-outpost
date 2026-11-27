@@ -7,13 +7,13 @@
 //   - merged: the pull request of a worktree that conversation worked in has been merged (the
 //     pull-request watch in pulls.ts sees it happen).
 //
-// Both write only when write-back is on, in the camp's own fixed words. What has been said is
+// Both write only when write-back and that moment of it are on, in the camp's own fixed words. What has been said is
 // kept in camp/jira-moments.json, so a restart (or the same merge seen twice) doesn't say it again.
 
 import { readJsonFile, writeJsonAtomic } from "./atomic.js";
 import { changedFiles } from "./checkpoints.js";
 import { emit } from "./events.js";
-import { writeBack, writeBackSettings, type WriteEvent } from "./jira.js";
+import { writeBack, writesAt, type WriteEvent } from "./jira.js";
 import { allTurns } from "./threads.js";
 
 export const MOMENTS_PATH = "camp/jira-moments.json";
@@ -39,7 +39,7 @@ async function say(conversation: string, event: WriteEvent, key: string, detail:
 // A run has ended (status: how). changed: whether it changed files (worked out from its
 // checkpoint unless a test says).
 export async function runFinished(run: string, status: string, o: { changed?: boolean; write?: Write } = {}): Promise<string | null> {
-  if (status !== "done" || !writeBackSettings().on) return null;
+  if (status !== "done" || !writesAt("review")) return null;
   const turns = allTurns();
   const turn = turns.find((t) => t.expedition === run);
   if (!turn || turn.aside) return null;
@@ -51,6 +51,6 @@ export async function runFinished(run: string, status: string, o: { changed?: bo
 
 // A conversation's pull request has been merged. key: the ticket that conversation works on.
 export async function pullMerged(conversation: string, key: string | undefined, url: string, write: Write = writeBack): Promise<string | null> {
-  if (!key || !writeBackSettings().on) return null;
+  if (!key || !writesAt("merged")) return null;
   return say(conversation, "merged", key, { url }, undefined, write);
 }

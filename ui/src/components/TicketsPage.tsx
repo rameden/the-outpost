@@ -186,7 +186,11 @@ export function TicketsPage({ S, onAttach, refresh, openKey, onOpened, onStart, 
         <div>
           <h2>Tickets</h2>
           <div className="meta">The Outpost's own tickets, for work that isn't in Jira: starting work on one moves it to In progress, and its pull request merging moves it to Done.</div>
-          {jiraOn && <div className="meta">Jira: {S.jira?.siteUrl?.replace(/^https?:\/\//, "")}{S.jira?.displayName ? ` · ${S.jira.displayName}` : ""} · {S.settings?.jiraWrite?.on ? `the ${w("camp")} comments on a ticket as its work moves along (started, ready to look over, pull request opened, merged).` : "read-only: nothing here changes a ticket."}</div>}
+          {jiraOn && <div className="meta">Jira: {S.jira?.siteUrl?.replace(/^https?:\/\//, "")}{S.jira?.displayName ? ` · ${S.jira.displayName}` : ""} · {(() => {
+            const jw = S.settings?.jiraWrite;
+            const at = ([["start", "started"], ["review", "ready to look over"], ["pr", "pull request opened"], ["merged", "merged"]] as const).filter(([m]) => jw?.moments?.[m] !== false).map(([, said]) => said);
+            return jw?.on && at.length ? `the ${w("camp")} comments on a ticket as its work moves along (${at.join(", ")}).` : "read-only: nothing here changes a ticket.";
+          })()}</div>}
         </div>
         <div className="proj-actions">
           {onKickoff && <button type="button" className="btn small" title="Pick up a ticket: choose it, check its details, say where and who, and start" onClick={onKickoff}>Start a ticket…</button>}

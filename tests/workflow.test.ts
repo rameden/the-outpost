@@ -262,7 +262,7 @@ test("a conversation is named by how its first request opens, not by the whole o
 
 // ---------- Writing back to Jira ----------
 test("nothing is written to Jira unless you turn it on; then it comments, and moves the ticket if you named a status", async () => {
-  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "" });
+  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "", moments: { start: true, review: true, pr: true, merged: true } });
   assert.equal(await j.writeBack("start", "MP-544", { branch: "MP-544-open-button" }), null);
   assert.equal(await j.writeBack("pr", "MP-544", { url: "https://github.com/o/r/pull/7" }), null);
   assert.equal(seen.length, 0, "off: Jira isn't called at all");
@@ -275,7 +275,7 @@ test("nothing is written to Jira unless you turn it on; then it comments, and mo
   assert.equal(await j.writeBack("start", "not a key"), null);
 
   seen.length = 0;
-  assert.deepEqual(j.saveWriteBack({ on: true, startStatus: " in progress ", prStatus: "In Review" }), { on: true, startStatus: "in progress", reviewStatus: "", prStatus: "In Review", doneStatus: "" });
+  assert.deepEqual(j.saveWriteBack({ on: true, startStatus: " in progress ", prStatus: "In Review" }), { on: true, startStatus: "in progress", reviewStatus: "", prStatus: "In Review", doneStatus: "", moments: { start: true, review: true, pr: true, merged: true } });
   assert.equal(await j.writeBack("pr", "MP-544", { url: "https://github.com/o/r/pull/7" }), "Commented on MP-544 and moved it to In Review.");
   assert.deepEqual(seen.map((s) => `${s.method} ${s.url}`), ["POST /rest/api/3/issue/MP-544/comment", "GET /rest/api/3/issue/MP-544/transitions", "POST /rest/api/3/issue/MP-544/transitions"]);
   assert.deepEqual(seen[0].body.body.content[0].content, [{ type: "text", text: "Pull request opened: " }, { type: "text", text: "https://github.com/o/r/pull/7", marks: [{ type: "link", attrs: { href: "https://github.com/o/r/pull/7" } }] }]);
@@ -294,10 +294,21 @@ test("nothing is written to Jira unless you turn it on; then it comments, and mo
   assert.deepEqual(seen[0].body.body.content[0].content, [{ type: "text", text: "The work in Outpost Mae has finished on branch MP-544-open-button and is ready to be looked over." }]);
   assert.equal(await j.writeBack("merged", "MP-544", { url: "https://github.com/o/r/pull/7" }), "Commented on MP-544 and moved it to Done.");
   assert.equal(seen[1].body.body.content[0].content[0].text, "Pull request merged: ");
+  // Each moment has its own switch: one that's off writes nothing, neither comment nor move.
+  seen.length = 0;
+  assert.deepEqual(j.saveWriteBack({ on: true, doneStatus: "Done", moments: { start: false, review: true, pr: false } }).moments, { start: false, review: true, pr: false, merged: true });
+  assert.equal(await j.writeBack("start", "MP-544", { branch: "MP-544-open-button" }), null);
+  assert.equal(await j.writeBack("pr", "MP-544", { url: "https://github.com/o/r/pull/7" }), null);
+  assert.equal(seen.length, 0, "the moments turned off don't call Jira");
+  assert.equal(j.writesAt("start"), false);
+  assert.equal(j.writesAt("merged"), true);
+  assert.equal(await j.writeBack("merged", "MP-544", { url: "https://github.com/o/r/pull/7" }), "Commented on MP-544 and moved it to Done.");
+  assert.equal(j.saveWriteBack({ on: false, moments: { start: false } }).moments.start, false, "turning write-back off keeps which moments you chose");
+  assert.equal(j.writesAt("merged"), false, "write-back off: no moment writes");
   // The crew's own Jira tool still can't write.
   assert.deepEqual((j.jiraTool().def as any).input_schema.properties.action.enum, ["get", "search"]);
   j.saveWriteBack({ on: false });
-  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "" });
+  assert.deepEqual(j.writeBackSettings(), { on: false, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "", moments: { start: true, review: true, pr: true, merged: true } });
 });
 
 test("a ticket hears once that its work is ready to look over, and once that its pull request merged", async () => {
@@ -321,6 +332,12 @@ test("a ticket hears once that its work is ready to look over, and once that its
   assert.equal(await m.pullMerged("jm-1", "MP-777", "https://github.com/o/r/pull/9", write), null, "a merge seen twice is said once");
   assert.deepEqual(wrote, ["review MP-777 MP-777-fix", "merged MP-777 https://github.com/o/r/pull/9"]);
   assert.deepEqual(Object.keys(JSON.parse(readFileSync(m.MOMENTS_PATH, "utf8"))), ["jm-1|review", "jm-1|merged"]);
+  // Those two moments turned off: nothing is said, and nothing is noted as said.
+  recordTurn({ thread: "jm-4", expedition: "jm-4", agent: "quartermaster", direct: false, task: "Work on MP-778", reply: "Done.", status: "done", jira: "MP-778" });
+  j.saveWriteBack({ on: true, moments: { review: false, merged: false } });
+  assert.equal(await m.runFinished("jm-4", "done", { changed: true, write }), null);
+  assert.equal(await m.pullMerged("jm-4", "MP-778", "https://github.com/o/r/pull/10", write), null);
+  assert.equal(wrote.length, 2);
   j.saveWriteBack({ on: false });
 });
 

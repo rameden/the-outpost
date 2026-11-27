@@ -73,42 +73,53 @@ export function JiraFilter({ kept, refresh }: { kept: string; refresh: () => voi
 // What the camp may write to Jira: nothing, unless you turn this on. With it on, a ticket gets a
 // short comment at four moments (work starts from it, a run finishes with changes to look over,
 // its pull request opens, that pull request is merged), in the camp's own fixed words: nothing an
-// agent wrote goes to Jira. It moves to a status at any of them if you name one.
+// agent wrote goes to Jira. Each moment has its own switch; it moves to a status at any of them
+// if you name one.
 const MOMENTS = [
-  { key: "startStatus", label: "Move it when work starts", aria: "Status when work starts" },
-  { key: "reviewStatus", label: "Move it when the work is ready to look over", aria: "Status when the work is ready to look over" },
-  { key: "prStatus", label: "Move it when the pull request opens", aria: "Status when the pull request opens" },
-  { key: "doneStatus", label: "Move it when the pull request is merged", aria: "Status when the pull request is merged" },
+  { moment: "start", key: "startStatus", label: "When work starts", says: "says on which branch", aria: "Status when work starts" },
+  { moment: "review", key: "reviewStatus", label: "When the work is ready to look over", says: "a run finished with changes", aria: "Status when the work is ready to look over" },
+  { moment: "pr", key: "prStatus", label: "When the pull request opens", says: "with the link", aria: "Status when the pull request opens" },
+  { moment: "merged", key: "doneStatus", label: "When the pull request is merged", says: "with the link", aria: "Status when the pull request is merged" },
 ] as const;
+type Moment = (typeof MOMENTS)[number]["moment"];
 type Statuses = Record<(typeof MOMENTS)[number]["key"], string>;
 const statusesOf = (w: Partial<Statuses>): Statuses => ({ startStatus: w.startStatus ?? "", reviewStatus: w.reviewStatus ?? "", prStatus: w.prStatus ?? "", doneStatus: w.doneStatus ?? "" });
+// Every moment is on until you turn it off.
+const momentsOf = (m: Partial<Record<Moment, boolean>> | undefined): Record<Moment, boolean> => ({ start: m?.start !== false, review: m?.review !== false, pr: m?.pr !== false, merged: m?.merged !== false });
 
 export function JiraWriteBack({ S, refresh }: { S: CampState; refresh: () => void }) {
   const w = S.settings.jiraWrite;
   const [names, setNames] = useState(() => statusesOf(w));
   const [error, setError] = useState("");
   const [kept, setKept] = useState(false);
-  const save = async (on: boolean) => {
+  const moments = momentsOf(w.moments);
+  const save = async (on: boolean, which = moments) => {
     setError(""); setKept(false);
-    try { await api("/api/jira/write", { on, ...names }); setKept(true); refresh(); } catch (e) { setError(errorText(e)); }
+    try { await api("/api/jira/write", { on, ...names, moments: which }); setKept(true); refresh(); } catch (e) { setError(errorText(e)); }
   };
   const now = statusesOf(w);
   const changed = MOMENTS.some((m) => names[m.key].trim() !== now[m.key]);
+  const count = MOMENTS.filter((m) => moments[m.moment]).length;
   return (
     <form className="jira-write" aria-label="Writing back to Jira" onSubmit={(ev) => { ev.preventDefault(); void save(w.on); }}>
       <label className="switch"><input type="checkbox" checked={w.on} aria-label={`Let the ${word("camp")} write to Jira`}
-        onChange={(ev) => save(ev.target.checked)} /> Write back to tickets: {w.on ? "On" : "Off"}</label>
+        onChange={(ev) => save(ev.target.checked)} /> Write back to tickets: {w.on ? (count === MOMENTS.length ? "On" : `On, at ${count} of ${MOMENTS.length} moments`) : "Off"}</label>
       <div className="field-hint">Off, nothing is ever written to Jira. On, a ticket you start work from gets a comment at four moments: when work starts (and on which branch), when a run finishes with changes for you to look over,
-        when you open its pull request (with the link), and when that pull request is merged. The comments are posted as you, in the {word("camp")}'s own words. The {word("crew")} still can't write to Jira: this is the {word("camp")}, at those moments only.</div>
+        when you open its pull request (with the link), and when that pull request is merged. Turn any of them off below. The comments are posted as you, in the {word("camp")}'s own words. The {word("crew")} still can't write to Jira: this is the {word("camp")}, at those moments only.</div>
       {w.on && (
         <>
           <div className="jira-write-row">
             {MOMENTS.map((m) => (
-              <label key={m.key} className="field">{m.label}<input aria-label={m.aria} placeholder="Leave it where it is" value={names[m.key]}
-                onChange={(ev) => { setNames((n) => ({ ...n, [m.key]: ev.target.value })); setKept(false); }} /></label>
+              <div key={m.key} className="jira-moment">
+                <label className="switch"><input type="checkbox" checked={moments[m.moment]} aria-label={`Comment ${m.label.toLowerCase()}`}
+                  onChange={(ev) => save(true, { ...moments, [m.moment]: ev.target.checked })} /> {m.label}</label>
+                <span className="meta">{moments[m.moment] ? `A comment, ${m.says}.` : "Nothing is written."}</span>
+                <label className="field">Then move it to<input aria-label={m.aria} placeholder="Leave it where it is" value={names[m.key]} disabled={!moments[m.moment]}
+                  onChange={(ev) => { setNames((n) => ({ ...n, [m.key]: ev.target.value })); setKept(false); }} /></label>
+              </div>
             ))}
           </div>
-          <div className="field-hint">The name of a status in your workflow, such as In Progress, In Review or Done. If the ticket can't go there from where it is, it's left alone and you're told.</div>
+          <div className="field-hint">The name of a status in your workflow, such as In Progress, In Review or Done. If the ticket can't go there from where it is, it's left alone and you're told. A moment that's off moves nothing either.</div>
           <div className="card-actions"><button type="submit" className="btn small" disabled={!changed}>Keep these</button>{kept && !changed && <span className="meta" role="status">Kept.</span>}</div>
         </>
       )}
