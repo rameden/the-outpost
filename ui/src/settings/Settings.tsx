@@ -255,7 +255,7 @@ function General({ S, refresh }: { S: CampState; refresh: () => void }) {
         <label className="switch"><input type="checkbox" checked={S.settings.autoTitles}
           onChange={(ev) => tryIt(() => api("/api/auto-titles", { on: ev.target.checked }), refresh)} /> {S.settings.autoTitles ? "On" : "Off"}</label>
       </Row>
-      <Row label="Today's cost in the status menu" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. It's in the menu under the top bar's status chip (Idle, or what's running). Remembered in this browser. Usage & ${w("expeditions")}, in this menu, always shows it.`}>
+      <Row label="Today's cost in the status menu" help={`${S.runtime === "claude-code" ? "The estimate at API prices (your plan isn't charged per run)" : "What the API has cost today"}. It's in the menu under the top bar's status chip (Idle, or what's running); hidden, Orbit leaves it out too. Remembered in this browser. Usage & ${w("expeditions")}, in this menu, always shows it.`}>
         <label className="switch"><input type="checkbox" checked={costShown} onChange={(ev) => showCost.set(ev.target.checked)} /> {costShown ? "Shown" : "Hidden"}</label>
       </Row>
     </>

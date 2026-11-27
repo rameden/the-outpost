@@ -82,3 +82,51 @@ test("a reply with a table is drawn as a table while it comes in and after, with
   expect(container.querySelector(".md.live")).toBeNull();
   expect([...container.querySelectorAll(".bubble.agent .md tbody td")].map((td) => td.textContent)).toContain("Reading the code");
 });
+
+// Opening a member's page while they're already working shows the run so far, then follows it.
+test("opening the page partway through a run shows what they've done so far, and keeps following it", async () => {
+  const store = createFeedStore();
+  const ev = (e: object, seq: number) => store.apply({ time: "2026-01-01T09:00:00.000Z", seq, expeditionId: "x1", ...e } as any);
+  ev({ type: "dispatch", who: "Scout", emoji: "🔭", questId: "q1", brief: "Look around" }, 1);
+  ev({ type: "tool", who: "Scout", questId: "q1", tool: "web_search", input: "outposts" }, 2);
+  ev({ type: "text_delta", who: "Scout", questId: "q1", delta: "Found three " }, 3);
+  render(<AgentDrawer agentId="scout" tab="chat" setTab={() => {}} S={null} store={store} pickerOpen={false} onOpenPicker={() => {}} onClose={() => {}} />);
+  await screen.findByText("web_search");
+  expect(screen.getByText(/Found three/)).toBeTruthy();
+  act(() => { ev({ type: "text_delta", who: "Scout", questId: "q1", delta: "camps." }, 4); });
+  await screen.findByText(/Found three camps\./);
+  // Once they're back the store forgets the run (it's in the saved conversation now).
+  act(() => { ev({ type: "return", who: "Scout", emoji: "🔭", status: "done", questId: "q1" }, 5); });
+  expect(store.runSoFar("Scout")).toEqual([]);
+});
+
+test("two quests by the same member at once both show, and one coming back leaves the other", async () => {
+  const store = createFeedStore();
+  let seq = 0;
+  const ev = (e: object) => store.apply({ time: "2026-01-01T09:00:00.000Z", seq: ++seq, expeditionId: "x1", ...e } as any);
+  ev({ type: "dispatch", who: "Scout", emoji: "🔭", questId: "q1" });
+  ev({ type: "dispatch", who: "Scout", emoji: "🔭", questId: "q2" });
+  ev({ type: "text", who: "Scout", questId: "q1", text: "First quest's word." });
+  ev({ type: "text", who: "Scout", questId: "q2", text: "Second quest's word." });
+  ev({ type: "return", who: "Scout", emoji: "🔭", status: "done", questId: "q1" });
+  render(<AgentDrawer agentId="scout" tab="chat" setTab={() => {}} S={null} store={store} pickerOpen={false} onOpenPicker={() => {}} onClose={() => {}} />);
+  await screen.findByText("Second quest's word.");
+  expect(screen.queryByText("First quest's word.")).toBeNull();
+});
+
+test("a run you started by messaging them shows your message first", async () => {
+  const store = createFeedStore();
+  let seq = 0;
+  const ev = (e: object) => store.apply({ time: "2026-01-01T09:00:00.000Z", seq: ++seq, ...e } as any);
+  ev({ type: "expedition_start", id: "x2", task: "@scout What's new on the trail?", source: "direct" });
+  ev({ type: "dispatch", who: "Scout", emoji: "🔭", questId: "q1", expeditionId: "x2" });
+  ev({ type: "text_delta", who: "Scout", questId: "q1", expeditionId: "x2", delta: "Two new camps." });
+  render(<AgentDrawer agentId="scout" tab="chat" setTab={() => {}} S={null} store={store} pickerOpen={false} onOpenPicker={() => {}} onClose={() => {}} />);
+  const mine = await screen.findByText("What's new on the trail?");
+  expect(mine.className).toBe("bubble you");
+  expect(screen.queryByText(/sent them on/)).toBeNull(); // not dressed up as a brief from the lead
+  expect(screen.getByText(/Two new camps\./)).toBeTruthy();
+  // Its expedition ending forgets the run.
+  ev({ type: "expedition_end", id: "x2", expeditionId: "x2", status: "done", text: "" });
+  expect(store.runSoFar("Scout")).toEqual([]);
+});

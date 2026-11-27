@@ -5,7 +5,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useReducer, useRef, 
 import { say } from "../bus.ts";
 import { api, errorText, outputUrl } from "../api.ts";
 import { liveKey, type CrewStatus } from "../feed/reducer.ts";
-import { useFeed, type FeedStore } from "../feed/store.ts";
+import { useFeed, type FeedStore, type RunEvent } from "../feed/store.ts";
 import { cClass, clock, cx, dayLabel, isImagePath, kTok, leadEmoji, leadName, money, plural, shortModel, spaced, stripFrontmatter, took, when } from "../format.ts";
 import { Markdown } from "../markdown.tsx";
 import type { AgentDetail, CampEvent, CampState, SendResult, Transcript, TranscriptPart } from "../types.ts";
@@ -67,11 +67,15 @@ type LiveItem =
   | { kind: "agent"; id: number; text: string; streaming: boolean }
   | { kind: "tool"; id: number; tool: string; input: string };
 type Live = { items: LiveItem[]; open: Record<string, number>; next: number };
-type LiveAction = { type: "clear" } | { type: "you"; text: string; note?: string } | { type: "event"; event: CampEvent; briefed: boolean };
+type LiveAction = { type: "clear" } | { type: "you"; text: string; note?: string } | { type: "event"; event: CampEvent; briefed: boolean }
+  | { type: "seed"; events: readonly RunEvent[] };
 const noLive: Live = { items: [], open: {}, next: 1 };
 
 function liveReducer(s: Live, a: LiveAction): Live {
   if (a.type === "clear") return noLive;
+  // Opened partway through a run: replay what it has done so far.
+  if (a.type === "seed") return a.events.reduce((st, { event, briefed, you }) =>
+    liveReducer(you ? liveReducer(st, { type: "you", text: you }) : st, { type: "event", event, briefed }), noLive);
   if (a.type === "you") {
     const items: LiveItem[] = [...s.items, { kind: "you", id: s.next, text: a.text }];
     if (a.note) items.push({ kind: "note", id: s.next + 1, text: a.note });
@@ -271,15 +275,18 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, onOpenPicker, onCl
 
   // Load the page, and reload it (a moment later) when a run of theirs ends or their records change.
   const clearLive = useRef(false);
+  const following = useRef<string | null>(null); // whose live work this page is showing (set once their page has loaded)
   const load = useCallback(async () => {
     try {
       const data = await api<AgentDetail>(`/api/agent?id=${encodeURIComponent(agentId)}`);
       setA(data);
       setError("");
       if (clearLive.current) { clearLive.current = false; dispatchLive({ type: "clear" }); } // the finished run is in the saved conversation now
+      // First load: they may be partway through a run, so show it from the start, and follow it from here.
+      if (following.current !== data.name) { following.current = data.name; dispatchLive({ type: "seed", events: store.runSoFar(data.name) }); }
     } catch (e) { setError(errorText(e)); }
-  }, [agentId]);
-  useEffect(() => { setA(null); dispatchLive({ type: "clear" }); void load(); }, [load]);
+  }, [agentId, store]);
+  useEffect(() => { setA(null); following.current = null; dispatchLive({ type: "clear" }); void load(); }, [load]);
 
   const now = useRef({ a, tab });
   now.current = { a, tab };
@@ -287,15 +294,16 @@ export function AgentDrawer({ agentId, tab, setTab, S, store, onOpenPicker, onCl
     let timer: ReturnType<typeof setTimeout> | undefined;
     const reload = (finished: boolean) => { if (finished) clearLive.current = true; clearTimeout(timer); timer = setTimeout(load, 500); };
     const off = store.onEvent((e) => {
-      const { a, tab } = now.current;
-      if (!a) return;
-      const mine = "who" in e && e.who === a.name;
+      const { tab } = now.current;
+      const who = following.current;
+      if (!who) return; // not loaded yet: the first load picks this up from the store's run so far
+      const mine = "who" in e && e.who === who;
       if (e.type === "expedition_end" || (e.type === "return" && mine)) return reload(true);
       if (e.type === "changed" && (e.what === "memory" || e.what === "settings" || e.what === "log")) {
         if (tab !== "memory") reload(e.what === "log"); // don't reload under an edit in progress
         return;
       }
-      if (mine && tab === "chat") dispatchLive({ type: "event", event: e, briefed: store.lastSource() !== "direct" });
+      if (mine) dispatchLive({ type: "event", event: e, briefed: store.lastSource() !== "direct" });
     });
     return () => { off(); clearTimeout(timer); };
   }, [store, load]);
