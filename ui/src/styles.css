@@ -2200,6 +2200,7 @@ pre.diff .file { font-weight: 700; display: block; margin-top: 6px; }
 
 .jira-write { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .jira-write-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.jira-moment { display: grid; gap: 6px; align-content: start; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
 
 .skill-import .card { display: grid; gap: 10px; }
 .skill-import details > summary { cursor: pointer; font-size: 13px; color: var(--muted); }

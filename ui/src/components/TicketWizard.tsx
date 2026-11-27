@@ -300,7 +300,7 @@ export function TicketWizard({ S, start, onClose, onStarted }: {
                 <div><dt>Where</dt><dd>{chosen?.name ?? "General"}{inWorktree ? <> · a new worktree on <code>{branch}</code></> : editable.length ? " · your own checkout" : ""}</dd></div>
                 <div><dt>Who</dt><dd>{member ? `${member.emoji} ${member.name}` : who}{who === "quartermaster" ? (review ? ` · the ${nameNow("Warden")} reviews the changes before it reports` : " · no review before it reports") : ""}</dd></div>
                 {mine && <div><dt>Ticket</dt><dd>moves to In progress as the work starts, and to Done when its pull request merges</dd></div>}
-                {!mine && S.settings?.jiraWrite?.on && <div><dt>Jira</dt><dd>a comment says work has started{S.settings.jiraWrite.startStatus ? `, and the ticket moves to ${S.settings.jiraWrite.startStatus}` : ""}</dd></div>}
+                {!mine && S.settings?.jiraWrite?.on && S.settings.jiraWrite.moments?.start !== false && <div><dt>Jira</dt><dd>a comment says work has started{S.settings.jiraWrite.startStatus ? `, and the ticket moves to ${S.settings.jiraWrite.startStatus}` : ""}</dd></div>}
               </dl>
               <label className="field">The brief
                 <textarea className="wizard-brief" aria-label="The brief" rows={11} value={brief ?? drafted} spellCheck={false} onChange={(ev) => setBrief(ev.target.value)} />

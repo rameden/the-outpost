@@ -20,7 +20,7 @@
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { jiraWrite, setJiraWrite, jiraFilter, setJiraFilter } from "./settings.js";
+import { jiraWrite, setJiraWrite, jiraFilter, setJiraFilter, JIRA_MOMENTS } from "./settings.js";
 import type { Tool } from "./tools.js";
 import { writeJsonAtomic } from "./atomic.js";
 import { OUTPOST } from "./outpost.js";
@@ -424,12 +424,19 @@ export function adfToText(doc: unknown): string {
 // leave a short comment (in fixed words of its own: nothing an agent wrote goes to Jira) and, if
 // you named a status for that moment, move the ticket there. It writes as you, with your token.
 // No agent has a tool for any of this. (When each moment is noticed: server.ts for the start and
-// the pull request, jiramoments.ts for the other two.)
+// the pull request, jiramoments.ts for the other two.) Each moment can be turned off on its own:
+// then nothing at all is written at it, neither the comment nor the move.
 export type WriteEvent = "start" | "review" | "pr" | "merged";
-export type WriteBack = { on: boolean; startStatus: string; reviewStatus: string; prStatus: string; doneStatus: string };
+export type WriteBack = { on: boolean; startStatus: string; reviewStatus: string; prStatus: string; doneStatus: string; moments: Record<WriteEvent, boolean> };
 const STATUS_OF = { start: "startStatus", review: "reviewStatus", pr: "prStatus", merged: "doneStatus" } as const;
-export const writeBackSettings = (): WriteBack => { const w = jiraWrite(); return { on: w.on === true, startStatus: w.startStatus ?? "", reviewStatus: w.reviewStatus ?? "", prStatus: w.prStatus ?? "", doneStatus: w.doneStatus ?? "" }; };
-export function saveWriteBack(input: { on?: unknown; startStatus?: unknown; reviewStatus?: unknown; prStatus?: unknown; doneStatus?: unknown }): WriteBack {
+export const writeBackSettings = (): WriteBack => {
+  const w = jiraWrite();
+  const moments = Object.fromEntries(JIRA_MOMENTS.map((m) => [m, !w.skip?.includes(m)])) as Record<WriteEvent, boolean>;
+  return { on: w.on === true, startStatus: w.startStatus ?? "", reviewStatus: w.reviewStatus ?? "", prStatus: w.prStatus ?? "", doneStatus: w.doneStatus ?? "", moments };
+};
+// Whether the camp writes to Jira at this moment: write-back on, and that moment not turned off.
+export const writesAt = (event: WriteEvent): boolean => { const w = writeBackSettings(); return w.on && w.moments[event]; };
+export function saveWriteBack(input: { on?: unknown; startStatus?: unknown; reviewStatus?: unknown; prStatus?: unknown; doneStatus?: unknown; moments?: unknown }): WriteBack {
   setJiraWrite(input);
   return writeBackSettings();
 }
@@ -447,11 +454,11 @@ function commentFor(event: WriteEvent, detail: { branch?: string; url?: string }
 }
 
 // What was done, in a line for you ("Commented on MP-544 and moved it to In Review"), or null
-// when write-back is off, Jira isn't linked, or there's no ticket. It never throws: a ticket
+// when write-back (or this moment of it) is off, Jira isn't linked, or there's no ticket. It never throws: a ticket
 // that can't be written to shouldn't stop your work, so the line says what went wrong instead.
 export async function writeBack(event: WriteEvent, key: string | undefined, detail: { branch?: string; url?: string } = {}): Promise<string | null> {
   const w = writeBackSettings();
-  if (!w.on || !key || !JIRA_KEY.test(key) || !jiraConnected()) return null;
+  if (!w.on || !w.moments[event] || !key || !JIRA_KEY.test(key) || !jiraConnected()) return null;
   const done: string[] = [];
   try {
     const c = client();

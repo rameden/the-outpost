@@ -162,7 +162,7 @@ test("writing back to Jira is off until you switch it on; the statuses are yours
   expect(within(form).getByText(/Off, nothing is ever written to Jira/)).toBeTruthy();
   fireEvent.click(sw);
   await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
-  expect(calls[0]).toEqual({ url: "/api/jira/write", body: { on: true, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "" } });
+  expect(calls[0]).toEqual({ url: "/api/jira/write", body: { on: true, startStatus: "", reviewStatus: "", prStatus: "", doneStatus: "", moments: { start: true, review: true, pr: true, merged: true } } });
   rerender(<JiraWriteBack S={jira({ on: true, startStatus: "", prStatus: "" })} refresh={refresh} />);
   expect((within(form).getByRole("button", { name: "Keep these" }) as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(within(form).getByLabelText("Status when work starts"), { target: { value: "In Progress" } });
@@ -170,7 +170,25 @@ test("writing back to Jira is off until you switch it on; the statuses are yours
   fireEvent.change(within(form).getByLabelText("Status when the pull request is merged"), { target: { value: "Done" } });
   expect(within(form).getByLabelText("Status when the work is ready to look over")).toBeTruthy();
   fireEvent.click(within(form).getByRole("button", { name: "Keep these" }));
-  await waitFor(() => expect(calls[1]).toEqual({ url: "/api/jira/write", body: { on: true, startStatus: "In Progress", reviewStatus: "", prStatus: "In Review", doneStatus: "Done" } }));
+  await waitFor(() => expect(calls[1]).toEqual({ url: "/api/jira/write", body: { on: true, startStatus: "In Progress", reviewStatus: "", prStatus: "In Review", doneStatus: "Done", moments: { start: true, review: true, pr: true, merged: true } } }));
+});
+
+test("each moment of writing back has its own switch, and a moment that's off moves nothing either", async () => {
+  answer = () => ({ json: {} });
+  const refresh = vi.fn();
+  const { rerender } = render(<JiraWriteBack S={jira({ on: true, prStatus: "In Review" })} refresh={refresh} />);
+  const form = screen.getByRole("form", { name: "Writing back to Jira" });
+  expect(within(form).getByText("Write back to tickets: On")).toBeTruthy();
+  const pr = within(form).getByLabelText("Comment when the pull request opens") as HTMLInputElement;
+  expect(pr.checked).toBe(true);
+  fireEvent.click(pr);
+  await waitFor(() => expect(calls[0]).toEqual({ url: "/api/jira/write", body: { on: true, startStatus: "", reviewStatus: "", prStatus: "In Review", doneStatus: "", moments: { start: true, review: true, pr: false, merged: true } } }));
+  rerender(<JiraWriteBack S={jira({ on: true, prStatus: "In Review", moments: { start: true, review: true, pr: false, merged: true } })} refresh={refresh} />);
+  expect((within(form).getByLabelText("Comment when the pull request opens") as HTMLInputElement).checked).toBe(false);
+  expect((within(form).getByLabelText("Status when the pull request opens") as HTMLInputElement).disabled).toBe(true);
+  expect((within(form).getByLabelText("Status when work starts") as HTMLInputElement).disabled).toBe(false);
+  expect(within(form).getByText("Write back to tickets: On, at 3 of 4 moments")).toBeTruthy();
+  expect(within(form).getByText("Nothing is written.")).toBeTruthy();
 });
 
 // ---------- Editing a skill ----------

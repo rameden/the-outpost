@@ -60,7 +60,10 @@ type Settings = {
 };
 // Writing to Jira is off unless you turn it on. With it on, the camp comments on a ticket when
 // work starts from it and when its pull request opens, and (if you name a status) moves it.
-export type JiraWrite = { on?: boolean; startStatus?: string; reviewStatus?: string; prStatus?: string; doneStatus?: string };
+export const JIRA_MOMENTS = ["start", "review", "pr", "merged"] as const;
+export type JiraMoment = (typeof JIRA_MOMENTS)[number];
+// skip: the moments you've turned off (every moment is on until you do).
+export type JiraWrite = { on?: boolean; startStatus?: string; reviewStatus?: string; prStatus?: string; doneStatus?: string; skip?: JiraMoment[] };
 // A command an imported skill may run without asking. For one of the skill's own scripts: the
 // command as it's typed, the script it runs, and that file's fingerprint when you approved it (a
 // script that has changed since asks again). Otherwise just a command prefix, like "pnpm add".
@@ -270,11 +273,14 @@ export function setPrWatch(on: boolean) {
 }
 
 export const jiraWrite = (): JiraWrite => own(read().jiraWrite ?? {});
-export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; reviewStatus?: unknown; prStatus?: unknown; doneStatus?: unknown }) {
+export function setJiraWrite(w: { on?: unknown; startStatus?: unknown; reviewStatus?: unknown; prStatus?: unknown; doneStatus?: unknown; moments?: unknown }) {
   const s = load();
   const name = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
   const next: JiraWrite = { ...(w.on ? { on: true } : {}) };
   for (const k of ["startStatus", "reviewStatus", "prStatus", "doneStatus"] as const) if (name(w[k])) next[k] = name(w[k]);
+  const moments = w.moments && typeof w.moments === "object" ? w.moments as Record<string, unknown> : {};
+  const skip = JIRA_MOMENTS.filter((m) => moments[m] === false);
+  if (skip.length) next.skip = skip;
   if (Object.keys(next).length) s.jiraWrite = next; else delete s.jiraWrite;
   save(s);
 }
