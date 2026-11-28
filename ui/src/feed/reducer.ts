@@ -60,7 +60,7 @@ export type ExpNode = {
   kind: "exp"; id: string; expId: string; task: string; source: "user" | "direct" | "job"; job?: string; followUp: boolean;
   thread?: string; // the conversation it belongs to (jobs have none)
   attachments: Attached[]; time: string; nodes: FeedNode[];
-  end: { status: string; seconds: number; changed: number; workspaces: Workspaces } | null; // null: still running
+  end: { status: string; seconds: number; changed: number; workspaces: Workspaces; repo?: boolean } | null; // null: still running. repo: it had a linked git repository with a remote to work in
   feedback?: { rating: "up" | "down"; note?: string; kept?: string }; // what you said about it once it finished
 };
 export type FeedNode = MsgNode | ToolNode | FileNode | PlanNode | NoticeNode | RouteNode | SysNode | SteerNode | AskNode | QuestNode | ExpNode;
@@ -187,7 +187,7 @@ function endExpedition(s: FeedState, e: EventOf<"expedition_end">) {
   s.items = replaceNode(s.items, exp.node, (n) => n.kind !== "exp" ? n : {
     ...n,
     nodes: failed ? [...n.nodes, notice(`n${e.seq}`, e.text)] : n.nodes,
-    end: { status: e.status, seconds, changed: e.changed ?? 0, workspaces: e.workspaces ?? [] },
+    end: { status: e.status, seconds, changed: e.changed ?? 0, workspaces: e.workspaces ?? [], ...(typeof e.repo === "boolean" ? { repo: e.repo } : {}) },
   });
   if (exp.plan) s.items = replaceNode(s.items, exp.plan, (n) => (n.kind === "plan" ? { ...n, ended: e.status } : n));
   const { [e.id]: _ended, ...stillOpen } = s.open;
@@ -386,6 +386,15 @@ export function applyEvent(state: FeedState, e: CampEvent): FeedState {
 export function addSysLine(state: FeedState, text: string): FeedState {
   const localSeq = state.localSeq + 1;
   return { ...state, localSeq, items: [...state.items, { kind: "sys", id: `local${localSeq}`, text }] };
+}
+
+// Whether a conversation could have a pull request to post on: one of its runs had a linked git
+// repository with a remote to work in (for runs recorded before that was noted: a worktree), or
+// read a pull request. One that built something in a plain folder, or in a new project that has
+// nowhere to push to yet, has none.
+export function worksInRepo(nodes: FeedNode[]): boolean {
+  return findNodes(nodes, "exp").some((x) => !!x.end && (x.end.repo ?? x.end.workspaces.length > 0)) ||
+    findNodes(nodes, "tool").some((t) => t.tool === "pull_request");
 }
 
 // Every ask node in the feed, in order (for tests and for finding a card on screen).

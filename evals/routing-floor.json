@@ -8,11 +8,12 @@
     "debugging": 1,
     "review": 1,
     "planning": 0.83,
-    "chat": 0.8
+    "chat": 0.8,
+    "build": 1
   },
   "maxUnder": 2,
   "maxRiskyUnder": 1,
-  "savedPct": 0.3,
+  "savedPct": 0.25,
   "accepted": [
     "search-credentials-use",
     "search-research",

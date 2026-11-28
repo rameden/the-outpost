@@ -43,7 +43,9 @@ export type Route = {
 export const routeId = (model: string, effort?: Effort) => `${model}@${effort ?? "default"}`;
 
 // ---------- The task ----------
-export type TaskFamily = "search" | "explanation" | "editing" | "debugging" | "review" | "planning" | "summarization" | "chat";
+// build: leading a new, many-part piece of work (a new app, a phased plan) that will take many crew
+// runs. It is its own family so its turns, cost and observed record aren't mixed with one edit's.
+export type TaskFamily = "search" | "explanation" | "editing" | "debugging" | "review" | "planning" | "summarization" | "chat" | "build";
 export type Scope = "symbol" | "package" | "multi" | "unknown";
 export type Consequence = "cosmetic" | "normal" | "high" | "critical";
 export type TaskProfile = {
@@ -56,6 +58,7 @@ export type TaskProfile = {
   needs: { images: boolean; tools: boolean; serverTools: boolean; structured: boolean; requestTokens: number; managedTokens?: number };
   followUp: boolean;     // a short "implement it", read against the accepted plan or the turn before
   signals: string[];     // which evidence set the profile (labels, never the prompt itself)
+  parts?: number;        // a build: the phases, milestones or workstreams its plan names (each is more turns for the lead)
 };
 
 export type ProfileInput = {
@@ -95,10 +98,51 @@ const MULTI = /\b(across|end[- ]to[- ]end|multiple|several|services|microservice
 const PACKAGE = /\b(package|module|component|folder|directory|crate|library)\b/i;
 const SYMBOL = /(`[\w.]+`|\b\w+\(\)|\b(function|method|class|variable|constant) \w+)/i;
 
-const BASE_DIFFICULTY: Record<TaskFamily, number> = { chat: 0.1, search: 0.2, summarization: 0.25, explanation: 0.3, editing: 0.45, review: 0.5, planning: 0.5, debugging: 0.6 };
+const BASE_DIFFICULTY: Record<TaskFamily, number> = { chat: 0.1, search: 0.2, summarization: 0.25, explanation: 0.3, editing: 0.45, review: 0.5, planning: 0.5, debugging: 0.6, build: 0.6 };
 const SCOPE_DIFFICULTY: Record<Scope, number> = { symbol: 0, package: 0.1, unknown: 0.1, multi: 0.2 };
 const CONSEQUENCE_DIFFICULTY: Record<Consequence, number> = { cosmetic: -0.1, normal: 0, high: 0.15, critical: 0.25 };
 const RANK: Record<Consequence, number> = { cosmetic: 0, normal: 1, high: 2, critical: 3 };
+
+// ---------- Long requests ----------
+// A short request is read whole, as it always was. A long one is usually a line or two of the
+// user's own words with a document pasted under it (a plan, a spec, a log), and one word deep in
+// two hundred lines ("error handling", "polish the colours") says little about what was asked. So
+// a long request is read in two parts: the opening words decide when they say something, and the
+// rest only counts when a word comes up more than once.
+const LONG = 1_200;          // characters; every request in the routing evals is far below this
+const ASK_MAX = 400;         // the most of a long request's first paragraph taken as the ask
+const BODY_HITS = 2;         // how often a word must come up in the rest before it counts
+const PLAN_MIN = 500;         // characters; a shorter text that names three or more phases or milestones is a plan too
+// Phrases a spec uses that only look like a bug, a risk or a destructive change.
+const BENIGN = /\b(error[- ](handling|handler|states?|messages?|boundar(y|ies)|codes?|toasts?|pages?|screens?)|fail[- ]?(safe|over|fast)|fixed[- ](timestep|time ?step|steps?|size|width|height|rate|point|position|camera|update)|production[- ](build|ready|grade|quality|bundle|mode)|for production|(microphone|mic|camera|notification|location|clipboard) permissions?)\b/gi;
+const hits = (re: RegExp, text: string) => text.match(new RegExp(re.source, re.flags.includes("g") ? re.flags : `${re.flags}g`))?.length ?? 0;
+
+// The user's own words: the first paragraph, up to the first pasted block, at most ASK_MAX characters.
+// The harness's note that the user sent it directly isn't part of what they asked.
+export function splitRequest(text: string): { ask: string; body: string } {
+  const t = text.replace(/^\s*\(Sent directly by the user[^)]*\)\s*/, "");
+  const end = t.search(/\n\s*\n|```|<pasted_content|\n-{3,}\s*\n/);
+  const cut = Math.min(end < 0 ? t.length : end, ASK_MAX);
+  return { ask: t.slice(0, cut), body: t.slice(cut) };
+}
+
+// What says a request is a new, many-part build rather than one change. Each is weak alone; a long
+// request with a phased plan, words like "monorepo" or "from scratch", and a verb asking for it
+// built is the shape of a job that runs for hours across many crew runs.
+// A part is a named phase or milestone ("Phase 2", "M3"), or a lettered workstream heading ("B. Simulation core").
+const PART = /\b([Pp]hase|[Mm]ilestone|[Ww]orkstream|[Ss]tage|[Ss]print|[Ee]pic)\s+(\d{1,2}|[A-Z])\b|\bM([1-9]\d?)\b|^[ \t]*(?:#{1,6}[ \t]*)?([A-Z])[.)][ \t]+[A-Z][a-z]/gm;
+const GREENFIELD = /\b(new (app|application|project|repo|service|site|game|product)|from scratch|greenfield|mono-?repo|(pnpm|npm|yarn) workspaces?|(several|multiple|separate) packages|scaffold\w*|mvp|full[- ]stack|boilerplate)\b/gi;
+const BUILD_ASK = /\b(build|create|make|develop|scaffold|implement|set up|bootstrap|ship|code up|start on)\b/i;
+// Only planning when the user says so: "just plan it", "don't build yet".
+const PLAN_ONLY = /\b(just|only)\s+(plan|design|outline|spec)\b|\b(don'?t|do not)\s+(build|implement|code|start)\b/i;
+export function buildSignals(ask: string, all: string): { parts: number; greenfield: number; score: number } {
+  const parts = new Set([...all.matchAll(PART)].map((m) => (m[3] ? `m${m[3]}` : m[4] ? `workstream ${m[4]}` : `${m[1].toLowerCase()} ${m[2]}`))).size;
+  const greenfield = new Set((all.match(GREENFIELD) ?? []).map((w) => w.toLowerCase())).size;
+  const score = (parts >= 3 ? 2 : parts >= 1 ? 1 : 0) + Math.min(2, greenfield) + (all.length >= 4_000 ? 1 : 0) + (BUILD_ASK.test(ask) ? 1 : 0);
+  return { parts, greenfield, score };
+}
+// The lead of a build plans it and directs the crew; a crew member handed part of it is editing.
+const LEADS = new Set(["quartermaster"]);
 
 // A deterministic read of the task from what the harness can see. The role is only used when the
 // words themselves say nothing; a short follow-up is read against the plan it accepts.
@@ -107,8 +151,28 @@ export function profileTask(i: ProfileInput): TaskProfile {
   const followUp = i.text.trim().length <= 80 && FOLLOW_UP.test(i.text.trim()) && !!i.context;
   if (followUp) signals.push("follow-up read against the accepted plan");
   const words = followUp ? `${i.text}\n${i.context}` : i.text;
-  let family = FAMILY_RULES.find(([, re]) => re.test(words))?.[0];
-  if (family) signals.push(`family:${family} (words)`);
+  // A long follow-up's ask is the reply; the plan it accepts is the rest.
+  // A compact plan (a few lines naming several phases or milestones) is read the same way.
+  const long = words.length > LONG || (words.length > PLAN_MIN && buildSignals("", words).parts >= 3);
+  const { ask, body } = !long ? { ask: words, body: "" } : followUp ? { ask: i.text, body: `\n${i.context}` } : splitRequest(words);
+  if (long) signals.push("long request: read from its opening words");
+  const inBody = (re: RegExp) => hits(re, body.replace(BENIGN, " ")) >= BODY_HITS;
+  const said = (re: RegExp) => re.test(ask) || inBody(re);
+
+  const askFamily = FAMILY_RULES.find(([, re]) => re.test(ask))?.[0];
+  // The family of the rest: the one whose words come up most, if any come up more than once.
+  const bodyFamily = () => {
+    const clean = body.replace(BENIGN, " ");
+    const counted = FAMILY_RULES.map(([f, re]) => [f, hits(re, clean)] as const).filter(([, n]) => n >= BODY_HITS);
+    return counted.sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  const size = long ? buildSignals(ask, words) : null;
+  const isBuild = !!size && (!i.role || LEADS.has(i.role)) && (!askFamily || askFamily === "editing" || askFamily === "planning") &&
+    size.score >= 3 && (size.parts >= 2 || size.greenfield >= 1) && !PLAN_ONLY.test(ask);
+  let family: TaskFamily | undefined;
+  if (isBuild) { family = "build"; signals.push(`family:build (${size!.parts} parts, ${size!.greenfield} new-project words)`); }
+  else if (askFamily) { family = askFamily; signals.push(`family:${family} (words)`); }
+  else if ((family = long ? bodyFamily() : undefined)) signals.push(`family:${family} (words repeated in the rest)`);
   else if (i.role && ROLE_FAMILY[i.role]) { family = ROLE_FAMILY[i.role]; signals.push(`family:${family} (role hint)`); }
   else family = "chat";
   // A follow-up that accepts a plan is the work the plan describes.
@@ -117,19 +181,26 @@ export function profileTask(i: ProfileInput): TaskProfile {
   // Scope and what's at stake are read from the request (and the plan it accepts). What the run
   // turns up can raise the stakes to high, never to critical and never the scope: a file listing or
   // a README that happens to say "production" or "several" says nothing about this task.
-  const scope: Scope = MULTI.test(words) ? "multi" : PACKAGE.test(words) ? "package" : SYMBOL.test(words) ? "symbol" : "unknown";
+  let scope: Scope = said(MULTI) ? "multi" : said(PACKAGE) ? "package" : SYMBOL.test(ask) ? "symbol" : "unknown";
+  // A build of several parts spans more than one package whatever words it uses.
+  if (isBuild && (scope === "unknown" || scope === "symbol")) scope = size!.parts >= 3 ? "multi" : "package";
   if (scope !== "unknown") signals.push(`scope:${scope}`);
-  let consequence: Consequence = CRITICAL.test(words) ? "critical" : HIGH.test(words) ? "high" : COSMETIC.test(words) ? "cosmetic" : "normal";
+  // Cosmetic is the user's own word for it, never one found in a pasted document.
+  let consequence: Consequence = said(CRITICAL) ? "critical" : said(HIGH) ? "high" : COSMETIC.test(ask) && !isBuild ? "cosmetic" : "normal";
+  // A mistake in a build's plan is carried into every run that follows it, so the lead is held to
+  // the high-stakes bar.
+  const lead = isBuild && RANK[consequence] < RANK.high;
+  if (lead) consequence = "high";
   // A concurrency or correctness finding is never cosmetic, whatever the words said.
   const found = RANK[consequence] < RANK.high && (i.evidence ?? []).some(showsRisk);
   if (found) consequence = "high";
-  if (consequence !== "normal") signals.push(`consequence:${consequence}${found ? " (found while working)" : ""}`);
+  if (consequence !== "normal") signals.push(`consequence:${consequence}${found ? " (found while working)" : lead ? " (leading a build)" : ""}`);
 
   const failures = i.repeatedFailures ?? 0;
   if (failures) signals.push(`progress:${failures} distinct fixes reproduced the same failure`);
   const difficulty = clamp(BASE_DIFFICULTY[family] + SCOPE_DIFFICULTY[scope] + CONSEQUENCE_DIFFICULTY[consequence] + 0.15 * failures, 0, 1);
   return {
-    family, scope, consequence, difficulty: round(difficulty, 3), followUp, signals,
+    family, scope, consequence, difficulty: round(difficulty, 3), followUp, signals, ...(isBuild ? { parts: size!.parts } : {}),
     needs: { images: !!i.hasImages, tools: i.tools ?? true, serverTools: !!i.serverTools, structured: !!i.structured, requestTokens: Math.max(0, Math.round(i.requestTokens)),
       ...(i.managedTokens != null ? { managedTokens: Math.max(0, Math.round(i.managedTokens)) } : {}) },
   };
@@ -169,6 +240,7 @@ export type Policy = {
   effortsByTier: Partial<Record<Tier, (Effort | undefined)[]>>;
   effort: Record<Effort, { success: number; cost: number; time: number }>;
   turns: Record<TaskFamily, number>;            // typical turns at difficulty 0 (doubles by difficulty 1)
+  turnsPerPart: number;                         // a build's lead: more turns for each phase or milestone its plan names
   outputPerTurn: Record<TaskFamily, number>;    // tokens
   growthPerTurn: number;                        // tokens the transcript grows by each turn
   toolSecondsPerTurn: number;
@@ -182,7 +254,7 @@ export type Policy = {
 // difficulty 0 (cap) and how fast it falls as tasks get harder (slope). Observed outcomes
 // (camp/routing-evidence.json) are blended in as they accumulate. Change the numbers, change the version.
 export const POLICY: Policy = {
-  version: "auto-2026-11-26.1",
+  version: "auto-2026-11-28.1",
   modes: {
     economy: { costWeight: 4, timeWeight: 0.0001, switchMargin: 0.03 },
     balanced: { costWeight: 0.6, timeWeight: 0.0004, switchMargin: 0.04 },
@@ -208,8 +280,11 @@ export const POLICY: Policy = {
     xhigh: { success: 0.07, cost: 2, time: 2 },
     max: { success: 0.08, cost: 2.5, time: 2.5 },
   },
-  turns: { chat: 1, explanation: 2, summarization: 2, search: 4, planning: 3, review: 4, editing: 6, debugging: 8 },
-  outputPerTurn: { chat: 400, explanation: 800, summarization: 700, search: 300, planning: 900, review: 700, editing: 900, debugging: 700 },
+  // A build's lead plans the whole job, briefs each crew run and reads back what it did: dozens of
+  // turns over hours, not the half-dozen of one edit.
+  turns: { chat: 1, explanation: 2, summarization: 2, search: 4, planning: 3, review: 4, editing: 6, debugging: 8, build: 16 },
+  turnsPerPart: 2,
+  outputPerTurn: { chat: 400, explanation: 800, summarization: 700, search: 300, planning: 900, review: 700, editing: 900, debugging: 700, build: 1_000 },
   growthPerTurn: 2_500,
   toolSecondsPerTurn: 3,
   priors: {
@@ -332,11 +407,13 @@ function rateFor(r: Route, policy: Policy): { rate: Rate; known: boolean } {
   if (r.free) return { rate: { input: 0, output: 0, cacheRead: 0 }, known: true };
   return r.price ? { rate: r.price, known: true } : { rate: policy.unknownRate, known: false };
 }
+// Past this many parts a plan is just more of the same to the lead, not more turns each.
+const MAX_PARTS = 20;
 // One attempt at the task on this route: turns × (new input at full price, the rest from cache, output).
 function attempt(r: Route, p: TaskProfile, policy: Policy): { usd: number; seconds: number; known: boolean } {
   const { rate, known } = rateFor(r, policy);
   const eff = r.effort ? policy.effort[r.effort] : policy.effort.medium;
-  const turns = Math.max(1, Math.round(policy.turns[p.family] * (1 + p.difficulty)));
+  const turns = Math.max(1, Math.round(policy.turns[p.family] * (1 + p.difficulty) + (policy.turnsPerPart ?? 0) * Math.min(MAX_PARTS, p.parts ?? 0)));
   const out = policy.outputPerTurn[p.family] * eff.cost;
   const cacheRead = rate.cacheRead ?? rate.input * 0.1;
   let usd = 0;
@@ -441,7 +518,7 @@ const count = (n: number) => NUM[n] ?? String(n);
 export const routeName = (r: Pick<Route, "model" | "effort">) => `${r.model}${r.effort ? ` (${r.effort} effort)` : ""}`;
 
 function needsPhrase(p: TaskProfile): string {
-  const parts = [p.needs.images && "this screenshot", p.needs.serverTools && "the web tools", p.needs.tools && (p.family === "editing" || p.family === "debugging" ? "the edit tools" : "tool calls")].filter(Boolean) as string[];
+  const parts = [p.needs.images && "this screenshot", p.needs.serverTools && "the web tools", p.needs.tools && (p.family === "editing" || p.family === "debugging" || p.family === "build" ? "the edit tools" : "tool calls")].filter(Boolean) as string[];
   return parts.length ? parts.join(" and ") : "this task";
 }
 

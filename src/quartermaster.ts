@@ -18,16 +18,17 @@ import { requestDisplay, viewFileFor, type Attachment, type RequestContent } fro
 import { ask } from "./ask.js";
 import { emit } from "./events.js";
 import { randomUUID } from "node:crypto";
-import { currentDepth, currentExpeditionId, currentQuestId, currentSignal, currentWorkspaces, withExpedition, withQuest, withWorkspaces, type Steering, type Workspace } from "./context.js";
+import { bringIntoScope, currentDepth, currentExpeditionId, currentQuestId, currentSignal, currentWorkspaces, withExpedition, withQuest, withWorkspaces, type Steering, type Workspace } from "./context.js";
 import { checkChanges, isDoc, noChecksNote, type ChecksReport } from "./verify.js";
 import { foldersToLock, lockFolders } from "./folderlock.js";
 import { setUpWorkspaces } from "./setup.js";
 import { FINDINGS_FORMAT, REVIEW_SCOPE } from "./review.js";
-import { workspaceStatus } from "./repos.js";
+import { tryGit, workspaceStatus } from "./repos.js";
 import { agentSettings, budgetUsd, fixAttempts, questLimit, reviewChangesOn } from "./settings.js";
 import { changedFiles, forgetFolder, noteLanded, sealSnapshots, snapshotBeforeShell } from "./checkpoints.js";
 import { closeQuestTree, cutQuestTree, isGitTop, settle, wantFolders, type QuestTree, type TreeEnd } from "./questtrees.js";
-import { linkedDisplayPath } from "./links.js";
+import { findLink, linkedDisplayPath, loadLinks } from "./links.js";
+import { agreeCommands, projectsHome, startProject } from "./newproject.js";
 import { allTurns, recordTurn, setPlanAside, threadFor } from "./threads.js";
 import { GENERAL, getProject, history } from "./conversations.js";
 import { proposeSkill, skillCatalog } from "./forge.js";
@@ -51,8 +52,10 @@ export const rosterLines = () => Object.entries(ROSTER)
 // board: the plan that stands, and where each of its steps is (see PlanBoard).
 // reviewed: the Warden has reviewed this run's changes. unchecked: the linked folders a quest
 // changed that had no checks to run, each with the likely ones found there.
+// out: how many quests this run has out now. linked: folders this run linked itself (start_project),
+// kept with the conversation so its next turns have them too.
 type Expedition = { planApproved: boolean; job?: string; parked?: { text: string; ask: string }; thread?: string; project?: string; shown?: string;
-  board?: PlanBoard; reviewed?: boolean; unchecked?: Map<string, string[]> };
+  board?: PlanBoard; reviewed?: boolean; unchecked?: Map<string, string[]>; out?: number; linked?: string[] };
 
 // The plan that stands for a run, and where each of its steps is: how many quests are out for it
 // now, whether one has come back done, and how the last one that didn't ended. This is what makes
@@ -300,6 +303,7 @@ function makeDispatch(exp: Expedition): Tool {
         board.out.set(onPlan, (board.out.get(onPlan) ?? 0) + 1); // out from here on, so a step sent in the same turn sees it
       }
       const ended = (how: string) => { if (board && onPlan !== undefined) { if (how === "done") board.done.add(onPlan); else board.ended.set(onPlan, how.replace(/_/g, " ")); } };
+      exp.out = (exp.out ?? 0) + 1;
       try {
         const back = await sendQuest(exp, spec, String(brief), shownStep);
         if (!back) { ended("stopped"); return `Not sent: the ${w("expedition")} was stopped.`; }
@@ -315,8 +319,67 @@ function makeDispatch(exp: Expedition): Tool {
         ended("error");
         throw err;
       } finally {
+        exp.out = (exp.out ?? 1) - 1;
         if (board && onPlan !== undefined) board.out.set(onPlan, (board.out.get(onPlan) ?? 1) - 1);
       }
+    },
+  };
+}
+
+// A new project, started so that everything the camp does for a linked folder applies to it: its
+// own git repository with a first commit, linked with edit access and brought into this
+// conversation (newproject.ts). Two {members} sent there together then each get a worktree, the
+// project's checks run after each {quest}, and review before the report holds.
+function makeStartProject(exp: Expedition): Tool {
+  return {
+    def: {
+      name: "start_project",
+      description: say(
+        "Start a new project for something the user wants built from scratch, when no linked folder is in play for it: " +
+        `makes a folder of its own (in ${projectsHome()}), a git repository with a first commit, and links it with edit access, in this conversation. ` +
+        "From then on it is links/<name>/ for every {member} you send: {members} who change files there at the same time each get their own worktree, " +
+        "and the {camp}'s checks and review apply. Use it once, after the plan is approved and before the first dispatch that writes code. " +
+        "If the {crew} already built it in a plain folder inside the outpost's own folder, pass that folder as from: it is moved out and started the same way. " +
+        "Don't use it to change a folder that's already linked."),
+      input_schema: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "The project's name; it becomes the folder's name (lowercase, dashes). Left out with from: that folder's name." },
+          from: { type: "string", description: "A folder the {crew} already made inside the outpost's folder, as a path from there (e.g. holonet) or a full path. It is moved, not copied." },
+          checks: { type: "array", items: { type: "string" }, description: "Commands the {camp} runs after each {quest} that changes files there (e.g. pnpm -r typecheck). Only ones that will work once the project has its tooling. The user is asked before they're kept." },
+          setup: { type: "array", items: { type: "string" }, description: "Commands run once in each new worktree before anyone works in it, outside the sandbox (e.g. pnpm install). The user is asked before they're kept." },
+        },
+      },
+    },
+    run: async ({ name, from, checks, setup }) => {
+      if (exp.parked) return "Blocked: the user approved the plan to start later, not now. Don't start any work; end your turn.";
+      if (!exp.planApproved) return "Blocked: submit your plan with submit_plan and get the user's approval first (say in it that you'll start the project).";
+      if (from && exp.out) return say(`Not done: ${exp.out} ${exp.out === 1 ? "{quest} is" : "{quests} are"} still out, and the folder can't be moved while someone may be working in it. Wait for the reports, then try again.`);
+      const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : typeof v === "string" && v.trim() ? [v] : undefined);
+      let started;
+      try {
+        started = await startProject({ name: name ? String(name) : undefined, from: from ? String(from) : undefined });
+      } catch (e: any) {
+        return `Not done: ${e.message}`;
+      }
+      const { path, state, movedFrom } = started;
+      bringIntoScope(started.link.name);
+      if (!(exp.linked ??= []).includes(started.link.name)) exp.linked.push(started.link.name);
+      emit({ type: "changed", what: "links" });
+      const what = state === "adopted" ? `moved ${movedFrom} to ${path} and made it a project` : state === "existing" ? `is using the project at ${path}` : `started a new project at ${path}`;
+      emit({ type: "notice", who: CREW.quartermaster.name, emoji: CREW.quartermaster.emoji, depth: 0,
+        text: `📁 ${CREW.quartermaster.name} ${what}: a git repository, linked with edit access as links/${started.link.name}/ in this conversation.` });
+      // Checks and setup are commands the camp runs by itself from now on: the user says yes to them first.
+      const agreed = await agreeCommands(started.link, { checks: list(checks), setup: list(setup) });
+      const link = findLink(started.link.name) ?? started.link;
+      return say(`Done: links/${link.name}/ is the project (${path}), a git repository on branch main with a first commit, linked with edit access and part of this conversation.\n` +
+        (state === "adopted" ? `Its files were moved from ${movedFrom}: nothing is left there, so every brief must use links/${link.name}/ paths, never the old ones.\n` : "") +
+        `- Brief every {member} with links/${link.name}/ paths. {Members} who change files there at the same time each work in their own worktree, and their changes come back to the folder when they're done; each brief should name the folders that {member} owns.\n` +
+        (agreed ? `${agreed}\n` : "") +
+        (link.verify?.length ? `- After each {quest} that changes files there, the {camp} runs: ${link.verify.join(" ; ")}.\n`
+          : "- No automatic checks are set for it. The {camp} runs the likely ones it finds there (package.json scripts, a Makefile…) when they'd run without asking the user; " +
+            "once the project has its tooling, you can call start_project again with the same name and checks (the user is asked).\n") +
+        (link.setup?.length ? `- Each new worktree is set up first with: ${link.setup.join(" ; ")}.` : "- A new worktree has no installed packages: if the {crew} needs them, call start_project again with the same name and setup (e.g. pnpm install; the user is asked)."));
     },
   };
 }
@@ -452,8 +515,9 @@ export const REVIEW_RULE =
   "If this {expedition} changed files in a linked folder, then after the last {quest} that changed them and before your final summary, dispatch the Warden once to review the change. " +
   "Brief it with: what the user asked for, which files changed, and these two paragraphs word for word, so its findings come back in the form the user's page can show:\n\n" +
   `> ${REVIEW_SCOPE}\n>\n> ${FINDINGS_FORMAT.replace(/\n/g, "\n> ")}\n\n` +
-  "- If it finds a blocker or something that should be fixed, send one fix {quest} for those, then report. Don't review a second time.\n" +
-  "- In your summary, say the change was reviewed and what came of it. If any finding was left unfixed (you judged it wrong, out of scope, or small), end your summary with those in the same ```findings block, so the user can decide.\n" +
+  "- If it finds something to fix, send one fix {quest} for those: every blocker, and a \"should\" finding only when it's small and in the files already changed. Then report. Don't review a second time.\n" +
+  "- If that fix {quest} comes back unfinished, don't send it again: report it as unfinished, with what's left.\n" +
+  "- In your summary, say the change was reviewed and what came of it. Every finding that wasn't fixed (the other \"should\" and \"nit\" ones, any you judged wrong, anything left): end your summary with those in the same ```findings block, as they stand, so the user can decide.\n" +
   "- If it finds nothing, say in your summary that the change was reviewed and nothing was found.\n" +
   "- Skip the review when nothing in a linked folder changed, or when the change is only docs or notes.\n" +
   "- The {camp} holds you to this: if you finish and the change hasn't been reviewed, it sends the Warden itself and puts that report under your summary, with no chance for a fix.";
@@ -625,9 +689,17 @@ How you work:
    before your first dispatch, and follow the user's changes if they ask for any.
    When a step can only start once others have finished, begin it with "(after 1, 2)" naming them (e.g. "3. (after 1, 2) Scribe writes the summary"); a step that can start right away has no marker.
    The {camp} holds you to those markers: a dispatch for a step is refused until the steps it comes after have reported back, so send those first.
+   Mark a step (after …) only when it needs what that step produces, not to keep things in a tidy order: every marker makes the {crew} wait.
+   Building something new with several parts (an app's renderer, engine and UI; a monorepo's packages): if no linked folder
+   is in play, the plan says you'll start it as a project, and once it's approved you do, with start_project, before any dispatch.
+   Then step 1 sets down the shared contracts in a file in the project: the folder layout, the types and interfaces between
+   the parts, and which folders each part owns. The parts that rely only on those contracts are each "(after 1)" and go out
+   together in one turn, each brief naming the folders it owns and pointing at the contracts file. Once they're merged, one {quest} wires them together and runs the whole thing; only after that is it done.
 4. Dispatch with excellent briefs. {Members} know nothing except what you write.
    Independent {quests} (research while the Artificer builds) go out together in one turn.
-   {Members} who change files take turns in a linked folder (the {camp} sees to it): sent together, the second starts when the first is back.
+   {Members} sent together to change files in the same linked git repository each work in their own worktree (the {camp} sees to it),
+   and their changes are merged back when they're done; two that change the same lines can't both be merged, so give each its own files.
+   In a linked folder that isn't a git repository they take turns: the second starts when the first is back.
    Give each dispatch the number of the plan step it carries out (step): the user watches the plan fill in.
    Pass along findings from earlier reports and point them at relevant wiki pages.
    When someone writes about code changes (release notes, a PR description, docs), the brief
@@ -635,12 +707,18 @@ How you work:
    behavior), and the repo and revisions to compare, from the Artificer's report. They can check
    it with git (diff, log, show), but don't leave them to guess what's new.
 5. Review every report. If it's incomplete or wrong, dispatch again with a sharper brief.
-   A report may end with "Automatic checks": the user's own commands, run by the {camp} after the
-   changes. A ✗ there means the work isn't done: send the {member} back with the output.
+   A report may end with "Automatic checks": commands the user set or agreed to (or, in a project the {camp} started,
+   ones it found there), run by the {camp} after the changes. A ✗ there means the work isn't done: send the {member} back with the output.
    A report may say instead that no automatic checks ran in a folder: the {camp} tells the user
    so under your summary itself, so don't repeat it, and don't call that work checked.
+   A test count, a passing typecheck or "it works" in a {member}'s own words is their claim, not a result. Call it checked only
+   when that report's "Automatic checks" block shows it; otherwise say who reported it and that nothing re-ran it.
+   Something with a screen (an app, a page, a game): before you call it built, have a {member} run it, save a screenshot in
+   their outputs folder and give its path in their report; open that file yourself with view_file and say what you saw.
+   If it couldn't be run or captured, say it wasn't looked at.
    A report that says it used all its turns ends with a handoff (files changed, last steps):
-   put that in the next brief so the work continues instead of starting over.
+   put that in the next brief so the work continues instead of starting over. It may already have
+   carried on more than once in the same run, so what's left was too much for one {quest}: split it.
 6. Do trivial things yourself (reading one file, a quick web lookup) rather than dispatching for them.
 7. Finish by telling the user what was done, where outputs are, and anything unresolved.
 
@@ -699,6 +777,7 @@ function buildQuartermaster(exp: Expedition, cost: Pick<AgentSpec, "model" | "ef
     tools: [
       makeSubmitPlan(exp),
       makeDispatch(exp),
+      makeStartProject(exp),
       askUser,
       webSearch,
       webFetch,
@@ -797,17 +876,36 @@ export async function runExpedition(
       return { ...result, text: result.text ? `${result.text}\n\n${added}` : added };
     });
     logQuest(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, result, opts.job, where.project, id);
-    if (!opts.job) recordTurn({ ...turn, reply: result.text, status: result.status, ...(exp.parked ? { parked: exp.parked } : {}) });
+    if (!opts.job) recordTurn({ ...turn, ...linkedHere(exp, opts.links), reply: result.text, status: result.status, ...(exp.parked ? { parked: exp.parked } : {}) });
     await sealSnapshots(id);
-    emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
+    emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces), ...(await hadRepo(where.scope, exp.linked)) });
     return result;
   } catch (err: any) {
     logFailure(opts.job ? "job" : "expedition", CREW.quartermaster.name, shown, started, err, opts.job, where.project, id);
-    if (!opts.job) recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
+    if (!opts.job) recordTurn({ ...turn, ...linkedHere(exp, opts.links), reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
     await sealSnapshots(id);
-    emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
+    emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, workspaces: await standing(workspaces), ...(await hadRepo(where.scope, exp.linked)) });
     throw err;
   }
+}
+
+// Whether there could be a pull request for what a run did (the page offers "Post on the pull
+// request" only then): a linked folder in its scope (every one, when it has no scope; a project it
+// started with start_project included) is a git repository with a remote. A project the camp just
+// started is a repository with nowhere to push to yet, so it doesn't count until it's given one.
+export async function hadRepo(scope: string[] | undefined, linked: string[] = []): Promise<{ repo: boolean }> {
+  for (const l of loadLinks()) {
+    if (scope && !scope.includes(l.name) && !linked.includes(l.name)) continue;
+    if (!(await isGitTop(l.path))) continue;
+    if ((await tryGit(l.path, ["remote"])).trim()) return { repo: true };
+  }
+  return { repo: false };
+}
+
+// A project this run started (start_project) stays with the conversation: its turn records it as a
+// folder attached along the way, so a follow-up is in it too.
+function linkedHere(exp: Expedition, links: string[] | undefined): { links?: string[] } {
+  return exp.linked?.length ? { links: [...new Set([...(links ?? []), ...exp.linked])] } : {};
 }
 
 // What the Quartermaster is told when you start a plan you approved earlier and held.
@@ -824,7 +922,7 @@ function heldPlanNote(plan: string, numbered: boolean, waits = false): string {
 // camp (not left to the Quartermaster to pass on).
 function uncheckedNote(exp: Expedition, result: AgentResult): string {
   if (result.status === "stopped" || !exp.unchecked?.size) return "";
-  return [...exp.unchecked].map(([link, found]) => say(noChecksNote(link, found))).join("\n");
+  return [...exp.unchecked].map(([link, found]) => say(noChecksNote(link, found, findLink(link)?.campMade))).join("\n");
 }
 
 // Where each of an expedition's worktrees stands when it ends: its branch, uncommitted files, new commits.
@@ -934,14 +1032,14 @@ export async function runDirect(
     recordTurn({ ...turn, reply: result.text, status: result.status });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: result.status, questId, expeditionId: id });
     await sealSnapshots(id);
-    emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces) });
+    emit({ type: "expedition_end", id, status: result.status, text: result.text, changed: changedFiles(id).length, workspaces: await standing(workspaces), ...(await hadRepo(where.scope)) });
     return result;
   } catch (err: any) {
     logFailure("quest", spec.name, shown, started, err, undefined, where.project);
     recordTurn({ ...turn, reply: `[Failed: ${err.message}]${err.partial?.text ? `\n${err.partial.text}` : ""}`, status: "error" });
     emit({ type: "return", who: spec.name, emoji: spec.emoji, status: "error", questId, expeditionId: id });
     await sealSnapshots(id);
-    emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length });
+    emit({ type: "expedition_end", id, status: "error", text: err.message, changed: changedFiles(id).length, ...(await hadRepo(where.scope)) });
     throw err;
   }
 }

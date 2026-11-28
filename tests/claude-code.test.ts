@@ -180,6 +180,71 @@ test("running out of turns ends the run as out of turns, not as a failure", asyn
   assert.equal((await runDirect("scribe", "Go on for ever"))?.status, "out_of_turns");
 });
 
+// A streaming session the way the real CLI runs one: each message it's sent is a turn of its own,
+// ending in a result, and the session stays open for the next until the prompt ends. The first
+// outOfTurns turns end at the turn limit; after that it finishes (or, with hang, waits to be stopped).
+function turnsSession(outOfTurns: number, opts: { hang?: boolean } = {}) {
+  return async function* ({ prompt, options }: any) {
+    seen = { sent: [] as any[] };
+    const it = prompt[Symbol.asyncIterator]();
+    for (let k = 0; ; k++) {
+      const next = await it.next();
+      if (next.done) throw new Error("Claude Code returned an error result: Reached maximum number of turns");
+      seen.sent.push(next.value.message.content);
+      yield { type: "assistant", parent_tool_use_id: null, message: { id: `msg_${k}`, content: [{ type: "text", text: `worked on part ${k + 1}` }, { type: "tool_use", id: `tu_${k}`, name: "mcp__camp__list_dir", input: { path: `part${k + 1}` } }],
+        usage: { input_tokens: 1000, output_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } };
+      if (opts.hang && k === outOfTurns) {
+        await new Promise((_, no) => options.abortController.signal.addEventListener("abort", () => no(new Error("aborted")), { once: true }));
+      }
+      const out = k < outOfTurns;
+      yield { type: "result", subtype: out ? "error_max_turns" : "success", result: out ? undefined : "All done.", num_turns: 3, total_cost_usd: 0.1 * (k + 1),
+        is_error: out, ...(out ? { errors: ["Reached maximum number of turns"] } : {}),
+        usage: { input_tokens: 1000, output_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } };
+      if (!out) return;
+    }
+  };
+}
+
+test("out of turns: the run carries on in the same session and finishes, as one run", async () => {
+  useQueryForTests(turnsSession(1) as any);
+  const before = recentQuests(1000).length;
+  const r = await runDirect("scribe", "Write it all");
+  assert.equal(r?.status, "done");
+  assert.equal(r?.text, "All done.");
+  assert.equal(seen.sent.length, 2, "one more message into the open session, not a new session");
+  assert.match(String(seen.sent[1]), /you used this run's \d+ turns without finishing, so you have \d+ more to carry on \(1 of 2\)/);
+  assert.equal(r?.turns, 6, "turns from both allowances");
+  assert.equal(r?.usage.input, 2000, "usage from both allowances");
+  assert.ok(Math.abs(r!.costUsd! - 0.2) < 1e-9, "cost is the session's running total");
+  assert.deepEqual(events.filter((e) => e.type === "notice" && /carrying on/.test(e.text)).map((e) => e.text), [`🔁 Scribe used its ${seen.sent[1].match(/run's (\d+) turns/)[1]} turns and is carrying on, 1 of 2.`]);
+  assert.equal(events.filter((e) => e.type === "return").length, 1);
+  const all = recentQuests(1000);
+  assert.equal(all.length, before + 1, "one quest-log record");
+  assert.equal(all.at(-1)!.turns, 6);
+});
+
+test("out of turns: after the last allowance the run ends as today, with the note and the handoff", async () => {
+  useQueryForTests(turnsSession(99) as any);
+  const r = await runDirect("scribe", "Go on for ever");
+  assert.equal(r?.status, "out_of_turns");
+  assert.equal(seen.sent.length, 3, "the task, then 2 words to carry on");
+  assert.match(String(seen.sent[2]), /\(2 of 2\)[^\]]*This is the last allowance/);
+  assert.equal(r?.turns, 9);
+  assert.match(r!.text, /worked on part 3[\s\S]*used all \d+ turns \(\d+, then 2 more allowances of \d+ in the same run\)[\s\S]*Send Scribe back to continue[\s\S]*Handoff for whoever continues[\s\S]*- list_dir[^\n]*part1[\s\S]*- list_dir[^\n]*part3/, "the handoff lists steps from every allowance");
+  assert.equal(events.filter((e) => e.type === "notice" && /carrying on/.test(e.text)).length, 2);
+});
+
+test("out of turns: Stop during an extension stops the run at once", async () => {
+  useQueryForTests(turnsSession(1, { hang: true }) as any);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 100);
+  const t0 = Date.now();
+  const r = await runDirect("scribe", "Write it all", "direct", undefined, controller.signal);
+  assert.equal(r?.status, "stopped");
+  assert.ok(Date.now() - t0 < 1500);
+  assert.equal(seen.sent.length, 2, "it was in its first extension");
+});
+
 test("any other error result is still a failure, and says why", async () => {
   useQueryForTests(endsWith("error_during_execution", "the model went away") as any);
   await assert.rejects(() => runDirect("scribe", "Doomed") as Promise<unknown>, /the model went away/);

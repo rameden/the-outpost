@@ -2,6 +2,7 @@
 // act on, asking someone else for a second opinion or a review, the pull request dialog, and
 // the chip that says where a conversation's pull request stands.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { hear, type Ask } from "../bus.ts";
 import { setCrewColors } from "../format.ts";
@@ -9,7 +10,7 @@ import { Markdown } from "../markdown.tsx";
 import type { CampState } from "../types.ts";
 import { AsideButton } from "./Aside.tsx";
 import { ForkButton } from "./Fork.tsx";
-import { Findings, fixRequest, parseFindings, postRequest } from "./Findings.tsx";
+import { Findings, WorksInRepo, fixRequest, parseFindings, postRequest } from "./Findings.tsx";
 import { AskCard } from "./AskCard.tsx";
 import { askOutcome } from "./asks.ts";
 import { NextStep, WorkStrip, commitStart, prSays, stageOf } from "./NextStep.tsx";
@@ -347,8 +348,19 @@ test("fork: a plain fork goes straight to the new conversation; going back asks 
   expect(screen.getByRole("status").textContent).toBe("↩ Put back 1 file.");
 });
 
+const inRepo = (ui: ReactNode) => <WorksInRepo.Provider value>{ui}</WorksInRepo.Provider>;
+
+test("posting findings on the pull request is offered only where the conversation works in a git repository", () => {
+  const { unmount } = render(<Findings list={parseFindings(BLOCK)!} />);
+  expect(screen.queryByRole("button", { name: "Post on the pull request…" })).toBeNull();
+  expect(screen.getByRole("button", { name: /to be fixed/ })).toBeTruthy(); // the other action stays
+  unmount();
+  render(inRepo(<Findings list={parseFindings(BLOCK)!} />));
+  expect(screen.getByRole("button", { name: "Post on the pull request…" })).toBeTruthy();
+});
+
 test("ticked findings can be put in the message box as a request to post them; nothing is posted from here", () => {
-  render(<Findings list={parseFindings(BLOCK)!} />);
+  render(inRepo(<Findings list={parseFindings(BLOCK)!} />));
   const box = screen.getByRole("group", { name: "Review findings" });
   fireEvent.click(within(box).getByRole("button", { name: "Post on the pull request…" }));
   const text = (asks[0] as Extract<Ask, { do: "compose" }>).text;

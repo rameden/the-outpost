@@ -7,7 +7,7 @@
 // the reviewer's words are its opinion, and may be wrong. Posting them on the pull request puts a
 // request in the message box instead (the Warden drafts the comment and you approve it, word for word).
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { say, type Sent } from "../bus.ts";
 import { cx, plural } from "../format.ts";
 
@@ -23,6 +23,11 @@ const HINT = {
   failed: "It didn't go: the message box says why.",
   box: "It's in the message box: read it over, then send.",
 } as const;
+
+// Whether the conversation could have a pull request to post on (worksInRepo in reducer.ts: it
+// works in a linked git repository, or read a pull request). Only then is "Post on the pull
+// request…" offered: a conversation that built something in a plain folder has none. Feed provides it.
+export const WorksInRepo = createContext(false);
 
 // What the block holds, if it's a list of findings we can show (null: show it as code).
 export function parseFindings(text: string): Finding[] | null {
@@ -64,6 +69,7 @@ export function Findings({ list }: { list: Finding[] }) {
   const [picked, setPicked] = useState<boolean[]>(() => list.map((f) => f.severity !== "nit"));
   // What became of the last request from here: going, gone (to the working run, or as a new request),
   // didn't go, or put in the message box. Ticking or unticking starts afresh.
+  const inRepo = useContext(WorksInRepo);
   const [sent, setSent] = useState<"sending" | Exclude<Sent, null> | "failed" | "box" | null>(null);
   if (!list.length) return <div className="findings none">The review found nothing to fix.</div>;
   const chosen = list.filter((_, i) => picked[i]);
@@ -93,8 +99,8 @@ export function Findings({ list }: { list: Finding[] }) {
         <button type="button" className="btn small primary" disabled={!chosen.length || sent === "sending" || sent === "now" || sent === "sent"}
           title={`Send the ticked findings as a change request: to the ${w("crew")} now if they're working, else as a reply`}
           onClick={() => { setSent("sending"); say({ do: "send", text: fixRequest(chosen), sent: (how) => setSent(how ?? "failed") }); }}>Ask for {chosen.length === list.length ? "these" : `${chosen.length} of them`} to be fixed</button>
-        <button type="button" className="btn small" disabled={!chosen.length} title="Put a request in the message box to post the ticked findings on the pull request as you. You approve the exact text before anything is posted."
-          onClick={() => { say({ do: "compose", text: postRequest(chosen) }); setSent("box"); }}>Post on the pull request…</button>
+        {inRepo && <button type="button" className="btn small" disabled={!chosen.length} title="Put a request in the message box to post the ticked findings on the pull request as you. You approve the exact text before anything is posted."
+          onClick={() => { say({ do: "compose", text: postRequest(chosen) }); setSent("box"); }}>Post on the pull request…</button>}
         <span className="meta" role="status">{sent ? HINT[sent] : "A reviewer's opinion, not a verdict: untick what you disagree with."}</span>
       </div>
     </div>

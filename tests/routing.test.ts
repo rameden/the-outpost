@@ -13,7 +13,7 @@ import { enterSandbox } from "./helpers/sandbox.ts";
 enterSandbox("routing");
 const { routingReport } = await import("../src/autoroute.ts");
 
-const claude = (model: string, tier: Route["tier"], effort?: Route["effort"], price = { input: 3, output: 15 }): Route => ({
+const claude = (model: string, tier: Route["tier"], effort?: Route["effort"], price: Route["price"] = { input: 3, output: 15 }): Route => ({
   id: routeId(model, effort), model, provider: "anthropic", effort, tier, price,
   caps: { images: true, tools: true, serverTools: true, contextTokens: 200_000, maxOutput: 32_000 },
 });
@@ -406,4 +406,123 @@ test("Claude wins a close call in every preference, and says so; a clear win els
   assert.equal(off.id, luna.id);
   assert.doesNotMatch(off.reason, /preferred/);
   assert.doesNotMatch(pick("economy", est(0.009, 0.01)).reason, /preferred/, "Claude winning outright isn't put down to the lean");
+});
+
+// ---------- A short ask with a long build plan pasted under it ----------
+// Compact and synthetic, but the shape of a real one: a line of the user's own words, then a phased
+// plan for a new monorepo app that happens to mention error handling, a failing check, a fixed
+// timestep, polish and colours along the way.
+const BUILD_PLAN = `Starmap Ops: build plan
+A browser star map with a simulated fleet, route planning and a small multiplayer server.
+
+1. Stack
+Vite and TypeScript (strict) in a pnpm monorepo: apps/client, apps/server, packages/shared, packages/sim.
+Three.js for rendering, a hand-rolled ECS in a Web Worker, WebSocket sync for two players.
+
+2. Shared contracts (Phase 0, blocks everything else)
+Types for systems, lanes, ships and commands live in packages/shared. Nothing else starts until they typecheck.
+
+Phase 0: Foundation
+0.1 Scaffold the monorepo, lint, Vitest and Playwright. A blank canvas renders.
+0.2 Write the shared contracts. CI fails if a package imports another package's internals.
+
+Phase 1: Core (parallel workstreams)
+A. Galaxy generation: seeded spiral arms, regions, lanes from a Delaunay triangulation.
+B. Simulation: struct-of-arrays storage, A* over lanes, a fixed timestep of 50 ms, combat.
+C. Renderer: point-cloud stars, animated lanes, instanced ships, bloom. Keep colours to the faction palette.
+D. Input: orbit and zoom with inertia, picking, a selection panel.
+
+Phase 2: Commands
+E. Command bar and voice commands with a grammar; error handling for words it doesn't know.
+F. Multiplayer: a WebSocket server that owns the sim; clients send commands and get snapshots.
+
+Phase 3: Polish
+G. Polish: transitions, spacing in the panels, a loading screen. Fix anything the e2e run turns up.
+
+Milestones
+M1 Galaxy on screen. M2 Plot a course. M3 Fleet moves. M4 Voice works. M5 Two players.
+Each milestone ends with its tests green and a short demo recorded for review.`;
+const BUILD_ASK = `lets build this nextJS, typescript app. Keep the number of rendered assets down if need be\n\`\`\`\n${BUILD_PLAN}\n\`\`\``;
+const priced = (model: string, tier: Route["tier"], effort: Route["effort"], input: number, output: number, cacheRead: number) => claude(model, tier, effort, { input, output, cacheRead });
+const LINEUP = [
+  priced("claude-haiku-5-5", "haiku", undefined, 1, 5, 0.1),
+  ...(["low", "medium", "high"] as const).map((e) => priced("claude-sonnet-5-5", "sonnet", e, 2, 10, 0.1)),
+  ...(["medium", "high"] as const).map((e) => priced("claude-opus-5-5", "opus", e, 4, 20, 0.2)),
+];
+const FRONTIER = priced("claude-fable-5-2", "frontier", "high", 8, 40, 0.2);
+
+test("a short ask with a long phased plan is a build: read from the user's words, not a stray one in the plan", () => {
+  assert.ok(BUILD_ASK.length > 1_200 && /error handling/.test(BUILD_ASK) && /Polish/.test(BUILD_ASK) && /fails/.test(BUILD_ASK));
+  const p = profileTask({ text: BUILD_ASK, role: "quartermaster", requestTokens: 20_000 });
+  assert.equal(p.family, "build");
+  assert.equal(p.scope, "multi");
+  assert.equal(p.consequence, "high", "a build's plan is carried into every run it directs");
+  assert.ok(p.difficulty >= 0.9, `difficulty ${p.difficulty}`);
+  assert.ok((p.parts ?? 0) >= 10, `parts ${p.parts}`);
+  assert.ok(p.signals.includes("long request: read from its opening words"));
+  // The note the harness puts in front of a message sent straight to the lead isn't the ask.
+  assert.equal(profileTask({ text: `(Sent directly by the user, not the Quartermaster.)\n\n${BUILD_ASK}`, role: "quartermaster", requestTokens: 20_000 }).family, "build");
+  // The plan pasted on its own is still a build; with no role at all, too.
+  assert.equal(profileTask({ text: BUILD_PLAN, requestTokens: 20_000 }).family, "build");
+});
+
+test("a build gets a strong lead when one is allowed, and its estimate is the size of the job", () => {
+  const p = profileTask({ text: BUILD_ASK, role: "quartermaster", requestTokens: 20_000 });
+  const pick = (routes: Route[], mode: "economy" | "balanced" | "quality") => {
+    const d = selectRoute(p, fresh, snap(routes), POLICY, mode);
+    assert.equal(d.kind, "selected");
+    return d;
+  };
+  for (const mode of ["economy", "balanced", "quality"] as const) {
+    // Without the biggest model, Opus at high effort is the strongest there is, and it is taken.
+    const without = pick(LINEUP, mode), with_ = pick([...LINEUP, FRONTIER], mode);
+    assert.equal(without.kind === "selected" && without.primary.id, "claude-opus-5-5@high", mode);
+    assert.equal(with_.kind === "selected" && with_.primary.id, FRONTIER.id, mode);
+  }
+  const d = pick(LINEUP, "balanced");
+  if (d.kind !== "selected") return;
+  assert.match(d.reason, /for a build, high-stakes, multi-service scope task/);
+  // Leading a phased build is dozens of turns over the better part of an hour, not one edit's dollar.
+  const edit = selectRoute(task("Add a created-at column to the orders table view", { requestTokens: 20_000 }), fresh, snap(LINEUP), POLICY, "balanced");
+  assert.equal(edit.kind, "selected");
+  if (edit.kind !== "selected") return;
+  const usd = (x: typeof d, id: string) => x.estimates.find((e) => e.routeId === id)!.expectedUsd;
+  assert.ok(usd(d, "claude-sonnet-5-5@medium") > 2, `sonnet medium on the build: $${usd(d, "claude-sonnet-5-5@medium")}`);
+  assert.ok(usd(d, "claude-sonnet-5-5@medium") > 8 * usd(edit, "claude-sonnet-5-5@medium"));
+  assert.ok(d.estimates.find((e) => e.routeId === "claude-opus-5-5@high")!.expectedSeconds > 1_800);
+  // Before, the same request read as cosmetic debugging and a mid model at medium effort won.
+  assert.notEqual(d.primary.tier, "sonnet");
+});
+
+test("in a long request one stray word doesn't decide the family or the stakes, but the ask and repeated words still do", () => {
+  const doc = BUILD_PLAN.replace(/Phase|M\d|^[A-G]\. /gm, "Part").replace(/monorepo|Scaffold/gi, "repo");
+  // Asking about the document is what was asked, whatever the document says.
+  const summary = profileTask({ text: `Summarise this design doc for the team\n\n${doc}`, requestTokens: 8_000 });
+  assert.equal(summary.family, "summarization");
+  assert.equal(profileTask({ text: `Review this plan before we start\n\n${BUILD_PLAN}`, role: "quartermaster", requestTokens: 8_000 }).family, "review");
+  assert.equal(profileTask({ text: `Just plan this out, don't build anything yet\n\n${BUILD_PLAN}`, role: "quartermaster", requestTokens: 8_000 }).family, "planning");
+  // "colours" and "spacing" once in a long document don't make it cosmetic.
+  assert.equal(summary.consequence, "normal");
+  // A crew member handed the plan is doing part of it: editing, not leading a build.
+  const crew = profileTask({ text: `Implement workstream B, the simulation core, as described below\n\n${BUILD_PLAN}`, role: "artificer", requestTokens: 8_000 });
+  assert.equal(crew.family, "editing");
+  assert.notEqual(crew.consequence, "cosmetic");
+  // A pasted log under a short report is still a bug: the ask says so, and so do its repeated words.
+  const log = Array.from({ length: 40 }, (_, n) => `  at render (src/view/panel.tsx:${n + 10}:7) Uncaught Error: cannot read properties of undefined`).join("\n");
+  assert.equal(profileTask({ text: `The panel crashes on load. Fix it\n\`\`\`\n${log}\n\`\`\``, requestTokens: 8_000 }).family, "debugging");
+  assert.equal(profileTask({ text: `Here's what the console shows\n\`\`\`\n${log}\n\`\`\``, role: "scout", requestTokens: 8_000 }).family, "debugging");
+  // Risk words count in the rest when they come up more than once, not for one mention.
+  const once = profileTask({ text: `Summarise this design doc for the team\n\n${doc}\nThe server keeps its secrets in env vars.`, requestTokens: 8_000 });
+  const twice = profileTask({ text: `Summarise this design doc for the team\n\n${doc}\nThe server keeps its secrets in env vars. Rotate the secrets monthly.`, requestTokens: 8_000 });
+  assert.equal(once.consequence, "normal");
+  assert.equal(twice.consequence, "critical");
+});
+
+test("short requests read as they always did: a genuine bug report, a cosmetic tweak", () => {
+  const bug = task("The settings page crashes with 'cannot read properties of undefined' when a user has no avatar. Fix it.", { role: "quartermaster" });
+  assert.deepEqual([bug.family, bug.scope, bug.consequence, bug.difficulty], ["debugging", "unknown", "normal", 0.7]);
+  const tweak = task("Update the wording on the empty-state message and tighten the spacing under it", { role: "quartermaster" });
+  assert.deepEqual([tweak.family, tweak.scope, tweak.consequence, tweak.difficulty], ["editing", "unknown", "cosmetic", 0.45]);
+  // Neither is mistaken for a build, and neither is read in parts.
+  for (const p of [bug, tweak]) assert.ok(!p.parts && !p.signals.some((s) => /long request/.test(s)));
 });

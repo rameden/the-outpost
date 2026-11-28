@@ -14,7 +14,8 @@ export type CampEventBody =
       thread?: string; // the conversation it belongs to (its first run's id); jobs have none
       attachments?: { kind: string; name: string; path?: string; url?: string }[] }
   // changed: files its file tools changed. workspaces: the worktrees it worked in, and where each stands.
-  | { type: "expedition_end"; id: string; status: string; text: string; changed?: number;
+  // repo: it had a linked git repository with a remote to work in (so there can be a pull request for what it did).
+  | { type: "expedition_end"; id: string; status: string; text: string; changed?: number; repo?: boolean;
       workspaces?: { link: string; path: string; branch: string; base?: string; created?: boolean; changed: number; commits: number }[] }
   | { type: "steer"; id: string; text: string } // you said something to a running expedition
   // Your rating of a finished run, and where its note was kept as a standing note (if you asked for that).

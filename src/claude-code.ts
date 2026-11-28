@@ -161,6 +161,11 @@ export type ClaudeCodeRun = {
   // A narrower door: called with each tool's full name before it runs; a string refuses it with that message.
   // (A learning review keeps the run's whole tool list, so the prompt matches, and answers only its own few.)
   mayUse?: (name: string) => string | null;
+  // A run that uses all maxTurns without finishing may carry on in the same session, with what it
+  // has read and done still in its context, up to `times` more allowances of maxTurns. next(n) is
+  // called as allowance n (1-based) begins and returns what the model is told; the caller says so
+  // in the feed there too. Left out, running out of turns ends the run, as it always did.
+  carryOn?: { times: number; next: (n: number) => string };
 };
 
 export type ClaudeCodeResult = {
@@ -204,24 +209,37 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
   } as SDKUserMessage;
   // After the task, anything the user says to the running expedition is passed in as it arrives.
   const asUser = (content: any): SDKUserMessage => ({ type: "user", message: { role: "user", content }, parent_tool_use_id: null } as SDKUserMessage);
+  // Messages the run itself sends into the open session (the word to carry on after a turn limit).
+  const queued: SDKUserMessage[] = [];
+  let poke: (() => void) | undefined;
+  const send = (m: SDKUserMessage) => { queued.push(m); poke?.(); };
   async function* prompt() {
     yield first;
     const s = r.steering;
     let seen = s?.messages.length ?? 0;
     for (;;) {
+      if (queued.length) { yield queued.shift()!; continue; }
       let wake: (() => void) | undefined;
       const said = s ? new Promise<"said">((ok) => { wake = () => ok("said"); s.waiters.add(wake); }) : new Promise<"said">(() => {});
-      const what = s && s.messages.length > seen ? "said" : await Promise.race([done.then(() => "done" as const), said]);
+      const more = new Promise<"more">((ok) => { poke = () => ok("more"); });
+      const what = s && s.messages.length > seen ? "said" : await Promise.race([done.then(() => "done" as const), said, more]);
+      poke = undefined;
       if (wake) s!.waiters.delete(wake);
+      if (what === "more") continue;
       if (what === "done" || !s) return;
       const fresh = s.messages.slice(seen).map((m) => m.text);
       seen = s.messages.length;
       if (fresh.length) yield asUser(steerNote(fresh));
     }
   }
+  const times = Math.max(0, r.carryOn?.times ?? 0);
+  let carried = 0;     // how many more allowances of turns this run has been given so far
+  let allowanceFrom = 0; // the reply count the current allowance began at
   let noted = 0; // the turn count the last wrap-up note was given at
   const turnNote = () => {
-    const left = r.maxTurns - replies.size;
+    // With another allowance to come, a note to wrap up would have the run stop where it could carry on.
+    if (carried < times) return null;
+    const left = r.maxTurns - (replies.size - allowanceFrom);
     if (r.maxTurns < 6 || left === noted) return null;
     const note = wrapUpNote(left);
     if (note) noted = left;
@@ -254,7 +272,12 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
   };
 
   let text = "";
-  let resultMsg: Extract<SDKMessage, { type: "result" }> | null = null;
+  type Result = Extract<SDKMessage, { type: "result" }>;
+  let resultMsg: Result | null = null;
+  const results: Result[] = []; // one for each turn of the session: more than one when the run carried on
+  // The turn limit it was carrying on from, when the session ended before a word of the next
+  // allowance: the run ran out of turns. (One that broke off part-way through it is a failure.)
+  const lastOutOfTurns = (): Result | null => (carried && results.at(-1)?.subtype === "error_max_turns" && replies.size === allowanceFrom ? results.at(-1)! : null);
   let budgetStop = false;
   // Usage so far, by model reply (a reply can arrive in several pieces with the same id and usage).
   const replies = new Map<string, { input: number; output: number; cacheRead: number; cacheWrite: number }>();
@@ -305,6 +328,17 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
         r.messages.push({ role: "user", content: m.message.content as any });
         r.onMessage?.();
       } else if (m.type === "result") {
+        results.push(m);
+        // Out of turns with an allowance to spare: the session is still open (a streaming session
+        // ends a turn with a result and waits for the next message), so the run is told to carry
+        // on in it rather than ending and being briefed again from nothing.
+        if (m.subtype === "error_max_turns" && carried < times && !abort.signal.aborted && !r.overBudget?.()) {
+          carried++;
+          allowanceFrom = replies.size;
+          noted = 0;
+          send(asUser(r.carryOn!.next(carried)));
+          continue;
+        }
         resultMsg = m;
         finished();
       }
@@ -315,6 +349,8 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
     // Claude Code exits with an error after a result that isn't a success ("Claude Code returned an
     // error result: Reached maximum budget"). The result already says what happened, and it's read
     // below, so reaching a budget or running out of turns ends the run cleanly, not as a failure.
+    // That includes a session that closed after its turn limit when it was asked to carry on.
+    resultMsg ??= lastOutOfTurns();
     if (!resultMsg) throw failure(err, soFar());
   } finally {
     finished();
@@ -323,15 +359,21 @@ export async function runClaudeCode(r: ClaudeCodeRun): Promise<ClaudeCodeResult>
   }
 
   if (abort.signal.aborted) return stopped();
+  resultMsg ??= lastOutOfTurns();
   if (!resultMsg) throw failure(new Error("Claude Code ended without a result."), soFar());
-  const u = resultMsg.usage as any;
-  const usage = {
-    input: u?.input_tokens ?? 0,
-    output: u?.output_tokens ?? 0,
-    cacheRead: u?.cache_read_input_tokens ?? 0,
-    cacheWrite: u?.cache_creation_input_tokens ?? 0,
-  };
-  const base = { turns: resultMsg.num_turns, usage, costUsd: resultMsg.total_cost_usd ?? spentLive, spentLive };
+  // A streaming session reports usage and turns per turn of its own (one per message it was sent),
+  // so a run that carried on adds them up; its cost is a running total, so the last one is the whole.
+  const usage = zero();
+  let turns = 0;
+  for (const res of results) {
+    const u = res.usage as any;
+    usage.input += u?.input_tokens ?? 0;
+    usage.output += u?.output_tokens ?? 0;
+    usage.cacheRead += u?.cache_read_input_tokens ?? 0;
+    usage.cacheWrite += u?.cache_creation_input_tokens ?? 0;
+    turns += res.num_turns ?? 0;
+  }
+  const base = { turns, usage, costUsd: resultMsg.total_cost_usd ?? spentLive, spentLive };
   if (resultMsg.subtype === "success" && !resultMsg.is_error) return { ...base, status: "done", text: (resultMsg.result || text).trim() };
   if (resultMsg.subtype === "error_max_turns") return { ...base, status: "out_of_turns", text }; // agent.ts adds the note
   if (resultMsg.subtype === "error_max_budget_usd") return { ...base, status: "over_budget", text: text + `\n\n[Stopped: this ${w("expedition")} reached its budget.]` };

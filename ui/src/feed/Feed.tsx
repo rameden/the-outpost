@@ -21,7 +21,8 @@ import { ForkButton } from "./Fork.tsx";
 import { Resend, useEditAsk, type ResendFrom } from "./EditAsk.tsx";
 import { cardsFor, type View } from "./conversation.ts";
 import { condense, summarize, type FeedDetail, type StepsNode } from "./condense.ts";
-import { stepState, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type QuestTree } from "./reducer.ts";
+import { stepState, worksInRepo, type ExpNode, type FeedNode, type PlanNode, type QuestNode, type QuestTree } from "./reducer.ts";
+import { WorksInRepo } from "./Findings.tsx";
 import { STEP_MARK, STEP_SAYS, stepPill } from "./steps.ts";
 import { Loose, looseOf, tally, TrailGround } from "../trail/Ground.tsx";
 import { useFeed, type FeedStore } from "./store.ts";
@@ -397,6 +398,7 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
 }) {
   const live = useFeed(store, (s) => s.items);
   const items = useMemo(() => cardsFor(view, live, past), [view, live, past]);
+  const inRepo = useMemo(() => worksInRepo(items), [items]);
   // In a conversation: its runs in order, so a message can be changed and sent again from where it was.
   // (Made again only when that changes, not with every word streamed in, so the messages aren't drawn again.)
   const runsKey = view.kind !== "conversation" ? "" : items.flatMap((n) => (n.kind === "exp" ? [`${n.expId}${n.end ? "" : "*"}`] : [])).join(" ");
@@ -457,7 +459,7 @@ export function Feed({ store, onReply, onExample, view = EVERYTHING, past = NO_P
             {(plain ? plainExamples() : examples()).map((text) => <button key={text} type="button" className="example" onClick={() => onExample(text)}>{text}</button>)}
           </div>
         </div>
-      ) : <Detail.Provider value={detail}><StopInBox.Provider value={stopInBox}><Resend.Provider value={resend}><Nodes nodes={items} onReply={onReply} /></Resend.Provider></StopInBox.Provider></Detail.Provider>}
+      ) : <Detail.Provider value={detail}><StopInBox.Provider value={stopInBox}><Resend.Provider value={resend}><WorksInRepo.Provider value={inRepo}><Nodes nodes={items} onReply={onReply} /></WorksInRepo.Provider></Resend.Provider></StopInBox.Provider></Detail.Provider>}
     </div>
   );
 }
