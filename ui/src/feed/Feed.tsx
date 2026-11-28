@@ -201,7 +201,7 @@ function QuestCard({ quest, onReply }: { quest: QuestNode; onReply: OnReply }) {
   return (
     <section className={cx("quest", cClass(quest.who))} id={`quest-${quest.id}`}>
       <div className="quest-head">
-        <span>{emojiNow(quest.who, quest.emoji)} {nameNow(quest.who)} {w("depart")}</span>
+        <span className="quest-who">{emojiNow(quest.who, quest.emoji)} {nameNow(quest.who)} {w("depart")}</span>
         {quest.step && <span className="quest-step" title={`Step ${quest.step} of the plan`}>Step {quest.step}</span>}
         {quest.helper && <span className="quest-step" title={`Sent by another ${w("quest")} as its helper`}>Helper</span>}
         {quest.brief && <span className="quest-brief" title={quest.brief}>{quest.brief}</span>}

@@ -1336,7 +1336,8 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 .quest-tree.merged { border-bottom: 2px solid var(--good); }
 .quest-tree.kept { border-bottom: 2px solid var(--bad); color: var(--text); }
 @media (max-width: 760px) { .plan-step > * { grid-template-columns: 16px 18px minmax(0, 1fr) auto; } .plan-who { display: none; } }
-.quest-brief { font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* The brief is the one part of a quest's head that gives way: it takes what room the name, chips and pill leave, and cuts short with an ellipsis. */
+.quest-brief { flex: 1 1 0; font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .member-count { flex: none; font: 600 11px/1 var(--mono); padding: 2px 5px; border-radius: 999px; background: var(--c); color: var(--bg); }
 .exp-body:empty { display: none; }
 .exp-reply > :first-child { border-top: 0; }
@@ -1440,7 +1441,10 @@ code.path-link:hover, code.path-link:focus-visible { color: var(--accent); text-
 
 .quest { --c: var(--c-other); border: 1px solid color-mix(in srgb, var(--c) 35%, var(--border)); border-radius: 10px; background: var(--bg); }
 .quest-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 14px; font-weight: 600; }
-.quest-head .pill { margin-left: auto; }
+.quest-who { flex: none; white-space: nowrap; }
+.quest-head .pill { flex: none; margin-left: auto; }
+/* On a phone the chips wrap and the brief takes a line of its own beneath them. */
+@media (max-width: 760px) { .quest-head { flex-wrap: wrap; } .quest-brief { order: 9; flex-basis: 100%; } }
 .quest-body { padding: 0 12px 10px; display: flex; flex-direction: column; gap: 8px; }
 .quest-body:empty { display: none; }
 
