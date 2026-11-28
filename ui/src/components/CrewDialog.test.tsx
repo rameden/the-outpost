@@ -8,6 +8,7 @@ import type { CampState, Character } from "../types.ts";
 import { ConfirmHost } from "./Confirm.tsx";
 import { Crew } from "./Crew.tsx";
 import { CrewDialog } from "./CrewDialog.tsx";
+import { setWords } from "../words.ts";
 
 const base = { model: "claude-sonnet-5-5", effort: "medium", maxTurns: 20, defaultMaxTurns: 20, defaultModel: "claude-sonnet-5-5", defaultEffort: "medium", overridden: false, helpers: false, personality: "" };
 const SCOUT = { ...base, id: "scout", name: "Scout", emoji: "🏹", role: "Research.", custom: false, color: null } as unknown as Character;
@@ -107,4 +108,21 @@ test("the camp's objection is shown; editing keeps the handle; removing asks fir
   fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
   await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
   expect(posts.at(-1)!.body).toEqual({ action: "remove", id: "testpilot" });
+});
+
+test("matching the theme: a name for the pack that's on is sent, and names for other packs are kept", async () => {
+  setWords("starship", [{ id: "starship", name: "Starship" }] as any);
+  const onSaved = vi.fn();
+  const DESIGNER = { ...PILOT, id: "designer", name: "Designer", ownName: "Designer", emoji: "🎨", themed: { pirate: { name: "Figurehead Carver", emoji: "🪵" } } } as unknown as Character;
+  render(<CrewDialog member={DESIGNER} onClose={() => {}} onSaved={onSaved} />);
+  expect(screen.queryByLabelText("Name under the Starship theme")).toBeNull();
+  fireEvent.click(screen.getByLabelText(/Match the theme: go by a Starship name/));
+  fireEvent.change(screen.getByLabelText("Name under the Starship theme"), { target: { value: "Design Officer" } });
+  fireEvent.change(screen.getByLabelText("Icon under the Starship theme"), { target: { value: "🌌" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await vi.waitFor(() => expect(onSaved).toHaveBeenCalled());
+  expect(posts[0].body.member).toMatchObject({ name: "Designer", matchTheme: true, themed: {
+    pirate: { name: "Figurehead Carver", emoji: "🪵" }, starship: { name: "Design Officer", emoji: "🌌" },
+  } });
+  setWords(undefined);
 });

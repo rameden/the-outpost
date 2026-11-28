@@ -19,7 +19,7 @@ import { CREW } from "./crew.js";
 import { say, w } from "./words.js";
 import { childEnv, gitSafeEnv, sandboxAvailable, sandboxKind, sandboxed, type SandboxPlan } from "./sandbox.js";
 import { allowedHosts, ensureProxy, proxyEnv, refusedSince } from "./netproxy.js";
-import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell } from "./checkpoints.js";
+import { afterWrite, beforeWrite, noteRead, snapshotBeforeShell, snapshotFolderBeforeShell } from "./checkpoints.js";
 import { agentShell, shellNote, stopTree } from "./platform.js";
 import { noteSkillUse, skillKeyOf } from "./curator.js";
 
@@ -475,7 +475,9 @@ export function bashFor(self: string, was = "Artificer"): Tool {
         "(or a folder inside it) to run in a linked project, e.g. its tests or git commands. Simple read-only commands " +
         "(ls, git status, git diff, git log…) run right away. Other commands either run in a sandbox without asking " +
         "(no network; writes only inside that project and your own outputs folder) when the user has turned the sandbox on, " +
-        "or wait for the user's approval. Commands stop after 2 minutes." + shellNote(),
+        "or wait for the user's approval. Commands stop after 2 minutes. Write logs and results you'll want later into your " +
+        "outputs folder (or the project), not /tmp: what's there is part of the record of your work, and /tmp isn't. " +
+        "Don't sleep to wait for something running in the background; check on it with a quick command, and say what you're waiting for." + shellNote(),
       input_schema: {
         type: "object",
         properties: {
@@ -493,6 +495,9 @@ export function bashFor(self: string, was = "Artificer"): Tool {
       // Record a linked repository's working tree before the expedition's first command there, so
       // View changes and Undo cover what commands change too (see checkpoints.ts).
       await snapshotBeforeShell(dir, linkedDisplayPath);
+      // And this crew member's outputs folder, wherever the command runs: a spike or a script
+      // made there is work the run did too (a gitignored folder no repository's snapshot covers).
+      await snapshotFolderBeforeShell(resolve(CAMP_ROOT, "camp", "agents", self, "outputs"), `camp/agents/${self}/outputs`);
       // Your rules first: a denied command never runs; an "ask" one always waits for you.
       const rule = shellRule(String(command));
       if (rule?.verdict === "deny") return `Not run: the user's rules don't allow commands like this ("${rule.rule}"). Don't try to get around it with another command; find another way or say what you needed.`;

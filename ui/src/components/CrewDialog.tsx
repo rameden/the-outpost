@@ -13,7 +13,7 @@ import type { Character } from "../types.ts";
 import { ask } from "./Confirm.tsx";
 import { Dialog } from "./Dialog.tsx";
 
-import { w, a as an } from "../words.ts";
+import { w, a as an, packNow } from "../words.ts";
 export const CREW_COLORS = ["teal", "rose", "blue", "gold", "green", "violet", "slate"];
 const handleFrom = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
 
@@ -23,8 +23,13 @@ export function CrewDialog({ member, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const a = member?.abilities ?? {};
-  const [name, setName] = useState(member?.name ?? "");
-  const [emoji, setEmoji] = useState(member?.emoji ?? "");
+  const [name, setName] = useState(member?.ownName ?? member?.name ?? "");
+  const [emoji, setEmoji] = useState(member?.ownEmoji ?? member?.emoji ?? "");
+  // Their names under theme packs: the one for the pack that's on is edited here; the rest are kept.
+  const pack = packNow();
+  const [matchTheme, setMatchTheme] = useState(!!member?.matchTheme);
+  const [themedName, setThemedName] = useState(member?.themed?.[pack.id]?.name ?? "");
+  const [themedEmoji, setThemedEmoji] = useState(member?.themed?.[pack.id]?.emoji ?? "");
   const [handle, setHandle] = useState(member?.id ?? "");
   const [typedHandle, setTypedHandle] = useState(!!member);
   const [color, setColor] = useState(member?.color ?? CREW_COLORS[0]);
@@ -52,6 +57,12 @@ export function CrewDialog({ member, onClose, onSaved }: {
     try { await api("/api/crew", body); onSaved(); }
     catch (e) { setError(errorText(e)); setSaving(false); }
   }
+  // The name for the pack that's on replaces the one kept for it; cleared, it's dropped. Names for other packs are kept.
+  function themedDetails() {
+    const { [pack.id]: _, ...others } = member?.themed ?? {};
+    const themed = themedName.trim() ? { ...others, [pack.id]: { name: themedName.trim(), emoji: themedEmoji.trim() } } : others;
+    return { ...(matchTheme ? { matchTheme } : {}), ...(Object.keys(themed).length ? { themed } : {}) };
+  }
   function save(ev: FormEvent) {
     ev.preventDefault();
     if (!name.trim()) { setError(`Give the ${w("crew")} member a name.`); nameInput.current?.focus(); return; }
@@ -59,6 +70,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
     const details = {
       id: handle, name, emoji, color, role, personality, handles, notFor, persona,
       abilities: { web, ...(write ? { write } : {}), shell, wiki, images },
+      ...themedDetails(),
     };
     void send(member ? { action: "update", id: member.id, member: details } : { action: "add", member: details });
   }
@@ -86,6 +98,17 @@ export function CrewDialog({ member, onClose, onSaved }: {
               onChange={(ev) => { setTypedHandle(true); setHandle(handleFrom(ev.target.value)); }} />
           </label>
         </div>
+        <label className="dialog-check"><input type="checkbox" checked={matchTheme} onChange={(ev) => setMatchTheme(ev.target.checked)} /> Match the theme: go by a {pack.name} name while that theme is on</label>
+        {matchTheme && (
+          <div className="dialog-row">
+            <label className="field dialog-emoji">{pack.name} icon
+              <input value={themedEmoji} maxLength={8} placeholder={emoji || "✦"} aria-label={`Icon under the ${pack.name} theme`} onChange={(ev) => setThemedEmoji(ev.target.value)} />
+            </label>
+            <label className="field">{pack.name} name
+              <input value={themedName} maxLength={24} placeholder={name || "Their name under this theme"} aria-label={`Name under the ${pack.name} theme`} onChange={(ev) => setThemedName(ev.target.value)} />
+            </label>
+          </div>
+        )}
         <div className="field-hint dialog-under">{member ? `You message them with @${member.id}. The handle can't change: their memory and history are filed under it.` : `You'll message them with @${handle || "handle"}.`}</div>
 
         <div className="field" role="group" aria-label="Colour">Colour

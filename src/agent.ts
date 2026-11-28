@@ -575,14 +575,16 @@ export async function runAgent(
     return steerNote(fresh);
   };
 
-  // When a run uses every turn, the report says what it got done, so the next run (or you) can
-  // pick up without redoing it.
+  // When a run uses every turn or is stopped, the report says what it got done, so the next run
+  // (or you) can pick up without redoing it. (On Claude Code the steps are kept as they're reported.)
+  const ccSteps: string[] = [];
   const handoff = (): string => {
     const calls: string[] = [];
     for (const m of messages) {
       if (m.role !== "assistant" || !Array.isArray(m.content)) continue;
       for (const b of m.content as any[]) if (b.type === "tool_use") calls.push(`${String(b.name).replace(/^mcp__camp__/, "")} ${preview(b.input)}`);
     }
+    if (!calls.length) calls.push(...ccSteps);
     const files = filesWrittenBy(currentRunKey()).map(displayPath);
     if (!calls.length && !files.length) return "";
     return `\n\n[Handoff for whoever continues. Files this run changed: ${files.join(", ") || "none"}. ` +
@@ -592,6 +594,8 @@ export async function runAgent(
   const budgetNote = () => `\n\n[Stopped: this ${w("expedition")} reached its ${usd(ledger?.budget ?? 0)} budget.]`;
   const signal = currentSignal(); // set when the user can press Stop
   const stoppedNote = "\n\n[Stopped by the user.]";
+  // A stopped run says what it had done too, so whoever picks it up doesn't start over.
+  const stoppedWithHandoff = () => stoppedNote + handoff();
 
   // A failure part-way (a network error, the plan's limit) still leaves a transcript and a cost.
   let failedCost: number | undefined;
@@ -621,7 +625,7 @@ export async function runAgent(
   const reroute = async (trigger: Parameters<TaskRouter["decide"]>[0], evidence?: string, incumbent?: string): Promise<AgentResult | null> => {
     const first = !router!.route;
     for (;;) {
-      if (signal?.aborted) return finish("stopped", stoppedNote);
+      if (signal?.aborted) return finish("stopped", stoppedWithHandoff());
       const before = router!.route?.id;
       const size = reqTokens();
       const d = first ? router!.decide(trigger, size, 0, evidence, incumbent) : router!.decide(trigger, size, size, evidence);
@@ -632,7 +636,7 @@ export async function runAgent(
       }
       if (d.retryAfterMs != null && d.retryAfterMs <= router!.waitLeft()) {
         notice(`⏳ ${d.reason}`);
-        if (!(await pause(d.retryAfterMs, signal))) return finish("stopped", stoppedNote);
+        if (!(await pause(d.retryAfterMs, signal))) return finish("stopped", stoppedWithHandoff());
         continue;
       }
       throw new Error(`Auto couldn't ${first ? "pick a model" : "carry on"}: ${d.reason}`);
@@ -803,7 +807,7 @@ export async function runAgent(
     }
     // ---------- On your Claude subscription, through Claude Code ----------
     if (campRuntime() === "claude-code" && !other) {
-      if (signal?.aborted) return finish("stopped", stoppedNote);
+      if (signal?.aborted) return finish("stopped", stoppedWithHandoff());
       if (overBudget()) return finish("over_budget", budgetNote());
       let spentLive = 0;
       // Claude Code keeps its own conversation (and compacts it itself), so a restored transcript
@@ -824,7 +828,7 @@ export async function runAgent(
         budgetLeftUsd: ledger?.budget != null ? ledger.budget - ledger.spent : undefined,
         onDelta: (delta) => emit({ type: "text_delta", ...me, delta }),
         onText: (text) => emit({ type: "text", ...me, text }),
-        onTool: (tool, input) => { emit({ type: "tool", ...me, tool, input: preview(input) }); codeReviewer?.note(1, () => structuredClone(messages)); },
+        onTool: (tool, input) => { emit({ type: "tool", ...me, tool, input: preview(input) }); ccSteps.push(`${tool} ${preview(input)}`); codeReviewer?.note(1, () => structuredClone(messages)); },
         onNotice: (text) => emit({ type: "notice", ...me, text }),
       }).catch((err: ClaudeCodeFailure) => {
         if (err.partial) { Object.assign(usage, err.partial.usage); turn = err.partial.turns; lastText = err.partial.text; failedCost = err.partial.costUsd; }
@@ -834,7 +838,7 @@ export async function runAgent(
       Object.assign(usage, r.usage);
       turn = r.turns;
       lastText = r.text;
-      const result = finish(r.status, r.status === "out_of_turns" ? turnsNote(spec.name, maxTurns, 1 + carried) + handoff() : "");
+      const result = finish(r.status, r.status === "out_of_turns" ? turnsNote(spec.name, maxTurns, 1 + carried) + handoff() : r.status === "stopped" ? (/\[Stopped/.test(r.text) ? "" : stoppedNote) + handoff() : "");
       return { ...result, runtime: "claude-code", costUsd: r.costUsd };
     }
 
@@ -855,7 +859,7 @@ export async function runAgent(
     for (turn = 1; ; turn++) {
       if (signal?.aborted) {
         turn--;
-        return finish("stopped", stoppedNote);
+        return finish("stopped", stoppedWithHandoff());
       }
       if (overBudget()) {
         turn--;
@@ -876,14 +880,14 @@ export async function runAgent(
       const servedBy = () => router?.route;
       let route = servedBy();
       for (let attempt = 0, got = false; !got; attempt++) {
-        if (signal?.aborted) { turn--; return finish("stopped", stoppedNote); }
+        if (signal?.aborted) { turn--; return finish("stopped", stoppedWithHandoff()); }
         route = servedBy();
         const outgoing = router || restored ? forRoute(messages, model) : messages;
         try {
           resp = await send(outgoing, (delta) => emit({ type: "text_delta", ...me, delta }));
           got = true;
         } catch (err: any) {
-          if (signal?.aborted) return finish("stopped", stoppedNote); // Stop cut the reply off mid-stream
+          if (signal?.aborted) return finish("stopped", stoppedWithHandoff()); // Stop cut the reply off mid-stream
           const passing = err instanceof ProviderError ? err.passing : isPassingFailure(err);
           if (router && (passing || err instanceof ProviderError)) {
             // A provider that refused outright (a spent balance, a key it no longer takes) is set aside for longer.
@@ -893,7 +897,7 @@ export async function runAgent(
             if (next.do === "give_up") { err.message = `${err.message} (Auto ${next.why}.)`; throw err; }
             if (next.do === "wait") {
               notice(`⏳ The reply was cut off (${String(err?.message ?? err).slice(0, 120)}). Asking ${model} again in ${Math.round(next.ms / 1000)}s.`);
-              if (!(await pause(next.ms, signal))) return finish("stopped", stoppedNote);
+              if (!(await pause(next.ms, signal))) return finish("stopped", stoppedWithHandoff());
               continue;
             }
             const stopped = await reroute("provider_unavailable", next.evidence);
@@ -905,7 +909,7 @@ export async function runAgent(
             throw err;
           }
           notice(`⏳ The reply was cut off (${String(err?.message ?? err).slice(0, 120)}). Asking again in ${Math.round(retryWaits[attempt] / 1000)}s (${attempt + 1} of ${retryWaits.length}).`);
-          if (!(await pause(retryWaits[attempt], signal))) return finish("stopped", stoppedNote);
+          if (!(await pause(retryWaits[attempt], signal))) return finish("stopped", stoppedWithHandoff());
         }
       }
       if (router) resp.content = fixIds(resp.content);
@@ -987,7 +991,7 @@ export async function runAgent(
         continue;
       }
 
-      if (signal?.aborted) return finish("stopped", stoppedNote);
+      if (signal?.aborted) return finish("stopped", stoppedWithHandoff());
       // Over budget: stop before running more tools (a dispatch would start a whole new quest).
       if (overBudget()) {
         emit({ type: "notice", ...me, text: `💰 Budget reached; ${spec.name} is stopping.` });
@@ -1054,7 +1058,7 @@ export async function runAgent(
     settle(r);
     return r;
   } catch (err: any) {
-    if (signal?.aborted) { journal?.end(); store?.finish(); const r = finish("stopped", stoppedNote); settle(r); return r; }
+    if (signal?.aborted) { journal?.end(); store?.finish(); const r = finish("stopped", stoppedWithHandoff()); settle(r); return r; }
     journal?.abandon();
     saveRun();
     store?.abandon();
