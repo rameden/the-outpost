@@ -679,7 +679,9 @@ async function fullState(full: boolean, historySeen: string | undefined, here: b
         id, name: c.name, emoji: c.emoji, role: c.role, personality: c.personality,
         // A crew member you added: everything the dialog needs to show and edit them.
         custom: !!c.custom, color: c.color ?? null,
-        ...(c.custom ? { handles: c.handles, notFor: c.notFor, persona: (ownOf(id) ?? c).persona ?? "", abilities: c.abilities ?? {}, aliases: (ownOf(id) ?? c).aliases } : {}),
+        ...(c.custom ? { handles: c.handles, notFor: c.notFor, persona: (ownOf(id) ?? c).persona ?? "", abilities: c.abilities ?? {}, aliases: (ownOf(id) ?? c).aliases,
+          // Their own name and icon (what the dialog edits), and their names under theme packs.
+          ownName: (ownOf(id) ?? c).name, ownEmoji: (ownOf(id) ?? c).emoji, matchTheme: !!ownOf(id)?.matchTheme, themed: ownOf(id)?.themed ?? {} } : {}),
         model, effort: effort ?? "default",
         maxTurns: resolveTurns({ id, maxTurns: base?.maxTurns }), defaultMaxTurns: base?.maxTurns ?? DEFAULT_TURNS,
         defaultModel: base?.model ?? DEFAULT_MODEL, defaultEffort: base?.effort ?? "default",
