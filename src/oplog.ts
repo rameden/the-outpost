@@ -21,7 +21,7 @@ import type { Tool, ToolOutput } from "./tools.js";
 
 export const OPS_DIR = "camp/ops";
 // The tools whose calls change something outside the conversation.
-export const JOURNALED = new Set(["bash", "write_file", "edit_file", "post_review", "describe_pull_request"]);
+export const JOURNALED = new Set(["bash", "write_file", "edit_file", "post_review", "describe_pull_request", "generate_image"]);
 // A command that only reads, or checks (tests, linters, builds, type checks), is run afresh every
 // time: its answer is the point, and an old one would be stale.
 const VERIFYING = [

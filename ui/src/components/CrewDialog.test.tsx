@@ -75,7 +75,7 @@ test("a new crew member: the handle follows the name, and what you fill in is se
   await vi.waitFor(() => expect(onSaved).toHaveBeenCalled());
   expect(posts).toEqual([{ path: "/api/crew", body: { action: "add", member: {
     id: "mapmaker", name: "Map Maker", emoji: "🗺️", color: "green", role: "Diagrams: draws maps of codebases.", personality: "", handles: "", notFor: "",
-    persona: "Start from the entry points.", abilities: { web: true, write: "outputs", shell: false, wiki: true },
+    persona: "Start from the entry points.", abilities: { web: true, write: "outputs", shell: false, wiki: true, images: false },
   } } }]);
 });
 
