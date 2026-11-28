@@ -269,6 +269,19 @@ test("steering: what you say mid-run reaches the agent on its next step", async 
   assert.match(JSON.stringify(bodies[2].messages.at(-1)), /And keep it to one paragraph/);
 });
 
+test("stop: the report says what the run had done, so a resumed run doesn't start over", async () => {
+  const controller = new AbortController();
+  let calls = 0;
+  script = () => {
+    if (++calls === 1) return { text: "Looking.", tools: [{ name: "list_dir", input: { path: "." } }] };
+    setTimeout(() => controller.abort(), 50);
+    return { text: "slow reply", delayMs: 3000 };
+  };
+  const r = await runDirect("scout", "Look around", "direct", undefined, controller.signal);
+  assert.equal(r?.status, "stopped");
+  assert.match(r!.text, /\[Stopped by the user\.\][\s\S]*Handoff for whoever continues[\s\S]*Its last steps:\n- list_dir/);
+});
+
 test("out of turns: the agent is warned near the limit, and the report carries a handoff", async () => {
   setAgentSettings("scout", { maxTurns: 6 });
   try {
