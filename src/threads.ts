@@ -6,6 +6,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import type { Workspace } from "./context.js";
 import { expeditionDigest } from "./feed.js";
+import { changedFiles } from "./checkpoints.js";
 import { appendLine, readJsonl, writeAtomic } from "./atomic.js";
 import { w } from "./words.js";
 import { noteWritten } from "./searchindex.js";
@@ -183,7 +184,8 @@ export function threadFor(replyTo: string | undefined, stillRunning: (expedition
       ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run is still going, in parallel with this one. What it has done so far:\n${expeditionDigest(t.expedition) || "(nothing recorded yet)"}`
       : cutOff
       ? `### ${when}\nThe user asked:\n${t.task.trim()}\n\nThat run was cut off before it finished (the ${w("camp")} stopped or restarted). What it had done by then:\n${expeditionDigest(t.expedition) || "(nothing was recorded)"}`
-      : `### ${when}\nThe user asked${t.aside ? ` @${t.agent} to step in` : ""}:\n${t.task.trim()}\n\n${(reader ? t.agent !== reader : t.aside) ? `@${t.agent} answered` : "You answered"} (${t.status}):\n${answer}`;
+      : `### ${when}\nThe user asked${t.aside ? ` @${t.agent} to step in` : ""}:\n${t.task.trim()}\n\n${(reader ? t.agent !== reader : t.aside) ? `@${t.agent} answered` : "You answered"} (${t.status}):\n${answer}` +
+        (t.status === "stopped" && t === hit ? stoppedDigest(t.expedition) : "");
     if (blocks.length && used + block.length > MAX_HISTORY_CHARS) break;
     blocks.unshift(block.slice(0, MAX_HISTORY_CHARS));
     used += block.length;
@@ -207,9 +209,19 @@ export function threadFor(replyTo: string | undefined, stillRunning: (expedition
         : `## This conversation so far\nThe user's new message continues this conversation. Build on it: ` +
           `"it", "that", and "the second one" refer to what's below. Files you made earlier are still where you saved them.\n`) +
       (hit.status === "running" && !stillRunning(hit.expedition) ? "The last run below was cut off part-way. Check what it actually finished (read the files) before redoing anything, then carry on from there.\n" : "") +
+      (hit.status === "stopped" ? "The last run below was stopped by the user part-way. What it had done and the files it changed are listed under it: check those (read the files, look at any logs it wrote) before redoing anything, then carry on from there.\n" : "") +
       (dropped > 0 ? `(${dropped} earlier exchange${dropped === 1 ? "" : "s"} left out for length.)\n` : "") +
       `\n${blocks.join("\n\n")}`,
   };
+}
+
+// A stopped run's answer is only what it had said by then: what it (and the crew it sent) had
+// done is in the feed, and what it changed, shell commands included, in its checkpoint.
+function stoppedDigest(expedition: string): string {
+  const done = expeditionDigest(expedition, 8_000);
+  const files = changedFiles(expedition, { sealedOnly: true });
+  return (done ? `\n\nWhat it had done by then:\n${done}` : "") +
+    (files.length ? `\n\nFiles it changed: ${files.slice(0, 60).map((f) => `${f.path} (${f.change})`).join(", ")}${files.length > 60 ? `, and ${files.length - 60} more` : ""}` : "");
 }
 
 // For an agent's own chat page: its latest direct chat, if that was recent enough to continue.

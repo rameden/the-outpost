@@ -8,15 +8,16 @@
 // ref, refs/mae/checkpoints/…, that's never pushed or checked out), and again when the
 // expedition ends. What changed between the two is the shell's share of the diff, and Undo puts
 // those files back too, but only the ones nobody has changed since the expedition ended. Files git
-// ignores (node_modules, build output) and secret files are left out of snapshots.
+// ignores (node_modules, build output) and secret files are left out of snapshots. A crew member's
+// own outputs folder is covered the same way, through a private repository the camp keeps for it.
 //
 // It also keeps quests from overwriting each other: if another quest changed a file after this
 // one last read it, the write is refused until the file has been read again.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, copyFileSync, utimesSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync, copyFileSync, utimesSync } from "node:fs";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { currentExpeditionId, currentRunKey } from "./context.js";
@@ -34,7 +35,9 @@ type Entry = { path: string; abs: string; existed: boolean; blob?: string; tooBi
 // A git repository the expedition ran shell commands in: its working tree before the first
 // command (before), and when the expedition ended (after). Both are commits on private refs.
 // shown: how the crew sees the repository's top (links/web).
-type Snapshot = { root: string; shown: string; before: string; after?: string; gone?: boolean };
+// gitDir: a folder that isn't a repository of its own (a crew member's outputs folder) is
+// recorded in a private repository of the camp's (camp/shell-snapshots/), kept apart from it.
+type Snapshot = { root: string; shown: string; before: string; after?: string; gone?: boolean; gitDir?: string };
 type Manifest = { id: string; started: string; undone?: string; files: Entry[]; snapshots?: Snapshot[] };
 export type ChangedFile = { path: string; change: "created" | "modified" | "deleted" };
 
@@ -89,45 +92,63 @@ const gitIn = (root: string, args: string[], env: Record<string, string> = {}) =
 const run = promisify(execFile);
 const gitAsync = async (root: string, args: string[], env: Record<string, string> = {}) =>
   (await run("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50_000_000, env: { ...gitSafeEnv(), ...env } })).stdout.trim();
+// Where git finds a snapshot's repository: the folder's own, or the camp's private one for it.
+type GitEnv = Record<string, string>;
+const envOf = (snap: { root: string; gitDir?: string }): GitEnv => (snap.gitDir ? { GIT_DIR: snap.gitDir, GIT_WORK_TREE: snap.root } : {});
+// A private repository's index is the camp's own, so the copy is kept (atomically, with its
+// times) and the next snapshot only reads again the files that changed since.
+function keepIndex(base: GitEnv, index: string, tmp: string) {
+  if (!base.GIT_DIR) return;
+  try {
+    const next = `${index}.${randomUUID()}`;
+    copyFileSync(tmp, next);
+    const st = statSync(tmp); utimesSync(next, st.atime, st.mtime);
+    renameSync(next, index);
+  } catch { /* the next snapshot just reads everything again */ }
+}
 
 // The working tree as it is right now, as a git tree (and a commit holding it), without touching
 // the repository's own index, HEAD, or branches. Starts from a copy of the real index, so only
 // files that changed are read again. The async form is for the snapshots taken while work is
 // going (on a large repository they take a fifth of a second, and the camp shouldn't stall);
 // the plain one is for View changes and Undo, which you're waiting on anyway.
-async function treeNowAsync(root: string): Promise<string> {
+async function treeNowAsync(root: string, base: GitEnv = {}): Promise<string> {
   const git = gitAsync;
   const tmp = join(tmpdir(), `mae-index-${randomUUID()}`);
   try {
-    const index = resolve(root, await git(root, ["rev-parse", "--git-path", "index"]));
+    const index = resolve(root, await git(root, ["rev-parse", "--git-path", "index"], base));
     if (existsSync(index)) { copyFileSync(index, tmp); const st = statSync(index); utimesSync(tmp, st.atime, st.mtime); }
-    const env = { GIT_INDEX_FILE: tmp };
+    const env = { ...base, GIT_INDEX_FILE: tmp };
     await git(root, ["add", "-A", "--", ".", ...LEAVE_OUT], env);
     const tracked = (await git(root, ["ls-files", "-z", "--", ...SECRET_GLOBS.map((g) => `:(glob)**/${g}`)], env)).split("\0").filter(Boolean);
     if (tracked.length) await git(root, ["rm", "-q", "--cached", "--", ...tracked], env);
-    return await git(root, ["write-tree"], env);
+    const tree = await git(root, ["write-tree"], env);
+    keepIndex(base, index, tmp);
+    return tree;
   } finally {
     rmSync(tmp, { force: true });
   }
 }
-async function commitOfAsync(root: string, tree: string, ref: string): Promise<string> {
-  const commit = await gitAsync(root, ["commit-tree", tree, "-m", `${OUTPOST.name} checkpoint (not a branch; safe to delete)`], idEnv());
-  await gitAsync(root, ["update-ref", ref, commit]);
+async function commitOfAsync(root: string, tree: string, ref: string, base: GitEnv = {}): Promise<string> {
+  const commit = await gitAsync(root, ["commit-tree", tree, "-m", `${OUTPOST.name} checkpoint (not a branch; safe to delete)`], { ...base, ...idEnv() });
+  await gitAsync(root, ["update-ref", ref, commit], base);
   return commit;
 }
-function treeNow(root: string): string {
+function treeNow(root: string, base: GitEnv = {}): string {
   const tmp = join(tmpdir(), `mae-index-${randomUUID()}`);
   try {
-    const index = resolve(root, gitIn(root, ["rev-parse", "--git-path", "index"]));
+    const index = resolve(root, gitIn(root, ["rev-parse", "--git-path", "index"], base));
     // The copy keeps the index's own times: git trusts a file's cached details only when the file
     // is older than the index, and a copy made now would look newer than a file changed a moment ago.
     if (existsSync(index)) { copyFileSync(index, tmp); const st = statSync(index); utimesSync(tmp, st.atime, st.mtime); }
-    const env = { GIT_INDEX_FILE: tmp };
+    const env = { ...base, GIT_INDEX_FILE: tmp };
     gitIn(root, ["add", "-A", "--", ".", ...LEAVE_OUT], env);
     // Secret files the real index already tracks are dropped from the copy too.
     const tracked = gitIn(root, ["ls-files", "-z", "--", ...SECRET_GLOBS.map((g) => `:(glob)**/${g}`)], env).split("\0").filter(Boolean);
     if (tracked.length) gitIn(root, ["rm", "-q", "--cached", "--", ...tracked], env);
-    return gitIn(root, ["write-tree"], env);
+    const tree = gitIn(root, ["write-tree"], env);
+    keepIndex(base, index, tmp);
+    return tree;
   } finally {
     rmSync(tmp, { force: true });
   }
@@ -135,8 +156,10 @@ function treeNow(root: string): string {
 const refFor = (id: string, n: number, when: "before" | "after") => `refs/mae/checkpoints/${id}/${n}-${when}`;
 // (refs/satchel/…: where snapshots were kept under the app's old name. Those are dropped here too.)
 function dropRefs(snap: Snapshot, id: string) {
+  const env = envOf(snap);
   try {
-    for (const ref of gitIn(snap.root, ["for-each-ref", "--format=%(refname)", `refs/mae/checkpoints/${id}/`, `refs/satchel/checkpoints/${id}/`]).split("\n").filter(Boolean)) gitIn(snap.root, ["update-ref", "-d", ref]);
+    for (const ref of gitIn(snap.root, ["for-each-ref", "--format=%(refname)", `refs/mae/checkpoints/${id}/`, `refs/satchel/checkpoints/${id}/`], env).split("\n").filter(Boolean)) gitIn(snap.root, ["update-ref", "-d", ref], env);
+    if (snap.gitDir) gitIn(snap.root, ["gc", "--auto", "--quiet"], env); // the camp's own: its old snapshots go
   } catch { /* the repository is gone */ }
 }
 
@@ -154,25 +177,60 @@ export function snapshotBeforeShell(dir: string, showTop: (abs: string) => strin
     let root: string;
     try { root = resolve(await gitAsync(dir, ["rev-parse", "--show-toplevel"])); } catch { return; } // not a repository
     const shown = showTop(root);
-    if (!shown || load(id)?.snapshots?.some((x) => x.root === root)) return;
-    const rootKey = `${id}|root:${root}`;
-    const other = taking.get(rootKey);
-    if (other) return other; // the same repository, reached from another folder inside it
-    const snap = (async () => {
-      try {
-        const n = load(id)?.snapshots?.length ?? 0;
-        const before = await commitOfAsync(root, await treeNowAsync(root), refFor(id, n, "before"));
-        // Read the record again: the file tools may have added to it while git was working.
-        const m = load(id) ?? { id, started: new Date().toISOString(), files: [] };
-        if (!m.files.length && !m.snapshots?.length) prune();
-        save({ ...m, snapshots: [...(m.snapshots ?? []), { root, shown, before }] });
-      } catch { /* an unusual repository: shell changes there just aren't tracked */ }
-    })();
-    taking.set(rootKey, snap);
-    try { await snap; } finally { taking.delete(rootKey); }
+    if (!shown) return;
+    await takeSnapshot(id, root, shown);
   })();
   taking.set(key, job);
   return job.finally(() => taking.delete(key));
+}
+
+// Record `root` as it is now, once per expedition (two callers at once share the one snapshot).
+async function takeSnapshot(id: string, root: string, shown: string, gitDir?: string): Promise<void> {
+  if (load(id)?.snapshots?.some((x) => x.root === root)) return;
+  const rootKey = `${id}|root:${root}`;
+  const other = taking.get(rootKey);
+  if (other) return other; // the same repository, reached from another folder inside it
+  const snap = (async () => {
+    try {
+      const env = envOf({ root, gitDir });
+      const n = load(id)?.snapshots?.length ?? 0;
+      const before = await commitOfAsync(root, await treeNowAsync(root, env), refFor(id, n, "before"), env);
+      // Read the record again: the file tools may have added to it while git was working.
+      const m = load(id) ?? { id, started: new Date().toISOString(), files: [] };
+      if (!m.files.length && !m.snapshots?.length) prune();
+      save({ ...m, snapshots: [...(m.snapshots ?? []), { root, shown, before, ...(gitDir ? { gitDir } : {}) }] });
+    } catch { /* an unusual repository: shell changes there just aren't tracked */ }
+  })();
+  taking.set(rootKey, snap);
+  try { await snap; } finally { taking.delete(rootKey); }
+}
+
+// A crew member's own outputs folder (`folder`, shown to the crew as `shown`) is where its
+// commands make most of what they make: a spike, a script, a generated file. It isn't a
+// repository of its own (or is one the camp ignores), so before the expedition's first command
+// it's recorded in a private repository of the camp's, and what commands changed there shows up
+// in View changes and Undo like the rest. Build output and dependencies are left out.
+export const SHELL_SNAPSHOTS_DIR = join("camp", "shell-snapshots");
+const SHADOW_LEAVE_OUT = ["node_modules/", ".venv/", "venv/", "__pycache__/", "dist/", "build/", "out/", "target/", ".vite/", ".cache/", ".parcel-cache/",
+  "coverage/", ".next/", ".nuxt/", ".turbo/", ".svelte-kit/", "*.log", "*.zip", "*.tar", "*.tgz", "*.gz", "*.7z", "*.mp4", "*.mov", "*.webm", "*.wasm", ".DS_Store"];
+export function snapshotFolderBeforeShell(folder: string, shown: string): Promise<void> {
+  const id = currentExpeditionId();
+  if (!id || !SAFE_ID.test(id)) return Promise.resolve();
+  const root = resolve(folder);
+  if (load(id)?.snapshots?.some((x) => x.root === root)) return Promise.resolve();
+  const gitDir = resolve(SHELL_SNAPSHOTS_DIR, `${createHash("sha1").update(root).digest("hex").slice(0, 16)}.git`);
+  return (async () => {
+    try {
+      mkdirSync(root, { recursive: true }); // made now, so what the first command puts there counts too
+      if (!existsSync(join(gitDir, "HEAD"))) {
+        mkdirSync(dirname(gitDir), { recursive: true });
+        await gitAsync(root, ["init", "-q"], { GIT_DIR: gitDir });
+        mkdirSync(join(gitDir, "info"), { recursive: true });
+        writeFileSync(join(gitDir, "info", "exclude"), SHADOW_LEAVE_OUT.join("\n") + "\n");
+      }
+    } catch { return; }
+    await takeSnapshot(id, root, shown, gitDir);
+  })();
 }
 
 // When an expedition ends: record where each repository it ran commands in was left.
@@ -182,7 +240,7 @@ export async function sealSnapshots(id: string): Promise<void> {
   const after = new Map<string, string>();
   for (const [n, x] of first.snapshots.entries()) {
     if (x.after || x.gone) continue;
-    try { after.set(x.root, await commitOfAsync(x.root, await treeNowAsync(x.root), refFor(id, n, "after"))); } catch { /* left open: shown as it is now */ }
+    try { after.set(x.root, await commitOfAsync(x.root, await treeNowAsync(x.root, envOf(x)), refFor(id, n, "after"), envOf(x))); } catch { /* left open: shown as it is now */ }
   }
   const m = load(id) ?? first;
   save({ ...m, snapshots: (m.snapshots ?? []).map((x) => (after.has(x.root) ? { ...x, after: after.get(x.root) } : x)) });
@@ -214,8 +272,9 @@ function shellChanges(m: Manifest, sealedOnly = false): ShellChange[] {
       const kept = key ? sealedDiffs.get(key) : undefined;
       if (kept) lines = kept;
       else {
-        const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], idEnv());
-        lines = gitIn(snap.root, ["diff", "--name-status", "--no-renames", "-z", snap.before, after]).split("\0").filter(Boolean);
+        const env = envOf(snap);
+        const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root, env), "-m", "now"], { ...env, ...idEnv() });
+        lines = gitIn(snap.root, ["diff", "--name-status", "--no-renames", "-z", snap.before, after], env).split("\0").filter(Boolean);
         if (key) {
           if (sealedDiffs.size >= 300) sealedDiffs.delete(sealedDiffs.keys().next().value!);
           sealedDiffs.set(key, lines);
@@ -355,8 +414,9 @@ export function checkpointDiff(id: string): { files: ChangedFile[]; diff: string
     const mine = shellChanges({ ...m, snapshots: [snap] });
     if (!mine.length) continue;
     try {
-      const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], idEnv());
-      const out = gitIn(snap.root, ["diff", "--no-color", "--no-renames", `--src-prefix=${snap.shown}/`, `--dst-prefix=${snap.shown}/`, snap.before, after, "--", ...mine.map((c) => c.rel)]);
+      const env = envOf(snap);
+      const after = snap.after ?? gitIn(snap.root, ["commit-tree", treeNow(snap.root, env), "-m", "now"], { ...env, ...idEnv() });
+      const out = gitIn(snap.root, ["diff", "--no-color", "--no-renames", `--src-prefix=${snap.shown}/`, `--dst-prefix=${snap.shown}/`, snap.before, after, "--", ...mine.map((c) => c.rel)], env);
       parts.push(`# Changed by shell commands in ${snap.shown}\n` + out.split("\n").filter((l) => !/^(diff --git|index |new file mode|deleted file mode)/.test(l)).join("\n"));
     } catch { parts.push(`# Changed by shell commands in ${snap.shown}: ${mine.map(shownOf).join(", ")} (couldn't show the diff)`); }
   }
@@ -387,17 +447,18 @@ export function undoCheckpoint(id: string): { restored: string[]; skipped: strin
     const mine = shellChanges({ ...m, snapshots: [snap] });
     if (!mine.length) continue;
     let since = new Set<string>();
+    const env = envOf(snap);
     try {
       if (snap.after) {
-        const now = gitIn(snap.root, ["commit-tree", treeNow(snap.root), "-m", "now"], idEnv());
-        since = new Set(gitIn(snap.root, ["diff", "--name-only", "--no-renames", "-z", snap.after, now]).split("\0").filter(Boolean));
+        const now = gitIn(snap.root, ["commit-tree", treeNow(snap.root, env), "-m", "now"], { ...env, ...idEnv() });
+        since = new Set(gitIn(snap.root, ["diff", "--name-only", "--no-renames", "-z", snap.after, now], env).split("\0").filter(Boolean));
       }
     } catch { since = new Set(mine.map((c) => c.rel)); }
     for (const c of mine) {
       if (since.has(c.rel)) { skipped.push(`${shownOf(c)} (changed again since)`); continue; }
       try {
         if (c.change === "created") rmSync(c.abs, { force: true });
-        else gitIn(snap.root, ["restore", `--source=${snap.before}`, "--worktree", "--", c.rel]);
+        else gitIn(snap.root, ["restore", `--source=${snap.before}`, "--worktree", "--", c.rel], env);
         restored.push(shownOf(c));
       } catch { skipped.push(shownOf(c)); }
     }
