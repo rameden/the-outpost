@@ -13,7 +13,8 @@
 // A theme pack (Settings → General) is a third thing, and the camp keeps it, not the browser,
 // because it renames the crew. It shows on the page as data-pack (nothing for the Guild's), which
 // recolours the orb, and it may suggest a palette: that one is worn until you choose colours
-// yourself, and from then on your choice wins. "camp-pack" is this browser's copy of it ("<pack>
+// yourself, and your choice then holds until you next choose a pack (which puts its own colours
+// on again, so choosing one always shows). "camp-pack" is this browser's copy of it ("<pack>
 // <its palette>"), kept only so the page (and the tour, and the sign-in page) opens wearing it.
 //
 // Decorations (seasons.ts) are a fourth, and only for looks: snow, lights, a tint on the orb. Kept
@@ -21,7 +22,7 @@
 // name. Whichever is on shows as data-season, on top of any pack and any colours.
 
 import { useSyncExternalStore } from "react";
-import { storeGet, storeSet } from "./api.ts";
+import { storeGet, storeRemove, storeSet } from "./api.ts";
 import { isSeason, seasonFor, type SeasonId } from "./seasons.ts";
 
 export type Mode = "system" | "light" | "dark";
@@ -79,9 +80,11 @@ function show(mode: unknown, palette: unknown) {
 // the timing is in styles.css under ::view-transition). Where there's no view transition, or you
 // asked the system for less motion, or the tab is hidden, it just changes.
 function fade(change: () => void) {
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready?: Promise<unknown> } | undefined };
   if (!doc.startViewTransition || document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches) return change();
-  doc.startViewTransition(change);
+  // A second change before the fade is over cuts the first fade short (its change is still made),
+  // and the browser says so by rejecting: that's expected, so it isn't left to show as an error.
+  doc.startViewTransition(change)?.ready?.catch(() => {});
 }
 
 export function setMode(mode: Mode) {
@@ -104,6 +107,13 @@ export function wearPack(id: string | undefined, packs: { id: string; palette?: 
   const kept = pack ? `${pack} ${suggested ?? ""}`.trim() : "";
   if ((storeGet(PACK_KEY) ?? "") !== kept) storeSet(PACK_KEY, kept);
   show(modeNow(), paletteNow());
+}
+// Choosing a pack yourself (Settings → Appearance) puts its colours on too: the colours you chose
+// before give way, or with them still on the page the pack would seem to do nothing. Choose
+// colours again afterwards and they hold, until the next pack you choose.
+export function choosePack(id: string, packs: { id: string; palette?: string }[] = []) {
+  storeRemove(PALETTE_KEY);
+  fade(() => wearPack(id, packs));
 }
 function packKept() {
   const [id, palette] = (storeGet(PACK_KEY) ?? "").split(" ");

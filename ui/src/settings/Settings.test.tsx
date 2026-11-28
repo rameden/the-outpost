@@ -337,6 +337,19 @@ test("Appearance has a theme pack row above the colours: it says the crew is ren
   delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
 });
 
+test("choosing a theme pack shows even after you've chosen colours: the pack's colours go on in their place", async () => {
+  const { PACKS } = await import("../../../src/packs.ts");
+  show("appearance", { ...camp(), pack: "guild", packs: PACKS } as CampState);
+  fireEvent.click(screen.getByRole("button", { name: "Moss" }));
+  expect(document.documentElement.dataset.palette).toBe("moss");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /Starship/ })); });
+  expect([document.documentElement.dataset.pack, document.documentElement.dataset.palette]).toEqual(["starship", "harbor"]);
+  expect(screen.getByRole("button", { name: "Harbor" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Moss" }).getAttribute("aria-pressed")).toBe("false");
+  expect(screen.getByRole("group", { name: "Theme pack" }).closest(".set-row")?.textContent).toMatch(/puts its colours on \(choose others below whenever you like\)/);
+  delete document.documentElement.dataset.pack; delete document.documentElement.dataset.palette; localStorage.clear();
+});
+
 test("the theme pack row makes packs of your own: New pack… opens the dialog, yours have an edit button, and one that was left out says why", async () => {
   const { PACKS } = await import("../../../src/packs.ts");
   const pirates = {

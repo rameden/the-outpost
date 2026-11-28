@@ -1,6 +1,6 @@
 // Light or dark, and which colours: two choices, kept in this browser and shared with the tour.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { MODE_KEY, PACK_KEY, PALETTE_KEY, PALETTES, SEASON_KEY, modeNow, packNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, startThemes, toggleMode, wearPack } from "./themes.ts";
+import { MODE_KEY, PACK_KEY, PALETTE_KEY, PALETTES, SEASON_KEY, modeNow, packNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, startThemes, toggleMode, choosePack, wearPack } from "./themes.ts";
 
 const root = document.documentElement;
 beforeEach(() => { localStorage.clear(); wearPack(undefined); localStorage.clear(); delete root.dataset.theme; delete root.dataset.palette; });
@@ -58,6 +58,24 @@ test("a theme pack shows on the page and suggests colours, until you choose your
   setPalette("heather");
   wearPack("guild", PACKS);
   expect([root.dataset.pack, root.dataset.palette, packNow()]).toEqual([undefined, "heather", "guild"]);
+});
+
+test("choosing a pack yourself puts its colours on over the ones you chose, and colours chosen after it hold", () => {
+  setPalette("moss");
+  choosePack("starship", PACKS);
+  expect([root.dataset.pack, root.dataset.palette, paletteNow()]).toEqual(["starship", "harbor", "harbor"]);
+  expect(localStorage.getItem(PALETTE_KEY)).toBeNull();
+  // The camp's own colours, chosen on purpose, give way too.
+  setPalette("camp");
+  choosePack("starship", PACKS);
+  expect(root.dataset.palette).toBe("harbor");
+  // Colours chosen after the pack stay, and the camp saying the pack again (a refresh) leaves them.
+  setPalette("heather");
+  wearPack("starship", PACKS);
+  expect([root.dataset.pack, root.dataset.palette]).toEqual(["starship", "heather"]);
+  // A pack with no colours of its own gives back the camp's.
+  choosePack("guild", PACKS);
+  expect([root.dataset.pack, root.dataset.palette, paletteNow()]).toEqual([undefined, undefined, "camp"]);
 });
 
 test("with no colours chosen, leaving a pack gives back the camp's own", () => {

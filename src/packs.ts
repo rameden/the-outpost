@@ -58,7 +58,7 @@ export type Pack = {
   crew: Record<PackCrewId, PackName>;   // what each of the six is called
   words: PackWords;
   place: string;                 // "You are the Scout of <place>."
-  palette?: string;              // the colours this pack suggests (your own choice of colours still wins)
+  palette?: string;              // the colours this pack puts on when you choose it (colours you choose afterwards win)
   orb?: boolean;                 // it recolours the orb (styles.css, under [data-pack="<id>"])
   custom?: boolean;              // one of yours (camp/packs.json): it can be changed and deleted, and never has orb colours
 };

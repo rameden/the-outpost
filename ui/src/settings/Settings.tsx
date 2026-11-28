@@ -17,7 +17,7 @@ import { canNotify, notificationsOn, toggleNotifications } from "../notification
 import { chimeOn, playChime, setChime } from "../chime.ts";
 import { showCost } from "../prefs.ts";
 import { outpostName } from "../outpost.ts";
-import { PALETTES, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, wearPack, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
+import { PALETTES, choosePack, modeNow, paletteNow, seasonChoice, seasonNow, setMode, setPalette, setSeason, type Mode, type PaletteId, type SeasonChoice } from "../themes.ts";
 import { SEASONS, seasonById } from "../seasons.ts";
 import { autoName, cClass, cx, isAuto, leadName, money, nameNow, plural } from "../format.ts";
 import { w, a as an } from "../words.ts";
@@ -270,11 +270,11 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
   const inSeason = seasonById(seasonNow())?.name;
   const decorNow = season === "auto" ? (inSeason ? `Today that's ${inSeason}.` : "Nothing is in season today.") : season ? seasonById(season)?.about ?? "" : "";
   // The camp keeps the pack (the crew is renamed in what they read and write too); the page wears
-  // it at once, and takes the colours it suggests unless you've chosen your own.
+  // it at once, colours and all: colours you chose before give way to the pack's.
   const packs = S.packs ?? [];
   const setPack = (id: string) => tryIt(async () => {
     await api("/api/pack", { id });
-    wearPack(id, packs);
+    choosePack(id, packs);
     setPaletteShown(paletteNow());
   }, refresh);
   // A pack of your own: the dialog that makes or changes one. The page wears what comes back (App
@@ -289,7 +289,7 @@ function Appearance({ S, refresh }: { S: CampState; refresh: () => void }) {
           <option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option>
         </select>
       </Row>
-      <Row label="Theme pack" wide help={<>Renames the {w("camp")}'s own six, for you <b>and for the {w("crew")} too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and suggests colours below (your own choice of colours wins). Old names still work after @, and history keeps the names it was written with. You can make a pack of your own: it's kept in <code>camp/packs.json</code>, and it leaves the orb's colours as they are.</>}>
+      <Row label="Theme pack" wide help={<>Renames the {w("camp")}'s own six, for you <b>and for the {w("crew")} too</b>: from the next run on they call themselves and each other by the pack's names in what they write. It also changes a few of the page's words and the orb's colours, and puts its colours on (choose others below whenever you like). Old names still work after @, and history keeps the names it was written with. You can make a pack of your own: it's kept in <code>camp/packs.json</code>, and it leaves the orb's colours as they are.</>}>
         <div className="looks" role="group" aria-label="Theme pack">
           {packs.map((p) => {
             const button = (
