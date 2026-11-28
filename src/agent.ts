@@ -15,10 +15,10 @@ import { aboutBlock } from "./memlog.js";
 import { outpostBlock } from "./outpost.js";
 import { logAboutRelevant } from "./recalllog.js";
 import { requestText, type RequestContent } from "./attachments.js";
-import { agentSettings, alwaysSkills, campRuntime, compactAt, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, type Effort, type Runtime } from "./settings.js";
+import { agentSettings, alwaysSkills, campRuntime, compactAt, DEFAULT_TURNS, EFFORTS, refusalFallbackOn, TURN_EXTENSIONS, type Effort, type Runtime } from "./settings.js";
 import { runClaudeCode, claudeCodeModels, SIDE_BY_SIDE, type ClaudeCodeFailure } from "./claude-code.js";
 import { PROVIDERS, ProviderError, anthropicKey, maySend, otherModel, providerChat, providerModels, providersState } from "./providers.js";
-import { currentExpeditionId, currentLedger, currentQuestId, currentReplyTo, currentRunKey, currentSignal, currentSteering, currentThread, conversationModel } from "./context.js";
+import { currentExpeditionId, currentLedger, currentQuestId, currentReplyTo, currentRunKey, currentSignal, currentSteering, currentThread, conversationModel, isUnattended } from "./context.js";
 import { autoLabel, isAutoChoice, parseChoice, profileTask, RequestSizer, routeId, type Decision, type Route } from "./routing.js";
 import { TaskRouter, Verification, autoMode, coolDown, gradeOf, lastRouteOf, logOutcome, noteOutcome, tierOf, type RouteStep, type RouteUse } from "./autoroute.js";
 import { OpJournal, journaled } from "./oplog.js";
@@ -269,8 +269,16 @@ export function crewSetup(spec: AgentSpec): string {
 }
 
 // What a run that used every turn says at the end, so whoever reads it knows what to do next.
-const turnsNote = (name: string, n: number) =>
-  `\n\n[Stopped: used all ${n} turns before finishing. Send ${name} back to continue, or raise the turn limit in ${name}'s model picker.]`;
+// allowances: how many times it was given n turns (more than one when it carried on).
+export const turnsNote = (name: string, n: number, allowances = 1) =>
+  `\n\n[Stopped: used all ${allowances > 1 ? `${n * allowances} turns (${n}, then ${allowances - 1} more allowance${allowances > 2 ? "s" : ""} of ${n} in the same run)` : `${n} turns`} before finishing. ` +
+  `Send ${name} back to continue, or raise the turn limit in ${name}'s model picker.]`;
+
+// What a run is told as it carries on past its turn limit, in the same conversation.
+const carryOnNote = (n: number, of: number, turns: number) =>
+  `[${w("Camp")} note: you used this run's ${turns} turns without finishing, so you have ${turns} more to carry on (${n} of ${of}). ` +
+  `Everything you've read and done is still here: pick up exactly where you stopped, and don't redo finished steps.` +
+  (n === of ? ` This is the last allowance: you'll be told when it's time to wrap up.` : "") + "]";
 
 // The newer web search/fetch versions (which filter results before they reach the model) only run
 // on Fable, Mythos, Opus and Sonnet models; anything else gets the basic versions so the Scout keeps working.
@@ -456,6 +464,12 @@ export async function runAgent(
   let effort = choice.kind === "auto" ? undefined
     : picked && picked !== own.model ? (knownModel(picked)?.efforts.includes(own.effort as Effort) ? own.effort : undefined) : own.effort;
   const maxTurns = resolveTurns(spec);
+  // Who carries on past the turn limit (with its context, instead of being briefed again cold):
+  // crew the Quartermaster sends, and whoever you talk to yourself. Not a scheduled job's runs, which
+  // are meant to be cheap and have nobody waiting on them, and not the Quartermaster's own run: its
+  // turns go on planning and sending quests, and running out of them is worth telling you about.
+  const extensions = isUnattended() || opts.source === "job" || spec.id === "quartermaster" ? 0 : TURN_EXTENSIONS;
+  let carried = 0; // how many of them this run has used
   if (!opts.plain) ensureWorkspace(spec.id);
   // The prompt comes in two parts, and the order is for caching as much as for the model. First
   // what stays the same from one run to the next: who you are, how you work, your skills. Then
@@ -507,6 +521,12 @@ export async function runAgent(
   const runId = `${currentExpeditionId() ?? "solo"}:${currentQuestId() ?? "-"}:${spec.id}:${(++runCount).toString(36)}`;
   const journal = thread ? new OpJournal(`${thread}:${spec.id}`, runId, currentReplyTo()) : null;
   const notice = (text: string) => emit({ type: "notice", ...me, text });
+  // The next allowance of turns begins: the feed says so, and what the run is told comes back.
+  const carryOn = (): string => {
+    carried++;
+    notice(`🔁 ${spec.name} used its ${maxTurns} turns and is carrying on, ${carried} of ${extensions}.`);
+    return carryOnNote(carried, extensions, maxTurns);
+  };
   const tools = [...spec.tools.filter((t) => !(webOff && isWeb(t))), ...(inProject && !opts.plain && !opts.leaf ? [projectRemember] : []), ...(opts.plain ? [] : await mcpToolsFor(spec.id))]
     .map((t) => announcingFiles(t, spec.id, me))
     .map((t) => (journal ? journaled(t, journal, notice) : t));
@@ -803,6 +823,8 @@ export async function runAgent(
         overBudget,
         // Claude Code counts each tool round trip as a turn, like the API loop does.
         maxTurns,
+        // Out of turns, it carries on in the same session, so what it has read is still in context.
+        ...(extensions ? { carryOn: { times: extensions, next: carryOn } } : {}),
         budgetLeftUsd: ledger?.budget != null ? ledger.budget - ledger.spent : undefined,
         onDelta: (delta) => emit({ type: "text_delta", ...me, delta }),
         onText: (text) => emit({ type: "text", ...me, text }),
@@ -816,12 +838,25 @@ export async function runAgent(
       Object.assign(usage, r.usage);
       turn = r.turns;
       lastText = r.text;
-      const result = finish(r.status, r.status === "out_of_turns" ? turnsNote(spec.name, maxTurns) + handoff() : r.status === "stopped" ? (/\[Stopped/.test(r.text) ? "" : stoppedNote) + handoff() : "");
+      const result = finish(r.status, r.status === "out_of_turns" ? turnsNote(spec.name, maxTurns, 1 + carried) + handoff() : r.status === "stopped" ? (/\[Stopped/.test(r.text) ? "" : stoppedNote) + handoff() : "");
       return { ...result, runtime: "claude-code", costUsd: r.costUsd };
     }
 
     // ---------- On the API, with an API key ----------
-    for (turn = 1; turn <= maxTurns; turn++) {
+    // allowed grows by maxTurns each time the run carries on past its limit: the messages stay as
+    // they are, so it goes on with everything it has read, told so in the last message it was sent.
+    let allowed = maxTurns;
+    const carryOnHere = () => {
+      allowed += maxTurns;
+      const text = carryOn();
+      const last = messages[messages.length - 1];
+      // (After a paused turn the last message is the model's own, sent back as it is to resume it.)
+      if (last?.role !== "user") return;
+      last.content = typeof last.content === "string" ? [{ type: "text", text: last.content }, { type: "text", text }] : [...last.content, { type: "text", text }];
+      sizer.setMessages(messages);
+      saveRun();
+    };
+    for (turn = 1; ; turn++) {
       if (signal?.aborted) {
         turn--;
         return finish("stopped", stoppedWithHandoff());
@@ -829,6 +864,10 @@ export async function runAgent(
       if (overBudget()) {
         turn--;
         return finish("over_budget", budgetNote());
+      }
+      if (turn > allowed) {
+        if (carried >= extensions) break;
+        carryOnHere();
       }
       // Auto: the route is checked before every dispatch (still available, still big enough), and
       // looked at again if the last turn's tool calls turned up a reason to.
@@ -979,8 +1018,9 @@ export async function runAgent(
       const together = uses.map((b) => (SIDE_BY_SIDE.has(b.name) ? runOne(b) : null));
       const results: Anthropic.ToolResultBlockParam[] = [];
       for (const [i, block] of uses.entries()) results[i] = await (together[i] ?? runOne(block));
-      // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn limit.
-      const notes = [takeSteer(), maxTurns >= 6 ? wrapUpNote(maxTurns - turn) : null].filter((n): n is string => !!n);
+      // Riding along with the results: anything the user said meanwhile, and a heads-up near the turn
+      // limit. Only in the last allowance: with another to come, it would wrap up where it could carry on.
+      const notes = [takeSteer(), maxTurns >= 6 && carried >= extensions ? wrapUpNote(allowed - turn) : null].filter((n): n is string => !!n);
       const toolMsg: Anthropic.MessageParam = { role: "user", content: [...results, ...notes.map((text) => ({ type: "text" as const, text }))] };
       add(toolMsg);
       reviewer?.note(uses.length, () => structuredClone(router ? forRoute(messages, model) : messages));
@@ -990,7 +1030,7 @@ export async function runAgent(
       else pinnedChecks.note(calls);
     }
     turn--; // the loop counter ran one past the last turn
-    return finish("out_of_turns", turnsNote(spec.name, maxTurns) + handoff());
+    return finish("out_of_turns", turnsNote(spec.name, maxTurns, 1 + carried) + handoff());
   };
   // Every run's outcome goes in the routing log: Auto's, and a pinned model's (the baseline Auto is
   // compared with). The journal is closed for a run that ended on its own terms, and left open for

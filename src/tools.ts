@@ -452,7 +452,7 @@ function listsWorktree(common: string, top: string): boolean {
 // God mode is for when you're here. A scheduled job has nobody watching and can be working from
 // what it read somewhere (a ticket, a page), so there it gets the sandbox instead.
 export const sandboxOn = () => { const level = approvalNow(); return (level === "sandbox" || (level === "god" && campMode.unattended)) && sandboxAvailable(); };
-const godOn = () => approvalNow() === "god" && !campMode.unattended;
+export const godOn = () => approvalNow() === "god" && !campMode.unattended;
 const READ_ONLY_HINT = "\n\n[Ran in a read-only sandbox, as simple read-only commands do: no network (beyond any hosts the user allowed) and nothing writable. " +
   "If that is why it failed, call bash again with unsandboxed: true and the user will be asked.]";
 // How a command says the sandbox stopped it (a write, a private file, the network). A read-only

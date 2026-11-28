@@ -18,6 +18,11 @@ export type AgentSettings = { model?: string; effort?: Effort; maxTurns?: number
 export const DEFAULT_TURNS = 20;
 export const TURNS_MIN = 5;
 export const TURNS_MAX = 200;
+// A crew member's run that uses all its turns without finishing carries on, with its context
+// intact, for up to this many more allowances of the same size before it stops and hands off.
+// Briefing a fresh run instead meant it started cold and read the whole project again. (Scheduled
+// jobs and the Quartermaster's own run don't carry on: see agent.ts.)
+export const TURN_EXTENSIONS = 2;
 // sandbox: on macOS, run commands with no network and writes limited to the working folder, without asking (see sandbox.ts).
 // deny / ask: patterns (with * for anything) a command is checked against before anything else:
 // a denied one never runs, whatever else would allow it; an "ask" one always waits for you, even

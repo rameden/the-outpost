@@ -17,7 +17,7 @@
 
 import type { AutoPreference, SessionState, Tier } from "../src/routing.ts";
 
-export type RoutingKind = "search" | "explanation" | "summary" | "editing" | "debugging" | "review" | "planning" | "chat";
+export type RoutingKind = "search" | "explanation" | "summary" | "editing" | "debugging" | "review" | "planning" | "chat" | "build";
 export type Stakes = "low" | "normal" | "high" | "critical";
 export type RoutingCase = {
   id: string;
@@ -40,6 +40,25 @@ export type RoutingCase = {
 export const SIZE_TOKENS = { small: 6_000, medium: 30_000, large: 110_000 } as const;
 
 const SONNET_MEDIUM = "claude-sonnet-5-5@medium";
+
+// A pasted build plan, compact but the shape of a real one: a stack, phases with lettered
+// workstreams, milestones, and the stray words a spec always has ("error handling", "polish",
+// "fails", "colours") that say nothing about what was asked.
+function phasedPlan(name: string, stack: string, streams: string[]): string {
+  const phase = (n: number, title: string, items: string[]) => `Phase ${n}: ${title}\n${items.map((x, i) => `${String.fromCharCode(65 + streams.indexOf(x))}. ${x}${i === 0 ? ", with error handling for bad input" : ""}.`).join("\n")}`;
+  const half = Math.ceil(streams.length / 2);
+  return [`${name}: build plan`, ``, `1. Stack`, stack, ``, `2. Shared contracts (Phase 0, blocks everything else)`,
+    `Types shared by every package live in packages/shared; nothing else starts until they typecheck, and CI fails if a package reaches into another's internals.`, ``,
+    `Phase 0: Foundation`, `Scaffold the monorepo, lint, unit and end-to-end tests. A blank page renders.`, ``,
+    phase(1, "Core (parallel workstreams)", streams.slice(0, half)), ``, phase(2, "Features", streams.slice(half)), ``,
+    `Phase 3: Polish`, `Transitions, spacing and colours in the panels, a loading screen. Fix anything the end-to-end run turns up.`, ``,
+    `Milestones`, `M1 First screen. M2 Core loop works. M3 Every feature in. M4 Polished. Each ends with its tests green and a short demo.`].join("\n");
+}
+const STAR_MAP = phasedPlan("Star map", "Next.js and TypeScript (strict) in a pnpm monorepo: apps/web, apps/server, packages/shared, packages/sim. Three.js for rendering, an ECS in a Web Worker.",
+  ["Galaxy generation: seeded spiral arms and hyperlanes", "Simulation: typed-array storage, A* over lanes, a fixed timestep", "Renderer: point-cloud stars, instanced ships, bloom",
+    "Camera and picking with inertia", "Voice commands with a small grammar", "Multiplayer: a WebSocket server that owns the sim"]);
+const BOOKINGS = phasedPlan("Clinic bookings", "A new app from scratch: React Native client, a Node API and Postgres, in one repo with separate packages for the client, the API and shared types.",
+  ["Accounts and clinic profiles", "Calendar and slot search", "Booking and reminders by email", "Admin dashboard", "Offline cache on the phone"]);
 
 export const ROUTING_CASES: RoutingCase[] = [
   // ---------- Search ----------
@@ -192,6 +211,22 @@ export const ROUTING_CASES: RoutingCase[] = [
     expect: ["haiku"], why: "A bit of fun." },
   { id: "chat-morning", kind: "chat", stakes: "low", role: "quartermaster", text: "Morning! What's on the board today?",
     expect: ["haiku", "sonnet"], why: "A greeting and a glance at the board." },
+
+  // ---------- Building something new from a long plan ----------
+  // A line of the user's own words over a pasted, phased plan: the lead plans and directs many
+  // crew runs over hours, and a mistake in its plan is carried into all of them.
+  { id: "build-phased-app", kind: "build", stakes: "high", role: "quartermaster", size: "medium", text: `lets build this nextJS, typescript app. Keep the number of rendered assets down if need be\n\`\`\`\n${STAR_MAP}\n\`\`\``,
+    expect: ["opus", "frontier"], why: "A new multi-package app in phases: the lead needs to be strong, whatever stray words the plan has." },
+  { id: "build-from-scratch-economy", kind: "build", stakes: "high", role: "quartermaster", size: "medium", mode: "economy", text: `Please build this for us.\n\n${BOOKINGS}`,
+    expect: ["opus", "frontier"], why: "Economy doesn't cheapen the lead of a whole new app." },
+  { id: "build-plan-pasted-alone", kind: "build", stakes: "high", role: "quartermaster", size: "medium", text: STAR_MAP,
+    expect: ["opus", "frontier"], why: "The plan on its own, no ask: still a build to lead." },
+  { id: "build-review-the-plan", kind: "review", stakes: "normal", role: "warden", size: "medium", text: `Review this plan before we start: is anything missing?\n\n${BOOKINGS}`,
+    expect: ["sonnet", "opus"], why: "Asked for a review of the plan, not the build; ordinary stakes." },
+  { id: "build-one-workstream", kind: "editing", stakes: "normal", role: "artificer", size: "medium", text: `Implement workstream C, the renderer, as described below.\n\n${STAR_MAP}`,
+    expect: ["sonnet", "opus"], why: "One part of the plan, handed to a crew member: an ordinary change, not leading the build." },
+  { id: "summary-long-spec", kind: "summary", stakes: "low", role: "scribe", size: "medium", text: `Summarise this spec in five bullets for the team\n\n${STAR_MAP}`,
+    expect: ["haiku", "sonnet"], why: "A recap of a document; its talk of colours and polish isn't a cosmetic change." },
 
   // ---------- The preference you set ----------
   { id: "economy-pagination", kind: "editing", stakes: "normal", role: "artificer", size: "medium", mode: "economy", text: "Add pagination to the orders list endpoint.",

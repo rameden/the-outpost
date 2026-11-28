@@ -41,6 +41,16 @@ export const currentWorkspaces = () => store.getStore()?.workspaces ?? {};
 export const currentSteering = () => store.getStore()?.steering;
 export const currentProjectId = () => store.getStore()?.project;
 export const inScope = (link: string) => { const s = store.getStore()?.scope; return !s || s.includes(link); };
+// A folder the run itself linked part-way (a project the Quartermaster started: newproject.ts) is
+// part of it from then on: for this run's agents and every quest it sends after. The run's scope
+// is one list shared by everything that runs inside it, so it is changed where it is, not copied.
+export function bringIntoScope(link: string) {
+  const ctx = store.getStore();
+  if (!ctx) return;
+  if (ctx.scope && !ctx.scope.includes(link)) ctx.scope.push(link);
+  const out = ctx.without?.indexOf(link) ?? -1;
+  if (out >= 0) ctx.without!.splice(out, 1);
+}
 // The folders the user left or took out of this conversation (so the crew can be told it was on purpose).
 export const leftOutHere = () => store.getStore()?.without ?? [];
 // The model picked for this conversation, for whoever it's with (not for the quests they send out).

@@ -23,7 +23,9 @@ export const LINKS_PATH = "camp/links.json";
 export type LinkAccess = "read" | "write";
 // verify: commands you want run automatically after a quest changes files here (typecheck, tests…).
 // setup: commands run once in each new worktree the camp creates for this repository (npm ci…).
-export type Link = { name: string; path: string; access: LinkAccess; added: string; files?: number; verify?: string[]; setup?: string[] };
+// campMade: the camp started this project itself (start_project, see newproject.ts). With no checks
+// set, the likely ones found there run after a change when they'd run without asking (verify.ts).
+export type Link = { name: string; path: string; access: LinkAccess; added: string; files?: number; verify?: string[]; setup?: string[]; campMade?: boolean };
 
 // Where links/<name>/ points for the expedition that's running: its own worktree if it has one,
 // else the folder that was linked.
@@ -56,9 +58,18 @@ export function setLinkCommands(name: string, field: "verify" | "setup", command
   const links = loadLinks();
   const link = links.find((l) => l.name === name);
   if (!link) return false;
-  const clean = commands.map((c) => String(c).trim()).filter((c) => c && !c.includes("\n")).slice(0, 8);
+  const clean = cleanCommands(commands);
   if (clean.length) link[field] = clean; else delete link[field];
   saveLinks(links);
+  return true;
+}
+// What is kept of a list of commands: one line each, at most eight.
+export const cleanCommands = (commands: unknown[]): string[] => commands.map((c) => String(c).trim()).filter((c) => c && !c.includes("\n")).slice(0, 8);
+export function markCampMade(name: string): boolean {
+  const links = loadLinks();
+  const link = links.find((l) => l.name === name);
+  if (!link) return false;
+  if (!link.campMade) { link.campMade = true; saveLinks(links); }
   return true;
 }
 export const setLinkVerify = (name: string, commands: string[]) => setLinkCommands(name, "verify", commands);

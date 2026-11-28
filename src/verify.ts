@@ -8,7 +8,10 @@
 //
 // A folder with no checks set up: the camp doesn't stay silent about it. It looks for likely ones
 // there (package.json scripts, a Makefile, Cargo, Go) and the report says that nothing was checked
-// and what could be turned on. It runs what it found only with "run found checks" on in Settings.
+// and what could be turned on. It runs what it found only with "run found checks" on in Settings,
+// or in a project the camp started itself (start_project) when each of those commands would run
+// without asking under your own approval choices: so a new build's "tests pass" is checked, not
+// just said, without the camp running anything you haven't already let run.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -17,7 +20,8 @@ import { currentSignal } from "./context.js";
 import { emit } from "./events.js";
 import { linkRoot, linkedDisplayPath, loadLinks } from "./links.js";
 import { runFoundChecksOn } from "./settings.js";
-import { runShell, sandboxOn, sandboxPlanFor } from "./tools.js";
+import { autoApproval, shellRule } from "./shell.js";
+import { godOn, runShell, sandboxOn, sandboxPlanFor } from "./tools.js";
 import { w } from "./words.js";
 
 const CHECK_TIMEOUT_MS = 10 * 60_000;
@@ -54,14 +58,20 @@ export function likelyChecks(dir: string): string[] {
 
 // What is said when a quest changed files in a folder that has no checks: nothing ran, and what could.
 // (No line of it starts with ✗: nothing failed, so nobody is sent back.)
-export function noChecksNote(link: string, found: string[]): string {
+// campMade: a project the camp started, where found checks run once they'd run without asking.
+export function noChecksNote(link: string, found: string[], campMade = false): string {
   return `No automatic checks ran in links/${link}: none are set up for that folder.` + (found.length
-    ? ` Likely ones found there: ${found.map((c) => "`" + c + "`").join(", ")}. Added as the folder's checks (on its project page), they run after every change.`
+    ? ` Likely ones found there: ${found.map((c) => "`" + c + "`").join(", ")}. Added as the folder's checks (on its project page), they run after every change.` +
+      (campMade ? ` It's a project the ${w("camp")} started, so these also run by themselves with the sandbox on, or once they're on your allow list.` : "")
     : ` The ${w("camp")} found none there it could suggest.`);
 }
 
+// Whether a command would run without asking under your own choices: never past your deny or ask
+// rules; otherwise in the sandbox, in god mode with you here, or when your allow list covers it.
+export const runsUnasked = (command: string) => !shellRule(command) && (sandboxOn() || godOn() || autoApproval(command) === "yours");
+
 // unchecked: the folders a quest changed that had no checks to run, each with the likely ones found there.
-export type ChecksReport = { text: string; unchecked: { link: string; found: string[] }[] };
+export type ChecksReport = { text: string; unchecked: { link: string; found: string[]; campMade?: boolean }[] };
 
 export async function checkChanges(runKey: string, who: { who: string; emoji: string; questId?: string }): Promise<ChecksReport> {
   const touched = filesWrittenBy(runKey).map((abs) => linkedDisplayPath(abs) ?? "");
@@ -76,13 +86,16 @@ export async function checkChanges(runKey: string, who: { who: string; emoji: st
     if (!commands.length) {
       if (here.every(isDoc)) continue; // only writing changed: nothing to check
       const found = likelyChecks(dir);
-      if (!runFoundChecksOn() || !found.length) {
-        unchecked.push({ link: link.name, found });
-        blocks.push(noChecksNote(link.name, found));
+      const own = !!link.campMade && found.length > 0 && found.every(runsUnasked);
+      if ((!runFoundChecksOn() && !own) || !found.length) {
+        unchecked.push({ link: link.name, found, ...(link.campMade ? { campMade: true } : {}) });
+        blocks.push(noChecksNote(link.name, found, link.campMade));
         continue;
       }
       commands = found;
-      header = `Automatic checks in links/${link.name} (none are set up for it: these were found there and run by the ${w("camp")} after the changes):`;
+      header = link.campMade
+        ? `Automatic checks in links/${link.name} (none are set up for it: these were found in the project the ${w("camp")} started, and run by it after the changes):`
+        : `Automatic checks in links/${link.name} (none are set up for it: these were found there and run by the ${w("camp")} after the changes):`;
     }
     await snapshotBeforeShell(dir, linkedDisplayPath); // a check can change files too (a formatter, codegen)
     const lines: string[] = [];

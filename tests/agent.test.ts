@@ -224,14 +224,19 @@ test("a scheduled job's unattended mode stays with the job, not the expedition b
   assert.deepEqual(planAsks.map((e) => e.expeditionId), ["exp-mine"], "only your own expedition waits for your OK on its plan");
 });
 
-test("turn limit: your setting caps the run, and the note says how to continue", async () => {
+test("turn limit: your setting caps each allowance, and after the last one the note says how to continue", async () => {
   setAgentSettings("scout", { maxTurns: 5 });
   try {
     script = () => ({ text: "Still looking.", tools: [{ name: "list_dir", input: { path: "." } }] });
     const r = await runDirect("scout", "Keep going forever");
     assert.equal(r?.status, "out_of_turns");
-    assert.equal(api.seen.filter((s) => s.who === "Scout").length, 5, "exactly 5 turns");
-    assert.match(r!.text, /used all 5 turns.*Send Scout back to continue, or raise the turn limit/);
+    assert.equal(api.seen.filter((s) => s.who === "Scout").length, 15, "5 turns, then 2 more allowances of 5");
+    assert.equal(r!.turns, 15);
+    assert.match(r!.text, /used all 15 turns \(5, then 2 more allowances of 5 in the same run\).*Send Scout back to continue, or raise the turn limit/);
+    assert.match(r!.text, /Handoff for whoever continues/);
+    const notices = events.filter((e) => e.type === "notice" && /carrying on/.test(e.text)).map((e) => e.text);
+    assert.deepEqual(notices, ["🔁 Scout used its 5 turns and is carrying on, 1 of 2.", "🔁 Scout used its 5 turns and is carrying on, 2 of 2."]);
+    assert.equal(events.filter((e) => e.type === "return").length, 1, "one return for the whole run");
   } finally {
     setAgentSettings("scout", { maxTurns: null });
   }
@@ -289,9 +294,77 @@ test("out of turns: the agent is warned near the limit, and the report carries a
     script = (b) => { bodies.push(b); return { text: "Looking.", tools: [{ name: "list_dir", input: { path: "." } }] }; };
     const r = await runDirect("scout", "Keep going");
     assert.equal(r?.status, "out_of_turns");
-    assert.match(JSON.stringify(bodies[3].messages.at(-1)), /you have 3 turns left/);
-    assert.match(JSON.stringify(bodies[5].messages.at(-1)), /this is your last turn/);
+    assert.equal(bodies.length, 18);
+    // No wrap-up while it still has allowances left: it's told to carry on instead.
+    assert.doesNotMatch(JSON.stringify(bodies.slice(0, 12).map((b) => b.messages.at(-1))), /turns left|your last turn/);
+    assert.match(JSON.stringify(bodies[6].messages.at(-1)), /you have 6 more to carry on \(1 of 2\)/);
+    assert.match(JSON.stringify(bodies[12].messages.at(-1)), /\(2 of 2\)[^\]]*This is the last allowance/);
+    assert.match(JSON.stringify(bodies[15].messages.at(-1)), /you have 3 turns left/);
+    assert.match(JSON.stringify(bodies[17].messages.at(-1)), /this is your last turn/);
     assert.match(r!.text, /Handoff for whoever continues[\s\S]*Its last steps:\n- list_dir/);
+  } finally {
+    setAgentSettings("scout", { maxTurns: null });
+  }
+});
+
+test("out of turns: the run carries on with its messages intact and finishes, as one run", async () => {
+  setAgentSettings("scout", { maxTurns: 5 });
+  try {
+    const bodies: any[] = [];
+    script = (b) => { bodies.push(b); return bodies.length < 8 ? { text: "Looking.", tools: [{ name: "list_dir", input: { path: "." } }] } : { text: "Found it." }; };
+    const r = await runDirect("scout", "Find the thing");
+    assert.equal(r?.status, "done");
+    assert.equal(r?.text, "Found it.");
+    assert.equal(r?.turns, 8, "turns summed across allowances");
+    assert.equal(bodies.length, 8);
+    assert.ok(bodies[5].messages.length > bodies[4].messages.length, "the conversation goes on, not a fresh brief");
+    assert.equal(JSON.stringify(bodies[5].messages[0]), JSON.stringify(bodies[0].messages[0]), "same first message");
+    assert.match(JSON.stringify(bodies[5].messages.at(-1)), /tool_result[\s\S]*you used this run's 5 turns without finishing/);
+    assert.deepEqual(events.filter((e) => e.type === "notice" && /carrying on/.test(e.text)).map((e) => e.text), ["🔁 Scout used its 5 turns and is carrying on, 1 of 2."]);
+    assert.equal(events.filter((e) => e.type === "return").length, 1);
+    const { recentQuests } = await import("../src/questlog.ts");
+    const q = recentQuests(1)[0];
+    assert.equal(q.turns, 8, "one quest-log record with every turn");
+    assert.equal(q.session, r!.session);
+  } finally {
+    setAgentSettings("scout", { maxTurns: null });
+  }
+});
+
+test("out of turns: Stop during an extension stops the run at once", async () => {
+  setAgentSettings("scout", { maxTurns: 5 });
+  try {
+    const controller = new AbortController();
+    let n = 0;
+    script = () => {
+      n++;
+      if (n === 7) { setTimeout(() => controller.abort(), 100); return { text: "slow", tools: [{ name: "list_dir", input: { path: "." } }], delayMs: 3000 }; }
+      return { text: "Looking.", tools: [{ name: "list_dir", input: { path: "." } }] };
+    };
+    const t0 = Date.now();
+    const r = await runDirect("scout", "Keep going", "direct", undefined, controller.signal);
+    assert.equal(r?.status, "stopped");
+    assert.ok(Date.now() - t0 < 2000, "stopped without waiting for the reply");
+    assert.equal(n, 7, "no turn after Stop");
+    assert.equal(events.filter((e) => e.type === "notice" && /carrying on, 1 of 2/.test(e.text)).length, 1, "it was in its first extension");
+  } finally {
+    setAgentSettings("scout", { maxTurns: null });
+  }
+});
+
+test("out of turns: a scheduled job's crew don't carry on; they stop at the limit as before", async () => {
+  setAgentSettings("scout", { maxTurns: 5 });
+  try {
+    script = (b) => {
+      if (whoAsks(b) === "Scout") return { text: "Looking.", tools: [{ name: "list_dir", input: { path: "." } }] };
+      if (isFirstTurn(b)) return { tools: [{ name: "dispatch", input: { adventurer: "scout", brief: "look around" } }] };
+      return { text: "Done." };
+    };
+    await runExpedition("Nightly look", { id: "exp-nightly", unattended: true, job: "nightly" });
+    assert.equal(api.seen.filter((s) => s.who === "Scout").length, 5, "exactly its 5 turns");
+    assert.equal(events.filter((e) => e.type === "notice" && /carrying on/.test(e.text)).length, 0);
+    const back = events.filter((e) => e.type === "return" && e.who === "Scout");
+    assert.deepEqual(back.map((e) => e.status), ["out_of_turns"]);
   } finally {
     setAgentSettings("scout", { maxTurns: null });
   }

@@ -1,7 +1,7 @@
 // The feed reducer: several expeditions at once, replies streaming in, approvals, and Stop.
 import { describe, expect, test } from "vitest";
 import type { CampEvent } from "../types.ts";
-import { addSysLine, applyEvent, emptyFeed, findNodes, runningCount, stepState, type ExpNode, type FeedState, type PlanNode } from "./reducer.ts";
+import { addSysLine, applyEvent, emptyFeed, findNodes, runningCount, stepState, worksInRepo, type ExpNode, type FeedState, type PlanNode } from "./reducer.ts";
 
 // Events as the server sends them: numbered in order, a second apart.
 type Body = CampEvent extends infer E ? (E extends CampEvent ? Omit<E, "seq" | "time"> : never) : never;
@@ -262,6 +262,18 @@ describe("working in linked repositories", () => {
     expect(kinds(exp(s, "A").nodes)).toEqual(["steer"]);
     expect(exp(s, "A").nodes[0]).toMatchObject({ kind: "steer", text: "Use the existing Button component" });
     expect(exp(s, "B").nodes).toEqual([]);
+  });
+
+  test("a conversation could have a pull request when a run had a repository, a worktree, or read one", () => {
+    const plain = feedOf([start("P", "Build a new app"), { type: "expedition_end", id: "P", status: "done", text: "ok", changed: 40 }]);
+    expect(worksInRepo(plain.items)).toBe(false); // built in a plain folder: nothing to post on
+    expect(worksInRepo(s.items)).toBe(true);      // ended with a worktree
+    expect(worksInRepo(feedOf([start("R", "Fix it"), { type: "expedition_end", id: "R", status: "done", text: "ok", repo: true }]).items)).toBe(true);
+    const read = feedOf([start("V", "Review the open pull request"), { type: "tool", ...scout, tool: "pull_request", input: "view 12", expeditionId: "V" }]);
+    expect(worksInRepo(read.items)).toBe(true);
+    // A new project the camp started: worktrees, but no remote, so nothing to post on.
+    const local = feedOf([start("L", "Build it"), { type: "expedition_end", id: "L", status: "done", text: "ok", repo: false, workspaces: s.items.flatMap((n) => (n.kind === "exp" && n.end ? n.end.workspaces : [])) }]);
+    expect(worksInRepo(local.items)).toBe(false);
   });
 
   test("a finished expedition keeps the worktrees it worked in", () => {
