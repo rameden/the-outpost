@@ -7,7 +7,7 @@ export function slug(name: string | undefined | null) { return String(name || ""
 // crew loads or changes, so messages and cards anywhere on the page can look it up).
 const addedColors = new Map<string, string>();
 type PackName = { name: string; emoji: string; short?: string[]; was?: string[] };
-type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null; aliases?: string[] };
+type CrewLine = { id: string; name: string; emoji: string; role: string; custom?: boolean; color?: string | null; aliases?: string[]; ownName?: string; themed?: Record<string, { name: string }> };
 type PackLine = { id: string; crew: Record<string, PackName> };
 let crewList: CrewLine[] = [];
 // The camp's own six, by id. Their names change with the theme pack; their ids never do.
@@ -54,6 +54,13 @@ export function setCrewColors(crew: CrewLine[], packs: PackLine[] = [], retired:
       else knownAs.set(s, who);
       called.set(who, (called.get(who) ?? new Set()).add(n));
     }
+  }
+  // Someone you added who has names under theme packs: history written under any of them finds who it was.
+  for (const c of crew) if (c.custom) for (const n of [c.ownName, ...Object.values(c.themed ?? {}).map((t) => t.name)]) {
+    const s = slug(n);
+    if (!s || s === slug(c.name) || knownAs.has(s) || addedAs.has(s)) continue;
+    addedAs.set(s, c.id);
+    if (c.color) addedColors.set(s, c.color);
   }
   // Every name one of the six has had under any pack (not one someone you added goes by), longest first.
   const mine = new Set(crew.filter((c) => c.custom).map((c) => slug(c.name)));

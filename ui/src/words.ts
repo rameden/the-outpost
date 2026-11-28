@@ -15,7 +15,7 @@ export type Words = {
   crew: string; quest: string; quests: string; camp: string; expedition: string;
   member: string; log: string; ready: string; close: string; closing: string; back: string; depart: string; hq: string;
 };
-type PackLine = { id: string; words: Pick<Words, "crew" | "quest" | "quests" | "camp" | "expedition"> & Partial<Words>; palette?: string };
+type PackLine = { id: string; name?: string; words: Pick<Words, "crew" | "quest" | "quests" | "camp" | "expedition"> & Partial<Words>; palette?: string };
 
 const GUILD: Words = {
   crew: "crew", quest: "quest", quests: "quests", camp: "camp", expedition: "expedition",
@@ -36,7 +36,12 @@ export const phrasesFor = (w: { crew: string; quest: string; camp: string }): Om
 });
 
 // The active pack, from the camp's state. An id the page doesn't know leaves the Guild's words.
+let packOn = { id: "guild", name: "Guild" };
+// The theme pack that's on: its id and name (the crew dialog keeps a name for each).
+export const packNow = () => packOn;
 export function setWords(pack: string | undefined, packs: PackLine[] = []) {
+  const p = packs.find((x) => x.id === pack);
+  packOn = p ? { id: p.id, name: p.name ?? p.id } : { id: "guild", name: "Guild" };
   const words = packs.find((p) => p.id === pack)?.words;
   if (!words) { now = GUILD; return; }
   const core = { ...GUILD, ...words }; // a pack from an older camp may not have every phrase: its words make them

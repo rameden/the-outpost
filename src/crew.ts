@@ -37,7 +37,10 @@ export type Identity = {
   persona?: string;      // how they work, in your words (the built-in crew's is in roster.ts)
   abilities?: Abilities;
   color?: string;        // one of CREW_COLORS
+  matchTheme?: boolean;  // go by the active theme pack's name for them, where they have one
+  themed?: Record<string, Themed>; // pack id → their name and emoji under that pack
 };
+export type Themed = { name: string; emoji: string };
 
 export const CREW: Record<string, Identity> = {
   quartermaster: {
@@ -145,7 +148,8 @@ const oneWord = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 // if one is already called what the pack would call someone, that one of the six keeps their
 // Guild name, and a pack's short handle you've used elsewhere is simply left off.
 function dress() {
-  const yours = new Set(customMembers().flatMap((c) => [c.id, c.name.toLowerCase(), oneWord(c.name), ...c.aliases]));
+  const yours = new Set(customMembers().flatMap((c) => [c.id, c.name.toLowerCase(), oneWord(c.name), ...c.aliases,
+    ...Object.values(c.themed ?? {}).flatMap((t) => [t.name.toLowerCase(), oneWord(t.name)])]));
   const worn = Object.fromEntries(BUILT_IN.map((id) => {
     const w = pack.crew[id];
     return [id, yours.has(w.name.toLowerCase()) || yours.has(oneWord(w.name)) ? GUILD[id] : w];
@@ -163,9 +167,17 @@ function dress() {
   }
 }
 
-// The ones you added, as you wrote them.
+// The ones you added, as you wrote them: under the active pack's name for them if they match the
+// theme and you gave them one for it. Every name they have under any pack finds them after @.
+export const themedNow = (own: Identity, packId: string): Themed | undefined => (own.matchTheme ? own.themed?.[packId] : undefined);
 function dressYours() {
-  for (const own of OWN.values()) Object.assign(CREW[own.id], { name: own.name, emoji: own.emoji, aliases: own.aliases, persona: own.persona });
+  for (const own of OWN.values()) {
+    const t = themedNow(own, pack.id);
+    const others = Object.values(CREW).filter((c) => c.id !== own.id);
+    const forms = [own.name, ...Object.values(own.themed ?? {}).map((x) => x.name)].map(oneWord)
+      .filter((a) => a && a !== own.id && !others.some((c) => c.id === a || c.aliases.includes(a)));
+    Object.assign(CREW[own.id], { name: t?.name ?? own.name, emoji: t?.emoji || own.emoji, aliases: [...new Set([...own.aliases, ...forms])], persona: own.persona });
+  }
 }
 
 // Back to the six as written, while what you've added is read and checked against them.
@@ -270,7 +282,7 @@ export const currentName = (name: string): string => findCrew(name)?.name ?? nam
 // ---------- Crew members you add ----------
 export const CREW_PATH = "camp/crew.json";
 export type NewMember = { id?: unknown; name?: unknown; emoji?: unknown; role?: unknown; personality?: unknown; handles?: unknown; notFor?: unknown;
-  persona?: unknown; abilities?: unknown; color?: unknown; aliases?: unknown };
+  persona?: unknown; abilities?: unknown; color?: unknown; aliases?: unknown; matchTheme?: unknown; themed?: unknown };
 
 const listeners = new Set<() => void>();
 // The roster (roster.ts) rebuilds its tool kits whenever the crew changes.
@@ -301,6 +313,16 @@ export function memberFrom(input: NewMember, editing?: string): Identity {
     ...(a.images ? { images: true } : {}),
   };
   const emoji = [...String(input.emoji ?? "").trim()].slice(0, 4).join("") || "✦";
+  // Their names under theme packs: each one is held to the same rule as their own name.
+  const themed: Record<string, Themed> = {};
+  const rawThemed = input.themed && typeof input.themed === "object" ? input.themed as Record<string, any> : {};
+  for (const [packKey, t] of Object.entries(rawThemed).slice(0, 24)) {
+    const tName = line(t?.name, 24);
+    if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(packKey) || !tName) continue;
+    const clash = Object.values(CREW).find((c) => c.id !== editing && (c.name.toLowerCase() === tName.toLowerCase() || c.id === oneWord(tName) || answers(c, oneWord(tName))));
+    if (clash) throw new Error(`"${tName}" is already what the ${clash.name} goes by. Pick another themed name.`);
+    themed[packKey] = { name: tName, emoji: [...String(t?.emoji ?? "").trim()].slice(0, 4).join("") };
+  }
   const aliases = (Array.isArray(input.aliases) ? input.aliases : String(input.aliases ?? "").split(/[,\s]+/))
     .map((x) => String(x).toLowerCase().replace(/[^a-z0-9]/g, "")).filter((x) => x && x !== id).slice(0, 6)
     .filter((x) => !Object.values(CREW).some((c) => c.id !== editing && (c.id === x || answers(c, x))));
@@ -314,6 +336,8 @@ export function memberFrom(input: NewMember, editing?: string): Identity {
     persona: String(input.persona ?? "").trim().slice(0, 4000) || `Do the work described in your role carefully, and say what you did.`,
     abilities,
     color: (CREW_COLORS as readonly string[]).includes(String(input.color)) ? String(input.color) : CREW_COLORS[0],
+    ...(input.matchTheme ? { matchTheme: true } : {}),
+    ...(Object.keys(themed).length ? { themed } : {}),
   };
 }
 
@@ -388,7 +412,7 @@ loadCrew();
 // Find a crew member by id, name, or alias (case-insensitive). Used by @mentions and Discord routing.
 export function findCrew(name: string): Identity | undefined {
   const n = name.trim().toLowerCase().replace(/^[^a-z]+/, "");
-  return Object.values(CREW).find((c) => c.id === n || c.name.toLowerCase() === n || c.aliases.includes(n));
+  return Object.values(CREW).find((c) => c.id === n || c.name.toLowerCase() === n || c.aliases.includes(n) || c.aliases.includes(oneWord(n)));
 }
 
 // The first crew member @mentioned anywhere in a message ("can you have @scribe draft this?").
