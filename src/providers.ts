@@ -108,6 +108,9 @@ function keyOf(p: Preset): { key: string; from: "env" | "camp" } | null {
   return kept ? { key: kept, from: "camp" } : null;
 }
 
+// A connected provider's key (yours from the environment first), for the camp's own calls beyond chat (imagegen.ts).
+export const providerKey = (id: ProviderId): string | undefined => { const p = preset(id); return (p && keyOf(p)?.key) || undefined; };
+
 export const sideKey = (id: SideKey): string | undefined => load()[id]?.key || undefined;
 export function keepSideKey(id: SideKey, key: string | null) {
   const saved = load();

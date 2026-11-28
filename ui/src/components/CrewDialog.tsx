@@ -37,6 +37,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
   const [write, setWrite] = useState<"" | "outputs" | "project">(a.write ?? "outputs");
   const [shell, setShell] = useState(!!a.shell);
   const [wiki, setWiki] = useState(member ? !!a.wiki : true);
+  const [images, setImages] = useState(!!a.images);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const nameInput = useRef<HTMLInputElement>(null);
@@ -57,7 +58,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
     if (!role.trim()) { setError("Say in one line what they're for."); return; }
     const details = {
       id: handle, name, emoji, color, role, personality, handles, notFor, persona,
-      abilities: { web, ...(write ? { write } : {}), shell, wiki },
+      abilities: { web, ...(write ? { write } : {}), shell, wiki, images },
     };
     void send(member ? { action: "update", id: member.id, member: details } : { action: "add", member: details });
   }
@@ -131,6 +132,7 @@ export function CrewDialog({ member, onClose, onSaved }: {
           </label>
           <label className="dialog-check"><input type="checkbox" checked={shell} onChange={(ev) => setShell(ev.target.checked)} /> Run shell commands (they ask you first, as the {nameNow("Artificer")} does)</label>
           <label className="dialog-check"><input type="checkbox" checked={wiki} onChange={(ev) => setWiki(ev.target.checked)} /> Save findings to the {w("camp")} wiki's notes</label>
+          <label className="dialog-check"><input type="checkbox" checked={images} onChange={(ev) => setImages(ev.target.checked)} /> Draw pictures with OpenAI's image model, into their own outputs folder (uses your OpenAI key, billed per picture)</label>
           {risky && (
             <div className="dialog-warn" role="note">
               This {w("crew")} member reads the web and can also change things. A page they read could try to talk them into a change you didn't ask for.

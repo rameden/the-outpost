@@ -19,6 +19,7 @@ export type Abilities = {
   write?: "outputs" | "project";    // write files: only in their own outputs folder, or in projects too (with edits)
   shell?: boolean;                  // run shell commands (they ask you first, like the Artificer's)
   wiki?: boolean;                   // save findings to the camp wiki's notes
+  images?: boolean;                 // draw pictures with OpenAI's image model, into their outputs folder (imagegen.ts)
 };
 export const CREW_COLORS = ["teal", "rose", "blue", "gold", "green", "violet", "slate"] as const;
 
@@ -297,6 +298,7 @@ export function memberFrom(input: NewMember, editing?: string): Identity {
     ...(a.write === "outputs" || a.write === "project" ? { write: a.write } : {}),
     ...(a.shell ? { shell: true } : {}),
     ...(a.wiki ? { wiki: true } : {}),
+    ...(a.images ? { images: true } : {}),
   };
   const emoji = [...String(input.emoji ?? "").trim()].slice(0, 4).join("") || "✦";
   const aliases = (Array.isArray(input.aliases) ? input.aliases : String(input.aliases ?? "").split(/[,\s]+/))

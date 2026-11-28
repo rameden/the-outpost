@@ -10,6 +10,7 @@ import { readFileFor, writeFileFor, bash, bashFor, webSearch, webFetch } from ".
 import { wikiWrite } from "./wiki.js";
 import { rememberTool } from "./memory.js";
 import { recallTool } from "./recall.js";
+import { generateImageFor } from "./imagegen.js";
 import { viewFileFor } from "./attachments.js";
 import { editFileFor, listDirFor, globFor, grepFor, outlineFor } from "./codetools.js";
 import { gitFor } from "./git.js";
@@ -184,6 +185,7 @@ function addedMember(m: Identity): AgentSpec {
       ...(a.write === "project" ? [writeFileFor(m.id), editFileFor(m.id)] : a.write === "outputs" ? [writeFileFor(m.id, { outputsOnly: true })] : []),
       ...(a.shell ? [bashFor(m.id, m.name)] : []),
       ...(a.wiki ? [wikiWrite(["notes"])] : []),
+      ...(a.images ? [generateImageFor(m.id)] : []),
       rememberTool(m.id), recallTool(m.id),
     ],
     skillDirs: ["skills/shared", `skills/${m.id}`],
